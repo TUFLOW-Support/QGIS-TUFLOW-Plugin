@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>tuflowqgis_1d_res</class>
+ <widget class="QDialog" name="tuflowqgis_1d_res">
+  <property name="windowModality">
+   <enum>Qt::ApplicationModal</enum>
+  </property>
+  <property name="enabled">
+   <bool>true</bool>
+  </property>
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>852</width>
+    <height>570</height>
+   </rect>
+  </property>
+  <property name="mouseTracking">
+   <bool>false</bool>
+  </property>
+  <property name="windowTitle">
+   <string>TUFLOW Results Viewer</string>
+  </property>
+  <widget class="QLabel" name="label2">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>70</y>
+     <width>108</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Location Type</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label3">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>138</y>
+     <width>108</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Results Type</string>
+   </property>
+  </widget>
+  <widget class="QListWidget" name="ResTypeList">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>160</y>
+     <width>191</width>
+     <height>81</height>
+    </rect>
+   </property>
+   <property name="selectionMode">
+    <enum>QAbstractItemView::ExtendedSelection</enum>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label4">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>249</y>
+     <width>108</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Selected Elements</string>
+   </property>
+  </widget>
+  <widget class="QListWidget" name="IDList">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>270</y>
+     <width>191</width>
+     <height>151</height>
+    </rect>
+   </property>
+   <property name="selectionMode">
+    <enum>QAbstractItemView::ExtendedSelection</enum>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="locationDrop">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>90</y>
+     <width>191</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="sourcelayer">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>40</y>
+     <width>191</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label1">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>20</y>
+     <width>151</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Source Layer to get ID's from</string>
+   </property>
+  </widget>
+  <widget class="QWidget" name="gridLayoutWidget">
+   <property name="geometry">
+    <rect>
+     <x>220</x>
+     <y>30</y>
+     <width>611</width>
+     <height>511</height>
+    </rect>
+   </property>
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="0" column="0">
+     <widget class="QFrame" name="frame_for_plot">
+      <property name="frameShape">
+       <enum>QFrame::StyledPanel</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QListWidget" name="ResList">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>450</y>
+     <width>191</width>
+     <height>61</height>
+    </rect>
+   </property>
+   <property name="selectionMode">
+    <enum>QAbstractItemView::ExtendedSelection</enum>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label5">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>430</y>
+     <width>108</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Results Files</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="AddRes">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>520</y>
+     <width>91</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Add Result</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="CloseRes">
+   <property name="geometry">
+    <rect>
+     <x>129</x>
+     <y>520</y>
+     <width>81</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Close Result</string>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
