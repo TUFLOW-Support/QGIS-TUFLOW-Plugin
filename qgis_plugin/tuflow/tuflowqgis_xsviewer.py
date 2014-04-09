@@ -5,7 +5,7 @@ from qgis.core import *
 import sys
 import os
 import csv
-from PyQt4.Qwt5 import *
+#from PyQt4.Qwt5 import *
 import matplotlib
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
@@ -31,45 +31,44 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 		QObject.connect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layerChanged)
 		QObject.connect(self.pbClearSelection, SIGNAL("clicked()"), self.clear_selection)
 		QObject.connect(self.pbLoadAll, SIGNAL("clicked()"), self.load_all)
-		#QObject.connect(self.tool, SIGNAL("deactivate"), self.deactivate)
+		QObject.connect(self.cbDeactivate, SIGNAL("stateChanged(int)"), self.deactivate_changed)
+		QObject.connect(self, SIGNAL("visibilityChanged(bool)"), self.visChanged)
 		
 		
 	def __del__(self):
 		# Disconnect signals and slots
-		QMessageBox.information(self.iface.mainWindow(), "DEBUG", "entering  __del__")
+		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "entering  __del__")
 		QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layerChanged)
 		QObject.disconnect(self.pbClearSelection, SIGNAL("clicked()"), self.clear_selection)
 		QObject.disconnect(self.pbLoadAll, SIGNAL("clicked()"), self.load_all)
+		QObject.disconnect(self.cbDeactivate, SIGNAL("stateChanged(int)"), self.deactivate_changed)
+		QObject.disconnect(self, SIGNAL("visibilityChanged(bool)"), self.visChanged)
 	
-	def unload(self):
-		# Disconnect signals and slots
-		QMessageBox.information(self.iface.mainWindow(), "DEBUG", "entering unload")
-		QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layerChanged)
-		QObject.disconnect(self.pbClearSelection, SIGNAL("clicked()"), self.clear_selection)
-		QObject.disconnect(self.pbLoadAll, SIGNAL("clicked()"), self.load_all)
+	def visChanged(self, vis):
+		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Vis is " + str(vis))
+		#if vis:
+		#	QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Vis true")
+		if not vis:
+			QMessageBox.information(self.iface.mainWindow(), "Information", "Dock visibility turned off - deactivating dock.")
+			self.deactivate()
+
 
 	def deactivate(self):
-		QMessageBox.information(self.iface.mainWindow(), "DEBUG", "entering deactivate")
 		QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layerChanged)
 		QObject.disconnect(self.pbClearSelection, SIGNAL("clicked()"), self.clear_selection)
 		QObject.disconnect(self.pbLoadAll, SIGNAL("clicked()"), self.load_all)
+		QObject.disconnect(self, SIGNAL("visibilityChanged(bool)"), self.visChanged)
         
 	def refresh(self):
 		"""
 			Refresh is usually called when the selected layer changes in the legend
 			Refresh clears and repopulates the dock widgets, restoring them to their correct values
 		"""
-		QMessageBox.information(self.iface.mainWindow(), "DEBUG", "refresh()")
+		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "refresh()")
 		self.cLayer = self.canvas.currentLayer()
 		self.layerChanged(self.cLayer)
 		self.select_changed()
 
-	def closeup(self):
-		"""
-			Close up and remove the dock
-		"""
-		QMessageBox.information(self.iface.mainWindow(), "DEBUG", "closeup()")
-		self.deactivate()
 
 	def load_all(self):
 		"""
@@ -77,6 +76,29 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 		"""
 		QMessageBox.information(self.iface.mainWindow(), "DEBUG", "The aim is to load all data from the .csv files here and store...")
 
+	def deactivate_changed(self):
+		"""
+			Deactivate checkbox has changed status
+		"""
+		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Deactivate has been toggled")
+		
+		if (self.cbDeactivate.isChecked()):
+			QMessageBox.information(self.iface.mainWindow(), "Information", "Deactivate Enabled")
+			QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layerChanged)
+			QObject.disconnect(self.pbClearSelection, SIGNAL("clicked()"), self.clear_selection)
+			QObject.disconnect(self.pbLoadAll, SIGNAL("clicked()"), self.load_all)
+			try:
+				#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "selectionChanged disconnect")
+				QObject.disconnect(self.selected_layer, SIGNAL("selectionChanged()"),self.select_changed)
+			except:
+				QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Issue disconnecting selection.")
+		else:
+			QObject.connect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layerChanged)
+			QObject.connect(self.pbClearSelection, SIGNAL("clicked()"), self.clear_selection)
+			QObject.connect(self.pbLoadAll, SIGNAL("clicked()"), self.load_all)
+			if self.cLayer:
+				self.layerChanged(self.cLayer)
+			
 	def clear_selection(self):
 		"""
 			Clear all selected sections (unselect the items, is this possible)
@@ -148,25 +170,35 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 			for feature in self.cLayer.selectedFeatures():
 				try:
 					nxs = nxs + 1
-					self.sourcecsv.append(feature.attributeMap()[0].toString()) # 1st column is source
-					self.xsType.append(feature.attributeMap()[1].toString()) # 2nd column is type
-					flags = feature.attributeMap()[2].toString()
-					if (len(flags) == 0):
+					source = feature['Source']
+					self.sourcecsv.append(feature['Source']) # 1st column is source
+					self.xsType.append(feature['Type']) # 2nd column is type
+					flags = feature['Flags']
+					if not flags:
 						flags = None
 					self.xsFlags.append(flags)
-					col1 = feature.attributeMap()[3].toString()
-					if (len(col1) == 0):
-						col1 = None
-					self.xsCol1.append(col1)
-					col2 = feature.attributeMap()[4].toString()
-					if (len(col2) == 0):
-						col2 = None
-					self.xsCol2.append(col2)
-					col3 = feature.attributeMap()[5].toString()
-					if (len(col3) == 0):
-						col3 = None
-					self.xsCol3.append(col3)
-					self.xsCol4.append(feature.attributeMap()[6].toString())
+					col1 = feature['Column_1']
+					if not col1:
+						self.xsCol1.append(None)
+					else:
+						self.xsCol1.append(col1.upper())
+					col2 = feature['Column_2']
+					if not col2:
+						self.xsCol2.append(None)
+					else:
+						self.xsCol2.append(col2.upper())
+					col3 = feature['Column_3']
+					if not col3:
+						self.xsCol3.append(None)
+					else:
+						self.xsCol3.append(col3.upper())
+					col4 = feature['Column_4']
+					if not col4:
+						self.xsCol4.append(None)
+					else:
+						self.xsCol4.append(col4.upper())
+					#QMessageBox.information(self.iface.mainWindow(), "Debug", self.sourcecsv[nxs-1])
+					#QMessageBox.information(self.iface.mainWindow(), "Debug", self.self.xsType[nxs-1])
 					#myXS = XS_Data(self.iface,self.fpath,self.sourcecsv[nxs-1],self.xsType[nxs-1],self.xsFlags[nxs-1])
 					myXS = XS_Data(self.iface,self.fpath,self.sourcecsv[nxs-1],self.xsType[nxs-1],self.xsFlags[nxs-1],self.xsCol1[nxs-1],self.xsCol2[nxs-1],self.xsCol3[nxs-1])
 					self.xsdata.append(myXS)
@@ -241,9 +273,7 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 		# Compile Selected Cross-Sections
 		reslist = []
 		resnames = []
-		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "before xs")
 		nXS = len(self.xsdata)
-		#QMessageBox.information(self.iface.mainWindow(), "nXS", str(nXS))
 		for xs in self.xsdata:
 			xmin=round(min(xs.x), 0) - 1
 			xmax=round(max(xs.x), 0) + 1
@@ -261,8 +291,6 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 		self.subplot.set_xlabel('Distance')
 		self.subplot.set_ylabel('Elevation')
 		if self.cbShowLegend.isChecked():
-			QMessageBox.information(self.iface.mainWindow(), "artists:", str(len(self.artists)))
-			QMessageBox.information(self.iface.mainWindow(), "labels:", str(len(labels)))
 			self.subplot.legend(self.artists, labels, bbox_to_anchor=(0, 0, 1, 1))
 		self.subplot.hold(False)
 		self.subplot.grid(True)
@@ -272,9 +300,7 @@ class XS_Data():
 	"""
 	XS_Data class
 	"""
-	#def __init__(self, fpath,fname,type,flags,h1,h2,h3,h4):
 	def __init__(self, iface, fpath,fname,type,flags,col1,col2,col3):
-		#QMessageBox.information(iface.mainWindow(), "WARNING", "entering xs_data")
 		self.fpath = str(fpath)
 		self.fname = str(fname)
 		self.fullpath = os.path.join(str(fpath),str(fname))
@@ -284,26 +310,56 @@ class XS_Data():
 		self.col2 = col2
 		self.col3 = col3
 		self.col4 = None
-		
+
+		# check file exists
+		if not os.path.isfile(self.fullpath):
+			QMessageBox.information(iface.mainWindow(), "ERROR", "Unable to open / read file: "+self.fullpath)
+
+		# read header
 		with open(self.fullpath, 'rb') as csvfile:
 			reader = csv.reader(csvfile, delimiter=',', quotechar='"')
 			nheader = 0
 			for line in reader:
 				try:
-					for i in line:
-						float(i)
+					for i in line[0:3]:
+						if len(i) > 0:
+							float(i)
 					break
 				except:
 					nheader = nheader + 1
 					header = line
 		csvfile.close()
-		data = numpy.genfromtxt(self.fullpath, delimiter=",", skip_header=nheader-1)
-		if (col1 == None):
-			self.x = data[:,0]
+		header = [element.upper() for element in header]
+		
+
+		# find column data
+		if (self.col1 == None):
+			c1_ind = 0
 		else:
 			try:
-				ind = header.find(col1)
-				self.x = data[:,ind]
+				c1_ind  = header.index(self.col1)
 			except:
-				QMessageBox.information(iface.mainWindow(), "WARNING", "Finding col1"+col1)
-		self.y = data[:,1]
+				QMessageBox.critical(iface.mainWindow(), "WARNING", "Unable to find "+self.col1+ " in header. Using data in column 1")
+		if (self.col2 == None):
+			c2_ind = 1
+		else:
+			try:
+				c2_ind  = header.index(self.col2)
+			except:
+				QMessageBox.critical(iface.mainWindow(), "WARNING", "Unable to find "+self.col2+ " in header. Using data in column 2")
+
+		# actually read the data:
+		self.x = []
+		self.y = []
+		with open(self.fullpath, 'rb') as csvfile:
+			reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+			try:
+				for i in range(0,nheader):
+					reader.next()
+				for line in reader:
+					xstr = line[c1_ind]
+					self.x.append(float(line[c1_ind]))
+					self.y.append(float(line[c2_ind]))
+			except:
+				QMessageBox.information(iface.mainWindow(), "Error", "Error reading cross section "+self.fullpath)
+		csvfile.close()

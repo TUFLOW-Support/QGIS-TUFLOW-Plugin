@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ui_tuflowqgis_1d_xs.ui'
 #
-# Created: Mon Oct 28 08:41:38 2013
+# Created: Tue Jan 14 10:29:16 2014
 #      by: PyQt4 UI code generator 4.10.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_tuflowqgis_1d_xs(object):
     def setupUi(self, tuflowqgis_1d_xs):
         tuflowqgis_1d_xs.setObjectName(_fromUtf8("tuflowqgis_1d_xs"))
-        tuflowqgis_1d_xs.resize(701, 424)
+        tuflowqgis_1d_xs.resize(701, 442)
         self.dockWidgetContents = QtGui.QWidget()
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
@@ -119,6 +119,9 @@ class Ui_tuflowqgis_1d_xs(object):
         self.pbLoadAll.setFlat(False)
         self.pbLoadAll.setObjectName(_fromUtf8("pbLoadAll"))
         self.verticalLayout.addWidget(self.pbLoadAll)
+        self.cbDeactivate = QtGui.QCheckBox(self.tab_1)
+        self.cbDeactivate.setObjectName(_fromUtf8("cbDeactivate"))
+        self.verticalLayout.addWidget(self.cbDeactivate)
         self._2.addLayout(self.verticalLayout)
         self.gridlayout.addLayout(self._2, 1, 0, 1, 1)
         self.cbShowLegend = QtGui.QCheckBox(self.tab_1)
@@ -135,9 +138,10 @@ class Ui_tuflowqgis_1d_xs(object):
     def retranslateUi(self, tuflowqgis_1d_xs):
         tuflowqgis_1d_xs.setWindowTitle(_translate("tuflowqgis_1d_xs", "TUFLOW 1D Section Viewer", None))
         self.label.setText(_translate("tuflowqgis_1d_xs", "Cross Sections Selected", None))
-        self.cbRoughness.setText(_translate("tuflowqgis_1d_xs", "Display Roughness", None))
+        self.cbRoughness.setText(_translate("tuflowqgis_1d_xs", "Display Roughness (not yet implemented)", None))
         self.pbClearSelection.setText(_translate("tuflowqgis_1d_xs", "Clear Selection", None))
         self.pbLoadAll.setText(_translate("tuflowqgis_1d_xs", "Load All", None))
+        self.cbDeactivate.setText(_translate("tuflowqgis_1d_xs", "Deactivate", None))
         self.cbShowLegend.setText(_translate("tuflowqgis_1d_xs", "Show Legend", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_1), _translate("tuflowqgis_1d_xs", "&Graph", None))
 

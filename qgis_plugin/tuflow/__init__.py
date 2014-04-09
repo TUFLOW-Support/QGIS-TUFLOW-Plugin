@@ -32,7 +32,7 @@ def description():
 
 
 def version():
-    return "Version 2013-08-AA"
+    return "Version 2014-01-AA QGIS2.0"
 
 
 def icon():
@@ -40,7 +40,7 @@ def icon():
 
 
 def qgisMinimumVersion():
-    return "1.8"
+    return "2.0"
 
 def author():
     return "Phillip Ryan"

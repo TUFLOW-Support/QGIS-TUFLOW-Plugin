@@ -50,10 +50,10 @@ def tuflowqgis_duplicate_file(qgis, layer, savename, keepform):
 		return "Invalid output filename given"
 	
 	if QFile(savename).exists():
-		if not QgsVectorFileWriter.deleteShapeFile(QString(savename)):
+		if not QgsVectorFileWriter.deleteShapeFile(savename):
 			return "Failure deleting existing shapefile: " + savename
 	
-	outfile = QgsVectorFileWriter(QString(savename), QString("System"), 
+	outfile = QgsVectorFileWriter(savename, "System", 
 		layer.dataProvider().fields(), layer.dataProvider().geometryType(), layer.dataProvider().crs())
 	
 	if (outfile.hasError() != QgsVectorFileWriter.NoError):
@@ -62,11 +62,12 @@ def tuflowqgis_duplicate_file(qgis, layer, savename, keepform):
 	# Iterate through each feature in the source layer
 	feature_count = layer.dataProvider().featureCount()
 
-	feature = QgsFeature()
-	layer.dataProvider().select(layer.dataProvider().attributeIndexes())
-	layer.dataProvider().rewind()
-	while layer.dataProvider().nextFeature(feature):
-		outfile.addFeature(feature)
+	#feature = QgsFeature()
+	#layer.dataProvider().select(layer.dataProvider().attributeIndexes())
+	#layer.dataProvider().rewind()
+	for f in layer.getFeatures():
+	#while layer.dataProvider().nextFeature(feature):
+		outfile.addFeature(f)
 		
 	del outfile
 	
@@ -107,9 +108,11 @@ def tuflowqgis_create_tf_dir(qgis, crs, basepath):
 
 	if QFile(prjname).exists():
 		return "Projection file already exists: "+prjname
-	fields = { 0 : QgsField("Notes", QVariant.String)}
-	outfile = QgsVectorFileWriter(QString(prjname), QString("System"), 
-		fields, QGis.WKBPoint, crs,"ESRI Shapefile")
+
+	fields = QgsFields()
+	fields.append( QgsField( "notes", QVariant.String ) )
+	outfile = QgsVectorFileWriter(prjname, "System", fields, QGis.WKBPoint, crs, "ESRI Shapefile")
+	
 	if (outfile.hasError() != QgsVectorFileWriter.NoError):
 		return "Failure creating output shapefile: " + unicode(outfile.errorMessage())	
 
@@ -156,7 +159,8 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 				savename = os.path.join(gis_folder+"\\"+name)
 				if QFile(savename).exists():
 					QMessageBox.critical(qgis.mainWindow(),"Info", ("File Exists: "+savename))
-				outfile = QgsVectorFileWriter(QString(savename), QString("System"), 
+				#outfile = QgsVectorFileWriter(QString(savename), QString("System"), 
+				outfile = QgsVectorFileWriter(savename, "System", 
 					layer.dataProvider().fields(), layer.dataProvider().geometryType(), layer.dataProvider().crs())
 				if (outfile.hasError() != QgsVectorFileWriter.NoError):
 					QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: "+savename))
@@ -185,26 +189,54 @@ def tuflowqgis_get_selected_IDs(qgis,layer):
 
 def check_python_lib(qgis):
 	error = False
+	py_modules = []
 	try:
+		py_modules.append('numpy')
 		import numpy
 	except:
 		error = True
 		QMessageBox.critical(qgis.mainWindow(),"Error", "python library 'numpy' not installed.")
 	try:
+		py_modules.append('csv')
 		import csv
 	except:
 		error = True
 		QMessageBox.critical(qgis.mainWindow(),"Error", "python library 'csv' not installed.")
 	try:
+		py_modules.append('matplotlib')
 		import matplotlib
 	except:
 		error = True
-		QMessageBox.critical(qgis.mainWindow(),"Error", "python library 'matplotlib' not installed.")	
+		QMessageBox.critical(qgis.mainWindow(),"Error", "python library 'matplotlib' not installed.")
 	try:
+		py_modules.append('PyQt4')
 		import PyQt4
 	except:
 		error = True
-		QMessageBox.critical(qgis.mainWindow(),"Error", "python library 'PyQt4' not installed.")		
+		QMessageBox.critical(qgis.mainWindow(),"Error", "python library 'PyQt4' not installed.")
+	try:
+		py_modules.append('ogr')
+		import ogr
+	except:
+		error = True
+		QMessageBox.critical(qgis.mainWindow(),"Error", "python library 'ogr' not installed.")
+	try:
+		py_modules.append('glob')
+		import glob
+	except:
+		error = True
+		QMessageBox.critical(qgis.mainWindow(),"Error", "python library 'glob' not installed.")
+	try:
+		py_modules.append('os')
+		import os
+	except:
+		error = True
+		QMessageBox.critical(qgis.mainWindow(),"Error", "python library 'os' not installed.")
+	msg = 'Modules tested: \n'
+	for mod in py_modules:
+		msg = msg+mod+'\n'
+	QMessageBox.information(qgis.mainWindow(),"Information", msg)
+	
 	if error:
 		return True
 	else:
@@ -257,3 +289,51 @@ def extract_all_points(qgis,layer,col):
 		return x, y, z, message
 	except:
 		return None, None, None, "Error extracting point data"
+
+def get_file_ext(fname):
+	try:
+		ind = fname.find('|')
+		if (ind>0):
+			fname = fname[0:ind]
+	except:
+		return None, None, "Error trimming filename"
+	try:
+		ind = fname.rfind('.')
+		if (ind>0):
+			fext = fname[ind+1:]
+			fext = fext.upper()
+			fname_noext = fname[0:ind]
+			return fext, fname_noext, None
+		else:
+			return None, None, "Could not find . in filename"
+	except:
+		return None, None, "Error trimming filename"
+
+def load_project(project):
+	message = None
+	try:
+		tffolder = project.readEntry("configure_tuflow", "folder", "Not yet set")[0]
+	except:
+		message = "Error - Reading from project file."
+
+	try:
+		tfexe = project.readEntry("configure_tuflow", "exe", "Not yet set")[0]
+	except:
+		message = "Error - Reading from project file."
+
+	try:
+		tf_prj = project.readEntry("configure_tuflow", "projection", "Undefined")[0]
+	except:
+		message = "Error - Reading from project file."
+	
+	error = False
+	if (tffolder == "Not yet set"):
+		error = True
+	if (tfexe == "Not yet set"):
+		error = True
+	if (tf_prj == "Undefined"):
+		error = True
+	if error:
+		message = "Project does not appear to be configured.\nPlease run TUFLOW >> Editing >> Configure Project from the plugin menu."
+	
+	return message, tffolder, tfexe, tf_prj

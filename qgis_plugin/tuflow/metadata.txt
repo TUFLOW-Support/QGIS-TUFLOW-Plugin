@@ -5,9 +5,9 @@
 
 [general]
 name=TUFLOW
-qgisMinimumVersion=1.8
+qgisMinimumVersion=2.0
 description=A collection of utilities for TUFLOW modelling in QGIS
-version=0.1
+version=0.2
 author=Phillip Ryan
 email=support@tuflow.com
 

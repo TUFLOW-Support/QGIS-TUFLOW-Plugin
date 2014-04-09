@@ -5,14 +5,14 @@ from qgis.core import *
 import sys
 import os
 import csv
-from PyQt4.Qwt5 import *
+#from PyQt4.Qwt5 import *
 import matplotlib
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
 import numpy
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/forms")
 from ui_tuflowqgis_1d_res import Ui_tuflowqgis_1d_res
-
+#from time import sleep
 class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
     
 	def __init__(self, iface):
@@ -35,7 +35,9 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 		QObject.connect(self.ResTypeList, SIGNAL("currentRowChanged(int)"), self.res_type_changed) 
 		QObject.connect(self.AddRes, SIGNAL("clicked()"), self.add_res)
 		QObject.connect(self.CloseRes, SIGNAL("clicked()"), self.close_res)
-		
+		QObject.connect(self.pbAnimateLP, SIGNAL("clicked()"), self.animate_LP)
+		QObject.connect(self, SIGNAL("visibilityChanged(bool)"), self.visChanged)
+		QObject.connect(self.listTime, SIGNAL("currentRowChanged(int)"), self.timeChanged) 
 		
 	def __del__(self):
 		# Disconnect signals and slots
@@ -44,19 +46,46 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 		QObject.disconnect(self.ResTypeList, SIGNAL("currentRowChanged(int)"), self.res_type_changed) 
 		QObject.disconnect(self.AddRes, SIGNAL("clicked()"), self.add_res)
 		QObject.disconnect(self.CloseRes, SIGNAL("clicked()"), self.close_res)
+		QObject.disconnect(self.pbAnimateLP, SIGNAL("clicked()"), self.animate_LP)
+		QObject.disconnect(self, SIGNAL("visibilityChanged(bool)"), self.visChanged)
+		QObject.disconnect(self.listTime, SIGNAL("currentRowChanged(int)"), self.timeChanged)
+
+		try:
+			QObject.disconnect(layer,SIGNAL("selectionChanged()"),self.select_changed)
+		except:
+			QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Disconnecting selectionChanged Signal ")
+
+	def visChanged(self, vis):
+		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Vis is " + str(vis))
+		#if vis:
+		#	QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Vis true")
+		if not vis:
+			QMessageBox.information(self.iface.mainWindow(), "Information", "Dock visibility turned off - deactivating dock.")
+			self.deactivate()
+			QMessageBox.information(self.iface.mainWindow(), "Information", "Exiting")
+			return
+
+	def deactivate(self):
+		# Disconnect signals and slots
+		QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layerChanged)
+		QObject.disconnect(self.locationDrop, SIGNAL("currentIndexChanged(int)"), self.loc_changed)       
+		QObject.disconnect(self.ResTypeList, SIGNAL("currentRowChanged(int)"), self.res_type_changed) 
+		QObject.disconnect(self.AddRes, SIGNAL("clicked()"), self.add_res)
+		QObject.disconnect(self.CloseRes, SIGNAL("clicked()"), self.close_res)
+		QObject.disconnect(self.pbAnimateLP, SIGNAL("clicked()"), self.animate_LP)
+		QObject.disconnect(self, SIGNAL("visibilityChanged(bool)"), self.visChanged)
+		QObject.disconnect(self.listTime, SIGNAL("currentRowChanged(int)"), self.timeChanged)
 		try:
 			QObject.disconnect(layer,SIGNAL("selectionChanged()"),self.select_changed)
 		except:
 			QMessageBox.information(self.iface.mainWindow(), "DEBUG", "error disconnecting()")
-        
+			
 	def refresh(self):
 		"""
 			Refresh is usually called when the selected layer changes in the legend
 			Refresh clears and repopulates the dock widgets, restoring them to their correct values
 		"""
-		QMessageBox.information(self.iface.mainWindow(), "DEBUG", "refresh()")
 		self.cLayer = self.canvas.currentLayer()
-		self.layerChanged(self.cLayer)
 		self.select_changed()
 
 	def closeup(self):
@@ -71,7 +100,7 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 		"""
 		# Retrieve the last place we looked if stored
 		settings = QSettings()
-		lastFolder = str(settings.value("TUFLOW_Res_Dock/lastFolder", os.sep).toString())
+		lastFolder = str(settings.value("TUFLOW_Res_Dock/lastFolder", os.sep))
 		if (len(lastFolder)>0): # use last folder if stored
 			fpath = lastFolder
 		else:
@@ -91,12 +120,11 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 		head, tail = os.path.split(inFileName)
 		if head <> os.sep and head.lower() <> 'c:\\' and head <> '':
 			settings.setValue("TUFLOW_Res_Dock/lastFolder", head)
-		myres=ResData(inFileName)
+		myres=ResData(inFileName,self.iface)
 		QMessageBox.information(self.iface.mainWindow(), "Opened", "Successfully Opened - "+myres.displayname)
 		self.res.append(myres)
 		self.update_reslist()
 	def update_reslist(self):
-		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "update_reslist()")
 		self.ResList.clear()
 		for res in self.res:
 			self.ResList.addItem(res.displayname)
@@ -107,23 +135,19 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 		"""
 			Close results file
 		"""
-		QMessageBox.information(self.iface.mainWindow(), "DEBUG", "CloseRes()")
 		for x in range(0, self.ResList.count()):
 			list_item = self.ResList.item(x)
 			if list_item.isSelected():
-				QMessageBox.information(self.iface.mainWindow(), "DEBUG", "CloseRes()")
 				res = self.res[x]
 				self.res.remove(res)
 				self.update_reslist()
 
 	def layerChanged(self, layer):
-		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "layerChanged()")
 		self.cLayer = self.canvas.currentLayer()
 		self.sourcelayer.clear()
 		self.locationDrop.clear()
 		self.IDList.clear()
 		if self.cLayer and (self.cLayer.type() == QgsMapLayer.VectorLayer):
-			#QMessageBox.information(self.iface.mainWindow(), "DEBUG", self.cLayer.name())
 			self.sourcelayer.addItem(self.cLayer.name())
 			self.sourcelayer.setCurrentIndex(0)
 			GType = self.cLayer.dataProvider().geometryType()
@@ -140,7 +164,9 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 			#index to ID
 			self.idx = self.cLayer.fieldNameIndex('ID')
 			if (self.idx < 0):
-				QMessageBox.information(self.iface.mainWindow(), "Information", "Layer has no field named ID, please choose another layer.")
+				#QMessageBox.information(self.iface.mainWindow(), "Information", "Layer has no field named ID, please choose another layer.")
+				self.locationDrop.clear()
+				self.locationDrop.addItem("No field named ID in layer (plot disabled)")
 		else:
 			self.sourcelayer.addItem("Invalid layer or no layer selected")
 			self.sourcelayer.setCurrentIndex(0)
@@ -153,24 +179,32 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 			if layer.isValid():
 				QObject.connect(layer,SIGNAL("selectionChanged()"),self.select_changed)
 				self.selected_layer = layer
-
+		self.refresh()
+		
 	def select_changed(self):
 		self.IDs = []
 		self.IDList.clear()
 		if self.idx >= 0:
-			for feature in self.cLayer.selectedFeatures():
-				#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Feature ID %d: " % feature.id())
+			if self.cLayer:
 				try:
-					self.IDs.append(feature.attributeMap()[self.idx].toString()) #extract id for selected feature (from column self.idx) to string
-					self.IDList.addItem(feature.attributeMap()[self.idx].toString())
+					for feature in self.cLayer.selectedFeatures():
+						try:
+							fieldvalue=feature['ID']
+							self.IDs.append(fieldvalue)
+							self.IDList.addItem(fieldvalue)
+						except:
+							warning = True #suppress the warning below, most likely due to a "X" type channel or blank name
+							#QMessageBox.information(self.iface.mainWindow(), "WARNING", "Problem occurred getting data for Feature ID %d: " % feature.id())
 				except:
-					QMessageBox.information(self.iface.mainWindow(), "WARNING", "Problem occurred getting data for Feature ID %d: " % feature.id())
+					error = True
 		
 		# call file writer
 		self.start_draw()
-
+	def timeChanged(self):
+		self.start_draw()
 	def res_type_changed(self):
 		# call redraw
+		self.select_changed()
 		self.start_draw()
 		
 	def loc_changed(self):
@@ -186,13 +220,113 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 			self.ResTypeList.addItem("DS Levels")
 		elif (loc == "Long Profile"):
 			self.ResTypeList.clear()
-			self.ResTypeList.addItem("Level")
+			self.ResTypeList.addItem("Max Water Level")
+			self.ResTypeList.addItem("Water Level at Time")
+			self.ResTypeList.addItem("Bed Level")
+			self.ResTypeList.addItem("Left Bank Obvert")
+			self.ResTypeList.addItem("Right Bank Obvert")
+			# add times
+			nDec = 4
+			try:
+				#QMessageBox.information(self.iface.mainWindow(), "Debug", "hereA")
+				times = self.res[0].getXData()
+				#if (len(times) > 1):
+				#	dtime = times[1]-times[0]
+				#	if dt > 1:
+				#		nDec = 1
+				#	elif dt > 0.1:
+				#		nDec = 2
+				#	elif dt > 0.01:
+				#		nDec = 3
+				#QMessageBox.information(self.iface.mainWindow(), "Debug", "hereB")
+				self.listTime.clear()
+				#QMessageBox.information(self.iface.mainWindow(), "Debug", "hereC")
+				#QMessageBox.information(self.iface.mainWindow(), "Debug", str(len(times)))
+				for time in times:
+					#QMessageBox.information(self.iface.mainWindow(), "Debug", str(time))
+					self.listTime.addItem("%.4f" % time)
+				item = self.listTime.item(0)
+				self.listTime.setItemSelected(item, True)
+			except:
+				QMessageBox.information(self.iface.mainWindow(), "WARNING", "Unable to populate times, check results loaded.")
 		else:
 			self.ResTypeList.clear()
-		if (len(self.ResTypeList)==1):
-			item = self.ResTypeList.item(0)
-			self.ResTypeList.setItemSelected(item, True)
+		#if (len(self.ResTypeList)==1):
+		#	item = self.ResTypeList.item(0)
+		#	self.ResTypeList.setItemSelected(item, True)
+		item = self.ResTypeList.item(0) # select 1st item by default
+		self.ResTypeList.setItemSelected(item, True)
 		self.start_draw()
+
+	def animate_LP(self):
+		#QMessageBox.information(self.iface.mainWindow(), "Debug", "Entering Animate LP...")
+		start = True
+		# check if long profile type is selected
+		loc = self.locationDrop.currentText()
+		if (loc!="Long Profile"): # LP
+			QMessageBox.critical(self.iface.mainWindow(), "ERROR", "Please choose Long Profile type before animating.")
+			start = False
+		
+		# check for valid selection
+		if len (self.IDs) == 0:
+			QMessageBox.critical(self.iface.mainWindow(), "ERROR", "No elements selected.")
+			start = False
+		elif len (self.IDs) > 2:
+			QMessageBox.critical(self.iface.mainWindow(), "ERROR", "More than 2 ID's selected.")
+			start = False
+		
+		# Compile of output types (bed level, max wse)
+		restype = []
+		for x in range(0, self.ResTypeList.count()):
+			list_item = self.ResTypeList.item(x)
+			if list_item.isSelected():
+				restype.append(list_item.text())
+				
+		# results:
+		ResIndexs = []
+		if self.ResList.count() == 0:
+			QMessageBox.critical(self.iface.mainWindow(), "ERROR", "No results open...")
+			start = False
+		else:
+			for x in range(0, self.ResList.count()):
+				list_item = self.ResList.item(x)
+				if list_item.isSelected():
+					ResIndexs.append(x)
+		# times
+		if self.listTime.count() == 0:
+			QMessageBox.critical(self.iface.mainWindow(), "ERROR", "No output times detected.")
+			start = False
+		
+		nWidth = 5
+		if self.listTime.count() < 11:
+			nWidth = 1
+		elif self.listTime.count() < 101:
+			nWidth = 2
+		elif self.listTime.count() < 1001:
+			nWidth = 3
+		elif self.listTime.count() < 10001:
+			nWidth = 4
+		if start:
+			try:
+				QMessageBox.information(self.iface.mainWindow(), "Information", "Saving images to: "+self.res[0].fpath+"\nAfter selecting ok, please wait while the images are created.\nYou will be notified when this has finished.")
+				for x in range(0, self.listTime.count()):
+					#self.listTime.clear()
+					item = self.listTime.item(x)
+					self.listTime.setItemSelected(item, True)
+					self.draw_figure()
+					filenum = str(x+1)
+					filenum = filenum.zfill(nWidth)
+					fname = 'QGIS_LP_'+filenum+'.png'
+					#QMessageBox.information(self.iface.mainWindow(), "Debug", fname)
+					fullpath = os.path.join(self.res[0].fpath,fname)
+					#QMessageBox.information(self.iface.mainWindow(), "Debug", fullpath)
+					self.plotWdg.figure.savefig(fullpath)
+					self.listTime.setItemSelected(item, False)
+					#sleep(0.25)
+				QMessageBox.information(self.iface.mainWindow(), "Information", "Processing Complete")
+			except:
+				QMessageBox.critical(self.iface.mainWindow(), "ERROR", "An error occurred processing long profile")
+			
 	def start_draw(self):
 		loc = self.locationDrop.currentText()
 		type = []
@@ -203,8 +337,6 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 			if list_item.isSelected():
 				type.append(list_item.text())
 				#QMessageBox.information(self.iface.mainWindow(), "DEBUG", list_item.text())
-		
-		# Write .txt file
 		draw = True
 		if len(type) == 0:
 			#QMessageBox.information(self.iface.mainWindow(), "Information", "No results type selected.")
@@ -274,7 +406,7 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 		ymin=0.0
 		ymax=0.0
 
-		rtists = []
+		self.artists = []
 		labels = []
 		
 		loc = self.locationDrop.currentText()
@@ -300,61 +432,103 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 			res = self.res[resno]
 			#Long Profiles___________________________________________________________________
 			if (loc=="Long Profile"): # LP
+				plot = True
 				if (len(ydataids)==0):
-					skip = True
+					plot = False
 				elif (len(ydataids)==1):
 					chanList,chanIDs = res.getLPData(ydataids[0],None,self.iface)
-					xdata = res.LP_xval
-					ydata =res.LP_yval
 				elif (len(ydataids)==2):
 					chanList,chanIDs = res.getLPData(ydataids[0],ydataids[1],self.iface)
-					xdata = res.LP_xval
-					ydata =res.LP_yval
 				else:
-					#print 'WARNING - Maximum of 2 channels used for long profile plotting.'
-					QMessageBox.information(self.iface.mainWindow(), "WARNING", "Maximum of 2 channels used for long profile plotting.")
-					
+					QMessageBox.information(self.iface.mainWindow(), "WARNING", "Maximum of 2 channels used for long profile plotting.")			
 					chanList,chanIDs = res.getLPData(ydataids[0],ydataids[1],self.iface)
+				
+				# if data returned from above do stuff, else bail
+				if chanList:				
 					xdata = res.LP_xval
 					ydata =res.LP_yval
+					zb_zdata = res.LP_bed
+					zb_ch_data = res.LP_chainage
+					lb_data = res.LP_LB
+					rb_data = res.LP_RB
+					xmin=round(min(xdata), 0) - 1
+					xmax=round(max(xdata), 0) + 1
+					ymin=round(min(ydata), 0) - 1
+					ymax=round(max(ydata), 0) + 1
+					label = 'Max Water Level'
+					self.subplot.set_xbound(lower=xmin, upper=xmax)
+					self.subplot.set_ybound(lower=ymin, upper=ymax)
 
-				xmin=round(min(xdata), 0) - 1
-				xmax=round(max(xdata), 0) + 1
-				ymin=round(min(ydata), 0) - 1
-				ymax=round(max(ydata), 0) + 1
-				label = 'lp testing'
-				self.subplot.set_xbound(lower=xmin, upper=xmax)
-				self.subplot.set_ybound(lower=ymin, upper=ymax)
-				a, = self.subplot.plot(xdata, ydata)
-				self.artists.append(a)
-				labels.append(label)
-				self.subplot.hold(True)
-
-
-			#Timeseries______________________________________________________________________
-			else:
-				xdata = res.getXData()
-				for ydataid in self.IDs:
-					for typename in typenames:
-						#QMessageBox.information(self.iface.mainWindow(), "DEBUG", ydataid)
-						found, ydata=res.getYData(ydataid,typename,loc, self.iface)
-						if not found:
-							ydata = xdata * 0.0 # keep the same dimensions other the plot will fail
-						if (len(reslist) > 1):
-							label = res.displayname + ": " + ydataid + " - " + typename
-						else:
-							label = ydataid + " - " + typename
-
-						xmin=round(min(xdata), 0) - 1
-						xmax=round(max(xdata), 0) + 1
-						ymin=round(min(ydata), 0) - 1
-						ymax=round(max(ydata), 0) + 1
-						self.subplot.set_xbound(lower=xmin, upper=xmax)
-						self.subplot.set_ybound(lower=ymin, upper=ymax)
+					
+					# plot max water level
+					if typenames.count('Max Water Level')<>0:
 						a, = self.subplot.plot(xdata, ydata)
 						self.artists.append(a)
 						labels.append(label)
 						self.subplot.hold(True)
+					
+					#plot bed
+					if typenames.count('Bed Level')<>0:
+						a, = self.subplot.plot(zb_ch_data, zb_zdata)
+						self.artists.append(a)
+						labels.append('Bed Level')
+						self.subplot.hold(True)
+
+					#plot LB
+					if typenames.count('Left Bank Obvert')<>0:
+						a, = self.subplot.plot(zb_ch_data, lb_data)
+						self.artists.append(a)
+						labels.append('Left Bank')
+						self.subplot.hold(True)
+
+					#plot RB
+					if typenames.count('Right Bank Obvert')<>0:
+						a, = self.subplot.plot(zb_ch_data, rb_data)
+						self.artists.append(a)
+						labels.append('Right Bank')
+						self.subplot.hold(True)
+						
+					#plot LP at time
+					if typenames.count('Water Level at Time')<>0:
+						timeInd = 0
+						list_item = self.listTime.item(0)
+						timeStr = list_item.text()
+						for x in range(0, self.listTime.count()):
+							list_item = self.listTime.item(x)
+							if list_item.isSelected():
+								timeInd = x
+								timeStr = list_item.text()
+						temporalLP = res.getLPatTime(timeInd,self.iface)
+						a, = self.subplot.plot(xdata, temporalLP)
+						self.artists.append(a)
+						labels.append('Water Level at '+timeStr)
+						self.subplot.hold(True)
+				
+			#Timeseries______________________________________________________________________
+			else:
+				xdata = res.getXData()
+				for ydataid in self.IDs:
+					if ydataid:
+						for typename in typenames:
+							#QMessageBox.information(self.iface.mainWindow(), "DEBUG", ydataid)
+							found, ydata=res.getYData(ydataid,typename,loc, self.iface)
+							if not found:
+								ydata = xdata * 0.0 # keep the same dimensions other the plot will fail
+							if (len(reslist) > 1):
+								label = res.displayname + ": " + ydataid + " - " + typename
+							else:
+								label = ydataid + " - " + typename
+
+							xmin=round(min(xdata), 0) - 1
+							xmax=round(max(xdata), 0) + 1
+							ymin=round(min(ydata), 0) - 1
+							ymax=round(max(ydata), 0) + 1
+							self.subplot.set_xbound(lower=xmin, upper=xmax)
+							self.subplot.set_ybound(lower=ymin, upper=ymax)
+							a, = self.subplot.plot(xdata, ydata)
+							self.artists.append(a)
+							labels.append(label)
+							self.subplot.hold(True)
 
 			#Set axis labels
 			if (loc=="Long Profile"): # LP
@@ -371,70 +545,193 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 				self.subplot.set_ylabel(typenames[0])
 			else:
 				self.subplot.set_title("")
-
+		
+		if self.cbShowLegend.isChecked():
+			self.subplot.legend(self.artists, labels, bbox_to_anchor=(0, 0, 1, 1))
+			
 		self.subplot.hold(False)
 		self.subplot.grid(True)
 		self.plotWdg.draw()
+		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "self.subplot.savefig")
+		#wdg.plotWdg.figure.savefig(str(fileName))
+		#self.plotWdg.figure.savefig(r'C:\temp\test.png')
+		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Done")
 		
+class NodeInfo():
+	"""
+	Node Info data class
+	"""
+	def __init__(self,fullpath,iface):
+		#QMessageBox.information(iface.mainWindow(),"debug", "well here we are in NodeInfo / init")
+		self.node_num = []
+		self.node_name = []
+		self.node_bed = []
+		self.node_top = []
+		self.node_nChan = []
+		self.node_channels = []
+		with open(fullpath, 'rb') as csvfile:
+			reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+			header = reader.next()
+			for (counter, row) in enumerate(reader):
+				self.node_num.append(int(row[0]))
+				self.node_name.append(row[1])
+				self.node_bed.append(float(row[2]))
+				self.node_top.append(float(row[3]))
+				self.node_nChan.append(int(row[4]))
+				chanlist = row[5:]
+				if len(chanlist) != int(row[4]):
+					QMessageBox.information(iface.mainWindow(),"ERROR", ("Number of channels connected to ID doesn't match. ID: " + str(row[1])))
+				else:
+					self.node_channels.append(chanlist)
+		csvfile.close()
+
+class ChanInfo():
+	"""
+	Channel Info data class
+	"""
+	def __init__(self,fullpath,iface):		
+		self.chan_num = []
+		self.chan_name = []
+		self.chan_US_Node = []
+		self.chan_DS_Node = []
+		self.chan_US_Chan = []
+		self.chan_DS_Chan = []
+		self.chan_Flags = []
+		self.chan_Length = []
+		self.chan_FormLoss = []
+		self.chan_n = []
+		self.chan_slope = []
+		self.chan_US_Inv = []
+		self.chan_DS_Inv = []
+		self.chan_LBUS_Obv = []
+		self.chan_RBUS_Obv = []
+		self.chan_LBDS_Obv = []
+		self.chan_RBDS_Obv = []
+		self.chan_Blockage = []
+		
+		with open(fullpath, 'rb') as csvfile:
+			reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+			header = reader.next()
+			for (counter, row) in enumerate(reader):
+				self.chan_num.append(int(row[0]))
+				self.chan_name.append(row[1])
+				self.chan_US_Node.append(row[2])
+				self.chan_DS_Node.append(row[3])
+				self.chan_US_Chan.append(row[4])
+				self.chan_DS_Chan.append(row[5])
+				self.chan_Flags.append(row[6])
+				self.chan_Length.append(float(row[7]))
+				self.chan_FormLoss.append(float(row[8]))
+				self.chan_n.append(float(row[9]))
+				self.chan_slope.append(float(row[10]))
+				self.chan_US_Inv.append(float(row[11]))
+				self.chan_DS_Inv.append(float(row[12]))
+				self.chan_LBUS_Obv.append(float(row[13]))
+				self.chan_RBUS_Obv.append(float(row[14]))
+				self.chan_LBDS_Obv.append(float(row[15]))
+				self.chan_RBDS_Obv.append(float(row[16]))
+				self.chan_Blockage.append(float(row[17]))
+		self.nChan = counter+1
+		csvfile.close()
 class ResData():
 	"""
-	ResData class
+	ResData class for reading a processing results
 	"""
 
 	def getXData(self):
-		return self.Head['Time']
+		return self.Head[:,1]
 
 	def getYData(self, id,typeid,loc, iface):
 		#QMessageBox.information(iface.mainWindow(), "DEBUG", id)
 		if (loc=="Node"): #nodes
 			if (typeid=="Level"): # head
-				try:
-					cleanname = str(id.replace('.','p')) #dtype.name cannot handle decimals in names, these have been replaced with 'p'
-					cleanname = cleanname.strip()        # remove leading / trailing whitespace
-					return True, self.Head[cleanname]
-				except:
-					QMessageBox.information(iface.mainWindow(),"ERROR", ("ID not found: " + str(id)))
+				if id: #not NULL
+					a = id.strip()
+					try:
+						ind = self.nodeH_Header.index(str(a))
+					except:
+						QMessageBox.information(iface.mainWindow(),"ERROR", ("ID not found: " + a))
+						return False, [0.0]
+					#get data
+					try:
+						return True, self.Head[:,ind]
+					except:
+						QMessageBox.information(iface.mainWindow(),"ERROR", ("Extracting head for index: " + str(ind)))
+						return False, [0.0]
+				else: #null item, don't error just return nothing
 					return False, [0.0]
 			else:
 				QMessageBox.critical(iface.mainWindow(),"ERROR", ("Should not be here: getYData()"))
 		else: # channels
 			if (typeid=="Flow"): # Flow
-				try:
-					cleanname = str(id.replace('.','p')) #dtype.name cannot handle decimals in names, these have been replaced with 'p'
-					cleanname = cleanname.strip()        # remove leading / trailing whitespace
-					return True, self.Flow[cleanname]
-				except:
-					QMessageBox.information(iface.mainWindow(),"ERROR", ("ID not found: " + str(id)))
+				# find data
+				if id: #not null
+					a = id.strip()
+					try:
+						ind = self.chanQ_Header.index(str(a))
+					except:
+						QMessageBox.information(iface.mainWindow(),"ERROR", ("ID not found: " + str(id)))
+						return False, [0.0]
+				else: # NULL id
 					return False, [0.0]
+				# extract data
+				try:
+					flow = self.Flow[:,ind]
+				except:
+					QMessageBox.information(iface.mainWindow(),"Error", ("Unable to extract data from self.Flow, index is: " + str(ind)))
+					return False, [0.0]
+				# normal return
+				return True, flow
 			elif (typeid=="Velocity"):
-				try:
-					cleanname = str(id.replace('.','p')) #dtype.name cannot handle decimals in names, these have been replaced with 'p'
-					cleanname = cleanname.strip()        # remove leading / trailing whitespace
-					return True, self.Velocity[cleanname]
-				except:
-					QMessageBox.information(iface.mainWindow(),"ERROR", ("ID not found: " + str(id)))
+				# find data
+				if id: # not NULL
+					a = id.strip()
+					try:
+						ind = self.chanV_Header.index(str(a))
+					except:
+						QMessageBox.information(iface.mainWindow(),"ERROR", ("ID not found: " + str(id)))
+						return False, [0.0]
+				else: # NULL id 
 					return False, [0.0]
-			elif (typeid=="US Levels"): # upstream level
-				chan_list = tuple(self.Info['Channel'])
-				ind = chan_list.index(str(id))
-				a = str(self.Info['US_Node'][ind])
-				cleanname = str(a.replace('.','p')) #dtype.name cannot handle decimals in names, these have been replaced with 'p'
-				cleanname = cleanname.strip()        # remove leading / trailing whitespace
+					
+				# extract data
 				try:
-					return True, self.Head[cleanname]
+					vel = self.Velocity[:,ind]
 				except:
-					QMessageBox.information(iface.mainWindow(),"ERROR", ("ID not found: " + str(a)))
+					QMessageBox.information(iface.mainWindow(),"Error", ("Unable to extract data from self.Flow, index is: " + str(ind)))
+					return False, [0.0]
+				# normal return
+				return True, vel
+				
+			elif (typeid=="US Levels"): # upstream level
+				#chan_list = tuple(self.Info['Channel'])
+				chan_list = tuple(self.Channels.chan_name)
+				ind = chan_list.index(str(id))
+				#a = str(self.Info['US_Node'][ind])
+				a = str(self.Channels.chan_US_Node[ind])
+				try:
+					ind = self.nodeH_Header.index(a)
+				except:
+					QMessageBox.information(iface.mainWindow(),"Error", ("Unable to find US node: ",+a+" for channel "+ id))
+				try:
+					return True, self.Head[:,ind]
+				except:
+					QMessageBox.information(iface.mainWindow(),"Error", ("Unable to extract data for US node: ",+a+" for channel "+ id))
 					return False, [0.0]
 			elif (typeid=="DS Levels"): # dowsntream level
-				chan_list = tuple(self.Info['Channel'])
+				#chan_list = tuple(self.Info['Channel'])
+				chan_list = tuple(self.Channels.chan_name)
 				ind = chan_list.index(str(id))
-				a = str(self.Info['DS_Node'][ind])
-				cleanname = str(a.replace('.','p')) #dtype.name cannot handle decimals in names, these have been replaced with 'p'
-				cleanname = cleanname.strip()        # remove leading / trailing whitespace
+				#a = str(self.Info['DS_Node'][ind])
+				a = str(self.Channels.chan_DS_Node[ind])
 				try:
-					return True, self.Head[cleanname]
+					ind = self.nodeH_Header.index(a)
 				except:
-					QMessageBox.information(iface.mainWindow(),"ERROR", ("ID not found: " + str(a)))
+					QMessageBox.information(iface.mainWindow(),"Error", ("Unable to find DS node: ",+a+" for channel "+ id))
+				try:
+					return True, self.Head[:,ind]
+				except:
+					QMessageBox.information(iface.mainWindow(),"Error", ("Unable to extract data for US node: ",+a+" for channel "+ id))
 					return False, [0.0]
 			else:
 				raise RuntimeError("Should not be here")
@@ -444,68 +741,93 @@ class ResData():
 		if (id2 == None): # only one channel selected
 			finished = False
 			i = 0
-			chan_list = tuple(self.Info['Channel'])
-			ind1 = chan_list.index(str(id1))
+			#chan_list = tuple(self.Info['Channel'])
+			chan_list = tuple(self.Channels.chan_name)
+			try:
+				ind1 = chan_list.index(str(id1))
+			except:
+				QMessageBox.information(iface.mainWindow(),"ERROR", ("ID not found: " + str(id1)))
+				return [], [], [], []
 			self.LP_chanlist = [id1]
 			self.LP_chanID = [ind1]
-			self.LP_ndlist = [self.Info['US_Node'][ind1]]
-			self.LP_ndlist.append(self.Info['DS_Node'][ind1])
+			self.LP_ndlist = [(self.Channels.chan_US_Node[ind1])]
+			self.LP_ndlist.append(self.Channels.chan_DS_Node[ind1])
 			self.LP_xval = [0.0]
-			self.LP_xval.append(self.Info['Length'][ind1])
+			self.LP_xval.append(self.Channels.chan_Length[ind1])
 			id = ind1
 			while not finished:
 				i = i + 1
-				chan = self.Info['DS_Channel'][id]
+				chan = self.Channels.chan_DS_Chan[id]
 				if(chan=='------'):
 					finished = True
 				else:
 					self.LP_chanlist.append(chan)
-					id = int(numpy.where(self.Info['Channel']==chan)[0])
-					self.LP_chanID.append(id)
-					cur_len = self.LP_xval[len(self.LP_xval)-1]
-					cur_len = cur_len + self.Info['Length'][id]
-					self.LP_xval.append(cur_len)
-					self.LP_ndlist.append(self.Info['DS_Node'][id])
-		else:
+					#id = int(numpy.where(self.Info['Channel']==chan)[0])
+					try:
+						id = self.Channels.chan_name.index(chan)
+						self.LP_chanID.append(id)
+						cur_len = self.LP_xval[len(self.LP_xval)-1]
+						cur_len = cur_len + self.Channels.chan_Length[id]
+						self.LP_xval.append(cur_len)
+						self.LP_ndlist.append(self.Channels.chan_DS_Node[id])
+					except:
+						QMessageBox.information(iface.mainWindow(),"ERROR", ("Unable to process channel: "+chan))
+		else: # two channels selected (check for more than two in main routine)
 			#QMessageBox.information(iface.mainWindow(), "DEBUG", "Two channels selected.")
 			finished = False
 			found = False
 			i = 0
-			chan_list = tuple(self.Info['Channel'])
-			ind1 = chan_list.index(str(id1))
-			ind2 = chan_list.index(str(id2))
+			chan_list = tuple(self.Channels.chan_name)
+			try:
+				ind1 = chan_list.index(str(id1))
+			except:
+				QMessageBox.information(iface.mainWindow(),"ERROR", ("ID not found: " + str(id1)))
+				return [], []
+			try:
+				ind2 = chan_list.index(str(id2))
+			except:
+				QMessageBox.information(iface.mainWindow(),"ERROR", ("ID not found: " + str(id1)))
+				return [], []
 			endchan = id2
 			self.LP_chanlist = [id1]
 			self.LP_chanID = [ind1]
-			self.LP_ndlist = [self.Info['US_Node'][ind1]]
-			self.LP_ndlist.append(self.Info['DS_Node'][ind1])
+			#self.LP_ndlist = [self.Info['US_Node'][ind1]]
+			self.LP_ndlist = [(self.Channels.chan_US_Node[ind1])]
+			#self.LP_ndlist.append(self.Info['DS_Node'][ind1])
+			self.LP_ndlist.append(self.Channels.chan_DS_Node[ind1])
 			self.LP_xval = [0.0]
-			self.LP_xval.append(self.Info['Length'][ind1])
+			#self.LP_xval.append(self.Info['Length'][ind1])
+			self.LP_xval.append(self.Channels.chan_Length[ind1])
 			id = ind1
 			while not finished:
 				i = i + 1
-				chan = self.Info['DS_Channel'][id]
-				#QMessageBox.information(iface.mainWindow(), "DEBUG", chan)
+				chan = self.Channels.chan_DS_Chan[id]
 				if(chan=='------'):
 					finished = True
 				elif(chan==endchan):
 					found = True
 					finished = True
 					self.LP_chanlist.append(chan)
-					id = int(numpy.where(self.Info['Channel']==chan)[0])
-					self.LP_chanID.append(id)
-					cur_len = self.LP_xval[len(self.LP_xval)-1]
-					cur_len = cur_len + self.Info['Length'][id]
-					self.LP_xval.append(cur_len)
-					self.LP_ndlist.append(self.Info['DS_Node'][id])
+					try:
+						id = self.Channels.chan_name.index(chan)
+						self.LP_chanID.append(id)
+						cur_len = self.LP_xval[len(self.LP_xval)-1]
+						cur_len = cur_len + self.Channels.chan_Length[id]
+						self.LP_xval.append(cur_len)
+						self.LP_ndlist.append(self.Channels.chan_DS_Node[id])
+					except:
+						QMessageBox.information(iface.mainWindow(),"ERROR", ("Unable to process channel: "+chan))
 				else:
 					self.LP_chanlist.append(chan)
-					id = int(numpy.where(self.Info['Channel']==chan)[0])
-					self.LP_chanID.append(id)
-					cur_len = self.LP_xval[len(self.LP_xval)-1]
-					cur_len = cur_len + self.Info['Length'][id]
-					self.LP_xval.append(cur_len)
-					self.LP_ndlist.append(self.Info['DS_Node'][id])
+					try:
+						id = self.Channels.chan_name.index(chan)
+						self.LP_chanID.append(id)
+						cur_len = self.LP_xval[len(self.LP_xval)-1]
+						cur_len = cur_len + self.Channels.chan_Length[id]
+						self.LP_xval.append(cur_len)
+						self.LP_ndlist.append(self.Channels.chan_DS_Node[id])
+					except:
+						QMessageBox.information(iface.mainWindow(),"ERROR", ("Unable to process channel: "+chan))
 
 			if not (found): # id2 is not downstream of 1d1, reverse direction and try again...
 				#QMessageBox.information(iface.mainWindow(), "DEBUG", "reverse direction and try again")
@@ -515,50 +837,104 @@ class ResData():
 				endchan = id1
 				self.LP_chanlist = [id2]
 				self.LP_chanID = [ind2]
-				self.LP_ndlist = [self.Info['US_Node'][ind2]]
-				self.LP_ndlist.append(self.Info['DS_Node'][ind2])
+				self.LP_ndlist = [(self.Channels.chan_US_Node[ind2])]
+				self.LP_ndlist.append(self.Channels.chan_DS_Node[ind2])
 				self.LP_xval = [0.0]
-				self.LP_xval.append(self.Info['Length'][ind2])
+				self.LP_xval.append(self.Channels.chan_Length[ind2])
 				id = ind2
 				while not finished:
 					i = i + 1
-					chan = self.Info['DS_Channel'][id]
-					#QMessageBox.information(iface.mainWindow(), "DEBUG", chan)
+					chan = self.Channels.chan_DS_Chan[id]
 					if(chan=='------'):
 						finished = True
 					elif(chan==endchan):
 						found = True
 						finished = True
 						self.LP_chanlist.append(chan)
-						id = int(numpy.where(self.Info['Channel']==chan)[0])
-						self.LP_chanID.append(id)
-						cur_len = self.LP_xval[len(self.LP_xval)-1]
-						cur_len = cur_len + self.Info['Length'][id]
-						self.LP_xval.append(cur_len)
-						self.LP_ndlist.append(self.Info['DS_Node'][id])
+						try:
+							id = self.Channels.chan_name.index(chan)
+							self.LP_chanID.append(id)
+							cur_len = self.LP_xval[len(self.LP_xval)-1]
+							cur_len = cur_len + self.Channels.chan_Length[id]
+							self.LP_xval.append(cur_len)
+							self.LP_ndlist.append(self.Channels.chan_DS_Node[id])
+						except:
+							QMessageBox.information(iface.mainWindow(),"ERROR", ("Unable to process channel: "+chan))
 					else:
 						self.LP_chanlist.append(chan)
-						id = int(numpy.where(self.Info['Channel']==chan)[0])
-						self.LP_chanID.append(id)
-						cur_len = self.LP_xval[len(self.LP_xval)-1]
-						cur_len = cur_len + self.Info['Length'][id]
-						self.LP_xval.append(cur_len)
-						self.LP_ndlist.append(self.Info['DS_Node'][id])
+						try:
+							id = self.Channels.chan_name.index(chan)
+							self.LP_chanID.append(id)
+							cur_len = self.LP_xval[len(self.LP_xval)-1]
+							cur_len = cur_len + self.Channels.chan_Length[id]
+							self.LP_xval.append(cur_len)
+							self.LP_ndlist.append(self.Channels.chan_DS_Node[id])
+						except:
+							QMessageBox.information(iface.mainWindow(),"ERROR", ("Unable to process channel: "+chan))						
 			if not (found): # id1 and 1d2 not connected
-				QMessageBox.information(iface.mainWindow(), "Information", "Channels not connected")
+				QMessageBox.information(iface.mainWindow(), "Information", "Channels " +id1 + " and "+id2+" not connected.")
 				self.LP_xval = [0.0]
 				self.LP_yval = [0.0]
 				return [], []
 				
 		self.LP_yval = []
 		for nd in self.LP_ndlist:
-			a = nd.replace('.','p')
-			yvals = self.Head[a]
-			self.LP_yval.append(max(yvals))
+			try:
+				ind = self.nodeH_Header.index(nd)
+			except:
+				QMessageBox.information(iface.mainWindow(),"ERROR", ("ID not found: " + str(nd)))
+			#get data
+			try:
+				yvals =  self.Head[:,ind]
+				self.LP_yval.append(max(yvals))
+			except:
+				QMessageBox.information(iface.mainWindow(),"ERROR", ("Extracting data for node id: " + str(nd)))
 
+
+		# get long profile elevations:
+		#QMessageBox.information(iface.mainWindow(), "DEBUG", "extracting LP info.")
+		self.LP_bed = []
+		self.LP_LB = []
+		self.LP_RB = []
+		self.LP_chainage =[0.0]
+
+		# get infor from channels
+		for (counter, chan_index) in enumerate(self.LP_chanID):
+#		for chan_index in self.LP_chanID:
+			self.LP_bed.append(self.Channels.chan_US_Inv[chan_index])
+			self.LP_LB.append(self.Channels.chan_LBUS_Obv[chan_index])
+			self.LP_RB.append(self.Channels.chan_RBUS_Obv[chan_index])
+			self.LP_bed.append(self.Channels.chan_DS_Inv[chan_index])
+			self.LP_LB.append(self.Channels.chan_LBDS_Obv[chan_index])
+			self.LP_RB.append(self.Channels.chan_RBDS_Obv[chan_index])
+			if counter == 0: # first value
+				self.LP_chainage.append(self.Channels.chan_Length[chan_index]-0.001)
+			else:
+				prev_len = self.LP_chainage[len(self.LP_chainage)-1]
+				self.LP_chainage.append((prev_len+0.002))
+				cur_len = self.Channels.chan_Length[chan_index]
+				self.LP_chainage.append(prev_len+cur_len-0.001)
+
+		
 		return self.LP_chanlist, self.LP_chanID
 
-	def __init__(self, fname):
+	def getLPatTime(self, timeind, iface):
+		#QMessageBox.information(iface.mainWindow(), "DEBUG", "getLPatTime")
+		yvals = []
+		for nd in self.LP_ndlist:
+			try:
+				ind = self.nodeH_Header.index(nd)
+			except:
+				QMessageBox.information(iface.mainWindow(),"ERROR", ("ID not found: " + str(nd)))
+			#get data
+			try:
+				yval = self.Head[timeind,ind]
+			except:
+				QMessageBox.information(iface.mainWindow(),"ERROR", ("Extracting data for node id: " + str(nd)))
+			yvals.append(yval)
+		return yvals
+	
+	def __init__(self, fname, iface):
 		self.filename = fname
 		#print self.filename
 		self.fpath = os.path.dirname(fname)
@@ -567,13 +943,10 @@ class ResData():
 		for i in range (0,len(data)):
 			tmp = data[i,0]
 			dat_type = tmp.strip()
-			#print dat_type
 			tmp = data[i,1]
 			rdata = tmp.strip()
 			if (dat_type=='Simulation ID'):
-
 				self.displayname = rdata
-				#print 'Run ID = ' + self.displayname
 			elif (dat_type=='Number Channels'):
 				self.nChannels = int(rdata)
 			elif (dat_type=='Units'):
@@ -584,85 +957,38 @@ class ResData():
 				self.nNodes = int(rdata)
 			elif (dat_type=='Channel Info'):
 				fullpath = os.path.join(self.fpath,rdata)
-				self.Info = numpy.genfromtxt(fullpath, dtype=None, delimiter=",",names=True)
-				#print'Done.'
+				self.Channels = ChanInfo(fullpath,iface) # 2014-04-AA, this has it's own class as there were issues if only a single channel existed
 
-                #Clean double quotes ('"data"' become 'data') from the info.csv, otherwise this causes issues later
-				self.Channels = []
-				for chan in self.Info['Channel']:
-					tmp = chan.replace('"','')
-					self.Channels.append(tmp)
-				self.Info['Channel'] = self.Channels
-
-				tmpUS_nodes = []
-				for node in self.Info['US_Node']:
-					tmp = node.replace('"','')
-					tmpUS_nodes.append(tmp)
-				self.Info['US_Node'] = tmpUS_nodes
-
-				tmpDS_nodes = []
-				for node in self.Info['DS_Node']:
-					tmp = node.replace('"','')
-					tmpDS_nodes.append(tmp)
-				self.Info['DS_Node'] = tmpDS_nodes
-
-				tmpUS_chan = []
-				for chan in self.Info['US_Channel']:
-					tmp = chan.replace('"','')
-					tmpUS_chan.append(tmp)
-				self.Info['US_Channel'] = tmpUS_chan
-
-				tmpDS_chan = []
-				for chan in self.Info['DS_Channel']:
-					tmp = chan.replace('"','')
-					tmpDS_chan.append(tmp)
-				self.Info['DS_Channel'] = tmpDS_chan
-
-				tmpFlag = []
-				for flag in self.Info['Flags']:
-					tmp = flag.replace('"','')
-					tmpFlag.append(tmp)
-				self.Info['Flags'] = tmpFlag
-
-				if (self.nChannels != len(self.Channels)):
+				if (self.nChannels != self.Channels.nChan):
 					raise RuntimeError("Number of Channels does not match value in .1drf")
 
 			elif (dat_type=='Node Info'):
 				fullpath = os.path.join(self.fpath,rdata)
-				#print 'Extracting info from: '+ fullpath
-				#print 'WARNING - Node Info not yet implemented'
-				# due to variable number of channels, need to write custom read not use numpy
-				# chat with Bill about using another seperator ((|)
-				#self.ndInfo = numpy.genfromtxt(fullpath, dtype=None, delimiter=",",names=True)
-				#print'Done.'
-
+				self.nodes = NodeInfo(fullpath,iface) # this has it's own class as it needs to be read line by line due to different lengths (number of channels for each node)
 			elif (dat_type=='Water Levels'):
 				fullpath = os.path.join(self.fpath,rdata)
-				#print 'Extracting header information from: '+ fullpath
-				with open(fullpath, 'rb') as csvfile:
-					reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-					header = reader.next()
-					print header
-				csvfile.close()
-				#print 'Done extracting header.'
-				header[0]='Timestep'
-				header[1]='Time'
-				types = ['']
-				types[0]='i8'
-				types.append('d')
+				try:
+					with open(fullpath, 'rb') as csvfile:
+						reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+						header = reader.next()
+					csvfile.close()
+				except:
+					QMessageBox.critical(iface.mainWindow(), "ERROR", 'Error reading header from: '+fullpath)
+				header[0]=u'Timestep'
+				header[1]=u'Time'
 				self.Nodes = []
 				i=1
 				for col in header[2:]:
 					i= i+1
 					a = col[2:]
 					self.Nodes.append(a)
-					b = a.replace('.','p')
-					header[i] = b
-					types.append('d')
-				dt = numpy.dtype({'names':header,'formats':types})
-				#print 'Extracting data from: '+ fullpath
-				self.Head = numpy.genfromtxt(fullpath, dtype=dt, delimiter=",", skip_header=1)
-				#print'Done extracting data.'
+					header[i] = unicode(a)
+				#self.nodeH_Header = unicode(header)
+				self.nodeH_Header = header
+				try: 
+					self.Head = numpy.genfromtxt(fullpath, delimiter=",", skip_header=1)
+				except: 
+					QMessageBox.critical(iface.mainWindow(), "ERROR", 'Error reading data from: '+fullpath)
 
 				if (self.nNodes != len(self.Nodes)):
 					raise RuntimeError("Number of Nodes does not match value in .1drf")
@@ -674,29 +1000,26 @@ class ResData():
 					self.types.append('Head')
 			elif (dat_type=='Flows'):
 				fullpath = os.path.join(self.fpath,rdata)
-				#print 'Extracting header information from: '+ fullpath
-				with open(fullpath, 'rb') as csvfile:
-					reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-					header = reader.next()
-					print header
-				csvfile.close()
-				#print 'Done extracting header.'
+				try:
+					with open(fullpath, 'rb') as csvfile:
+						reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+						header = reader.next()
+					csvfile.close()
+				except:
+					QMessageBox.critical(iface.mainWindow(), "ERROR", 'Error reading header from: '+fullpath)
 				header[0]='Timestep'
 				header[1]='Time'
-				types = ['']
-				types[0]='i8'
-				types.append('d')
+				
 				i=1
 				for col in header[2:]:
 					i= i+1
-					a = col[2:]
-					b = a.replace('.','p')
-					header[i] = b
-					types.append('d')
-				dt = numpy.dtype({'names':header,'formats':types})
-				#print 'Extracting data from: '+ fullpath
-				self.Flow = numpy.genfromtxt(fullpath, dtype=dt, delimiter=",", skip_header=1)
-				#print'Done extracting data.'
+					a = col[2:] # trim "Q " from the start of name
+					header[i] = a
+				self.chanQ_Header = header # channel flow header, with no replacements
+				try: 
+					self.Flow = numpy.genfromtxt(fullpath, delimiter=",", skip_header=1)
+				except:
+					QMessageBox.critical(iface.mainWindow(), "ERROR", 'Error reading data from: '+fullpath)
 				self.nTypes = self.nTypes + 1
 				if (self.nTypes == 1):
 					self.types = ['Flow']
@@ -704,32 +1027,31 @@ class ResData():
 					self.types.append('Flow')
 			elif (dat_type=='Velocities'):
 				fullpath = os.path.join(self.fpath,rdata)
-				#print 'Extracting header information from: '+ fullpath
-				with open(fullpath, 'rb') as csvfile:
-					reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-					header = reader.next()
-					#print header
-				csvfile.close()
-				#print 'Done extracting header.'
+				try:
+					with open(fullpath, 'rb') as csvfile:
+						reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+						header = reader.next()
+					csvfile.close()
+				except:
+					QMessageBox.critical(iface.mainWindow(), "ERROR", 'Error reading header from: '+fullpath)
 				header[0]='Timestep'
 				header[1]='Time'
-				types = ['']
-				types[0]='i8'
-				types.append('d')
+				
 				i=1
 				for col in header[2:]:
 					i= i+1
-					a = col[2:]
-					b = a.replace('.','p')
-					header[i] = b
-					types.append('d')
-				dt = numpy.dtype({'names':header,'formats':types})
-				#print 'Extracting data from: '+ fullpath
-				self.Velocity = numpy.genfromtxt(fullpath, dtype=dt, delimiter=",", skip_header=1)
-				#print'Done extracting data.'
+					a = col[2:] # trim "V " from the start of name
+					header[i] = a
+				self.chanV_Header = header # channel velocity header, with no replacements
+				try: 
+					self.Velocity = numpy.genfromtxt(fullpath, delimiter=",", skip_header=1)
+				except:
+					QMessageBox.critical(iface.mainWindow(), "ERROR", 'Error reading data from: '+fullpath)
 				self.nTypes = self.nTypes + 1
 				if (self.nTypes == 1):
 					self.types = ['Velocity']
 				else:
 					self.types.append('Velocity')
-		print 'Read '+str(self.nTypes)+' data types.'
+			else:
+				QMessageBox.information(iface.mainWindow(), "Warning", 'Unknown Data Type '+dat_type)
+

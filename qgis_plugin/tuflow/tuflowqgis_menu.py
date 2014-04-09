@@ -19,25 +19,22 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2013-11-AA'
+build_vers = '2014-04-AB (QGIS 2.x)'
 
 # Import the PyQt and QGIS libraries
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from qgis.core import *
+import os
 
 # Import the code for the dialog
 from tuflowqgis_dialog import *
-
-# Import the code for the dock widget (external 1D viewer)
-from tuflowqgis_dock import *
 
 # Import the code for the 1D results viewer
 from tuflowqgis_viewer import *
 
 # Import the code for the 1D xs viewer
 from tuflowqgis_xsviewer import *
-
 
 class tuflowqgis_menu:
 
@@ -83,10 +80,16 @@ class tuflowqgis_menu:
 		QObject.connect(self.increment_action, SIGNAL("triggered()"), self.increment_layer)
 		self.editing_menu.addAction(self.increment_action)
 		
-		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_import.png")
-		self.points_to_lines_action = QAction(icon, "Convert Points to Lines (survey to breaklines)", self.iface.mainWindow())
+		icon = QIcon(os.path.dirname(__file__) + "/icons/mif_2_shp.png")
+		self.splitMI_action = QAction(icon, "Convert MapInfo file to Shapefile (beta)", self.iface.mainWindow())
+		QObject.connect(self.splitMI_action, SIGNAL("triggered()"), self.split_MI)
+		self.editing_menu.addAction(self.splitMI_action)
+		
+		icon = QIcon(os.path.dirname(__file__) + "/icons/icon.png")
+		self.points_to_lines_action = QAction(icon, "Convert Points to Lines (survey to breaklines) ALPHA", self.iface.mainWindow())
 		QObject.connect(self.points_to_lines_action, SIGNAL("triggered()"), self.points_to_lines)
 		self.editing_menu.addAction(self.points_to_lines_action)
+		
 		
 		# Visualisation Submenu
 		self.visualisation_menu = QMenu(QCoreApplication.translate("TUFLOW", "&Visualisation"))
@@ -97,10 +100,11 @@ class tuflowqgis_menu:
 		QObject.connect(self.view_1d_results_action, SIGNAL("triggered()"), self.results_1d)
 		self.visualisation_menu.addAction(self.view_1d_results_action)
 
-		icon = QIcon(os.path.dirname(__file__) + "/icons/results.png")
-		self.view_1d_iface_action = QAction(icon, "View 1D results (external)", self.iface.mainWindow())
-		QObject.connect(self.view_1d_iface_action, SIGNAL("triggered()"), self.results_1d_ext)
-		self.visualisation_menu.addAction(self.view_1d_iface_action)
+		# Phil Ryan - Have commented this out, it is used to tie in with external 1D viewer
+		#icon = QIcon(os.path.dirname(__file__) + "/icons/results.png")
+		#self.view_1d_iface_action = QAction(icon, "View 1D results (external)", self.iface.mainWindow())
+		#QObject.connect(self.view_1d_iface_action, SIGNAL("triggered()"), self.results_1d_ext)
+		#self.visualisation_menu.addAction(self.view_1d_iface_action)
 		
 		icon = QIcon(os.path.dirname(__file__) + "/icons/view_xs.png")
 		self.view_1d_xs_action = QAction(icon, "View 1D Section (work in progress)", self.iface.mainWindow())
@@ -135,34 +139,18 @@ class tuflowqgis_menu:
 		
 
 	def configure_tf(self):
-		QMessageBox.information(self.iface.mainWindow(), "debug", "configure tf")
 		project = QgsProject.instance()
-		# tuflow_folder,tfexe,projection
-		# tffolder = project.readEntry("configure_tuflow", "folder", "Not yet set")[0]
-		# tfexe = project.readEntry("configure_tuflow", "exe", "Not yet set")[0]
-		# tf_prj = project.readEntry("configure_tuflow", "projection", "Not yet set")[0]
-		# QMessageBox.information(self.iface.mainWindow(), "stored text", mytext)
-		# project.writeEntry("configure_tf", "test", "hello world")
-		# mytext = project.readEntry("configure_tf", "test", "default text")[0]
-		# QMessageBox.information(self.iface.mainWindow(), "stored text", mytext)
-		
-		#prjpath = str(QgsProject.instance().fileName())
-		#if (len(prjpath)>4):
-		#	#QMessageBox.information(self.iface.mainWindow(), "path", prjpath)
-		#	config_file = prjpath[0:len(prjpath)-4]+'_tuflow.txt'
-		#	QMessageBox.information(self.iface.mainWindow(), "path", config_file)
-		#else:
-		#	QMessageBox.critical(self.iface.mainWindow(), "Error Configuring TUFLOW", "This requires that a project has been saved in QGIS")
-		#	exit
 		dialog = tuflowqgis_configure_tf_dialog(self.iface,project)
 		dialog.exec_()
 
 	def create_tf_dir(self):
-		dialog = tuflowqgis_create_tf_dir_dialog(self.iface)
+		project = QgsProject.instance()
+		dialog = tuflowqgis_create_tf_dir_dialog(self.iface, project)
 		dialog.exec_()
 		
 	def import_empty_tf(self):
-		dialog = tuflowqgis_import_empty_tf_dialog(self.iface)
+		project = QgsProject.instance()
+		dialog = tuflowqgis_import_empty_tf_dialog(self.iface, project)
 		dialog.exec_()
 
 	def increment_layer(self):
@@ -170,32 +158,39 @@ class tuflowqgis_menu:
 		dialog.exec_()
 	
 	def points_to_lines(self):
-		QMessageBox.information(self.iface.mainWindow(), "debug", "points to lines")
+		#QMessageBox.information(self.iface.mainWindow(), "debug", "points to lines")
 		dialog = tuflowqgis_line_from_points(self.iface)
 		dialog.exec_()
+
+	def split_MI(self):
+		#QMessageBox.information(self.iface.mainWindow(), "debug", "points to lines")
+		dialog = tuflowqgis_splitMI_dialog(self.iface)
+		dialog.exec_()
 		
-	def results_1d_ext(self):
-		if self.dockOpened == False:
-			self.dock = TUFLOWifaceDock(self.iface)
-			self.iface.addDockWidget( Qt.RightDockWidgetArea, self.dock )
-			self.dockOpened = True
+#### external viewer interface
+#	def results_1d_ext(self):
+#		if self.dockOpened == False:
+#			self.dock = TUFLOWifaceDock(self.iface)
+#			self.iface.addDockWidget( Qt.RightDockWidgetArea, self.dock )
+#			self.dockOpened = True
 		
 	def results_1d(self):
-		if self.resdockOpened == False:
-			self.resdock = TUFLOW_Res_Dock(self.iface)
-			self.iface.addDockWidget( Qt.RightDockWidgetArea, self.resdock)
-			self.resdockOpened = True
+		#if self.resdockOpened == False:
+		self.resdock = TUFLOW_Res_Dock(self.iface)
+		self.iface.addDockWidget( Qt.RightDockWidgetArea, self.resdock)
+			#self.resdockOpened = True
 
 	def view_1d_xs(self):
 		#QMessageBox.critical(self.iface.mainWindow(), "Info", "Not yet implemented!")
-		QMessageBox.information(self.iface.mainWindow(), "debug", "entering view_1d_xs")
+		#QMessageBox.information(self.iface.mainWindow(), "debug", "entering view_1d_xs")
 		if self.xsdockOpened == False:
 			QMessageBox.information(self.iface.mainWindow(), "debug", "starting the cross-section viewer dock widget")
 			self.xsdock = TUFLOW_XS_Dock(self.iface)
 			self.iface.addDockWidget(Qt.RightDockWidgetArea, self.xsdock)
 			self.xsdockOpened == True
 	def run_tuflow(self):
-		dialog = tuflowqgis_run_tf_simple_dialog(self.iface)
+		project = QgsProject.instance()
+		dialog = tuflowqgis_run_tf_simple_dialog(self.iface, project)
 		dialog.exec_()
 	
 	def check_dependencies(self):
