@@ -53,7 +53,8 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 		try:
 			QObject.disconnect(layer,SIGNAL("selectionChanged()"),self.select_changed)
 		except:
-			QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Disconnecting selectionChanged Signal ")
+			#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Disconnecting selectionChanged Signal ")
+			warning = True
 
 	def visChanged(self, vis):
 		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Vis is " + str(vis))
@@ -78,7 +79,8 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 		try:
 			QObject.disconnect(layer,SIGNAL("selectionChanged()"),self.select_changed)
 		except:
-			QMessageBox.information(self.iface.mainWindow(), "DEBUG", "error disconnecting()")
+			#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "error disconnecting()")
+			warning = True
 			
 	def refresh(self):
 		"""
@@ -146,6 +148,7 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 		self.cLayer = self.canvas.currentLayer()
 		self.sourcelayer.clear()
 		self.locationDrop.clear()
+		self.IDs = []
 		self.IDList.clear()
 		if self.cLayer and (self.cLayer.type() == QgsMapLayer.VectorLayer):
 			self.sourcelayer.addItem(self.cLayer.name())
@@ -157,19 +160,19 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 				self.locationDrop.addItem("Channel")
 				self.locationDrop.addItem("Long Profile")
 				self.locationDrop.setCurrentIndex(0)
-			elif (GType == QGis.WKBPolygon):
-				QMessageBox.information(self.iface.mainWindow(), "Information", "Expecting point or line geometry type, not polygon.")
 			else:
-				QMessageBox.information(self.iface.mainWindow(), "Information", "Expecting point or line geometry type.")
+				self.sourcelayer.clear()
+				self.sourcelayer.addItem("Not a line or point geometry (plot disabled)")
+			
 			#index to ID
 			self.idx = self.cLayer.fieldNameIndex('ID')
 			if (self.idx < 0):
-				#QMessageBox.information(self.iface.mainWindow(), "Information", "Layer has no field named ID, please choose another layer.")
 				self.locationDrop.clear()
 				self.locationDrop.addItem("No field named ID in layer (plot disabled)")
 		else:
-			self.sourcelayer.addItem("Invalid layer or no layer selected")
+			self.sourcelayer.addItem("Invalid layer or no layer selected (plot disabled)")
 			self.sourcelayer.setCurrentIndex(0)
+			self.locationDrop.addItem("No field named ID in layer (plot disabled)")
 
 		if self.handler:
 			QObject.disconnect(self.selected_layer, SIGNAL("selectionChanged()"),self.select_changed)
@@ -194,7 +197,6 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 							self.IDList.addItem(fieldvalue)
 						except:
 							warning = True #suppress the warning below, most likely due to a "X" type channel or blank name
-							#QMessageBox.information(self.iface.mainWindow(), "WARNING", "Problem occurred getting data for Feature ID %d: " % feature.id())
 				except:
 					error = True
 		
@@ -228,22 +230,9 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 			# add times
 			nDec = 4
 			try:
-				#QMessageBox.information(self.iface.mainWindow(), "Debug", "hereA")
 				times = self.res[0].getXData()
-				#if (len(times) > 1):
-				#	dtime = times[1]-times[0]
-				#	if dt > 1:
-				#		nDec = 1
-				#	elif dt > 0.1:
-				#		nDec = 2
-				#	elif dt > 0.01:
-				#		nDec = 3
-				#QMessageBox.information(self.iface.mainWindow(), "Debug", "hereB")
 				self.listTime.clear()
-				#QMessageBox.information(self.iface.mainWindow(), "Debug", "hereC")
-				#QMessageBox.information(self.iface.mainWindow(), "Debug", str(len(times)))
 				for time in times:
-					#QMessageBox.information(self.iface.mainWindow(), "Debug", str(time))
 					self.listTime.addItem("%.4f" % time)
 				item = self.listTime.item(0)
 				self.listTime.setItemSelected(item, True)
@@ -251,16 +240,13 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 				QMessageBox.information(self.iface.mainWindow(), "WARNING", "Unable to populate times, check results loaded.")
 		else:
 			self.ResTypeList.clear()
-		#if (len(self.ResTypeList)==1):
-		#	item = self.ResTypeList.item(0)
-		#	self.ResTypeList.setItemSelected(item, True)
 		item = self.ResTypeList.item(0) # select 1st item by default
 		self.ResTypeList.setItemSelected(item, True)
 		self.start_draw()
 
 	def animate_LP(self):
-		#QMessageBox.information(self.iface.mainWindow(), "Debug", "Entering Animate LP...")
 		start = True
+		
 		# check if long profile type is selected
 		loc = self.locationDrop.currentText()
 		if (loc!="Long Profile"): # LP
@@ -310,19 +296,15 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 			try:
 				QMessageBox.information(self.iface.mainWindow(), "Information", "Saving images to: "+self.res[0].fpath+"\nAfter selecting ok, please wait while the images are created.\nYou will be notified when this has finished.")
 				for x in range(0, self.listTime.count()):
-					#self.listTime.clear()
 					item = self.listTime.item(x)
 					self.listTime.setItemSelected(item, True)
 					self.draw_figure()
 					filenum = str(x+1)
 					filenum = filenum.zfill(nWidth)
 					fname = 'QGIS_LP_'+filenum+'.png'
-					#QMessageBox.information(self.iface.mainWindow(), "Debug", fname)
 					fullpath = os.path.join(self.res[0].fpath,fname)
-					#QMessageBox.information(self.iface.mainWindow(), "Debug", fullpath)
 					self.plotWdg.figure.savefig(fullpath)
 					self.listTime.setItemSelected(item, False)
-					#sleep(0.25)
 				QMessageBox.information(self.iface.mainWindow(), "Information", "Processing Complete")
 			except:
 				QMessageBox.critical(self.iface.mainWindow(), "ERROR", "An error occurred processing long profile")
@@ -336,20 +318,15 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 			list_item = self.ResTypeList.item(x)
 			if list_item.isSelected():
 				type.append(list_item.text())
-				#QMessageBox.information(self.iface.mainWindow(), "DEBUG", list_item.text())
 		draw = True
 		if len(type) == 0:
-			#QMessageBox.information(self.iface.mainWindow(), "Information", "No results type selected.")
 			draw = False
 		if len (self.IDs) == 0:
-			#QMessageBox.information(self.iface.mainWindow(), "Information", "No elements selected.")
 			draw = False
 		
 		if (draw):
-			#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "drawing...")
 			self.draw_figure()
 	def showIt(self):
-		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "showIt()")
 		self.layout = self.frame_for_plot.layout()
 		minsize = self.minimumSize()
 		maxsize = self.maximumSize()
@@ -358,7 +335,6 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 
 		self.iface.mapCanvas().setRenderFlag(True)
 		
-		# matlab figure
 		self.artists = []
 		labels = []
 		
@@ -399,7 +375,6 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 		axe1.tick_params(axis = "both", which = "minor", direction= "out", length=5, width=1, bottom = True, top = False, left = True, right = False)
 	
 	def draw_figure(self):
-		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "draw_figure()")
 		self.subplot.clear()
 		xmin=0.0
 		xmax=0.0
@@ -427,9 +402,11 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 			if list_item.isSelected():
 				reslist.append(x)
 				resnames.append(list_item.text())
-
-		for resno in reslist:
+		nRes = len(reslist)
+		
+		for i, resno in enumerate(reslist):
 			res = self.res[resno]
+			name = resnames[i]
 			#Long Profiles___________________________________________________________________
 			if (loc=="Long Profile"): # LP
 				plot = True
@@ -446,16 +423,15 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 				# if data returned from above do stuff, else bail
 				if chanList:				
 					xdata = res.LP_xval
-					ydata =res.LP_yval
+					ydata = res.LP_yval
 					zb_zdata = res.LP_bed
 					zb_ch_data = res.LP_chainage
 					lb_data = res.LP_LB
 					rb_data = res.LP_RB
 					xmin=round(min(xdata), 0) - 1
 					xmax=round(max(xdata), 0) + 1
-					ymin=round(min(ydata), 0) - 1
+					ymin=round(min(zb_zdata), 0) - 1
 					ymax=round(max(ydata), 0) + 1
-					label = 'Max Water Level'
 					self.subplot.set_xbound(lower=xmin, upper=xmax)
 					self.subplot.set_ybound(lower=ymin, upper=ymax)
 
@@ -464,28 +440,44 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 					if typenames.count('Max Water Level')<>0:
 						a, = self.subplot.plot(xdata, ydata)
 						self.artists.append(a)
-						labels.append(label)
+						label = 'Max Water Level'
+						if nRes > 1:
+							labels.append(label +" - "+name)
+						else:
+							labels.append(label)
 						self.subplot.hold(True)
 					
 					#plot bed
 					if typenames.count('Bed Level')<>0:
 						a, = self.subplot.plot(zb_ch_data, zb_zdata)
 						self.artists.append(a)
-						labels.append('Bed Level')
+						label = 'Bed Level'
+						if nRes > 1:
+							labels.append(label +" - "+name)
+						else:
+							labels.append(label)
 						self.subplot.hold(True)
 
 					#plot LB
 					if typenames.count('Left Bank Obvert')<>0:
 						a, = self.subplot.plot(zb_ch_data, lb_data)
 						self.artists.append(a)
-						labels.append('Left Bank')
+						label = 'Left Bank'
+						if nRes > 1:
+							labels.append(label +" - "+name)
+						else:
+							labels.append(label)
 						self.subplot.hold(True)
 
 					#plot RB
 					if typenames.count('Right Bank Obvert')<>0:
 						a, = self.subplot.plot(zb_ch_data, rb_data)
 						self.artists.append(a)
-						labels.append('Right Bank')
+						label = 'Right Bank'
+						if nRes > 1:
+							labels.append(label +" - "+name)
+						else:
+							labels.append(label)
 						self.subplot.hold(True)
 						
 					#plot LP at time
@@ -501,7 +493,11 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 						temporalLP = res.getLPatTime(timeInd,self.iface)
 						a, = self.subplot.plot(xdata, temporalLP)
 						self.artists.append(a)
-						labels.append('Water Level at '+timeStr)
+						label = 'Water Level at '+timeStr
+						if nRes > 1:
+							labels.append(label +" - "+name)
+						else:
+							labels.append(label)
 						self.subplot.hold(True)
 				
 			#Timeseries______________________________________________________________________
@@ -552,10 +548,7 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 		self.subplot.hold(False)
 		self.subplot.grid(True)
 		self.plotWdg.draw()
-		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "self.subplot.savefig")
-		#wdg.plotWdg.figure.savefig(str(fileName))
-		#self.plotWdg.figure.savefig(r'C:\temp\test.png')
-		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Done")
+
 		
 class NodeInfo():
 	"""
