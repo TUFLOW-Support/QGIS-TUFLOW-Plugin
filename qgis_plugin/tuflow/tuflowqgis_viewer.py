@@ -227,6 +227,7 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 			self.ResTypeList.addItem("Bed Level")
 			self.ResTypeList.addItem("Left Bank Obvert")
 			self.ResTypeList.addItem("Right Bank Obvert")
+			self.ResTypeList.addItem("Pit Ground Levels (if any)")
 			# add times
 			nDec = 4
 			try:
@@ -428,6 +429,9 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 					zb_ch_data = res.LP_chainage
 					lb_data = res.LP_LB
 					rb_data = res.LP_RB
+					pitx = res.pitx
+					pitz = res.pitz
+					npits = res.npits
 					xmin=round(min(xdata), 0) - 1
 					xmax=round(max(xdata), 0) + 1
 					ymin=round(min(zb_zdata), 0) - 1
@@ -499,32 +503,45 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 						else:
 							labels.append(label)
 						self.subplot.hold(True)
-				
+					
+					#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "plotting pit")
+					#plot pits
+					if typenames.count('Pit Ground Levels (if any)')<>0:
+						if npits > 0:
+							a, = self.subplot.plot(pitx, pitz, marker='o', linestyle='None', color='r')
+							self.artists.append(a)
+							labels.append("Pit Invert (grate) levels")
+					#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "success")
+					
 			#Timeseries______________________________________________________________________
 			else:
 				xdata = res.getXData()
+				breakloop = False
 				for ydataid in self.IDs:
 					if ydataid:
 						for typename in typenames:
 							#QMessageBox.information(self.iface.mainWindow(), "DEBUG", ydataid)
-							found, ydata=res.getYData(ydataid,typename,loc, self.iface)
-							if not found:
-								ydata = xdata * 0.0 # keep the same dimensions other the plot will fail
-							if (len(reslist) > 1):
-								label = res.displayname + ": " + ydataid + " - " + typename
-							else:
-								label = ydataid + " - " + typename
+							if not breakloop:
+								found, ydata=res.getYData(ydataid,typename,loc, self.iface)
+								if not found:
+									ydata = xdata * 0.0 # keep the same dimensions other the plot will fail
+									QMessageBox.information(self.iface.mainWindow(), "ERROR", "Exiting plot update - plot may be partially updated.")
+									breakloop = True
+								if (len(reslist) > 1):
+									label = res.displayname + ": " + ydataid + " - " + typename
+								else:
+									label = ydataid + " - " + typename
 
-							xmin=round(min(xdata), 0) - 1
-							xmax=round(max(xdata), 0) + 1
-							ymin=round(min(ydata), 0) - 1
-							ymax=round(max(ydata), 0) + 1
-							self.subplot.set_xbound(lower=xmin, upper=xmax)
-							self.subplot.set_ybound(lower=ymin, upper=ymax)
-							a, = self.subplot.plot(xdata, ydata)
-							self.artists.append(a)
-							labels.append(label)
-							self.subplot.hold(True)
+								xmin=round(min(xdata), 0) - 1
+								xmax=round(max(xdata), 0) + 1
+								ymin=round(min(ydata), 0) - 1
+								ymax=round(max(ydata), 0) + 1
+								self.subplot.set_xbound(lower=xmin, upper=xmax)
+								self.subplot.set_ybound(lower=ymin, upper=ymax)
+								a, = self.subplot.plot(xdata, ydata)
+								self.artists.append(a)
+								labels.append(label)
+								self.subplot.hold(True)
 
 			#Set axis labels
 			if (loc=="Long Profile"): # LP
@@ -734,13 +751,12 @@ class ResData():
 		if (id2 == None): # only one channel selected
 			finished = False
 			i = 0
-			#chan_list = tuple(self.Info['Channel'])
 			chan_list = tuple(self.Channels.chan_name)
 			try:
 				ind1 = chan_list.index(str(id1))
 			except:
 				QMessageBox.information(iface.mainWindow(),"ERROR", ("ID not found: " + str(id1)))
-				return [], [], [], []
+				return [], []
 			self.LP_chanlist = [id1]
 			self.LP_chanID = [ind1]
 			self.LP_ndlist = [(self.Channels.chan_US_Node[ind1])]
@@ -883,7 +899,37 @@ class ResData():
 			except:
 				QMessageBox.information(iface.mainWindow(),"ERROR", ("Extracting data for node id: " + str(nd)))
 
-
+		#QMessageBox.information(iface.mainWindow(), "DEBUG", "starting pit search")
+		self.pitx = []
+		self.pitz = []
+		self.npits = int(0)
+		for (z, nd) in enumerate(self.LP_ndlist):
+			#QMessageBox.information(iface.mainWindow(), "DEBUG", "node = " + nd)
+			indN = self.nodes.node_name.index(nd)
+			#QMessageBox.information(iface.mainWindow(), "DEBUG", "type(ind) = " + str(type(ind)))
+			#QMessageBox.information(iface.mainWindow(), "DEBUG", "ind = " + str(indN))
+			nchan = self.nodes.node_nChan[indN]
+			#QMessageBox.information(iface.mainWindow(), "DEBUG", "nchan = " + str(nchan))
+			for i in range(nchan):
+				#QMessageBox.information(iface.mainWindow(), "DEBUG", "i = " + str(i))
+				chanlist = self.nodes.node_channels[indN]
+				chan = chanlist[i]
+				#QMessageBox.information(iface.mainWindow(), "DEBUG", "chan = " + str(chan))
+				indC = self.Channels.chan_name.index(chan)
+				#QMessageBox.information(iface.mainWindow(), "DEBUG", "indC = " + str(indC))
+				usC = self.Channels.chan_US_Chan[indC]
+				dsC = self.Channels.chan_DS_Chan[indC]
+				#QMessageBox.information(iface.mainWindow(), "DEBUG", "us = " + usC+" ds = "+dsC)
+				if usC == "------" and dsC == "------":
+					#QMessageBox.information(iface.mainWindow(), "DEBUG", "found pit chan = " + chan)
+					self.pitx.append(self.LP_xval[z])
+					self.pitz.append(self.Channels.chan_US_Inv[indC])
+					self.npits = self.npits + 1
+					
+			#except:
+			#	QMessageBox.information(iface.mainWindow(), "Error ", "Error = " + nd)
+		#QMessageBox.information(iface.mainWindow(), "DEBUG", "n pits = " + str(self.npits))
+		
 		# get long profile elevations:
 		#QMessageBox.information(iface.mainWindow(), "DEBUG", "extracting LP info.")
 		self.LP_bed = []

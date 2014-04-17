@@ -19,7 +19,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2014-04-AC (QGIS 2.x)'
+build_vers = '2014-04-AE (QGIS 2.x)'
 
 # Import the PyQt and QGIS libraries
 from PyQt4.QtCore import *
@@ -99,7 +99,7 @@ class tuflowqgis_menu:
 		self.view_1d_results_action = QAction(icon, "View 1D results", self.iface.mainWindow())
 		QObject.connect(self.view_1d_results_action, SIGNAL("triggered()"), self.results_1d)
 		self.visualisation_menu.addAction(self.view_1d_results_action)
-
+	
 		# Phil Ryan - Have commented this out, it is used to tie in with external 1D viewer
 		#icon = QIcon(os.path.dirname(__file__) + "/icons/results.png")
 		#self.view_1d_iface_action = QAction(icon, "View 1D results (external)", self.iface.mainWindow())
@@ -179,7 +179,7 @@ class tuflowqgis_menu:
 		self.resdock = TUFLOW_Res_Dock(self.iface)
 		self.iface.addDockWidget( Qt.RightDockWidgetArea, self.resdock)
 			#self.resdockOpened = True
-
+		
 	def view_1d_xs(self):
 		#QMessageBox.critical(self.iface.mainWindow(), "Info", "Not yet implemented!")
 		#QMessageBox.information(self.iface.mainWindow(), "debug", "entering view_1d_xs")
