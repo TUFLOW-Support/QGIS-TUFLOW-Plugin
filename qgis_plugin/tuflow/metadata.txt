@@ -22,8 +22,8 @@ email=support@tuflow.com
 tags=TUFLOW	
 
 homepage=www.tuflow.com
-tracker=
-repository=
+tracker=https://github.com/TUFLOW-Support/QGIS-TUFLOW-Plugin/issues
+repository=https://github.com/TUFLOW-Support/QGIS-TUFLOW-Plugin
 icon=tuflow.png
 # experimental flag
 experimental=True
