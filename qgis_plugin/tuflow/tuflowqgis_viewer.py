@@ -339,7 +339,7 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 		self.artists = []
 		labels = []
 		
-		fig = Figure( (1.0, 1.0), linewidth=0.0, subplotpars = matplotlib.figure.SubplotParams(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0))
+		fig = Figure( (1.0, 1.0), linewidth=0.0, subplotpars = matplotlib.figure.SubplotParams(left=0.125, bottom=0.1, right=0.9, top=0.9, wspace=0, hspace=0))
 			
 		font = {'family' : 'arial', 'weight' : 'normal', 'size'   : 12}
 		
@@ -357,7 +357,9 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 		self.plotWdg = canvas
 		
 		self.gridLayout.addWidget(self.plotWdg)
-		mpltoolbar = matplotlib.backends.backend_qt4agg.NavigationToolbar2QTAgg(self.plotWdg, self.frame_for_plot)
+		mpltoolbar = matplotlib.backends.backend_qt4agg.NavigationToolbar2QTAgg(self.plotWdg, self.frame_for_toolbar)
+		lstActions = mpltoolbar.actions()
+		mpltoolbar.removeAction( lstActions[ 7 ] ) #remove customise subplot
 			
 		#create curve
 		label = "test"

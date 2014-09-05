@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>734</width>
-    <height>533</height>
+    <width>952</width>
+    <height>591</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -79,8 +79,8 @@
               </property>
               <property name="maximumSize">
                <size>
-                <width>300</width>
-                <height>150</height>
+                <width>250</width>
+                <height>40</height>
                </size>
               </property>
               <property name="selectionMode">
@@ -89,96 +89,159 @@
              </widget>
             </item>
             <item>
-             <layout class="QHBoxLayout" name="horizontalLayout">
-              <property name="spacing">
-               <number>6</number>
+             <widget class="QGroupBox" name="Control">
+              <property name="minimumSize">
+               <size>
+                <width>10</width>
+                <height>60</height>
+               </size>
               </property>
-              <property name="sizeConstraint">
-               <enum>QLayout::SetNoConstraint</enum>
+              <property name="maximumSize">
+               <size>
+                <width>250</width>
+                <height>16777215</height>
+               </size>
               </property>
-              <item>
-               <widget class="QPushButton" name="AddRes">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>10</width>
-                  <height>20</height>
-                 </size>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>100</width>
-                  <height>16777215</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Add Results</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="CloseRes">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>10</width>
-                  <height>20</height>
-                 </size>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>100</width>
-                  <height>16777215</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Close Results</string>
-                </property>
-                <property name="autoRepeat">
-                 <bool>false</bool>
-                </property>
-                <property name="autoDefault">
-                 <bool>false</bool>
-                </property>
-                <property name="default">
-                 <bool>false</bool>
-                </property>
-                <property name="flat">
-                 <bool>false</bool>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="pbAnimateLP">
-                <property name="text">
-                 <string>Animate LP</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QCheckBox" name="cbShowLegend">
-                <property name="maximumSize">
-                 <size>
-                  <width>100</width>
-                  <height>16777215</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Show Legend</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
+              <property name="title">
+               <string>Control</string>
+              </property>
+              <widget class="QPushButton" name="CloseRes">
+               <property name="geometry">
+                <rect>
+                 <x>110</x>
+                 <y>14</y>
+                 <width>80</width>
+                 <height>20</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>50</width>
+                 <height>20</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>80</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Close Results</string>
+               </property>
+               <property name="autoRepeat">
+                <bool>false</bool>
+               </property>
+               <property name="autoDefault">
+                <bool>false</bool>
+               </property>
+               <property name="default">
+                <bool>false</bool>
+               </property>
+               <property name="flat">
+                <bool>false</bool>
+               </property>
+              </widget>
+              <widget class="QPushButton" name="AddRes">
+               <property name="geometry">
+                <rect>
+                 <x>9</x>
+                 <y>13</y>
+                 <width>80</width>
+                 <height>20</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>50</width>
+                 <height>20</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>80</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Add Results</string>
+               </property>
+              </widget>
+              <widget class="QPushButton" name="pbAnimateLP">
+               <property name="geometry">
+                <rect>
+                 <x>9</x>
+                 <y>37</y>
+                 <width>80</width>
+                 <height>20</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>50</width>
+                 <height>20</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>80</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Animate LP</string>
+               </property>
+              </widget>
+              <widget class="QCheckBox" name="cbShowLegend">
+               <property name="geometry">
+                <rect>
+                 <x>114</x>
+                 <y>38</y>
+                 <width>100</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>80</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>100</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Show Legend</string>
+               </property>
+              </widget>
+             </widget>
             </item>
             <item>
              <widget class="QLabel" name="label2">
@@ -197,8 +260,8 @@
              <widget class="QComboBox" name="sourcelayer">
               <property name="maximumSize">
                <size>
-                <width>300</width>
-                <height>16777215</height>
+                <width>250</width>
+                <height>20</height>
                </size>
               </property>
              </widget>
@@ -220,8 +283,8 @@
              <widget class="QComboBox" name="locationDrop">
               <property name="maximumSize">
                <size>
-                <width>300</width>
-                <height>16777215</height>
+                <width>250</width>
+                <height>20</height>
                </size>
               </property>
              </widget>
@@ -250,13 +313,13 @@
               <property name="minimumSize">
                <size>
                 <width>10</width>
-                <height>10</height>
+                <height>20</height>
                </size>
               </property>
               <property name="maximumSize">
                <size>
-                <width>300</width>
-                <height>150</height>
+                <width>250</width>
+                <height>60</height>
                </size>
               </property>
               <property name="selectionMode">
@@ -287,7 +350,7 @@
               </property>
               <property name="maximumSize">
                <size>
-                <width>300</width>
+                <width>250</width>
                 <height>16777215</height>
                </size>
               </property>
@@ -313,7 +376,7 @@
               </property>
               <property name="maximumSize">
                <size>
-                <width>300</width>
+                <width>250</width>
                 <height>16777215</height>
                </size>
               </property>
@@ -331,18 +394,56 @@
                 <verstretch>0</verstretch>
                </sizepolicy>
               </property>
+              <property name="minimumSize">
+               <size>
+                <width>150</width>
+                <height>0</height>
+               </size>
+              </property>
               <property name="frameShape">
                <enum>QFrame::StyledPanel</enum>
               </property>
               <property name="frameShadow">
                <enum>QFrame::Raised</enum>
               </property>
-              <layout class="QVBoxLayout" name="verticalLayout_9"/>
+              <layout class="QVBoxLayout" name="verticalLayout_9">
+               <property name="rightMargin">
+                <number>9</number>
+               </property>
+              </layout>
              </widget>
             </item>
            </layout>
           </item>
          </layout>
+        </item>
+        <item row="2" column="0">
+         <widget class="QFrame" name="frame_for_toolbar">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>300</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>20</height>
+           </size>
+          </property>
+          <property name="frameShape">
+           <enum>QFrame::StyledPanel</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Raised</enum>
+          </property>
+         </widget>
         </item>
        </layout>
       </widget>
