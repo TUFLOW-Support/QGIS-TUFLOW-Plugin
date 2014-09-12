@@ -26,13 +26,17 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 		self.selected_layer = None
 		self.IDs = []
 		self.showIt()		
+		self.cLayer = self.canvas.currentLayer()
+		self.layerChanged(self.cLayer)
 
 		# Connect signals and slots
 		QObject.connect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layerChanged)
 		QObject.connect(self.pbClearSelection, SIGNAL("clicked()"), self.clear_selection)
 		QObject.connect(self.pbLoadAll, SIGNAL("clicked()"), self.load_all)
+		QObject.connect(self.pbClearStatus, SIGNAL("clicked()"), self.clear_status)
 		QObject.connect(self.cbDeactivate, SIGNAL("stateChanged(int)"), self.deactivate_changed)
 		QObject.connect(self, SIGNAL("visibilityChanged(bool)"), self.visChanged)
+		
 		
 		
 	def __del__(self):
@@ -41,6 +45,7 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 		QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layerChanged)
 		QObject.disconnect(self.pbClearSelection, SIGNAL("clicked()"), self.clear_selection)
 		QObject.disconnect(self.pbLoadAll, SIGNAL("clicked()"), self.load_all)
+		QObject.disconnect(self.pbClearStatus, SIGNAL("clicked()"), self.clear_status)
 		QObject.disconnect(self.cbDeactivate, SIGNAL("stateChanged(int)"), self.deactivate_changed)
 		QObject.disconnect(self, SIGNAL("visibilityChanged(bool)"), self.visChanged)
 	
@@ -57,7 +62,9 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 		QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layerChanged)
 		QObject.disconnect(self.pbClearSelection, SIGNAL("clicked()"), self.clear_selection)
 		QObject.disconnect(self.pbLoadAll, SIGNAL("clicked()"), self.load_all)
+		QObject.disconnect(self.pbClearStatus, SIGNAL("clicked()"), self.clear_status)
 		QObject.disconnect(self, SIGNAL("visibilityChanged(bool)"), self.visChanged)
+		self.lwStatus.insertItem(0,'Disconnected')
         
 	def refresh(self):
 		"""
@@ -68,6 +75,7 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 		self.cLayer = self.canvas.currentLayer()
 		self.layerChanged(self.cLayer)
 		self.select_changed()
+		
 
 
 	def load_all(self):
@@ -75,6 +83,14 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 			Load all cross-sections from files
 		"""
 		QMessageBox.information(self.iface.mainWindow(), "DEBUG", "The aim is to load all data from the .csv files here and store...")
+		
+	def clear_status(self):
+		"""
+			Clears the status list wdiget
+		"""
+		QMessageBox.information(self.iface.mainWindow(), "Information", "Clearing the status list above.")
+		self.lwStatus.clear()
+		self.lwStatus.insertItem(0,'Status cleared')
 
 	def deactivate_changed(self):
 		"""
@@ -83,9 +99,11 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Deactivate has been toggled")
 		
 		if (self.cbDeactivate.isChecked()):
+			self.lwStatus.insertItem(0,'Viewer deactivated')
 			QMessageBox.information(self.iface.mainWindow(), "Information", "Deactivate Enabled")
 			QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layerChanged)
 			QObject.disconnect(self.pbClearSelection, SIGNAL("clicked()"), self.clear_selection)
+			QObject.disconnect(self.pbClearStatus, SIGNAL("clicked()"), self.clear_status)
 			QObject.disconnect(self.pbLoadAll, SIGNAL("clicked()"), self.load_all)
 			try:
 				#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "selectionChanged disconnect")
@@ -93,9 +111,11 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 			except:
 				QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Issue disconnecting selection.")
 		else:
+			self.lwStatus.insertItem(0,'Viewer re-activated')
 			QObject.connect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layerChanged)
 			QObject.connect(self.pbClearSelection, SIGNAL("clicked()"), self.clear_selection)
 			QObject.connect(self.pbLoadAll, SIGNAL("clicked()"), self.load_all)
+			QObject.connect(self.pbClearStatus, SIGNAL("clicked()"), self.clear_status)
 			if self.cLayer:
 				self.layerChanged(self.cLayer)
 			
@@ -110,6 +130,7 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 			Layer has been changed in TOC
 		"""
 		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "layer has been changed, need to check if this is 1d_xs format")
+		self.lwStatus.insertItem(0,'Layer Changed')
 		self.cLayer = self.canvas.currentLayer()
 		
 		self.lvXSID.clear()
@@ -120,7 +141,7 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 			if (GType == QGis.WKBPoint) or (GType == QGis.WKBLineString):
 				valid = True
 			elif (GType == QGis.WKBPolygon):
-				message = "Not expecting polygon data here"
+				message = "Not expecting polygon data"
 			else:
 				message = "Expecting points or lines for 1d_tab format"
 		else:
@@ -137,10 +158,12 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 			if (dp.fieldNameIndex('Flags') != 2):
 				xs_format = False
 		else:
-			QMessageBox.information(self.iface.mainWindow(), "1D XS Viewer", "Message: "+message)
+			#QMessageBox.information(self.iface.mainWindow(), "1D XS Viewer", "Message: "+message)
+			self.lwStatus.insertItem(0,'Message: '+message)
 		
 		if (xs_format != True):
-			QMessageBox.information(self.iface.mainWindow(), "1D XS Viewer", "Selected layer is not a 1d_xs layer. ")
+			#QMessageBox.information(self.iface.mainWindow(), "1D XS Viewer", "Selected layer is not a 1d_xs layer. ")
+			self.lwStatus.insertItem(0,'Selected layer is not a 1d_xs layer.')
 			
 		if self.handler:
 			QObject.disconnect(self.selected_layer, SIGNAL("selectionChanged()"),self.select_changed)
@@ -152,6 +175,7 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 				self.selected_layer = layer
 
 	def select_changed(self):
+		self.lwStatus.insertItem(0,'Selection Changed')
 		self.cLayer = self.canvas.currentLayer()
 		dp = self.cLayer.dataProvider()
 		ds = dp.dataSourceUri()
@@ -223,17 +247,18 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 		self.artists = []
 		labels = []
 		
-		fig = Figure( (1.0, 1.0), linewidth=0.0, subplotpars = matplotlib.figure.SubplotParams(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0))
+		self.fig = Figure( (1.0, 1.0), linewidth=0.0, subplotpars = matplotlib.figure.SubplotParams(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0))
 			
 		font = {'family' : 'arial', 'weight' : 'normal', 'size'   : 12}
 		
-		rect = fig.patch
+		rect = self.fig.patch
 		rect.set_facecolor((0.9,0.9,0.9))
-		self.subplot = fig.add_axes((0.10, 0.15, 0.85,0.82))
+		self.subplot = self.fig.add_axes((0.10, 0.15, 0.85,0.82))
 		self.subplot.set_xbound(0,1000)
 		self.subplot.set_ybound(0,1000)			
 		self.manageMatplotlibAxe(self.subplot)
-		canvas = FigureCanvasQTAgg(fig)
+		#self.subplot2 = self.subplot.twinx()
+		canvas = FigureCanvasQTAgg(self.fig)
 		sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 		sizePolicy.setHorizontalStretch(0)
 		sizePolicy.setVerticalStretch(0)
@@ -241,7 +266,9 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 		self.plotWdg = canvas
 		
 		self.gridLayout.addWidget(self.plotWdg)
-		#mpltoolbar = matplotlib.backends.backend_qt4agg.NavigationToolbar2QTAgg(self.plotWdg, self.frame_for_plot)
+		mpltoolbar = matplotlib.backends.backend_qt4agg.NavigationToolbar2QTAgg(self.plotWdg, self.frame_for_toolbar)
+		lstActions = mpltoolbar.actions()
+		mpltoolbar.removeAction( lstActions[ 7 ] ) #remove customise sub-plot
 			
 		#create curve
 		label = "test"
@@ -261,12 +288,18 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 	
 	def draw_figure(self):
 		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "draw_figure()")
+		self.lwStatus.insertItem(0,'Updating Figure')
 		self.subplot.clear()
+		try:
+			self.axis2.clear()
+		except:
+			self.ax2_exists = False
 		xmin=0.0
 		xmax=0.0
 		ymin=0.0
 		ymax=0.0
-
+		mmin=0.0
+		mmax=0.0
 		self.artists = []
 		labels = []
 		
@@ -274,6 +307,34 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 		reslist = []
 		resnames = []
 		nXS = len(self.xsdata)
+		
+		# work out if we need dual y axis plot
+		dual_axis = False
+		if (self.cbRoughness.isChecked()): # if not checked not dual axis needed
+			#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "CB is checked")
+			for xs in self.xsdata:
+				if xs.flags:
+					#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Dual axis figure needed...")
+					dual_axis = True
+					if self.ax2_exists == False:
+						#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Dual axis doesn't exist yet")
+						self.axis2 = self.subplot.twinx()
+						self.ax2_exists = True
+					#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Dual axis created")
+		
+		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Dual axis delete 1")
+		
+		if dual_axis == False and self.ax2_exists == True: #axis 2 exists and shouldn't
+			#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Need to delete axis")
+			try:
+				#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "before del")
+				self.fig.delaxes(self.axis2)
+				#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "after del")
+				self.ax2_exists = False
+				#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Axis deleted")
+			except:
+				QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Error deleting axis2")
+				
 		for xs in self.xsdata:
 			xmin=round(min(xs.x), 0) - 1
 			xmax=round(max(xs.x), 0) + 1
@@ -286,8 +347,14 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 			self.artists.append(a)
 			labels.append(label)
 			self.subplot.hold(True)
-
-
+			if dual_axis and xs.flags:
+				#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Dual axis stuff")
+				a2, = self.axis2.plot(xs.x, xs.mat, '--')
+				mmin=round(min(xs.mat), 0) - 1
+				mmax=round(max(xs.mat), 0) + 1
+				self.axis2.set_xbound(lower=xmin, upper=xmax)				
+				self.axis2.set_ybound(lower=mmin, upper=mmax)
+				self.axis2.set_ylabel('Material or Roughness')
 		self.subplot.set_xlabel('Distance')
 		self.subplot.set_ylabel('Elevation')
 		if self.cbShowLegend.isChecked():
@@ -347,10 +414,22 @@ class XS_Data():
 				c2_ind  = header.index(self.col2)
 			except:
 				QMessageBox.critical(iface.mainWindow(), "WARNING", "Unable to find "+self.col2+ " in header. Using data in column 2")
+		if self.flags:
+			#QMessageBox.critical(iface.mainWindow(), "debug", "looking for additional data")
+			if self.col3 == None:
+				c3_ind = 2
+			else:
+				try:
+					c3_ind  = header.index(self.col3)
+				except:
+					QMessageBox.information(iface.mainWindow(), "WARNING", "Unable to find "+self.col3+ " in header. Using data in column 3")				
 
+		
 		# actually read the data:
+		#QMessageBox.information(iface.mainWindow(), "debug", "col3 index: "+str(c3_ind))
 		self.x = []
 		self.y = []
+		self.mat = []
 		with open(self.fullpath, 'rb') as csvfile:
 			reader = csv.reader(csvfile, delimiter=',', quotechar='"')
 			try:
@@ -360,6 +439,8 @@ class XS_Data():
 					xstr = line[c1_ind]
 					self.x.append(float(line[c1_ind]))
 					self.y.append(float(line[c2_ind]))
+					if self.flags:
+						self.mat.append(float(line[c3_ind]))
 			except:
 				QMessageBox.information(iface.mainWindow(), "Error", "Error reading cross section "+self.fullpath)
 		csvfile.close()

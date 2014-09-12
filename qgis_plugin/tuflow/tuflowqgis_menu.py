@@ -19,7 +19,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2014-09-AA (QGIS 2.x)'
+build_vers = '2014-09-AB (QGIS 2.x)'
 
 # Import the PyQt and QGIS libraries
 from PyQt4.QtCore import *
@@ -100,14 +100,14 @@ class tuflowqgis_menu:
 		QObject.connect(self.view_1d_results_action, SIGNAL("triggered()"), self.results_1d)
 		self.visualisation_menu.addAction(self.view_1d_results_action)
 	
-		# Phil Ryan - Have commented this out, it is used to tie in with external 1D viewer
+		# Phil Ryan - Have commented this out, it is used to tie in with external 1D viewer, which is not required
 		#icon = QIcon(os.path.dirname(__file__) + "/icons/results.png")
 		#self.view_1d_iface_action = QAction(icon, "View 1D results (external)", self.iface.mainWindow())
 		#QObject.connect(self.view_1d_iface_action, SIGNAL("triggered()"), self.results_1d_ext)
 		#self.visualisation_menu.addAction(self.view_1d_iface_action)
 		
 		icon = QIcon(os.path.dirname(__file__) + "/icons/view_xs.png")
-		self.view_1d_xs_action = QAction(icon, "View 1D Section (work in progress)", self.iface.mainWindow())
+		self.view_1d_xs_action = QAction(icon, "View 1D Sections", self.iface.mainWindow())
 		QObject.connect(self.view_1d_xs_action, SIGNAL("triggered()"), self.view_1d_xs)
 		self.visualisation_menu.addAction(self.view_1d_xs_action)
 
@@ -184,7 +184,7 @@ class tuflowqgis_menu:
 		#QMessageBox.critical(self.iface.mainWindow(), "Info", "Not yet implemented!")
 		#QMessageBox.information(self.iface.mainWindow(), "debug", "entering view_1d_xs")
 		if self.xsdockOpened == False:
-			QMessageBox.information(self.iface.mainWindow(), "debug", "starting the cross-section viewer dock widget")
+			#QMessageBox.information(self.iface.mainWindow(), "debug", "starting the cross-section viewer dock widget")
 			self.xsdock = TUFLOW_XS_Dock(self.iface)
 			self.iface.addDockWidget(Qt.RightDockWidgetArea, self.xsdock)
 			self.xsdockOpened == True
