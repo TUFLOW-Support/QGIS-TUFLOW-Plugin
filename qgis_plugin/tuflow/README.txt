@@ -6,11 +6,12 @@
   software to be installed.
 
   To enable please save the .zip file to your QGIS plugin directory and then unzip.  This should be here:
-  C:\Users\<username>\.qgis\python\plugins\ (for QGIS 1.8)
   C:\Users\<username>\.qgis2\python\plugins\ (for QGIS 2.0 and later)
 
   
 2. To use:
+  For more detailed information please see: http://wiki.tuflow.com/index.php?title=TUFLOW_QGIS_Plugin
+  
   When you open QGIS the plugin should load itself. If not, you can enable it from Plugin > Manage and Install plugins window.
   This can be found under Plugins >> TUFLOW
 

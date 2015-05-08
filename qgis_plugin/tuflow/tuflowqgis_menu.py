@@ -19,7 +19,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2014-09-AB (QGIS 2.x)'
+build_vers = '2015-05-AA (QGIS 2.x)'
 
 # Import the PyQt and QGIS libraries
 from PyQt4.QtCore import *
@@ -40,6 +40,7 @@ class tuflowqgis_menu:
 
 	def __init__(self, iface):
 		self.iface = iface
+		self.dockOpened = False
 
 	def initGui(self):
 		# About Submenu
@@ -60,15 +61,16 @@ class tuflowqgis_menu:
 		self.editing_menu = QMenu(QCoreApplication.translate("TUFLOW", "&Editing"))
 		self.iface.addPluginToMenu("&TUFLOW", self.editing_menu.menuAction())
 		
-		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_increment_24px.png")
-		self.configure_tf_action = QAction(icon, "Configure TUFLOW Project", self.iface.mainWindow())
+		#icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_increment_24px.png")
+		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow.png")
+		self.configure_tf_action = QAction(icon, "Configure / Create TUFLOW Project", self.iface.mainWindow())
 		QObject.connect(self.configure_tf_action, SIGNAL("triggered()"), self.configure_tf)
 		self.editing_menu.addAction(self.configure_tf_action)
 		
-		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow.png")
-		self.create_tf_dir_action = QAction(icon, "Create TUFLOW Directory", self.iface.mainWindow())
-		QObject.connect(self.create_tf_dir_action, SIGNAL("triggered()"), self.create_tf_dir)
-		self.editing_menu.addAction(self.create_tf_dir_action)
+		#icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow.png")
+		#self.create_tf_dir_action = QAction(icon, "Create TUFLOW Directory", self.iface.mainWindow())
+		#QObject.connect(self.create_tf_dir_action, SIGNAL("triggered()"), self.create_tf_dir)
+		#self.editing_menu.addAction(self.create_tf_dir_action)
 
 		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_import.png")
 		self.import_empty_tf_action = QAction(icon, "Import Empty File", self.iface.mainWindow())
@@ -96,9 +98,10 @@ class tuflowqgis_menu:
 		self.iface.addPluginToMenu("&TUFLOW", self.visualisation_menu.menuAction())
 		
 		icon = QIcon(os.path.dirname(__file__) + "/icons/results.png")
-		self.view_1d_results_action = QAction(icon, "View 1D results", self.iface.mainWindow())
+		self.view_1d_results_action = QAction(icon, "View 1D / PO results", self.iface.mainWindow())
 		QObject.connect(self.view_1d_results_action, SIGNAL("triggered()"), self.results_1d)
 		self.visualisation_menu.addAction(self.view_1d_results_action)
+		self.iface.addToolBarIcon(self.view_1d_results_action)
 	
 		# Phil Ryan - Have commented this out, it is used to tie in with external 1D viewer, which is not required
 		#icon = QIcon(os.path.dirname(__file__) + "/icons/results.png")
@@ -176,9 +179,27 @@ class tuflowqgis_menu:
 		
 	def results_1d(self):
 		#if self.resdockOpened == False:
-		self.resdock = TUFLOW_Res_Dock(self.iface)
-		self.iface.addDockWidget( Qt.RightDockWidgetArea, self.resdock)
-			#self.resdockOpened = True
+		if self.dockOpened:
+			#QMessageBox.information(self.iface.mainWindow(), "debug", "Show it")
+			self.resdock.qgis_connect()
+			self.resdock.show()
+			self.resdock.layerChanged()
+			
+		else:
+			self.dockOpened = True
+			self.resdock = TUFLOW_Res_Dock(self.iface)
+			self.iface.addDockWidget( Qt.RightDockWidgetArea, self.resdock)
+		#else:
+		#	if self.resdock.dockOpened:
+		#		#QMessageBox.information(self.iface.mainWindow(), "debug", "Dock already open")
+		#		#QMessageBox.information(self.iface.mainWindow(), "debug", "Show it")
+		#		self.resdock.show()
+		#	else:
+		#		QMessageBox.information(self.iface.mainWindow(), "debug", "Dock not open??")
+
+	def cleaning_res(res):
+		QMessageBox.information(self.iface.mainWindow(), "debug", "Dock Closed")
+		self.dockOpened = False
 		
 	def view_1d_xs(self):
 		#QMessageBox.critical(self.iface.mainWindow(), "Info", "Not yet implemented!")

@@ -254,6 +254,7 @@ class TUFLOW_XS_Dock(QDockWidget, Ui_tuflowqgis_1d_xs):
 		rect = self.fig.patch
 		rect.set_facecolor((0.9,0.9,0.9))
 		self.subplot = self.fig.add_axes((0.10, 0.15, 0.85,0.82))
+		#self.subplot = self.fig.add_axes((0.10, 0.15, 0.75,0.82))
 		self.subplot.set_xbound(0,1000)
 		self.subplot.set_ybound(0,1000)			
 		self.manageMatplotlibAxe(self.subplot)

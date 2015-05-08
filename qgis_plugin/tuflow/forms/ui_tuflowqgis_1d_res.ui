@@ -56,6 +56,9 @@
          <layout class="QHBoxLayout" name="_2">
           <item>
            <layout class="QVBoxLayout" name="verticalLayout">
+            <property name="sizeConstraint">
+             <enum>QLayout::SetMaximumSize</enum>
+            </property>
             <item>
              <widget class="QLabel" name="label1">
               <property name="sizePolicy">
@@ -79,7 +82,7 @@
               </property>
               <property name="maximumSize">
                <size>
-                <width>250</width>
+                <width>200</width>
                 <height>40</height>
                </size>
               </property>
@@ -108,8 +111,8 @@
               <widget class="QPushButton" name="CloseRes">
                <property name="geometry">
                 <rect>
-                 <x>110</x>
-                 <y>14</y>
+                 <x>105</x>
+                 <y>13</y>
                  <width>80</width>
                  <height>20</height>
                 </rect>
@@ -151,7 +154,7 @@
               <widget class="QPushButton" name="AddRes">
                <property name="geometry">
                 <rect>
-                 <x>9</x>
+                 <x>10</x>
                  <y>13</y>
                  <width>80</width>
                  <height>20</height>
@@ -179,66 +182,17 @@
                 <string>Add Results</string>
                </property>
               </widget>
-              <widget class="QPushButton" name="pbAnimateLP">
+              <widget class="QPushButton" name="pbAddRes_GIS">
                <property name="geometry">
                 <rect>
-                 <x>9</x>
-                 <y>37</y>
+                 <x>10</x>
+                 <y>36</y>
                  <width>80</width>
                  <height>20</height>
                 </rect>
                </property>
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="minimumSize">
-                <size>
-                 <width>50</width>
-                 <height>20</height>
-                </size>
-               </property>
-               <property name="maximumSize">
-                <size>
-                 <width>80</width>
-                 <height>40</height>
-                </size>
-               </property>
                <property name="text">
-                <string>Animate LP</string>
-               </property>
-              </widget>
-              <widget class="QCheckBox" name="cbShowLegend">
-               <property name="geometry">
-                <rect>
-                 <x>114</x>
-                 <y>38</y>
-                 <width>100</width>
-                 <height>17</height>
-                </rect>
-               </property>
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="minimumSize">
-                <size>
-                 <width>80</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="maximumSize">
-                <size>
-                 <width>100</width>
-                 <height>40</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>Show Legend</string>
+                <string>Add Res + GIS</string>
                </property>
               </widget>
              </widget>
@@ -257,12 +211,15 @@
              </widget>
             </item>
             <item>
-             <widget class="QComboBox" name="sourcelayer">
+             <widget class="QLineEdit" name="leSource">
               <property name="maximumSize">
                <size>
-                <width>250</width>
+                <width>200</width>
                 <height>20</height>
                </size>
+              </property>
+              <property name="readOnly">
+               <bool>true</bool>
               </property>
              </widget>
             </item>
@@ -275,7 +232,7 @@
                </size>
               </property>
               <property name="text">
-               <string>Location Type</string>
+               <string>Plot Type</string>
               </property>
              </widget>
             </item>
@@ -283,49 +240,168 @@
              <widget class="QComboBox" name="locationDrop">
               <property name="maximumSize">
                <size>
-                <width>250</width>
+                <width>200</width>
                 <height>20</height>
                </size>
               </property>
              </widget>
             </item>
             <item>
-             <widget class="QLabel" name="label4">
-              <property name="maximumSize">
-               <size>
-                <width>300</width>
-                <height>16777215</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Results Type</string>
-              </property>
-             </widget>
+             <layout class="QHBoxLayout" name="horizontalLayout_2">
+              <item>
+               <widget class="QLabel" name="label4">
+                <property name="maximumSize">
+                 <size>
+                  <width>300</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Results Type</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QCheckBox" name="cb2ndAxis">
+                <property name="text">
+                 <string>Use Second Axis</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </item>
             <item>
-             <widget class="QListWidget" name="ResTypeList">
+             <layout class="QHBoxLayout" name="horizontalLayout">
+              <item>
+               <widget class="QListWidget" name="ResTypeList">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>10</width>
+                  <height>60</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>125</width>
+                  <height>150</height>
+                 </size>
+                </property>
+                <property name="selectionMode">
+                 <enum>QAbstractItemView::ExtendedSelection</enum>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QListWidget" name="ResTypeList_ax2">
+                <property name="maximumSize">
+                 <size>
+                  <width>75</width>
+                  <height>150</height>
+                 </size>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="QPushButton" name="pbAnimateLP">
               <property name="sizePolicy">
-               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
               </property>
               <property name="minimumSize">
                <size>
-                <width>10</width>
+                <width>50</width>
                 <height>20</height>
                </size>
               </property>
               <property name="maximumSize">
                <size>
-                <width>250</width>
-                <height>60</height>
+                <width>80</width>
+                <height>40</height>
                </size>
               </property>
-              <property name="selectionMode">
-               <enum>QAbstractItemView::ExtendedSelection</enum>
+              <property name="text">
+               <string>Animate LP</string>
               </property>
              </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="label6">
+              <property name="text">
+               <string>Time (Long Profile Only)</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QListWidget" name="listTime">
+              <property name="minimumSize">
+               <size>
+                <width>10</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>200</width>
+                <height>16777215</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout_2">
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_3">
+              <item>
+               <widget class="QCheckBox" name="cbShowLegend">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>80</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>100</width>
+                  <height>40</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Show Legend</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QCheckBox" name="cbDeactivate">
+                <property name="maximumSize">
+                 <size>
+                  <width>100</width>
+                  <height>40</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Deactivate Viewer</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </item>
             <item>
              <widget class="QLabel" name="label5">
@@ -350,8 +426,8 @@
               </property>
               <property name="maximumSize">
                <size>
-                <width>250</width>
-                <height>16777215</height>
+                <width>200</width>
+                <height>160</height>
                </size>
               </property>
               <property name="selectionMode">
@@ -360,25 +436,32 @@
              </widget>
             </item>
             <item>
-             <widget class="QLabel" name="label6">
+             <widget class="QLabel" name="label">
               <property name="text">
-               <string>Time (Long Profile Only)</string>
+               <string>Status Dialogue</string>
               </property>
              </widget>
             </item>
             <item>
-             <widget class="QListWidget" name="listTime">
-              <property name="minimumSize">
-               <size>
-                <width>10</width>
-                <height>0</height>
-               </size>
-              </property>
+             <widget class="QListWidget" name="lwStatus">
               <property name="maximumSize">
                <size>
-                <width>250</width>
+                <width>200</width>
                 <height>16777215</height>
                </size>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="pbClearStatus">
+              <property name="maximumSize">
+               <size>
+                <width>200</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Clear Status</string>
               </property>
              </widget>
             </item>
@@ -410,6 +493,13 @@
                <property name="rightMargin">
                 <number>9</number>
                </property>
+               <item>
+                <widget class="QPushButton" name="pbUpdate">
+                 <property name="text">
+                  <string>UPDATE PLOT</string>
+                 </property>
+                </widget>
+               </item>
               </layout>
              </widget>
             </item>

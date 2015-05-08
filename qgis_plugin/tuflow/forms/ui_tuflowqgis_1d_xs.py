@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ui_tuflowqgis_1d_xs.ui'
 #
-# Created: Fri Sep 12 14:28:44 2014
+# Created: Fri May 08 12:43:29 2015
 #      by: PyQt4 UI code generator 4.11.1
 #
 # WARNING! All changes made in this file will be lost!

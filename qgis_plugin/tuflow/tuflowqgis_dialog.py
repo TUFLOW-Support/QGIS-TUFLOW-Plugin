@@ -99,119 +99,35 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		QgsMapLayerRegistry.instance().removeMapLayer(layer.id())
 		self.iface.addVectorLayer(savename, os.path.basename(savename), "ogr")
 
-# ----------------------------------------------------------
-#    tuflowqgis create tuflow directory structure
-# ----------------------------------------------------------
-from ui_tuflowqgis_create_tf_dir import *		
-class tuflowqgis_create_tf_dir_dialog(QDialog, Ui_tuflowqgis_create_tf_dir):
-	def __init__(self, iface, project):
-		QDialog.__init__(self)
-		self.iface = iface
-		self.setupUi(self)
-		self.canvas = self.iface.mapCanvas()
-		cLayer = self.canvas.currentLayer()
-		fname = ''
-		message, tffolder, tfexe, tf_prj = load_project(project)
-		if message != None:
-			QMessageBox.critical( self.iface.mainWindow(),"Error", message)
-		self.outdir.setText(tffolder)
-		self.TUFLOW_exe.setText(tfexe)
-		self.sourceCRS.setText(tf_prj)
-		try:
-			self.exefolder = os.path.dirname(tfexe)
-		except:
-			self.exefolder = ''
-		
-		i = 0
-		if tf_prj != "Undefined":
-			self.sourcelayer.addItem("Use saved projection")
-			cLayer = False
-			self.sourcelayer.setCurrentIndex(0)
-		for name, layer in QgsMapLayerRegistry.instance().mapLayers().iteritems():
-			if layer.type() == QgsMapLayer.VectorLayer:
-				self.sourcelayer.addItem(layer.name())
-				if cLayer:
-					if layer.name() == cLayer.name():
-						self.sourcelayer.setCurrentIndex(i)
-				i = i + 1
-		if i == 0:
-			QMessageBox.critical(self.iface.mainWindow(), "Setting Projection", "No vector data open, a shapefile is required for setting the model projection. \nPlease open or create a file in the desired projection.")
-			
-			#else:
-			#	QMessageBox.warning(self.iface.mainWindow(), "Setting Projection", "No layer selected, a shapefile is required for setting the model projection.")
-		QObject.connect(self.browseoutfile, SIGNAL("clicked()"), self.browse_outdir)
-		QObject.connect(self.browseexe, SIGNAL("clicked()"), self.browse_exe)
-		QObject.connect(self.sourcelayer, SIGNAL("currentIndexChanged(int)"), self.layer_changed)
-		QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
 
-	def browse_outdir(self):
-		newname = QFileDialog.getExistingDirectory(None, "Output Directory")
-		if newname != None:
-			self.outdir.setText(newname)
-	
-	def browse_exe(self):
-	
-		# Get the file name
-		inFileName = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Select TUFLOW exe', self.exefolder, "TUFLOW Executable (*.exe)")
-		inFileName = str(inFileName)
-		if len(inFileName) == 0: # If the length is 0 the user pressed cancel 
-			return
-		# Store the exe location and path we just looked in
-		self.exe = inFileName
-		self.settings.setValue("TUFLOW_Create_Dir/exe", inFileName)
-		self.TUFLOW_exe.setText(inFileName)
-		head, tail = os.path.split(inFileName)
-		if head <> os.sep and head.lower() <> 'c:\\' and head <> '':
-			self.settings.setValue("TUFLOW_Create_Dir/exeDir", head)
-
-	def layer_changed(self):
-		layername = unicode(self.sourcelayer.currentText()) 
-		layer = tuflowqgis_find_layer(layername)
-		crs = layer.crs()
-		crs_id = crs.authid()
-		crs_prj = crs.toProj4()
-		self.sourceCRS.setText(crs_prj)
-	def run(self):
-		layername = unicode(self.sourcelayer.currentText())
-		basedir = unicode(self.outdir.displayText()).strip()
-		tfexe = unicode(self.TUFLOW_exe.displayText()).strip()
-		tf_prj = unicode(self.sourceCRS.displayText()).strip()
-		if layername == "Use saved projection":
-			crs = QgsCoordinateReferenceSystem()
-			crs.createFromProj4(tf_prj)
-		else:
-			layer = tuflowqgis_find_layer(layername)
-			crs = layer.crs()
-
-		
-		QMessageBox.information( self.iface.mainWindow(),"Creating TUFLOW directory", basedir)
-		
-		message = tuflowqgis_create_tf_dir(self.iface, crs, basedir)
-		if message <> None:
-			QMessageBox.critical(self.iface.mainWindow(), "Creating TUFLOW Directory", message)
-		if (self.checkBox.isChecked()):
-			tcf = os.path.join(basedir+"\\TUFLOW\\runs\\Create_Empties.tcf")
-			message = run_tuflow(self.iface, tfexe, tcf)
-			if message <> None:
-				QMessageBox.critical(self.iface.mainWindow(), "Running TUFLOW", message)
 # ----------------------------------------------------------
 #    tuflowqgis import empty tuflow files
 # ----------------------------------------------------------
 from ui_tuflowqgis_import_empties import *
+from tuflowqgis_settings import TF_Settings
 class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 	def __init__(self, iface, project):
 		QDialog.__init__(self)
 		self.iface = iface
 		self.setupUi(self)
-
-		message, tffolder, tfexe, tf_prj = load_project(project)
-		if message != None:
-			QMessageBox.critical( self.iface.mainWindow(),"Error", message)
+		self.settings = TF_Settings()
+		
+		# load stored settings
+		error, message = self.settings.Load()
+		if error:
+			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Settings: "+message)
+		
+		#QMessageBox.information( self.iface.mainWindow(),"debug", "project: "+str(self.settings.project_settings.base_dir))
+		#QMessageBox.information( self.iface.mainWindow(),"debug", "global: "+str(self.settings.global_settings.base_dir))
+		#QMessageBox.information( self.iface.mainWindow(),"debug", "combined: "+str(self.settings.combined.base_dir))
 		
 		QObject.connect(self.browsedir, SIGNAL("clicked()"), self.browse_empty_dir)
 		QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
 
-		self.emptydir.setText(tffolder+"\\TUFLOW\\model\\gis\\empty")
+		if self.settings.combined.base_dir:
+			self.emptydir.setText(self.settings.combined.base_dir+"\\TUFLOW\\model\\gis\\empty")
+		else:
+			self.emptydir.setText("ERROR - Project not loaded")
 
 	def browse_empty_dir(self):
 		newname = QFileDialog.getExistingDirectory(None, "Output Directory")
@@ -539,43 +455,76 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 #    tuflowqgis configure tuflow project
 # ----------------------------------------------------------
 from ui_tuflowqgis_configure_tuflow_project import *		
+from tuflowqgis_settings import TF_Settings
+from qgis.gui import QgsGenericProjectionSelector
 class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 	def __init__(self, iface, project):
 		QDialog.__init__(self)
 		self.iface = iface
 		self.setupUi(self)
 		self.canvas = self.iface.mapCanvas()
-		self.project = project
+		#self.project = project
 		cLayer = self.canvas.currentLayer()
+		self.settings = TF_Settings()
+		self.crs = None
 		fname = ''
-		message, tffolder, tfexe, tf_prj = load_project(self.project)
+		#message, tffolder, tfexe, tf_prj = load_project(self.project)
 		#dont give error here as it may be the first occurence
 		#if message != None:
 		#	QMessageBox.critical( self.iface.mainWindow(),"Error", message)
 		
-		self.outdir.setText(tffolder)
-		self.TUFLOW_exe.setText(tfexe)
-		self.sourceCRS.setText(tf_prj)
+		# load global settings
+		#QMessageBox.information( self.iface.mainWindow(),"debug", "loading gloabal settings")
+		error, message = self.settings.Load()
+		if error:
+			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Global Settings: "+message)
+		
+		#set fields
+		if self.settings.project_settings.base_dir:
+			self.outdir.setText(self.settings.project_settings.base_dir)
+		elif self.settings.global_settings.base_dir:
+			self.outdir.setText(self.settings.global_settings.base_dir)
+		else:
+			self.outdir.setText("Not Yet Set")
+		
+		if self.settings.project_settings.tf_exe:
+			self.TUFLOW_exe.setText(self.settings.project_settings.tf_exe)
+		elif self.settings.global_settings.tf_exe:
+			self.TUFLOW_exe.setText(self.settings.global_settings.tf_exe)
+		else:
+			self.TUFLOW_exe.setText("Not Yet Set")
 
-		if tf_prj == "Undefined":
+		if self.settings.project_settings.CRS_ID:
+			self.form_crsID.setText(self.settings.project_settings.CRS_ID)
+			self.crs = QgsCoordinateReferenceSystem()
+			success = self.crs.createFromString(self.settings.project_settings.CRS_ID)
+			if success:
+				self.crsDesc.setText(self.crs.description())
+		elif self.settings.global_settings.CRS_ID:
+			self.form_crsID.setText(self.settings.global_settings.CRS_ID)
+			self.crs = QgsCoordinateReferenceSystem()
+			success = self.crs.createFromString(self.settings.global_settings.CRS_ID)
+			if success:
+				self.crsDesc.setText(self.crs.description())
+		else:
+			#self.form_crsID.setText("Not Yet Set")
 			if cLayer:
 				cName = cLayer.name()
-				crs = cLayer.crs()
-				crs_id = crs.authid()
-				crs_prj = crs.toProj4()
-				self.sourceCRS.setText(crs_prj)
+				self.crs = cLayer.crs()
+				self.form_crsID.setText(self.crs.authid())
+				self.crsDesc.setText(self.crs.description())
+			else:
+				self.crsDesc.setText("Please select CRS")
+				self.form_crsID.setText("Please select CRS")
+				self.crs = None
 
-		QObject.connect(self.browseoutfile, SIGNAL("clicked()"), self.browse_outdir)
-		QObject.connect(self.browseexe, SIGNAL("clicked()"), self.browse_exe)
-		QObject.connect(self.sourcelayer, SIGNAL("currentIndexChanged(int)"), self.layer_changed)
-		QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
-		
-
-		i = 0
-		if tf_prj != "Undefined":
+		if self.crs:
 			self.sourcelayer.addItem("Use saved projection")
 			cLayer = False
 			self.sourcelayer.setCurrentIndex(0)
+		
+		#add vector data as options in dropbox
+		i = 0
 		for name, layer in QgsMapLayerRegistry.instance().mapLayers().iteritems():
 			if layer.type() == QgsMapLayer.VectorLayer:
 				self.sourcelayer.addItem(layer.name())
@@ -584,7 +533,18 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 						self.sourcelayer.setCurrentIndex(i)
 				i = i + 1
 		if i == 0:
-			QMessageBox.critical(self.iface.mainWindow(), "Setting Projection", "No vector data open, a shapefile is required for setting the model projection. \nPlease open or create a file in the desired projection.")
+			self.sourcelayer.addItem("No Vector Data Open - use Set CRS Below")				
+		
+
+		QObject.connect(self.browseoutfile, SIGNAL("clicked()"), self.browse_outdir)
+		QObject.connect(self.browseexe, SIGNAL("clicked()"), self.browse_exe)
+		QObject.connect(self.pbSelectCRS, SIGNAL("clicked()"), self.select_CRS)
+		QObject.connect(self.sourcelayer, SIGNAL("currentIndexChanged(int)"), self.layer_changed)
+		QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
+		
+
+
+			#QMessageBox.critical(self.iface.mainWindow(), "Setting Projection", "No vector data open, a shapefile is required for setting the model projection. \nPlease open or create a file in the desired projection.")
 
 
 	def browse_outdir(self):
@@ -594,38 +554,90 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 			#self.outdir.setText(QString(newname))
 			self.outdir.setText(newname)
 	
+	def select_CRS(self):
+		#QMessageBox.information( self.iface.mainWindow(),"debug", "Opening Projection Selector")
+		projSelector = QgsGenericProjectionSelector()
+		projSelector.exec_()
+		try:
+			authid = projSelector.selectedAuthId()
+			self.crs = QgsCoordinateReferenceSystem()
+			success = self.crs.createFromString(authid)
+			if not success:
+				self.crs = None
+			else:
+				self.crsDesc.setText(self.crs.description())
+				self.form_crsID.setText(authid)
+		except:
+			self.crs = None
 	def browse_exe(self):
 	
+		#get last used dir
+		last_exe = self.settings.get_last_exe()			
+		if last_exe:
+			last_dir, tail = os.path.split(last_exe)
+		else:
+			last_dir = ''
+			
 		# Get the file name
-		inFileName = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Select TUFLOW exe', "", "TUFLOW Executable (*.exe)")
+		inFileName = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Select TUFLOW exe', last_dir, "TUFLOW Executable (*.exe)")
 		inFileName = str(inFileName)
 		if len(inFileName) == 0: # If the length is 0 the user pressed cancel 
 			return
 		# Store the exe location and path we just looked in
 		self.TUFLOW_exe.setText(inFileName)
+		self.settings.save_last_exe(inFileName)
 
 	def layer_changed(self):
 		layername = unicode(self.sourcelayer.currentText()) 
 		if layername != "Use saved projection":
 			layer = tuflowqgis_find_layer(layername)
 			if layer != None:
-				crs = layer.crs()
-				crs_id = crs.authid()
-				crs_prj = crs.toProj4()
-				self.sourceCRS.setText(crs_prj)
+				self.crs = layer.crs()
+				self.form_crsID.setText(self.crs.authid())
+				self.crsDesc.setText(self.crs.description())
 	def run(self):
 		#QMessageBox.information( self.iface.mainWindow(),"debug", "Saving TUFLOW configuration to project file")
-		tf_prj = unicode(self.sourceCRS.displayText()).strip()
+		tf_prj = unicode(self.form_crsID.displayText()).strip()
 		basedir = unicode(self.outdir.displayText()).strip()
 		tfexe = unicode(self.TUFLOW_exe.displayText()).strip()
-		#writes
-		try:
-			self.project.writeEntry("configure_tuflow", "exe", tfexe)
-			self.project.writeEntry("configure_tuflow", "folder", basedir)
-			self.project.writeEntry("configure_tuflow", "projection", tf_prj)
-			QMessageBox.information( self.iface.mainWindow(),"Configure TUFLOW project", "Settings saved successfully.")
-		except:
-			QMessageBox.information( self.iface.mainWindow(),"Configure TUFLOW project", "Error when writing to the project, ensure a project has been saved.")
+		
+		#Save Project Settings
+		self.settings.project_settings.CRS_ID = tf_prj
+		self.settings.project_settings.tf_exe = tfexe
+		self.settings.project_settings.base_dir = basedir
+		error, message = self.settings.Save_Project()
+		if error:
+			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Saving Project Settings. Message: "+message)
+		else:
+			QMessageBox.information( self.iface.mainWindow(),"Information", "Project Settings Saved")
+		
+		#Save Global Settings
+		if (self.cbGlobal.isChecked()):
+			self.settings.global_settings.CRS_ID = tf_prj
+			self.settings.global_settings.tf_exe = tfexe
+			self.settings.global_settings.base_dir = basedir
+			error, message = self.settings.Save_Global()
+			if error:
+				QMessageBox.information( self.iface.mainWindow(),"Error", "Error Saving Global Settings. Message: "+message)
+			else:
+				QMessageBox.information( self.iface.mainWindow(),"Information", "Global Settings Saved")
+		
+		if (self.cbCreate.isChecked()):
+			crs = QgsCoordinateReferenceSystem()
+			crs.createFromString(tf_prj)
+	
+			#QMessageBox.information( self.iface.mainWindow(),"Creating TUFLOW directory", basedir)
+			message = tuflowqgis_create_tf_dir(self.iface, crs, basedir)
+			if message <> None:
+				QMessageBox.critical(self.iface.mainWindow(), "Creating TUFLOW Directory ", message)
+		
+		if (self.cbRun.isChecked()):
+				tcf = os.path.join(basedir+"\\TUFLOW\\runs\\Create_Empties.tcf")
+				message = run_tuflow(self.iface, tfexe, tcf)
+				if message <> None:
+					QMessageBox.critical(self.iface.mainWindow(), "Running TUFLOW ", message)
+			
+			
 # ----------------------------------------------------------
 #    tuflowqgis splitMI into shapefiles
 # ----------------------------------------------------------

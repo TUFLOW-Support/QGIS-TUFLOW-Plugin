@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>397</width>
-    <height>293</height>
+    <height>384</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,7 +17,7 @@
    <property name="geometry">
     <rect>
      <x>110</x>
-     <y>250</y>
+     <y>340</y>
      <width>161</width>
      <height>32</height>
     </rect>
@@ -56,7 +56,7 @@
    <property name="geometry">
     <rect>
      <x>12</x>
-     <y>122</y>
+     <y>153</y>
      <width>161</width>
      <height>22</height>
     </rect>
@@ -69,7 +69,7 @@
    <property name="geometry">
     <rect>
      <x>12</x>
-     <y>145</y>
+     <y>176</y>
      <width>261</width>
      <height>21</height>
     </rect>
@@ -85,7 +85,7 @@
    <property name="geometry">
     <rect>
      <x>289</x>
-     <y>143</y>
+     <y>174</y>
      <width>79</width>
      <height>26</height>
     </rect>
@@ -98,26 +98,26 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>70</y>
+     <y>101</y>
      <width>181</width>
      <height>22</height>
     </rect>
    </property>
    <property name="text">
-    <string>Source Projection Text (display only)</string>
+    <string>Projection Description (display only)</string>
    </property>
   </widget>
-  <widget class="QLineEdit" name="sourceCRS">
+  <widget class="QLineEdit" name="crsDesc">
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>90</y>
-     <width>351</width>
+     <y>121</y>
+     <width>261</width>
      <height>21</height>
     </rect>
    </property>
    <property name="text">
-    <string>&lt;projection&gt;</string>
+    <string>&lt;projection description&gt;</string>
    </property>
    <property name="dragEnabled">
     <bool>false</bool>
@@ -130,7 +130,7 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>181</y>
+     <y>212</y>
      <width>108</width>
      <height>22</height>
     </rect>
@@ -143,7 +143,7 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>201</y>
+     <y>232</y>
      <width>261</width>
      <height>21</height>
     </rect>
@@ -159,13 +159,97 @@
    <property name="geometry">
     <rect>
      <x>290</x>
-     <y>200</y>
+     <y>231</y>
      <width>79</width>
      <height>26</height>
     </rect>
    </property>
    <property name="text">
     <string>Browse...</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pbSelectCRS">
+   <property name="geometry">
+    <rect>
+     <x>290</x>
+     <y>121</y>
+     <width>79</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Select CRS</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="form_crsID">
+   <property name="geometry">
+    <rect>
+     <x>12</x>
+     <y>78</y>
+     <width>261</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&lt;projection id&gt;</string>
+   </property>
+   <property name="dragEnabled">
+    <bool>false</bool>
+   </property>
+   <property name="readOnly">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_5">
+   <property name="geometry">
+    <rect>
+     <x>12</x>
+     <y>58</y>
+     <width>181</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Projection ID (display only)</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="cbGlobal">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>268</y>
+     <width>261</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Save Default Settings Globally (for all projects)</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="cbCreate">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>291</y>
+     <width>261</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Create TUFLOW Folder Structure</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="cbRun">
+   <property name="geometry">
+    <rect>
+     <x>21</x>
+     <y>314</y>
+     <width>261</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Run TUFLOW to create template files</string>
    </property>
   </widget>
  </widget>

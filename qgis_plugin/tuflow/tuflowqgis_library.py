@@ -126,7 +126,7 @@ def tuflowqgis_create_tf_dir(qgis, crs, basepath):
 	f.write("Write Empty GIS Files == ..\model\gis\empty\n")
 	f.flush()
 	f.close()
-	QMessageBox.information(qgis.mainWindow(),"Information", "TUFLOW folder successfully created:"+basepath)
+	QMessageBox.information(qgis.mainWindow(),"Information", "TUFLOW folder successfully created: "+basepath)
 	return None
 
 def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines, regions):
