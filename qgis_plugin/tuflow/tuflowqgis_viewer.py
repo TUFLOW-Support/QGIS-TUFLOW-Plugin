@@ -383,7 +383,33 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 		self.locationDrop.clear()
 		self.IDs = []
 		self.IDList.clear()
-		self.res_version = 0
+		
+		#determine latest version (if multiple results selected)
+		version = 1
+		for i in range(len(self.res)):
+			#self.lwStatus.insertItem(0,'Results file '+str(i+1)+' has version: '+str(self.res[i].formatVersion))
+			version = max(version,self.res[i].formatVersion)
+			self.res_version = version
+			
+		if self.res_version == 1:
+			#self.lwStatus.insertItem(0,'Expecting 2013 format results, only using ID field.')
+			pass
+		elif self.res_version == 2:
+			#self.lwStatus.insertItem(0,'Expecting 2015 format results, using ID, Type and Data fields.')
+			self.typeX = self.cLayer.fieldNameIndex('Type')
+			if (self.typeX < 0):
+				self.lwStatus.insertItem(0,'WARNING - Field named Type not found in attributes.')
+			else:
+				self.lwStatus.insertItem(0,'Field named Type found in attribute: '+str(self.typeX+1))
+			self.dataX = self.cLayer.fieldNameIndex('Source')
+			if (self.dataX < 0):
+				self.lwStatus.insertItem(0,'WARNING - Field named Data not found in attributes.')
+			else:
+				self.lwStatus.insertItem(0,'Field named Source found in attribute: '+str(self.dataX+1))
+		else:
+			self.lwStatus.insertItem(0,'ERROR - Unxpected results version, expecting 1 or 2.')
+			self.qgis_disconnect()
+				
 		if self.cLayer and (self.cLayer.type() == QgsMapLayer.VectorLayer):
 			self.lwStatus.insertItem(0,'Selected Layer: '+self.cLayer.name())
 			#self.sourcelayer.addItem(self.cLayer.name())
@@ -392,19 +418,26 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 			GType = self.cLayer.dataProvider().geometryType()
 			if (GType == QGis.WKBPoint):
 				self.GeomType = "Point"
-				if (self.cLayer.name().find('_PLOT_')>-1):
+				if self.res_version == 1:
 					self.locationDrop.addItem("Timeseries") #this triggers loc_changed which populates data fields
-				else:
-					self.lwStatus.insertItem(0,'ERROR - Not a TUFLOW Layer Selected')
-					self.leSource.setText("Not a TUFLOW Layer Selected")
+				elif self.res_version == 2:
+					if (self.cLayer.name().find('_PLOT_')>-1):
+						self.locationDrop.addItem("Timeseries") #this triggers loc_changed which populates data fields
+					else:
+						self.lwStatus.insertItem(0,'ERROR - Not a TUFLOW Layer Selected')
+						self.leSource.setText("Not a TUFLOW Layer Selected")
 			elif (GType == QGis.WKBLineString):
 				self.GeomType = "Line"
-				if (self.cLayer.name().find('_PLOT_')>-1):
+				if self.res_version == 1:
 					self.locationDrop.addItem("Timeseries")
-					self.locationDrop.addItem("Long Profile")
-				else:
-					self.lwStatus.insertItem(0,'ERROR - Not a TUFLOW Layer Selected')
-					self.leSource.setText("Not a TUFLOW Layer Selected")
+					self.locationDrop.addItem("Long Profile")				
+				elif self.res_version == 2:
+					if (self.cLayer.name().find('_PLOT_')>-1):
+						self.locationDrop.addItem("Timeseries")
+						self.locationDrop.addItem("Long Profile")
+					else:
+						self.lwStatus.insertItem(0,'ERROR - Not a TUFLOW Layer Selected')
+						self.leSource.setText("Not a TUFLOW Layer Selected")
 			else:
 				#self.sourcelayer.clear()
 				#self.sourcelayer.addItem("Not a line or point geometry (plot disabled)")
@@ -420,29 +453,8 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 				self.locationDrop.clear()
 				self.locationDrop.addItem('No field named ID in layer (plot disabled)')
 				self.lwStatus.insertItem(0,'No field named ID in layer (plot disabled)')
-			version = 1
-			for i in range(len(self.res)):
-				#self.lwStatus.insertItem(0,'Results file '+str(i+1)+' has version: '+str(self.res[i].formatVersion))
-				version = max(version,self.res[i].formatVersion)
-				self.res_version = version
-			if version == 1:
-				#self.lwStatus.insertItem(0,'Expecting 2013 format results, only using ID field.')
-				pass
-			elif version == 2:
-				#self.lwStatus.insertItem(0,'Expecting 2015 format results, using ID, Type and Data fields.')
-				self.typeX = self.cLayer.fieldNameIndex('Type')
-				if (self.typeX < 0):
-					self.lwStatus.insertItem(0,'WARNING - Field named Type not found in attributes.')
-				else:
-					self.lwStatus.insertItem(0,'Field named Type found in attribute: '+str(self.typeX+1))
-				self.dataX = self.cLayer.fieldNameIndex('Source')
-				if (self.dataX < 0):
-					self.lwStatus.insertItem(0,'WARNING - Field named Data not found in attributes.')
-				else:
-					self.lwStatus.insertItem(0,'Field named Source found in attribute: '+str(self.dataX+1))
-			else:
-				self.lwStatus.insertItem(0,'ERROR - Unxpected results version, expecting 1 or 2.')
-				self.qgis_disconnect()
+			
+
 		else:
 			self.lwStatus.insertItem(0,'Invalid layer or no layer selected (plot disabled)')
 			#self.sourcelayer.addItem("Invalid layer or no layer selected (plot disabled)")
