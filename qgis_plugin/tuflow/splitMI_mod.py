@@ -32,8 +32,8 @@
 ############################################################################
 
 import os
-import osr
-import ogr
+import osgeo.osr as osr
+import osgeo.ogr as ogr
 import string
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *

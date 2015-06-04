@@ -19,7 +19,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2015-05-AA (QGIS 2.x)'
+build_vers = '2015-06-AA (QGIS 2.x)'
 
 # Import the PyQt and QGIS libraries
 from PyQt4.QtCore import *
