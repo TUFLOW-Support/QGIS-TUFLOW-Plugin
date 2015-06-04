@@ -215,11 +215,11 @@ def check_python_lib(qgis):
 		error = True
 		QMessageBox.critical(qgis.mainWindow(),"Error", "python library 'PyQt4' not installed.")
 	try:
-		py_modules.append('ogr')
-		import ogr
+		py_modules.append('osgeo.ogr')
+		import osgeo.ogr as ogr
 	except:
 		error = True
-		QMessageBox.critical(qgis.mainWindow(),"Error", "python library 'ogr' not installed.")
+		QMessageBox.critical(qgis.mainWindow(),"Error", "python library 'osgeo.ogr' not installed.")
 	try:
 		py_modules.append('glob')
 		import glob
