@@ -390,23 +390,8 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 			#self.lwStatus.insertItem(0,'Results file '+str(i+1)+' has version: '+str(self.res[i].formatVersion))
 			version = max(version,self.res[i].formatVersion)
 			self.res_version = version
-			
-		if self.res_version == 1:
-			#self.lwStatus.insertItem(0,'Expecting 2013 format results, only using ID field.')
-			pass
-		elif self.res_version == 2:
-			#self.lwStatus.insertItem(0,'Expecting 2015 format results, using ID, Type and Data fields.')
-			self.typeX = self.cLayer.fieldNameIndex('Type')
-			if (self.typeX < 0):
-				self.lwStatus.insertItem(0,'WARNING - Field named Type not found in attributes.')
-			else:
-				self.lwStatus.insertItem(0,'Field named Type found in attribute: '+str(self.typeX+1))
-			self.dataX = self.cLayer.fieldNameIndex('Source')
-			if (self.dataX < 0):
-				self.lwStatus.insertItem(0,'WARNING - Field named Data not found in attributes.')
-			else:
-				self.lwStatus.insertItem(0,'Field named Source found in attribute: '+str(self.dataX+1))
-		else:
+						
+		if self.res_version>2:
 			self.lwStatus.insertItem(0,'ERROR - Unxpected results version, expecting 1 or 2.')
 			self.qgis_disconnect()
 				
@@ -423,6 +408,12 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 				elif self.res_version == 2:
 					if (self.cLayer.name().find('_PLOT_')>-1):
 						self.locationDrop.addItem("Timeseries") #this triggers loc_changed which populates data fields
+						#try:
+						#	self.dataX = self.cLayer.fieldNameIndex('Source')
+						#	self.typeX = self.cLayer.fieldNameIndex('Type')
+						#except:
+						#	self.dataX = -1
+						#	self.typeX = -1
 					else:
 						self.lwStatus.insertItem(0,'ERROR - Not a TUFLOW Layer Selected')
 						self.leSource.setText("Not a TUFLOW Layer Selected")
@@ -435,6 +426,12 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 					if (self.cLayer.name().find('_PLOT_')>-1):
 						self.locationDrop.addItem("Timeseries")
 						self.locationDrop.addItem("Long Profile")
+						#try:
+						#	self.dataX = self.cLayer.fieldNameIndex('Source')
+						#	self.typeX = self.cLayer.fieldNameIndex('Type')
+						#except:
+						#	self.dataX = -1
+						#	self.typeX = -1
 					else:
 						self.lwStatus.insertItem(0,'ERROR - Not a TUFLOW Layer Selected')
 						self.leSource.setText("Not a TUFLOW Layer Selected")
