@@ -7,6 +7,8 @@ import os
 import csv
 import matplotlib
 from matplotlib.figure import Figure
+from matplotlib.patches import Patch
+from matplotlib.patches import Polygon
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
 import numpy
 import TUFLOW_results2013
@@ -900,6 +902,13 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 							labels.append(label)
 						self.subplot.hold(True)
 						ymax = max(ymax,max(res.LP.chan_inv))
+						
+						#tag on culverts if bed is shown
+						for verts in res.LP.culv_verts:
+							if verts:
+								poly = Polygon(verts, facecolor='0.9', edgecolor='0.5')
+								self.subplot.add_patch(poly)
+
 
 					#plot LB
 					if typenames.count('Left Bank Obvert')<>0:

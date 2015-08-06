@@ -2,7 +2,7 @@ import os
 import numpy
 import csv
 import sys
-version = '2015-05-AA'
+version = '2015-08-AA'
 
 class LP():
     def __init__(self): #initialise the LP data
@@ -29,6 +29,7 @@ class LP():
         self.npits = int(0)
         self.connected = False
         self.static = False
+        self.culv_verts = []
 
 class Data_1D():
     def __init__(self): #initialise the 1D data
@@ -271,11 +272,20 @@ class Node_Max():
                     #print row
                     self.ID.append(row[1])
                     if hMax:
-                        self.HMax.append(float(row[ind_H]))
+                        try:
+                            self.HMax.append(float(row[ind_H]))
+                        except:
+                            self.HMax.append(float('Nan'))
                     if tHmax:
-                        self.tHmax.append(float(row[ind_tH]))
+                        try:
+                            self.tHmax.append(float(row[ind_tH]))
+                        except:
+                            self.tHmax.append(float('Nan'))
                     if EMax:
-                        self.EMax.append(float(row[ind_E]))
+                        try:
+                            self.EMax.append(float(row[ind_E]))
+                        except:
+                            self.EMax.append(float('Nan'))
             #close file
             csvfile.close()
 
@@ -341,13 +351,26 @@ class Chan_Max():
                     #print row
                     self.ID.append(row[1])
                     if qmax:
-                        self.QMax.append(float(row[ind_Q]))
+                        try:
+                            self.QMax.append(float(row[ind_Q]))
+                        except:
+                            self.QMax.append(float('Nan'))
                     if tqmax:
-                        self.tQmax.append(float(row[ind_tQ]))
+                        try:
+                            self.tQmax.append(float(row[ind_tQ]))
+                        except:
+                            self.tQmax.append(float('Nan'))
                     if vmax:
-                        self.VMax.append(float(row[ind_V]))
+                        try:
+                            self.VMax.append(float(row[ind_V]))
+                        except:
+                            self.VMax.append(float('Nan'))
                     if tvmax:
-                        self.tVmax.append(float(row[ind_tV]))
+                        try:
+                            self.tVmax.append(float(row[ind_tV]))
+                        except:
+                            self.tVmax.append(float('Nan'))
+
             # close file
             csvfile.close()
         except:
@@ -382,10 +405,22 @@ class RL_P_Max():
                 for row in reader:
                     #print row
                     self.ID.append(row[1])
-                    self.HMax.append(float(row[2]))
-                    self.tHmax.append(float(row[3]))
-                    self.dHMax.append(float(row[4]))
-                    self.tdHmax.append(float(row[5]))
+                    try:
+                        self.HMax.append(float(row[2]))
+                    except:
+                        self.HMax.append(float('Nan'))
+                    try:
+                        self.tHmax.append(float(row[3]))
+                    except:
+                        self.tHmax.append(float('Nan'))
+                    try:
+                        self.dHMax.append(float(row[4]))
+                    except:
+                        self.dHMax.append(float('Nan'))
+                    try:
+                        self.tdHmax.append(float(row[5]))
+                    except:
+                        self.tdHmax.append(float('Nan'))
             #csvfile.close()
         except:
             message = 'ERROR - Error reading header from: '+fullpath
@@ -436,10 +471,22 @@ class RL_L_Max():
                 for row in reader:
                     #print row
                     self.ID.append(row[1])
-                    self.QMax.append(float(row[2]))
-                    self.tQmax.append(float(row[3]))
-                    self.dQMax.append(float(row[4]))
-                    self.tdQmax.append(float(row[5]))
+                    try:
+                        self.QMax.append(float(row[2]))
+                    except:
+                        self.QMax.append(float('Nan'))
+                    try:
+                        self.tQmax.append(float(row[3]))
+                    except:
+                        self.tQmax.append(float('Nan'))
+                    try:
+                        self.dQMax.append(float(row[4]))
+                    except:
+                        self.dQMax.append(float('Nan'))
+                    try:
+                        self.tdQmax.append(float(row[5]))
+                    except:
+                        self.tdQmax.append(float('Nan'))
             #csvfile.close()
         except:
             message = 'ERROR - Error reading header from: '+fullpath
@@ -980,6 +1027,7 @@ class ResData():
         self.LP.chan_inv = []
         self.LP.chan_LB = []
         self.LP.chan_RB = []
+        self.LP.culv_verts = []
 
         for i, chan_index in enumerate(self.LP.chan_index):
             #length of current channel
@@ -1013,6 +1061,24 @@ class ResData():
             self.LP.chan_LB.append(self.Channels.chan_LBDS_Obv[chan_index])
             self.LP.chan_RB.append(self.Channels.chan_RBDS_Obv[chan_index])
 
+            #distance polygons for culverts
+            x = []
+            y = []
+            c_type = self.Channels.chan_Flags[chan_index]
+            if c_type == "R" or c_type == "C" or c_type == "I":
+                x.append(self.LP.dist_chan_inverts[-2])
+                x.append(self.LP.dist_chan_inverts[-1])
+                x.append(self.LP.dist_chan_inverts[-1])
+                x.append(self.LP.dist_chan_inverts[-2])
+                y.append(self.LP.chan_inv[-2])
+                y.append(self.LP.chan_inv[-1])
+                y.append(self.LP.chan_LB[-1])
+                y.append(self.LP.chan_LB[-2])
+                verts = zip(x,y)
+                self.LP.culv_verts.append(verts)
+            else:
+                self.LP.culv_verts.append(None)
+
         #get infor about pits
         self.LP.npits = int(0)
         self.LP.pit_dist = []
@@ -1029,7 +1095,6 @@ class ResData():
                     self.LP.npits = self.LP.npits + 1
                     self.LP.pit_dist.append(self.LP.dist_nodes[i])
                     self.LP.pit_z.append(self.Channels.chan_US_Inv[indC])
-
 
         #normal return
         self.LP.static = True

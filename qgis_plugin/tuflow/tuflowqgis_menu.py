@@ -19,7 +19,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2015-06-AC (QGIS 2.x)'
+build_vers = '2015-08-AA (QGIS 2.x)'
 
 # Import the PyQt and QGIS libraries
 from PyQt4.QtCore import *
@@ -86,11 +86,21 @@ class tuflowqgis_menu:
 		self.splitMI_action = QAction(icon, "Convert MapInfo file to Shapefile (beta)", self.iface.mainWindow())
 		QObject.connect(self.splitMI_action, SIGNAL("triggered()"), self.split_MI)
 		self.editing_menu.addAction(self.splitMI_action)
+
+		icon = QIcon(os.path.dirname(__file__) + "/icons/mif_2_shp.png")
+		self.splitMI_folder_action = QAction(icon, "Convert MapInfo files in folder Shapefile (beta)", self.iface.mainWindow())
+		QObject.connect(self.splitMI_folder_action, SIGNAL("triggered()"), self.split_MI_folder)
+		self.editing_menu.addAction(self.splitMI_folder_action)
 		
 		icon = QIcon(os.path.dirname(__file__) + "/icons/icon.png")
 		self.points_to_lines_action = QAction(icon, "Convert Points to Lines (survey to breaklines) ALPHA", self.iface.mainWindow())
 		QObject.connect(self.points_to_lines_action, SIGNAL("triggered()"), self.points_to_lines)
 		self.editing_menu.addAction(self.points_to_lines_action)
+		
+		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow.png")
+		self.flowtrace_action = QAction(icon, "Flowtrace", self.iface.mainWindow())
+		QObject.connect(self.flowtrace_action, SIGNAL("triggered()"), self.flow_trace)
+		self.editing_menu.addAction(self.flowtrace_action)
 		
 		
 		# Visualisation Submenu
@@ -160,6 +170,10 @@ class tuflowqgis_menu:
 		dialog = tuflowqgis_increment_dialog(self.iface)
 		dialog.exec_()
 	
+	def flow_trace(self):
+		dialog = tuflowqgis_flowtrace_dialog(self.iface)
+		dialog.exec_()
+		
 	def points_to_lines(self):
 		#QMessageBox.information(self.iface.mainWindow(), "debug", "points to lines")
 		dialog = tuflowqgis_line_from_points(self.iface)
@@ -168,6 +182,12 @@ class tuflowqgis_menu:
 	def split_MI(self):
 		#QMessageBox.information(self.iface.mainWindow(), "debug", "points to lines")
 		dialog = tuflowqgis_splitMI_dialog(self.iface)
+		dialog.exec_()
+
+	def split_MI_folder(self):
+		#QMessageBox.information(self.iface.mainWindow(), "debug", "points to lines")
+		QMessageBox.information( self.iface.mainWindow(),"debug", "starting" )
+		dialog = tuflowqgis_splitMI_folder_dialog(self.iface)
 		dialog.exec_()
 		
 #### external viewer interface
