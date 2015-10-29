@@ -1049,31 +1049,34 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 									found = False
 									message = 'Unexpected Format Version:'+str(res.formatVersion)
 								if not found:
-									ydata = xdata * 0.0 # keep the same dimensions other the plot will fail
+									#ydata = xdata * 0.0 # keep the same dimensions other the plot will fail
+									self.lwStatus.insertItem(0,message)
+									message = "No data for "+ydataid + " ("+dom+") - " + typename
 									self.lwStatus.insertItem(0,message)
 									#self.lwStatus.insertItem(0,'ERROR - Exiting plot update - plot may be partially updated.')
 									#breakloop = True
-								if (len(reslist) > 1):
-									label = res.displayname + ": " + ydataid + " - " + typename
 								else:
-									label = ydataid + " - " + typename
+									if (len(reslist) > 1):
+										label = res.displayname + ": " +ydataid + "("+dom+") - " + typename
+									else:
+										label = ydataid + " ("+dom+") - " + typename
 
-								tmp_xmin=min(xdata)
-								xmin = min(xmin,tmp_xmin)
-								tmp_xmax=max(xdata)
-								#self.lwStatus.insertItem(0,'tmpxmax: '+str(tmp_xmax))
-								xmax = max(xmax,tmp_xmax)
-								tmp_ymin=min(ydata)
-								ymin = min(ymin,tmp_ymin)
-								tmp_ymax=max(ydata)
-								ymax = max(ymax,tmp_ymax)
-								
-								#self.subplot.set_xbound(lower=xmin, upper=xmax)
-								#self.subplot.set_ybound(lower=ymin, upper=ymax)
-								a, = self.subplot.plot(xdata, ydata)
-								self.artists.append(a)
-								labels.append(label)
-								self.subplot.hold(True)
+									tmp_xmin=min(xdata)
+									xmin = min(xmin,tmp_xmin)
+									tmp_xmax=max(xdata)
+									#self.lwStatus.insertItem(0,'tmpxmax: '+str(tmp_xmax))
+									xmax = max(xmax,tmp_xmax)
+									tmp_ymin=min(ydata)
+									ymin = min(ymin,tmp_ymin)
+									tmp_ymax=max(ydata)
+									ymax = max(ymax,tmp_ymax)
+									
+									#self.subplot.set_xbound(lower=xmin, upper=xmax)
+									#self.subplot.set_ybound(lower=ymin, upper=ymax)
+									a, = self.subplot.plot(xdata, ydata)
+									self.artists.append(a)
+									labels.append(label)
+									self.subplot.hold(True)
 				# AXIS 2
 				#xdata = res.getXData()
 				if (self.cb2ndAxis.isChecked()): # if not checked not dual axis needed
@@ -1111,28 +1114,28 @@ class TUFLOW_Res_Dock(QDockWidget, Ui_tuflowqgis_1d_res):
 									if not found:
 										ydata = xdata * 0.0 # keep the same dimensions other the plot will fail
 										self.lwStatus.insertItem(0,message)
-										#self.lwStatus.insertItem(0,'ERROR - Exiting plot update - plot may be partially updated.')
-										#breakloop = True
-									if (len(reslist) > 1):
-										label = res.displayname + ": " + ydataid + " - " + typename
+										message = "No data for "+ydataid + " ("+dom+") - " + typename
+										self.lwStatus.insertItem(0,message)
 									else:
-										label = ydataid + " - " + typename
-
-									#tmp_xmin=min(xdata)
-									#xmin = min(xmin,tmp_xmin)
-									#tmp_xmax=max(xdata)
-									#xmax = max(xmax,tmp_xmax)
-									#tmp_ymin=min(ydata)
-									#ymin = min(ymin,tmp_ymin)
-									#tmp_ymax=max(ydata)
-									#ymax = max(ymax,tmp_ymax)
-									
-									#self.subplot.set_xbound(lower=xmin, upper=xmax)
-									#self.subplot.set_ybound(lower=ymin, upper=ymax)
-									a2, = self.axis2.plot(xdata, ydata, marker='x')
-									self.artists.append(a2)
-									labels.append(label)
-									self.axis2.hold(True)
+										if (len(reslist) > 1):
+											label = res.displayname + ": " + ydataid + " ("+dom+") - " + typename +" (Axis 2)"
+										else:
+											label = ydataid + " ("+dom+") - " + typename +" (Axis 2)"
+										#tmp_xmin=min(xdata)
+										#xmin = min(xmin,tmp_xmin)
+										#tmp_xmax=max(xdata)
+										#xmax = max(xmax,tmp_xmax)
+										#tmp_ymin=min(ydata)
+										#ymin = min(ymin,tmp_ymin)
+										#tmp_ymax=max(ydata)
+										#ymax = max(ymax,tmp_ymax)
+										
+										#self.subplot.set_xbound(lower=xmin, upper=xmax)
+										#self.subplot.set_ybound(lower=ymin, upper=ymax)
+										a2, = self.axis2.plot(xdata, ydata, marker='x')
+										self.artists.append(a2)
+										labels.append(label)
+										self.axis2.hold(True)
 
 			#Set axis labels
 			if (loc=="Long Profile"): # LP

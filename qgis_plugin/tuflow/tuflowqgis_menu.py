@@ -19,7 +19,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2015-08-AA (QGIS 2.x)'
+build_vers = '2015-10-AA (QGIS 2.x)'
 
 # Import the PyQt and QGIS libraries
 from PyQt4.QtCore import *
@@ -97,10 +97,10 @@ class tuflowqgis_menu:
 		QObject.connect(self.points_to_lines_action, SIGNAL("triggered()"), self.points_to_lines)
 		self.editing_menu.addAction(self.points_to_lines_action)
 		
-		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow.png")
-		self.flowtrace_action = QAction(icon, "Flowtrace", self.iface.mainWindow())
-		QObject.connect(self.flowtrace_action, SIGNAL("triggered()"), self.flow_trace)
-		self.editing_menu.addAction(self.flowtrace_action)
+		#icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow.png")
+		#self.flowtrace_action = QAction(icon, "Flowtrace", self.iface.mainWindow())
+		#QObject.connect(self.flowtrace_action, SIGNAL("triggered()"), self.flow_trace)
+		#self.editing_menu.addAction(self.flowtrace_action)
 		
 		
 		# Visualisation Submenu

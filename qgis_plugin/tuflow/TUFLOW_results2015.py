@@ -2,7 +2,7 @@ import os
 import numpy
 import csv
 import sys
-version = '2015-08-AA'
+version = '2015-05-AA'
 
 class LP():
     def __init__(self): #initialise the LP data
@@ -385,7 +385,7 @@ class Chan_Max():
 
 class RL_P_Max():
     """
-    Maximum values at Reporting level Points
+    Maximum values at Reporting level points
     """
     def __init__(self):
         self.ID = []
@@ -393,6 +393,7 @@ class RL_P_Max():
         self.tHmax = []
         self.dHMax = []
         self.tdHmax = []
+        self.Q = []
         self.nLocs = 0
 
     def Load(self,fullpath):
@@ -421,14 +422,18 @@ class RL_P_Max():
                         self.tdHmax.append(float(row[5]))
                     except:
                         self.tdHmax.append(float('Nan'))
+                    try:
+                        self.Q.append(float(row[6]))
+                    except:
+                        self.Q.append(float('Nan'))
             #csvfile.close()
         except:
             message = 'ERROR - Error reading header from: '+fullpath
             error = True
             return error, message
-        if len(header)>6:
+        if len(header)>7:
             error = True
-            message = 'ERROR - Only expecting four columns in node maximums file: '+fullpath
+            message = 'ERROR - More than seven columns in node maximums file: '+fullpath
             return error, message
         if not (header[2].upper()=='HMAX'):
             error = True
@@ -451,7 +456,7 @@ class RL_P_Max():
 
 class RL_L_Max():
     """
-    Maximum values at Reporting level Points
+    Maximum values at Reporting level lines
     """
     def __init__(self):
         self.ID = []
@@ -459,6 +464,7 @@ class RL_L_Max():
         self.tQmax = []
         self.dQMax = []
         self.tdQmax = []
+        self.H = []
         self.nLocs = 0
 
     def Load(self,fullpath):
@@ -487,14 +493,18 @@ class RL_L_Max():
                         self.tdQmax.append(float(row[5]))
                     except:
                         self.tdQmax.append(float('Nan'))
+                    try:
+                        self.H.append(float(row[6]))
+                    except:
+                        self.H.append(float('Nan'))
             #csvfile.close()
         except:
             message = 'ERROR - Error reading header from: '+fullpath
             error = True
             return error, message
-        if len(header)>6:
+        if len(header)>7:
             error = True
-            message = 'ERROR - Only expecting four columns in node maximums file: '+fullpath
+            message = 'ERROR - More than 7 columns RLL_Qmx file: '+fullpath
             return error, message
         if not (header[2].upper()=='QMAX'):
             error = True
@@ -511,6 +521,10 @@ class RL_L_Max():
         if not (header[5].upper()=='TIME DQMAX'):
             error = True
             message = 'ERROR - Expecting Time dHmax in column 6 of file: '+fullpath
+            return error, message
+        if not (header[6].upper()=='H'):
+            error = True
+            message = 'ERROR - Expecting H in column 7 of file: '+fullpath
             return error, message
         self.nLocs = len(self.ID)
         return error, message
