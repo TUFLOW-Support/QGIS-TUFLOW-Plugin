@@ -28,6 +28,8 @@ from qgis.core import *
 from math import *
 import numpy
 import matplotlib
+import glob # MJS 11/02
+import tuflowqgis_styles
 
 # --------------------------------------------------------
 #    tuflowqgis Utility Functions
@@ -337,3 +339,189 @@ def load_project(project):
 		message = "Project does not appear to be configured.\nPlease run TUFLOW >> Editing >> Configure Project from the plugin menu."
 	
 	return message, tffolder, tfexe, tf_prj
+ 
+#  tuflowqgis_import_check_tf added MJS 11/02
+def tuflowqgis_import_check_tf(qgis, basepath, runID,showchecks):
+	#import check file styles using class
+	tf_styles = tuflowqgis_styles.TF_Styles()
+	error, message = tf_styles.Load()
+	if error:
+		QMessageBox.critical(qgis.mainWindow(),"Error", message)
+		return message
+
+	if (basepath == None):
+		return "Invalid location specified"
+
+	# Get all the check files in the given directory
+	check_files = glob.glob(basepath +  '\*'+ runID +'*.shp')
+
+	if len(check_files) > 100:
+		QMessageBox.critical(qgis.mainWindow(),"Info", ("You have selected over 100 check files. You can use the RunID to reduce this selection."))
+		return "Too many check files selected"
+
+	if not check_files:
+		check_files = glob.glob(basepath +  '\*'+ runID +'*.mif')
+		if len(check_files) > 0: 
+			return ".MIF Files are not supported, only .SHP files."
+		else:
+			return "No check files found for this RunID in this location."
+
+	# Get the legend interface
+	legint = qgis.legendInterface()
+
+	# Add each layer to QGIS and style
+	for chk in check_files:
+		pfft,fname = os.path.split(chk)
+		#QMessageBox.information(qgis.mainWindow(),"Debug", fname)
+		fname = fname[:-4]
+		layer = qgis.addVectorLayer(chk, fname, "ogr")
+		renderer = region_renderer(layer)
+		if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
+			layer.setRendererV2(renderer)
+			layer.triggerRepaint()
+		else: # use .qml style using tf_styles
+			error, message, slyr = tf_styles.Find(fname) #use tuflow styles to find longest matching 
+			if error:
+				QMessageBox.critical(qgis.mainWindow(),"ERROR", message)
+				return message
+			if slyr: #style layer found:
+				layer.loadNamedStyle(slyr)
+				if os.path.split(slyr)[1][:-4] == '_zpt_check':
+					legint.setLayerVisible(layer, False)   # Switch off by default
+				elif '_uvpt_check' in fname or '_grd_check' in fname:
+					legint.setLayerVisible(layer, False)
+				if not showchecks:
+					legint.setLayerVisible(layer, False)
+
+	message = None #normal return
+	return message
+
+
+#  region_renderer added MJS 11/02
+def region_renderer(layer):
+	from random import randrange
+
+	#check if layer needs a renderer
+	fsource = layer.source() #includes full filepath and extension
+	fname = os.path.split(fsource)[1][:-4] #without extension
+	
+	if '_bcc_check_R' in fname:
+		field_name = 'Source'
+	elif '_1d_to_2d_check_R' in fname:
+		field_name = 'Primary_No'
+	elif '_2d_to_2d_R' in fname:
+		field_name = 'Primary_No'
+	elif '_sac_check_R' in fname:
+		field_name = 'BC_Name'
+	else: #render not needed
+		return None
+		
+	# Thankyou Detlev  @ http://gis.stackexchange.com/questions/175068/apply-symbol-to-each-feature-categorized-symbol
+
+	
+	# get unique values
+	vals = layer.fieldNameIndex(field_name)
+	unique_values = layer.dataProvider().uniqueValues(vals)
+	#QgsMessageLog.logMessage('These values have been identified: ' + vals, "TUFLOW")
+
+	# define categories
+	categories = []
+	for unique_value in unique_values:
+		# initialize the default symbol for this geometry type
+		symbol = QgsSymbolV2.defaultSymbol(layer.geometryType())
+
+		# configure a symbol layer
+		layer_style = {}
+		layer_style['color'] = '%d, %d, %d' % (randrange(0,256), randrange(0,256), randrange(0,256))
+		layer_style['outline'] = '#000000'
+		symbol_layer = QgsSimpleFillSymbolLayerV2.create(layer_style)
+
+		# replace default symbol layer with the configured one
+		if symbol_layer is not None:
+			symbol.changeSymbolLayer(0, symbol_layer)
+
+		# create renderer object
+		category = QgsRendererCategoryV2(unique_value, symbol, str(unique_value))
+		# entry for the list of category items
+		categories.append(category)
+
+	# create renderer object
+	return QgsCategorizedSymbolRendererV2(field_name, categories)
+	
+def tuflowqgis_apply_check_tf(qgis):
+	#apply check file styles to all open shapefiles
+	error = False
+	message = None
+
+	#load style layers using tuflowqgis_styles
+	tf_styles = tuflowqgis_styles.TF_Styles()
+	error, message = tf_styles.Load()
+	if error:
+		return error, message
+		
+	for layer_name, layer in QgsMapLayerRegistry.instance().mapLayers().iteritems():
+		if layer.type() == QgsMapLayer.VectorLayer:
+			if (layer.source()[-4:].upper() == '.SHP'):
+				layer_fname = os.path.split(layer.source())[1][:-4]
+				#QMessageBox.information(qgis.mainWindow(), "DEBUG", "shp layer name = "+layer.name())
+				renderer = region_renderer(layer)
+				if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
+					layer.setRendererV2(renderer)
+					layer.triggerRepaint()
+				else: # use .qml style using tf_styles
+					error, message, slyr = tf_styles.Find(layer_fname) #use tuflow styles to find longest matching 
+					if error:
+						return error, message
+					if slyr: #style layer found:
+						layer.loadNamedStyle(slyr)
+						layer.triggerRepaint()
+	return error, message
+	
+
+def tuflowqgis_apply_check_tf_clayer(qgis):
+	error = False
+	message = None
+	try:
+		canvas = qgis.mapCanvas()
+	except:
+		error = True
+		message = "ERROR - Unexpected error trying to  QGIS canvas layer."
+		return error, message
+	try:
+		cLayer = canvas.currentLayer()
+	except:
+		error = True
+		message = "ERROR - Unable to get current layer, ensure a selection is made"
+		return error, message
+	
+	#load style layers using tuflowqgis_styles
+	tf_styles = tuflowqgis_styles.TF_Styles()
+	error, message = tf_styles.Load()
+	if error:
+		return error, message
+		
+
+	if cLayer.type() == QgsMapLayer.VectorLayer:
+		if (cLayer.source()[-4:].upper() == '.SHP'):
+			layer_fname = os.path.split(cLayer.source())[1][:-4]
+			#QMessageBox.information(qgis.mainWindow(), "DEBUG", "shp layer name = "+cLayer.name())
+			renderer = region_renderer(cLayer)
+			if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
+				cLayer.setRendererV2(renderer)
+				cLayer.triggerRepaint()
+			else: # use .qml style using tf_styles
+				error, message, slyr = tf_styles.Find(layer_fname) #use tuflow styles to find longest matching 
+				if error:
+					return error, message
+				if slyr: #style layer found:
+					cLayer.loadNamedStyle(slyr)
+					cLayer.triggerRepaint()
+		else:
+			error = True
+			message = 'ERROR - Layer is not a shapefile: '+cLayer.source()
+			return error, message
+	else:
+		error = True
+		message = 'ERROR - Layer is not a vector layer: '+cLayer.source()
+		return error, message
+	return error, message

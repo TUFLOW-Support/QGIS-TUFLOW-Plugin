@@ -31,10 +31,13 @@ import os
 from tuflowqgis_dialog import *
 
 # Import the code for the 1D results viewer
-from tuflowqgis_viewer import *
+from tuflowqgis_TuPlot import *
 
 # Import the code for the 1D xs viewer
 from tuflowqgis_xsviewer import *
+
+#par
+from tuflowqgis_library import tuflowqgis_apply_check_tf
 
 class tuflowqgis_menu:
 
@@ -104,14 +107,14 @@ class tuflowqgis_menu:
 		
 		
 		# Visualisation Submenu
-		self.visualisation_menu = QMenu(QCoreApplication.translate("TUFLOW", "&Visualisation"))
-		self.iface.addPluginToMenu("&TUFLOW", self.visualisation_menu.menuAction())
+		#self.visualisation_menu = QMenu(QCoreApplication.translate("TUFLOW", "&Visualisation"))
+		#self.iface.addPluginToMenu("&TUFLOW", self.visualisation_menu.menuAction())
 		
-		icon = QIcon(os.path.dirname(__file__) + "/icons/results.png")
-		self.view_1d_results_action = QAction(icon, "View 1D / PO results", self.iface.mainWindow())
-		QObject.connect(self.view_1d_results_action, SIGNAL("triggered()"), self.results_1d)
-		self.visualisation_menu.addAction(self.view_1d_results_action)
-		self.iface.addToolBarIcon(self.view_1d_results_action)
+		#icon = QIcon(os.path.dirname(__file__) + "/icons/results.png")
+		#self.view_1d_results_action = QAction(icon, "TuPlot", self.iface.mainWindow())
+		#QObject.connect(self.view_1d_results_action, SIGNAL("triggered()"), self.results_1d)
+		#self.visualisation_menu.addAction(self.view_1d_results_action)
+		#self.iface.addToolBarIcon(self.view_1d_results_action)
 	
 		# Phil Ryan - Have commented this out, it is used to tie in with external 1D viewer, which is not required
 		#icon = QIcon(os.path.dirname(__file__) + "/icons/results.png")
@@ -119,10 +122,10 @@ class tuflowqgis_menu:
 		#QObject.connect(self.view_1d_iface_action, SIGNAL("triggered()"), self.results_1d_ext)
 		#self.visualisation_menu.addAction(self.view_1d_iface_action)
 		
-		icon = QIcon(os.path.dirname(__file__) + "/icons/view_xs.png")
-		self.view_1d_xs_action = QAction(icon, "View 1D Sections", self.iface.mainWindow())
-		QObject.connect(self.view_1d_xs_action, SIGNAL("triggered()"), self.view_1d_xs)
-		self.visualisation_menu.addAction(self.view_1d_xs_action)
+		#icon = QIcon(os.path.dirname(__file__) + "/icons/view_xs.png")
+		#self.view_1d_xs_action = QAction(icon, "View 1D Sections", self.iface.mainWindow())
+		#QObject.connect(self.view_1d_xs_action, SIGNAL("triggered()"), self.view_1d_xs)
+		#self.visualisation_menu.addAction(self.view_1d_xs_action)
 
 		# RUN Submenu
 		self.run_menu = QMenu(QCoreApplication.translate("TUFLOW", "&Run"))
@@ -132,6 +135,35 @@ class tuflowqgis_menu:
 		self.run_tuflow_action = QAction(icon, "Run TUFLOW Simulation", self.iface.mainWindow())
 		QObject.connect(self.run_tuflow_action, SIGNAL("triggered()"), self.run_tuflow)
 		self.run_menu.addAction(self.run_tuflow_action)
+		
+		#top level in menu
+		# TuPlot
+		icon = QIcon(os.path.dirname(__file__) + "/icons/results.png")
+		self.view_1d_results_action = QAction(icon, "TuPlot", self.iface.mainWindow())
+		QObject.connect(self.view_1d_results_action, SIGNAL("triggered()"), self.results_1d)
+		self.iface.addToolBarIcon(self.view_1d_results_action)
+		self.iface.addPluginToMenu("&TUFLOW", self.view_1d_results_action)
+  
+		# Added MJS 11/02   
+		icon = QIcon(os.path.dirname(__file__) + "/icons/check_files_folder.png")
+		self.import_chk_action = QAction(icon, "Import Check Files from Folder", self.iface.mainWindow())
+		QObject.connect(self.import_chk_action, SIGNAL("triggered()"), self.import_check)
+		self.iface.addToolBarIcon(self.import_chk_action)
+		self.iface.addPluginToMenu("&TUFLOW", self.import_chk_action)
+	
+		#PAR 2016/02/12
+		icon = QIcon(os.path.dirname(__file__) + "/icons/check_files_open.png")
+		self.apply_chk_action = QAction(icon, "Apply TUFLOW Styles to Open Layers", self.iface.mainWindow())
+		QObject.connect(self.apply_chk_action, SIGNAL("triggered()"), self.apply_check)
+		self.iface.addToolBarIcon(self.apply_chk_action)
+		self.iface.addPluginToMenu("&TUFLOW", self.apply_chk_action)
+		
+		#PAR 2016/02/15
+		icon = QIcon(os.path.dirname(__file__) + "/icons/check_files_currentlayer.png")
+		self.apply_chk_cLayer_action = QAction(icon, "Apply TUFLOW Styles to Current Layer", self.iface.mainWindow())
+		QObject.connect(self.apply_chk_cLayer_action, SIGNAL("triggered()"), self.apply_check_cLayer)
+		self.iface.addToolBarIcon(self.apply_chk_cLayer_action)
+		self.iface.addPluginToMenu("&TUFLOW", self.apply_chk_cLayer_action)
 		
 		#Init classes variables
 		self.dockOpened = False		#remember for not reopening dock if there's already one opened
@@ -146,10 +178,10 @@ class tuflowqgis_menu:
 		self.textquit1 = "Select the polyline in a vector layer (Right click to quit)"
 
 	def unload(self):
-		self.iface.removePluginMenu("&tuflowqgis", self.editing_menu.menuAction())
-		self.iface.removePluginMenu("&tuflowqgis", self.visualisation_menu.menuAction())
-		self.iface.removePluginMenu("&tuflowqgis", self.run_menu.menuAction())
-		
+		self.iface.removePluginMenu("&TUFLOW", self.about_menu.menuAction())
+		self.iface.removePluginMenu("&TUFLOW", self.editing_menu.menuAction())
+		self.iface.removePluginMenu("&TUFLOW", self.run_menu.menuAction())
+		del self.import_chk_action
 
 	def configure_tf(self):
 		project = QgsProject.instance()
@@ -207,7 +239,7 @@ class tuflowqgis_menu:
 			
 		else:
 			self.dockOpened = True
-			self.resdock = TUFLOW_Res_Dock(self.iface)
+			self.resdock = TuPlot(self.iface)
 			self.iface.addDockWidget( Qt.RightDockWidgetArea, self.resdock)
 		#else:
 		#	if self.resdock.dockOpened:
@@ -246,3 +278,18 @@ class tuflowqgis_menu:
 	def about_tuflowqgis(self):
 		QMessageBox.information(self.iface.mainWindow(), "About TUFLOW QGIS", 'This is a developmental version of the TUFLOW QGIS utitlity, build: '+build_vers)
 
+      # Added MJS 11/02  
+	def import_check(self):
+		project = QgsProject.instance()
+		dialog = tuflowqgis_import_check_dialog(self.iface, project)
+		dialog.exec_()
+		
+	def apply_check(self):
+		error, message = tuflowqgis_apply_check_tf(self.iface)
+		if error:
+			QMessageBox.critical(self.iface.mainWindow(), "Error", message)
+	
+	def apply_check_cLayer(self):
+		error, message = tuflowqgis_apply_check_tf_clayer(self.iface)
+		if error:
+			QMessageBox.critical(self.iface.mainWindow(), "Error", message)

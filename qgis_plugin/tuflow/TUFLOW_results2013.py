@@ -185,7 +185,7 @@ class ResData():
     ResData class for reading and processing results
     """
 
-    def getYData(self, id,res):
+    def getTSData(self, id,res):
         message = None
         if(res.upper() in ("H", "H_", "LEVEL","LEVELS")):
             try:

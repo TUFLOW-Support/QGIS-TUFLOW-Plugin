@@ -32,7 +32,7 @@ def description():
 
 
 def version():
-    return "Version 2014-01-AA QGIS2.0"
+    return "Version 2016-03-AA QGIS2.x"
 
 
 def icon():

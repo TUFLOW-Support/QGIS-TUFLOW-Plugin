@@ -157,4 +157,51 @@ class TF_Settings():
 			message = 'last exe is None and was not saved.'
 			#return error, message
 		
+
+	def get_last_mi_folder(self):
+		error = False
+		last_mi = None
+		try:
+			last_mi = self.settings.value("TUFLOW/last_mi_folder", "Undefined")
+		except:
+			last_mi = "Undefined"
+		return last_mi
+		
+	def save_last_mi_folder(self,last_mi):
+		error = False
+		message = None
+		if last_mi:
+			try:
+				self.settings.setValue("TUFLOW/last_mi_folder", last_mi)
+			except:
+				error = True
+				message = 'Unable to save last executbale to settings'
+				#return error, message
+		else:
+			error = True
+			message = 'last mifolder is None and was not saved.'
+			#return error, message
 			
+	def get_last_chk_folder(self):
+		error = False
+		last_chk = None
+		try:
+			last_chk = self.settings.value("TUFLOW/last_chk_folder", "Undefined")
+		except:
+			last_chk = "Undefined"
+		return last_chk
+		
+	def save_last_chk_folder(self,last_chk):
+		error = False
+		message = None
+		if last_chk:
+			try:
+				self.settings.setValue("TUFLOW/last_chk_folder", last_chk)
+			except:
+				error = True
+				message = 'Unable to save last check folder to settings'
+				#return error, message
+		else:
+			error = True
+			message = 'last_chk_folder is None and was not saved.'
+			#return error, message

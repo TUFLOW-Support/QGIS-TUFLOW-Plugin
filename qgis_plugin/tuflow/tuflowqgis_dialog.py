@@ -760,3 +760,268 @@ class tuflowqgis_splitMI_dialog(QDialog, Ui_tuflowqgis_splitMI):
 		QMessageBox.information( self.iface.mainWindow(),"debug", "Removing existing layer")
 		QgsMapLayerRegistry.instance().removeMapLayer(layer.id())
 		#self.iface.addVectorLayer(savename, os.path.basename(savename), "ogr")
+		
+# ----------------------------------------------------------
+#    tuflowqgis flow trace
+# ----------------------------------------------------------
+
+# ----------------------------------------------------------
+#    tuflowqgis splitMI into shapefiles
+# ----------------------------------------------------------
+from ui_tuflowqgis_splitMI_folder import *
+from tuflowqgis_settings import TF_Settings
+from splitMI_func import *
+from splitMI_mod2 import *
+import os
+import fnmatch
+
+class tuflowqgis_splitMI_folder_dialog(QDialog, Ui_tuflowqgis_splitMI_folder):
+	def __init__(self, iface):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.setupUi(self)
+		self.settings = TF_Settings()
+		self.last_mi = self.settings.get_last_mi_folder()
+		
+		QObject.connect(self.browseoutfile, SIGNAL("clicked()"), self.browse_outdir)
+		QObject.connect(self.buttonBox, SIGNAL("accepted()"), self.run)
+		
+
+
+	def browse_outdir(self):
+		#newname = QFileDialog.getExistingDirectory(None, "Output Directory")
+		newname = QFileDialog.getExistingDirectory(None, "Output Directory",self.last_mi)
+		if newname != None:
+			self.outfolder.setText(newname)
+			self.settings.save_last_mi_folder(newname)
+	
+	def run(self):
+		QMessageBox.information( self.iface.mainWindow(),"debug", "run" )
+		folder = unicode(self.outfolder.displayText()).strip()
+		QMessageBox.information( self.iface.mainWindow(),"debug", "Folder: \n"+folder)
+
+		mif_files = []
+		if self.cbRecursive.isChecked(): #look in subfolders:
+			for root, dirnames, filenames in os.walk(folder):
+				for filename in fnmatch.filter(filenames, '*.mif'):
+					mif_files.append(os.path.join(root, filename))
+		else: #only specified folder
+			filenames = os.listdir(folder)
+			for filename in fnmatch.filter(filenames, '*.mif'):
+				mif_files.append(os.path.join(folder, filename))
+		
+		nF = len(mif_files)
+		QMessageBox.information( self.iface.mainWindow(),"debug", "Number of mif files = :"+str(nF))
+		
+		for mif_file in mif_files:
+			QMessageBox.information( self.iface.mainWindow(),"debug", "mif file = \n"+mif_file)
+			#error, message, points, lines, regions = splitMI_func(mif_file)
+			message, fname_P, fname_L, fname_R, npts, nln, nrg = split_MI_util2(mif_file)
+			
+			QMessageBox.information( self.iface.mainWindow(),"debug", "done")
+			if message <> None:
+				QMessageBox.information( self.iface.mainWindow(),"ERROR", message)
+				QMessageBox.information( self.iface.mainWindow(),"point file", fname_P)
+			else:
+				QMessageBox.information( self.iface.mainWindow(),"ERROR", "Success")
+		
+# ----------------------------------------------------------
+#    tuflowqgis flow trace
+# ----------------------------------------------------------
+
+from ui_tuflowqgis_flowtrace import *
+
+class tuflowqgis_flowtrace_dialog(QDialog, Ui_tuflowqgis_flowtrace):
+	def __init__(self, iface):
+		QDialog.__init__(self)
+		self.iface = iface
+		#QMessageBox.information( self.iface.mainWindow(),"debug", "Starting flow-trace dialogue")
+		self.setupUi(self)
+		self.canvas = self.iface.mapCanvas()
+		self.cLayer = self.canvas.currentLayer()
+		self.lw_Log.insertItem(0,'Creating Dialogue')
+		
+		#QMessageBox.information( self.iface.mainWindow(),"debug", "Starting flow-trace dialogue")
+		
+		if self.cLayer:
+			cName = self.cLayer.name()
+			self.lw_Log.insertItem(0,'Current Layer: '+cName)
+			self.dp = self.cLayer.dataProvider()
+			self.ds = self.dp.dataSourceUri()
+		else:
+			QMessageBox.information( self.iface.mainWindow(),"ERROR", "No layer selected.")
+			#QDialog.close(self) #close dialogue
+			#QDialog.accept()
+			#sys.exit()
+			#exit()
+			#self.done(int(1))
+			#self.reject()
+			QDialog.done(self,0)
+			
+
+		QObject.connect(self.pb_Run, SIGNAL("clicked()"), self.run_clicked)
+		QObject.connect(self.buttonBox, SIGNAL("accepted()"), self.run)
+#
+	def run_clicked(self):
+		#QMessageBox.information( self.iface.mainWindow(),"debug", "Starting flow-trace run")
+		#tolerance = 1.00
+		try:
+			dt_str = self.le_dt.displayText()
+			dt = float(dt_str)
+			self.lw_Log.insertItem(0,'Snap Tolerance: '+str(dt))
+		except:
+			QMessageBox.critical( self.iface.mainWindow(),"ERROR", "Unable to convert dt to number.  Line: "+dt_str)
+		try:
+			#self.cLayer = self.canvas.currentLayer()
+			features = self.cLayer.selectedFeatures()
+			self.lw_Log.insertItem(0,'Number of feaures selected: '+str(len(features)))
+		except:
+			QMessageBox.information( self.iface.mainWindow(),"debug", "Error getting selected features")
+		
+		#load all 1st and last node locations
+		start_nd = []
+		end_nd = []
+		start_x = []
+		end_x = []
+		fid = []
+		tf_selected = []
+		self.lw_Log.insertItem(0,'Loading all start and end nodes')
+		for f in self.cLayer.getFeatures():
+			fid.append(f.id()) # list of fids
+			tf_selected.append(False) #not selected by default
+			nodes = f.geometry().asPolyline()
+			start_nd.append(nodes[0])
+			start_x.append(nodes[0][0])
+			end_nd.append(nodes[-1])
+			end_x.append(nodes[-1][0])
+		self.lw_Log.insertItem(0,'Loaded all end vertex data. Total number of features loaded = '+str(len(fid)))
+		
+		#start doing stuff
+		selection_list = []
+		final_list = []
+		tmp_selection = []
+		self.lw_Log.insertItem(0,'Processing selected features...')
+		for feature in features:
+			self.lw_Log.insertItem(0,'FID: '+str(feature.id()))
+			selection_list.append(feature.id())
+			final_list.append(feature.id())
+			tf_selected[feature.id()-1] = True
+		self.lw_Log.insertItem(0,'Done')
+		
+		if self.cb_US.isChecked():
+			tmp_selection = selection_list
+			self.lw_Log.insertItem(0,'Beginning upstream search')	
+			while tmp_selection:
+				self.lw_Log.insertItem(0,'selected id: '+str(tmp_selection[0]))
+				ind = fid.index(tmp_selection[0])
+				self.lw_Log.insertItem(0,'index: '+str(ind))
+				node = start_nd[ind]
+				distance = QgsDistanceArea()
+				for i, id in enumerate(fid):
+					#self.lw_Log.insertItem(0,'id: '+str(id))
+					if not tf_selected[i]:
+						dist = distance.measureLine(node, end_nd[i])
+						#self.lw_Log.insertItem(0,'dist = '+str(dist))	
+						if dist < dt:
+							self.lw_Log.insertItem(0,'Connected fid: '+str(id))	
+							#QMessageBox.information( self.iface.mainWindow(),"debug", "connected")
+							final_list.append(id)
+							tmp_selection.append(id)
+							tf_selected[i] = True
+					
+				tmp_selection.pop(0)
+				
+			self.lw_Log.insertItem(0,'Finished upstream search')
+
+		if self.cb_DS.isChecked():
+			for feature in features: #re-select original
+				tmp_selection.append(feature.id())
+			
+			self.lw_Log.insertItem(0,'Beginning downstream search')	
+			self.lw_Log.insertItem(0,'len tmp = '+str(len(tmp_selection)))
+			self.lw_Log.insertItem(0,'len features = '+str(len(features)))
+			while tmp_selection:
+				self.lw_Log.insertItem(0,'selected id: '+str(tmp_selection[0]))
+				ind = fid.index(tmp_selection[0])
+				self.lw_Log.insertItem(0,'index: '+str(ind))
+				node = end_nd[ind]
+				distance = QgsDistanceArea()
+				for i, id in enumerate(fid):
+					#self.lw_Log.insertItem(0,'id: '+str(id))
+					if not tf_selected[i]:
+						dist = distance.measureLine(node, start_nd[i])
+						#self.lw_Log.insertItem(0,'dist = '+str(dist))	
+						if dist < dt:
+							self.lw_Log.insertItem(0,'Connected fid: '+str(id))	
+							#QMessageBox.information( self.iface.mainWindow(),"debug", "connected")
+							final_list.append(id)
+							tmp_selection.append(id)
+							tf_selected[i] = True
+					
+				tmp_selection.pop(0)
+			self.lw_Log.insertItem(0,'Finished downstream search')
+		#QMessageBox.information( self.iface.mainWindow(),"debug", "Here A")
+		self.cLayer.setSelectedFeatures(final_list)	
+		#QMessageBox.information( self.iface.mainWindow(),"debug", "Here B")
+
+	def run(self):
+		#if self.cb_DS.isChecked():
+		#	QMessageBox.information( self.iface.mainWindow(),"debug", "Downstream")
+		#if self.cb_US.isChecked():
+		#	QMessageBox.information( self.iface.mainWindow(),"debug", "Upstream")
+		QMessageBox.information( self.iface.mainWindow(),"debug", "Use RUN button")
+  
+  
+ # MJS added 11/02 
+# ----------------------------------------------------------
+#    tuflowqgis import check files
+# ----------------------------------------------------------
+from ui_tuflowqgis_import_check import *
+from tuflowqgis_settings import TF_Settings
+class tuflowqgis_import_check_dialog(QDialog, Ui_tuflowqgis_import_check):
+	def __init__(self, iface, project):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.setupUi(self)
+		self.settings = TF_Settings()
+
+		# load stored settings
+		self.last_chk_folder = self.settings.get_last_chk_folder()
+		error, message = self.settings.Load() #exe, tuflow dircetory and projection
+		if error:
+			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Settings: "+message)
+
+		QObject.connect(self.browsedir, SIGNAL("clicked()"), self.browse_empty_dir)
+		QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
+
+		if (self.last_chk_folder == "Undefined"):
+			if self.settings.combined.base_dir:
+				self.last_chk_folder = os.path.join(self.settings.combined.base_dir,"TUFLOW","Check")
+				self.emptydir.setText(self.last_chk_folder)
+		#	self.emptydir.setText(self.settings.combined.base_dir+"\\TUFLOW\\check")
+		else:
+			self.emptydir.setText(self.last_chk_folder)
+		#self.emptydir.setText = self.settings.get_last_mi_folder()
+
+	def browse_empty_dir(self):
+		newname = QFileDialog.getExistingDirectory(None, "Output Directory",self.last_chk_folder)
+		if newname != None:
+			try:
+				self.emptydir.setText(newname)
+				self.settings.save_last_chk_folder(newname)
+			except:
+				self.emptydir.setText("Problem Saving Settings")
+
+
+	def run(self):
+		runID = unicode(self.txtRunID.displayText()).strip()
+		basedir = unicode(self.emptydir.displayText()).strip()
+		showchecks = self.showchecks.isChecked()
+
+
+		# run create dir script
+		#message = tuflowqgis_import_check_tf(self.iface, basedir, runID, empty_types, points, lines, regions)
+		message = tuflowqgis_import_check_tf(self.iface, basedir, runID,showchecks)
+		#message = tuflowqgis_create_tf_dir(self.iface, crs, basedir)
+		if message <> None:
+			QMessageBox.critical(self.iface.mainWindow(), "Importing TUFLOW Empty File(s)", message)
