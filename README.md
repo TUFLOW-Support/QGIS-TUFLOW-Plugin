@@ -24,7 +24,7 @@ If you have any suggestions please email us as at <support@tuflow.com>
 
 The tuflow folder from QGIS-TUFLOW-Plugin-master.zip\QGIS-TUFLOW-Plugin-master\qgis_plugin\tuflow should sit directly plugin folder i.e.
 
-  C:\Users\<username>\.qgis2\python\plugins\tuflow\
+	C:\Users\<username>\.qgis2\python\plugins\tuflow\
 
 
 Alternatively you can clone the repository from github, although you will need to unpack into the directory structure above.
