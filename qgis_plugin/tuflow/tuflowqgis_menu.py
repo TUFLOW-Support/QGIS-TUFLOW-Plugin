@@ -33,9 +33,6 @@ from tuflowqgis_dialog import *
 # Import the code for the 1D results viewer
 from tuflowqgis_TuPlot import *
 
-# Import the code for the 1D xs viewer
-from tuflowqgis_xsviewer import *
-
 #par
 from tuflowqgis_library import tuflowqgis_apply_check_tf
 
