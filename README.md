@@ -20,9 +20,7 @@ If you have any suggestions please email us as at <support@tuflow.com>
 
 ###To install:  
 
-  To enable please save the .zip file to your QGIS plugin directory and then unzip.  This zip folder will contain a number of This should be here:
-
-  C:\Users\<username>\.qgis2\python\plugins\ (for QGIS 2.0 and later)
+  To enable please save the .zip file to your QGIS plugin directory and then unzip.  This zip folder will contain a number folders as outlined above.
 
 The tuflow folder from QGIS-TUFLOW-Plugin-master.zip\QGIS-TUFLOW-Plugin-master\qgis_plugin\tuflow should sit directly plugin folder i.e.
 
