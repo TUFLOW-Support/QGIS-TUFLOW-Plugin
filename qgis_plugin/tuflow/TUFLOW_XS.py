@@ -258,7 +258,7 @@ class XS():
 		# get information from fields
 		try:
 			source = feature[f1]
-			xs_type = feature[f2]
+			xs_type = feature[f2].upper()
 			flags = feature[f3]
 			if not flags: # is QGIS variant null
 				flags = None

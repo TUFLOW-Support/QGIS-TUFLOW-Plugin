@@ -205,3 +205,26 @@ class TF_Settings():
 			error = True
 			message = 'last_chk_folder is None and was not saved.'
 			#return error, message
+	
+	def get_last_run_folder(self):
+		error = False
+		last_run = None
+		try:
+			last_run = self.settings.value("TUFLOW/last_run_folder", "Undefined")
+		except:
+			last_run = "Undefined"
+		return last_run
+		
+	def save_last_run_folder(self,last_run):
+		error = False
+		message = None
+		if last_run:
+			try:
+				self.settings.setValue("TUFLOW/last_run_folder", last_run)
+			except:
+				error = True
+				message = 'Unable to save last run folder to settings'
+				#return error, message
+		else:
+			error = True
+			message = 'last_chk_folder is None and was not saved.'

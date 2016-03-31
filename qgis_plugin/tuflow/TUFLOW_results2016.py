@@ -2,7 +2,7 @@ import os
 import numpy
 import csv
 import sys
-version = '2016-01-AA' #handle of null data in timeseries
+version = '2016-03-AB' #handle of null data in timeseries
 
 class LP():
 	def __init__(self): #initialise the LP data

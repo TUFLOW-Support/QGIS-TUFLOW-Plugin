@@ -46,8 +46,10 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		self.setupUi(self)
 		self.canvas = self.iface.mapCanvas()
 		cLayer = self.canvas.currentLayer()
+		cName = None
 		fname = ''
 		fpath = None
+		self.curr_file = None
 		
 		if cLayer:
 			cName = cLayer.name()
@@ -60,9 +62,13 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 				fname = basename[0:ind]
 			else:
 				fname = basename
-
+			self.curr_file = os.path.join(fpath,fname)
+		else:
+			QMessageBox.information( self.iface.mainWindow(),"Information", "No layer is currently selected in the layer control")
 		QObject.connect(self.browseoutfile, SIGNAL("clicked()"), self.browse_outfile)
 		QObject.connect(self.buttonBox, SIGNAL("accepted()"), self.run)
+		QObject.connect(self.sourcelayer, SIGNAL("currentIndexChanged(int)"), self.sourcelayer_changed)
+		
 		i = 0
 		for name, layer in QgsMapLayerRegistry.instance().mapLayers().iteritems():
 			if layer.type() == QgsMapLayer.VectorLayer:
@@ -72,17 +78,40 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 				i = i + 1
 		if (fpath):
 			self.outfolder.setText(fpath)
-			self.outfilename.setText(fpath + "/"+fname)
+			outfname = tuflowqgis_increment_fname(fname)
+			self.outfilename.setText(outfname)
 		else:
-			self.outfolder.setText('No layer currently open!')
-			self.outfilename.setText('No layer currently open!')
+			self.outfolder.setText('No layer currently selected!')
+			self.outfilename.setText('No layer currently selected!')
 
-        def browse_outfile(self):
-		newname = QFileDialog.getSaveFileName(None, "Output Shapefile", 
-			self.outfilename.displayText(), "*.shp")
-                if newname != None:
-                	self.outfilename.setText(newname)
+	def browse_outfile(self):
+		outfolder = unicode(self.outfolder.displayText()).strip()
+		newname = QFileDialog.getSaveFileName(None, "Output Shapefile", outfolder, "*.shp")
+		if len(newname)>0:
+			fpath, fname = os.path.split(newname)
+			self.outfolder.setText(fpath)
+			outfname = tuflowqgis_increment_fname(fname)
+			self.outfilename.setText(outfname)
 
+	def sourcelayer_changed(self):
+		layername = unicode(self.sourcelayer.currentText())
+		layer = tuflowqgis_find_layer(layername)
+		try:
+			dp = layer.dataProvider()
+			ds = dp.dataSourceUri()
+			fpath = os.path.dirname(unicode(ds))
+			basename = os.path.basename(unicode(ds))
+			ind = basename.find('|')
+			if (ind>0):
+				fname = basename[0:ind]
+			else:
+				fname = basename
+			self.curr_file = os.path.join(fpath,fname)
+			self.outfolder.setText(fpath)
+			outfname = tuflowqgis_increment_fname(fname)
+			self.outfilename.setText(outfname)
+		except:
+			QMessageBox.information( self.iface.mainWindow(),"Information", "Unexpected error")
 
 	def run(self):
 		if self.checkBox.isChecked():
@@ -91,8 +120,20 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 			keepform = False
 		layername = unicode(self.sourcelayer.currentText())
 		layer = tuflowqgis_find_layer(layername)
-		savename = unicode(self.outfilename.displayText()).strip()
-		#QMessageBox.information( self.iface.mainWindow(),"Info", savename )
+		outname = unicode(self.outfilename.displayText()).strip()
+		if not outname[-4:].upper() == '.SHP':
+			outname = outname+'.shp'
+			QMessageBox.information( self.iface.mainWindow(),"Information", "Appending .shp to filename.")
+		outfolder = unicode(self.outfolder.displayText()).strip()
+		savename = os.path.join(outfolder,outname)
+		if savename == self.curr_file:
+			QMessageBox.critical( self.iface.mainWindow(),"ERROR", "Output filename is the same as the current layer.")
+			return
+		
+		#check if file exists
+		if os.path.isfile(savename):
+			QMessageBox.critical( self.iface.mainWindow(),"ERROR", "Output file already exists \n"+savename)
+			return
 		message = tuflowqgis_duplicate_file(self.iface, layer, savename, keepform)
 		if message <> None:
 			QMessageBox.critical(self.iface.mainWindow(), "Duplicating File", message)
@@ -110,22 +151,19 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		QDialog.__init__(self)
 		self.iface = iface
 		self.setupUi(self)
-		self.settings = TF_Settings()
+		self.tfsettings = TF_Settings()
 		
 		# load stored settings
-		error, message = self.settings.Load()
+		error, message = self.tfsettings.Load()
 		if error:
 			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Settings: "+message)
-		
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "project: "+str(self.settings.project_settings.base_dir))
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "global: "+str(self.settings.global_settings.base_dir))
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "combined: "+str(self.settings.combined.base_dir))
 		
 		QObject.connect(self.browsedir, SIGNAL("clicked()"), self.browse_empty_dir)
 		QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
 
-		if self.settings.combined.base_dir:
-			self.emptydir.setText(self.settings.combined.base_dir+"\\TUFLOW\\model\\gis\\empty")
+		if self.tfsettings.combined.base_dir:
+			#self.emptydir.setText(self.tfsettings.combined.base_dir+"\\TUFLOW\\model\\gis\\empty")
+			self.emptydir.setText(os.path.join(self.tfsettings.combined.base_dir,"TUFLOW","model","gis","empty"))
 		else:
 			self.emptydir.setText("ERROR - Project not loaded")
 
@@ -161,42 +199,50 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 #    tuflowqgis Run TUFLOW (Simple)
 # ----------------------------------------------------------
 from ui_tuflowqgis_run_tf_simple import *
+from tuflowqgis_settings import TF_Settings
 class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 	def __init__(self, iface, project):
 		QDialog.__init__(self)
 		self.iface = iface
 		self.setupUi(self)
-
-		# load settting from project file
-		message, tffolder, tfexe, tf_prj = load_project(project)
-		self.runfolder = tffolder+"\\TUFLOW\\runs\\"
-		self.exefolder = os.path.dirname(tfexe)
-		if message != None:
-			QMessageBox.critical( self.iface.mainWindow(),"Error", message)
+		self.tfsettings = TF_Settings()
+		project_loaded = False
+		
+		# load stored settings
+		error, message = self.tfsettings.Load()
+		if error:
+			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Settings: "+message)
+		
+		
+		if self.tfsettings.combined.tf_exe:
+			tfexe = self.tfsettings.combined.tf_exe
+			self.exefolder, dum  = os.path.split(tfexe)
+			project_loaded = True
+		else: #load last used exe
+			tfexe = self.tfsettings.get_last_exe()
+		if self.tfsettings.combined.base_dir:
+			self.tffolder = self.tfsettings.combined.base_dir
+			self.runfolder = os.path.join(self.tffolder,'TUFLOW','runs')
+			project_loaded = True
+		else: #load last used directory
+			self.runfolder = self.tfsettings.get_last_run_folder()
+		if not project_loaded:
+			QMessageBox.information( self.iface.mainWindow(),"Information", "Project not loaded using last saved location.")
+			
 		self.TUFLOW_exe.setText(tfexe)
 		
 		QObject.connect(self.browsetcffile, SIGNAL("clicked()"), self.browse_tcf)
 		QObject.connect(self.browseexe, SIGNAL("clicked()"), self.browse_exe)
 		QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
 
-		files = glob.glob(unicode(tffolder)+"\\TUFLOW\\runs\\*.tcf")
+		files = glob.glob(unicode(self.runfolder)+os.path.sep+"*.tcf")
 		self.tcfin=''
 		if (len(files) > 0):
 			files.sort(key=os.path.getmtime, reverse=True)
 			self.tcfin = files[0]
 		if (len(self.tcfin)>3):
 			self.tcf.setText(self.tcfin)
-		# open settings for previous instances
-		#self.settings = QSettings()
-		#self.exe = str(self.settings.value("TUFLOW_Run_TUFLOW/exe", os.sep).toString())
-		#self.exe_dir = str(self.settings.value("TUFLOW_Run_TUFLOW/exeDir", os.sep).toString())
-		#self.tcfin = str(self.settings.value("TUFLOW_Run_TUFLOW/tcf", os.sep).toString())
-		#self.tcfdir = str(self.settings.value("TUFLOW_Run_TUFLOW/tcfDir", os.sep).toString())
-		
 
-		
-		#if (len(self.exe)>3): # use last folder if stored
-		#	self.TUFLOW_exe.setText(self.exe)
 
 	def browse_tcf(self):
 		# Get the file name
@@ -206,11 +252,13 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 			return
 		# Store the exe location and path we just looked in
 		self.tcfin = inFileName
-		self.settings.setValue("TUFLOW_Run_TUFLOW/tcf", inFileName)
+		#self.tfsettings.save_last_exe(self,last_exe)("TUFLOW_Run_TUFLOW/tcf", inFileName)
+		
 		self.tcf.setText(inFileName)
 		head, tail = os.path.split(inFileName)
 		if head <> os.sep and head.lower() <> 'c:\\' and head <> '':
-			self.settings.setValue("TUFLOW_Run_TUFLOW/tcfDir", head)
+			self.tfsettings.save_last_run_folder(head)
+			#self.tfsettings.setValue("TUFLOW_Run_TUFLOW/tcfDir", head)
 
 	def browse_exe(self):
 		# Get the file name
@@ -219,12 +267,13 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 		if len(inFileName) == 0: # If the length is 0 the user pressed cancel 
 			return
 		# Store the exe location and path we just looked in
+		self.tfsettings.save_last_exe(inFileName)
 		self.exe = inFileName
-		self.settings.setValue("TUFLOW_Run_TUFLOW/exe", inFileName)
+		#self.tfsettings.setValue("TUFLOW_Run_TUFLOW/exe", inFileName)
 		self.TUFLOW_exe.setText(inFileName)
-		head, tail = os.path.split(inFileName)
-		if head <> os.sep and head.lower() <> 'c:\\' and head <> '':
-			self.settings.setValue("TUFLOW_Run_TUFLOW/exeDir", head)
+		#head, tail = os.path.split(inFileName)
+		#if head <> os.sep and head.lower() <> 'c:\\' and head <> '':
+		#	self.tfsettings.setValue("TUFLOW_Run_TUFLOW/exeDir", head)
 
 	def run(self):
 		tcf = unicode(self.tcf.displayText()).strip()
@@ -262,7 +311,6 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 				fname = basename[0:ind]
 			else:
 				fname = basename
-			QMessageBox.information(self.iface.mainWindow(), "DEBUG", "populate columns layers")
 			fields = cLayer.pendingFields()
 			for (counter, field) in enumerate(fields):
 				self.elev_attr.addItem(str(field.name()))
@@ -279,10 +327,8 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 			#	elif str(value.name()).lower() == 'elevation':
 			#		self.elev_attr.setCurrentIndex(key)
 
-		QMessageBox.information(self.iface.mainWindow(), "DEBUG", "populate source layers")
 		i = 0
 		for name, layer in QgsMapLayerRegistry.instance().mapLayers().iteritems():
-			QMessageBox.information(self.iface.mainWindow(), "DEBUG", "populate source layers")
 			if layer.type() == QgsMapLayer.VectorLayer:
 				self.sourcelayer.addItem(layer.name())
 				if layer.name() == cName:
@@ -305,16 +351,14 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
                 	self.outfilename.setText(newname)
 
 	def source_changed(self):
-		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Source Changed")
 		layername = unicode(self.sourcelayer.currentText())
 		self.cLayer = tuflowqgis_find_layer(layername)
 		self.elev_attr.clear()
 		if self.cLayer and (self.cLayer.type() == QgsMapLayer.VectorLayer):
-			#QMessageBox.information(self.iface.mainWindow(), "DEBUG", self.cLayer.name())
 			datacolumns = self.cLayer.dataProvider().fields()
 			GType = self.cLayer.dataProvider().geometryType()
 			if (GType == QGis.WKBPoint):
-				QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Point geometry layer")
+				QMessageBox.information(self.iface.mainWindow(), "Info", "Point geometry layer")
 			else:
 				QMessageBox.information(self.iface.mainWindow(), "Info", "Please select point layer type")
 			fields = self.cLayer.pendingFields()
@@ -336,8 +380,7 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 		try:
 			dmax = float(dmax_str)
 		except:
-			QMessageBox.criticl( self.iface.mainWindow(),"Error", "Error converting input distance to numeric data type.  Make sure a number is specified." )
-		QMessageBox.information( self.iface.mainWindow(),"debug", "starting" )
+			QMessageBox.critical( self.iface.mainWindow(),"Error", "Error converting input distance to numeric data type.  Make sure a number is specified." )
 		
 		npt = 0
 		x = []
@@ -347,7 +390,6 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 		self.layer.dataProvider().select(self.layer.dataProvider().attributeIndexes())
 		self.layer.dataProvider().rewind()
 		feature_count = self.layer.dataProvider().featureCount()
-		QMessageBox.information(self.iface.mainWindow(),"debug", "count = "+str(feature_count))
 		while self.layer.dataProvider().nextFeature(feature):
 			npt = npt + 1
 			geom = feature.geometry()
@@ -356,12 +398,8 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 			x.append(xn)
 			y.append(yn)
 			zn = feature.attributeMap()[z_col].toString()
-			if npt == 1:
-				QMessageBox.information(self.iface.mainWindow(),"debug", "x = "+str(xn)+", y = "+str(yn))
-				QMessageBox.information(self.iface.mainWindow(),"debug", "z = "+zn)
 			z.append(float(zn))
-		QMessageBox.information(self.iface.mainWindow(),"debug", "finished reading points")	
-		QMessageBox.information(self.iface.mainWindow(),"debug", "npts read = "+str(npt))
+		QMessageBox.information(self.iface.mainWindow(),"Info", "finished reading points \n npts read = "+str(npt))
 		
 		# Create output file
 		v_layer = QgsVectorLayer("LineString", "line", "memory")
@@ -369,11 +407,7 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 		
 		# add fields
 		fields = { 0 : QgsField("z", QVariant.Double),1 : QgsField("dz", QVariant.Double),2 : QgsField("width", QVariant.Double),3 : QgsField("Options", QVariant.String) }
-		#pr.addAttributes( [ QgsField("Z", QVariant.Double),
-		#	QgsField("dz",  QVariant.Double),
-		#	QgsField("width",  QVariant.Double),
-		#	QgsField("Options", QVariant.String) ] )
-					
+	
 		message = None
 		if len(savename) <= 0:
 			message = "Invalid output filename given"
@@ -403,7 +437,6 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 			pt2y = y[pt]
 			qpt = QgsPoint(pt2x,pt2y)
 			#if pt <= 10:
-			#	QMessageBox.information(self.iface.mainWindow(),"debug", "pt2x = "+str(pt2x)+", pt2y = "+str(pt2y))
 			if newline:
 				pt1x = pt2x
 				pt1y = pt2y
@@ -413,7 +446,6 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 			else:
 				dist = math.sqrt(((pt2x - pt1x)**2)+((pt2y - pt1y)**2))
 				#if pt <= 10:
-				#	QMessageBox.information(self.iface.mainWindow(),"debug", "dist = "+str(dist))
 				if dist <= dmax: #part of same line
 					point_list.append(qpt)
 					pt1x = pt2x
@@ -465,7 +497,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		self.canvas = self.iface.mapCanvas()
 		#self.project = project
 		cLayer = self.canvas.currentLayer()
-		self.settings = TF_Settings()
+		self.tfsettings = TF_Settings()
 		self.crs = None
 		fname = ''
 		#message, tffolder, tfexe, tf_prj = load_project(self.project)
@@ -473,37 +505,37 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		#if message != None:
 		#	QMessageBox.critical( self.iface.mainWindow(),"Error", message)
 		
-		# load global settings
+		# load global tfsettings
 		#QMessageBox.information( self.iface.mainWindow(),"debug", "loading gloabal settings")
-		error, message = self.settings.Load()
+		error, message = self.tfsettings.Load()
 		if error:
 			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Global Settings: "+message)
 		
 		#set fields
-		if self.settings.project_settings.base_dir:
-			self.outdir.setText(self.settings.project_settings.base_dir)
-		elif self.settings.global_settings.base_dir:
-			self.outdir.setText(self.settings.global_settings.base_dir)
+		if self.tfsettings.project_settings.base_dir:
+			self.outdir.setText(self.tfsettings.project_settings.base_dir)
+		elif self.tfsettings.global_settings.base_dir:
+			self.outdir.setText(self.tfsettings.global_settings.base_dir)
 		else:
 			self.outdir.setText("Not Yet Set")
 		
-		if self.settings.project_settings.tf_exe:
-			self.TUFLOW_exe.setText(self.settings.project_settings.tf_exe)
-		elif self.settings.global_settings.tf_exe:
-			self.TUFLOW_exe.setText(self.settings.global_settings.tf_exe)
+		if self.tfsettings.project_settings.tf_exe:
+			self.TUFLOW_exe.setText(self.tfsettings.project_settings.tf_exe)
+		elif self.tfsettings.global_settings.tf_exe:
+			self.TUFLOW_exe.setText(self.tfsettings.global_settings.tf_exe)
 		else:
 			self.TUFLOW_exe.setText("Not Yet Set")
 
-		if self.settings.project_settings.CRS_ID:
-			self.form_crsID.setText(self.settings.project_settings.CRS_ID)
+		if self.tfsettings.project_settings.CRS_ID:
+			self.form_crsID.setText(self.tfsettings.project_settings.CRS_ID)
 			self.crs = QgsCoordinateReferenceSystem()
-			success = self.crs.createFromString(self.settings.project_settings.CRS_ID)
+			success = self.crs.createFromString(self.tfsettings.project_settings.CRS_ID)
 			if success:
 				self.crsDesc.setText(self.crs.description())
-		elif self.settings.global_settings.CRS_ID:
-			self.form_crsID.setText(self.settings.global_settings.CRS_ID)
+		elif self.tfsettings.global_settings.CRS_ID:
+			self.form_crsID.setText(self.tfsettings.global_settings.CRS_ID)
 			self.crs = QgsCoordinateReferenceSystem()
-			success = self.crs.createFromString(self.settings.global_settings.CRS_ID)
+			success = self.crs.createFromString(self.tfsettings.global_settings.CRS_ID)
 			if success:
 				self.crsDesc.setText(self.crs.description())
 		else:
@@ -555,7 +587,6 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 			self.outdir.setText(newname)
 	
 	def select_CRS(self):
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "Opening Projection Selector")
 		projSelector = QgsGenericProjectionSelector()
 		projSelector.exec_()
 		try:
@@ -572,7 +603,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 	def browse_exe(self):
 	
 		#get last used dir
-		last_exe = self.settings.get_last_exe()			
+		last_exe = self.tfsettings.get_last_exe()			
 		if last_exe:
 			last_dir, tail = os.path.split(last_exe)
 		else:
@@ -585,7 +616,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 			return
 		# Store the exe location and path we just looked in
 		self.TUFLOW_exe.setText(inFileName)
-		self.settings.save_last_exe(inFileName)
+		self.tfsettings.save_last_exe(inFileName)
 
 	def layer_changed(self):
 		layername = unicode(self.sourcelayer.currentText()) 
@@ -596,16 +627,15 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 				self.form_crsID.setText(self.crs.authid())
 				self.crsDesc.setText(self.crs.description())
 	def run(self):
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "Saving TUFLOW configuration to project file")
 		tf_prj = unicode(self.form_crsID.displayText()).strip()
 		basedir = unicode(self.outdir.displayText()).strip()
 		tfexe = unicode(self.TUFLOW_exe.displayText()).strip()
 		
 		#Save Project Settings
-		self.settings.project_settings.CRS_ID = tf_prj
-		self.settings.project_settings.tf_exe = tfexe
-		self.settings.project_settings.base_dir = basedir
-		error, message = self.settings.Save_Project()
+		self.tfsettings.project_settings.CRS_ID = tf_prj
+		self.tfsettings.project_settings.tf_exe = tfexe
+		self.tfsettings.project_settings.base_dir = basedir
+		error, message = self.tfsettings.Save_Project()
 		if error:
 			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Saving Project Settings. Message: "+message)
 		else:
@@ -613,10 +643,10 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		
 		#Save Global Settings
 		if (self.cbGlobal.isChecked()):
-			self.settings.global_settings.CRS_ID = tf_prj
-			self.settings.global_settings.tf_exe = tfexe
-			self.settings.global_settings.base_dir = basedir
-			error, message = self.settings.Save_Global()
+			self.tfsettings.global_settings.CRS_ID = tf_prj
+			self.tfsettings.global_settings.tf_exe = tfexe
+			self.tfsettings.global_settings.base_dir = basedir
+			error, message = self.tfsettings.Save_Global()
 			if error:
 				QMessageBox.information( self.iface.mainWindow(),"Error", "Error Saving Global Settings. Message: "+message)
 			else:
@@ -632,7 +662,9 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 				QMessageBox.critical(self.iface.mainWindow(), "Creating TUFLOW Directory ", message)
 		
 		if (self.cbRun.isChecked()):
-				tcf = os.path.join(basedir+"\\TUFLOW\\runs\\Create_Empties.tcf")
+				#tcf = os.path.join(basedir+"\\TUFLOW\\runs\\Create_Empties.tcf")
+				tcf = os.path.join(basedir,"TUFLOW","runs","Create_Empties.tcf")
+				QMessageBox.information(self.iface.mainWindow(), "Running TUFLOW","Starting simulation: "+tcf+"\n Executable: "+tfexe)
 				message = run_tuflow(self.iface, tfexe, tcf)
 				if message <> None:
 					QMessageBox.critical(self.iface.mainWindow(), "Running TUFLOW ", message)
@@ -729,9 +761,7 @@ class tuflowqgis_splitMI_dialog(QDialog, Ui_tuflowqgis_splitMI):
 				self.outfolder.setText(fpath)
 				self.outprefix.setText(fname_noext)
 	def run(self):
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "run" )
 		layername = unicode(self.sourcelayer.currentText())
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "layer name = :"+layername)
 		layer = tuflowqgis_find_layer(layername)
 		fext = "unknown"
 		if layer != None:
@@ -745,21 +775,13 @@ class tuflowqgis_splitMI_dialog(QDialog, Ui_tuflowqgis_splitMI):
 			fext, fname_noext, message = get_file_ext(fname)
 		else:
 			QMessageBox.critical(self.iface.mainWindow(), "ERROR", "Layer name is blank, or unable to find layer")
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "file extension = :"+fext)
 		outfolder = unicode(self.outfolder.displayText()).strip()
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "folder = :"+outfolder)
 		outprefix = unicode(self.outprefix.displayText()).strip()
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "prefix = :"+outprefix)
-		#message = tuflowqgis_duplicate_file(self.iface, layer, savename, keepform)
 		message, ptshp, lnshp, rgshp, npt, nln, nrg = split_MI_util(self.iface, fname, outfolder, outprefix)
 		
 		if message <> None:
 			QMessageBox.critical(self.iface.mainWindow(), "Error Splitting file", message)
-		#QMessageBox.information( self.iface.mainWindow(),"debug", ptshp)
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "npts: "+str(npt))
-		QMessageBox.information( self.iface.mainWindow(),"debug", "Removing existing layer")
 		QgsMapLayerRegistry.instance().removeMapLayer(layer.id())
-		#self.iface.addVectorLayer(savename, os.path.basename(savename), "ogr")
 		
 # ----------------------------------------------------------
 #    tuflowqgis flow trace
@@ -780,8 +802,8 @@ class tuflowqgis_splitMI_folder_dialog(QDialog, Ui_tuflowqgis_splitMI_folder):
 		QDialog.__init__(self)
 		self.iface = iface
 		self.setupUi(self)
-		self.settings = TF_Settings()
-		self.last_mi = self.settings.get_last_mi_folder()
+		self.tfsettings = TF_Settings()
+		self.last_mi = self.tfsettings.get_last_mi_folder()
 		
 		QObject.connect(self.browseoutfile, SIGNAL("clicked()"), self.browse_outdir)
 		QObject.connect(self.buttonBox, SIGNAL("accepted()"), self.run)
@@ -793,7 +815,7 @@ class tuflowqgis_splitMI_folder_dialog(QDialog, Ui_tuflowqgis_splitMI_folder):
 		newname = QFileDialog.getExistingDirectory(None, "Output Directory",self.last_mi)
 		if newname != None:
 			self.outfolder.setText(newname)
-			self.settings.save_last_mi_folder(newname)
+			self.tfsettings.save_last_mi_folder(newname)
 	
 	def run(self):
 		QMessageBox.information( self.iface.mainWindow(),"debug", "run" )
@@ -811,14 +833,11 @@ class tuflowqgis_splitMI_folder_dialog(QDialog, Ui_tuflowqgis_splitMI_folder):
 				mif_files.append(os.path.join(folder, filename))
 		
 		nF = len(mif_files)
-		QMessageBox.information( self.iface.mainWindow(),"debug", "Number of mif files = :"+str(nF))
+		#QMessageBox.information( self.iface.mainWindow(),"debug", "Number of mif files = :"+str(nF))
 		
 		for mif_file in mif_files:
-			QMessageBox.information( self.iface.mainWindow(),"debug", "mif file = \n"+mif_file)
-			#error, message, points, lines, regions = splitMI_func(mif_file)
 			message, fname_P, fname_L, fname_R, npts, nln, nrg = split_MI_util2(mif_file)
 			
-			QMessageBox.information( self.iface.mainWindow(),"debug", "done")
 			if message <> None:
 				QMessageBox.information( self.iface.mainWindow(),"ERROR", message)
 				QMessageBox.information( self.iface.mainWindow(),"point file", fname_P)
@@ -835,13 +854,10 @@ class tuflowqgis_flowtrace_dialog(QDialog, Ui_tuflowqgis_flowtrace):
 	def __init__(self, iface):
 		QDialog.__init__(self)
 		self.iface = iface
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "Starting flow-trace dialogue")
 		self.setupUi(self)
 		self.canvas = self.iface.mapCanvas()
 		self.cLayer = self.canvas.currentLayer()
 		self.lw_Log.insertItem(0,'Creating Dialogue')
-		
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "Starting flow-trace dialogue")
 		
 		if self.cLayer:
 			cName = self.cLayer.name()
@@ -863,7 +879,6 @@ class tuflowqgis_flowtrace_dialog(QDialog, Ui_tuflowqgis_flowtrace):
 		QObject.connect(self.buttonBox, SIGNAL("accepted()"), self.run)
 #
 	def run_clicked(self):
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "Starting flow-trace run")
 		#tolerance = 1.00
 		try:
 			dt_str = self.le_dt.displayText()
@@ -876,7 +891,7 @@ class tuflowqgis_flowtrace_dialog(QDialog, Ui_tuflowqgis_flowtrace):
 			features = self.cLayer.selectedFeatures()
 			self.lw_Log.insertItem(0,'Number of feaures selected: '+str(len(features)))
 		except:
-			QMessageBox.information( self.iface.mainWindow(),"debug", "Error getting selected features")
+			QMessageBox.information( self.iface.mainWindow(),"ERROR", "Error getting selected features")
 		
 		#load all 1st and last node locations
 		start_nd = []
@@ -924,7 +939,6 @@ class tuflowqgis_flowtrace_dialog(QDialog, Ui_tuflowqgis_flowtrace):
 						#self.lw_Log.insertItem(0,'dist = '+str(dist))	
 						if dist < dt:
 							self.lw_Log.insertItem(0,'Connected fid: '+str(id))	
-							#QMessageBox.information( self.iface.mainWindow(),"debug", "connected")
 							final_list.append(id)
 							tmp_selection.append(id)
 							tf_selected[i] = True
@@ -953,23 +967,20 @@ class tuflowqgis_flowtrace_dialog(QDialog, Ui_tuflowqgis_flowtrace):
 						#self.lw_Log.insertItem(0,'dist = '+str(dist))	
 						if dist < dt:
 							self.lw_Log.insertItem(0,'Connected fid: '+str(id))	
-							#QMessageBox.information( self.iface.mainWindow(),"debug", "connected")
 							final_list.append(id)
 							tmp_selection.append(id)
 							tf_selected[i] = True
 					
 				tmp_selection.pop(0)
 			self.lw_Log.insertItem(0,'Finished downstream search')
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "Here A")
 		self.cLayer.setSelectedFeatures(final_list)	
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "Here B")
 
 	def run(self):
 		#if self.cb_DS.isChecked():
 		#	QMessageBox.information( self.iface.mainWindow(),"debug", "Downstream")
 		#if self.cb_US.isChecked():
 		#	QMessageBox.information( self.iface.mainWindow(),"debug", "Upstream")
-		QMessageBox.information( self.iface.mainWindow(),"debug", "Use RUN button")
+		QMessageBox.information( self.iface.mainWindow(),"Information", "Use RUN button")
   
   
  # MJS added 11/02 
@@ -983,11 +994,11 @@ class tuflowqgis_import_check_dialog(QDialog, Ui_tuflowqgis_import_check):
 		QDialog.__init__(self)
 		self.iface = iface
 		self.setupUi(self)
-		self.settings = TF_Settings()
+		self.tfsettings = TF_Settings()
 
 		# load stored settings
-		self.last_chk_folder = self.settings.get_last_chk_folder()
-		error, message = self.settings.Load() #exe, tuflow dircetory and projection
+		self.last_chk_folder = self.tfsettings.get_last_chk_folder()
+		error, message = self.tfsettings.Load() #exe, tuflow dircetory and projection
 		if error:
 			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Settings: "+message)
 
@@ -995,20 +1006,20 @@ class tuflowqgis_import_check_dialog(QDialog, Ui_tuflowqgis_import_check):
 		QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
 
 		if (self.last_chk_folder == "Undefined"):
-			if self.settings.combined.base_dir:
-				self.last_chk_folder = os.path.join(self.settings.combined.base_dir,"TUFLOW","Check")
+			if self.tfsettings.combined.base_dir:
+				self.last_chk_folder = os.path.join(self.tfsettings.combined.base_dir,"TUFLOW","Check")
 				self.emptydir.setText(self.last_chk_folder)
-		#	self.emptydir.setText(self.settings.combined.base_dir+"\\TUFLOW\\check")
+		#	self.emptydir.setText(self.tfsettings.combined.base_dir+"\\TUFLOW\\check")
 		else:
 			self.emptydir.setText(self.last_chk_folder)
-		#self.emptydir.setText = self.settings.get_last_mi_folder()
+		#self.emptydir.setText = self.tfsettings.get_last_mi_folder()
 
 	def browse_empty_dir(self):
 		newname = QFileDialog.getExistingDirectory(None, "Output Directory",self.last_chk_folder)
 		if newname != None:
 			try:
 				self.emptydir.setText(newname)
-				self.settings.save_last_chk_folder(newname)
+				self.tfsettings.save_last_chk_folder(newname)
 			except:
 				self.emptydir.setText("Problem Saving Settings")
 

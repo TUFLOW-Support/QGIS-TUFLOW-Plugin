@@ -128,13 +128,12 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 	def help_pressed(self):
 		message = 'This TuPlot utility is designed to view timeseries and long profile data from TUFLOW models.\n'
 		message = message+'For some functionality, this utitlity relies on the new output formats available in the 2016 version of TUFLOW.  Some of the functioanlity is available for the 2013 version of TUFLOW.\n'
-		message = message+'For more information on using this please see http://wiki.tuflow.com/index.php?title=QGIS_1D_Result_Viewer'
+		message = message+'For more information on using this please see http://wiki.tuflow.com/index.php?title=TuPlot'
 		QMessageBox.information(self.iface.mainWindow(), "TuPlot Information", message)
 	def clear_status(self):
 		"""
 			Clears the status list wdiget
 		"""
-		#QMessageBox.information(self.iface.mainWindow(), "Information", "Clearing the status list above.")
 		self.lwStatus.clear()
 		self.lwStatus.insertItem(0,'Status cleared')
 		self.lwStatus.item(0).setTextColor(self.qgreen)
@@ -146,9 +145,13 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 		if not vis:
 			#QMessageBox.information(self.iface.mainWindow(), "Information", "Dock visibility turned off - deactivating dock.")
 			#self.deactivate()
+			
 			#QMessageBox.information(self.iface.mainWindow(), "Information", "Exiting")
 			#self.lwStatus.insertItem(0,'Visibility Changed')
+			#self.qgis_disconnect()
 			return
+		#else:
+		#	self.qgis_connect()
 
 
 	def deactivate_changed(self):
@@ -684,12 +687,17 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 						error = True
 						message = 'No features selected - skipping'
 					elif (len(self.IDs)==1):
+						if self.res_version == 1: #2013 version only supports 1D
+							self.Doms.append('1D')
 						if self.Doms[0]=='1D':
 							error, message = res.LP_getConnectivity(self.IDs[0],None)
 						else:
 							error = True
 							message = 'Selected object is not 1D channel - type: '+self.Doms[0]
 					elif (len(self.IDs)==2):
+						if self.res_version == 1: #2013 version only supports 1D
+							self.Doms.append('1D')
+							self.Doms.append('1D')
 						if self.Doms[0]=='1D' and self.Doms[1]=='1D':
 							error, message = res.LP_getConnectivity(self.IDs[0],self.IDs[1])
 						else:
@@ -1381,24 +1389,15 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 											xdata = res.times
 										elif res.formatVersion == 2: #2015
 											#self.lwStatus.insertItem(0,'domain: '+self.Doms[i])
-											dtype = self.Doms[i].upper()
+											dom = self.Doms[i].upper()
 											source = self.Source_Att[i].upper()
-											if (dtype.upper().find('NODE') >= 0):
-												dom = '1D'
-											elif (dtype.upper().find('CHAN') >= 0):
-												dom = '1D'
-											elif (dtype.find('2D') >= 0):
-												dom = '2D'
+											if (dom == '2D'):
 												if typename.upper().find('STRUCTURE FLOWS')>= 0 and source=='QS':
 													typename = 'QS'
 												elif typename.upper().find('STRUCTURE LEVELS')>= 0 and source=='HU':
 													typename = 'HU'
 												elif typename.upper().find('STRUCTURE LEVELS')>= 0 and source=='HD':
 													typename = 'HD'
-											elif (dtype.upper().find('RL') >= 0):
-												dom = 'RL'
-											else:
-												self.lwStatus.insertItem(0,'ERROR ???')
 											try:
 												found, ydata, message = res.getTSData(ydataid,dom,typename, 'Geom')
 												xdata = res.times

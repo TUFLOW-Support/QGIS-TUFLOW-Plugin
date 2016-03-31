@@ -246,7 +246,7 @@ def check_python_lib(qgis):
 		
 def run_tuflow(qgis,tfexe,tcf):
 	
-	#QMessageBox.Information(qgis.mainWindow(),"debug", "Running TUFLOW")
+	#QMessageBox.Information(qgis.mainWindow(),"debug", "Running TUFLOW - tcf: "+tcf)
 	try:
 		from subprocess import Popen
 		tfarg = [tfexe, '-b',tcf]
@@ -317,24 +317,30 @@ def load_project(project):
 		tffolder = project.readEntry("configure_tuflow", "folder", "Not yet set")[0]
 	except:
 		message = "Error - Reading from project file."
+		QMessageBox.information(qgis.mainWindow(),"Information", message)
 
 	try:
 		tfexe = project.readEntry("configure_tuflow", "exe", "Not yet set")[0]
 	except:
 		message = "Error - Reading from project file."
+		QMessageBox.information(qgis.mainWindow(),"Information", message)
 
 	try:
 		tf_prj = project.readEntry("configure_tuflow", "projection", "Undefined")[0]
 	except:
 		message = "Error - Reading from project file."
+		QMessageBox.information(qgis.mainWindow(),"Information", message)
 	
 	error = False
 	if (tffolder == "Not yet set"):
 		error = True
+		QMessageBox.information(qgis.mainWindow(),"Information", "Not set tffolder")
 	if (tfexe == "Not yet set"):
 		error = True
+		QMessageBox.information(qgis.mainWindow(),"Information", "Not set tfexe")
 	if (tf_prj == "Undefined"):
 		error = True
+		QMessageBox.information(qgis.mainWindow(),"Information", "tf_prj")
 	if error:
 		message = "Project does not appear to be configured.\nPlease run TUFLOW >> Editing >> Configure Project from the plugin menu."
 	
@@ -525,3 +531,45 @@ def tuflowqgis_apply_check_tf_clayer(qgis):
 		message = 'ERROR - Layer is not a vector layer: '+cLayer.source()
 		return error, message
 	return error, message
+	
+def tuflowqgis_increment_fname(infname):
+	#check for file extension (shapefile only, not expecting .mif)
+	fext = ''
+	if infname[-4:].upper() == '.SHP':
+		fext = infname[-4:]
+		fname = infname[0:-4]
+	else:
+		fname = infname
+
+	# check for TUFLOW geometry suffix
+	geom = ''
+	if fname[-2:].upper() == '_P':
+		tmpstr = fname[0:-2]
+		geom = fname[-2:]
+	elif fname[-2:].upper() == '_L':
+		tmpstr = fname[0:-2]
+		geom = fname[-2:]
+	elif fname[-2:].upper() == '_R':
+		tmpstr = fname[0:-2]
+		geom = fname[-2:]
+	else:
+		tmpstr = fname
+
+	#try to find version as integer at end of string
+	rind = tmpstr.rfind('_')
+	if rind >= 0:
+		verstr = tmpstr[rind+1:]
+		ndig = len(verstr)
+		lstr = tmpstr[0:rind+1]
+		try:
+			verint = int(verstr)
+			verint = verint + 1
+			newver = str(verint)
+			newverstr = newver.zfill(ndig)
+			outfname =lstr+newverstr+geom+fext
+		except:
+			outfname = tmpstr
+	else:
+		outfname = tmpstr
+
+	return outfname

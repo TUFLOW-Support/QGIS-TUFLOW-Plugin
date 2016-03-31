@@ -98,20 +98,20 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>70</y>
+     <y>120</y>
      <width>108</width>
      <height>22</height>
     </rect>
    </property>
    <property name="text">
-    <string>Source Folder</string>
+    <string>Output Folder</string>
    </property>
   </widget>
   <widget class="QLineEdit" name="outfolder">
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>90</y>
+     <y>140</y>
      <width>361</width>
      <height>21</height>
     </rect>
@@ -127,7 +127,7 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>140</y>
+     <y>70</y>
      <width>141</width>
      <height>17</height>
     </rect>
@@ -139,7 +139,7 @@
     <string>Keep Source Formatting</string>
    </property>
    <property name="checked">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
   </widget>
  </widget>

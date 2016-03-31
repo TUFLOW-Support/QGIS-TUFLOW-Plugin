@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ui_tuflowqgis_increment.ui'
 #
-# Created: Tue Jan 19 11:20:11 2016
+# Created: Tue Mar 29 20:47:10 2016
 #      by: PyQt4 UI code generator 4.11.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -49,16 +49,16 @@ class Ui_tuflowqgis_increment(object):
         self.browseoutfile.setGeometry(QtCore.QRect(290, 190, 79, 26))
         self.browseoutfile.setObjectName(_fromUtf8("browseoutfile"))
         self.label_2 = QtGui.QLabel(tuflowqgis_increment)
-        self.label_2.setGeometry(QtCore.QRect(10, 70, 108, 22))
+        self.label_2.setGeometry(QtCore.QRect(10, 120, 108, 22))
         self.label_2.setObjectName(_fromUtf8("label_2"))
         self.outfolder = QtGui.QLineEdit(tuflowqgis_increment)
-        self.outfolder.setGeometry(QtCore.QRect(10, 90, 361, 21))
+        self.outfolder.setGeometry(QtCore.QRect(10, 140, 361, 21))
         self.outfolder.setReadOnly(False)
         self.outfolder.setObjectName(_fromUtf8("outfolder"))
         self.checkBox = QtGui.QCheckBox(tuflowqgis_increment)
-        self.checkBox.setGeometry(QtCore.QRect(10, 140, 141, 17))
+        self.checkBox.setGeometry(QtCore.QRect(10, 70, 141, 17))
         self.checkBox.setAcceptDrops(False)
-        self.checkBox.setChecked(True)
+        self.checkBox.setChecked(False)
         self.checkBox.setObjectName(_fromUtf8("checkBox"))
 
         self.retranslateUi(tuflowqgis_increment)
@@ -72,7 +72,7 @@ class Ui_tuflowqgis_increment(object):
         self.label.setText(_translate("tuflowqgis_increment", "Output File", None))
         self.outfilename.setText(_translate("tuflowqgis_increment", "<filename.shp>", None))
         self.browseoutfile.setText(_translate("tuflowqgis_increment", "Browse...", None))
-        self.label_2.setText(_translate("tuflowqgis_increment", "Source Folder", None))
+        self.label_2.setText(_translate("tuflowqgis_increment", "Output Folder", None))
         self.outfolder.setText(_translate("tuflowqgis_increment", "<outfolder>", None))
         self.checkBox.setText(_translate("tuflowqgis_increment", "Keep Source Formatting", None))
 

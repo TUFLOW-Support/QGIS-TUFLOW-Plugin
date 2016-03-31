@@ -27,7 +27,7 @@ class TF_Styles:
 		self.fname = []
 		self.fpath = []
 		self.style_folder = os.path.join(os.path.dirname(__file__),'QGIS_Styles')
-		print(self.style_folder)
+		#print(self.style_folder)
 
 	def Load(self):
 		#Loads all the .qml files and sorts by longest first
@@ -60,7 +60,7 @@ class TF_Styles:
 
 		try:
 			for slyr in lyr_files:
-				print(slyr)
+				#print(slyr)
 				self.ftype.append(os.path.split(slyr)[1][:-4])
 				self.fname.append(os.path.split(slyr)[1])
 				self.fpath.append(slyr)
@@ -85,6 +85,7 @@ class TF_Styles:
 		except:
 			error = True
 			message = 'ERROR - unexpected error finding style layer for file: '+layer_name
+			#message = 'Debug - ftype' + ftype+'\n Layer Name: '+layer_name
 			return error, message, matching_layer
 
 		#non error
