@@ -7,6 +7,10 @@
 name=TUFLOW
 qgisMinimumVersion=2.0
 description=A collection of utilities for TUFLOW modelling in QGIS
+about=A collection of utilities for TUFLOW modelling in QGIS.
+	Includes visualisation of results / inputs
+	Editing tools
+	Styling tools
 version=1.0
 author=Phillip Ryan
 email=support@tuflow.com
