@@ -7,7 +7,7 @@
 name=TUFLOW
 qgisMinimumVersion=2.0
 description=A collection of utilities for TUFLOW modelling in QGIS
-version=0.3
+version=1.0
 author=Phillip Ryan
 email=support@tuflow.com
 
@@ -21,12 +21,12 @@ email=support@tuflow.com
 # tags are comma separated with spaces allowed
 tags=TUFLOW	
 
-homepage=www.tuflow.com
+homepage=http://wiki.tuflow.com/index.php?title=TUFLOW_QGIS_Plugin
 tracker=https://github.com/TUFLOW-Support/QGIS-TUFLOW-Plugin/issues
 repository=https://github.com/TUFLOW-Support/QGIS-TUFLOW-Plugin
 icon=tuflow.png
 # experimental flag
-experimental=True
+experimental=False
 
 # deprecated flag (applies to the whole plugin, not just a single version)
 deprecated=False
