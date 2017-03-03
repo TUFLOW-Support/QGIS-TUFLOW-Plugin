@@ -117,6 +117,20 @@ class tuflowqgis_menu:
 		QObject.connect(self.view_1d_results_action, SIGNAL("triggered()"), self.results_1d)
 		self.iface.addToolBarIcon(self.view_1d_results_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.view_1d_results_action)
+		
+		# Added MJS 24/11
+		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_import.png")
+		self.import_empty_tf_action = QAction(icon, "Import Empty File", self.iface.mainWindow())
+		QObject.connect(self.import_empty_tf_action, SIGNAL("triggered()"), self.import_empty_tf)
+		self.iface.addToolBarIcon(self.import_empty_tf_action)
+		self.iface.addPluginToMenu("&TUFLOW", self.import_empty_tf_action)
+
+		# Added MJS 24/11
+		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_increment_24px.png")
+		self.increment_action = QAction(icon, "Increment Selected Layer", self.iface.mainWindow())
+		QObject.connect(self.increment_action, SIGNAL("triggered()"), self.increment_layer)
+		self.iface.addToolBarIcon(self.increment_action)
+		self.iface.addPluginToMenu("&TUFLOW", self.increment_action)
   
 		# Added MJS 11/02   
 		icon = QIcon(os.path.dirname(__file__) + "/icons/check_files_folder.png")
