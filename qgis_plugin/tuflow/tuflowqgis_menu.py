@@ -19,7 +19,8 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2016-03-AB (QGIS 2.x)'
+build_vers = '2017-03-AA (QGIS 2.x)'
+build_type = 'developmental' #release / developmental
 
 # Import the PyQt and QGIS libraries
 from PyQt4.QtCore import *
@@ -240,7 +241,8 @@ class tuflowqgis_menu:
 			QMessageBox.information(self.iface.mainWindow(), "Information", "All dependencies installed :)")
 
 	def about_tuflowqgis(self):
-		QMessageBox.information(self.iface.mainWindow(), "About TUFLOW QGIS", 'This is a developmental version of the TUFLOW QGIS utitlity, build: '+build_vers)
+		#QMessageBox.information(self.iface.mainWindow(), "About TUFLOW QGIS", 'This is a developmental version of the TUFLOW QGIS utitlity, build: '+build_vers)
+		QMessageBox.information(self.iface.mainWindow(), "About TUFLOW QGIS", "This is a {0} version of the TUFLOW QGIS utitlity\nBuild: {1}".format(build_type,build_vers))
 
       # Added MJS 11/02  
 	def import_check(self):

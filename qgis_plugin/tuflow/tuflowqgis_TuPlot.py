@@ -381,9 +381,10 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 					restype = 'Water Levels' #don't differentiate between 1D and 2D water levels
 				tmp_list.append(restype)
 			
-			if res.Channels.nChan>0: #
-				tmp_list.append('US Levels')
-				tmp_list.append('DS Levels')
+			if res.Channels: #bug fix which would not load results with no 1D
+				if res.Channels.nChan>0: #
+					tmp_list.append('US Levels')
+					tmp_list.append('DS Levels')
 		
 		#get unique
 		unique_res = list(OrderedDict.fromkeys(tmp_list))
