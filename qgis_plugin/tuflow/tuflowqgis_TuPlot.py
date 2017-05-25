@@ -977,7 +977,10 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 		self.plotWdg = canvas
 		
 		self.gridLayout.addWidget(self.plotWdg)
-		mpltoolbar = matplotlib.backends.backend_qt4agg.NavigationToolbar2QTAgg(self.plotWdg, self.frame_for_toolbar)
+		if matplotlib.__version__ < 1.5 :
+			mpltoolbar = matplotlib.backends.backend_qt4agg.NavigationToolbar2QTAgg(self.plotWdg, self.frame_for_toolbar)
+		else:
+			mpltoolbar = matplotlib.backends.backend_qt4agg.NavigationToolbar2QT(self.plotWdg, self.frame_for_toolbar)
 		lstActions = mpltoolbar.actions()
 		mpltoolbar.removeAction( lstActions[ 7 ] ) #remove customise subplot
 			

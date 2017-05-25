@@ -19,8 +19,8 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2017-03-AA (QGIS 2.x)'
-build_type = 'developmental' #release / developmental
+build_vers = '2017-05-AA (QGIS 2.x)'
+build_type = 'release' #release / developmental
 
 # Import the PyQt and QGIS libraries
 from PyQt4.QtCore import *
