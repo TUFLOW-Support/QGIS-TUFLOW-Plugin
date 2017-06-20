@@ -7,6 +7,7 @@ import sys
 import os
 import csv
 import matplotlib
+import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 from matplotlib.patches import Polygon
@@ -83,7 +84,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			QObject.connect(self.AddRes, SIGNAL("clicked()"), self.add_res)
 			QObject.connect(self.pbAddRes_GIS, SIGNAL("clicked()"), self.add_res_gis)
 			QObject.connect(self.CloseRes, SIGNAL("clicked()"), self.close_res)
-			QObject.connect(self.pbAnimateLP, SIGNAL("clicked()"), self.animate_LP)
+			QObject.connect(self.pbAnimatePlot, SIGNAL("clicked()"), self.animate_Plot)
 			QObject.connect(self, SIGNAL("visibilityChanged(bool)"), self.visChanged)
 			QObject.connect(self.listTime, SIGNAL("currentRowChanged(int)"), self.timeChanged) 
 			QObject.connect(self.pbClearStatus, SIGNAL("clicked()"), self.clear_status)
@@ -91,6 +92,13 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			QObject.connect(self.pbHelp, SIGNAL("clicked()"), self.help_pressed)
 			QObject.connect(self.cbForceXS, SIGNAL("stateChanged(int)"), self.changed_forcexs)
 			QObject.connect(self.cbForceRes, SIGNAL("stateChanged(int)"), self.changed_forceres)
+			QObject.connect(self.cbShowLegend, SIGNAL("stateChanged(int)"), self.update_pressed)
+			QObject.connect(self.cbLegendUL, SIGNAL("stateChanged(int)"), self.LegendUL_pressed)
+			QObject.connect(self.cbLegendUR, SIGNAL("stateChanged(int)"), self.LegendUR_pressed)
+			QObject.connect(self.cbLegendLL, SIGNAL("stateChanged(int)"), self.LegendLL_pressed)
+			QObject.connect(self.cbLegendLR, SIGNAL("stateChanged(int)"), self.LegendLR_pressed)
+			QObject.connect(self.cbMeanAbove, SIGNAL("stateChanged(int)"), self.MeanAbove_pressed)
+			QObject.connect(self.cbMeanClosest, SIGNAL("stateChanged(int)"), self.MeanClosest_pressed)
 			#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "connecting")
 			#QObject.connect(self, SIGNAL( "destroyed(PyQt_PyObject)" ), self.closeup)
 			#try:
@@ -102,32 +110,62 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			self.lwStatus.insertItem(0,'Connections created.')
 			self.lwStatus.item(0).setTextColor(self.qgreen)
 			self.connected = True
+			self.populate_export_frmts()
 	
 	def qgis_disconnect(self): #2015-04-AA
 		if self.connected:
 			self.lwStatus.insertItem(0,'Removing QGIS connections')
 			self.lwStatus.item(0).setTextColor(self.qgreen)
 			QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layerChanged)
-			QObject.disconnect(self.locationDrop, SIGNAL("currentIndexChanged(int)"), self.loc_changed)       
-			QObject.disconnect(self.ResTypeList, SIGNAL("currentRowChanged(int)"), self.res_type_changed) 
+			QObject.disconnect(self.locationDrop, SIGNAL("currentIndexChanged(int)"), self.loc_changed)
+			QObject.disconnect(self.ResTypeList, SIGNAL("currentRowChanged(int)"), self.res_type_changed)
 			QObject.disconnect(self.AddRes, SIGNAL("clicked()"), self.add_res)
 			QObject.disconnect(self.pbAddRes_GIS, SIGNAL("clicked()"), self.add_res_gis)
 			QObject.disconnect(self.CloseRes, SIGNAL("clicked()"), self.close_res)
-			QObject.disconnect(self.pbAnimateLP, SIGNAL("clicked()"), self.animate_LP)
+			QObject.disconnect(self.pbAnimatePlot, SIGNAL("clicked()"), self.animate_Plot)
 			QObject.disconnect(self, SIGNAL("visibilityChanged(bool)"), self.visChanged)
 			QObject.disconnect(self.listTime, SIGNAL("currentRowChanged(int)"), self.timeChanged) 
 			QObject.disconnect(self.pbClearStatus, SIGNAL("clicked()"), self.clear_status)
 			QObject.disconnect(self.pbUpdate, SIGNAL("clicked()"), self.update_pressed)
 			QObject.disconnect(self.cbForceXS, SIGNAL("stateChanged(int)"), self.changed_forcexs)
 			QObject.disconnect(self.cbForceRes, SIGNAL("stateChanged(int)"), self.changed_forceres)
+			QObject.disconnect(self.cbShowLegend, SIGNAL("stateChanged(int)"), self.update_pressed)
+			QObject.disconnect(self.cbLegendUL, SIGNAL("stateChanged(int)"), self.LegendUL_pressed)
+			QObject.disconnect(self.cbLegendUR, SIGNAL("stateChanged(int)"), self.LegendUR_pressed)
+			QObject.disconnect(self.cbLegendLL, SIGNAL("stateChanged(int)"), self.LegendLL_pressed)
+			QObject.disconnect(self.cbLegendLR, SIGNAL("stateChanged(int)"), self.LegendLR_pressed)
+			QObject.disconnect(self.cbMeanAbove, SIGNAL("stateChanged(int)"), self.MeanAbove_pressed)
+			QObject.disconnect(self.cbMeanClosest, SIGNAL("stateChanged(int)"), self.MeanClosest_pressed)
 			#QObject.disconnect(self.cbDeactivate, SIGNAL("stateChanged(int)"), self.deactivate_changed)
 			self.lwStatus.insertItem(0,'Disconnected.')
 			self.lwStatus.item(0).setTextColor(self.qgreen)
 		self.connected = False
 	
+	def populate_export_frmts(self):
+		self.lwStatus.insertItem(0,'Detecting export formats in matplotlib')
+		self.dropExportExt.clear()
+		try:
+			mpl_formats =plt.gcf().canvas.get_supported_filetypes()
+			for key in mpl_formats:
+				self.lwStatus.insertItem(0,'Supported export format: {0}'.format(key))
+				self.dropExportExt.addItem(".{0}".format(key))
+		except:
+			self.lwStatus.insertItem(0,'ERROR - Extracting supported export formats')
+		
+		#default to .png if available
+		try:
+			ind = self.dropExportExt.findText('.png')
+			if ind >= 0:
+				self.lwStatus.insertItem(0,'Defaulting to .png format.')
+				self.dropExportExt.setCurrentIndex(ind)
+			else:
+				self.dropExportExt.setCurrentIndex(0)
+		except:
+			self.lwStatus.insertItem(0,'Warning - Exception hit finding .png.')
+		
 	def help_pressed(self):
 		message = 'This TuPlot utility is designed to view timeseries and long profile data from TUFLOW models.\n'
-		message = message+'For some functionality, this utitlity relies on the new output formats available in the 2016 version of TUFLOW.  Some of the functioanlity is available for the 2013 version of TUFLOW.\n'
+		message = message+'For some functionality, this utitlity relies on the output formats available in the 2016 version of TUFLOW.  Some of the functioanlity is available for the 2013 version of TUFLOW.\n'
 		message = message+'For more information on using this please see http://wiki.tuflow.com/index.php?title=TuPlot'
 		QMessageBox.information(self.iface.mainWindow(), "TuPlot Information", message)
 	def clear_status(self):
@@ -195,6 +233,80 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			if self.cbForceRes.isChecked(): # force res already checked
 				self.cbForceRes.setChecked(False)
 
+	def MeanAbove_pressed(self):
+		"""
+			The mean above check box has been toggled.
+		"""
+		if self.cbMeanAbove.isChecked():
+			if self.cbMeanClosest.isChecked():
+				self.cbMeanClosest.setChecked(False)
+		else:
+			if not self.cbMeanClosest.isChecked():
+				self.cbMeanClosest.setChecked(True)
+				
+	def MeanClosest_pressed(self):
+		"""
+			The mean closest check box has been toggled.
+		"""
+		if self.cbMeanClosest.isChecked():
+			if self.cbMeanAbove.isChecked():
+				self.cbMeanAbove.setChecked(False)
+		else:
+			if not self.cbMeanAbove.isChecked():
+				self.cbMeanAbove.setChecked(True)
+				
+	def LegendUL_pressed(self):
+		"""
+			The Legend Location UL has been pressed
+		"""
+		if self.cbLegendUL.isChecked():
+			if self.cbLegendUR.isChecked():
+				self.cbLegendUR.setChecked(False)
+			if self.cbLegendLL.isChecked():
+				self.cbLegendLL.setChecked(False)
+			if self.cbLegendLR.isChecked():
+				self.cbLegendLR.setChecked(False)
+			self.update_pressed()
+
+	def LegendUR_pressed(self):
+		"""
+			The Legend Location UR has been pressed
+		"""
+		if self.cbLegendUR.isChecked():
+			if self.cbLegendUL.isChecked():
+				self.cbLegendUL.setChecked(False)
+			if self.cbLegendLL.isChecked():
+				self.cbLegendLL.setChecked(False)
+			if self.cbLegendLR.isChecked():
+				self.cbLegendLR.setChecked(False)
+			self.update_pressed()
+
+	def LegendLL_pressed(self):
+		"""
+			The Legend Location LL has been pressed
+		"""
+		if self.cbLegendLL.isChecked():
+			if self.cbLegendUL.isChecked():
+				self.cbLegendUL.setChecked(False)
+			if self.cbLegendUR.isChecked():
+				self.cbLegendUR.setChecked(False)
+			if self.cbLegendLR.isChecked():
+				self.cbLegendLR.setChecked(False)
+			self.update_pressed()
+
+	def LegendLR_pressed(self):
+		"""
+			The Legend Location LR has been pressed
+		"""
+		if self.cbLegendLR.isChecked():
+			if self.cbLegendUL.isChecked():
+				self.cbLegendUL.setChecked(False)
+			if self.cbLegendUR.isChecked():
+				self.cbLegendUR.setChecked(False)
+			if self.cbLegendLL.isChecked():
+				self.cbLegendLL.setChecked(False)
+			self.update_pressed()
+				
 	def changed_forceres(self):
 		"""
 			The Check button Force RES has been changed
@@ -221,48 +333,58 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			else: # final resort to current working directory
 				fpath = os.getcwd()
 		# Get the file name
-		inFileName = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Open TUFLOW results file', fpath, "TUFLOW 1D Results (*.info *.tpc)")
-		inFileName = str(inFileName)
-		if len(inFileName) == 0: # If the length is 0 the user pressed cancel 
+		#inFileName = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Open TUFLOW results file', fpath, "TUFLOW 1D Results (*.info *.tpc)")
+		#inFileName = str(inFileName)
+		#if len(inFileName) == 0: # If the length is 0 the user pressed cancel 
+		#2017-06-AB Add support for multiple files
+		inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW results file', fpath, "TUFLOW Plot Results (*.info *.tpc)")
+		if not inFileNames: #empty list
 			return
+		self.lwStatus.insertItem(0,'Number of files: '+str(len(inFileNames)))
+		#else:
+		#	for fname in inFileNames:
+		#	self.lwStatus.insertItem(0,'File: {0}'.format(fname))
 		# Store the path we just looked in
 		#head, tail = os.path.split(inFileName)
-		fpath, fname = os.path.split(inFileName)
-		if fpath <> os.sep and fpath.lower() <> 'c:\\' and fpath <> '':
-			settings.setValue("TUFLOW_Res_Dock/lastFolder", fpath)
-		self.lwStatus.insertItem(0,'Opening File: '+fname)
-		self.lwStatus.item(0).setTextColor(self.qgreen)
-		root, ext = os.path.splitext(inFileName)
-		if ext.upper()=='.INFO':
-			self.lwStatus.insertItem(0,'.INFO file detected - using TUFLOW_Results2013.')
+		
+		for x in range(len(inFileNames)):
+			fpath, fname = os.path.split(inFileNames[x])
+			if x == 0: #only save path for 1st file
+				if fpath <> os.sep and fpath.lower() <> 'c:\\' and fpath <> '':
+					settings.setValue("TUFLOW_Res_Dock/lastFolder", fpath)
+			self.lwStatus.insertItem(0,'Opening File: '+fname)
 			self.lwStatus.item(0).setTextColor(self.qgreen)
-			#self.lwStatus.insertItem(0,'Loading...')
-			try:
-				res=TUFLOW_results2013.ResData(inFileName)
-				self.res.append(res)
-				#self.lwStatus.insertItem(0,'Done')
-			except:
-				self.lwStatus.insertItem(0,'ERROR - Loading Results')
-				self.lwStatus.item(0).setTextColor(self.qred)
-			
-		elif ext.upper()=='.TPC':
-			self.lwStatus.insertItem(0,'.TPC file detected - using TUFLOW_results2016')
-			self.lwStatus.item(0).setTextColor(self.qgreen)
-			try:
+			root, ext = os.path.splitext(inFileNames[x])
+			if ext.upper()=='.INFO':
+				self.lwStatus.insertItem(0,'.INFO file detected - using TUFLOW_Results2013.')
+				self.lwStatus.item(0).setTextColor(self.qgreen)
 				#self.lwStatus.insertItem(0,'Loading...')
-				res=TUFLOW_results2016.ResData()
-				error, message = res.Load(inFileName)
-				if error:
-					self.lwStatus.insertItem(0,message)
-				else:
+				try:
+					res=TUFLOW_results2013.ResData(inFileNames[x])
 					self.res.append(res)
 					#self.lwStatus.insertItem(0,'Done')
-			except:
-				self.lwStatus.insertItem(0,'ERROR - Loading Results')
-				self.lwStatus.item(0).setTextColor(self.qred)
-		
-		#QMessageBox.information(self.iface.mainWindow(), "Opened", "Successfully Opened - "+myres.displayname)
-		
+				except:
+					self.lwStatus.insertItem(0,'ERROR - Loading Results')
+					self.lwStatus.item(0).setTextColor(self.qred)
+				
+			elif ext.upper()=='.TPC':
+				self.lwStatus.insertItem(0,'.TPC file detected - using TUFLOW_results2016')
+				self.lwStatus.item(0).setTextColor(self.qgreen)
+				try:
+					#self.lwStatus.insertItem(0,'Loading...')
+					res=TUFLOW_results2016.ResData()
+					error, message = res.Load(inFileNames[x])
+					if error:
+						self.lwStatus.insertItem(0,message)
+					else:
+						self.res.append(res)
+						#self.lwStatus.insertItem(0,'Done')
+				except:
+					self.lwStatus.insertItem(0,'ERROR - Loading Results')
+					self.lwStatus.item(0).setTextColor(self.qred)
+			
+			#QMessageBox.information(self.iface.mainWindow(), "Opened", "Successfully Opened - "+myres.displayname)
+			
 		self.update_reslist()
 
 	def add_res_gis(self):
@@ -283,35 +405,44 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			else: # final resort to current working directory
 				fpath = os.getcwd()
 		# Get the file name
-		inFileName = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Open TUFLOW results file (must be 2015 or newer)', fpath, "TUFLOW Results (*.tpc)")
-		inFileName = str(inFileName)
-		if len(inFileName) == 0: # If the length is 0 the user pressed cancel 
+		#inFileName = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Open TUFLOW results file (must be 2015 or newer)', fpath, "TUFLOW Results (*.tpc)")
+		#inFileName = str(inFileName)
+		#if len(inFileName) == 0: # If the length is 0 the user pressed cancel 
+		#	return
+		#2017-06-AB
+		inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW results file', fpath, "TUFLOW Plot Results (*.tpc)")
+		if not inFileNames: #empty list
 			return
-		# Store the path we just looked in
-		fpath, fname = os.path.split(inFileName)
-		if fpath <> os.sep and fpath.lower() <> 'c:\\' and fpath <> '':
-			settings.setValue("TUFLOW_Res_Dock/lastFolder", fpath)
-		#self.lwStatus.insertItem(0,'Opening File: '+fname)
-		root, ext = os.path.splitext(inFileName)
-		if ext.upper()=='.INFO':
-			self.lwStatus.insertItem(0,'ERROR - .INFO file detected must be 2015 or newer TUFLOW')
-			self.lwStatus.item(0).setTextColor(self.qgreen)
-			#self.lwStatus.insertItem(0,'Not loading.')
-			
-		elif ext.upper()=='.TPC':
-			self.lwStatus.insertItem(0,'.TPC file detected - using TUFLOW_results2016')
-			self.lwStatus.item(0).setTextColor(self.qgreen)
-			try:
-				#self.lwStatus.insertItem(0,'Loading...')
-				res=TUFLOW_results2016.ResData()
-				error, message = res.Load(inFileName)
-				if error:
-					self.lwStatus.insertItem(0,message)
-				self.res.append(res)
-				#self.lwStatus.insertItem(0,'Done')
-			except:
-				self.lwStatus.insertItem(0,'ERROR - Loading Results')
-				self.lwStatus.item(0).setTextColor(self.qred)
+		self.lwStatus.insertItem(0,'Number of files: '+str(len(inFileNames)))
+		
+		for x in range(len(inFileNames)):
+			# Store the path we just looked in
+			inFileName = inFileNames[x]
+			fpath, fname = os.path.split(inFileName)
+			if x == 0:
+				if fpath <> os.sep and fpath.lower() <> 'c:\\' and fpath <> '':
+					settings.setValue("TUFLOW_Res_Dock/lastFolder", fpath)
+			#self.lwStatus.insertItem(0,'Opening File: '+fname)
+			root, ext = os.path.splitext(inFileName)
+			if ext.upper()=='.INFO':
+				self.lwStatus.insertItem(0,'ERROR - .INFO file detected must be 2015 or newer TUFLOW')
+				self.lwStatus.item(0).setTextColor(self.qgreen)
+				#self.lwStatus.insertItem(0,'Not loading.')
+				
+			elif ext.upper()=='.TPC':
+				self.lwStatus.insertItem(0,'.TPC file detected - using TUFLOW_results2016')
+				self.lwStatus.item(0).setTextColor(self.qgreen)
+				try:
+					#self.lwStatus.insertItem(0,'Loading...')
+					res=TUFLOW_results2016.ResData()
+					error, message = res.Load(inFileName)
+					if error:
+						self.lwStatus.insertItem(0,message)
+					self.res.append(res)
+					#self.lwStatus.insertItem(0,'Done')
+				except:
+					self.lwStatus.insertItem(0,'ERROR - Loading Results')
+					self.lwStatus.item(0).setTextColor(self.qred)
 		
 		self.update_reslist()
 		
@@ -421,17 +552,22 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			else:
 				self.lwStatus.insertItem(0,'ERROR unhandled type: '+restype)
 				self.lwStatus.item(0).setTextColor(self.qred)
+				
+		#add current time
+		self.ts_types_P.append('Current Time')
+		self.ts_types_L.append('Current Time')
 
 	def close_res(self):
 		"""
 			Close results file
 		"""
-		for x in range(0, self.ResList.count()):
+		for x in reversed(range(0, self.ResList.count())): #2017-06-AB reverse in case muiltiple results are selected
 			list_item = self.ResList.item(x)
 			if list_item.isSelected():
 				res = self.res[x]
 				self.res.remove(res)
-				self.update_reslist()
+		
+		self.update_reslist() #2017-06-AB move out of for loop
 
 	def layerChanged(self):
 		self.geom_type = None #store geometry type for later use
@@ -777,14 +913,14 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 								cleaned_types.append('Velocities')
 						if cleaned_types.count('Flow Area')<1: #'QA' not coming through to GIS
 							cleaned_types.append('Flow Area')
-			#loop through all entries and colour as appropriate
-			for x in range(0,self.ResTypeList.count()):
-				list_item = self.ResTypeList.item(x)
-				type_str = list_item.text()
-				if cleaned_types.count(type_str) > 0:
-					self.ResTypeList.item(x).setTextColor(self.qblack)
-				else:
-					self.ResTypeList.item(x).setTextColor(self.qgrey)
+			#loop through all entries and colour as appropriate 2017-06-AD disabled
+			#for x in range(0,self.ResTypeList.count()):
+			#	list_item = self.ResTypeList.item(x)
+			#	type_str = list_item.text()
+			#	if cleaned_types.count(type_str) > 0:
+			#		self.ResTypeList.item(x).setTextColor(self.qblack)
+			#	else:
+			#		self.ResTypeList.item(x).setTextColor(self.qgrey)
 			
 		if not error:
 			self.start_draw()
@@ -814,12 +950,17 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			else:
 				self.lwStatus.insertItem(0,'ERROR should not be here loc_changed_ts_A')
 				self.lwStatus.item(0).setTextColor(self.qblue)
+			
 		elif (loc == "Long Profile"):
 			self.ResTypeList.clear()
 			self.ResTypeList.addItem("Max Water Level")
-			self.ResTypeList.addItem("Max Energy Level")
 			self.ResTypeList.addItem("Water Level at Time")
-			self.ResTypeList.addItem("Energy Level at Time")
+			try: #if index fails no energy data available
+				self.ts_types_P.index('Energy Level')
+				self.ResTypeList.addItem("Max Energy Level")
+				self.ResTypeList.addItem("Energy Level at Time")
+			except:
+				pass
 			self.ResTypeList.addItem("Bed Level")
 			self.ResTypeList.addItem("Left Bank Obvert")
 			self.ResTypeList.addItem("Right Bank Obvert")
@@ -827,43 +968,47 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			self.ResTypeList.addItem("Adverse Gradients (if any)")
 			self.ResTypeList_ax2.addItem("Time Hmax")
 			
-			# add times
-			try:
-				times = self.res[0].times
-				self.listTime.clear()
-				for time in times:
-					self.listTime.addItem("%.4f" % time)
-				item = self.listTime.item(0)
-				self.listTime.setItemSelected(item, True)
-			except:
-				self.lwStatus.insertItem(0,'WARNING - Unable to populate times, check results loaded.')
-				self.lwStatus.item(0).setTextColor(self.qblue)
 		else:
 			self.ResTypeList.clear()
+			
+		# add times
+		try:
+			times = self.res[0].times
+			self.listTime.clear()
+			for time in times:
+				self.listTime.addItem("%.4f" % time)
+			item = self.listTime.item(0)
+			self.listTime.setItemSelected(item, True)
+		except:
+			self.lwStatus.insertItem(0,'WARNING - Unable to populate times, check results loaded.')
+			self.lwStatus.item(0).setTextColor(self.qblue)
+
 		item = self.ResTypeList.item(0) # select 1st item by default
 		self.ResTypeList.setItemSelected(item, True)
 		self.start_draw()
 
-	def animate_LP(self):
+	def animate_Plot(self):
 		start = True
+		plot_LP = False
+		plot_TS = False
 		
-		# check if long profile type is selected
+		# check what type of plot is selected
 		loc = self.locationDrop.currentText()
-		if (loc!="Long Profile"): # LP
-			self.lwStatus.insertItem(0,'ERROR - Please choose Long Profile type before animating.')
+		if (loc=="Long Profile"):
+			plot_LP = True
+		elif (loc=="Timeseries"):
+			plot_TS = True
+		else:
+			self.lwStatus.insertItem(0,'ERROR - Determing plot type when animating')
 			self.lwStatus.item(0).setTextColor(self.qblue)
 			start = False
 			return
 		
-		# check for valid selection
-		if len (self.IDs) == 0:
-			self.lwStatus.insertItem(0,'ERROR - No elements selected.')
-			start = False
-			return
-		elif len (self.IDs) > 2:
-			self.lwStatus.insertItem(0,"ERROR - More than 2 ID's selected.")
-			start = False
-			return
+		#if (loc!="Long Profile"): # LP
+		#	self.lwStatus.insertItem(0,'ERROR - Please choose Long Profile type before animating.')
+		#	self.lwStatus.item(0).setTextColor(self.qblue)
+		#	start = False
+		#	return
 		
 		# Compile of output types (bed level, max wse)
 		restype = []
@@ -871,11 +1016,37 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			list_item = self.ResTypeList.item(x)
 			if list_item.isSelected():
 				restype.append(list_item.text())
-		if restype.count('Water Level at Time')==0:
-			self.lwStatus.insertItem(0,"ERROR - Water level at time not selected!")
-			start = False
-			return
+				
+		if plot_LP: #check that valid LP data is selected
+			fnam_add = 'LP'
+			#one or two elements selected
+			if len (self.IDs) == 0:
+				self.lwStatus.insertItem(0,'ERROR - No elements selected.')
+				start = False
+				return
+			elif len (self.IDs) > 2:
+				self.lwStatus.insertItem(0,"ERROR - More than 2 ID's selected.")
+				start = False
+				return
+			
+			#one of the time varying datasets is on
+			ntvarying = 0
+			if restype.count('Water Level at Time')==0:
+				ntvarying = ntvarying + 1
+			if restype.count('Energy Level at Time')==0:
+				ntvarying = ntvarying + 1
+			if ntvarying == 0:
+				self.lwStatus.insertItem(0,"ERROR - For Long Profile Energy or Water level at time not selected!")
+				start = False
+				return
 		
+		elif plot_TS:
+			fnam_add = 'TS'
+			if restype.count('Current Time')==0:
+				self.lwStatus.insertItem(0,"ERROR - For Timeseries Current Time is not selected!")
+				start = False
+				return
+			
 		# results:
 		ResIndexs = []
 		if self.ResList.count() == 0:
@@ -892,6 +1063,9 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			self.lwStatus.insertItem(0,'ERROR - No output times detected.')
 			start = False
 			return
+			
+		#get file extension from drop list
+		fext = self.dropExportExt.currentText()
 		
 		nWidth = 5
 		if self.listTime.count() < 11:
@@ -904,7 +1078,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			nWidth = 4
 		if start:
 			try:
-				QMessageBox.information(self.iface.mainWindow(), "Information", "Saving images to: "+self.res[0].fpath+"\nAfter selecting ok, please wait while the images are created.\nYou will be notified when this has finished.")
+				QMessageBox.information(self.iface.mainWindow(), "Information", "Saving {0} images to: {1}\nAfter selecting ok, please wait while the images are created.\nYou will be notified when this has finished.".format(fext,self.res[0].fpath))
 				
 				for x in range(0, self.listTime.count()):
 					item = self.listTime.item(x)
@@ -912,7 +1086,8 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 					self.draw_figure()
 					filenum = str(x+1)
 					filenum = filenum.zfill(nWidth)
-					fname = 'QGIS_LP_'+filenum+'.pdf'
+					#fname = 'QGIS_LP_'+filenum+'.pdf'
+					fname = 'QGIS_{0}_{1}{2}'.format(fnam_add,filenum,fext)
 					fullpath = os.path.join(self.res[0].fpath,fname)
 					self.plotWdg.figure.savefig(fullpath)
 					self.listTime.setItemSelected(item, False)
@@ -1082,11 +1257,16 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			ydataids = self.IDs
 			typeids = []
 			typenames = []
+			plot_current_time = False
 			for x in range(0,self.ResTypeList.count()):
 				list_item = self.ResTypeList.item(x)
 				if list_item.isSelected():
-					typeids.append(x)
-					typenames.append(list_item.text())
+					if list_item.text() == 'Current Time':
+						plot_current_time = True
+					else:
+						typeids.append(x)
+						typenames.append(list_item.text())
+					#self.lwStatus.insertItem(0,'Debug len(typenames) = ' + str(len(typenames)))
 			
 			typenames2 = []
 			for x in range(0,self.ResTypeList_ax2.count()):
@@ -1103,11 +1283,59 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 				if list_item.isSelected():
 					reslist.append(x)
 					resnames.append(list_item.text())
-			nRes = len(reslist)
-			#self.lwStatus.insertItem(0,'nRes = '+str(nRes))
-			
-			
+			nRes = len(reslist) #number selected not loaded
+
+			#check if median is required
+			calc_median = False
+			if self.cbCalcMedian.isChecked():
+				calc_median = True
+				if nRes<3:
+					calc_median = False
+					self.lwStatus.insertItem(0,'Warning - Median requires at least three results selected')
+				if len(self.IDs)<>1:
+					calc_median = False
+					self.lwStatus.insertItem(0,'Warning - Median only valid for a single output location')
+				if loc!="Timeseries":
+					calc_median = False
+					self.lwStatus.insertItem(0,'Warning - Median only valid for a timeseries plot type')
+				if len(typenames)<>1:
+					calc_median = False
+					self.lwStatus.insertItem(0,'Warning - Median only valid for a single output parameter')
+
+			#check if mean is required
+			calc_mean = False
+			if self.cbCalcMean.isChecked():
+				calc_mean = True
+				if nRes<3:
+					calc_mean = False
+					self.lwStatus.insertItem(0,'Warning - Mean requires at least three results selected')
+				if len(self.IDs)<>1:
+					calc_mean = False
+					self.lwStatus.insertItem(0,'Warning - Mean only valid for a single output location')
+				if loc!="Timeseries":
+					calc_mean = False
+					self.lwStatus.insertItem(0,'Warning - Mean only valid for a timeseries plot type')
+				if len(typenames)<>1:
+					calc_mean = False
+					self.lwStatus.insertItem(0,'Warning - Mean only valid for a single output parameter')
+				meanAbove = self.cbMeanAbove.isChecked()
+				if meanAbove:
+					self.lwStatus.insertItem(0,'Using 1st value above mean.')
+				else:
+					self.lwStatus.insertItem(0,'Using closest value to mean.')
+				
+			#numpy array for calculation of median / mean
+			if calc_median or calc_mean:
+				try:
+					max_vals = numpy.zeros([nRes])
+				except:
+					self.lwStatus.insertItem(0,'Error - setting up numpy array for mean/median.')
+					calc_median = False
+					calc_mean = False
+
+			nres_used = 0
 			for resno in reslist:
+				nres_used = nres_used + 1
 				res = self.res[resno]
 				name = res.displayname
 				#Long Profiles___________________________________________________________________
@@ -1157,49 +1385,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 								else:
 									self.lwStatus.insertItem(0,'Warning - No Maximum Energy Levels stored for '+name)
 
-						#plot bed
-						if typenames.count('Bed Level')<>0:
-							a, = self.subplot.plot(res.LP.dist_chan_inverts, res.LP.chan_inv)
-							self.artists.append(a)
-							label = 'Bed Level'
-							if nRes > 1:
-								labels.append(label +" - "+name)
-							else:
-								labels.append(label)
-							self.subplot.hold(True)
-							ymax = max(ymax,max(res.LP.chan_inv))
-							
-							#tag on culverts if bed is shown (2015 or later)
-							if res.formatVersion >= 2: #2015
-								for verts in res.LP.culv_verts:
-									if verts:
-										poly = Polygon(verts, facecolor='0.9', edgecolor='0.5')
-										self.subplot.add_patch(poly)
-
-
-						#plot LB
-						if typenames.count('Left Bank Obvert')<>0:
-							a, = self.subplot.plot(res.LP.dist_chan_inverts, res.LP.chan_LB)
-							self.artists.append(a)
-							label = 'Left Bank'
-							if nRes > 1:
-								labels.append(label +" - "+name)
-							else:
-								labels.append(label)
-							self.subplot.hold(True)
-							ymax = max(ymax,max(res.LP.chan_LB))
-
-						#plot RB
-						if typenames.count('Right Bank Obvert')<>0:
-							a, = self.subplot.plot(res.LP.dist_chan_inverts, res.LP.chan_RB)
-							self.artists.append(a)
-							label = 'Right Bank'
-							if nRes > 1:
-								labels.append(label +" - "+name)
-							else:
-								labels.append(label)
-							self.subplot.hold(True)
-							ymax = max(ymax,max(res.LP.chan_RB))
 							
 						#plot LP water level at time
 						if typenames.count('Water Level at Time')<>0:
@@ -1252,16 +1437,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 									self.subplot.hold(True)
 									ymax = max(ymax,max(res.LP.Edata))
 
-						#plot pits
-						if typenames.count('Pit Ground Levels (if any)')<>0:
-							if res.LP.npits > 0:
-								a, = self.subplot.plot(res.LP.pit_dist, res.LP.pit_z, marker='o', linestyle='None', color='r')
-								self.artists.append(a)
-								labels.append("Pit Invert (grate) levels")
-							else:
-								self.lwStatus.insertItem(0,'No Pit objects to plot')
-						
-
 						#plot adverse sections
 						if typenames.count('Adverse Gradients (if any)')<>0:
 							if res.formatVersion == 1:
@@ -1288,6 +1463,58 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 									else:
 										self.lwStatus.insertItem(0,'Turn on legend to get more information about adverse grades')
 
+						#plot bed / culverts
+						if typenames.count('Bed Level')<>0 and nres_used==len(reslist):
+							a, = self.subplot.plot(res.LP.dist_chan_inverts, res.LP.chan_inv)
+							self.artists.append(a)
+							label = 'Bed Level'
+							if nRes > 1:
+								labels.append(label +" - "+name)
+							else:
+								labels.append(label)
+							self.subplot.hold(True)
+							ymax = max(ymax,max(res.LP.chan_inv))
+							
+							#tag on culverts if bed is shown (2015 or later)
+							if res.formatVersion >= 2: #2015
+								for verts in res.LP.culv_verts:
+									if verts:
+										poly = Polygon(verts, facecolor='0.9', edgecolor='0.5')
+										self.subplot.add_patch(poly)
+
+						#plot LB
+						if typenames.count('Left Bank Obvert')<>0 and nres_used==len(reslist):
+							a, = self.subplot.plot(res.LP.dist_chan_inverts, res.LP.chan_LB)
+							self.artists.append(a)
+							label = 'Left Bank'
+							if nRes > 1:
+								labels.append(label +" - "+name)
+							else:
+								labels.append(label)
+							self.subplot.hold(True)
+							ymax = max(ymax,max(res.LP.chan_LB))
+
+						#plot RB
+						if typenames.count('Right Bank Obvert')<>0 and nres_used==len(reslist):
+							a, = self.subplot.plot(res.LP.dist_chan_inverts, res.LP.chan_RB)
+							self.artists.append(a)
+							label = 'Right Bank'
+							if nRes > 1:
+								labels.append(label +" - "+name)
+							else:
+								labels.append(label)
+							self.subplot.hold(True)
+							ymax = max(ymax,max(res.LP.chan_RB))
+
+						#plot pits
+						if typenames.count('Pit Ground Levels (if any)')<>0 and nres_used==len(reslist):
+							if res.LP.npits > 0:
+								a, = self.subplot.plot(res.LP.pit_dist, res.LP.pit_z, marker='o', linestyle='None', color='r')
+								self.artists.append(a)
+								labels.append("Pit Invert (grate) levels")
+							else:
+								self.lwStatus.insertItem(0,'No Pit objects to plot')
+								
 						if (self.cb2ndAxis.isChecked()): # if not checked not dual axis needed
 							if typenames2.count('Time Hmax')<>0:
 								if res.formatVersion == 1: #2013
@@ -1309,7 +1536,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 				elif (loc=="Timeseries"):
 					# AXIS 1
 					#xdata = res.getXData()
-					
 					breakloop = False
 					for i, ydataid in enumerate(self.IDs):
 						if ydataid:
@@ -1338,6 +1564,19 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 											self.lwStatus.insertItem(0,'res = '+res.displayname)
 											self.lwStatus.insertItem(0,'ID: '+ydataid)
 											self.lwStatus.insertItem(0,'i: '+str(i))
+										if calc_median or calc_mean:
+											try:
+												#self.lwStatus.insertItem(0,'Appending to median')
+												#self.lwStatus.insertItem(0,'Debug [nres_used] = {0}'.format(nres_used-1))
+												#self.lwStatus.insertItem(0,'Debug [nres_used] = {0}'.format(nres_used-1))
+												max_vals[nres_used-1] = ydata.max()
+											except:
+												if calc_median:
+													calc_median = False
+													self.lwStatus.insertItem(0,'ERROR - Calcuating Median, suppressing median output')
+												if calc_mean:
+													calc_mean = False
+													self.lwStatus.insertItem(0,'ERROR - Calcuating mean, suppressing mean output')
 									else:
 										found = False
 										message = 'Unexpected Format Version:'+str(res.formatVersion)
@@ -1378,6 +1617,25 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 											self.subplot.hold(True)
 										else:
 											self.lwStatus.insertItem(0,'ERROR - Size of x and y data doesnt match')
+					
+					#add time if time enabled
+					if plot_current_time and nres_used==len(reslist): #only add time for last active result so it shows last in legend
+						for x in range(0, self.listTime.count()):
+							list_item = self.listTime.item(x)
+							ax1y1, ax1y2 = self.subplot.get_ylim() #get current limits
+							if list_item.isSelected():
+								#timeInd = x
+								#timeStr = list_item.text()
+								try:
+									curT = float(list_item.text())
+									a, = self.subplot.plot([curT,curT], [-9e37, 9e37],color='red',linewidth=2)
+									self.artists.append(a)
+									labels.append('Current time ({0})'.format(list_item.text()))
+									self.subplot.set_ylim([ax1y1, ax1y2])
+									#self.subplot.hold(True)
+								except:
+									self.lwStatus.insertItem(0,'Unable to add current time')
+									
 					# AXIS 2
 					#xdata = res.getXData()
 					if (self.cb2ndAxis.isChecked()): # if not checked not dual axis needed
@@ -1451,6 +1709,67 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 											else:
 												self.lwStatus.insertItem(0,'ERROR - Number of x and y data points doesnt match')
 
+			#add median data
+			if calc_median:
+				try:
+					argsort = max_vals.argsort()
+					med_rnk = int(nRes/2) #+1 not requried as python uses 0 rank
+					self.lwStatus.insertItem(0,'For {0} results using rank {1} for median'.format(nRes, med_rnk+1))
+					med_ind = argsort[med_rnk]
+					res = self.res[med_ind]
+					if res.formatVersion == 1:
+						self.lwStatus.insertItem(0,'ERROR - Median not valid for Pre 2016 results')
+					elif res.formatVersion == 2:
+						name = res.displayname
+						ydataid  = self.IDs[0] #only works for 1 ID
+						typename = typenames[0] #and 1 data type
+						dom = self.Doms[0]
+						source = self.Source_Att[0].upper()
+						found, ydata, message = res.getTSData(ydataid,dom,typename, 'Geom')
+						if not found:
+							self.lwStatus.insertItem(0,'ERROR - Extracting median data.')
+						else:
+							xdata = res.times
+							label = 'Median - {0}'.format(name)
+							a, = self.subplot.plot(xdata, ydata,color='black',linewidth=3,linestyle=':')
+							self.artists.append(a)
+							labels.append(label)
+				except:
+					self.lwStatus.insertItem(0,'ERROR - Adding Median data, skipping')
+
+			#add mean data (2017-06-AD)
+			if calc_mean:
+				try:
+					argsort = max_vals.argsort()
+					meanVal = max_vals.mean()
+					ms = numpy.sort(max_vals)
+					if meanAbove:
+						ms_ind = ms.searchsorted(meanVal,side='right')
+					else:
+						ms_ind = (numpy.abs(ms-meanVal)).argmin()
+					mean_ind = argsort[ms_ind]
+					self.lwStatus.insertItem(0,'Mean value is {0}, rank index is {1}'.format(meanVal, ms_ind+1))
+					res = self.res[mean_ind]
+					if res.formatVersion == 1:
+						self.lwStatus.insertItem(0,'ERROR - Mean not valid for Pre 2016 results')
+					elif res.formatVersion == 2:
+						name = res.displayname
+						ydataid  = self.IDs[0] #only works for 1 ID
+						typename = typenames[0] #and 1 data type
+						dom = self.Doms[0]
+						source = self.Source_Att[0].upper()
+						found, ydata, message = res.getTSData(ydataid,dom,typename, 'Geom')
+						if not found:
+							self.lwStatus.insertItem(0,'ERROR - Extracting median data.')
+						else:
+							xdata = res.times
+							label = 'Mean - {0}'.format(name)
+							a, = self.subplot.plot(xdata, ydata,color='blue',linewidth=3,linestyle=':')
+							self.artists.append(a)
+							labels.append(label)
+				except:
+					self.lwStatus.insertItem(0,'ERROR - Adding Mean data, skipping')
+					
 				#Set axis labels
 				if (loc=="Long Profile"): # LP
 					if (res.units == 'METRIC'):
@@ -1468,7 +1787,16 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 					self.subplot.set_title("")
 			
 			if self.cbShowLegend.isChecked():
-				self.subplot.legend(self.artists, labels, bbox_to_anchor=(0, 0, 1, 1))
+				if self.cbLegendUR.isChecked():
+					self.subplot.legend(self.artists, labels, loc=1)
+				elif self.cbLegendUL.isChecked():
+					self.subplot.legend(self.artists, labels, loc=2)
+				elif self.cbLegendLL.isChecked():
+					self.subplot.legend(self.artists, labels, loc=3)
+				elif self.cbLegendLR.isChecked():
+					self.subplot.legend(self.artists, labels, loc=4)
+				else:
+					self.subplot.legend(self.artists, labels, bbox_to_anchor=(0, 0, 1, 1))
 				
 			self.subplot.hold(False)
 			self.subplot.grid(True)

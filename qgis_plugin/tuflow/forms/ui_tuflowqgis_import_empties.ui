@@ -107,6 +107,11 @@
    </property>
    <item>
     <property name="text">
+     <string>0d_RL</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
      <string>1d_bc</string>
     </property>
    </item>
@@ -132,6 +137,11 @@
    </item>
    <item>
     <property name="text">
+     <string>1d_nwkB</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
      <string>1d_tab</string>
     </property>
    </item>
@@ -153,6 +163,11 @@
    <item>
     <property name="text">
      <string>2d_fcsh</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_iwl</string>
     </property>
    </item>
    <item>
