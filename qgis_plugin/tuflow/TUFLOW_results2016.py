@@ -2,7 +2,7 @@ import os
 import numpy
 import csv
 import sys
-version = '2016-03-AB' #handle of null data in timeseries
+version = '2017-09-AA' #handling of PO region data
 
 class LP():
 	def __init__(self): #initialise the LP data
@@ -68,7 +68,12 @@ class Data_2D():
 		self.QS = Timeseries() #structure flow
 		self.HUS = Timeseries() #structure U/S level
 		self.HDS = Timeseries() #structure D/S level
-
+		self.HAvg = Timeseries() #2017-09-AA average water level in region
+		self.HMax = Timeseries() #2017-09-AA max water level in region
+		self.QIn = Timeseries() #2017-09-AA flow into a region
+		self.QOut = Timeseries() #2017-09-AA flow out of a region
+		self.SS = Timeseries() #2017-09-AA Sink / Source within a region
+		self.Vol = Timeseries() #2017-09-AA Volume within a region
 
 class Data_RL():
 	def __init__(self): #initialise the Reporting Locations
@@ -108,8 +113,11 @@ class PlotObjects():
 					self.geom.append(row[3])
 
 			csvfile.close()
+			self.nPoints = self.geom.count('P') #2017-08-AA
+			self.nLines = self.geom.count('L') #2017-08-AA
+			self.nRegions = self.geom.count('R') #2017-08-AA
 		except:
-			print('ERROR - Error reading header from: '+fullpath)
+			print('ERROR - Error reading data from: '+fullpath)
 
 	def find_data(self,ID, domain, geom, dat_type):
 		# see if the data exists in the file
@@ -828,6 +836,85 @@ class ResData():
 						return False, [0.0], message
 				else:
 					message = 'No 2D Integral Flow Data loaded for: '+self.displayname
+					return False, [0.0], message
+			elif(res.upper() in ("HAVG","AVERAGE LEVEL")):
+				if self.Data_2D.HAvg.loaded:
+					try:
+						ind = self.Data_2D.HAvg.Header.index(id)
+						data = self.Data_2D.HAvg.Values[:,ind]
+						self.times = self.Data_2D.HAvg.Values[:,1]
+						return True, data, message
+					except:
+						message = 'Data not found for 2D HAvg with ID: '+id
+						return False, [0.0], message
+				else:
+					message = 'No 2D Average Water Level Data loaded for: '+self.displayname
+					return False, [0.0], message
+			elif(res.upper() in ("HMAX","MAX LEVEL")):
+				if self.Data_2D.HMax.loaded:
+					try:
+						ind = self.Data_2D.HMax.Header.index(id)
+						data = self.Data_2D.HMax.Values[:,ind]
+						self.times = self.Data_2D.HMax.Values[:,1]
+						return True, data, message
+					except:
+						message = 'Data not found for 2D HMax with ID: '+id
+						return False, [0.0], message
+				else:
+					message = 'No 2D Max Water Level Data loaded for: '+self.displayname
+					return False, [0.0], message
+			elif(res.upper() in ("QIN","FLOW INTO")):
+				if self.Data_2D.QIn.loaded:
+					try:
+						ind = self.Data_2D.QIn.Header.index(id)
+						data = self.Data_2D.QIn.Values[:,ind]
+						self.times = self.Data_2D.QIn.Values[:,1]
+						return True, data, message
+					except:
+						message = 'Data not found for 2D QIn with ID: '+id
+						return False, [0.0], message
+				else:
+					message = 'No 2D Flow into Region Data loaded for: '+self.displayname
+					return False, [0.0], message
+			elif(res.upper() in ("QOUT","FLOW OUT")):
+				if self.Data_2D.HMax.loaded:
+					try:
+						ind = self.Data_2D.QOut.Header.index(id)
+						data = self.Data_2D.QOut.Values[:,ind]
+						self.times = self.Data_2D.QOut.Values[:,1]
+						return True, data, message
+					except:
+						message = 'Data not found for 2D QOut with ID: '+id
+						return False, [0.0], message
+				else:
+					message = 'No 2D Flow out of Region Data loaded for: '+self.displayname
+					return False, [0.0], message
+
+			elif(res.upper() in ("VOL","VOLUME")):
+				if self.Data_2D.Vol.loaded:
+					try:
+						ind = self.Data_2D.Vol.Header.index(id)
+						data = self.Data_2D.Vol.Values[:,ind]
+						self.times = self.Data_2D.Vol.Values[:,1]
+						return True, data, message
+					except:
+						message = 'Data not found for 2D Vol with ID: '+id
+						return False, [0.0], message
+				else:
+					message = 'No 2D Volume Data loaded for: '+self.displayname
+					return False, [0.0], message
+			elif(res.upper() in ("SS","SINK/SOURCE")):
+				if self.Data_2D.SS.loaded:
+					try:
+						ind = self.Data_2D.SS.Header.index(id)
+						data = self.Data_2D.SS.Values[:,ind]
+						self.times = self.Data_2D.SS.Values[:,1]
+						return True, data, message
+					except:
+						message = 'Data not found for 2D SS with ID: '+id
+						return False, [0.0], message
+				else:
+					message = 'No 2D Sink/Source Data loaded for: '+self.displayname
 					return False, [0.0], message
 			else:
 				message = 'Warning - Expecting Q, V, H, GL, QA, Vx or Vy for 2D data type.'
@@ -1568,6 +1655,114 @@ class ResData():
 					try:
 						chk_nLocs = int(dat_type[indA+1:indB])
 						if (chk_nLocs != self.Data_2D.HDS.nLocs):
+							message = 'ERROR - number of locations in .csv doesn''t match value in .tpc'
+							error = True
+							return error, message
+					except:
+						print('WARNING - Unable to extact number of values in .tpc file entry')
+			elif (dat_type.find('2D Region Average Water Level') >= 0):
+				if rdata != 'NONE':
+					fullpath = os.path.join(self.fpath,rdata)
+					indA = dat_type.index('[')
+					indB = dat_type.index(']')
+					error, message = self.Data_2D.HAvg.Load(fullpath,'HA',self.displayname)
+					if error:
+						return error, message
+					self.nTypes = self.nTypes + 1
+					self.Types.append('2D Region Average Water Level')
+					try:
+						chk_nLocs = int(dat_type[indA+1:indB])
+						if (chk_nLocs != self.Data_2D.HAvg.nLocs):
+							message = 'ERROR - number of locations in .csv doesn''t match value in .tpc'
+							error = True
+							return error, message
+					except:
+						print('WARNING - Unable to extact number of values in .tpc file entry')
+			elif (dat_type.find('2D Region Max Water Level') >= 0):
+				if rdata != 'NONE':
+					fullpath = os.path.join(self.fpath,rdata)
+					indA = dat_type.index('[')
+					indB = dat_type.index(']')
+					error, message = self.Data_2D.HMax.Load(fullpath,'HM',self.displayname)
+					if error:
+						return error, message
+					self.nTypes = self.nTypes + 1
+					self.Types.append('2D Region Max Water Level')
+					try:
+						chk_nLocs = int(dat_type[indA+1:indB])
+						if (chk_nLocs != self.Data_2D.HMax.nLocs):
+							message = 'ERROR - number of locations in .csv doesn''t match value in .tpc'
+							error = True
+							return error, message
+					except:
+						print('WARNING - Unable to extact number of values in .tpc file entry')
+			elif (dat_type.find('2D Region Flow into Region') >= 0):
+				if rdata != 'NONE':
+					fullpath = os.path.join(self.fpath,rdata)
+					indA = dat_type.index('[')
+					indB = dat_type.index(']')
+					error, message = self.Data_2D.QIn.Load(fullpath,'FI',self.displayname)
+					if error:
+						return error, message
+					self.nTypes = self.nTypes + 1
+					self.Types.append('2D Region Flow into')
+					try:
+						chk_nLocs = int(dat_type[indA+1:indB])
+						if (chk_nLocs != self.Data_2D.QIn.nLocs):
+							message = 'ERROR - number of locations in .csv doesn''t match value in .tpc'
+							error = True
+							return error, message
+					except:
+						print('WARNING - Unable to extact number of values in .tpc file entry')
+			elif (dat_type.find('2D Region Flow out of Region') >= 0):
+				if rdata != 'NONE':
+					fullpath = os.path.join(self.fpath,rdata)
+					indA = dat_type.index('[')
+					indB = dat_type.index(']')
+					error, message = self.Data_2D.QOut.Load(fullpath,'FO',self.displayname)
+					if error:
+						return error, message
+					self.nTypes = self.nTypes + 1
+					self.Types.append('2D Region Flow out of')
+					try:
+						chk_nLocs = int(dat_type[indA+1:indB])
+						if (chk_nLocs != self.Data_2D.QOut.nLocs):
+							message = 'ERROR - number of locations in .csv doesn''t match value in .tpc'
+							error = True
+							return error, message
+					except:
+						print('WARNING - Unable to extact number of values in .tpc file entry')
+			elif (dat_type.find('2D Region Volume') >= 0):
+				if rdata != 'NONE':
+					fullpath = os.path.join(self.fpath,rdata)
+					indA = dat_type.index('[')
+					indB = dat_type.index(']')
+					error, message = self.Data_2D.Vol.Load(fullpath,'VL',self.displayname)
+					if error:
+						return error, message
+					self.nTypes = self.nTypes + 1
+					self.Types.append('2D Region Volume')
+					try:
+						chk_nLocs = int(dat_type[indA+1:indB])
+						if (chk_nLocs != self.Data_2D.Vol.nLocs):
+							message = 'ERROR - number of locations in .csv doesn''t match value in .tpc'
+							error = True
+							return error, message
+					except:
+						print('WARNING - Unable to extact number of values in .tpc file entry')
+			elif (dat_type.find('Region Sink/Source') >= 0):
+				if rdata != 'NONE':
+					fullpath = os.path.join(self.fpath,rdata)
+					indA = dat_type.index('[')
+					indB = dat_type.index(']')
+					error, message = self.Data_2D.SS.Load(fullpath,'SS',self.displayname)
+					if error:
+						return error, message
+					self.nTypes = self.nTypes + 1
+					self.Types.append('2D Region Sink/Source')
+					try:
+						chk_nLocs = int(dat_type[indA+1:indB])
+						if (chk_nLocs != self.Data_2D.SS.nLocs):
 							message = 'ERROR - number of locations in .csv doesn''t match value in .tpc'
 							error = True
 							return error, message

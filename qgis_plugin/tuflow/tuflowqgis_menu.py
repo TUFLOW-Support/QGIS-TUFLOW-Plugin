@@ -19,7 +19,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2017-06-AD (QGIS 2.x)'
+build_vers = '2017-09-AA (QGIS 2.x)'
 build_type = 'release' #release / developmental
 
 # Import the PyQt and QGIS libraries

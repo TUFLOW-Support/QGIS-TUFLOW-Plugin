@@ -165,7 +165,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 		
 	def help_pressed(self):
 		message = 'This TuPlot utility is designed to view timeseries and long profile data from TUFLOW models.\n'
-		message = message+'For some functionality, this utitlity relies on the output formats available in the 2016 version of TUFLOW.  Some of the functioanlity is available for the 2013 version of TUFLOW.\n'
+		message = message+'For some functionality, this utitlity relies on the output formats available in the 2016 version of TUFLOW.  Some of the functionality is available for the 2013 version of TUFLOW.\n'
 		message = message+'For more information on using this please see http://wiki.tuflow.com/index.php?title=TuPlot'
 		QMessageBox.information(self.iface.mainWindow(), "TuPlot Information", message)
 	def clear_status(self):
@@ -448,25 +448,37 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 		
 		#loaad the GIS layers
 		if res.GIS.P:
-			fullfile = os.path.join(fpath,res.GIS.P)
-			try:
-				self.iface.addVectorLayer(fullfile, os.path.basename(fullfile), "ogr")
-			except:
-				self.lwStatus.insertItem(0,'Failed to load GIS layer')
+			if res.Index.nPoints>0: #2017-08-AA added check for data in file
+				fullfile = os.path.join(fpath,res.GIS.P)
+				try:
+					self.iface.addVectorLayer(fullfile, os.path.basename(fullfile), "ogr")
+				except:
+					self.lwStatus.insertItem(0,'Failed to load GIS layer')
+					self.lwStatus.item(0).setTextColor(self.qblue)
+			else:
+				self.lwStatus.insertItem(0,'No points found in GIS Plot Objects .csv, skipping: {0}'.format(res.GIS.P))
 				self.lwStatus.item(0).setTextColor(self.qblue)
 		if res.GIS.L:
-			fullfile = os.path.join(fpath,res.GIS.L)
-			try:
-				self.iface.addVectorLayer(fullfile, os.path.basename(fullfile), "ogr")
-			except:
-				self.lwStatus.insertItem(0,'Failed to load GIS layer')
+			if res.Index.nLines>0: #2017-08-AA added check for data in file
+				fullfile = os.path.join(fpath,res.GIS.L)
+				try:
+					self.iface.addVectorLayer(fullfile, os.path.basename(fullfile), "ogr")
+				except:
+					self.lwStatus.insertItem(0,'Failed to load GIS layer')
+					self.lwStatus.item(0).setTextColor(self.qblue)
+			else:
+				self.lwStatus.insertItem(0,'No lines found in GIS Plot Objects .csv, skipping: {0}'.format(res.GIS.L))
 				self.lwStatus.item(0).setTextColor(self.qblue)
 		if res.GIS.R:
-			fullfile = os.path.join(fpath,res.GIS.R)
-			try:
-				self.iface.addVectorLayer(fullfile, os.path.basename(fullfile), "ogr")
-			except:
-				self.lwStatus.insertItem(0,'Failed to load GIS layer')
+			if res.Index.nRegions>0: #2017-08-AA added check for data in file
+				fullfile = os.path.join(fpath,res.GIS.R)
+				try:
+					self.iface.addVectorLayer(fullfile, os.path.basename(fullfile), "ogr")
+				except:
+					self.lwStatus.insertItem(0,'Failed to load GIS layer')
+					self.lwStatus.item(0).setTextColor(self.qblue)
+			else:
+				self.lwStatus.insertItem(0,'No regions found in GIS Plot Objects .csv, skipping: {0}'.format(res.GIS.R))
 				self.lwStatus.item(0).setTextColor(self.qblue)
 		if res.GIS.RL_P:
 			#self.lwStatus.insertItem(0,'Loading GIS RL point layer:')
@@ -549,6 +561,18 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 				self.ts_types_L.append('Structure Flows')
 			elif restype.upper() in ('STRUCTURE LEVELS'):
 				self.ts_types_L.append('Structure Levels')
+			elif restype.upper() in ('REGION AVERAGE WATER LEVEL'): #2017-09-AA
+				self.ts_types_R.append('Average Level')
+			elif restype.upper() in ('REGION MAX WATER LEVEL'): #2017-09-AA
+				self.ts_types_R.append('Max Level')
+			elif restype.upper() in ('REGION FLOW INTO'): #2017-09-AA
+				self.ts_types_R.append('Flow Into')
+			elif restype.upper() in ('REGION FLOW OUT OF'): #2017-09-AA
+				self.ts_types_R.append('Flow Out')
+			elif restype.upper() in ('REGION VOLUME'): #2017-09-AA
+				self.ts_types_R.append('Volume')
+			elif restype.upper() in ('REGION SINK/SOURCE'): #2017-09-AA
+				self.ts_types_R.append('Sink/Source')
 			else:
 				self.lwStatus.insertItem(0,'ERROR unhandled type: '+restype)
 				self.lwStatus.item(0).setTextColor(self.qred)
@@ -556,6 +580,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 		#add current time
 		self.ts_types_P.append('Current Time')
 		self.ts_types_L.append('Current Time')
+		self.ts_types_R.append('Current Time')
 
 	def close_res(self):
 		"""
@@ -588,9 +613,10 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 				if (GType == QGis.WKBLineString):
 					self.geom_type = 'L'
 					valid = True
-				elif (GType == QGis.WKBPolygon):
+				if (GType == QGis.WKBPolygon):
 					self.geom_type = 'R'
-					message = "Not expecting polygon data"
+					#message = "Not expecting polygon data"
+					valid = True
 				else:
 					message = "Expecting points or lines for 1d_tab format"
 			else:
@@ -665,7 +691,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 					self.GeomType = "Line"
 					if self.res_version == 1:
 						self.locationDrop.addItem("Timeseries")
-						self.locationDrop.addItem("Long Profile")				
+						self.locationDrop.addItem("Long Profile")
 					elif self.res_version == 2:
 						if (self.cLayer.name().find('_PLOT_')>-1):
 							self.locationDrop.addItem("Timeseries")
@@ -674,6 +700,19 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 							self.lwStatus.insertItem(0,'ERROR - Not a TUFLOW Layer Selected')
 							self.lwStatus.item(0).setTextColor(self.qblue)
 							self.locationDrop.addItem("Not a TUFLOW Layer Selected")
+				elif (GType == QGis.WKBPolygon): #2017-09-AA polygon
+					self.GeomType = "Polygon"
+					if self.res_version == 1:
+						self.lwStatus.insertItem(0,'ERROR - Polygons not supported for 2013 format results')
+						self.locationDrop.addItem("Polygons not supported")
+					elif self.res_version == 2:
+						if (self.cLayer.name().find('_PLOT_')>-1):
+							self.locationDrop.addItem("Timeseries")
+						else:
+							self.lwStatus.insertItem(0,'ERROR - Not a TUFLOW Layer Selected')
+							self.lwStatus.item(0).setTextColor(self.qblue)
+							self.locationDrop.addItem("Not a TUFLOW Layer Selected")
+
 				else:
 					self.GeomType = None
 					self.clear_figure()
@@ -945,6 +984,10 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 					self.ResTypeList_ax2.addItem(restype)
 			elif (self.GeomType == "Line"):
 				for restype in self.ts_types_L:
+					self.ResTypeList.addItem(restype)
+					self.ResTypeList_ax2.addItem(restype)
+			elif (self.GeomType == "Polygon"):
+				for restype in self.ts_types_R:
 					self.ResTypeList.addItem(restype)
 					self.ResTypeList_ax2.addItem(restype)
 			else:
