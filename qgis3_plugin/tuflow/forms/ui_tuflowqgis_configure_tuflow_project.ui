@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>tuflowqgis_configure_tf</class>
+ <widget class="QDialog" name="tuflowqgis_configure_tf">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>397</width>
+    <height>384</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Configure TUFLOW Project</string>
+  </property>
+  <widget class="QDialogButtonBox" name="buttonBox">
+   <property name="geometry">
+    <rect>
+     <x>110</x>
+     <y>340</y>
+     <width>161</width>
+     <height>32</height>
+    </rect>
+   </property>
+   <property name="orientation">
+    <enum>Qt::Horizontal</enum>
+   </property>
+   <property name="standardButtons">
+    <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_1">
+   <property name="geometry">
+    <rect>
+     <x>12</x>
+     <y>10</y>
+     <width>121</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Source Projection Layer</string>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="sourcelayer">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>30</y>
+     <width>351</width>
+     <height>27</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_3">
+   <property name="geometry">
+    <rect>
+     <x>12</x>
+     <y>153</y>
+     <width>161</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Folder which contains TUFLOW</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="outdir">
+   <property name="geometry">
+    <rect>
+     <x>12</x>
+     <y>176</y>
+     <width>261</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&lt;directory&gt;</string>
+   </property>
+   <property name="readOnly">
+    <bool>false</bool>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="browseoutfile">
+   <property name="geometry">
+    <rect>
+     <x>289</x>
+     <y>174</y>
+     <width>79</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Browse...</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_2">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>101</y>
+     <width>181</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Projection Description (display only)</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="crsDesc">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>121</y>
+     <width>261</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&lt;projection description&gt;</string>
+   </property>
+   <property name="dragEnabled">
+    <bool>false</bool>
+   </property>
+   <property name="readOnly">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_4">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>212</y>
+     <width>108</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>TUFLOW executable</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="TUFLOW_exe">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>232</y>
+     <width>261</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&lt;TUFLOW exe&gt;</string>
+   </property>
+   <property name="readOnly">
+    <bool>false</bool>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="browseexe">
+   <property name="geometry">
+    <rect>
+     <x>290</x>
+     <y>231</y>
+     <width>79</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Browse...</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pbSelectCRS">
+   <property name="geometry">
+    <rect>
+     <x>290</x>
+     <y>121</y>
+     <width>79</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Select CRS</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="form_crsID">
+   <property name="geometry">
+    <rect>
+     <x>12</x>
+     <y>78</y>
+     <width>261</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&lt;projection id&gt;</string>
+   </property>
+   <property name="dragEnabled">
+    <bool>false</bool>
+   </property>
+   <property name="readOnly">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_5">
+   <property name="geometry">
+    <rect>
+     <x>12</x>
+     <y>58</y>
+     <width>181</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Projection ID (display only)</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="cbGlobal">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>268</y>
+     <width>261</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Save Default Settings Globally (for all projects)</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="cbCreate">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>291</y>
+     <width>261</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Create TUFLOW Folder Structure</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="cbRun">
+   <property name="geometry">
+    <rect>
+     <x>21</x>
+     <y>314</y>
+     <width>261</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Run TUFLOW to create template files</string>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>tuflowqgis_configure_tf</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>tuflowqgis_configure_tf</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

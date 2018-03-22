@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>tuflowqgis_import_empty</class>
+ <widget class="QDialog" name="tuflowqgis_import_empty">
+  <property name="windowModality">
+   <enum>Qt::ApplicationModal</enum>
+  </property>
+  <property name="enabled">
+   <bool>true</bool>
+  </property>
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>388</width>
+    <height>518</height>
+   </rect>
+  </property>
+  <property name="mouseTracking">
+   <bool>false</bool>
+  </property>
+  <property name="windowTitle">
+   <string>Import TUFLOW Empty File</string>
+  </property>
+  <widget class="QDialogButtonBox" name="buttonBox">
+   <property name="geometry">
+    <rect>
+     <x>110</x>
+     <y>480</y>
+     <width>160</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="orientation">
+    <enum>Qt::Horizontal</enum>
+   </property>
+   <property name="standardButtons">
+    <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label1">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>10</y>
+     <width>108</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Empty Directory</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="emptydir">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>30</y>
+     <width>261</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&lt;directory&gt;</string>
+   </property>
+   <property name="readOnly">
+    <bool>false</bool>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="browsedir">
+   <property name="geometry">
+    <rect>
+     <x>281</x>
+     <y>27</y>
+     <width>79</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Browse...</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label2">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>60</y>
+     <width>108</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Empty Type</string>
+   </property>
+  </widget>
+  <widget class="QListWidget" name="emptyType">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>80</y>
+     <width>331</width>
+     <height>311</height>
+    </rect>
+   </property>
+   <property name="selectionMode">
+    <enum>QAbstractItemView::ExtendedSelection</enum>
+   </property>
+   <item>
+    <property name="text">
+     <string>0d_RL</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>1d_bc</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>1d_iwl</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>1d_mh</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>1d_nd</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>1d_nwk</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>1d_nwkB</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>1d_tab</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>1d_WLL</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_bc</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_code</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_fcsh</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_iwl</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_lfcsh</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_loc</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_mat</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_po</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_rf</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_sa</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_vzsh</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_zsh</string>
+    </property>
+   </item>
+  </widget>
+  <widget class="QCheckBox" name="checkPoint">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>455</y>
+     <width>70</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Points</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="checkLine">
+   <property name="geometry">
+    <rect>
+     <x>150</x>
+     <y>455</y>
+     <width>70</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Lines</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="checkRegion">
+   <property name="geometry">
+    <rect>
+     <x>270</x>
+     <y>455</y>
+     <width>70</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Regions</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label4">
+   <property name="geometry">
+    <rect>
+     <x>16</x>
+     <y>436</y>
+     <width>108</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Geometry Type</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="txtRunID">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>412</y>
+     <width>261</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>RunID</string>
+   </property>
+   <property name="readOnly">
+    <bool>false</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label3">
+   <property name="geometry">
+    <rect>
+     <x>12</x>
+     <y>394</y>
+     <width>108</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Run ID</string>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>tuflowqgis_import_empty</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>tuflowqgis_import_empty</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>
