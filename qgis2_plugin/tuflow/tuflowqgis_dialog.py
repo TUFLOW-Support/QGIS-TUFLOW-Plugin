@@ -138,7 +138,7 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		if message <> None:
 			QMessageBox.critical(self.iface.mainWindow(), "Duplicating File", message)
 		QgsMapLayerRegistry.instance().removeMapLayer(layer.id())
-		self.iface.addVectorLayer(savename, os.path.basename(savename), "ogr")
+		self.iface.addVectorLayer(savename, os.path.basename(savename)[:-4], "ogr")
 
 
 # ----------------------------------------------------------

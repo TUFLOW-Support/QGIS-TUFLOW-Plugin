@@ -21,6 +21,7 @@ from collections import OrderedDict
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/forms")
 from ui_tuflowqgis_TuPlot import Ui_tuflowqgis_TuPlot
+import tuflowqgis_styles
 
 
 class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
@@ -165,7 +166,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 		
 	def help_pressed(self):
 		message = 'This TuPlot utility is designed to view timeseries and long profile data from TUFLOW models.\n'
-		message = message+'For some functionality, this utitlity relies on the output formats available in the 2016 version of TUFLOW.  Some of the functionality is available for the 2013 version of TUFLOW.\n'
+		message = message+'For some functionality, this utitlity relies on the output formats available in the 2016 version of TUFLOW.  Some of the functioalaity is available for the 2013 version of TUFLOW.\n'
 		message = message+'For more information on using this please see http://wiki.tuflow.com/index.php?title=TuPlot'
 		QMessageBox.information(self.iface.mainWindow(), "TuPlot Information", message)
 	def clear_status(self):
@@ -451,7 +452,16 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			if res.Index.nPoints>0: #2017-08-AA added check for data in file
 				fullfile = os.path.join(fpath,res.GIS.P)
 				try:
-					self.iface.addVectorLayer(fullfile, os.path.basename(fullfile), "ogr")
+					addLayer = self.iface.addVectorLayer(fullfile, os.path.basename(fullfile), "ogr")
+					# apply tuflow style to imported gis layer
+					tf_styles = tuflowqgis_styles.TF_Styles()
+					error, message = tf_styles.Load()
+					error, message, slyr = tf_styles.Find(os.path.basename(addLayer.source())[:-4], addLayer) #use tuflow styles to find longest matching 
+					if error:
+						return error, message
+					if slyr: #style layer found:
+						addLayer.loadNamedStyle(slyr)
+						addLayer.triggerRepaint()
 				except:
 					self.lwStatus.insertItem(0,'Failed to load GIS layer')
 					self.lwStatus.item(0).setTextColor(self.qblue)
@@ -462,7 +472,16 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			if res.Index.nLines>0: #2017-08-AA added check for data in file
 				fullfile = os.path.join(fpath,res.GIS.L)
 				try:
-					self.iface.addVectorLayer(fullfile, os.path.basename(fullfile), "ogr")
+					addLayer = self.iface.addVectorLayer(fullfile, os.path.basename(fullfile), "ogr")
+					# apply tuflow style to imported gis layer
+					tf_styles = tuflowqgis_styles.TF_Styles()
+					error, message = tf_styles.Load()
+					error, message, slyr = tf_styles.Find(os.path.basename(addLayer.source())[:-4], addLayer) #use tuflow styles to find longest matching 
+					if error:
+						return error, message
+					if slyr: #style layer found:
+						addLayer.loadNamedStyle(slyr)
+						addLayer.triggerRepaint()
 				except:
 					self.lwStatus.insertItem(0,'Failed to load GIS layer')
 					self.lwStatus.item(0).setTextColor(self.qblue)
@@ -473,7 +492,16 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			if res.Index.nRegions>0: #2017-08-AA added check for data in file
 				fullfile = os.path.join(fpath,res.GIS.R)
 				try:
-					self.iface.addVectorLayer(fullfile, os.path.basename(fullfile), "ogr")
+					addLayer = self.iface.addVectorLayer(fullfile, os.path.basename(fullfile), "ogr")
+					# apply tuflow style to imported gis layer
+					tf_styles = tuflowqgis_styles.TF_Styles()
+					error, message = tf_styles.Load()
+					error, message, slyr = tf_styles.Find(os.path.basename(addLayer.source())[:-4], addLayer) #use tuflow styles to find longest matching 
+					if error:
+						return error, message
+					if slyr: #style layer found:
+						addLayer.loadNamedStyle(slyr)
+						addLayer.triggerRepaint()
 				except:
 					self.lwStatus.insertItem(0,'Failed to load GIS layer')
 					self.lwStatus.item(0).setTextColor(self.qblue)
@@ -1025,7 +1053,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 		except:
 			self.lwStatus.insertItem(0,'WARNING - Unable to populate times, check results loaded.')
 			self.lwStatus.item(0).setTextColor(self.qblue)
-
 		item = self.ResTypeList.item(0) # select 1st item by default
 		self.ResTypeList.setItemSelected(item, True)
 		self.start_draw()

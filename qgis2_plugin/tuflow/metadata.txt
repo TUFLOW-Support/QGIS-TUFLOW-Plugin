@@ -11,8 +11,8 @@ about=A collection of utilities for TUFLOW modelling in QGIS.
 	Includes visualisation of results / inputs
 	Editing tools
 	Styling tools
-version=1.3.2
-author=Phillip Ryan
+version=1.4.0
+author=Phillip Ryan, Ellis Symons
 email=support@tuflow.com
 
 # end of mandatory metadata
@@ -20,7 +20,10 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-# changelog=
+changelog=Fixed bug with display name when importing in empty files or incrementing layer
+	Added layer formatting when importing TUPLOT GIS layers
+	Added layer formatting for MIF files (Check file utilities)
+	New TUPLOT external tool (beta)
 
 # tags are comma separated with spaces allowed
 tags=TUFLOW	

@@ -19,7 +19,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2017-09-AA (QGIS 2.x)'
+build_vers = '2018-02-AA (QGIS 2.x)'
 build_type = 'release' #release / developmental
 
 # Import the PyQt and QGIS libraries
@@ -33,6 +33,7 @@ from tuflowqgis_dialog import *
 
 # Import the code for the 1D results viewer
 from tuflowqgis_TuPlot import *
+from TuPLOT_external import *
 
 #par
 from tuflowqgis_library import tuflowqgis_apply_check_tf
@@ -42,6 +43,11 @@ class tuflowqgis_menu:
 	def __init__(self, iface):
 		self.iface = iface
 		self.dockOpened = False
+		self.tpOpen = 'not open'
+		self.intFile = ''
+		self.cLayer = None
+		self.tpExternal = None
+		self.defaultPath = 'C:\\'
 
 	def initGui(self):
 		# About Submenu
@@ -117,6 +123,13 @@ class tuflowqgis_menu:
 		QObject.connect(self.view_1d_results_action, SIGNAL("triggered()"), self.results_1d)
 		self.iface.addToolBarIcon(self.view_1d_results_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.view_1d_results_action)
+		
+		# TuPLOT External Added ES 2017/11
+		icon = QIcon(os.path.dirname(__file__) + "/icons/TuPLOT_External.PNG")
+		self.open_tuplot_external_action = QAction(icon, "TuPlot External (beta)", self.iface.mainWindow())
+		QObject.connect(self.open_tuplot_external_action, SIGNAL("triggered()"), self.open_tuplot_ext)
+		self.iface.addToolBarIcon(self.open_tuplot_external_action)
+		self.iface.addPluginToMenu("&TUFLOW", self.open_tuplot_external_action)
 		
 		# Added MJS 24/11
 		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_import.png")
@@ -235,6 +248,59 @@ class tuflowqgis_menu:
 		#		self.resdock.show()
 		#	else:
 		#		QMessageBox.information(self.iface.mainWindow(), "debug", "Dock not open??")
+		
+	def open_tuplot_ext(self):
+		"""TuPLOT external function."""
+		
+		# initiate External TuPLOT library
+		self.tpExternal = TuPLOT(self.iface)
+		
+		# below try statement just checks if TuPLOT is already open
+		try:
+			poll = self.tpOpen.poll()
+			if poll == None: # TuPLOT is open
+				self.tpOpen, self.intFile, self.defaultPath = self.tpExternal.open(self.tpOpen, self.intFile, self.defaultPath)
+				self.cLayer = self.iface.mapCanvas().currentLayer()
+			else: # TuPLOT is not already open
+				self.tpOpen, self.intFile, self.defaultPath = self.tpExternal.open('not open', self.intFile, self.defaultPath)
+				self.cLayer = self.iface.mapCanvas().currentLayer()
+		except: # first time TuPLOT has been initiated so must not be open
+			self.tpOpen, self.intFile, self.defaultPath = self.tpExternal.open('not open', self.intFile, self.defaultPath)
+			self.cLayer = self.iface.mapCanvas().currentLayer()
+		
+		# connect external TuPLOT to signals
+		try:
+			poll = self.tpOpen.poll()
+			if poll == None: # TuPLOT is running so connect
+				if self.cLayer is not None: # there is a current layer selected so connect both selection change and layer change
+					QObject.connect(self.cLayer,SIGNAL("selectionChanged()"),self.select_changed)
+					QObject.connect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layer_changed)
+				else: # there is no current layer selected so connect layer change only
+					QObject.connect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layer_changed)
+			else: # TuPLOT is not running so disconnect
+				QObject.disconnect(self.cLayer,SIGNAL("selectionChanged()"),self.select_changed)
+				QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layer_changed)
+		except:
+			None
+		#QMessageBox.information(self.iface.mainWindow(), "Debug", "completed")
+		
+	def select_changed(self):
+		"""Used with TuPLOT external function. Is called when current selection changes."""
+		
+		# check to see if TuPLOT is open
+		poll = self.tpOpen.poll()
+		if poll == None: # TuPLOT is open so update .int file
+			self.tpOpen, self.intFile, self.defaultPath = self.tpExternal.open(self.tpOpen, self.intFile, self.defaultPath)
+		else: # TuPLOT is not open so disconnect signals
+			QObject.disconnect(self.cLayer,SIGNAL("selectionChanged()"),self.select_changed)
+			QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layer_changed)
+		
+	def layer_changed(self):
+		"""Used with TuPLOT external function. Is called when current layer changes."""
+		
+		self.cLayer = self.iface.mapCanvas().currentLayer()
+		if self.cLayer is not None:
+			QObject.connect(self.cLayer,SIGNAL("selectionChanged()"),self.select_changed)
 
 	def cleaning_res(res):
 		QMessageBox.information(self.iface.mainWindow(), "debug", "Dock Closed")

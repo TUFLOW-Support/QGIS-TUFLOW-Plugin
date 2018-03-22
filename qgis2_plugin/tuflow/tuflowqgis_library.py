@@ -56,7 +56,7 @@ def tuflowqgis_duplicate_file(qgis, layer, savename, keepform):
 			return "Failure deleting existing shapefile: " + savename
 	
 	outfile = QgsVectorFileWriter(savename, "System", 
-		layer.dataProvider().fields(), layer.dataProvider().geometryType(), layer.dataProvider().crs())
+		layer.dataProvider().fields(), layer.wkbType(), layer.dataProvider().crs())
 	
 	if (outfile.hasError() != QgsVectorFileWriter.NoError):
 		return "Failure creating output shapefile: " + unicode(outfile.errorMessage())	
@@ -167,7 +167,7 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 				if (outfile.hasError() != QgsVectorFileWriter.NoError):
 					QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: "+savename))
 				del outfile
-				qgis.addVectorLayer(savename, name, "ogr")
+				qgis.addVectorLayer(savename, name[:-4], "ogr")
 
 	return None
 	
@@ -467,20 +467,19 @@ def tuflowqgis_apply_check_tf(qgis):
 		
 	for layer_name, layer in QgsMapLayerRegistry.instance().mapLayers().iteritems():
 		if layer.type() == QgsMapLayer.VectorLayer:
-			if (layer.source()[-4:].upper() == '.SHP'):
-				layer_fname = os.path.split(layer.source())[1][:-4]
-				#QMessageBox.information(qgis.mainWindow(), "DEBUG", "shp layer name = "+layer.name())
-				renderer = region_renderer(layer)
-				if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
-					layer.setRendererV2(renderer)
+			layer_fname = os.path.split(layer.source())[1][:-4]
+			#QMessageBox.information(qgis.mainWindow(), "DEBUG", "shp layer name = "+layer.name())
+			renderer = region_renderer(layer)
+			if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
+				layer.setRendererV2(renderer)
+				layer.triggerRepaint()
+			else: # use .qml style using tf_styles
+				error, message, slyr = tf_styles.Find(layer_fname, layer) #use tuflow styles to find longest matching 
+				if error:
+					return error, message
+				if slyr: #style layer found:
+					layer.loadNamedStyle(slyr)
 					layer.triggerRepaint()
-				else: # use .qml style using tf_styles
-					error, message, slyr = tf_styles.Find(layer_fname) #use tuflow styles to find longest matching 
-					if error:
-						return error, message
-					if slyr: #style layer found:
-						layer.loadNamedStyle(slyr)
-						layer.triggerRepaint()
 	return error, message
 	
 
@@ -508,24 +507,18 @@ def tuflowqgis_apply_check_tf_clayer(qgis):
 		
 
 	if cLayer.type() == QgsMapLayer.VectorLayer:
-		if (cLayer.source()[-4:].upper() == '.SHP'):
-			layer_fname = os.path.split(cLayer.source())[1][:-4]
-			#QMessageBox.information(qgis.mainWindow(), "DEBUG", "shp layer name = "+cLayer.name())
-			renderer = region_renderer(cLayer)
-			if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
-				cLayer.setRendererV2(renderer)
+		layer_fname = os.path.split(cLayer.source())[1][:-4]
+		renderer = region_renderer(cLayer)
+		if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
+			cLayer.setRendererV2(renderer)
+			cLayer.triggerRepaint()
+		else: # use .qml style using tf_styles
+			error, message, slyr = tf_styles.Find(layer_fname, cLayer) #use tuflow styles to find longest matching 
+			if error:
+				return error, message
+			if slyr: #style layer found:
+				cLayer.loadNamedStyle(slyr)
 				cLayer.triggerRepaint()
-			else: # use .qml style using tf_styles
-				error, message, slyr = tf_styles.Find(layer_fname) #use tuflow styles to find longest matching 
-				if error:
-					return error, message
-				if slyr: #style layer found:
-					cLayer.loadNamedStyle(slyr)
-					cLayer.triggerRepaint()
-		else:
-			error = True
-			message = 'ERROR - Layer is not a shapefile: '+cLayer.source()
-			return error, message
 	else:
 		error = True
 		message = 'ERROR - Layer is not a vector layer: '+cLayer.source()
@@ -573,3 +566,4 @@ def tuflowqgis_increment_fname(infname):
 		outfname = tmpstr
 
 	return outfname
+	

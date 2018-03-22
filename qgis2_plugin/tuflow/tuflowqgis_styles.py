@@ -28,6 +28,7 @@ class TF_Styles:
 		self.fpath = []
 		self.style_folder = os.path.join(os.path.dirname(__file__),'QGIS_Styles')
 		#print(self.style_folder)
+		
 
 	def Load(self):
 		#Loads all the .qml files and sorts by longest first
@@ -71,12 +72,23 @@ class TF_Styles:
 
 		return error, message
 
-	def Find(self,layer_name):
+	def Find(self, layer_name, cLayer):
 		#Find the first style match which matches the layer name
 		error = False
 		message = None
 		matching_layer = None
-
+		
+		# Check to see if there is a geometry type in file name (_P, _L, _R)
+		if layer_name[-2:] == '_P' or layer_name[-2:] == '_L' or layer_name[-2:] == '_R':
+			next
+		else:
+			if cLayer.geometryType() == 0:
+				layer_name = layer_name + '_P'
+			elif cLayer.geometryType() == 1:
+				layer_name = layer_name + '_L'
+			elif cLayer.geometryType() == 2:
+				layer_name = layer_name + '_R'
+		
 		try:
 			for i, ftype in enumerate(self.ftype):
 				if ftype in layer_name:
