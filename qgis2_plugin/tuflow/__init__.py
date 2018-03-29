@@ -32,7 +32,7 @@ def description():
 
 
 def version():
-    return "Version 2018-02-AA"
+    return "Version 2017-06-AD"
 
 
 def icon():
@@ -43,7 +43,7 @@ def qgisMinimumVersion():
     return "2.0"
 
 def author():
-    return "Phillip Ryan, Ellis Symons"
+    return "Phillip Ryan"
 
 def email():
     return "support@tuflow.com"

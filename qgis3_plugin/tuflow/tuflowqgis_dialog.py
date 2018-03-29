@@ -27,11 +27,14 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from qgis.core import *
 import glob
+import processing
 from .tuflowqgis_library import *
 from PyQt5.QtWidgets import *
 from qgis.gui import QgsProjectionSelectionWidget
 import sys
+import subprocess
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/forms")
+currentFolder = os.path.dirname(os.path.abspath(__file__))
 
 
 # ----------------------------------------------------------
@@ -175,7 +178,7 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 
 	def browse_empty_dir(self):
 		newname = QFileDialog.getExistingDirectory(None, "Output Directory")
-		if newname != None:
+		if len(newname) > 0:
 			self.emptydir.setText(newname)
 
 
@@ -1062,3 +1065,566 @@ class tuflowqgis_import_check_dialog(QDialog, Ui_tuflowqgis_import_check):
 		#message = tuflowqgis_create_tf_dir(self.iface, crs, basedir)
 		if message != None:
 			QMessageBox.critical(self.iface.mainWindow(), "Importing TUFLOW Empty File(s)", message)
+			
+# ----------------------------------------------------------
+#    tuflowqgis extract ARR2016
+# ----------------------------------------------------------
+from ui_tuflowqgis_arr2016 import *
+from .tuflowqgis_settings import TF_Settings
+import webbrowser
+
+class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
+
+	def __init__(self, iface):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.setupUi(self)
+		self.canvas = self.iface.mapCanvas()
+		self.tfsettings = TF_Settings()
+		
+		# Set up Input Catchment File ComboBox
+		for name, layer in QgsProject.instance().mapLayers().items():
+				if layer.type() == QgsMapLayer.VectorLayer:
+					if layer.geometryType() == 0 or layer.geometryType() == 2:
+						self.comboBox_inputCatchment.addItem(layer.name())
+							
+		layerName = unicode(self.comboBox_inputCatchment.currentText())
+		layer = tuflowqgis_find_layer(layerName)
+						
+		# Set up Catchment Field ID ComboBox
+		if layer is not None:
+			for f in layer.fields():
+				#QMessageBox.information(self.iface.mainWindow(), "Debug", '{0}'.format(f.name()))
+				self.comboBox_CatchID.addItem(f.name())
+				
+		# Set up Catchment Area Field ComboBox
+		if self.radioButton_ARF_auto.isChecked():
+			self.comboBox_CatchArea.setEnabled(False)
+		else:
+			self.comboBox_CatchArea.setEnabled(True)
+			self.comboBox_CatchArea.addItem('-None-')
+			if layer is not None:
+				for f in layer.fields():
+					self.comboBox_CatchArea.addItem(f.name())
+					
+		# Set up MAR and Static Value box
+		self.mar_staticValue.setEnabled(False)
+		
+		self.commandLinkButton_BOMconditions.clicked.connect(self.open_BOMconditions)
+		self.commandLinkButton_BOMcaveat.clicked.connect(self.open_BOMcaveat)
+		self.comboBox_inputCatchment.currentIndexChanged.connect(self.catchmentLayer_changed)
+		self.pushButton_browse.clicked.connect(self.browse_outFolder)
+		self.checkBox_aepAll.clicked.connect(self.aep_all)
+		self.checkBox_durAll.clicked.connect(self.dur_all)
+		self.radioButton_ARF_auto.clicked.connect(self.toggle_comboBox_CatchArea)
+		self.radioButton_ARF_manual.clicked.connect(self.toggle_comboBox_CatchArea)
+		self.comboBox_ilMethod.currentIndexChanged.connect(self.ilMethod_changed)
+		self.buttonBox.accepted.connect(self.run)
+	
+	def open_BOMconditions(self):
+		webbrowser.open(r'http://www.bom.gov.au/other/disclaimer.shtml')
+		
+	def open_BOMcaveat(self):
+		webbrowser.open(r'http://www.bom.gov.au/water/designRainfalls/revised-ifd/?content=caveat')
+	
+	def catchmentLayer_changed(self):
+		layerName = unicode(self.comboBox_inputCatchment.currentText())
+		layer = tuflowqgis_find_layer(layerName)
+		
+		# Set up Catchment Field ID ComboBox
+		self.comboBox_CatchID.clear()
+		if layer is not None:
+			for f in layer.fields():
+				self.comboBox_CatchID.addItem(f.name())
+		
+		# Set up Catchment Area Field ComboBox
+		if self.radioButton_ARF_auto.isChecked():
+			self.comboBox_CatchArea.setEnabled(False)
+		else:
+			self.comboBox_CatchArea.setEnabled(True)
+			self.comboBox_CatchArea.clear()
+			self.comboBox_CatchArea.addItem('-None-')
+			if layer is not None:
+				for f in layer.pendingFields():
+					self.comboBox_CatchArea.addItem(f.name())
+				
+	def browse_outFolder(self):
+		self.last_arr_outFolder = self.tfsettings.get_last_arr_outFolder()
+		new_outFolder = QFileDialog.getExistingDirectory(None, "Output Directory", self.last_arr_outFolder)
+		if new_outFolder != None:
+			try:
+				self.outfolder.setText(new_outFolder)
+				self.tfsettings.save_last_arr_outFolder(new_outFolder)
+			except:
+				self.outfolder.setText("Problem Saving Settings")
+				
+	def toggle_comboBox_CatchArea(self):
+		layerName = unicode(self.comboBox_inputCatchment.currentText())
+		layer = tuflowqgis_find_layer(layerName)
+		
+		if self.radioButton_ARF_auto.isChecked():
+			self.comboBox_CatchArea.setEnabled(False)
+		else:
+			self.comboBox_CatchArea.setEnabled(True)
+			self.comboBox_CatchArea.clear()
+			self.comboBox_CatchArea.addItem('-None-')
+			if layer is not None:
+				for f in layer.pendingFields():
+					self.comboBox_CatchArea.addItem(f.name())
+					
+	def ilMethod_changed(self):
+		ilMethod = unicode(self.comboBox_ilMethod.currentText())
+		
+		if ilMethod == 'Hill et al 1996: 1998' or ilMethod == 'Static Value':
+			self.mar_staticValue.setEnabled(True)
+		else:
+			self.mar_staticValue.setEnabled(False)
+				
+	def run(self):
+		# Check BOM Conditions of Use and Conditions Caveat have been ticked
+		if not self.checkBox_BOMconditions.isChecked() or not self.checkBox_BOMcaveat.isChecked():
+			QMessageBox.critical(self.iface.mainWindow(),"ERROR", 
+								 "Must accept BOM Conditions of Use and Conditions Caveat before you can continue.")
+			return
+		
+		# Check vector layer has been specified
+		layerName = unicode(self.comboBox_inputCatchment.currentText())
+		layer = tuflowqgis_find_layer(layerName)
+		if layer is None:
+			QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Must select a layer.")
+			return
+		
+		# get AEPs
+		rare_events = 'false'
+		frequent_events = 'false'
+		AEP_list = ''
+		if self.checkBox_1p.isChecked():
+			AEP_list += '1AEP '
+		if self.checkBox_2p.isChecked():
+			AEP_list += '2AEP '
+		if self.checkBox_5p.isChecked():
+			AEP_list += '5AEP '
+		if self.checkBox_10p.isChecked():
+			AEP_list += '10AEP '
+		if self.checkBox_20p.isChecked():
+			AEP_list += '20AEP '
+		if self.checkBox_50p.isChecked():
+			AEP_list += '50AEP '
+		if self.checkBox_63p.isChecked():
+			AEP_list += '63.2AEP '
+		if self.checkBox_200y.isChecked():
+			AEP_list += '200ARI '
+			rare_events = 'true'
+		if self.checkBox_500y.isChecked():
+			AEP_list += '500ARI '
+			rare_events = '-true'
+		if self.checkBox_1000y.isChecked():
+			AEP_list += '1000ARI '
+			rare_events = 'true'
+		if self.checkBox_2000y.isChecked():
+			AEP_list += '2000ARI '
+			rare_events = 'true'
+		if self.checkBox_12ey.isChecked():
+			AEP_list += '12EY '
+			frequent_events = 'true'
+		if self.checkBox_6ey.isChecked():
+			AEP_list += '6EY '
+			frequent_events = 'true'
+		if self.checkBox_4ey.isChecked():
+			AEP_list += '4EY '
+			frequent_events = 'true'
+		if self.checkBox_3ey.isChecked():
+			AEP_list += '3EY '
+			frequent_events = 'true'
+		if self.checkBox_2ey.isChecked():
+			AEP_list += '2EY '
+			frequent_events = 'true'
+		if self.checkBox_05ey.isChecked():
+			AEP_list += '0.5EY '
+			frequent_events = 'true'
+		if self.checkBox_02ey.isChecked():
+			AEP_list += '0.2EY '
+			frequent_events = 'true'
+		if len(AEP_list) < 1:
+			QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Must select at least one AEP.")
+			return
+		
+		# get durations
+		dur_list = 'none'
+		nonstnd_list = 'none'
+		if self.checkBox_10m.isChecked():
+			dur_list += '10m '
+		if self.checkBox_15m.isChecked():
+			dur_list += '15m '
+		if self.checkBox_20m.isChecked():
+			nonstnd_list += '20m '
+		if self.checkBox_25m.isChecked():
+			nonstnd_list += '25m '
+		if self.checkBox_30m.isChecked():
+			dur_list += '30m '
+		if self.checkBox_45m.isChecked():
+			nonstnd_list += '45m '
+		if self.checkBox_60m.isChecked():
+			dur_list += '60m '
+		if self.checkBox_90m.isChecked():
+			nonstnd_list += '90m '
+		if self.checkBox_120m.isChecked():
+			dur_list += '2h '
+		if self.checkBox_180m.isChecked():
+			dur_list += '3h '
+		if self.checkBox_270m.isChecked():
+			nonstnd_list += '270m '
+		if self.checkBox_6h.isChecked():
+			dur_list += '6h '
+		if self.checkBox_9h.isChecked():
+			nonstnd_list += '9h '
+		if self.checkBox_12h.isChecked():
+			dur_list += '12h '
+		if self.checkBox_18h.isChecked():
+			nonstnd_list += '18h '
+		if self.checkBox_24h.isChecked():
+			dur_list += '24h '
+		if self.checkBox_30h.isChecked():
+			nonstnd_list += '30h '
+		if self.checkBox_36h.isChecked():
+			nonstnd_list += '36h '
+		if self.checkBox_48h.isChecked():
+			dur_list += '48h '
+		if self.checkBox_72h.isChecked():
+			dur_list += '72h '
+		if self.checkBox_96h.isChecked():
+			dur_list += '96h '
+		if self.checkBox_120h.isChecked():
+			dur_list += '120h '
+		if self.checkBox_144h.isChecked():
+			dur_list += '144h '
+		if self.checkBox_168h.isChecked():
+			dur_list += '168h '
+		if len(dur_list) > 4 or len(nonstnd_list) > 4:
+			if len(dur_list) > 4:
+				dur_list = dur_list[4:]
+			if len(nonstnd_list) > 4:
+				nonstnd_list = nonstnd_list[4:]
+		else:
+			QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Must select at least one duration.")
+			return
+		
+		# get climate change parameters
+		cc_years = 'none'
+		cc_rcp = 'none'
+		cc = 'false'
+		if self.checkBox_2030.isChecked():
+			cc_years += '2030 '
+		if self.checkBox_2040.isChecked():
+			cc_years += '2040 '
+		if self.checkBox_2050.isChecked():
+			cc_years += '2050 '
+		if self.checkBox_2060.isChecked():
+			cc_years += '2060 '
+		if self.checkBox_2070.isChecked():
+			cc_years += '2070 '
+		if self.checkBox_2080.isChecked():
+			cc_years += '2080 '
+		if self.checkBox_2090.isChecked():
+			cc_years += '2090 '
+		if self.checkBox_45rcp.isChecked():
+			cc_rcp += '4.5 '
+		if self.checkBox_6rcp.isChecked():
+			cc_rcp += '6 '
+		if self.checkBox_85rcp.isChecked():
+			cc_rcp += '8.5 '
+		if len(cc_years) > 4 and len(cc_rcp) > 4:
+			cc = 'true'
+			cc_years = cc_years[4:]
+			cc_rcp = cc_rcp[4:]
+		elif len(cc_years) > 4:
+			QMessageBox.critical(self.iface.mainWindow(),"ERROR", 
+								 "Must select at least one RCP when opting for Climate Change.")
+			return
+		elif len(cc_rcp) > 4:
+			QMessageBox.critical(self.iface.mainWindow(),"ERROR", 
+								 "Must select at least one Year when opting for Climate Change.")
+			return
+		
+		# Get format
+		format = unicode(self.comboBox_outputF.currentText())
+		
+		# Get output notation
+		output_notation = unicode(self.comboBox_outputN.currentText())
+		
+		# Get output folder
+		outFolder = unicode(self.outfolder.displayText()).strip()
+		if not os.path.exists(outFolder):  # check output directory exists
+			os.mkdir(outFolder)
+			
+		# Get preburst percentile
+		preburst = unicode(self.comboBox_preBurstptile.currentText())
+		if preburst == 'Median':
+			preburst = '50%'
+			
+		# Get IL method < 60min
+		mar = '0'
+		staticValue = '0'
+		
+		ilMethod = unicode(self.comboBox_ilMethod.currentText())
+		if ilMethod == 'Interpolate to zero':
+			ilMethod = 'interpolate'
+		elif ilMethod == 'Rahman et al 2002':
+			ilMethod = 'rahman'
+		elif ilMethod == 'Hill et al 1996: 1998':
+			ilMethod = 'hill'
+			mar = unicode(self.mar_staticValue.displayText())
+			if mar == '':
+				QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Mean Annual Rainfall (MAR) must be specified for Hill et al loss method and must be greater than 0")
+			if float(mar) <= 0:
+				QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Mean Annual Rainfall (MAR) must be specified for Hill et al loss method and must be greater than 0")
+		elif ilMethod == 'Static Value':
+			ilMethod = 'static'
+			staticValue = unicode(self.mar_staticValue.displayText())
+			if staticValue == '':
+				QMessageBox.critical(self.iface.mainWindow(),"ERROR", "A value must be specified when using the Static Loss Method")
+			if float(staticValue) < 0:
+				QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Static Loss value must be greater than 0")
+		elif ilMethod == 'Use 60min Losses':
+			ilMethod = '60min'
+			
+		# Get additional Temporal Patterns
+		addTp = []
+		
+		for x in range(self.listWidget_tpRegions.count()):
+			list_item = self.listWidget_tpRegions.item(x)
+			if list_item.isSelected():
+				addTp.append(list_item.text())
+		
+		if len(addTp) > 0:
+			addTp = ','.join(addTp)
+		else:
+			addTp = 'false'
+			
+		# Get Minimum ARF Value
+		minArf = self.minArf.displayText()
+		if float(minArf) < 0:
+			QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Minimum ARF Value cannot be negative")
+		
+		# Get area and ID from input layer
+		idField = unicode(self.comboBox_CatchID.currentText())
+		area_list = []
+		name_list = []
+		for feature in layer.getFeatures():
+			area_list.append(str(feature.geometry().area() / 1000000))
+			name_list.append(str(feature[idField]))
+		
+		areaField = unicode(self.comboBox_CatchArea.currentText())
+		if not self.radioButton_ARF_auto.isChecked():
+			if areaField == '-None-':
+				area_list = ['0'] * len(name_list)
+			else:
+				area_list = []
+				for feature in layer.getFeatures():
+					try:
+						a = float(feature[areaField])
+					except:
+						QMessageBox.critical(self.iface.mainWindow(),"ERROR", 
+								 "Area Field must contain numbers only.")
+						return
+					area_list.append(str(a))
+		
+		# Convert layer to long/lat and get centroid
+		temp_shp = os.path.join(outFolder, '_reproject.shp')
+		parameters = {'INPUT': layer, 'TARGET_CRS': 'epsg:4203', 'OUTPUT': temp_shp}
+		reproject = processing.run("qgis:reprojectlayer", parameters)
+		#reproject = processing.run("qgis:reprojectlayer", layer, "epsg:4203", None)
+		reproject_layer = QgsVectorLayer(reproject['OUTPUT'], 'reproject_layer', 'ogr')
+		centroid_list = []
+		for feature in reproject_layer.getFeatures():
+			centroid = []
+			centroid.append('{0:.4f}'.format(feature.geometry().centroid().asPoint()[0]))
+			centroid.append('{0:.4f}'.format(feature.geometry().centroid().asPoint()[1]))
+			centroid_list.append(centroid)
+		del reproject
+		del reproject_layer
+		QgsVectorFileWriter.deleteShapeFile(temp_shp)
+		
+		script = os.path.join(currentFolder, 'ARR2016', 'ARR_to_TUFLOW.py')
+		QMessageBox.information(self.iface.mainWindow(), "information", 
+							   'Starting ARR2016 to TUFLOW. Depending on how many catchments are being input, this can take a few minutes.\n\nA window will appear once finished.')
+		for i in range(len(name_list)):
+			sys_args = ['python3', script, '-out', outFolder, '-name', name_list[i], 
+						'-coords', centroid_list[i][0], centroid_list[i][1], '-mag', AEP_list, 
+						'-frequent', frequent_events, '-rare', rare_events, '-dur', dur_list, '-nonstnd', nonstnd_list,
+						'-area', area_list[i], '-cc', cc, '-year', cc_years, '-rcp', cc_rcp, '-format', format, 
+						'-catchment_no', str(i), '-output_notation', output_notation, '-preburst', preburst, 
+						'-lossmethod', ilMethod, '-mar', mar, '-lossvalue', staticValue, '-minarf', minArf,
+						'-addtp', addTp]
+			if i == 0:
+				logfile = open(os.path.join(outFolder, 'log.txt'), 'wb')
+			else:
+				logfile = open(os.path.join(outFolder, 'log.txt'), 'ab')
+			CREATE_NO_WINDOW = 0x08000000 # suppresses python console window
+			proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+								  creationflags=CREATE_NO_WINDOW)
+			try:
+				for line in proc.stdout:
+					#sys.stdout.write(line)
+					logfile.write(line)
+					proc.wait()
+				logfile.close()
+			except:
+				QMessageBox.critical(self.iface.mainWindow(), "Error", 'Error writing log file.')
+				logfile.close()
+		
+		QMessageBox.information(self.iface.mainWindow(), "Message", 
+							   'Process Complete. Please see\n{0}\nfor warning and error messages.'\
+							   .format(os.path.join(outFolder, 'log.txt')))
+		
+		return
+
+	def aep_all(self):
+		if self.checkBox_aepAll.isChecked():
+			self.checkBox_1p.setChecked(True)
+			self.checkBox_2p.setChecked(True)
+			self.checkBox_5p.setChecked(True)
+			self.checkBox_10p.setChecked(True)
+			self.checkBox_20p.setChecked(True)
+			self.checkBox_50p.setChecked(True)
+			self.checkBox_63p.setChecked(True)
+			self.checkBox_200y.setChecked(True)
+			self.checkBox_500y.setChecked(True)
+			self.checkBox_1000y.setChecked(True)
+			self.checkBox_2000y.setChecked(True)
+			self.checkBox_12ey.setChecked(True)
+			self.checkBox_6ey.setChecked(True)
+			self.checkBox_4ey.setChecked(True)
+			self.checkBox_3ey.setChecked(True)
+			self.checkBox_2ey.setChecked(True)
+			self.checkBox_05ey.setChecked(True)
+			self.checkBox_02ey.setChecked(True)
+		else:
+			self.checkBox_1p.setChecked(False)
+			self.checkBox_2p.setChecked(False)
+			self.checkBox_5p.setChecked(False)
+			self.checkBox_10p.setChecked(False)
+			self.checkBox_20p.setChecked(False)
+			self.checkBox_50p.setChecked(False)
+			self.checkBox_63p.setChecked(False)
+			self.checkBox_200y.setChecked(False)
+			self.checkBox_500y.setChecked(False)
+			self.checkBox_1000y.setChecked(False)
+			self.checkBox_2000y.setChecked(False)
+			self.checkBox_12ey.setChecked(False)
+			self.checkBox_6ey.setChecked(False)
+			self.checkBox_4ey.setChecked(False)
+			self.checkBox_3ey.setChecked(False)
+			self.checkBox_2ey.setChecked(False)
+			self.checkBox_05ey.setChecked(False)
+			self.checkBox_02ey.setChecked(False)
+			
+	def dur_all(self):
+		if self.checkBox_durAll.isChecked():
+			self.checkBox_10m.setChecked(True)
+			self.checkBox_15m.setChecked(True)
+			self.checkBox_20m.setChecked(True)
+			self.checkBox_25m.setChecked(True)
+			self.checkBox_30m.setChecked(True)
+			self.checkBox_45m.setChecked(True)
+			self.checkBox_60m.setChecked(True)
+			self.checkBox_90m.setChecked(True)
+			self.checkBox_120m.setChecked(True)
+			self.checkBox_180m.setChecked(True)
+			self.checkBox_270m.setChecked(True)
+			self.checkBox_6h.setChecked(True)
+			self.checkBox_9h.setChecked(True)
+			self.checkBox_12h.setChecked(True)
+			self.checkBox_18h.setChecked(True)
+			self.checkBox_24h.setChecked(True)
+			self.checkBox_30h.setChecked(True)
+			self.checkBox_36h.setChecked(True)
+			self.checkBox_48h.setChecked(True)
+			self.checkBox_72h.setChecked(True)
+			self.checkBox_96h.setChecked(True)
+			self.checkBox_120h.setChecked(True)
+			self.checkBox_144h.setChecked(True)
+			self.checkBox_168h.setChecked(True)
+		else:
+			self.checkBox_10m.setChecked(False)
+			self.checkBox_15m.setChecked(False)
+			self.checkBox_20m.setChecked(False)
+			self.checkBox_25m.setChecked(False)
+			self.checkBox_30m.setChecked(False)
+			self.checkBox_45m.setChecked(False)
+			self.checkBox_60m.setChecked(False)
+			self.checkBox_90m.setChecked(False)
+			self.checkBox_120m.setChecked(False)
+			self.checkBox_180m.setChecked(False)
+			self.checkBox_270m.setChecked(False)
+			self.checkBox_6h.setChecked(False)
+			self.checkBox_9h.setChecked(False)
+			self.checkBox_12h.setChecked(False)
+			self.checkBox_18h.setChecked(False)
+			self.checkBox_24h.setChecked(False)
+			self.checkBox_30h.setChecked(False)
+			self.checkBox_36h.setChecked(False)
+			self.checkBox_48h.setChecked(False)
+			self.checkBox_72h.setChecked(False)
+			self.checkBox_96h.setChecked(False)
+			self.checkBox_120h.setChecked(False)
+			self.checkBox_144h.setChecked(False)
+			self.checkBox_168h.setChecked(False)
+
+# ----------------------------------------------------------
+#    tuflowqgis insert tuflow attributes
+# ----------------------------------------------------------
+from ui_tuflowqgis_insert_tuflow_attributes import *
+from .tuflowqgis_settings import TF_Settings
+
+class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_tuflow_attributes):
+	def __init__(self, iface, project):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.setupUi(self)
+		self.tfsettings = TF_Settings()
+		
+		# Set up Input Catchment File ComboBox
+		for name, layer in QgsProject.instance().mapLayers().items():
+			if layer.type() == QgsMapLayer.VectorLayer:
+				self.comboBox_inputLayer.addItem(layer.name())						
+		
+		# load stored settings
+		error, message = self.tfsettings.Load()
+		if error:
+			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Settings: "+message)			
+			return
+		
+		# Get empty dir
+		if self.tfsettings.combined.base_dir:
+			self.emptydir.setText(os.path.join(self.tfsettings.combined.base_dir, "TUFLOW", "model", "gis", "empty"))
+		else:
+			self.emptydir.setText("ERROR - Project not loaded")
+									
+		#QObject.connect(self.browsedir, SIGNAL("clicked()"), lambda: self.browse_empty_dir(unicode(self.emptydir.displayText()).strip()))
+		self.browsedir.clicked.connect(lambda: self.browse_empty_dir(unicode(self.emptydir.displayText()).strip()))
+		#QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
+		self.buttonBox.accepted.connect(self.run)
+
+
+	def browse_empty_dir(self, oldName):
+		newname = QFileDialog.getExistingDirectory(None, "Output Directory")
+		if len(newname) > 0:
+			self.emptydir.setText(newname)
+		else:
+			self.emptydir.setText(oldName)
+		
+	def run(self):
+		runID = unicode(self.txtRunID.displayText()).strip()
+		basedir = unicode(self.emptydir.displayText()).strip()
+		template = unicode(self.comboBox_tfType.currentText())
+		
+		inputFile = unicode(self.comboBox_inputLayer.currentText())
+		inputLayer = tuflowqgis_find_layer(inputFile)
+		lenFields = len(inputLayer.fields())
+		
+		# run insert tuflow attributes script
+		message = tuflowqgis_insert_tf_attributes(self.iface, inputLayer, basedir, runID, template, lenFields)
+		if message is not None:
+			QMessageBox.critical(self.iface.mainWindow(), "Importing TUFLOW Empty File(s)", message)
+

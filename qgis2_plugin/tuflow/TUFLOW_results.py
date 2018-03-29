@@ -2,7 +2,7 @@ import os
 import numpy
 import csv
 import sys
-version = '2017-09-AA' #handling of PO region data
+version = '2018-03-AA' #added reporting location regions
 
 class LP():
 	def __init__(self): #initialise the LP data
@@ -82,8 +82,10 @@ class Data_RL():
 		self.nRegion = 0
 		self.H_P = Timeseries()
 		self.Q_L = Timeseries()
+		self.Vol_R = Timeseries()
 		self.P_Max = RL_P_Max()
 		self.L_Max = RL_L_Max()
+		self.R_Max = RL_R_Max()
 
 class GIS():
 	def __init__(self): #initialise the 1D data
@@ -100,7 +102,7 @@ class PlotObjects():
 	"""
 	def __init__(self,fullpath): #read the file
 		try:
-			with open(fullpath, 'rb') as csvfile:
+			with open(fullpath, 'r') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
 				self.ID = []
 				self.domain = []
@@ -170,9 +172,9 @@ class Timeseries():
 		error = False
 		message = ''
 		try:
-			with open(fullpath, 'rb') as csvfile:
+			with open(fullpath, 'r') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-				header = reader.next()
+				header = next(reader)
 			csvfile.close()
 		except:
 			message = '"ERROR - Error reading header from: '+fullpath
@@ -200,9 +202,14 @@ class Timeseries():
 			message = 'ERROR - Error reading data from: '+fullpath
 			error = True
 			return error, message
-		self.nVals = len(self.Values[:,2])
-		self.nLocs = len(self.Header)-2
-		self.loaded = True
+		try:
+			self.nVals = len(self.Values[:,2])
+			self.nLocs = len(self.Header)-2
+			self.loaded = True
+		except:
+			message = 'ERROR - Error reading data from file. Check file, there may not be any data: {0}'.format(fullpath)
+			error = True
+			return error, message
 		return error, message
 
 class Node_Max():
@@ -224,9 +231,9 @@ class Node_Max():
 		tHmax = True
 		EMax = True
 		try:
-			with open(fullpath, 'rb') as csvfile:
+			with open(fullpath, 'r') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-				header = reader.next()
+				header = next(reader)
 				# find out what's in the file
 				header = [element.upper() for element in header] # convert to upper just in case
 				try:
@@ -298,9 +305,9 @@ class Chan_Max():
 		vmax = True
 		tvmax = True
 		try:
-			with open(fullpath, 'rb') as csvfile:
+			with open(fullpath, 'r') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-				header = reader.next()
+				header = next(reader)
 				# find out what's in the file
 				header = [element.upper() for element in header] # convert to upper just in case
 				try:
@@ -378,9 +385,9 @@ class RL_P_Max():
 		error = False
 		message = ''
 		try:
-			with open(fullpath, 'rb') as csvfile:
+			with open(fullpath, 'r') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-				header = reader.next()
+				header = next(reader)
 				for row in reader:
 					#print row
 					self.ID.append(row[1])
@@ -449,9 +456,9 @@ class RL_L_Max():
 		error = False
 		message = ''
 		try:
-			with open(fullpath, 'rb') as csvfile:
+			with open(fullpath, 'r') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-				header = reader.next()
+				header = next(reader)
 				for row in reader:
 					#print row
 					self.ID.append(row[1])
@@ -507,6 +514,81 @@ class RL_L_Max():
 		self.nLocs = len(self.ID)
 		return error, message
 
+class RL_R_Max():
+	"""
+	Maximum values at Reporting level regions
+	"""
+	def __init__(self):
+		self.ID = []
+		self.VolMax = []
+		self.tVolMax = []
+		self.dVolMax = []
+		self.tdVolMax = []
+		self.H = []
+		self.nLocs = 0
+
+	def Load(self,fullpath):
+		error = False
+		message = ''
+		try:
+			with open(fullpath, 'r') as csvfile:
+				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+				header = next(reader)
+				for row in reader:
+					#print row
+					self.ID.append(row[1])
+					try:
+						self.VolMax.append(float(row[2]))
+					except:
+						self.VolMax.append(float('Nan'))
+					try:
+						self.tVolMax.append(float(row[3]))
+					except:
+						self.tVolMax.append(float('Nan'))
+					try:
+						self.dVolMax.append(float(row[4]))
+					except:
+						self.dVolMax.append(float('Nan'))
+					try:
+						self.tdVolMax.append(float(row[5]))
+					except:
+						self.tdVolMax.append(float('Nan'))
+					try:
+						self.H.append(float(row[6]))
+					except:
+						self.H.append(float('Nan'))
+			#csvfile.close()
+		except:
+			message = 'ERROR - Error reading header from: '+fullpath
+			error = True
+			return error, message
+		if len(header)>7:
+			error = True
+			message = 'ERROR - More than 7 columns RLL_Volmx file: '+fullpath
+			return error, message
+		if not (header[2].upper()=='VOL MAX'):
+			error = True
+			message = 'ERROR - Expecting HMax in column 3 of file: '+fullpath
+			return error, message
+		if not (header[3].upper()=='TIME VOL MAX'):
+			error = True
+			message = 'ERROR - Expecting Time Hmax in column 4 of file: '+fullpath
+			return error, message
+		if not (header[4].upper()=='DVOLMAX'):
+			error = True
+			message = 'ERROR - Expecting dHmax in column 5 of file: '+fullpath
+			return error, message
+		if not (header[5].upper()=='TIME DVOLMAX'):
+			error = True
+			message = 'ERROR - Expecting Time dHmax in column 6 of file: '+fullpath
+			return error, message
+		if not (header[6].upper()=='H'):
+			error = True
+			message = 'ERROR - Expecting H in column 7 of file: '+fullpath
+			return error, message
+		self.nLocs = len(self.ID)
+		return error, message
+
 class NodeInfo():
 	"""
 	Node Info data class
@@ -518,9 +600,9 @@ class NodeInfo():
 		self.node_top = []
 		self.node_nChan = []
 		self.node_channels = []
-		with open(fullpath, 'rb') as csvfile:
+		with open(fullpath, 'r') as csvfile:
 			reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-			header = reader.next()
+			header = next(reader)
 			for (counter, row) in enumerate(reader):
 				self.node_num.append(int(row[0]))
 				self.node_name.append(row[1])
@@ -559,9 +641,9 @@ class ChanInfo():
 		self.chan_RBDS_Obv = []
 		self.chan_Blockage = []
 
-		with open(fullpath, 'rb') as csvfile:
+		with open(fullpath, 'r') as csvfile:
 			reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-			header = reader.next()
+			header = next(reader)
 			for (counter, row) in enumerate(reader):
 				self.chan_num.append(int(row[0]))
 				self.chan_name.append(row[1])
@@ -837,7 +919,7 @@ class ResData():
 				else:
 					message = 'No 2D Integral Flow Data loaded for: '+self.displayname
 					return False, [0.0], message
-			elif(res.upper() in ("HAVG","AVERAGE LEVEL")):
+			elif(res.upper() in ("HAVG","AVERAGE LEVEL", "AVERAGE WATER LEVEL")):
 				if self.Data_2D.HAvg.loaded:
 					try:
 						ind = self.Data_2D.HAvg.Header.index(id)
@@ -850,7 +932,7 @@ class ResData():
 				else:
 					message = 'No 2D Average Water Level Data loaded for: '+self.displayname
 					return False, [0.0], message
-			elif(res.upper() in ("HMAX","MAX LEVEL")):
+			elif(res.upper() in ("HMAX","MAX LEVEL", "MAX WATER LEVEL")):
 				if self.Data_2D.HMax.loaded:
 					try:
 						ind = self.Data_2D.HMax.Header.index(id)
@@ -863,7 +945,7 @@ class ResData():
 				else:
 					message = 'No 2D Max Water Level Data loaded for: '+self.displayname
 					return False, [0.0], message
-			elif(res.upper() in ("QIN","FLOW INTO")):
+			elif(res.upper() in ("QIN","FLOW INTO REGION", "FLOW INTO")):
 				if self.Data_2D.QIn.loaded:
 					try:
 						ind = self.Data_2D.QIn.Header.index(id)
@@ -876,7 +958,7 @@ class ResData():
 				else:
 					message = 'No 2D Flow into Region Data loaded for: '+self.displayname
 					return False, [0.0], message
-			elif(res.upper() in ("QOUT","FLOW OUT")):
+			elif(res.upper() in ("QOUT","FLOW OUT OF REGION", "FLOW OUT")):
 				if self.Data_2D.HMax.loaded:
 					try:
 						ind = self.Data_2D.QOut.Header.index(id)
@@ -938,8 +1020,17 @@ class ResData():
 				except:
 					message = 'Data not found for RL line with ID: '+id
 					return False, [0.0], message
+			elif(res.upper() in ("VOL","VOLUME","VOLUMES")):
+				try:
+					ind = self.Data_RL.Vol_R.Header.index(id)
+					data = self.Data_RL.Vol_R.Values[:,ind]
+					self.times = self.Data_RL.Vol_R.Values[:,1]
+					return True, data, message
+				except:
+					message = 'Data not found for RL Region with ID: '+id
+					return False, [0.0], message
 			else:
-				message = 'Warning - Expecting Q or H for RL data type.'
+				message = 'Warning - Expecting Q, H or Vol for RL data type.'
 				return False, [0.0], message
 		else:
 			message = 'ERROR - Expecting model domain to be 1D or 2D.'
@@ -1116,42 +1207,44 @@ class ResData():
 		self.LP.adverseE.node = []
 		self.LP.adverseE.elevation = []
 
-		for nd in self.LP.node_list:
-			try: #get node index and elevations
-				ind = self.nodes.node_name.index(nd)
-				self.LP.node_index.append(ind)
-				self.LP.node_bed.append(self.nodes.node_bed[ind])
-				self.LP.node_top.append(self.nodes.node_top[ind])
-			except:
-				error = True
-				message = 'Unable to find node in _Nodes.csv file. Node: '+nd
-				return error, message
-			try: #get index to data in 1d_H.csv used when getting temporal data
-				ind = self.Data_1D.H.Header.index(nd)
-				self.LP.H_nd_index.append(ind)
-			except:
-				error = True
-				message = 'Unable to find node in _1d_H.csv for node: '+nd
-				return error, message
-			try:
-				ind = self.Data_1D.Node_Max.ID.index(nd)
-				if self.Data_1D.Node_Max.HMax:
-					self.LP.Hmax.append(self.Data_1D.Node_Max.HMax[ind])
-				if self.Data_1D.Node_Max.EMax:
-					self.LP.Emax.append(self.Data_1D.Node_Max.EMax[ind])
-				if self.Data_1D.Node_Max.tHmax:
-					self.LP.tHmax.append(self.Data_1D.Node_Max.tHmax[ind])
-			except:
-				error = True
-				message = 'Unable to get maximum for node: '+nd
-				return error, message
-
-		if len(self.LP.Hmax) == 0:
-			self.LP.Hmax = None
-		if len(self.LP.Emax) == 0:
-			self.LP.Emax = None
-		if len(self.LP.tHmax) == 0:
-			self.LP.tHmax = None
+		#for nd in self.LP.node_list:
+		#	try: #get node index and elevations
+		#		ind = self.nodes.node_name.index(nd)
+		#		self.LP.node_index.append(ind)
+		#		self.LP.node_bed.append(self.nodes.node_bed[ind])
+		#		self.LP.node_top.append(self.nodes.node_top[ind])
+		#	except:
+		#		error = True
+		#		message = 'Unable to find node in _Nodes.csv file. Node: '+nd
+		#		return error, message
+		#	try: #get index to data in 1d_H.csv used when getting temporal data
+		#		ind = self.Data_1D.H.Header.index(nd)
+		#		self.LP.H_nd_index.append(ind)
+		#	except:
+		#		error = True
+		#		message = 'Unable to find node in _1d_H.csv for node: '+nd
+		#		return error, message
+		#	try:
+		#		ind = self.Data_1D.Node_Max.ID.index(nd)
+		#		if self.Data_1D.Node_Max.HMax:
+		#			self.LP.Hmax.append(self.Data_1D.Node_Max.HMax[ind])
+		#		if self.Data_1D.Node_Max.EMax:
+		#			self.LP.Emax.append(self.Data_1D.Node_Max.EMax[ind])
+		#		if self.Data_1D.Node_Max.tHmax:
+		#			self.LP.tHmax.append(self.Data_1D.Node_Max.tHmax[ind])
+		#	except:
+		#		error = True
+		#		message = 'Unable to get maximum for node: '+nd
+		#		return error, message
+		#											
+		#				  
+        #
+		#if len(self.LP.Hmax) == 0:
+		#	self.LP.Hmax = None
+		#if len(self.LP.Emax) == 0:
+		#	self.LP.Emax = None
+		#if len(self.LP.tHmax) == 0:
+		#	self.LP.tHmax = None
 		# channel info
 		self.LP.dist_nodes = [0.0] # nodes only
 		self.LP.dist_chan_inverts = [0.0] # at each channel end (no nodes)
@@ -1211,11 +1304,59 @@ class ResData():
 				y.append(self.LP.chan_inv[-1])
 				y.append(self.LP.chan_LB[-1])
 				y.append(self.LP.chan_LB[-2])
-				verts = zip(x,y)
+				verts = list(zip(x,y))
 				self.LP.culv_verts.append(verts)
 			else:
 				self.LP.culv_verts.append(None)
 
+		for i, nd in enumerate(self.LP.node_list):
+			try: #get node index and elevations
+				ind = self.nodes.node_name.index(nd)
+				self.LP.node_index.append(ind)
+				self.LP.node_bed.append(self.nodes.node_bed[ind])
+				self.LP.node_top.append(self.nodes.node_top[ind])
+			except:
+				error = True
+				message = 'Unable to find node in _Nodes.csv file. Node: '+nd
+				return error, message
+			try: #get index to data in 1d_H.csv used when getting temporal data
+				ind = self.Data_1D.H.Header.index(nd)
+				self.LP.H_nd_index.append(ind)
+			except:
+				error = True
+				message = 'Unable to find node in _1d_H.csv for node: '+nd
+				return error, message
+			try:
+				ind = self.Data_1D.Node_Max.ID.index(nd)
+				if self.Data_1D.Node_Max.HMax:
+					if i == 0:
+						self.LP.Hmax.append(self.Data_1D.Node_Max.HMax[ind])
+					elif i < len(self.LP.node_list) - 1:
+						self.LP.Hmax.append(max(self.Data_1D.Node_Max.HMax[ind], self.LP.chan_inv[2*i-1]))
+						self.LP.Hmax.append(self.Data_1D.Node_Max.HMax[ind])
+					else:
+						self.LP.Hmax.append(max(self.Data_1D.Node_Max.HMax[ind], self.LP.chan_inv[2*i-1]))
+				if self.Data_1D.Node_Max.EMax:
+					if i == 0:
+						self.LP.Emax.append(self.Data_1D.Node_Max.EMax[ind])
+					elif i < len(self.LP.node_list) - 1:
+						self.LP.Emax.append(max(self.Data_1D.Node_Max.EMax[ind], self.LP.chan_inv[2*i-1]))
+						self.LP.Emax.append(self.Data_1D.Node_Max.EMax[ind])
+					else:
+						self.LP.Emax.append(max(self.Data_1D.Node_Max.EMax[ind], self.LP.chan_inv[2*i-1]))
+				if self.Data_1D.Node_Max.tHmax:
+					self.LP.tHmax.append(self.Data_1D.Node_Max.tHmax[ind])
+			except:
+				error = True
+				message = 'Unable to get maximum for node: '+nd
+				return error, message
+				
+		if len(self.LP.Hmax) == 0:
+			self.LP.Hmax = None
+		if len(self.LP.Emax) == 0:
+			self.LP.Emax = None
+		if len(self.LP.tHmax) == 0:
+			self.LP.tHmax = None
 		#get infor about pits
 		self.LP.npits = int(0)
 		self.LP.pit_dist = []
@@ -1280,8 +1421,14 @@ class ResData():
 				error = True
 				message = 'ERROR - No water level data loaded.'
 				return error, message
-			for h_ind in self.LP.H_nd_index:
-				self.LP.Hdata.append(self.Data_1D.H.Values[t_ind,h_ind])
+			for i, h_ind in enumerate(self.LP.H_nd_index):
+				if i == 0:
+					self.LP.Hdata.append(self.Data_1D.H.Values[t_ind,h_ind])
+				elif i < len(self.LP.H_nd_index) - 1:
+					self.LP.Hdata.append(max(self.Data_1D.H.Values[t_ind,h_ind], self.LP.chan_inv[2*i-1]))
+					self.LP.Hdata.append(self.Data_1D.H.Values[t_ind,h_ind])
+				else:
+					self.LP.Hdata.append(max(self.Data_1D.H.Values[t_ind,h_ind], self.LP.chan_inv[2*i-1]))
 		elif dat_type == 'Energy':
 			self.LP.Edata = []
 			if not self.Data_1D.E.loaded:
@@ -1289,7 +1436,13 @@ class ResData():
 				message = 'ERROR - No energy level data loaded.'
 				return error, message
 			for h_ind in self.LP.H_nd_index:
-				self.LP.Edata.append(self.Data_1D.E.Values[t_ind,h_ind])
+				if i == 0:
+					self.LP.Edata.append(self.Data_1D.E.Values[t_ind,h_ind])
+				elif i < len(self.LP.H_nd_index) - 1:
+					self.LP.Edata.append(max(self.Data_1D.E.Values[t_ind,h_ind], self.LP.chan_inv[2*i-1]))
+					self.LP.Edata.append(self.Data_1D.E.Values[t_ind,h_ind])
+				else:
+					self.LP.Edata.append(max(self.Data_1D.E.Values[t_ind,h_ind], self.LP.chan_inv[2*i-1]))
 		else:
 			error = True
 			message = 'ERROR - Only head or energy supported for LP temporal data'
@@ -1321,7 +1474,7 @@ class ResData():
 		self.filename = fname
 		self.fpath = os.path.dirname(fname)
 		try:
-			data = numpy.genfromtxt(fname, dtype=None, delimiter="==")
+			data = numpy.genfromtxt(fname, dtype=str, delimiter="==")
 		except:
 			error = True
 			message = 'ERROR - Unable to load data, check file exists.'
@@ -1339,20 +1492,20 @@ class ResData():
 			elif (dat_type=='Simulation ID'):
 				self.displayname = rdata
 			elif (dat_type=='GIS Plot Layer Points'):
-				self.GIS.P = rdata
+				self.GIS.P = rdata[2:]
 			elif (dat_type=='GIS Plot Layer Lines'):
-				self.GIS.L = rdata
+				self.GIS.L = rdata[2:]
 			elif (dat_type=='GIS Plot Layer Regions'):
-				self.GIS.R = rdata
+				self.GIS.R = rdata[2:]
 			elif (dat_type=='GIS Plot Objects'):
-				fullpath = os.path.join(self.fpath,rdata)
+				fullpath = os.path.join(self.fpath,rdata[2:])
 				self.Index = PlotObjects(fullpath)
 			elif (dat_type=='GIS Reporting Location Points'):
-				self.GIS.RL_P = rdata
+				self.GIS.RL_P = rdata[2:]
 			elif (dat_type=='GIS Reporting Location Lines'):
-				self.GIS.RL_L = rdata
-			elif (dat_type=='GIS Reporting Location Points'):
-				self.GIS.RL_P = rdata
+				self.GIS.RL_L = rdata[2:]
+			elif (dat_type=='GIS Reporting Location Regions'):
+				self.GIS.RL_R = rdata[2:]
 			elif (dat_type=='Number 1D Channels'):
 				#self.nChannels = int(rdata)
 				self.Data_1D.nChan = int(rdata)
@@ -1362,9 +1515,11 @@ class ResData():
 				self.Data_RL.nPoint= int(rdata)
 			elif (dat_type=='Number Reporting Location Lines'):
 				self.Data_RL.nLine= int(rdata)
+			elif (dat_type=='Number Reporting Location Regions'):
+				self.Data_RL.nRegion= int(rdata)
 			elif (dat_type=='1D Channel Info'):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					self.Channels = ChanInfo(fullpath)
 					if (self.Data_1D.nChan != self.Channels.nChan):
 						error = True
@@ -1372,11 +1527,11 @@ class ResData():
 						return error, message
 			elif (dat_type=='1D Node Info'):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					self.nodes = NodeInfo(fullpath)
 			elif (dat_type=='1D Water Levels'):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					error, message = self.Data_1D.H.Load(fullpath,'H',self.displayname)
 					if error:
 						return error, message
@@ -1386,7 +1541,7 @@ class ResData():
 						self.times = self.Data_1D.H.Values[:,1]
 			elif (dat_type=='1D Energy Levels'):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					error, message = self.Data_1D.E.Load(fullpath,'H',self.displayname)
 					if error:
 						return error, message
@@ -1396,31 +1551,37 @@ class ResData():
 						self.times = self.Data_1D.H.Values[:,1]
 			elif (dat_type=='Reporting Location Points Water Levels'):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					error, message = self.Data_RL.H_P.Load(fullpath,'H',self.displayname)
 					if error:
 						return error, message
 			elif (dat_type=='Reporting Location Lines Flows'):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					error, message = self.Data_RL.Q_L.Load(fullpath,'Q',self.displayname)
+					if error:
+						return error, message
+			elif (dat_type=='Reporting Location Regions Volumes'):
+				if rdata != 'NONE':
+					fullpath = os.path.join(self.fpath,rdata)
+					error, message = self.Data_RL.Vol_R.Load(fullpath,'Q',self.displayname)
 					if error:
 						return error, message
 			elif (dat_type=='1D Node Maximums'):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					error, message = self.Data_1D.Node_Max.Load(fullpath)
 					if error:
 						return error, message
 			elif (dat_type=='1D Channel Maximums'):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					error, message = self.Data_1D.Chan_Max.Load(fullpath)
 					if error:
 						return error, message
 			elif (dat_type=='1D Flows'):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					error, message = self.Data_1D.Q.Load(fullpath,'Q',self.displayname)
 					if error:
 						return error, message
@@ -1430,7 +1591,7 @@ class ResData():
 						self.times = self.Data_1D.Q.Values[:,1]
 			elif (dat_type=='1D Flow Areas'):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					error, message = self.Data_1D.A.Load(fullpath,'A',self.displayname)
 					if error:
 						return error, message
@@ -1440,7 +1601,7 @@ class ResData():
 						self.times = self.Data_1D.Q.Values[:,1]
 			elif (dat_type=='1D Velocities'):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					error, message = self.Data_1D.V.Load(fullpath,'V',self.displayname)
 					if error:
 						return error, message
@@ -1450,7 +1611,7 @@ class ResData():
 						self.times = self.Data_1D.V.Values[:,1]
 			elif (dat_type.find('2D Line Flow Area') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.QA = Timeseries(fullpath,'QA',self.displayname)
@@ -1468,7 +1629,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('2D Line Flow') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.Q = Timeseries(fullpath,'Q',self.displayname)
@@ -1489,7 +1650,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('2D Point Gauge Level') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.GL = Timeseries(fullpath,'G',self.displayname)
@@ -1508,7 +1669,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('2D Point Water Level') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.H = Timeseries(fullpath,'H',self.displayname)
@@ -1529,7 +1690,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('2D Point X-Vel') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.Vx = Timeseries(fullpath,'VX',self.displayname)
@@ -1548,7 +1709,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('2D Point Y-Vel') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.Vy = Timeseries(fullpath,'VY',self.displayname)
@@ -1567,7 +1728,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('2D Point Velocity') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.V = Timeseries(fullpath,'V',self.displayname)
@@ -1586,7 +1747,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('2D Line Integral Flow') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.QI = Timeseries(fullpath,'QI',self.displayname)
@@ -1605,7 +1766,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('2D Line Structure Flow') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.QI = Timeseries(fullpath,'QI',self.displayname)
@@ -1624,7 +1785,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('2D Line U/S Structure Water') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.QI = Timeseries(fullpath,'QI',self.displayname)
@@ -1643,7 +1804,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('2D Line D/S Structure Water') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.QI = Timeseries(fullpath,'QI',self.displayname)
@@ -1662,7 +1823,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('2D Region Average Water Level') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					error, message = self.Data_2D.HAvg.Load(fullpath,'HA',self.displayname)
@@ -1680,7 +1841,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('2D Region Max Water Level') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					error, message = self.Data_2D.HMax.Load(fullpath,'HM',self.displayname)
@@ -1698,7 +1859,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('2D Region Flow into Region') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					error, message = self.Data_2D.QIn.Load(fullpath,'FI',self.displayname)
@@ -1716,7 +1877,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('2D Region Flow out of Region') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					error, message = self.Data_2D.QOut.Load(fullpath,'FO',self.displayname)
@@ -1734,7 +1895,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('2D Region Volume') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					error, message = self.Data_2D.Vol.Load(fullpath,'VL',self.displayname)
@@ -1752,7 +1913,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type.find('Region Sink/Source') >= 0):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					error, message = self.Data_2D.SS.Load(fullpath,'SS',self.displayname)
@@ -1770,7 +1931,7 @@ class ResData():
 						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type=='Reporting Location Points Maximums'):
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = os.path.join(self.fpath,rdata[2:])
 					error, message = self.Data_RL.P_Max.Load(fullpath)
 					if error:
 						return error, message
@@ -1778,6 +1939,12 @@ class ResData():
 				if rdata != 'NONE':
 					fullpath = os.path.join(self.fpath,rdata)
 					error, message = self.Data_RL.L_Max.Load(fullpath)
+					if error:
+						return error, message
+			elif (dat_type=='Reporting Location Regions Maximums'):
+				if rdata != 'NONE':
+					fullpath = os.path.join(self.fpath,rdata)
+					error, message = self.Data_RL.R_Max.Load(fullpath)
 					if error:
 						return error, message
 			else:

@@ -228,3 +228,27 @@ class TF_Settings():
 		else:
 			error = True
 			message = 'last_chk_folder is None and was not saved.'
+			
+	def get_last_arr_outFolder(self):
+		error = False
+		last_chk = None
+		try:
+			last_arr = self.settings.value("TUFLOW/last_arr_outFolder", "Undefined")
+		except:
+			last_arr = "Undefined"
+		return last_arr
+			
+	def save_last_arr_outFolder(self, last_arr):
+		error = False
+		message = None
+		if last_arr:
+			try:
+				self.settings.setValue("TUFLOW/last_arr_outFolder", last_arr)
+			except:
+				error = True
+				message = 'Unable to save last output folder to settings'
+				#return error, message
+		else:
+			error = True
+			message = 'last_arr_folder is None and was not saved.'
+			#return error, message

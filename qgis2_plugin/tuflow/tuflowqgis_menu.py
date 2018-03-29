@@ -19,7 +19,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2018-02-AA (QGIS 2.x)'
+build_vers = '2018-04-AA (QGIS 2.x)'
 build_type = 'release' #release / developmental
 
 # Import the PyQt and QGIS libraries
@@ -83,7 +83,13 @@ class tuflowqgis_menu:
 		self.import_empty_tf_action = QAction(icon, "Import Empty File", self.iface.mainWindow())
 		QObject.connect(self.import_empty_tf_action, SIGNAL("triggered()"), self.import_empty_tf)
 		self.editing_menu.addAction(self.import_empty_tf_action)
-
+		
+		# Add TUFLOW attribute fields to existing GIS layer Added ES 23/02/2018
+		icon = QIcon(os.path.dirname(__file__) + "/icons/insert_tuflow_attributes.png")
+		self.insert_TUFLOW_attributes_action = QAction(icon, "Insert TUFLOW Attributes to existing GIS layer", self.iface.mainWindow())
+		QObject.connect(self.insert_TUFLOW_attributes_action, SIGNAL("triggered()"), self.insert_TUFLOW_attributes)
+		self.editing_menu.addAction(self.insert_TUFLOW_attributes_action)
+		
 		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_increment_24px.png")
 		self.increment_action = QAction(icon, "Increment Selected Layer", self.iface.mainWindow())
 		QObject.connect(self.increment_action, SIGNAL("triggered()"), self.increment_layer)
@@ -126,7 +132,7 @@ class tuflowqgis_menu:
 		
 		# TuPLOT External Added ES 2017/11
 		icon = QIcon(os.path.dirname(__file__) + "/icons/TuPLOT_External.PNG")
-		self.open_tuplot_external_action = QAction(icon, "TuPlot External (beta)", self.iface.mainWindow())
+		self.open_tuplot_external_action = QAction(icon, "TuPlot_Ext", self.iface.mainWindow())
 		QObject.connect(self.open_tuplot_external_action, SIGNAL("triggered()"), self.open_tuplot_ext)
 		self.iface.addToolBarIcon(self.open_tuplot_external_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.open_tuplot_external_action)
@@ -137,6 +143,10 @@ class tuflowqgis_menu:
 		QObject.connect(self.import_empty_tf_action, SIGNAL("triggered()"), self.import_empty_tf)
 		self.iface.addToolBarIcon(self.import_empty_tf_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.import_empty_tf_action)
+		
+		# insert TUFLOW attributes to existing GIS layer
+		self.iface.addPluginToMenu("&TUFLOW", self.insert_TUFLOW_attributes_action)
+		self.iface.addToolBarIcon(self.insert_TUFLOW_attributes_action)
 
 		# Added MJS 24/11
 		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_increment_24px.png")
@@ -165,6 +175,20 @@ class tuflowqgis_menu:
 		QObject.connect(self.apply_chk_cLayer_action, SIGNAL("triggered()"), self.apply_check_cLayer)
 		self.iface.addToolBarIcon(self.apply_chk_cLayer_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.apply_chk_cLayer_action)
+		
+		#Auto label generator ES 8/03/2018
+		icon = QIcon(os.path.dirname(__file__) + "/icons/Label_icon.PNG")
+		self.apply_auto_label_action = QAction(icon, "Apply Label to Current Layer", self.iface.mainWindow())
+		QObject.connect(self.apply_auto_label_action, SIGNAL("triggered()"), self.apply_label_cLayer)
+		self.iface.addToolBarIcon(self.apply_auto_label_action)
+		self.iface.addPluginToMenu("&TUFLOW", self.apply_auto_label_action)
+		
+		#ES 2018/01 ARR2016 Beta
+		#icon = QIcon(os.path.dirname(__file__) + "/icons/arr2016.PNG")
+		#self.extract_arr2016_action = QAction(icon, "Extract ARR2016 for TUFLOW (beta)", self.iface.mainWindow())
+		#QObject.connect(self.extract_arr2016_action, SIGNAL("triggered()"), self.extract_arr2016)
+		#self.iface.addPluginToMenu("&TUFLOW", self.extract_arr2016_action)
+		#self.iface.addToolBarIcon(self.extract_arr2016_action)
 		
 		#Init classes variables
 		self.dockOpened = False		#remember for not reopening dock if there's already one opened
@@ -337,5 +361,19 @@ class tuflowqgis_menu:
 	
 	def apply_check_cLayer(self):
 		error, message = tuflowqgis_apply_check_tf_clayer(self.iface)
+		if error:
+			QMessageBox.critical(self.iface.mainWindow(), "Error", message)
+	
+	def extract_arr2016(self):
+		dialog = tuflowqgis_extract_arr2016_dialog(self.iface)
+		dialog.exec_()
+		
+	def insert_TUFLOW_attributes(self):
+		project = QgsProject.instance()
+		dialog = tuflowqgis_insert_tuflow_attributes_dialog(self.iface, project)
+		dialog.exec_()
+		
+	def apply_label_cLayer(self):
+		error, message = tuflowqgis_apply_autoLabel_clayer(self.iface)
 		if error:
 			QMessageBox.critical(self.iface.mainWindow(), "Error", message)

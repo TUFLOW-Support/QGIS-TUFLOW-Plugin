@@ -2,8 +2,8 @@
 
 # Form implementation generated from reading ui file 'ui_tuflowqgis_TuPlot.ui'
 #
-# Created: Tue Jun 20 12:26:12 2017
-#      by: PyQt4 UI code generator 4.11.1
+# Created: Mon Mar 12 16:10:10 2018
+#      by: PyQt4 UI code generator 4.10.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -144,6 +144,7 @@ class Ui_tuflowqgis_TuPlot(object):
         self.horizontalLayout.addWidget(self.ResTypeList)
         self.ResTypeList_ax2 = QtGui.QListWidget(self.tab_1)
         self.ResTypeList_ax2.setMaximumSize(QtCore.QSize(75, 300))
+        self.ResTypeList_ax2.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
         self.ResTypeList_ax2.setObjectName(_fromUtf8("ResTypeList_ax2"))
         self.horizontalLayout.addWidget(self.ResTypeList_ax2)
         self.verticalLayout.addLayout(self.horizontalLayout)
@@ -255,7 +256,7 @@ class Ui_tuflowqgis_TuPlot(object):
         self.frame_for_toolbar.setFrameShape(QtGui.QFrame.StyledPanel)
         self.frame_for_toolbar.setFrameShadow(QtGui.QFrame.Raised)
         self.frame_for_toolbar.setObjectName(_fromUtf8("frame_for_toolbar"))
-        self.gridlayout.addWidget(self.frame_for_toolbar, 2, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self.gridlayout.addWidget(self.frame_for_toolbar, 2, 0, 1, 1)
         self.tabWidget.addTab(self.tab_1, _fromUtf8(""))
         self.tab_Options = QtGui.QWidget()
         self.tab_Options.setObjectName(_fromUtf8("tab_Options"))

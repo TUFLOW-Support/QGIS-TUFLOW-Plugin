@@ -30,7 +30,7 @@ def description():
 
 
 def version():
-    return "Version 2018-02-AA"
+    return "Version 2018-02-AB"
 
 
 def icon():

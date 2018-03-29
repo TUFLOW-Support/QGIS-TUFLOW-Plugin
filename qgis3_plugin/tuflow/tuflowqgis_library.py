@@ -417,8 +417,10 @@ def tuflowqgis_import_check_tf(qgis, basepath, runID,showchecks):
 
 
 #  region_renderer added MJS 11/02
-def region_renderer(qgis, layer):
+def region_renderer(layer):
 	from random import randrange
+	registry = QgsSymbolLayerRegistry()
+	symbol_layer2 = None
 
 	#check if layer needs a renderer
 	fsource = layer.source() #includes full filepath and extension
@@ -432,6 +434,15 @@ def region_renderer(qgis, layer):
 		field_name = 'Primary_No'
 	elif '_sac_check_R' in fname:
 		field_name = 'BC_Name'
+	elif '2d_bc' in fname or '2d_mat' in fname or '2d_soil' in fname or '1d_bc' in fname:
+		for i, field in enumerate(layer.fields()):
+			if i == 0:
+				field_name = field.name()
+	elif '1d_nwk' in fname or '1d_nwkb' in fname or '1d_nwke' in fname or '1d_mh' in fname or '1d_pit' in fname or \
+		 '1d_nd' in fname:
+		for i, field in enumerate(layer.fields()):
+			if i == 1:
+				field_name = field.name()
 	else: #render not needed
 		return None
 
@@ -452,13 +463,71 @@ def region_renderer(qgis, layer):
 
 		# configure a symbol layer
 		layer_style = {}
-		layer_style['color'] = '%d, %d, %d' % (randrange(0,256), randrange(0,256), randrange(0,256))
+		color = '%d, %d, %d' % (randrange(0,256), randrange(0,256), randrange(0,256))
+		layer_style['color'] = color
 		layer_style['outline'] = '#000000'
 		symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
+		if '2d_bc' in fname:
+			if layer.geometryType() == 1:
+				#QMessageBox.information(qgis.mainWindow(), "DEBUG", 'line 446')
+				symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+				symbol_layer.setWidth(1)
+			elif layer.geometryType() == 0:
+				symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
+				symbol_layer.setSize(2)
+				symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
+		elif '1d_nwk' in fname or '1d_nwkb' in fname or '1d_nwke' in fname or '1d_pit' in fname or '1d_nd' in fname:
+			if layer.geometryType() == 1:
+				#QMessageBox.information(qgis.mainWindow(), "DEBUG", 'line 446')
+				symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+				symbol_layer.setWidth(1)
+				symbol_layer2 = QgsMarkerLineSymbolLayer.create({'placement': 'lastvertex'})
+				layer_style['color_border'] = color
+				markerSymbol = QgsSimpleMarkerSymbolLayer.create(layer_style)
+				markerSymbol.setShape(QgsSimpleMarkerSymbolLayerBase.ArrowHeadFilled)
+				markerSymbol.setSize(5)
+				marker =  QgsMarkerSymbol()
+				marker.changeSymbolLayer(0, markerSymbol)
+				symbol_layer2.setSubSymbol(marker)
+				#symbol_layer.changeSymbolLayer(0, symbol_layer2)
+				#markerMeta = registry.symbolLayerMetadata("MarkerLine")
+				#markerLayer = markerMeta.createSymbolLayer({'width': '0.26', 'color': color, 'rotate': '1', 'placement': 'lastvertex'})
+				#subSymbol = markerLayer.subSymbol()
+				#subSymbol.deleteSymbolLayer(0)
+				#triangle = registry.symbolLayerMetadata("SimpleMarker").createSymbolLayer({'name': 'filled_arrowhead', 'color': color, 'color_border': color, 'offset': '0,0', 'size': '4', 'angle': '0'})
+				#subSymbol.appendSymbolLayer(triangle)
+			elif layer.geometryType() == 0:
+				symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
+				symbol_layer.setSize(1.5)
+				if unique_value == 'NODE':
+					symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
+				else:
+					symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Square)
+		elif '2d_mat' in fname:
+			symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
+			layer.setOpacity(0.25)
+		elif '2d_soil' in fname:
+			symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
+			layer.setOpacity(0.25)
+		elif '1d_bc' in fname:
+			if layer.geometryType() == 0:
+				symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
+				symbol_layer.setSize(1.5)
+				symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
+			else:
+				layer_syle['style'] = 'no'
+				symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
+				color = QColor(randrange(0,256), randrange(0,256), randrange(0,256))
+				symbol_layer.setBorderColor(color)
+				symbol_layer.setBorderWidth(1)
+		else:
+			symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
 
 		# replace default symbol layer with the configured one
 		if symbol_layer is not None:
 			symbol.changeSymbolLayer(0, symbol_layer)
+			if symbol_layer2 is not None:
+				symbol.appendSymbolLayer(symbol_layer2)
 
 		# create renderer object
 		category = QgsRendererCategory(unique_value, symbol, str(unique_value))
@@ -485,7 +554,7 @@ def tuflowqgis_apply_check_tf(qgis):
 			#QMessageBox.information(qgis.mainWindow(), "DEBUG", "shp layer name = "+layer.name())
 			renderer = region_renderer(layer)
 			if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
-				layer.setRendererV2(renderer)
+				layer.setRenderer(renderer)
 				layer.triggerRepaint()
 			else: # use .qml style using tf_styles
 				error, message, slyr = tf_styles.Find(layer_fname, layer) #use tuflow styles to find longest matching 
@@ -524,7 +593,7 @@ def tuflowqgis_apply_check_tf_clayer(qgis):
 		layer_fname = os.path.split(cLayer.source())[1][:-4]
 		renderer = region_renderer(cLayer)
 		if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
-			cLayer.setRendererV2(renderer)
+			cLayer.setRenderer(renderer)
 			cLayer.triggerRepaint()
 		else: # use .qml style using tf_styles
 			error, message, slyr = tf_styles.Find(layer_fname, cLayer) #use tuflow styles to find longest matching 
@@ -580,3 +649,355 @@ def tuflowqgis_increment_fname(infname):
 		outfname = tmpstr
 
 	return outfname
+
+def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, lenFields):
+	message = None
+	
+	if inputLayer.geometryType() == 0:
+		geomType = '_P'
+	elif inputLayer.geometryType() == 2:
+		geomType = '_R'
+	else:
+		geomType = '_L'
+		
+	
+	gis_folder = basedir.replace('\empty', '')
+	
+	# Create new vector file from template with appended attribute fields
+	if template == '1d_nwk':
+		if lenFields >= 10:
+			template2 = '1d_nwke'
+			fpath = os.path.join(basedir, '{0}_empty{1}.shp'.format(template2, geomType))
+		else:
+			fpath = os.path.join(basedir, '{0}_empty{1}.shp'.format(template, geomType))
+	else:
+		fpath = os.path.join(basedir, '{0}_empty{1}.shp'.format(template, geomType))
+	if os.path.isfile(fpath):
+		layer = QgsVectorLayer(fpath, "tmp", "ogr")
+		name = '{0}_{1}{2}.shp'.format(template, runID, geomType)
+		savename = os.path.join(gis_folder, name)
+		if QFile(savename).exists():
+			QMessageBox.critical(qgis.mainWindow(),"Info", ("File Exists: {0}".format(savename)))
+			message = 'Unable to complete utility because file already exists'
+			return message
+		outfile = QgsVectorFileWriter(vectorFileName=savename, fileEncoding="System", 
+		                              fields=layer.dataProvider().fields(), geometryType=layer.wkbType(), 
+		                              srs=layer.dataProvider().sourceCrs(), driverName="ESRI Shapefile",)
+			
+		if outfile.hasError() != QgsVectorFileWriter.NoError:
+			QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: {0}".format(savename)))
+			message = 'Error writing output file. Check output location and output file.'
+			return message
+		outfile = QgsVectorLayer(savename, "tmp", "ogr")
+		outfile.dataProvider().addAttributes(inputLayer.dataProvider().fields())
+		
+		# Get attribute names of input layers
+		layer_attributes = [field.name() for field in layer.fields()]
+		inputLayer_attributes = [field.name() for field in inputLayer.fields()]
+		
+		# Create 2D attribute value list and add features to new file
+		row_list = []
+		for feature in inputLayer.getFeatures():
+			row = [''] * len(layer_attributes)
+			for name in inputLayer_attributes:
+				row.append(feature[name])
+			row_list.append(row)
+			outfile.dataProvider().addFeatures([feature])
+		
+		# correct field values
+		for i, feature in enumerate(outfile.getFeatures()):
+			row_dict = {}
+			for j in range(len(row_list[0])):
+				row_dict[j] = row_list[i][j]
+			outfile.dataProvider().changeAttributeValues({i: row_dict})
+		
+		qgis.addVectorLayer(savename, name[:-4], "ogr")
+	
+	return message
+	
+def get_tuflow_labelName(layer):
+	fsource = layer.source() #includes full filepath and extension
+	fname = os.path.split(fsource)[1][:-4] #without extension
+	
+	if '1d_bc' in fname or '2d_bc' in fname:
+		field_name1 = layer.fields().field(0).name()
+		field_name2 = layer.fields().field(2).name()
+		field_name = "'Name: ' + \"{0}\" + '\n' + 'Type: ' + \"{1}\"".format(field_name2, field_name1)
+	elif '1d_mh' in fname or '1d_nd' in fname or '1d_pit' in fname:
+		field_name1 = layer.fields().field(0).name()
+		field_name2 = layer.fields().field(1).name()
+		field_name = "'ID: ' + \"{0}\" + '\n' + 'Type: ' + \"{1}\"".format(field_name1, field_name2)
+	elif '1d_nwk' in fname:
+		field_name1 = layer.fields().field(0).name()
+		field_name2 = layer.fields().field(1).name()
+		field_name3 = layer.fields().field(13).name()
+		field_name4 = layer.fields().field(14).name()
+		field_name = "'ID: ' + \"{0}\" + '\n' + 'Type: ' + \"{1}\"".format(field_name1, field_name2)
+	elif '2d_fc_' in fname:
+		field_name1 = layer.fields().field(0).name()
+		field_name2 = layer.fields().field(1).name()
+		field_name3 = layer.fields().field(2).name()
+		field_name4 = layer.fields().field(5).name()
+		field_name = "'Type: ' + \"{0}\" + '\n' + 'Invert: ' + if(\"{1}\">-1000000, to_string(\"{1}\"), \"{1}\") +" \
+		             "'\n' + 'Obvert: ' + if(\"{2}\">-100, to_string(\"{2}\"), \"{2}\") + '\n' + 'FLC: ' + " \
+		             "if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\")".format(field_name1, field_name2, field_name3, 
+		                                                                  field_name4)
+	elif '2d_fcsh' in fname:
+		field_name1 = layer.fields().field(0).name()
+		field_name2 = layer.fields().field(1).name()
+		field_name3 = layer.fields().field(5).name()
+		field_name4 = layer.fields().field(6).name()
+		field_name = "'Invert: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'Obvert: ' + " \
+		             "if(\"{1}\">-100, to_string(\"{1}\"), \"{1}\") + '\n'" \
+		             " + 'pBlockage: ' + if(\"{2}\">-100, to_string(\"{2}\"), \"{2}\") + '\n' + 'FLC: ' + " \
+		             "if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\")".format(field_name1, field_name2, field_name3, 
+		                                                                  field_name4)
+	elif '2d_lfcsh' in fname:
+		field_name1 = layer.fields().field(0).name()
+		field_name2 = layer.fields().field(4).name()
+		field_name3 = layer.fields().field(5).name()
+		field_name4 = layer.fields().field(6).name()
+		field_name5 = layer.fields().field(7).name()
+		field_name6 = layer.fields().field(8).name()
+		field_name7 = layer.fields().field(9).name()
+		field_name8 = layer.fields().field(10).name()
+		field_name9 = layer.fields().field(11).name()
+		field_name10 = layer.fields().field(12).name()
+		field_name = "'Invert: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'L1 Obvert: ' + " \
+		             "if(\"{1}\">-100, to_string(\"{1}\"), \"{1}\") + '\n'" \
+		             " + 'L1 pBlockage: ' + if(\"{2}\">-100, to_string(\"{2}\"), \"{2}\") + '\n' + 'L1 FLC: ' + " \
+		             "if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\") + '\n' + 'L2 Depth: ' + " \
+		             "if(\"{4}\">=0, to_string(\"{4}\"), \"{4}\") + '\n' + 'L2 pBlockage: ' + " \
+		             "if(\"{5}\">=0, to_string(\"{5}\"), \"{5}\") + '\n' + 'L2 FLC: ' + " \
+		             "if(\"{6}\">=0, to_string(\"{6}\"), \"{6}\") + '\n' + 'L3 Depth: ' + " \
+		             "if(\"{7}\">=0, to_string(\"{7}\"), \"{7}\") + '\n' + 'L3 pBlockage: ' + " \
+		             "if(\"{8}\">=0, to_string(\"{8}\"), \"{8}\") + '\n' + 'L3 FLC: ' + " \
+		             "if(\"{9}\">=0, to_string(\"{9}\"), \"{9}\")".format(field_name1, field_name2, field_name3, 
+		                                                                  field_name4, field_name5, field_name6, 
+		                                                                  field_name7, field_name8, field_name9,
+		                                                                  field_name10)
+	elif '2d_po' in fname or '2d_lp' in fname:
+		field_name1 = layer.fields().field(0).name()
+		field_name2 = layer.fields().field(1).name()
+		field_name = "'Type: ' + \"{0}\" + '\n' + 'Label: ' + \"{1}\"".format(field_name1, field_name2)
+	elif '2d_sa_rf' in fname:
+		field_name1 = layer.fields().field(0).name()
+		field_name2 = layer.fields().field(1).name()
+		field_name3 = layer.fields().field(2).name()
+		field_name4 = layer.fields().field(3).name()
+		field_name5 = layer.fields().field(4).name()
+		field_name = "'Name: ' + \"{0}\" + '\n' + 'Catchment Area: ' + if(\"{1}\">0, to_string(\"{1}\"), \"{1}\") + " \
+		             "'\n' + 'Rain Gauge: ' + \"{2}\" + '\n' + 'IL: ' + if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\") " \
+		             " + '\n' + 'CL: ' + if(\"{4}\">=0, to_string(\"{4}\"), \"{4}\")".format(field_name1, field_name2, 
+		                                                                                     field_name3, field_name4,
+		                                                                                     field_name5)
+	elif '2d_sa_tr' in fname:
+		field_name1 = layer.fields().field(0).name()
+		field_name2 = layer.fields().field(1).name()
+		field_name3 = layer.fields().field(2).name()
+		field_name4 = layer.fields().field(3).name()
+		field_name = "'Name: ' + \"{0}\" + '\n' + 'Trigger Type: ' + \"{1}\" + '\n' + 'Trigger Location: ' + \"{2}\"" \
+		             "+ '\n' + 'Trigger Value: ' + if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\")".format(field_name1, 
+		                                                                                               field_name2, 
+		                                                                                               field_name3,
+		                                                                                               field_name4)
+	elif '2d_vzsh' in fname:
+		field_name1 = layer.fields().field(0).name()
+		field_name2 = layer.fields().field(3).name()
+		field_name3 = layer.fields().field(4).name()
+		field_name4 = layer.fields().field(5).name()
+		field_name5 = layer.fields().field(6).name()
+		field_name6 = layer.fields().field(7).name()
+		field_name = "'Z: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'Shape Options: ' + \"{1}\"" \
+		             "+ '\n' + 'Trigger 1: ' + \"{2}\" + '\n' + 'Trigger 2: ' + \"{3}\" + '\n' + 'Trigger Value: ' "\
+		             "+ if(\"{4}\">0, to_string(\"{4}\"), \"{4}\") + '\n' + 'Period: ' + " \
+		             "if(\"{5}\">0, to_string(\"{5}\"), \"{5}\")".format(field_name1, field_name2, field_name3,
+		                                                                 field_name4, field_name5, field_name6)
+	elif '2d_zshr' in fname:
+		field_name1 = layer.fields().field(0).name()
+		field_name2 = layer.fields().field(3).name()
+		field_name3 = layer.fields().field(4).name()
+		field_name4 = layer.fields().field(5).name()
+		field_name5 = layer.fields().field(6).name()
+		field_name = "'Z: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'Shape Options: ' + \"{1}\"" \
+		             "+ '\n' + 'Route Name: ' + \"{2}\" + '\n' + 'Cut Off Type: ' + \"{3}\" + '\n' + " \
+		             "'Cut Off Values: ' + if(\"{4}\">-1000000, to_string(\"{4}\"), \"{4}\")".format(field_name1, 
+		                                                                                             field_name2, 
+		                                                                                             field_name3,
+		                                                                                             field_name4, 
+		                                                                                             field_name5)
+	elif '2d_zsh' in fname:
+		if layer.geometryType() == 0:
+			field_name1 = layer.fields().field(0).name()
+			field_name = "'{0}: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\")".format(field_name1)
+		elif layer.geometryType() == 1:
+			field_name1 = layer.fields().field(0).name()
+			field_name2 = layer.fields().field(2).name()
+			field_name = "'Z: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'Shape Width: ' + " \
+			             "if(\"{1}\">-1000000, to_string(\"{1}\"), \"{1}\")".format(field_name1, field_name2)
+		elif layer.geometryType() == 2:
+			field_name1 = layer.fields().field(0).name()
+			field_name2 = layer.fields().field(3).name()
+			field_name = "'Z: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'Shape Options: ' + " \
+			             "\"{1}\"".format(field_name1, field_name2)
+	elif '_RCP' in fname:
+		field_name1 = layer.fields().field(0).name()
+		field_name2 = layer.fields().field(1).name()
+		field_name3 = layer.fields().field(2).name()
+		field_name4 = layer.fields().field(3).name()
+		field_name5 = layer.fields().field(4).name()
+		field_name = "'Route Name: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'Cut Off Value: ' " \
+		             "+ if(\"{1}\">-1000000, to_string(\"{1}\"), \"{1}\") + '\n' + 'First Cut Off Time: ' + " \
+		             "if(\"{2}\">-1000000, to_string(\"{2}\"), \"{2}\") + '\n' + 'Last Cutoff Time: ' + " \
+		             "if(\"{3}\">-1000000, to_string(\"{3}\"), \"{3}\") + '\n' + 'Duration of Cutoff: ' + " \
+		             "if(\"{4}\">-1000000, to_string(\"{4}\"), \"{4}\")".format(field_name1, field_name2, field_name3, 
+		                                                                        field_name4, field_name5)
+	elif '1d_mmH_P' in fname:
+		field_name = ""
+		for i, field in enumerate(layer.fields()):
+			if i == 0 or i == 1 or i == 3:
+				field_name1 = "'{0}: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\")".format(field.name())
+				if i != 3:
+					field_name = field_name + field_name1 + "+ '\n' +"
+				else:
+					field_name = field_name + field_name1
+	elif '1d_mmQ_P' in fname or '1d_mmV_P' in fname:
+		field_name = ""
+		for i, field in enumerate(layer.fields()):
+			if i == 0 or i == 1 or i == 2 or i == 4 or i == 5:
+				field_name1 = "'{0}: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\")".format(field.name())
+				if i != 5:
+					field_name = field_name + field_name1 + "+ '\n' +"
+				else:
+					field_name = field_name + field_name1
+	elif '1d_ccA_L' in fname:
+		field_name = ""
+		for i, field in enumerate(layer.fields()):
+			if i == 0 or i == 1:
+				field_name1 = "'{0}: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\")".format(field.name())
+				if i != 1:
+					field_name = field_name + field_name1 + "+ '\n' +"
+				else:
+					field_name = field_name + field_name1
+	else:
+		field_name1 = layer.fields().field(0).name()
+		field_name = "'{0}: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\")".format(field_name1)
+	return field_name
+	
+def get_1d_nwk_labelName(layer, type):
+	field_name1 = layer.fields().field(0).name()
+	field_name2 = layer.fields().field(1).name()
+	field_name3 = layer.fields().field(13).name()
+	field_name4 = layer.fields().field(14).name()
+	#QMessageBox.information(qgis.mainWindow(),"Info", ("{0}".format(field_name2)))
+	if type == 'C':
+		field_name = "'ID: ' + \"{0}\" + '\n' + 'Type: ' + \"{1}\" + '\n' + 'Width: ' + " \
+		             "if(\"{2}\">=0, to_string(\"{2}\"), \"{2}\")".format(field_name1, field_name2, field_name3)
+	elif type == 'R':
+		field_name = "'ID: ' + \"{0}\" + '\n' + 'Type: ' + \"{1}\" + '\n' + 'Width: ' + " \
+		             "if(\"{2}\">=0, to_string(\"{2}\"), \"{2}\") + '\n' + 'Height: ' + " \
+		             "if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\")".format(field_name1, field_name2, field_name3,
+		                                                                 field_name4)
+	else:
+		field_name = "'ID: ' + \"{0}\" + '\n' + 'Type: ' + \"{1}\"".format(field_name1, field_name2)
+		
+	return field_name
+def tuflowqgis_apply_autoLabel_clayer(qgis):
+	#QMessageBox.information(qgis.mainWindow(),"Info", ("{0}".format(enabled)))
+	
+	error = False
+	message = None
+	canvas = qgis.mapCanvas()
+	#canvas.mapRenderer().setLabelingEngine(QgsPalLabeling())
+	
+	cLayer = canvas.currentLayer()
+	fsource = cLayer.source() #includes full filepath and extension
+	fname = os.path.split(fsource)[1][:-4] #without extension
+	
+	if cLayer.labelsEnabled() == False:
+		# demonstration of rule based labeling
+		if '1d_nwk' in fname:
+			# setup blank rule object
+			label = QgsPalLayerSettings()
+			rule = QgsRuleBasedLabeling.Rule(label)
+			# setup label rule 1
+			labelName1 = get_1d_nwk_labelName(cLayer, 'C')
+			label1 = QgsPalLayerSettings()
+			label1.isExpression = True
+			label1.multilineAlign = 0
+			label1.bufferDraw = True
+			label1.drawLabels = True
+			label1.fieldName = labelName1
+			if cLayer.geometryType() == 0:
+				label1.placement = 0
+			elif cLayer.geometryType() == 1:
+				label1.placement = 2
+			elif cLayer.geometryType() == 2:
+				label1.placement = 1
+			rule1 = QgsRuleBasedLabeling.Rule(label1)
+			rule1.setFilterExpression("\"Type\" LIKE '%C%' OR \"Type\" LIKE '%W%'")
+			# setup label rule 2
+			label2 = QgsPalLayerSettings()
+			label2.isExpression = True
+			label2.multilineAlign = 0
+			label2.bufferDraw = True
+			label2.drawLabels = True
+			if cLayer.geometryType() == 0:
+				label2.placement = 0
+			elif cLayer.geometryType() == 1:
+				label2.placement = 2
+			elif cLayer.geometryType() == 2:
+				label2.placement = 1
+			labelName2 = get_1d_nwk_labelName(cLayer, 'R')
+			label2.fieldName = labelName2
+			rule2 = QgsRuleBasedLabeling.Rule(label2)
+			rule2.setFilterExpression("\"Type\" LIKE '%R%'")
+			# setup label rule 3
+			label3 = QgsPalLayerSettings()
+			label3.isExpression = True
+			label3.multilineAlign = 0
+			label3.bufferDraw = True
+			label3.drawLabels = True
+			if cLayer.geometryType() == 0:
+				label3.placement = 0
+			elif cLayer.geometryType() == 1:
+				label3.placement = 2
+			elif cLayer.geometryType() == 2:
+				label3.placement = 1
+			labelName3 = get_1d_nwk_labelName(cLayer, 'other')
+			label3.fieldName = labelName3
+			rule3 = QgsRuleBasedLabeling.Rule(label3)
+			rule3.setFilterExpression("\"Type\" LIKE '%S%' OR \"Type\" LIKE '%B%' OR \"Type\" LIKE '%I%' OR \"Type\"" \
+			                          "LIKE '%P%' OR \"Type\" LIKE '%G%' OR \"Type\" LIKE '%M%' OR \"Type\" LIKE '%Q%'" \
+			                          "OR \"Type\" LIKE '%X%'")
+			# append rule 1, 2, 3 to blank rule object
+			rule.appendChild(rule1)
+			rule.appendChild(rule2)
+			rule.appendChild(rule3)
+		else:
+			# simple labeling (no rules)
+			labelName = get_tuflow_labelName(cLayer)
+			label = QgsPalLayerSettings()
+			label.isExpression = True
+			label.multilineAlign = 0
+			label.bufferDraw = True
+			label.drawLabels = True
+			label.fieldName = labelName
+			if cLayer.geometryType() == 0:
+				label.placement = 0
+			elif cLayer.geometryType() == 1:
+				label.placement = 2
+			elif cLayer.geometryType() == 2:
+				label.placement = 1
+		if '1d_nwk' in fname:
+			labeling = QgsRuleBasedLabeling(rule)
+		else:
+			labeling = QgsVectorLayerSimpleLabeling(label)
+		cLayer.setLabeling(labeling)
+		cLayer.setLabelsEnabled(True)
+	else:
+		cLayer.setLabelsEnabled(False)
+
+	canvas.refresh()
+
+	return error, message

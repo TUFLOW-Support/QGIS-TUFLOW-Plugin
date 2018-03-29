@@ -142,6 +142,16 @@
    </item>
    <item>
     <property name="text">
+     <string>1d_nwke</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>1d_pit</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
      <string>1d_tab</string>
     </property>
    </item>
@@ -162,7 +172,22 @@
    </item>
    <item>
     <property name="text">
+     <string>2d_fc</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
      <string>2d_fcsh</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_glo</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_gw</string>
     </property>
    </item>
    <item>
@@ -182,7 +207,17 @@
    </item>
    <item>
     <property name="text">
+     <string>2d_lp</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
      <string>2d_mat</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_oz</string>
     </property>
    </item>
    <item>
@@ -202,12 +237,37 @@
    </item>
    <item>
     <property name="text">
+     <string>2d_sa_rf</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_sa_tr</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_soil</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
      <string>2d_vzsh</string>
     </property>
    </item>
    <item>
     <property name="text">
+     <string>2d_z__</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
      <string>2d_zsh</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2d_zshr</string>
     </property>
    </item>
   </widget>

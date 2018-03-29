@@ -8,9 +8,11 @@ import os
 import sys
 import csv
 from subprocess import Popen
+import subprocess
 from PyQt4.QtCore import * # QGIS only
 from PyQt4.QtGui import * # QGIS only
 from qgis.core import * # QGIS only
+
 from numpy import genfromtxt
 import tuflowqgis_styles
 
@@ -53,6 +55,7 @@ class TuPLOT(object):
 		self.intFile = intFile
 		self.defaultPath = defaultPath
 		
+		
 		# check if TuPLOT is already running, otherwise open dialog and let user select tpc
 		try:
 			poll = self.tpOpen.poll()
@@ -60,11 +63,6 @@ class TuPLOT(object):
 				next
 			else:
 				break_statement # break the try statement. 'break' command doesn't seem to work!
-				
-		#####################################################
-		### BELOW SECTION IS DIFFERENT IN ARCGIS AND QGIS ###
-		#####################################################
-		
 		except: # TuPLOT is not running. Open dialog so user can choose .tpc
 			self.tpcFile = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Select TUFLOW Plot Control (.tpc)', self.defaultPath, "TUFLOW Plot Results (*.tpc)")
 			if len(self.tpcFile) < 1:
@@ -73,10 +71,13 @@ class TuPLOT(object):
 			fpath = os.path.dirname(self.tpcFile)
 			self.defaultPath = fpath # next time it will open to this location
 			
+			
+			
+			
 			# Ask user if they want to import gis layers as well
 			alsoOpenGIS = QMessageBox.question(self.iface.mainWindow(), "TuPLOT", 'Do you also want to open result GIS layer?', QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
 			
-			## Add gis layers
+			# Add gis layers
 			if alsoOpenGIS == QMessageBox.Yes:
 				error, message, gisLayers, nPoints, nLines, nRegions = open_gis(self.tpcFile)
 				if error: # something has gone wrong
@@ -98,38 +99,29 @@ class TuPLOT(object):
 								addLayer.triggerRepaint()
 						except:
 							next
-						
-						
-		#################################
-		###// END DIFFERENT SECTION //###
-		#################################
-			
+
 			# specify .int file
 			self.intFile = os.path.splitext(self.tpcFile)[0] + '.int'
 			iterator = 1
 			while os.path.isfile(self.intFile):
 				self.intFile = os.path.splitext(self.tpcFile)[0] + '[' + str(iterator) +']' + '.int'
 				iterator += 1
-		
-		#####################################################
-		### BELOW SECTION IS DIFFERENT IN ARCGIS AND QGIS ###
-		#####################################################
-		
+
 		# write .int file for selected features (if any)
 		try:
 			cLayer = self.iface.mapCanvas().currentLayer()
 			cSelection = cLayer.selectedFeatures()
-	
+			
 			# get geometry type for .int file
 			if cLayer and (cLayer.type() == QgsMapLayer.VectorLayer):
-				geom_type = cLayer.dataProvider().geometryType()
-				if geom_type == QGis.WKBPoint:
+				geom_type = cLayer.geometryType()
+				if geom_type == 0:
 					geom_type = 'Point'
 					valid = True
-				elif (geom_type == QGis.WKBLineString):
+				elif geom_type == 1:
 					geom_type = 'Line'
 					valid = True
-				elif (geom_type == QGis.WKBPolygon):
+				elif geom_type == 2:
 					geom_type = 'Region'
 				else:
 					message = "Unexpected input geometry."
@@ -155,10 +147,6 @@ class TuPLOT(object):
 		except: # no features selected
 			create_int(self.intFile, "", [])
 		
-		#################################
-		###// END DIFFERENT SECTION //###
-		#################################
-		
 		# open tkinter program
 		try:
 			# check to see if TuPlot is already running
@@ -172,8 +160,19 @@ class TuPLOT(object):
 			try: # tpLocation not defined, but left in to be consistent with ArcGIS version
 				tpArgs = ['python', tpLocation, self.intFile, self.tpcFile, pid]
 			except:
-				tpArgs = ['python', os.path.join(current_path, 'tkinter_tuPlot_py27.py'), self.intFile, self.tpcFile, pid]
+				tpArgs = ['python', os.path.join(current_path, 'tkinter_tuplot.py'), self.intFile, self.tpcFile, pid]
 			CREATE_NO_WINDOW = 0x08000000 # suppresses python console window
+			#logfile = open(r'C:\TUFLOW\TUPLOT\example_results\plot\log.txt', 'w')
+			#self.tpOpen = subprocess.Popen(tpArgs, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+			#                               creationflags=CREATE_NO_WINDOW)
+			#try:
+			#	for line in self.tpOpen.stdout:
+			#		#sys.stdout.write(line)
+			#		logfile.write(line)
+			#		self.tpOpen.wait()
+			#	logfile.close()
+			#except:
+			#	logfile.close()
 			self.tpOpen = Popen(tpArgs, creationflags=CREATE_NO_WINDOW)
 			return self.tpOpen, self.intFile, self.defaultPath
 			

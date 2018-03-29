@@ -3,47 +3,56 @@
 # Author: PR, ES
 
 # ArcGIS and QGIS use identical versions
+
 import os
 import sys
 current_path = os.path.dirname(__file__)
+pythonV = sys.version_info[0]
 
 # Relevant in QGIS only
-try:
-	from tkinter import *
-except:
-	sys.path.append(os.path.join(current_path, '_tk\\DLLs'))
-	sys.path.append(os.path.join(current_path, '_tk\\libs'))
-	sys.path.append(os.path.join(current_path, '_tk\\Lib'))
-	from tkinter import *
+if pythonV == 2:
+	try:
+		from Tkinter import *
+		import ttk
+		from tkFileDialog import askopenfilename
+		from tkFileDialog import asksaveasfile
+	except:
+		sys.path.append(os.path.join(current_path, 'tkinter\\DLLs'))
+		sys.path.append(os.path.join(current_path, 'tkinter\\libs'))
+		sys.path.append(os.path.join(current_path, 'tkinter\\Lib'))
+		sys.path.append(os.path.join(current_path, 'tkinter\\Lib\\lib-tk'))
+		from Tkinter import *
+		import ttk
+		from tkFileDialog import askopenfilename
+		from tkFileDialog import asksaveasfile
+elif pythonV == 3:
+	try:
+		from tkinter import *
+		import tkinter.ttk as ttk
+		from tkinter.filedialog import askopenfilename
+		from tkinter.filedialog import asksaveasfile
+	except:
+		sys.path.append(os.path.join(current_path, '_tk\\DLLs'))
+		sys.path.append(os.path.join(current_path, '_tk\\libs'))
+		sys.path.append(os.path.join(current_path, '_tk\\Lib'))
+		from tkinter import *
+		import tkinter.ttk as ttk
+		from tkinter.filedialog import askopenfilename
+		from tkinter.filedialog import asksaveasfile
 
-import tkinter.ttk as ttk
-from tkinter.filedialog import askopenfilename
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 from matplotlib.patches import Polygon
+from matplotlib.backend_bases import key_press_handler
 import numpy
 import GIS_int
-import TUFLOW_results2016
+import TUFLOW_results
 from collections import OrderedDict
-from list_visible_windows import list_windows, list_pids
-from minimise_window import ShowWindow, GetWindowPlacement
-
-
-#try:
-#	from Tkinter import *
-#	import ttk
-#	from tkFileDialog import askopenfilename
-#except:
-#	sys.path.append(os.path.join(current_path, 'tkinter\\DLLs'))
-#	sys.path.append(os.path.join(current_path, 'tkinter\\libs'))
-#	sys.path.append(os.path.join(current_path, 'tkinter\\Lib'))
-#	sys.path.append(os.path.join(current_path, 'tkinter\\Lib\\lib-tk'))
-#	from Tkinter import *
-#	import ttk
-#	from tkFileDialog import askopenfilename
+from list_visible_windows import *
+from minimise_window import *
 
 
 class TuPLOT():
@@ -58,6 +67,7 @@ class TuPLOT():
 		self.ts_types_R = None
 		self.IDs = []
 		self.time_ndp = 4 #number of decimal places for legend entries, changed when results added
+		self.ax2_exists = False
 
 		#self.dict_1D{''} #
 
@@ -150,12 +160,77 @@ class TuPLOT():
 		
 		LB_status.insert(0, 'Legend switched {0}'.format(self.legend_var.get()))
 		tp.update_plot()
+		
+	def add_second_ax_cb(self, frame, rowpos, colpos, listBox):
+		"""tkinter check button for secondary axis. On change will run the next function below
+		to update plot."""
+		
+		self.secondAx_var = StringVar()
+		self.CB_secondAx = ttk.Checkbutton(frame, text='Secondary Axis',
+			variable = self.secondAx_var,
+			onvalue='ON', offvalue='OFF', command=lambda: tp.secondAx_status_changed(listBox))
+		self.CB_secondAx.grid(column=colpos, row=rowpos, sticky=N+S+E+W)
+		
+	def secondAx_status_changed(self, listBox):
+		"""Function to update plot when legend check button is clicked."""
+		
+		#LB_status.insert(0, 'Secondary axis switched {0}'.format(self.secondAx_var.get()))
+		if self.secondAx_var.get() == 'OFF':
+			listBox.configure(state=DISABLED)
+		else:
+			listBox.configure(state=NORMAL)
+			
+			# Populate list box with result types
+			LB_dat_type_ax2.delete(0, END)
+			if self.plot_type_combo.get() == 'Long Profile':
+				LB_dat_type_ax2.insert(0, 'Not available for LP')
+			else:
+				res_vars = []
+				try:
+					if self.GIS.Geom == self.GIS.GeomPoint:
+						res_vars = self.ts_types_P
+					elif self.GIS.Geom == self.GIS.GeomLine:
+						res_vars = self.ts_types_L
+					elif self.GIS.Geom == self.GIS.GeomRegion:
+						res_vars = self.ts_types_R
+					else:
+						res_vars = self.ts_types_All
+				except: #not interface file loaded
+					res_vars = self.ts_types_All
+					LB_status.insert(0, 'Warning no interface file open')
+				#populate the list
+				if res_vars:
+					for res_var in res_vars:
+						LB_dat_type_ax2.insert(END, res_var)
+				else:
+					LB_dat_type.insert(END, 'ERROR - No results available to plot')
+					
+		tp.update_plot()
+		
+	def add_cbMedianRes(self, frame, rowpos, colpos):
+		"""tkinter check button for graph legend. On change will run the next function below
+		to update plot."""
+		
+		self.medianRes_var = StringVar()
+		self.cbMedianRes = ttk.Checkbutton(frame, text='Show Median Result', variable = self.medianRes_var, 
+		                                   onvalue='ON', offvalue='OFF', command=tp.update_plot)
+		self.cbMedianRes.grid(column=colpos, row=rowpos, sticky=N+S+E+W, pady=[6,0])
+		
+	def add_cbMeanRes(self, frame, rowpos, colpos):
+		"""tkinter check button for graph legend. On change will run the next function below
+		to update plot."""
+		
+		self.meanRes_var = StringVar()
+		self.cbMeanRes = ttk.Checkbutton(frame, text='Show Mean Result', variable=self.meanRes_var, onvalue='ON', 
+		                                 offvalue='OFF', command=tp.update_plot)
+		self.cbMeanRes.grid(column=colpos, row=rowpos, sticky=N+S+E+W)
 
 	def set_results_variable_ts(self):
 		"""Function that sets the result type list for time series type."""
 		
 		LB_status.insert(0, 'Updating results variable list.')
 		LB_dat_type.delete(0, END)
+		LB_dat_type_ax2.delete(0, END)
 		res_vars = []
 		try:
 			if self.GIS.Geom == self.GIS.GeomPoint:
@@ -173,6 +248,7 @@ class TuPLOT():
 		if res_vars:
 			for res_var in res_vars:
 				LB_dat_type.insert(END, res_var)
+				LB_dat_type_ax2.insert(END, res_var)
 		else:
 			LB_dat_type.insert(END, 'ERROR - No results available to plot')
 		LB_dat_type.selection_set(0)
@@ -182,6 +258,8 @@ class TuPLOT():
 		
 		LB_status.insert(0, 'Updating results variable list.')
 		LB_dat_type.delete(0, END)
+		LB_dat_type_ax2.delete(0, END)
+		LB_dat_type_ax2.insert(0, 'Not available for LP')
 		res_vars = []
 		try:
 			if (self.ts_types_P.count('Level') > 0):
@@ -408,6 +486,91 @@ class TuPLOT():
 		self.canvas = FigureCanvasTkAgg(tp.fig, self.mainframe)
 		self.canvas.show()
 		self.canvas.get_tk_widget().grid(column=0, row=2, columnspan = 3, sticky=N+S+E+W)
+		
+	def exportCsv(self):
+		if LB_selected.size() == 0:
+			LB_status.insert(0, 'No elements selected. Won\'t export')
+			return
+		if self.plot_type_combo.get() == "Timeseries":
+			# Create data headers
+			resultIds = []
+			for i in range(LB_selected.size()):
+				resultId = LB_selected.get(i)
+				resultIds.append(resultId)
+			resultTypes = []
+			reslist_str = list(LB_dat_type.curselection())
+			for i in reslist_str:
+				resultType = LB_dat_type.get(i)
+				resultTypes.append(resultType)
+			dataHeader = ''
+			for resultId in resultIds:
+				for resultType in resultTypes:
+					dataHeader += '{0}_{1},'.format(resultId, resultType)
+			
+			# Get data
+			data = self.ax1.lines[0].get_data()[0]  # write X axis first
+			data = numpy.reshape(data, [len(data), 1])
+			for line in self.ax1.lines:
+				dataY = line.get_data()[1]
+				dataY = numpy.reshape(dataY, [len(dataY), 1])
+				data = numpy.append(data, dataY, axis=1)
+			
+			# Save data out
+			saveFile = asksaveasfile(mode='w', defaultextension='.csv')
+			if saveFile is not None:
+				#file = open(saveFile, 'w')
+				saveFile.write('Time (hr),{0}\n'.format(dataHeader))
+				for i, row in enumerate(data):
+					saveFile.write('{0}\n'.format(",".join(map(str, data[i].tolist()))))
+				saveFile.close()
+				LB_status.insert(0, 'Finished saving file.')
+		
+		elif self.plot_type_combo.get() == 'Long Profile':
+			# Create data headers
+			resultTypes = []
+			reslist_str = list(LB_dat_type.curselection())
+			for i in reslist_str:
+				resultType = LB_dat_type.get(i)
+				resultTypes.append(resultType)
+			dataHeader = ''
+			for resultType in resultTypes:
+				dataHeader += 'Chainage (m),{0},'.format(resultType)
+	
+			# Get data
+			maxLen = 0
+			for line in self.ax1.lines:  # Get max data length so one numpy array can be set up
+				maxLen = max(maxLen, len(line.get_data()[0]))
+			data = numpy.zeros([maxLen, 1]) * numpy.nan
+			for line in self.ax1.lines:
+				lineX = numpy.reshape(line.get_data()[0], [len(line.get_data()[0]), 1])
+				lineY = numpy.reshape(line.get_data()[1], [len(line.get_data()[1]), 1])
+				if len(lineX) < maxLen:  # if data is less than max length, pad with nan values
+					diff = maxLen - len(lineX)
+					fill = numpy.zeros([diff, 1]) * numpy.nan
+					lineX = numpy.append(lineX, fill)
+					lineX = numpy.reshape(lineX, [maxLen, 1])
+					lineY = numpy.append(lineY, fill)
+					lineY = numpy.reshape(lineY, [maxLen, 1])
+				data = numpy.append(data, lineX, axis=1)
+				data = numpy.append(data, lineY, axis=1)
+			data = numpy.delete(data, 0, axis=1)
+	
+			# Save data out
+			saveFile = asksaveasfile(mode='w', defaultextension='.csv')
+			if saveFile is not None:
+				#file = open(saveFile, 'w')
+				saveFile.write('{0}\n'.format(dataHeader))
+				for i, row in enumerate(data):
+					line = ''
+					for j, value in enumerate(row):
+						if not numpy.isnan(data[i][j]):
+							line += '{0},'.format(data[i][j])
+						else:
+							line += '{0},'.format('')
+					line += '\n'
+					saveFile.write(line)
+				saveFile.close()
+				LB_status.insert(0, 'Finished saving file.')
 
 	def current_time_changed(self, eventObject):
 		"""Function that runs when user selects new time in 'Current Time' dialog."""
@@ -436,7 +599,17 @@ class TuPLOT():
 		self.ax1.cla()
 		artists = []
 		labels = []
-
+		if self.ax2_exists:
+			if self.secondAx_var.get() == 'ON' and self.plot_type_combo.get() == "Timeseries":
+				self.axis2.cla()
+			else:
+				LB_status.insert(0,'dual axis not needed')
+				try:
+					self.fig.delaxes(self.axis2)
+					self.ax2_exists = False
+				except:
+					LB_status.insert(0, "Error deleting axis2\n Please contact support@tuflow.com")
+		
 		#ititialise limits
 		xmin = 999999.
 		xmax = -999999.
@@ -465,6 +638,62 @@ class TuPLOT():
 		for i in typeids:
 			typenames.append(LB_dat_type.get(i))
 			#LB_status.insert(0,'dat {0}'.format(LB_dat_type.get(i)))
+			
+		# Secondary  Axis
+		typeids2 = list(LB_dat_type_ax2.curselection())
+		typenames2 = []
+		for i in typeids2:
+			typenames2.append(LB_dat_type_ax2.get(i))
+			
+		#check if median is required
+		calc_median = False
+		if self.medianRes_var.get() == 'ON':
+			calc_median = True
+			if nRes < 3:
+				calc_median = False
+				LB_status.insert(0, 'Warning - Median requires at least three results selected')
+			if len(self.IDs) != 1:
+				calc_median = False
+				LB_status.insert(0, 'Warning - Median only valid for a single output location')
+			if self.plot_type_combo.get() != "Timeseries":
+				calc_median = False
+				LB_status.insert(0,'Warning - Median only valid for a timeseries plot type')
+			if len(typenames) != 1:
+				calc_median = False
+				LB_status.insert(0,'Warning - Median only valid for a single output parameter')
+				
+		#check if mean is required
+		calc_mean = False
+		meanAbove = False
+		if self.meanRes_var.get() == 'ON':
+			calc_mean = True
+			if nRes < 3:
+				calc_mean = False
+				LB_status.insert(0, 'Warning - Mean requires at least three results selected')
+			if len(self.IDs) != 1:
+				calc_mean = False
+				LB_status.insert(0, 'Warning - Mean only valid for a single output location')
+			if self.plot_type_combo.get() != "Timeseries":
+				calc_mean = False
+				LB_status.insert(0, 'Warning - Mean only valid for a timeseries plot type')
+			if len(typenames) != 1:
+				calc_mean = False
+				LB_status.insert(0, 'Warning - Mean only valid for a single output parameter')
+			if meanValue.get() == 'meanAbove':
+				meanAbove = True
+				LB_status.insert(0, 'Using 1st value above mean.')
+			elif meanValue.get() == 'meanClosest':
+				meanAbove = False
+				LB_status.insert(0, 'Using closest value to mean.')
+				
+		#numpy array for calculation of median / mean
+		if calc_median or calc_mean:
+			try:
+				max_vals = numpy.zeros([nRes])
+			except:
+				LB_status.insert(0, 'Error - setting up numpy array for mean/median.')
+				calc_median = False
+				calc_mean = False
 
 		#copy from QGIS
 		nres_used = 0
@@ -488,7 +717,7 @@ class TuPLOT():
 
 					# plot max water level
 					if typenames.count('Max Water Level') != 0:
-						a, = self.ax1.plot(res.LP.dist_nodes, res.LP.Hmax)
+						a, = self.ax1.plot(res.LP.dist_chan_inverts, res.LP.Hmax)
 						artists.append(a)
 						label = 'Max Water Level'
 						if nRes > 1:
@@ -512,7 +741,7 @@ class TuPLOT():
 							LB_status.insert(0, 'ERROR - Extracting temporal data for LP')
 							LB_status.insert(0, message)
 						else:
-							a, = self.ax1.plot(res.LP.dist_nodes, res.LP.Hdata)
+							a, = self.ax1.plot(res.LP.dist_chan_inverts, res.LP.Hdata)
 							artists.append(a)
 							labels.append('Water Level at ({0:.{1}f})'.format(curT,self.time_ndp))
 							if nRes > 1:
@@ -524,7 +753,7 @@ class TuPLOT():
 
 					# plot max energy level
 					if typenames.count('Max Energy Level') != 0:
-						a, = self.ax1.plot(res.LP.dist_nodes, res.LP.Emax)
+						a, = self.ax1.plot(res.LP.dist_chan_inverts, res.LP.Emax)
 						artists.append(a)
 						label = 'Max Energy Level'
 						if nRes > 1:
@@ -547,7 +776,7 @@ class TuPLOT():
 							LB_status.insert(0, 'ERROR - Extracting temporal data for LP')
 							LB_status.insert(0, message)
 						else:
-							a, = self.ax1.plot(res.LP.dist_nodes, res.LP.Edata)
+							a, = self.ax1.plot(res.LP.dist_chan_inverts, res.LP.Edata)
 							artists.append(a)
 							labels.append('Energy Level at ({0:.{1}f})'.format(curT, self.time_ndp))
 							if nRes > 1:
@@ -655,6 +884,16 @@ class TuPLOT():
 										LB_status.insert(0, 'res = ' + res.displayname)
 										LB_status.insert(0, 'ID: ' + ydataid)
 										LB_status.insert(0, 'i: ' + str(i))
+									if calc_median or calc_mean:
+										try:
+											max_vals[nres_used-1] = ydata.max()
+										except:
+											if calc_median:
+												calc_median = False
+												LB_status.insert(0,'ERROR - Calcuating Median, suppressing median output')
+											if calc_mean:
+												calc_mean = False
+												LB_status.insert(0,'ERROR - Calcuating mean, suppressing mean output')
 								else:
 									found = False
 									message = 'Unexpected Format Version:' + str(res.formatVersion)
@@ -674,6 +913,61 @@ class TuPLOT():
 										self.ax1.hold(True)
 									else:
 										LB_status.insert(0, 'ERROR - Size of x and y data doesnt match')
+										
+				# Secondary axis
+				if self.secondAx_var.get() == 'ON':
+					sel_datTypeAx2 = list(LB_dat_type_ax2.curselection())
+					if len(sel_datTypeAx2) > 0:
+						if not self.ax2_exists:
+							self.axis2 = self.ax1.twinx()
+							self.ax2_exists = True
+						LB_status.insert(0, 'plotting secondary axis')
+						breakloop = False
+						for i, ydataid in enumerate(self.IDs):
+							if ydataid:
+								for typename in typenames2:
+									found = False
+									message = 'ERROR - Unable to extract data'
+									if typename == 'Current Time':
+										break #jump to next data type
+									if not breakloop:
+										if res.formatVersion == 2: #2015
+											dom = self.Doms[i]
+											#source = self.Source_Att[i].upper()
+											#if (dom == '2D'):
+											#	if typename.upper().find('STRUCTURE FLOWS')>= 0 and source=='QS':
+											#		typename = 'QS'
+											#	elif typename.upper().find('STRUCTURE LEVELS')>= 0 and source=='HU':
+											#		typename = 'HU'
+											#	elif typename.upper().find('STRUCTURE LEVELS')>= 0 and source=='HD':
+											#		typename = 'HD'
+											try:
+												found, ydata, message = res.getTSData(ydataid, dom, typename, 'Geom')
+												xdata = res.times
+											except:
+												LB_status.insert(0, 'ERROR - Extracting results')
+												LB_status.insert(0, 'res = ' + res.displayname)
+												LB_status.insert(0, 'ID: ' + ydataid)
+												LB_status.insert(0, 'i: ' + str(i))
+										else:
+											found = False
+											message = 'Unexpected Format Version:' + str(res.formatVersion)
+										if not found:
+											LB_status.insert(0,message)
+											message = "No data for " + ydataid + " ("+dom+") - " + typename
+											LB_status.insert(0, message)
+										else:
+											if (len(reslist) > 1):
+												label = res.displayname + ": " + ydataid + "("+dom+") - " + typename + " (Axis 2)"
+											else:
+												label = ydataid + " ("+dom+") - " + typename + " (Axis 2)"
+											if len(xdata) == len(ydata):
+												a2, = self.axis2.plot(xdata, ydata, marker='x')
+												artists.append(a2)
+												labels.append(label)
+												#self.axis2.hold(True)
+											else:
+												LB_status.insert(0, 'ERROR - Size of x and y data doesnt match')
 
 		#add "current time"
 		if (typenames.count('Current Time') > 0):
@@ -687,6 +981,63 @@ class TuPLOT():
 				self.ax1.set_ylim([ax1y1, ax1y2])
 			except:
 				LB_status.insert(0, 'Unable to add current time')
+				
+
+		#add median data
+		if calc_median:
+			try:
+				argsort = max_vals.argsort()
+				med_rnk = int(nRes/2) #+1 not requried as python uses 0 rank
+				med_ind = argsort[med_rnk]
+				res = self.res[med_ind]
+				if res.formatVersion == 2:
+					name = res.displayname
+					ydataid  = self.IDs[0] #only works for 1 ID
+					typename = typenames[0] #and 1 data type
+					dom = self.Doms[0]
+					source = self.Source_Att[0].upper()
+					found, ydata, message = res.getTSData(ydataid,dom,typename, 'Geom')
+					if not found:
+						LB_status.insert(0,'ERROR - Extracting median data.')
+					else:
+						xdata = res.times
+						label = 'Median - {0}'.format(name)
+						a, = self.ax1.plot(xdata, ydata,color='black',linewidth=3,linestyle=':')
+						artists.append(a)
+						labels.append(label)
+			except:
+				LB_status.insert(0,'ERROR - Adding Median data, skipping')
+				
+		#add mean data (2017-06-AD)
+		if calc_mean:
+			try:
+				argsort = max_vals.argsort()
+				meanVal = max_vals.mean()
+				ms = numpy.sort(max_vals)
+				if meanAbove:
+					ms_ind = ms.searchsorted(meanVal,side='right')
+				else:
+					ms_ind = (numpy.abs(ms-meanVal)).argmin()
+				mean_ind = argsort[ms_ind]
+				LB_status.insert(0,'Mean value is {0}, rank index is {1}'.format(meanVal, ms_ind+1))
+				res = self.res[mean_ind]
+				if res.formatVersion == 2:
+					name = res.displayname
+					ydataid  = self.IDs[0] #only works for 1 ID
+					typename = typenames[0] #and 1 data type
+					dom = self.Doms[0]
+					source = self.Source_Att[0].upper()
+					found, ydata, message = res.getTSData(ydataid,dom,typename, 'Geom')
+					if not found:
+						LB_status.insert(0,'ERROR - Extracting median data.')
+					else:
+						xdata = res.times
+						label = 'Mean - {0}'.format(name)
+						a, = self.ax1.plot(xdata, ydata,color='blue',linewidth=3,linestyle=':')
+						artists.append(a)
+						labels.append(label)
+			except:
+				LB_status.insert(0,'ERROR - Adding Mean data, skipping')
 
 		#If legend checkbox is on
 		if(self.legend_var.get() == 'ON'): #legend is on:
@@ -700,7 +1051,7 @@ class TuPLOT():
 		#Lb1.insert(END,'loading res')
 		global tpcArg
 		LB_status.insert(0, 'Adding Results')
-		res = TUFLOW_results2016.ResData()
+		res = TUFLOW_results.ResData()
 		if len(tpcArg) < 1: # only used once at beginning if .tpc file is selected in GIS program
 			inFileName = askopenfilename()
 		else:
@@ -877,16 +1228,11 @@ if __name__ == "__main__":
 	
 	root = Tk()
 	frame= ttk.Frame(root, borderwidth=2, relief="ridge")
-	
-	
 	Grid.rowconfigure(root, 0, weight=1)
 	Grid.columnconfigure(root, 0, weight=1)
 	frame.grid(column=0, row=0, sticky=N+S+E+W)
-	
-	root.title("TuPLOT 2017-11-AA (development)")
+	root.title("TuPLOT 2018-03-AB")
 	toolbar_frame = ttk.Frame(root, borderwidth=2, relief="groove")
-	#mainframe = ttk.Frame(root, padding="3 3 12 12")
-	
 	mainframe = ttk.Frame(root, borderwidth=2, relief="groove")
 	mainframe.grid(sticky=N+S+E+W, column=0, row=0)
 	mainframe.rowconfigure(0, weight=1)
@@ -896,38 +1242,17 @@ if __name__ == "__main__":
 	mainframe.columnconfigure(0, weight=1, minsize=60)
 	mainframe.columnconfigure(1, weight=1, minsize=20)
 	mainframe.columnconfigure(2, weight=10, minsize=60)
-	
-	#mainframe.columnconfigure(1, weight=1)
-	#mainframe.rowconfigure(4, weight=1)
 	tp.mainframe = mainframe
 	
+	# Initialise string variables for bindings
 	int_file = StringVar()
 	saveDate = StringVar()
 	saveDate.trace("w", tp.load_int_fname)
 	
-	
-	
-	# display the filename row 0
-	#ttk.Label(mainframe, text="GIS Interface File").grid(column=0, row=0, sticky=N+E)
-	#int_file_disp = ttk.Entry(mainframe, width=40, textvariable=int_file)
-	#int_file_disp.grid(column=1, row=0, sticky=N+W)
-	#ttk.Button(mainframe, text="Set Interface File", command=tp.get_int_fname).grid(column=2, row=0, sticky=N+S+E+W)
-	
-	#row 2 display the contents
-	#ttk.Label(mainframe, text="Status").grid(column=0, row=1, sticky=N+E)
-	#Lb1 = Listbox(mainframe,height=5,selectmode='single') #selectmode options see http://effbot.org/tkinterbook/listbox.htm
-	#Lb1.insert(1,'No interface file loaded yet')
-	#Lb1.grid(column=1, row=1, sticky=N+S+E+W)
-	#ttk.Button(mainframe, text="Load Interface", command=tp.load_int_fname).grid(column=2, row=1, sticky=N+W+E)
-	
-	# row 3 image
-	#img = PhotoImage(file='TUFLOW_RGB_small.png')
-	#ttk.Label(mainframe,image=img).grid(column=0, row=3, columnspan = 3, sticky=W)
-	
 	# row 4 add a graph
 	tp.create_fig()
 	
-	#add tollbar
+	# add toolbar
 	toolbar = NavigationToolbar2TkAgg(tp.canvas, toolbar_frame )
 	toolbar_frame.grid(column=0, row=4, columnspan = 3, sticky=N+S+E+W)
 	tp.canvas.get_tk_widget().grid(column=2, row=2, rowspan=2, sticky=N+S+E+W)
@@ -944,12 +1269,16 @@ if __name__ == "__main__":
 	ttk.Label(vert_frame1, text="Plot Type").grid(column=0, row=4, sticky=N+W, pady=[10,0])
 	tp.create_plot_type_combo(vert_frame1, 5) #create the drob box (frame,position)
 	ttk.Label(vert_frame1, text="Result Variable").grid(column=0, row=6, sticky=N+W, pady=[10,0])
-	LB_dat_type = Listbox(vert_frame1, height=10, selectmode='extended', exportselection=0) #selectmode options see http://effbot.org/tkinterbook/listbox.htm
+	LB_dat_type = Listbox(vert_frame1, height=8, selectmode='extended', exportselection=0) #selectmode options see http://effbot.org/tkinterbook/listbox.htm
 	LB_dat_type.insert(END, 'No results open yet')
 	LB_dat_type.bind("<<ListboxSelect>>", tp.result_variable_changed)
-	#LB_dat_type.insert(END,'Velocities')
 	LB_dat_type.selection_set(0)
 	LB_dat_type.grid(column=0, row=7, sticky=N+S+E+W)
+	LB_dat_type_ax2 = Listbox(vert_frame1, height=6, selectmode='extended', exportselection=0) #selectmode options see http://effbot.org/tkinterbook/listbox.htm
+	LB_dat_type_ax2.bind("<<ListboxSelect>>", tp.result_variable_changed)
+	LB_dat_type_ax2.grid(column=0, row=9, sticky=N+S+E+W)
+	LB_dat_type_ax2.configure(state=DISABLED)
+	tp.add_second_ax_cb(vert_frame1, 8, 0, LB_dat_type_ax2)
 	vert_frame1.columnconfigure(0, weight=1)
 	vert_frame1.rowconfigure(0, weight=0)
 	vert_frame1.rowconfigure(1, weight=1)
@@ -959,24 +1288,35 @@ if __name__ == "__main__":
 	vert_frame1.rowconfigure(5, weight=0)
 	vert_frame1.rowconfigure(6, weight=0)
 	vert_frame1.rowconfigure(7, weight=1)
+	vert_frame1.rowconfigure(8, weight=0)
 	vert_frame1.grid(column=0, row=2, sticky=N+S+E+W)
 	
 	#create 2nd vertical frame for options
 	vert_frame2 = ttk.Frame(mainframe, borderwidth=2, relief="groove")
 	ttk.Label(vert_frame2, text="Selected Elements").grid(column=0, row=0, sticky=N+W)
-	LB_selected = Listbox(vert_frame2, height=5, selectmode='extended', exportselection=0) #selectmode options see http://effbot.org/tkinterbook/listbox.htm
+	LB_selected = Listbox(vert_frame2, height=1, selectmode='extended', exportselection=0) #selectmode options see http://effbot.org/tkinterbook/listbox.htm
 	LB_selected.insert(1, 'Nothing selected or not linked to GIS')
 	LB_selected.grid(column=0, row=1, sticky=N+S+E+W)
-	ttk.Label(vert_frame2, text="Current Time").grid(column=0, row=2, sticky=N+W, pady=[10,0])
+	tp.add_cbMedianRes(vert_frame2, 2, 0)
+	tp.add_cbMeanRes(vert_frame2, 3, 0)
+	meanValue = StringVar()
+	meanAbove = ttk.Radiobutton(vert_frame2, text='Result Above Mean', variable=meanValue, value='meanAbove', command=tp.update_plot).grid(column=0, row=4, sticky=N+S+E+W, padx=[10,0], pady=0)
+	meanClosest = ttk.Radiobutton(vert_frame2, text='Result Closest Mean', variable=meanValue, value='meanClosest', command=tp.update_plot).grid(column=0, row=5, sticky=N+S+E+W, padx=[10,0], pady=0)
+	meanValue.set('meanAbove')
+	ttk.Label(vert_frame2, text="Current Time").grid(column=0, row=6, sticky=N+W, pady=[10,0])
 	LB_time = Listbox(vert_frame2, height=5, selectmode='browse', exportselection=0) #selectmode options see http://effbot.org/tkinterbook/listbox.htm
 	LB_time.bind("<<ListboxSelect>>", tp.current_time_changed) #note lack of () in call to tp.plot_type_changed)
-	LB_time.grid(column=0, row=3, sticky=N+S+E+W)
-	
+	LB_time.grid(column=0, row=7, sticky=N+S+E+W)
+
 	vert_frame2.columnconfigure(0, weight=1)
 	vert_frame2.rowconfigure(0, weight=0)
 	vert_frame2.rowconfigure(1, weight=1)
 	vert_frame2.rowconfigure(2, weight=0)
-	vert_frame2.rowconfigure(3, weight=2)
+	vert_frame2.rowconfigure(3, weight=0)
+	vert_frame2.rowconfigure(4, weight=0)
+	vert_frame2.rowconfigure(5, weight=0)
+	vert_frame2.rowconfigure(6, weight=0)
+	vert_frame2.rowconfigure(7, weight=2)
 	vert_frame2.grid(column=1, row=2,rowspan=1, sticky=N+S+E+W)
 	
 	#create horizontal frame for GIS interface file
@@ -992,10 +1332,10 @@ if __name__ == "__main__":
 	horz_frame1.columnconfigure(3, weight=1,minsize=20)
 	horz_frame1.grid(column=0, row=0, columnspan = 3, sticky=N+S+E+W)
 	
-	# create stats frame
+	# create status frame
 	status_frame = ttk.Frame(mainframe, borderwidth=2, relief="groove")
 	ttk.Label(status_frame, text="Status dialog").grid(column=0, row=4, sticky=N+W,pady=[10,0])
-	LB_status = Listbox(status_frame,height=10, selectmode='single', exportselection=0) #selectmode options see http://effbot.org/tkinterbook/listbox.htm
+	LB_status = Listbox(status_frame,height=6, selectmode='single', exportselection=0) #selectmode options see http://effbot.org/tkinterbook/listbox.htm
 	LB_status.insert(END, 'Started')
 	LB_status.grid(column=0, row=5, sticky=N+S+E+W)
 	ttk.Button(status_frame, text="Clear Status", command=tp.clear_status).grid(column=0, row=6, sticky=N+W+E)
@@ -1016,6 +1356,7 @@ if __name__ == "__main__":
 	RB_leg_ll = ttk.Radiobutton(horz_frame2, text='LL', variable=legend_position, value='lower left', command=tp.legend_status_changed).grid(column=5, row=0, sticky=N+S+E+W)
 	RB_leg_lr = ttk.Radiobutton(horz_frame2, text='LR', variable=legend_position, value='lower right', command=tp.legend_status_changed).grid(column=6, row=0, sticky=N+S+E+W)
 	legend_position.set('best')
+	ttk.Button(horz_frame2, text="Export plot to csv", command=tp.exportCsv).grid(column=7, row=0, sticky=N+W+E)
 	horz_frame2.columnconfigure(0, weight=3, minsize=20)
 	horz_frame2.columnconfigure(1, weight=1, minsize=20)
 	horz_frame2.columnconfigure(2, weight=1, minsize=20)
@@ -1023,8 +1364,8 @@ if __name__ == "__main__":
 	horz_frame2.columnconfigure(4, weight=1, minsize=20)
 	horz_frame2.columnconfigure(5, weight=1, minsize=20)
 	horz_frame2.columnconfigure(6, weight=1, minsize=20)
+	horz_frame2.columnconfigure(7, weight=1, minsize=20)
 	horz_frame2.grid(column=0, row=1, columnspan = 3, sticky=N+S+E+W)
-	
 	
 	# routine to deal with arguments
 	for i, arg in enumerate(sys.argv):
@@ -1041,10 +1382,9 @@ if __name__ == "__main__":
 			for window in openWindows:
 				if window[1] == parentPID:
 					parentHWND = window[0]
-	
+			
 	tp.init_save_date(parentPID, parentHWND)
 	root.lift()
 	root.attributes("-topmost", True) # keeps the window at the top
 	root.mainloop()
 	tp.close_TuPLOT()
-

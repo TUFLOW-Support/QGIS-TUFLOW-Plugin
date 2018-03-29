@@ -145,6 +145,7 @@ class Ui_tuflowqgis_TuPlot(object):
         self.horizontalLayout.addWidget(self.ResTypeList)
         self.ResTypeList_ax2 = QListWidget(self.tab_1)
         self.ResTypeList_ax2.setMaximumSize(QtCore.QSize(75, 300))
+        self.ResTypeList_ax2.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.ResTypeList_ax2.setObjectName(_fromUtf8("ResTypeList_ax2"))
         self.horizontalLayout.addWidget(self.ResTypeList_ax2)
         self.verticalLayout.addLayout(self.horizontalLayout)

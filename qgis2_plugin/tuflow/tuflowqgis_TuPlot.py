@@ -14,7 +14,7 @@ from matplotlib.patches import Polygon
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
 import numpy
 import TUFLOW_results2013
-import TUFLOW_results2016
+import TUFLOW_results
 import TUFLOW_XS
 import math
 from collections import OrderedDict
@@ -50,6 +50,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 		self.is_xs = False
 		self.XS=TUFLOW_XS.XS()
 		self.geom_type = None
+		self.ResTypeList_ax2.setEnabled(False)
 		#self.setAttribute(Qt.WA_DeleteOnClose, True)
 		
 		#colour stuff
@@ -77,11 +78,15 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 		
 	def qgis_connect(self): #2015-04-AA
 		if not self.connected:
+			self.plotWdg.setContextMenuPolicy(Qt.CustomContextMenu)
+			self.plotWdg.customContextMenuRequested.connect(self.showMenu)
 			self.lwStatus.insertItem(0,'Creating QGIS connections')
 			self.lwStatus.item(0).setTextColor(self.qgreen)
 			QObject.connect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layerChanged)
 			QObject.connect(self.locationDrop, SIGNAL("currentIndexChanged(int)"), self.loc_changed)       
-			QObject.connect(self.ResTypeList, SIGNAL("currentRowChanged(int)"), self.res_type_changed) 
+			#QObject.connect(self.ResTypeList, SIGNAL("currentRowChanged(int)"), self.res_type_changed)
+			QObject.connect(self.ResTypeList, SIGNAL("itemClicked(QListWidgetItem*)"), self.res_type_changed)
+			QObject.connect(self.ResTypeList_ax2, SIGNAL("itemClicked(QListWidgetItem*)"), self.res_type_changed)
 			QObject.connect(self.AddRes, SIGNAL("clicked()"), self.add_res)
 			QObject.connect(self.pbAddRes_GIS, SIGNAL("clicked()"), self.add_res_gis)
 			QObject.connect(self.CloseRes, SIGNAL("clicked()"), self.close_res)
@@ -100,6 +105,8 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			QObject.connect(self.cbLegendLR, SIGNAL("stateChanged(int)"), self.LegendLR_pressed)
 			QObject.connect(self.cbMeanAbove, SIGNAL("stateChanged(int)"), self.MeanAbove_pressed)
 			QObject.connect(self.cbMeanClosest, SIGNAL("stateChanged(int)"), self.MeanClosest_pressed)
+			QObject.connect(self.cb2ndAxis, SIGNAL("clicked()"), self.toggle_ax2_listWidget)
+			
 			#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "connecting")
 			#QObject.connect(self, SIGNAL( "destroyed(PyQt_PyObject)" ), self.closeup)
 			#try:
@@ -119,7 +126,9 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			self.lwStatus.item(0).setTextColor(self.qgreen)
 			QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layerChanged)
 			QObject.disconnect(self.locationDrop, SIGNAL("currentIndexChanged(int)"), self.loc_changed)
-			QObject.disconnect(self.ResTypeList, SIGNAL("currentRowChanged(int)"), self.res_type_changed)
+			#QObject.disconnect(self.ResTypeList, SIGNAL("currentRowChanged(int)"), self.res_type_changed)
+			QObject.disconnect(self.ResTypeList, SIGNAL("itemClicked(QListWidgetItem*)"), self.res_type_changed)
+			QObject.disconnect(self.ResTypeList_ax2, SIGNAL("itemClicked(QListWidgetItem*)"), self.res_type_changed)
 			QObject.disconnect(self.AddRes, SIGNAL("clicked()"), self.add_res)
 			QObject.disconnect(self.pbAddRes_GIS, SIGNAL("clicked()"), self.add_res_gis)
 			QObject.disconnect(self.CloseRes, SIGNAL("clicked()"), self.close_res)
@@ -137,6 +146,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			QObject.disconnect(self.cbLegendLR, SIGNAL("stateChanged(int)"), self.LegendLR_pressed)
 			QObject.disconnect(self.cbMeanAbove, SIGNAL("stateChanged(int)"), self.MeanAbove_pressed)
 			QObject.disconnect(self.cbMeanClosest, SIGNAL("stateChanged(int)"), self.MeanClosest_pressed)
+			QObject.disconnect(self.cb2ndAxis, SIGNAL("clicked()"), self.toggle_ax2_listWidget)
 			#QObject.disconnect(self.cbDeactivate, SIGNAL("stateChanged(int)"), self.deactivate_changed)
 			self.lwStatus.insertItem(0,'Disconnected.')
 			self.lwStatus.item(0).setTextColor(self.qgreen)
@@ -369,11 +379,11 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 					self.lwStatus.item(0).setTextColor(self.qred)
 				
 			elif ext.upper()=='.TPC':
-				self.lwStatus.insertItem(0,'.TPC file detected - using TUFLOW_results2016')
+				self.lwStatus.insertItem(0,'.TPC file detected - using TUFLOW_results')
 				self.lwStatus.item(0).setTextColor(self.qgreen)
 				try:
 					#self.lwStatus.insertItem(0,'Loading...')
-					res=TUFLOW_results2016.ResData()
+					res=TUFLOW_results.ResData()
 					error, message = res.Load(inFileNames[x])
 					if error:
 						self.lwStatus.insertItem(0,message)
@@ -431,11 +441,11 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 				#self.lwStatus.insertItem(0,'Not loading.')
 				
 			elif ext.upper()=='.TPC':
-				self.lwStatus.insertItem(0,'.TPC file detected - using TUFLOW_results2016')
+				self.lwStatus.insertItem(0,'.TPC file detected - using TUFLOW_results')
 				self.lwStatus.item(0).setTextColor(self.qgreen)
 				try:
 					#self.lwStatus.insertItem(0,'Loading...')
-					res=TUFLOW_results2016.ResData()
+					res=TUFLOW_results.ResData()
 					error, message = res.Load(inFileName)
 					if error:
 						self.lwStatus.insertItem(0,message)
@@ -447,7 +457,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 		
 		self.update_reslist()
 		
-		#loaad the GIS layers
+		#load the GIS layers
 		if res.GIS.P:
 			if res.Index.nPoints>0: #2017-08-AA added check for data in file
 				fullfile = os.path.join(fpath,res.GIS.P)
@@ -541,9 +551,10 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 		self.ts_types_L = []
 		self.ts_types_R = []
 		tmp_list = []
+		#self.lwStatus.insertItem(0,"res.Types: {0}".format(res.Types))
 		for res in self.res:
 			for restype in res.Types:
-				#self.lwStatus.insertItem(0,'debug: res: '+res.displayname+', type: '+restype)
+				#self.lwStatus.insertItem(0,"restype: {0}".format(restype))
 				restype = restype.replace('1D ','')
 				restype = restype.replace('2D ','')
 				if restype.upper() == 'LINE FLOW':
@@ -558,6 +569,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 					tmp_list.append('DS Levels')
 		
 		#get unique
+		#self.lwStatus.insertItem(0,'tmp_list: {0}'.format(tmp_list))
 		unique_res = list(OrderedDict.fromkeys(tmp_list))
 		for restype in unique_res:
 			#self.lwStatus.insertItem(0,'Debug: '+restype)
@@ -994,8 +1006,10 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 	def timeChanged(self):
 		self.start_draw()
 	def res_type_changed(self):
-		self.lwStatus.insertItem(0,'Result type changed - use Update Plot to Update')
-		self.lwStatus.item(0).setTextColor(self.qgrey)
+		#self.lwStatus.insertItem(0,'Result type changed - use Update Plot to Update')
+		#self.lwStatus.item(0).setTextColor(self.qgrey)
+		#self.lwStatus.insertItem(0,'Current Items are : {0}'.format(self.ResTypeList.selectedItems()[0].text()))
+		self.start_draw()
 
 	def update_pressed(self):
 		self.start_draw()
@@ -1039,6 +1053,46 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			self.ResTypeList.addItem("Adverse Gradients (if any)")
 			self.ResTypeList_ax2.addItem("Time Hmax")
 			
+			for res in self.res:
+				res.LP.connected = False
+				res.LP.static = False
+				if (len(self.IDs)==0):
+					error = True
+					message = 'No features selected - skipping'
+				elif (len(self.IDs)==1):
+					if self.res_version == 1: #2013 version only supports 1D
+						self.Doms.append('1D')
+					if self.Doms[0]=='1D':
+						error, message = res.LP_getConnectivity(self.IDs[0],None)
+					else:
+						error = True
+						message = 'Selected object is not 1D channel - type: '+self.Doms[0]
+				elif (len(self.IDs)==2):
+					if self.res_version == 1: #2013 version only supports 1D
+						self.Doms.append('1D')
+						self.Doms.append('1D')
+					if self.Doms[0]=='1D' and self.Doms[1]=='1D':
+						error, message = res.LP_getConnectivity(self.IDs[0],self.IDs[1])
+					else:
+						error = True
+						message = 'Selected objects are not 1D channels - types: '+self.Doms[0]+' and '+self.Doms[0]
+				else:
+					self.lwStatus.insertItem(0,'WARNING - More than 2 objects selected.  Using only 2.')
+					self.lwStatus.item(0).setTextColor(self.qblue)
+					error, message = res.LP_getConnectivity(self.IDs[0],self.IDs[1])
+				if error:
+					self.lwStatus.insertItem(0,message)
+					self.lwStatus.insertItem(0,'ERROR - Getting LP connectivity')
+					self.lwStatus.item(0).setTextColor(self.qred)
+				else:
+					error, message = res.LP_getStaticData()
+					if error:
+						self.lwStatus.insertItem(0,message)
+					if res.formatVersion > 1:
+						if res.LP.adverseH.nLocs > 0 or res.LP.adverseE.nLocs > 0:
+							self.lwStatus.insertItem(0,'WARNING - Adverse gradients detected along profile')
+							self.lwStatus.item(0).setTextColor(self.qred)
+			
 		else:
 			self.ResTypeList.clear()
 			
@@ -1056,6 +1110,13 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 		item = self.ResTypeList.item(0) # select 1st item by default
 		self.ResTypeList.setItemSelected(item, True)
 		self.start_draw()
+		
+	def toggle_ax2_listWidget(self):
+		
+		if self.cb2ndAxis.isChecked():
+			self.ResTypeList_ax2.setEnabled(True)
+		else:
+			self.ResTypeList_ax2.setEnabled(False)
 
 	def animate_Plot(self):
 		start = True
@@ -1158,7 +1219,9 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 					filenum = filenum.zfill(nWidth)
 					#fname = 'QGIS_LP_'+filenum+'.pdf'
 					fname = 'QGIS_{0}_{1}{2}'.format(fnam_add,filenum,fext)
-					fullpath = os.path.join(self.res[0].fpath,fname)
+					if not os.path.exists(os.path.join(self.res[0].fpath, "animation")):
+						os.mkdir(os.path.join(self.res[0].fpath, "animation"))
+					fullpath = os.path.join(self.res[0].fpath, "animation", fname)
 					self.plotWdg.figure.savefig(fullpath)
 					self.listTime.setItemSelected(item, False)
 				QMessageBox.information(self.iface.mainWindow(), "Information", "Processing Complete")
@@ -1177,7 +1240,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			type = []
 			
 			# Compile of output types
-			#self.lwStatus.insertItem(0,'Current Items are : ', self.ResTypeList.selectedItems())
+			#self.lwStatus.insertItem(0,'Current Items are : {0}'.format(self.ResTypeList.selectedItems()[0].text()))
 			items = self.ResTypeList.selectedItems()
 			for x in range(0, self.ResTypeList.count()):
 				list_item = self.ResTypeList.item(x)
@@ -1251,6 +1314,97 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			self.axis2.cla()
 		except:
 			self.ax2_exists = False
+			
+		
+	def showMenu(self, pos):
+		menu = QMenu(self)
+		exportCsv_action = QAction("Export to csv", menu)
+		QObject.connect(exportCsv_action, SIGNAL("triggered()"), self.export_csv)
+		menu.addAction(exportCsv_action)
+		menu.popup(self.plotWdg.mapToGlobal(pos))
+		
+	def export_csv(self):
+		#QMessageBox.information(self.iface.mainWindow(), "DEBUG", "Export csv!")
+		
+		if self.locationDrop.currentText() == "Timeseries":
+			# Create data headers
+			resultIds = []
+			for i in range(self.IDList.count()):
+				resultId = self.IDList.item(i).text()
+				resultIds.append(resultId)
+			resultTypes = []
+			for i in range(self.ResTypeList.count()):
+				if self.ResTypeList.item(i).isSelected():
+					resultType = self.ResTypeList.item(i).text()
+					resultTypes.append(resultType)
+			dataHeader = ''
+			for resultId in resultIds:
+				for resultType in resultTypes:
+					dataHeader += '{0}_{1},'.format(resultId, resultType)
+		
+			# Get data
+			data = self.subplot.lines[0].get_data()[0]  # write X axis first
+			data = numpy.reshape(data, [len(data), 1])
+			for line in self.subplot.lines:
+				dataY = line.get_data()[1]
+				dataY = numpy.reshape(dataY, [len(dataY), 1])
+				data = numpy.append(data, dataY, axis=1)
+			
+			# Save data out
+			saveFile = QFileDialog.getSaveFileName(self, 'Save File')
+			if saveFile is not None:
+				file = open(saveFile, 'w')
+				file.write('Time (hr),{0}\n'.format(dataHeader))
+				for i, row in enumerate(data):
+					file.write('{0}\n'.format(",".join(map(str, data[i].tolist()))))
+				file.close()
+		
+		elif self.locationDrop.currentText() == 'Long Profile':
+			# Create data headers
+			resultTypes = []
+			for i in range(self.ResTypeList.count()):
+				if self.ResTypeList.item(i).isSelected():
+					resultType = self.ResTypeList.item(i).text()
+					resultTypes.append(resultType)
+			dataHeader = ''
+			for resultType in resultTypes:
+				dataHeader += 'Chainage (m),{0},'.format(resultType)
+
+			# Get data
+			maxLen = 0
+			for line in self.subplot.lines:  # Get max data length so one numpy array can be set up
+				maxLen = max(maxLen, len(line.get_data()[0]))
+			data = numpy.zeros([maxLen, 1]) * numpy.nan
+			for line in self.subplot.lines:
+				lineX = numpy.reshape(line.get_data()[0], [len(line.get_data()[0]), 1])
+				lineY = numpy.reshape(line.get_data()[1], [len(line.get_data()[1]), 1])
+				if len(lineX) < maxLen:  # if data is less than max length, pad with nan values
+					diff = maxLen - len(lineX)
+					fill = numpy.zeros([diff, 1]) * numpy.nan
+					lineX = numpy.append(lineX, fill)
+					lineX = numpy.reshape(lineX, [maxLen, 1])
+					lineY = numpy.append(lineY, fill)
+					lineY = numpy.reshape(lineY, [maxLen, 1])
+				data = numpy.append(data, lineX, axis=1)
+				data = numpy.append(data, lineY, axis=1)
+			data = numpy.delete(data, 0, axis=1)
+
+			# Save data out
+			saveFile = QFileDialog.getSaveFileName(self, 'Save File')
+			if saveFile is not None:
+				file = open(saveFile, 'w')
+				file.write('{0}\n'.format(dataHeader))
+				for i, row in enumerate(data):
+					line = ''
+					for j, value in enumerate(row):
+						if not numpy.isnan(data[i][j]):
+							line += '{0},'.format(data[i][j])
+						else:
+							line += '{0},'.format('')
+					line += '\n'
+					file.write(line)
+				file.close()
+
 
 	def draw_figure(self):
 		self.clear_figure()
@@ -1337,7 +1491,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 						typeids.append(x)
 						typenames.append(list_item.text())
 					#self.lwStatus.insertItem(0,'Debug len(typenames) = ' + str(len(typenames)))
-			
+			#self.lwStatus.insertItem(0,'{0}'.format(typenames))
 			typenames2 = []
 			for x in range(0,self.ResTypeList_ax2.count()):
 				list_item = self.ResTypeList_ax2.item(x)
@@ -1427,7 +1581,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 						
 						# plot max water level
 						if typenames.count('Max Water Level')<>0:
-							a, = self.subplot.plot(res.LP.dist_nodes, res.LP.Hmax)
+							a, = self.subplot.plot(res.LP.dist_chan_inverts, res.LP.Hmax)
 							self.artists.append(a)
 							label = 'Max Water Level'
 							if nRes > 1:
@@ -1443,7 +1597,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 								self.lwStatus.insertItem(0,'Energy output only available in 2015 or newer results')
 							else:
 								if res.LP.Emax:
-									a, = self.subplot.plot(res.LP.dist_nodes, res.LP.Emax)
+									a, = self.subplot.plot(res.LP.dist_chan_inverts, res.LP.Emax)
 									self.artists.append(a)
 									label = 'Max Energy Level'
 									if nRes > 1:
@@ -1470,7 +1624,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 								self.lwStatus.insertItem(0,'ERROR - Extracting temporal data for LP')
 								self.lwStatus.insertItem(0,message)
 							else:
-								a, = self.subplot.plot(res.LP.dist_nodes, res.LP.Hdata)
+								a, = self.subplot.plot(res.LP.dist_chan_inverts, res.LP.Hdata)
 								self.artists.append(a)
 								label = 'Water Level at '+timeStr
 								if nRes > 1:
@@ -1497,7 +1651,7 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 									self.lwStatus.insertItem(0,'ERROR - Extracting temporal data for LP')
 									self.lwStatus.insertItem(0,message)
 								else:
-									a, = self.subplot.plot(res.LP.dist_nodes, res.LP.Edata)
+									a, = self.subplot.plot(res.LP.dist_chan_inverts, res.LP.Edata)
 									self.artists.append(a)
 									label = 'Energy Level at '+timeStr
 									if nRes > 1:

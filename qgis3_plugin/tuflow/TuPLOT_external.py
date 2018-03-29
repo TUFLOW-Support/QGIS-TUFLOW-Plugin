@@ -42,6 +42,7 @@ class TuPLOT(object):
 			sys.path.append(os.path.join(current_path, '_tk\\DLLs'))
 			sys.path.append(os.path.join(current_path, '_tk\\libs'))
 			sys.path.append(os.path.join(current_path, '_tk\\Lib'))
+
 			try:
 				import tkinter
 			except:
@@ -53,6 +54,7 @@ class TuPLOT(object):
 		self.intFile = intFile
 		self.defaultPath = defaultPath
 		
+		
 		# check if TuPLOT is already running, otherwise open dialog and let user select tpc
 		try:
 			poll = self.tpOpen.poll()
@@ -61,10 +63,6 @@ class TuPLOT(object):
 			else:
 				break_statement # break the try statement. 'break' command doesn't seem to work!
 				
-		#####################################################
-		### BELOW SECTION IS DIFFERENT IN ARCGIS AND QGIS ###
-		#####################################################
-		
 		except: # TuPLOT is not running. Open dialog so user can choose .tpc
 			self.tpcFile = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Select TUFLOW Plot Control (.tpc)', self.defaultPath, "TUFLOW Plot Results (*.tpc)")[0]
 			if len(self.tpcFile) < 1:
@@ -73,10 +71,13 @@ class TuPLOT(object):
 			fpath = os.path.dirname(self.tpcFile)
 			self.defaultPath = fpath # next time it will open to this location
 			
+			
+			
+			
 			# Ask user if they want to import gis layers as well
 			alsoOpenGIS = QMessageBox.question(self.iface.mainWindow(), "TuPLOT", 'Do you also want to open result GIS layer?', QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
 			
-			## Add gis layers
+			# Add gis layers
 			if alsoOpenGIS == QMessageBox.Yes:
 				error, message, gisLayers, nPoints, nLines, nRegions = open_gis(self.tpcFile)
 				if error: # something has gone wrong
@@ -98,67 +99,53 @@ class TuPLOT(object):
 								addLayer.triggerRepaint()
 						except:
 							next
-						
-						
-		#################################
-		###// END DIFFERENT SECTION //###
-		#################################
-			
+
 			# specify .int file
 			self.intFile = os.path.splitext(self.tpcFile)[0] + '.int'
 			iterator = 1
 			while os.path.isfile(self.intFile):
 				self.intFile = os.path.splitext(self.tpcFile)[0] + '[' + str(iterator) +']' + '.int'
 				iterator += 1
-		
-		#####################################################
-		### BELOW SECTION IS DIFFERENT IN ARCGIS AND QGIS ###
-		#####################################################
-		
+
 		# write .int file for selected features (if any)
-		#try:
-		cLayer = self.iface.mapCanvas().currentLayer()
-		cSelection = cLayer.selectedFeatures()
-	    
-		# get geometry type for .int file
-		if cLayer and (cLayer.type() == QgsMapLayer.VectorLayer):
-			#geom_type = cLayer.dataProvider().geometryType()
-			geom_type = cLayer.dataProvider().wkbType()
-			if geom_type == 1:
-				geom_type = 'Point'
-				valid = True
-			elif (geom_type == 5):
-				geom_type = 'Line'
-				valid = True
-			elif (geom_type == 6):
-				geom_type = 'Region'
-			else:
-				message = "Unexpected input geometry."
-		else:
-			message = "Invalid layer or no layer selected"
-		
-		# get attributes for .int file
-		attributes = []
 		try:
-			for feature in cSelection:
-				try:
-					attribute = []
-					featureID = feature['ID'].strip()
-					attribute.append(feature['ID'].strip())
-					attribute.append(feature['Type'].strip())
-					attribute.append(feature['Source'].strip())
-					attributes.append(attribute)
-				except:
-					warning = True #suppress the warning below, most likely due to a "X" type channel or blank name
-		except:
-			message = 'Not a valid TUFLOW result file layer.'
-		create_int(self.intFile, geom_type, attributes)
-		#except: # no features selected
-		#	create_int(self.intFile, "", [])
-		
-		#################################
-		###// END DIFFERENT SECTION //###
-		#################################
+			cLayer = self.iface.mapCanvas().currentLayer()
+			cSelection = cLayer.selectedFeatures()
+			
+			# get geometry type for .int file
+			if cLayer and (cLayer.type() == QgsMapLayer.VectorLayer):
+				geom_type = cLayer.geometryType()
+				if geom_type == 0:
+					geom_type = 'Point'
+					valid = True
+				elif geom_type == 1:
+					geom_type = 'Line'
+					valid = True
+				elif geom_type == 2:
+					geom_type = 'Region'
+				else:
+					message = "Unexpected input geometry."
+			else:
+				message = "Invalid layer or no layer selected"
+			
+			# get attributes for .int file
+			attributes = []
+			try:
+				for feature in cSelection:
+					try:
+						attribute = []
+						featureID = feature['ID'].strip()
+						attribute.append(feature['ID'].strip())
+						attribute.append(feature['Type'].strip())
+						attribute.append(feature['Source'].strip())
+						attributes.append(attribute)
+					except:
+						warning = True #suppress the warning below, most likely due to a "X" type channel or blank name
+			except:
+				message = 'Not a valid TUFLOW result file layer.'
+			create_int(self.intFile, geom_type, attributes)
+		except: # no features selected
+			create_int(self.intFile, "", [])
 		
 		# open tkinter program
 		try:
@@ -173,10 +160,9 @@ class TuPLOT(object):
 			try: # tpLocation not defined, but left in to be consistent with ArcGIS version
 				tpArgs = ['python3', tpLocation, self.intFile, self.tpcFile, pid]
 			except:
-				tpArgs = ['python3', os.path.join(current_path, 'tkinter_tuPlot_py36.py'), self.intFile, self.tpcFile, pid]
+				tpArgs = ['python3', os.path.join(current_path, 'tkinter_tuplot.py'), self.intFile, self.tpcFile, pid]
 			CREATE_NO_WINDOW = 0x08000000 # suppresses python console window
 			self.tpOpen = Popen(tpArgs, creationflags=CREATE_NO_WINDOW)
-			#self.tpOpen = Popen(tpArgs)
 			return self.tpOpen, self.intFile, self.defaultPath
 			
 class MyValidatorTpc(object): # relevant in ArcGIS only

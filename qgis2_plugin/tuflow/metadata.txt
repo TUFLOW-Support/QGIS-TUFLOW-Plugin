@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW modelling in QGIS.
 	Includes visualisation of results / inputs
 	Editing tools
 	Styling tools
-version=1.4.0
+version=1.5
 author=Phillip Ryan, Ellis Symons
 email=support@tuflow.com
 
@@ -20,10 +20,14 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=Fixed bug with display name when importing in empty files or incrementing layer
-	Added layer formatting when importing TUPLOT GIS layers
-	Added layer formatting for MIF files (Check file utilities)
-	New TUPLOT external tool (beta)
+changelog=New tool add TUFLOW attributes to an existing GIS layer
+          New tool quick label
+          Added new formats to Styling utility on other TUFLOW layers
+          Added new empty file types to import utility
+          Added various new signal handling to TUPLOT
+          Added PO Region timeseries to TUPLOT
+          Added right-click "Export to csv" to TUPLOT
+          Fix bug with losing empty directory in import empty tool when canceling browse          
 
 # tags are comma separated with spaces allowed
 tags=TUFLOW	
