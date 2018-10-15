@@ -1,0 +1,978 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>tuflowqgis_BridgeEditor</class>
+ <widget class="QDockWidget" name="tuflowqgis_BridgeEditor">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>943</width>
+    <height>833</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Bridge Editor</string>
+  </property>
+  <widget class="QWidget" name="dockWidgetContents">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <property name="sizeConstraint">
+     <enum>QLayout::SetDefaultConstraint</enum>
+    </property>
+    <item>
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="autoFillBackground">
+       <bool>true</bool>
+      </property>
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="tab">
+       <attribute name="title">
+        <string>Geometry</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <layout class="QVBoxLayout" name="bridgeEditor_Layout" stretch="7,15,2">
+          <item>
+           <layout class="QHBoxLayout" name="bridgeProperties" stretch="0,5">
+            <item>
+             <layout class="QGridLayout" name="bridgeInputs" rowstretch="0,0,0,0,0,0,0,0,0,0,0,0,0" columnstretch="10,0,0,0,0,0">
+              <item row="1" column="0" rowspan="2">
+               <widget class="QLabel" name="label_5">
+                <property name="text">
+                 <string>DEM</string>
+                </property>
+               </widget>
+              </item>
+              <item row="5" column="0">
+               <widget class="QLabel" name="label_10">
+                <property name="text">
+                 <string>Deck Thickness (m)</string>
+                </property>
+               </widget>
+              </item>
+              <item row="12" column="0">
+               <widget class="QLabel" name="label_2">
+                <property name="text">
+                 <string>Zsh Line Width (m)</string>
+                </property>
+               </widget>
+              </item>
+              <item row="11" column="0" colspan="5">
+               <widget class="QLabel" name="label">
+                <property name="font">
+                 <font>
+                  <weight>75</weight>
+                  <bold>true</bold>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>Z Shape Properties</string>
+                </property>
+               </widget>
+              </item>
+              <item row="6" column="0">
+               <widget class="QLabel" name="label_6">
+                <property name="text">
+                 <string>Hand Rail Height (m)</string>
+                </property>
+               </widget>
+              </item>
+              <item row="8" column="0">
+               <widget class="QLabel" name="label_8">
+                <property name="text">
+                 <string>Number of Piers</string>
+                </property>
+               </widget>
+              </item>
+              <item row="8" column="1">
+               <widget class="QSpinBox" name="pierNo"/>
+              </item>
+              <item row="9" column="1">
+               <widget class="QDoubleSpinBox" name="pierWidth"/>
+              </item>
+              <item row="10" column="0">
+               <widget class="QLabel" name="label_12">
+                <property name="text">
+                 <string>Pier Shape (see pier type tab)</string>
+                </property>
+               </widget>
+              </item>
+              <item row="10" column="1">
+               <widget class="QComboBox" name="pierShape">
+                <item>
+                 <property name="text">
+                  <string>1</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>2</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>3</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>4</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>5</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>6</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>7</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>8</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+              <item row="9" column="0">
+               <widget class="QLabel" name="label_9">
+                <property name="text">
+                 <string>Pier Thickness (m)</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="label_11">
+                <property name="font">
+                 <font>
+                  <weight>75</weight>
+                  <bold>true</bold>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>Deck</string>
+                </property>
+               </widget>
+              </item>
+              <item row="7" column="0">
+               <widget class="QLabel" name="label_7">
+                <property name="font">
+                 <font>
+                  <weight>75</weight>
+                  <bold>true</bold>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>Piers</string>
+                </property>
+               </widget>
+              </item>
+              <item row="6" column="5">
+               <widget class="QSpinBox" name="handRailBlockage"/>
+              </item>
+              <item row="6" column="2">
+               <widget class="QLabel" name="label_33">
+                <property name="text">
+                 <string>Hand Rail FLC</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="5" rowspan="2">
+               <widget class="QPushButton" name="pbUseMapWindowSel">
+                <property name="text">
+                 <string>Existing Layer</string>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>15</width>
+                  <height>15</height>
+                 </size>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1" rowspan="2" colspan="3">
+               <widget class="QComboBox" name="demComboBox"/>
+              </item>
+              <item row="0" column="0">
+               <widget class="QLabel" name="label_32">
+                <property name="text">
+                 <string>Bridge Name (Optional)</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1" colspan="4">
+               <widget class="QLineEdit" name="bridgeName"/>
+              </item>
+              <item row="12" column="1">
+               <widget class="QDoubleSpinBox" name="zLineWidth"/>
+              </item>
+              <item row="4" column="1">
+               <widget class="QDoubleSpinBox" name="deckElevationBottom">
+                <property name="maximum">
+                 <double>99999.000000000000000</double>
+                </property>
+               </widget>
+              </item>
+              <item row="6" column="4">
+               <widget class="QLabel" name="label_16">
+                <property name="text">
+                 <string>Hand Rail Blockage</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="6" column="3">
+               <widget class="QDoubleSpinBox" name="handRailFlc"/>
+              </item>
+              <item row="4" column="5">
+               <widget class="QRadioButton" name="rbDrowned">
+                <property name="text">
+                 <string>Drowned</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="6" column="1">
+               <widget class="QDoubleSpinBox" name="handRailDepth"/>
+              </item>
+              <item row="4" column="3" rowspan="2" colspan="2">
+               <widget class="QLabel" name="label_17">
+                <property name="text">
+                 <string>Flow at Deck</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1" colspan="2">
+               <widget class="QPushButton" name="pbUpdateDeckData">
+                <property name="text">
+                 <string>Update Deck Data</string>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="0">
+               <widget class="QLabel" name="label_13">
+                <property name="text">
+                 <string>Deck Elevation (Bottom) m RL</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="4" rowspan="2">
+               <widget class="QPushButton" name="pbDrawXsection">
+                <property name="text">
+                 <string>Draw XSection</string>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>15</width>
+                  <height>15</height>
+                 </size>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="5">
+               <widget class="QPushButton" name="pbSaveFile">
+                <property name="text">
+                 <string>Save</string>
+                </property>
+               </widget>
+              </item>
+              <item row="5" column="1">
+               <widget class="QDoubleSpinBox" name="deckThickness"/>
+              </item>
+              <item row="5" column="5">
+               <widget class="QRadioButton" name="rbUnderPressure">
+                <property name="text">
+                 <string>Under Pressure</string>
+                </property>
+               </widget>
+              </item>
+              <item row="7" column="1" colspan="2">
+               <widget class="QPushButton" name="pbUpdatePierData">
+                <property name="text">
+                 <string>Update Pier Data</string>
+                </property>
+               </widget>
+              </item>
+              <item row="8" column="5">
+               <widget class="QDoubleSpinBox" name="pierWidthLeft">
+                <property name="minimum">
+                 <double>-99999.000000000000000</double>
+                </property>
+                <property name="maximum">
+                 <double>999999.000000000000000</double>
+                </property>
+               </widget>
+              </item>
+              <item row="9" column="4">
+               <widget class="QLabel" name="label_34">
+                <property name="text">
+                 <string>Gap between Piers (m)</string>
+                </property>
+               </widget>
+              </item>
+              <item row="9" column="5">
+               <widget class="QDoubleSpinBox" name="pierGap">
+                <property name="maximum">
+                 <double>99999.000000000000000</double>
+                </property>
+               </widget>
+              </item>
+              <item row="8" column="3" colspan="2">
+               <widget class="QLabel" name="label_14">
+                <property name="text">
+                 <string>Width From Left (First Pier) (m)</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="12" column="3" colspan="3">
+               <widget class="QCheckBox" name="enforceInTerrain">
+                <property name="text">
+                 <string>Enforce Cross Section in Zpts</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="4">
+               <widget class="QPushButton" name="pbClearXsection">
+                <property name="text">
+                 <string>Clear XSection</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QGridLayout" name="bridgeTables">
+              <item row="0" column="0">
+               <widget class="QTabWidget" name="tabWidget_2">
+                <property name="currentIndex">
+                 <number>0</number>
+                </property>
+                <widget class="QWidget" name="tab_6">
+                 <attribute name="title">
+                  <string>XSection</string>
+                 </attribute>
+                 <layout class="QGridLayout" name="gridLayout_6" columnstretch="10,2">
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="label_40">
+                    <property name="text">
+                     <string>Row Count</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <widget class="QSpinBox" name="xSectionRowCount">
+                    <property name="maximum">
+                     <number>99999</number>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="0" colspan="2">
+                   <widget class="QTableWidget" name="xSectionTable">
+                    <property name="font">
+                     <font>
+                      <pointsize>7</pointsize>
+                     </font>
+                    </property>
+                    <property name="columnCount">
+                     <number>2</number>
+                    </property>
+                    <column>
+                     <property name="text">
+                      <string>Offset</string>
+                     </property>
+                    </column>
+                    <column>
+                     <property name="text">
+                      <string>Elevation</string>
+                     </property>
+                    </column>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+                <widget class="QWidget" name="tab_8">
+                 <attribute name="title">
+                  <string>Deck Bottom</string>
+                 </attribute>
+                 <layout class="QGridLayout" name="gridLayout_9" columnstretch="10,2">
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="label_41">
+                    <property name="text">
+                     <string>Row Count</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <widget class="QSpinBox" name="deckRowCount">
+                    <property name="maximum">
+                     <number>99999</number>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="0" colspan="2">
+                   <widget class="QTableWidget" name="deckTable">
+                    <property name="font">
+                     <font>
+                      <pointsize>7</pointsize>
+                     </font>
+                    </property>
+                    <property name="columnCount">
+                     <number>2</number>
+                    </property>
+                    <column>
+                     <property name="text">
+                      <string>Offset</string>
+                     </property>
+                    </column>
+                    <column>
+                     <property name="text">
+                      <string>Elevation</string>
+                     </property>
+                    </column>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+                <widget class="QWidget" name="tab_7">
+                 <attribute name="title">
+                  <string>Piers (CL)</string>
+                 </attribute>
+                 <layout class="QGridLayout" name="gridLayout_8" columnstretch="10,2">
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="label_42">
+                    <property name="text">
+                     <string>Row Count</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <widget class="QSpinBox" name="pierRowCount">
+                    <property name="maximum">
+                     <number>99999</number>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="0" colspan="2">
+                   <widget class="QTableWidget" name="pierTable">
+                    <property name="font">
+                     <font>
+                      <pointsize>7</pointsize>
+                     </font>
+                    </property>
+                    <property name="columnCount">
+                     <number>1</number>
+                    </property>
+                    <column>
+                     <property name="text">
+                      <string>Offset</string>
+                     </property>
+                    </column>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QGridLayout" name="gridLayout_3">
+            <item row="0" column="0">
+             <widget class="QFrame" name="frame_for_plot_2">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>150</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="frameShape">
+               <enum>QFrame::StyledPanel</enum>
+              </property>
+              <property name="frameShadow">
+               <enum>QFrame::Raised</enum>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_10">
+               <property name="rightMargin">
+                <number>9</number>
+               </property>
+               <item>
+                <layout class="QGridLayout" name="gridLayout_5">
+                 <item row="0" column="0">
+                  <widget class="QPushButton" name="pbUpdate">
+                   <property name="text">
+                    <string>UPDATE PLOT</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="1">
+                  <widget class="QCheckBox" name="cbShowLegend_2">
+                   <property name="text">
+                    <string>Legend</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="2">
+                  <widget class="QCheckBox" name="cbLegendUL_2">
+                   <property name="text">
+                    <string>UL</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="3">
+                  <widget class="QCheckBox" name="cbLegendUR_2">
+                   <property name="text">
+                    <string>UR</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="4">
+                  <widget class="QCheckBox" name="cbLegendLL_2">
+                   <property name="text">
+                    <string>LL</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="5">
+                  <widget class="QCheckBox" name="cbLegendLR_2">
+                   <property name="text">
+                    <string>LR</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QGridLayout" name="gridLayout_7" columnstretch="10,2">
+            <item row="0" column="0">
+             <widget class="QFrame" name="frame_for_toolbar">
+              <property name="frameShape">
+               <enum>QFrame::StyledPanel</enum>
+              </property>
+              <property name="frameShadow">
+               <enum>QFrame::Raised</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLabel" name="statusLabel">
+              <property name="text">
+               <string>Status: Successful</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tab_2">
+       <attribute name="title">
+        <string>Output</string>
+       </attribute>
+       <widget class="QWidget" name="gridLayoutWidget_2">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>645</width>
+          <height>595</height>
+         </rect>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_4">
+         <item row="16" column="0">
+          <widget class="QLabel" name="label_30">
+           <property name="text">
+            <string>Empty Directory</string>
+           </property>
+          </widget>
+         </item>
+         <item row="13" column="0">
+          <widget class="QLabel" name="label_4">
+           <property name="text">
+            <string>Layer 3 FLC</string>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="1">
+          <widget class="QLineEdit" name="layer1Block"/>
+         </item>
+         <item row="20" column="0" colspan="2">
+          <widget class="QPushButton" name="pbCreateLayer">
+           <property name="text">
+            <string>Auto Create 2d_lfcsh layer</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_3">
+           <property name="text">
+            <string>Invert</string>
+           </property>
+          </widget>
+         </item>
+         <item row="21" column="0" colspan="2">
+          <widget class="QPushButton" name="pbUpdateLayer">
+           <property name="text">
+            <string>Update Existing 2d_lfcsh layer with new bridge / attributes</string>
+           </property>
+          </widget>
+         </item>
+         <item row="15" column="0">
+          <widget class="QLabel" name="label_29">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0">
+          <widget class="QLabel" name="label_25">
+           <property name="text">
+            <string>Shape Options</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QLineEdit" name="dz"/>
+         </item>
+         <item row="10" column="0">
+          <widget class="QLabel" name="label_28">
+           <property name="text">
+            <string>Layer 2 FLC</string>
+           </property>
+          </widget>
+         </item>
+         <item row="7" column="1">
+          <widget class="QLineEdit" name="layer1Flc"/>
+         </item>
+         <item row="8" column="0">
+          <widget class="QLabel" name="label_19">
+           <property name="text">
+            <string>Layer 2 Depth</string>
+           </property>
+          </widget>
+         </item>
+         <item row="13" column="1">
+          <widget class="QLineEdit" name="layer3Flc"/>
+         </item>
+         <item row="9" column="1">
+          <widget class="QLineEdit" name="layer2Block"/>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="label_24">
+           <property name="text">
+            <string>Shape Width</string>
+           </property>
+          </widget>
+         </item>
+         <item row="12" column="0">
+          <widget class="QLabel" name="label_27">
+           <property name="text">
+            <string>Layer 3 % Blockage</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="QLineEdit" name="shapeWidth"/>
+         </item>
+         <item row="22" column="0" colspan="2">
+          <widget class="QPushButton" name="pbIncrementLayer">
+           <property name="text">
+            <string>Increment and Update Existing 2d_lfcsh layer</string>
+           </property>
+          </widget>
+         </item>
+         <item row="7" column="0">
+          <widget class="QLabel" name="label_20">
+           <property name="text">
+            <string>Layer 1 FLC</string>
+           </property>
+          </widget>
+         </item>
+         <item row="11" column="1">
+          <widget class="QLineEdit" name="layer3Depth"/>
+         </item>
+         <item row="4" column="1">
+          <widget class="QLineEdit" name="shapeOptions"/>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLineEdit" name="invert"/>
+         </item>
+         <item row="0" column="0">
+          <widget class="QPushButton" name="pbUpdateAttributes">
+           <property name="text">
+            <string>Update</string>
+           </property>
+          </widget>
+         </item>
+         <item row="12" column="1">
+          <widget class="QLineEdit" name="layer3Block"/>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_23">
+           <property name="text">
+            <string>dZ</string>
+           </property>
+          </widget>
+         </item>
+         <item row="9" column="0">
+          <widget class="QLabel" name="label_18">
+           <property name="text">
+            <string>Layer 2 % Blockage</string>
+           </property>
+          </widget>
+         </item>
+         <item row="8" column="1">
+          <widget class="QLineEdit" name="layer2Depth"/>
+         </item>
+         <item row="5" column="0">
+          <widget class="QLabel" name="label_22">
+           <property name="text">
+            <string>Layer 1 Obvert</string>
+           </property>
+          </widget>
+         </item>
+         <item row="11" column="2">
+          <widget class="QLabel" name="label_37">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item row="11" column="0">
+          <widget class="QLabel" name="label_26">
+           <property name="text">
+            <string>Layer 3 Depth</string>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="2">
+          <widget class="QLabel" name="label_35">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="1">
+          <widget class="QLineEdit" name="layer1Obv"/>
+         </item>
+         <item row="7" column="2">
+          <widget class="QLabel" name="label_31">
+           <property name="text">
+            <string>Based on Hydraulics of Bridge Waterways (FHWA, 1978)</string>
+           </property>
+          </widget>
+         </item>
+         <item row="8" column="2">
+          <widget class="QLabel" name="label_36">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item row="14" column="1">
+          <widget class="QLineEdit" name="comment"/>
+         </item>
+         <item row="14" column="0">
+          <widget class="QLabel" name="label_38">
+           <property name="text">
+            <string>Comment</string>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="0">
+          <widget class="QLabel" name="label_21">
+           <property name="text">
+            <string>Layer 1 % Blockage</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="2">
+          <widget class="QLabel" name="label_44">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item row="10" column="1">
+          <widget class="QLineEdit" name="layer2Flc"/>
+         </item>
+         <item row="19" column="0" colspan="2">
+          <widget class="QLineEdit" name="runId"/>
+         </item>
+         <item row="18" column="0" colspan="2">
+          <widget class="QLabel" name="label_43">
+           <property name="text">
+            <string>Run ID</string>
+           </property>
+          </widget>
+         </item>
+         <item row="16" column="1">
+          <widget class="QPushButton" name="pbBrowse">
+           <property name="text">
+            <string>Browse</string>
+           </property>
+          </widget>
+         </item>
+         <item row="17" column="0" colspan="3">
+          <widget class="QLineEdit" name="emptydir"/>
+         </item>
+        </layout>
+       </widget>
+      </widget>
+      <widget class="QWidget" name="tab_3">
+       <attribute name="title">
+        <string>Pier Arrangement Types</string>
+       </attribute>
+       <widget class="QWidget" name="gridLayoutWidget_3">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>698</width>
+          <height>622</height>
+         </rect>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_2">
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_39">
+           <property name="text">
+            <string>AustRoads 2018 - Incremental Backwater Coefficient for Piers</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_15">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="pixmap">
+            <pixmap resource="bridge_piers_AustRoads2018.qrc">:/newPrefix/bridge_piers_AustRoads2018.PNG</pixmap>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </widget>
+      <widget class="QWidget" name="tab_4">
+       <attribute name="title">
+        <string>Status Log</string>
+       </attribute>
+       <widget class="QWidget" name="gridLayoutWidget">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>531</width>
+          <height>391</height>
+         </rect>
+        </property>
+        <layout class="QGridLayout" name="gridLayout">
+         <item row="0" column="0">
+          <widget class="QListWidget" name="statusLog"/>
+         </item>
+        </layout>
+       </widget>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <tabstops>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>bridgeName</tabstop>
+  <tabstop>pbSaveFile</tabstop>
+  <tabstop>demComboBox</tabstop>
+  <tabstop>pbDrawXsection</tabstop>
+  <tabstop>pbUseMapWindowSel</tabstop>
+  <tabstop>pbUpdateDeckData</tabstop>
+  <tabstop>deckElevationBottom</tabstop>
+  <tabstop>deckThickness</tabstop>
+  <tabstop>handRailDepth</tabstop>
+  <tabstop>handRailFlc</tabstop>
+  <tabstop>handRailBlockage</tabstop>
+  <tabstop>pbUpdatePierData</tabstop>
+  <tabstop>pierNo</tabstop>
+  <tabstop>pierWidth</tabstop>
+  <tabstop>pierWidthLeft</tabstop>
+  <tabstop>pierGap</tabstop>
+  <tabstop>pierShape</tabstop>
+  <tabstop>zLineWidth</tabstop>
+  <tabstop>rbDrowned</tabstop>
+  <tabstop>rbUnderPressure</tabstop>
+  <tabstop>tabWidget_2</tabstop>
+  <tabstop>pierTable</tabstop>
+  <tabstop>pbUpdate</tabstop>
+  <tabstop>cbShowLegend_2</tabstop>
+  <tabstop>cbLegendUL_2</tabstop>
+  <tabstop>cbLegendUR_2</tabstop>
+  <tabstop>cbLegendLL_2</tabstop>
+  <tabstop>cbLegendLR_2</tabstop>
+  <tabstop>deckTable</tabstop>
+  <tabstop>xSectionTable</tabstop>
+  <tabstop>layer1Block</tabstop>
+  <tabstop>emptydir</tabstop>
+  <tabstop>invert</tabstop>
+  <tabstop>layer1Obv</tabstop>
+  <tabstop>shapeWidth</tabstop>
+  <tabstop>layer3Flc</tabstop>
+  <tabstop>layer2Flc</tabstop>
+  <tabstop>layer3Block</tabstop>
+  <tabstop>layer1Flc</tabstop>
+  <tabstop>shapeOptions</tabstop>
+  <tabstop>dz</tabstop>
+  <tabstop>layer3Depth</tabstop>
+  <tabstop>pbCreateLayer</tabstop>
+  <tabstop>layer2Block</tabstop>
+  <tabstop>layer2Depth</tabstop>
+  <tabstop>pbUpdateAttributes</tabstop>
+  <tabstop>pbUpdateLayer</tabstop>
+  <tabstop>pbIncrementLayer</tabstop>
+  <tabstop>statusLog</tabstop>
+ </tabstops>
+ <resources>
+  <include location="bridge_piers_AustRoads2018.qrc"/>
+ </resources>
+ <connections/>
+</ui>

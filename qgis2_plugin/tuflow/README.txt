@@ -1,6 +1,10 @@
 
 1. To install:
 
+  These plugins are currently only available for QGIS 1.8, we are working on updating these to QGIS 2.0. As part of the QGIS 
+  install python should already be installed on your machine.
+  software to be installed.
+
   To enable please save the .zip file to your QGIS plugin directory and then unzip.  This should be here:
   C:\Users\<username>\.qgis2\python\plugins\ (for QGIS 2.0 and later)
 

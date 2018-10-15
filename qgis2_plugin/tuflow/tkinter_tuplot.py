@@ -6,6 +6,7 @@
 
 import os
 import sys
+import ctypes
 current_path = os.path.dirname(__file__)
 pythonV = sys.version_info[0]
 
@@ -101,17 +102,19 @@ class TuPLOT():
 		self.windowStatus = str(GetWindowPlacement(self.HWND).showCmd)  # get status of tuplot window(minimized or not minimized)
 		self.parentPID = parentPID  # process ID of parent process (QGIS or ArcGIS)
 		self.parentHWND = parentHWND  # window handler ID of parent process (QGIS or ArcGIS)
+		user32 = ctypes.windll.LoadLibrary('user32.dll')
+		user32.SetParent(self.HWND, self.parentHWND)
 		self.parentWindowStatus = str(GetWindowPlacement(self.parentHWND).showCmd)  # get status of parent window (minimized or not minimized)
 		tp.polling_routine()  # start polling routine that monitors a number of parameters
 
 			
 	def polling_routine(self):
 		"""This function monitors:
-					parent process PID in open applications - check if it's still running
-					parent window status - whether it is minimised or not
-					tuplot window status - whether user has minimized it, or is minimised because parent process has been minimised
-					iterface file save date - check if it has been changed
-					"""
+		parent process PID in open applications - check if it's still running
+		parent window status - whether it is minimised or not
+		tuplot window status - whether user has minimized it, or is minimised because parent process has been minimised
+		iterface file save date - check if it has been changed
+		"""
 		open_pids = list_pids()  # obtain list of process id of programs that are open
 		if self.parentPID in open_pids:  # check if parent pid is in list of open programs
 			# parent process still running so check save date of .int file

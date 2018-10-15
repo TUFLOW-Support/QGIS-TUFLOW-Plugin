@@ -655,7 +655,11 @@ class ChanInfo():
 				self.chan_Length.append(float(row[7]))
 				self.chan_FormLoss.append(float(row[8]))
 				self.chan_n.append(float(row[9]))
-				self.chan_slope.append(float(row[10]))
+				try:
+					self.chan_slope.append(float(row[10]))
+				except:  # tuflow outputs ******* when slope is really steep (>100%) so calculate slope manually
+					slope = ( float(row[11]) - float(row[12]) ) / float(row[7]) * 100.0  # in percentage
+					self.chan_slope.append(slope)
 				self.chan_US_Inv.append(float(row[11]))
 				self.chan_DS_Inv.append(float(row[12]))
 				self.chan_LBUS_Obv.append(float(row[13]))
@@ -1435,12 +1439,12 @@ class ResData():
 				error = True
 				message = 'ERROR - No energy level data loaded.'
 				return error, message
-			for h_ind in self.LP.H_nd_index:
+			for i, h_ind in enumerate(self.LP.H_nd_index):
 				if i == 0:
-					self.LP.Edata.append(self.Data_1D.E.Values[t_ind,h_ind])
+					self.LP.Edata.append(max(self.Data_1D.E.Values[t_ind,h_ind], self.LP.chan_inv[2*i]))
 				elif i < len(self.LP.H_nd_index) - 1:
 					self.LP.Edata.append(max(self.Data_1D.E.Values[t_ind,h_ind], self.LP.chan_inv[2*i-1]))
-					self.LP.Edata.append(self.Data_1D.E.Values[t_ind,h_ind])
+					self.LP.Edata.append(max(self.Data_1D.E.Values[t_ind,h_ind], self.LP.chan_inv[2*i]))
 				else:
 					self.LP.Edata.append(max(self.Data_1D.E.Values[t_ind,h_ind], self.LP.chan_inv[2*i-1]))
 		else:
@@ -1564,9 +1568,19 @@ class ResData():
 			elif (dat_type=='Reporting Location Regions Volumes'):
 				if rdata != 'NONE':
 					fullpath = os.path.join(self.fpath,rdata)
-					error, message = self.Data_RL.Vol_R.Load(fullpath,'Q',self.displayname)
+					error, message = self.Data_RL.Vol_R.Load(fullpath,'Vol',self.displayname)
 					if error:
 						return error, message
+					self.nTypes = self.nTypes + 1
+					self.Types.append('2D Region Volume')
+					try:
+						chk_nLocs = self.Data_RL.nRegion
+						if (chk_nLocs != self.Data_RL.Vol_R.nLocs):
+							message = 'ERROR - number of locations in .csv doesn''t match value in .tpc'
+							error = True
+							return error, message
+					except:
+						print('WARNING - Unable to extact number of values in .tpc file entry')
 			elif (dat_type=='1D Node Maximums'):
 				if rdata != 'NONE':
 					fullpath = os.path.join(self.fpath,rdata[2:])

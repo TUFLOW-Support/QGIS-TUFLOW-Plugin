@@ -28,13 +28,23 @@ from PyQt4.QtGui import *
 from qgis.core import *
 import processing
 import glob
+from datetime import datetime, timedelta
 from tuflowqgis_library import *
+from tuflowqgis_TuPlot import *
+import TUFLOW_longprofile
 
 import sys
 import subprocess
-#sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/forms")
+sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/forms")
 currentFolder = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(currentFolder, 'forms'))
+
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2018.2\debug-eggs')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2018.2\helpers\pydev')
+
+
+sys.path.append(r'C:\Users\Ellis\.p2\pool\plugins\org.python.pydev.core_6.3.2.201803171248\pysrc')
+
 
 # ----------------------------------------------------------
 #    tuflowqgis increment selected layer
@@ -53,6 +63,7 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		fname = ''
 		fpath = None
 		self.curr_file = None
+		self.outname = None
 		
 		if cLayer:
 			cName = cLayer.name()
@@ -125,8 +136,11 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		layer = tuflowqgis_find_layer(layername)
 		outname = unicode(self.outfilename.displayText()).strip()
 		if not outname[-4:].upper() == '.SHP':
+			self.outname = outname
 			outname = outname+'.shp'
 			QMessageBox.information( self.iface.mainWindow(),"Information", "Appending .shp to filename.")
+		else:
+			self.outname = outname[:-4]
 		outfolder = unicode(self.outfolder.displayText()).strip()
 		savename = os.path.join(outfolder,outname)
 		if savename == self.curr_file:
@@ -161,10 +175,12 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		if error:
 			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Settings: "+message)
 		
-		
-		if self.tfsettings.combined.base_dir:
-			#self.emptydir.setText(self.tfsettings.combined.base_dir+"\\TUFLOW\\model\\gis\\empty")
-			self.emptydir.setText(os.path.join(self.tfsettings.combined.base_dir,"TUFLOW","model","gis","empty"))
+		basepath = self.tfsettings.combined.base_dir
+		if basepath:
+			path_split = basepath.split('\\')
+			if path_split[-1].lower() == 'tuflow':
+				basepath = '\\'.join(path_split[:-1])
+			self.emptydir.setText(os.path.join(basepath,"TUFLOW","model","gis","empty"))
 		else:
 			self.emptydir.setText("ERROR - Project not loaded")
 		
@@ -353,8 +369,8 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 	def browse_outfile(self):
 		newname = QFileDialog.getSaveFileName(None, "Output Shapefile", 
 			self.outfilename.displayText(), "*.shp")
-                if newname != None:
-                	self.outfilename.setText(newname)
+		if newname != None:
+			self.outfilename.setText(newname)
 
 	def source_changed(self):
 		layername = unicode(self.sourcelayer.currentText())
@@ -470,24 +486,7 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 		del outfile
 		#QgsMapLayerRegistry.instance().addMapLayers([v_layer])
 		self.iface.addVectorLayer(savename, os.path.basename(savename), "ogr")
-		#line_start = QgsPoint(x[0],y[0])
-		#QMessageBox.information(self.iface.mainWindow(),"debug", "x1 = "+str(x[1])+", y0 = "+str(y[1]))
-		#line_end = QgsPoint(x[1],y[1])
-		#line = QgsGeometry.fromPolyline([line_start,line_end])
-		# create a new memory layer
-		#v_layer = QgsVectorLayer("LineString", "line", "memory")
-		#pr = v_layer.dataProvider()
-		# create a new feature
-		#seg = QgsFeature()
-		# add the geometry to the feature, 
-		#seg.setGeometry(QgsGeometry.fromPolyline([line_start, line_end]))
-		# ...it was here that you can add attributes, after having defined....
-		# add the geometry to the layer
-		#pr.addFeatures( [ seg ] )
-		# update extent of the layer (not necessary)
-		#v_layer.updateExtents()
-		# show the line  
-		#QgsMapLayerRegistry.instance().addMapLayers([v_layer])
+
 
 # ----------------------------------------------------------
 #    tuflowqgis configure tuflow project
@@ -635,6 +634,9 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 	def run(self):
 		tf_prj = unicode(self.form_crsID.displayText()).strip()
 		basedir = unicode(self.outdir.displayText()).strip()
+		path_split = basedir.split('\\')
+		if path_split[-1].lower() == 'tuflow':
+			basedir = '\\'.join(path_split[:-1])
 		tfexe = unicode(self.TUFLOW_exe.displayText()).strip()
 		
 		#Save Project Settings
@@ -1062,8 +1064,7 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		# Set up Input Catchment File ComboBox
 		for name, layer in QgsMapLayerRegistry.instance().mapLayers().iteritems():
 				if layer.type() == QgsMapLayer.VectorLayer:
-					if layer.dataProvider().geometryType() == QGis.WKBPoint \
-					or layer.dataProvider().geometryType() == QGis.WKBPolygon:
+					if layer == 0 or layer.geometryType() == 2:
 						self.comboBox_inputCatchment.addItem(layer.name())
 							
 		layerName = unicode(self.comboBox_inputCatchment.currentText())
@@ -1088,8 +1089,8 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		# Set up MAR and Static Value box
 		self.mar_staticValue.setEnabled(False)
 		
-		QObject.connect(self.commandLinkButton_BOMconditions, SIGNAL("clicked()"), self.open_BOMconditions)
-		QObject.connect(self.commandLinkButton_BOMcaveat, SIGNAL("clicked()"), self.open_BOMcaveat)
+		#QObject.connect(self.commandLinkButton_BOMconditions, SIGNAL("clicked()"), self.open_BOMconditions)
+		#QObject.connect(self.commandLinkButton_BOMcaveat, SIGNAL("clicked()"), self.open_BOMcaveat)
 		QObject.connect(self.comboBox_inputCatchment, SIGNAL("currentIndexChanged(int)"), self.catchmentLayer_changed)
 		QObject.connect(self.pushButton_browse, SIGNAL("clicked()"), self.browse_outFolder)
 		QObject.connect(self.checkBox_aepAll, SIGNAL("clicked()"), self.aep_all)
@@ -1195,7 +1196,7 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			rare_events = 'true'
 		if self.checkBox_500y.isChecked():
 			AEP_list += '500ARI '
-			rare_events = '-true'
+			rare_events = 'true'
 		if self.checkBox_1000y.isChecked():
 			AEP_list += '1000ARI '
 			rare_events = 'true'
@@ -1433,21 +1434,31 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			else:
 				logfile = open(os.path.join(outFolder, 'log.txt'), 'a')
 			CREATE_NO_WINDOW = 0x08000000 # suppresses python console window
-			proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
-								  creationflags=CREATE_NO_WINDOW)
-			#proc = subprocess.Popen(sys_args)
+			error = False
 			try:
-				for line in proc.stdout:
-					#sys.stdout.write(line)
-					logfile.write(line)
-					proc.wait()
+				proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+									    creationflags=CREATE_NO_WINDOW)
+				out, err = proc.communicate()
+				logfile.write(out)
+				logfile.write(err)
 				logfile.close()
 			except:
-				QMessageBox.critical(self.iface.mainWindow(), "Error", 'Error writing log file.')
+				#try:
+				#	proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+				#	out, err = proc.communicate()
+				#	logfile.write(out)
+				#	logfile.write(err)
+				#	logfile.close()
+				#except:
+				proc = subprocess.Popen(sys_args)
+				error = True
 				logfile.close()
-		QMessageBox.information(self.iface.mainWindow(), "Message", 
-							   'Process Complete. Please see\n{0}\nfor warning and error messages.'\
-							   .format(os.path.join(outFolder, 'log.txt')))
+		if error:
+			QMessageBox.information(self.iface.mainWindow(), "Error", 'Process Complete. Error writing log file.')
+		else:
+			QMessageBox.information(self.iface.mainWindow(), "Message",
+								   'Process Complete. Please see\n{0}\nfor warning and error messages.'\
+								   .format(os.path.join(outFolder, 'log.txt')))
 		
 		return
 
@@ -1598,3 +1609,1236 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 		message = tuflowqgis_insert_tf_attributes(self.iface, inputLayer, basedir, runID, template, lenFields)
 		if message is not None:
 			QMessageBox.critical(self.iface.mainWindow(), "Importing TUFLOW Empty File(s)", message)
+
+
+# ----------------------------------------------------------
+#    tuflowqgis tuplot axis editor
+# ----------------------------------------------------------
+from ui_tuflowqgis_tuplotAxisEditor import *
+
+
+class tuflowqgis_tuplotAxisEditor(QDialog, Ui_tuplotAxisEditor):
+	def __init__(self, iface, xLim, yLim, xAuto, yAuto, xInc, yInc, axis2, x2Lim, y2Lim, x2Inc, y2Inc, x2Auto, y2Auto):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.setupUi(self)
+		self.xLim = xLim
+		self.yLim = yLim
+		self.xInc = xInc
+		self.yInc = yInc
+		self.x2Lim = x2Lim
+		self.y2Lim = y2Lim
+		self.x2Inc = x2Inc
+		self.y2Inc = y2Inc
+		
+		# Set tabs enabled and secondary axis group boxes
+		if axis2 is None:
+			self.tabWidget.setTabEnabled(1, False)
+		else:
+			if axis2 == 'sharex':
+				self.groupBox_2.setEnabled(False)
+				self.yMin_sb_2.setValue(y2Lim[0])
+				self.yMax_sb_2.setValue(y2Lim[1])
+				self.yInc_sb_2.setValue(y2Inc)
+			elif axis2 == 'sharey':
+				self.groupBox.setEnabled(False)
+				self.xMin_sb_2.setValue(x2Lim[0])
+				self.xMax_sb_2.setValue(x2Lim[1])
+				self.xInc_sb_2.setValue(x2Inc)
+		
+		# Set Radio Buttons
+		if xAuto:
+			self.xAxisAuto_rb.setChecked(True)
+			self.xAxisCustom_rb.setChecked(False)
+		else:
+			self.xAxisAuto_rb.setChecked(False)
+			self.xAxisCustom_rb.setChecked(True)
+		if yAuto:
+			self.yAxisAuto_rb.setChecked(True)
+			self.yAxisCustom_rb.setChecked(False)
+		else:
+			self.yAxisAuto_rb.setChecked(False)
+			self.yAxisCustom_rb.setChecked(True)
+		if x2Auto:
+			self.xAxisAuto_rb_2.setChecked(True)
+			self.xAxisCustom_rb_2.setChecked(False)
+		else:
+			self.xAxisAuto_rb_2.setChecked(False)
+			self.xAxisCustom_rb_2.setChecked(True)
+		if y2Auto:
+			self.yAxisAuto_rb_2.setChecked(True)
+			self.yAxisCustom_rb_2.setChecked(False)
+		else:
+			self.yAxisAuto_rb_2.setChecked(False)
+			self.yAxisCustom_rb_2.setChecked(True)
+		
+		# Assign Limit values to primary axis dialog box
+		self.xMin_sb.setValue(xLim[0])
+		self.xMax_sb.setValue(xLim[1])
+		self.yMin_sb.setValue(yLim[0])
+		self.yMax_sb.setValue(yLim[1])
+		self.xInc_sb.setValue(xInc)
+		self.yInc_sb.setValue(yInc)
+		
+		# Signals
+		self.buttonBox.accepted.connect(self.run)
+		self.buttonBox.rejected.connect(lambda: self.cancel(xAuto, yAuto, x2Auto, y2Auto))
+		self.xMin_sb.valueChanged.connect(self.value_xChanged)
+		self.xMax_sb.valueChanged.connect(self.value_xChanged)
+		self.xInc_sb.valueChanged.connect(self.value_xChanged)
+		self.yMin_sb.valueChanged.connect(self.value_yChanged)
+		self.yMax_sb.valueChanged.connect(self.value_yChanged)
+		self.yInc_sb.valueChanged.connect(self.value_yChanged)
+		self.xMin_sb_2.valueChanged.connect(self.value_x2Changed)
+		self.xMax_sb_2.valueChanged.connect(self.value_x2Changed)
+		self.xInc_sb_2.valueChanged.connect(self.value_x2Changed)
+		self.yMin_sb_2.valueChanged.connect(self.value_y2Changed)
+		self.yMax_sb_2.valueChanged.connect(self.value_y2Changed)
+		self.yInc_sb_2.valueChanged.connect(self.value_y2Changed)
+	
+	def value_xChanged(self):
+		self.xAxisAuto_rb.setChecked(False)
+		self.xAxisCustom_rb.setChecked(True)
+	
+	def value_yChanged(self):
+		self.yAxisAuto_rb.setChecked(False)
+		self.yAxisCustom_rb.setChecked(True)
+	
+	def value_x2Changed(self):
+		self.xAxisAuto_rb_2.setChecked(False)
+		self.xAxisCustom_rb_2.setChecked(True)
+	
+	def value_y2Changed(self):
+		self.yAxisAuto_rb_2.setChecked(False)
+		self.yAxisCustom_rb_2.setChecked(True)
+	
+	def run(self):
+		if self.xAxisCustom_rb.isChecked():
+			self.xLim = [self.xMin_sb.value(), self.xMax_sb.value()]
+			self.xInc = self.xInc_sb.value()
+		if self.yAxisCustom_rb.isChecked():
+			self.yLim = [self.yMin_sb.value(), self.yMax_sb.value()]
+			self.yInc = self.yInc_sb.value()
+		if self.xAxisCustom_rb_2.isChecked():
+			self.x2Lim = [self.xMin_sb_2.value(), self.xMax_sb_2.value()]
+			self.x2Inc = self.xInc_sb_2.value()
+		if self.yAxisCustom_rb_2.isChecked():
+			self.y2Lim = [self.yMin_sb_2.value(), self.yMax_sb_2.value()]
+			self.y2Inc = self.yInc_sb_2.value()
+		return
+	
+	def cancel(self, xAuto, yAuto, x2Auto, y2Auto):
+		# revert back to original values
+		if xAuto:
+			self.xAxisAuto_rb.setChecked(True)
+			self.xAxisCustom_rb.setChecked(False)
+		else:
+			self.xAxisAuto_rb.setChecked(False)
+			self.xAxisCustom_rb.setChecked(True)
+		if yAuto:
+			self.yAxisAuto_rb.setChecked(True)
+			self.yAxisCustom_rb.setChecked(False)
+		else:
+			self.yAxisAuto_rb.setChecked(False)
+			self.yAxisCustom_rb.setChecked(True)
+		if x2Auto:
+			self.xAxisAuto_rb_2.setChecked(True)
+			self.xAxisCustom_rb_2.setChecked(False)
+		else:
+			self.xAxisAuto_rb_2.setChecked(False)
+			self.xAxisCustom_rb_2.setChecked(True)
+		if y2Auto:
+			self.yAxisAuto_rb_2.setChecked(True)
+			self.yAxisCustom_rb_2.setChecked(False)
+		else:
+			self.yAxisAuto_rb_2.setChecked(False)
+			self.yAxisCustom_rb_2.setChecked(True)
+
+
+# ----------------------------------------------------------
+#    tuflowqgis tuplot axis labels
+# ----------------------------------------------------------
+from ui_tuflowqgis_tuplotAxisLabels import *
+
+
+class tuflowqgis_tuplotAxisLabels(QDialog, Ui_tuplotAxisLabel):
+	def __init__(self, iface, xLabel, yLabel, xLabel2, yLabel2, title, xAxisAuto_cb, yAxisAuto_cb, xAxisAuto2_cb,
+	             yAxisAuto2_cb):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.xLabel = xLabel
+		self.yLabel = yLabel
+		self.xLabel2 = xLabel2
+		self.yLabel2 = yLabel2
+		self.title = title
+		self.setupUi(self)
+		# Setup Axis 1 defaults
+		self.chartTitle.setText(self.title)
+		self.xAxisLabel.setText(self.xLabel)
+		self.yAxisLabel.setText(self.yLabel)
+		if xAxisAuto_cb:
+			self.xAxisAuto_cb.setChecked(True)
+		else:
+			self.xAxisAuto_cb.setChecked(False)
+		if yAxisAuto_cb:
+			self.yAxisAuto_cb.setChecked(True)
+		else:
+			self.yAxisAuto_cb.setChecked(False)
+		# Setup Axis 2 defaults
+		if self.xLabel2 is not None:
+			self.xAxisAuto2_cb.setEnabled(True)
+			self.xAxisLabel2.setEnabled(True)
+			self.xAxisLabel2.setText(self.xLabel2)
+			if xAxisAuto2_cb:
+				self.xAxisAuto2_cb.setChecked(True)
+			else:
+				self.xAxisAuto2_cb.setChecked(False)
+		else:
+			self.xAxisAuto2_cb.setEnabled(False)
+			self.xAxisLabel2.setEnabled(False)
+		if self.yLabel2 is not None:
+			self.yAxisAuto2_cb.setEnabled(True)
+			self.yAxisLabel2.setEnabled(True)
+			self.yAxisLabel2.setText(self.yLabel2)
+			if yAxisAuto2_cb:
+				self.yAxisAuto2_cb.setChecked(True)
+			else:
+				self.yAxisAuto2_cb.setChecked(False)
+		else:
+			self.yAxisAuto2_cb.setEnabled(False)
+			self.yAxisLabel2.setEnabled(False)
+		# Signals
+		self.buttonBox.rejected.connect(lambda: self.cancel(xAxisAuto_cb, yAxisAuto_cb, xAxisAuto2_cb, yAxisAuto2_cb))
+		self.buttonBox.accepted.connect(self.run)
+		self.xAxisLabel.textChanged.connect(lambda: self.auto_label(self.xAxisAuto_cb))
+		self.yAxisLabel.textChanged.connect(lambda: self.auto_label(self.yAxisAuto_cb))
+		self.xAxisLabel2.textChanged.connect(lambda: self.auto_label(self.xAxisAuto2_cb))
+		self.yAxisLabel2.textChanged.connect(lambda: self.auto_label(self.yAxisAuto2_cb))
+	
+	def auto_label(self, cb):
+		cb.setChecked(True)
+	
+	def run(self):
+		self.xLabel = self.xAxisLabel.text()
+		self.yLabel = self.yAxisLabel.text()
+		self.xLabel2 = self.xAxisLabel2.text()
+		self.yLabel2 = self.yAxisLabel2.text()
+		self.title = self.chartTitle.text()
+	
+	def cancel(self, xAxisAuto_cb, yAxisAuto_cb, xAxisAuto2_cb, yAxisAuto2_cb):
+		if xAxisAuto_cb:
+			self.xAxisAuto_cb.setChecked(True)
+		else:
+			self.xAxisAuto_cb.setChecked(False)
+		if yAxisAuto_cb:
+			self.yAxisAuto_cb.setChecked(True)
+		else:
+			self.yAxisAuto_cb.setChecked(False)
+		if xAxisAuto2_cb:
+			self.xAxisAuto2_cb.setChecked(True)
+		else:
+			self.xAxisAuto2_cb.setChecked(False)
+		if yAxisAuto2_cb:
+			self.yAxisAuto2_cb.setChecked(True)
+		else:
+			self.yAxisAuto2_cb.setChecked(False)
+			
+
+# ----------------------------------------------------------
+#    tuflowqgis 1D integrity output window
+# ----------------------------------------------------------
+from ui_tuflowqgis_integrityOutput import *
+
+
+class tuflowqgis_1d_integrity_output(QDialog, Ui_integrityOutput):
+	def __init__(self, iface, results):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.setupUi(self)
+		
+		# populate text box with results
+		self.textBrowser.append(results)
+		
+		# Signals
+		self.buttonBox.accepted.connect(self.run)
+		
+	def run(self):
+		return
+
+
+# ----------------------------------------------------------
+#    tuflowqgis check 1D network integrity
+# ----------------------------------------------------------
+from ui_tuflowqgis_check1dIntegrity import *
+
+
+class tuflowqgis_check_1d_integrity_dialog(QDialog, Ui_check1dIntegrity):
+	def __init__(self, iface, dockOpened, resdock):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.dockOpened = dockOpened
+		self.resdock = resdock
+		self.project = QgsProject.instance()
+		self.setupUi(self)
+		
+		# Set up input line and point layer combobox
+		for name, layer in QgsMapLayerRegistry.instance().mapLayers().iteritems():
+			if layer.type() == QgsMapLayer.VectorLayer:
+				if layer.geometryType() == 0:
+					self.addPoint_combo.addItem(layer.name())
+				elif layer.geometryType() == 1:
+					self.addLine_combo.addItem(layer.name())
+					self.addTa_combo.addItem(layer.name())
+		
+		# signals
+		self.addLine_button.clicked.connect(lambda: self.addLyr(self.addLine_combo, self.lineLyrs_lw))
+		self.addPoint_button.clicked.connect(lambda: self.addLyr(self.addPoint_combo, self.pointLyrs_lw))
+		self.addTa_button.clicked.connect(lambda: self.addLyr(self.addTa_combo, self.taLyrs_lw))
+		self.removeLine_button.clicked.connect(lambda: self.removeLyr(self.lineLyrs_lw))
+		self.removePoint_button.clicked.connect(lambda: self.removeLyr(self.pointLyrs_lw))
+		self.removeTa_button.clicked.connect(lambda: self.removeLyr(self.taLyrs_lw))
+		self.addStartNwk_button.clicked.connect(self.addFeature)
+		self.removeStartNwk_button.clicked.connect(self.removeFeature)
+		self.addLine_button.clicked.connect(self.toggleStartElement)
+		self.browse_button.clicked.connect(self.browse)
+		self.outTxtFile_cb.clicked.connect(self.toggleOutFile)
+		self.autoSnap_cb.clicked.connect(self.toggleSearchRadius_sb)
+		self.groupBox_3.clicked.connect(self.toggleStartElement)
+		self.checkAngle_cb.clicked.connect(self.toggleAngleLimit)
+		self.checkCover_cb.clicked.connect(self.toggleCoverLimit)
+		self.groupBox_3.clicked.connect(
+			lambda: self.toggleGroupBox(self.groupBox_3, self.groupBox_4, self.groupBox_6, self.groupBox_7))
+		self.groupBox_4.clicked.connect(
+			lambda: self.toggleGroupBox(self.groupBox_4, self.groupBox_3, self.groupBox_6, self.groupBox_7))
+		self.groupBox_6.clicked.connect(
+			lambda: self.toggleGroupBox(self.groupBox_6, self.groupBox_4, self.groupBox_3, self.groupBox_7))
+		self.groupBox_7.clicked.connect(
+			lambda: self.toggleGroupBox(self.groupBox_7, self.groupBox_4, self.groupBox_6, self.groupBox_3))
+		self.addLine_button.clicked.connect(self.toggleStartElement)
+		self.getGroundElev_cb.clicked.connect(self.toggleDemSel)
+		self.buttonBox.accepted.connect(self.preRunCheck)
+		
+		# Populate List Boxes with saved project values
+		try:
+			saveLineLyrs = self.project.readListEntry('TUFLOW', 'line_layers')[0]
+			for lyr in saveLineLyrs:
+				if tuflowqgis_find_layer(lyr) is not None:
+					self.lineLyrs_lw.addItem(lyr)
+		except:
+			pass
+		try:
+			savePointLyrs = self.project.readListEntry('TUFLOW', 'point_layers')[0]
+			for lyr in savePointLyrs:
+				if tuflowqgis_find_layer(lyr) is not None:
+					self.pointLyrs_lw.addItem(lyr)
+		except:
+			pass
+		try:
+			saveTableLyrs = self.project.readListEntry('TUFLOW', 'table_layers')[0]
+			for lyr in saveTableLyrs:
+				if tuflowqgis_find_layer(lyr) is not None:
+					self.taLyrs_lw.addItem(lyr)
+		except:
+			pass
+	
+	def addLyr(self, combo, lw):
+		inLyrs = []
+		for i in range(lw.count()):
+			a = lw.item(i).text()
+			inLyrs.append(a)
+		inLyr = combo.currentText()
+		if inLyr is not None and len(inLyr) > 0:
+			if inLyr not in inLyrs:
+				lw.insertItem(0, inLyr)
+				item = lw.item(0)
+				lw.setItemSelected(item, True)
+	
+	def removeLyr(self, lw):
+		removeIndex = []
+		for i in range(lw.count()):
+			if lw.item(i).isSelected():
+				removeIndex.append(i)
+		for i in reversed(removeIndex):
+			lw.takeItem(i)
+				
+	def addFeature(self):
+		inFeatures = []
+		for i in range(self.startNwk_lw.count()):
+			a = self.startNwk_lw.item(i).text()
+			inFeatures.append(a)
+		inFeat = self.name1d_combo.currentText()
+		if inFeat not in inFeatures:
+			self.startNwk_lw.insertItem(0, inFeat)
+		
+	def removeFeature(self):
+		removeIndex = []
+		for i in range(self.startNwk_lw.count()):
+			if self.startNwk_lw.item(i).isSelected():
+				removeIndex.append(i)
+		for i in reversed(removeIndex):
+			self.startNwk_lw.takeItem(i)
+
+	def browse(self):
+		outFile_old = None
+		if len(self.outFile.text()) > 0:
+			outFile_old = self.outFile.text()
+		settings = QSettings()
+		lastFolder = str(settings.value("check1dIntegrity", os.sep))
+		if len(lastFolder) > 0:  # use last folder if stored
+			fpath = lastFolder
+		else:
+			fpath = os.getcwd()
+		outFile = QFileDialog.getSaveFileName(self, 'Output File', fpath, '*.txt')
+		if outFile is None or len(outFile) < 3 or outFile == os.sep or outFile == 'c:\\':
+			if outFile_old is not None:
+				self.outFile.setText(outFile_old)
+		else:
+			settings.setValue("check1dIntegrity", os.path.dirname(outFile))
+			self.outFile.setText(outFile)
+	
+	def toggleOutFile(self):
+		if self.outTxtFile_cb.isChecked():
+			self.outFile.setEnabled(True)
+			self.browse_button.setEnabled(True)
+		else:
+			self.outFile.setEnabled(False)
+			self.browse_button.setEnabled(False)
+
+	def toggleAngleLimit(self):
+		if self.checkAngle_cb.isChecked():
+			self.label_10.setEnabled(True)
+			self.angle2_sb.setEnabled(True)
+			self.label_14.setEnabled(True)
+		else:
+			self.label_10.setEnabled(False)
+			self.angle2_sb.setEnabled(False)
+			self.label_14.setEnabled(False)
+
+	def toggleCoverLimit(self):
+		if self.checkCover_cb.isChecked():
+			self.dem_combo.clear()
+			self.label_11.setEnabled(True)
+			self.coverDepth2_sb.setEnabled(True)
+			self.label_13.setEnabled(True)
+			self.label_12.setEnabled(True)
+			self.dem_combo_2.setEnabled(True)
+			rasterLyrs = findAllRasterLyrs()
+			if len(rasterLyrs) > 0:
+				for raster in rasterLyrs:
+					self.dem_combo_2.addItem(raster)
+		else:
+			self.label_11.setEnabled(False)
+			self.coverDepth2_sb.setEnabled(False)
+			self.label_13.setEnabled(False)
+			self.label_12.setEnabled(False)
+			self.dem_combo_2.setEnabled(False)
+	
+	def toggleSearchRadius_sb(self):
+		if self.autoSnap_cb.isChecked():
+			self.snapSearchDis_sb.setEnabled(True)
+		else:
+			self.snapSearchDis_sb.setEnabled(False)
+
+	def toggleStartElement(self):
+		if self.groupBox_3.isChecked():
+			self.name1d_combo.setEnabled(True)
+			self.addStartNwk_button.setEnabled(True)
+			self.removeStartNwk_button.setEnabled(True)
+			self.label_3.setEnabled(True)
+			self.label_9.setEnabled(True)
+			self.angle_sb.setEnabled(True)
+			self.startNwk_lw.setEnabled(True)
+			self.plotDsConn_cb.setEnabled(True)
+			self.getGroundElev_cb.setEnabled(True)
+			features = []
+			for i in range(self.startNwk_lw.count()):
+				a = self.startNwk_lw.item(i).text()
+				features.append(a)
+			if self.lineLyrs_lw.count() > 0:
+				for i in range(self.lineLyrs_lw.count()):
+					name = self.lineLyrs_lw.item(i).text()
+					lyr = tuflowqgis_find_layer(name)
+					if lyr is not None:
+						for feature in lyr.getFeatures():
+							try:
+								self.name1d_combo.addItem(feature.attributes()[0])
+							except:
+								pass
+				#cLyr = self.iface.mapCanvas().currentLayer()
+				selFeatures = []
+				for i in range(self.lineLyrs_lw.count()):
+					name = self.lineLyrs_lw.item(i).text()
+					lyr = tuflowqgis_find_layer(name)
+					selFeat = lyr.selectedFeatures()
+					selFeatures.append(selFeat)
+				txt = None
+				for selFeat in selFeatures:
+					for f in selFeat:
+						txt = f.attributes()[0]
+						if txt is not None:
+							index = self.name1d_combo.findText(txt, Qt.MatchFixedString)
+							if index >= 0:
+								self.name1d_combo.setCurrentIndex(index)
+							if txt not in features:
+								self.startNwk_lw.insertItem(0, txt)
+		else:
+			self.name1d_combo.clear()
+			self.name1d_combo.setEnabled(False)
+			self.addStartNwk_button.setEnabled(False)
+			self.removeStartNwk_button.setEnabled(False)
+			self.label_3.setEnabled(False)
+			self.label_9.setEnabled(False)
+			self.angle_sb.setEnabled(False)
+			self.startNwk_lw.setEnabled(False)
+			self.plotDsConn_cb.setEnabled(False)
+			self.getGroundElev_cb.setEnabled(False)
+			
+	def toggleDemSel(self):
+		self.dem_combo.clear()
+		if self.getGroundElev_cb.isChecked():
+			self.dem_combo.setEnabled(True)
+			self.label_15.setEnabled(True)
+			self.label_16.setEnabled(True)
+			self.coverDepth_sb.setEnabled(True)
+			self.label_17.setEnabled(True)
+			rasterLyrs = findAllRasterLyrs()
+			if len(rasterLyrs) > 0:
+				for raster in rasterLyrs:
+					self.dem_combo.addItem(raster)
+		else:
+			self.dem_combo.setEnabled(False)
+			self.label_15.setEnabled(False)
+			self.label_16.setEnabled(False)
+			self.coverDepth_sb.setEnabled(False)
+			self.label_17.setEnabled(False)
+			
+	def toggleGroupBox(self, clickedGB, *args):
+		if clickedGB.isChecked():
+			for gb in args:
+				gb.setChecked(False)
+	
+	def saveInputLayers(self):
+		saveLineLyrs = []
+		for i in range(self.lineLyrs_lw.count()):
+			saveLineLyrs.append(self.lineLyrs_lw.item(i).text())
+		self.project.writeEntry("TUFLOW", "line_layers", saveLineLyrs)
+		
+		savePointLyrs = []
+		for i in range(self.pointLyrs_lw.count()):
+			savePointLyrs.append(self.pointLyrs_lw.item(i).text())
+		self.project.writeEntry("TUFLOW", "point_layers", savePointLyrs)
+		
+		saveTableLyrs = []
+		for i in range(self.taLyrs_lw.count()):
+			saveTableLyrs.append(self.taLyrs_lw.item(i).text())
+		self.project.writeEntry("TUFLOW", "table_layers", saveTableLyrs)
+	
+	def checkLayerType(self, lyr):
+		error = False
+		message = ''
+		for feature in lyr.getFeatures():
+			break
+		if feature.fields().field(0).type() != QVariant.String:
+			error = True
+			message = '{0} must be in a 1D_nwk format: Error with ID Attribute'.format(lyr.name())
+		elif feature.fields().field(1).type() != QVariant.String:
+			error = True
+			message = '{0} must be in a 1D_nwk format: Error with Type Attribute'.format(lyr.name())
+		elif feature.fields().field(4).type() != QVariant.Double:
+			error = True
+			message = '{0} must be in a 1D_nwk format: Error with Length Attribute'.format(lyr.name())
+		elif feature.fields().field(6).type() != QVariant.Double:
+			error = True
+			message = '{0} must be in a 1D_nwk format: Error with Upstream Invert Attribute'.format(lyr.name())
+		elif feature.fields().field(7).type() != QVariant.Double:
+			error = True
+			message = '{0} must be in a 1D_nwk format: Error with Downstream Invert Attribute'.format(lyr.name())
+		elif feature.fields().field(13).type() != QVariant.Double:
+			error = True
+			message = '{0} must be in a 1D_nwk format: Error with Width Attribute'.format(lyr.name())
+		elif feature.fields().field(14).type() != QVariant.Double:
+			error = True
+			message = '{0} must be in a 1D_nwk format: Error with Height Attribute'.format(lyr.name())
+		elif feature.fields().field(15).type() != QVariant.LongLong and \
+				feature.fields().field(15).type() != QVariant.Int and feature.fields().field(15).type() != QVariant.Double:
+			error = True
+			message = '{0} must be in a 1D_nwk format: Error with Number Of Attribute'.format(lyr.name())
+		return error, message
+	
+	def preRunCheck(self):
+		error = False
+		warning = False
+		message = ''
+		# Check inputs
+		for i in range(self.lineLyrs_lw.count()):
+			lyr = tuflowqgis_find_layer(self.lineLyrs_lw.item(i).text())
+			error, message = self.checkLayerType(lyr)
+			if error:
+				break
+		for i in range(self.pointLyrs_lw.count()):
+			lyr = tuflowqgis_find_layer(self.pointLyrs_lw.item(i).text())
+			error, message = self.checkLayerType(lyr)
+			if error:
+				break
+		if error:
+			pass
+		elif self.lineLyrs_lw.count() < 1:
+			error = True
+			message = 'No 1d_nwk line layer has been input.'
+		elif self.check1dPoint_cb.isChecked() and self.pointLyrs_lw.count() < 1:
+			error = True
+			message = 'No 1d_nwk point layer has been input.'
+		elif self.getGroundElev_cb.isChecked() and len(self.dem_combo.currentText()) < 1:
+			error = True
+			message = 'No DEM has been input'
+		elif self.checkCover_cb.isChecked() and len(self.dem_combo_2.currentText()) < 1:
+			error = True
+			message = 'No DEM has been input'
+		# Check an output is selected
+		elif not self.outMessBox_cb.isChecked() and not self.outSel_cb.isChecked() and \
+		  not self.outTxtFile_cb.isChecked() and not self.outPLayer_cb.isChecked() and \
+		  not self.plotDsConn_cb.isChecked():
+			warning = True
+			message = 'No output selected. Do you wish to continue?'
+		# Check map projection
+		elif self.iface.mapCanvas().mapUnits() != 0 and self.iface.mapCanvas().mapUnits() != 1:
+			warning = True
+			message = 'Map Projection may not be cartesian. This can cause an error in the tool. ' \
+					  'Do you wish to continue?'
+		if error:
+			QMessageBox.information(self.iface.mainWindow(), 'Error', message)
+		elif warning:
+			run = QMessageBox.question(self.iface.mainWindow(), "Warning", message,
+									   QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+			if run == QMessageBox.Yes:
+				self.run()
+		else:
+			self.run()
+
+
+	def run(self):
+		self.saveInputLayers()
+		startTime = datetime.now()
+		self.check1dIntegrity.accept()  # destroy dialog window
+		# Get inputs
+		if self.iface.mapCanvas().mapUnits() == 0:
+			units = 'm'
+		elif self.iface.mapCanvas().mapUnits() == 1:
+			units = 'ft'
+		else:
+			units = ''
+		checkLine = False
+		checkPoint = False
+		autoSnap = False
+		correctPipeDir = False
+		getDnsConn = False
+		plotDnsConn = False
+		getDemElev = False
+		continuityCheck = False
+		checkArea = False
+		checkGradient = False
+		checkAngle = False
+		checkCover = False
+		angleLimit = 90
+		coverLimit = 0.5
+		correctDirectionByGradient = False
+		correctDirectionByContinuity = False
+		outMsg = False
+		outSel = False
+		outTxt = False
+		outLyr = False
+		dem = None
+		plotCoverDepth = None
+		if self.check1dLine_cb.isChecked():
+			checkLine = True
+		if self.check1dPoint_cb.isChecked():
+			checkPoint = True
+		if self.autoSnap_cb.isChecked():
+			autoSnap = True
+			searchRadius = self.snapSearchDis_sb.value()
+		if self.groupBox_3.isChecked():
+			getDnsConn = True
+			angleLimit = self.angle_sb.value()
+			startElem = []
+			for i in range(self.startNwk_lw.count()):
+				a = self.startNwk_lw.item(i).text()
+				startElem.append(a)
+			if self.plotDsConn_cb.isChecked():
+				plotDnsConn = True
+			if self.getGroundElev_cb.isChecked():
+				getDemElev = True
+				dem = tuflowqgis_find_layer(self.dem_combo.currentText())
+				plotCoverDepth = self.coverDepth_sb.value()
+		if self.checkArea_cb.isChecked():
+			continuityCheck = True
+			checkArea = True
+		if self.checkGradient_cb.isChecked():
+			continuityCheck = True
+			checkGradient = True
+		if self.checkAngle_cb.isChecked():
+			continuityCheck = True
+			checkAngle = True
+			angleLimit = self.angle2_sb.value()
+		if self.checkCover_cb.isChecked():
+			continuityCheck = True
+			checkCover = True
+			coverLimit = self.coverDepth2_sb.value()
+			dem = tuflowqgis_find_layer(self.dem_combo_2.currentText())
+		if self.correctPipeDir_inverts_cb.isChecked():
+			correctDirectionByGradient = True
+		if self.correctPipeDir_continuity_cb.isChecked():
+			correctDirectionByContinuity = True
+		if self.outMessBox_cb.isChecked():
+			outMsg = True
+		if self.outSel_cb.isChecked():
+			outSel = True
+		if self.outTxtFile_cb.isChecked():
+			outTxt = True
+		if self.outPLayer_cb.isChecked():
+			outLyr = True
+		toolTimes = []
+		lineLyrs = []
+		lineDict = {}
+		for i in range(self.lineLyrs_lw.count()):
+			lineLyrs.append(tuflowqgis_find_layer(self.lineLyrs_lw.item(i).text()))
+		pointLyrs = []
+		pointDict = {}
+		for i in range(self.pointLyrs_lw.count()):
+			pointLyrs.append(tuflowqgis_find_layer(self.pointLyrs_lw.item(i).text()))
+		taLyrs = []
+		for i in range(self.taLyrs_lw.count()):
+			taLyrs.append(tuflowqgis_find_layer(self.taLyrs_lw.item(i).text()))
+		# Start Line Check section
+		if checkLine:
+			toolStart = datetime.now()
+			lineDict, lineDrape = getVertices(lineLyrs, dem)
+			toolEnd = datetime.now()
+			toolTime = toolEnd - toolStart
+			toolTimes.append('Get Line Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+			                                                                    toolTime.total_seconds() % 60) if
+			                 toolTime.total_seconds() >= 60 else 'Get Line Vertices: {0:.1f} secs\n'.format(
+				toolTime.total_seconds()))
+			toolStart = datetime.now()
+			unsnappedLines, unsnappedLineNames, closestVLines, dsLines = checkSnapping(assessment='lines',
+			                                                                           lines=lineDict, line_layers=lineLyrs,
+			                                                                           points=pointDict,
+			                                                                           dns_conn=getDnsConn)  # Get unsnapped line vertices
+			toolEnd = datetime.now()
+			toolTime = toolEnd - toolStart
+			toolTimes.append('Check Line Snapping: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+			                                                                    toolTime.total_seconds() % 60) if
+			                 toolTime.total_seconds() >= 60 else 'Check Line Snapping: {0:.1f} secs\n'.format(
+				toolTime.total_seconds()))
+			if autoSnap:
+				toolStart = datetime.now()
+				editedLines, returnLogL = moveVertices(lineLyrs, closestVLines, searchRadius, units)  # perform auto snap routine
+				toolEnd = datetime.now()
+				toolTime = toolEnd - toolStart
+				toolTimes.append('Snapping Lines: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+				                                                                      toolTime.total_seconds() % 60) if
+				                 toolTime.total_seconds() >= 60 else 'Snapping Lines: {0:.1f} secs\n'.format(
+					toolTime.total_seconds()))
+				if checkPoint:
+					toolStart = datetime.now()
+					lineDict, lineDrape = getVertices(lineLyrs, dem)
+					toolEnd = datetime.now()
+					toolTime = toolEnd - toolStart
+					toolTimes.append('Re-Collecting Line Vertices for Points analysis: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() /
+					                                                                      60,
+					                                                                      toolTime.total_seconds() %
+					                                                                      60) if
+					                 toolTime.total_seconds() >= 60 else 'Re-Collecting Line Vertices for Points analysis: {0:.1f} secs\n'.format(
+						toolTime.total_seconds()))
+		# Start Point Check Section
+		if checkPoint:
+			if len(lineDict) == 0:
+				toolStart = datetime.now()
+				lineDict, lineDrape = getVertices(lineLyrs, dem)
+				toolEnd = datetime.now()
+				toolTime = toolEnd - toolStart
+				toolTimes.append('Get Line Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+				                                                                         toolTime.total_seconds() %
+				                                                                         60) if
+				                 toolTime.total_seconds() >= 60 else 'Get Line Vertices: {0:.1f} secs\n'.format(
+					toolTime.total_seconds()))
+			toolStart = datetime.now()
+			pointDict, pointDrape = getVertices(pointLyrs, dem)
+			toolEnd = datetime.now()
+			toolTime = toolEnd - toolStart
+			toolTimes.append('Get Point Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+			                                                                         toolTime.total_seconds() %
+			                                                                         60) if
+			                 toolTime.total_seconds() >= 60 else 'Get Point Vertices: {0:.1f} secs\n'.format(
+				toolTime.total_seconds()))
+			toolStart = datetime.now()
+			unsnappedPoints, closestVPoints = checkSnapping(assessment='points', lines=lineDict, line_layers=lineLyrs,
+				                                            points=pointDict)  # Get unsnapped points
+			toolTimes.append('Check Point Snapping: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+			                                                                           toolTime.total_seconds() %
+			                                                                           60) if
+			                 toolTime.total_seconds() >= 60 else 'Check Point Snapping: {0:.1f} secs\n'.format(
+				toolTime.total_seconds()))
+			if autoSnap:
+				toolStart = datetime.now()
+				editedPoints, returnLogP = moveVertices(pointLyrs, closestVPoints, searchRadius, units)
+				toolEnd = datetime.now()
+				toolTime = toolEnd - toolStart
+				toolTimes.append('Snapping Points: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+				                                                                      toolTime.total_seconds() % 60) if
+				                 toolTime.total_seconds() >= 60 else 'Snapping Points: {0:.1f} secs\n'.format(
+					toolTime.total_seconds()))
+		if getDnsConn:
+			if len(startElem) == 0:
+				return
+			toolStart = datetime.now()
+			lineDict, lineDrape = getVertices(lineLyrs, dem)
+			toolEnd = datetime.now()
+			toolTime = toolEnd - toolStart
+			toolTimes.append('Get Line Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+			                                                                         toolTime.total_seconds() %
+			                                                                         60) if
+			                 toolTime.total_seconds() >= 60 else 'Get Line Vertices: {0:.1f} secs\n'.format(
+				toolTime.total_seconds()))
+			if len(pointLyrs) > 0:
+				toolStart = datetime.now()
+				pointDict, pointDrape = getVertices(pointLyrs, dem)
+				toolEnd = datetime.now()
+				toolTime = toolEnd - toolStart
+				toolTimes.append('Get Point Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() /
+				                                                                          60,
+				                                                                          toolTime.total_seconds() %
+				                                                                          60) if
+				                 toolTime.total_seconds() >= 60 else 'Get Point Vertices: {0:.1f} secs\n'.format(
+					toolTime.total_seconds()))
+			toolStart = datetime.now()
+			unsnappedLines, unsnappedLineNames, closestVLines, dsLines = \
+				checkSnappingFlowTrace(lines=lineDict, points=pointDict, line_layers=lineLyrs, point_layers=pointLyrs, dns_conn=getDnsConn, start_lines=startElem)
+			toolEnd = datetime.now()
+			toolTime = toolEnd - toolStart
+			toolTimes.append('Check Line and Point Snapping: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+			                                                                           toolTime.total_seconds() %
+			                                                                           60) if
+			                 toolTime.total_seconds() >= 60 else 'Check Line and Point Snapping: {0:.1f} secs\n'.format(
+				toolTime.total_seconds()))
+			if len(taLyrs) > 0:
+				toolStart = datetime.now()
+				dsLines = getElevFromTa(lineDict, dsLines, lineLyrs, taLyrs)
+				toolEnd = datetime.now()
+				toolTime = toolEnd - toolStart
+				toolTimes.append(
+					'Get Elevations from Table Files: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+					                                                                    toolTime.total_seconds() %
+					                                                                    60) if
+					toolTime.total_seconds() >= 60 else 'Get Elevations from Table Files: {0:.1f} secs\n'.format(
+						toolTime.total_seconds()))
+			toolStart = datetime.now()
+			longProfile = TUFLOW_longprofile.DownstreamConnectivity(dsLines, startElem, lineLyrs, angleLimit,
+			                                                        lineDrape, plotCoverDepth, lineDict, units)
+			longProfile.getBranches()
+			longProfile.reportLog()
+			if plotDnsConn:
+				longProfile.getPlotFormat()
+				if self.dockOpened:
+					self.resdock.qgis_connect()
+					self.resdock.show()
+					self.resdock.layerChanged()
+					self.resdock.add_profileIntTool(longProfile)
+				else:
+					self.dockOpened = True
+					self.resdock = TuPlot(self.iface, profile_integerity_tool=longProfile)
+					self.iface.addDockWidget(Qt.RightDockWidgetArea, self.resdock)
+			toolEnd = datetime.now()
+			toolTime = toolEnd - toolStart
+			toolTimes.append(
+				'Collecting Long Section: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+				                                                                      toolTime.total_seconds() %
+				                                                                      60) if
+				toolTime.total_seconds() >= 60 else 'Collecting Long Section: {0:.1f} secs\n'.format(
+					toolTime.total_seconds()))
+		# Check network continuity
+		if continuityCheck:
+			continuityLog = ''
+			continuityError = []
+			toolStart = datetime.now()
+			lineDict, lineDrape = getVertices(lineLyrs, dem)
+			toolEnd = datetime.now()
+			toolTime = toolEnd - toolStart
+			toolTimes.append('Get Line Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+			                                                                         toolTime.total_seconds() %
+			                                                                         60) if
+			                 toolTime.total_seconds() >= 60 else 'Get Line Vertices: {0:.1f} secs\n'.format(
+				toolTime.total_seconds()))
+			if len(pointLyrs) > 0:
+				toolStart = datetime.now()
+				pointDict, pointDrape = getVertices(pointLyrs, dem)
+				toolEnd = datetime.now()
+				toolTime = toolEnd - toolStart
+				toolTimes.append('Get Point Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() /
+				                                                                          60,
+				                                                                          toolTime.total_seconds() %
+				                                                                          60) if
+				                 toolTime.total_seconds() >= 60 else 'Get Point Vertices: {0:.1f} secs\n'.format(
+					toolTime.total_seconds()))
+			toolStart = datetime.now()
+			unsnappedLines, unsnappedLineNames, closestVLines, dsLines = checkSnapping(lines=lineDict,
+																					     points=pointDict, line_layers=lineLyrs,
+																					     dns_conn=continuityCheck)
+			toolEnd = datetime.now()
+			toolTime = toolEnd - toolStart
+			toolTimes.append(
+				'Check Line and Point Snapping: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+				                                                                    toolTime.total_seconds() %
+				                                                                    60) if
+				toolTime.total_seconds() >= 60 else 'Check Line and Point Snapping: {0:.1f} secs\n'.format(
+					toolTime.total_seconds()))
+			if len(taLyrs) > 0:
+				toolStart = datetime.now()
+				dsLines = getElevFromTa(lineDict, dsLines, lineLyrs, taLyrs)
+				toolEnd = datetime.now()
+				toolTime = toolEnd - toolStart
+				toolTimes.append(
+					'Get Elevations from Table Files: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() /
+					                                                                      60,
+					                                                                      toolTime.total_seconds() %
+					                                                                      60) if
+					toolTime.total_seconds() >= 60 else 'Get Elevations from Table Files: {0:.1f} secs\n'.format(
+						toolTime.total_seconds()))
+			toolStart = datetime.now()
+			continuityLog, continiuityWarningTypes, continuityError = checkNetworkContinuity(lineDict, dsLines,
+			                                                                                 lineDrape, angleLimit,
+			                                                                                 coverLimit,
+			                                                                                 [checkArea, checkGradient,
+			                                                                                  checkAngle, checkCover],
+			                                                                                 units)
+			toolEnd = datetime.now()
+			toolTime = toolEnd - toolStart
+			toolTimes.append(
+				'Check Continuity: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() /
+				                                                                      60,
+				                                                                      toolTime.total_seconds() %
+				                                                                      60) if
+				toolTime.total_seconds() >= 60 else 'Check Continuity: {0:.1f} secs\n'.format(
+					toolTime.total_seconds()))
+		# Correct Network Direction
+		if correctDirectionByGradient:
+			toolStart = datetime.now()
+			lineDict, lineDrape = getVertices(lineLyrs, dem)
+			toolEnd = datetime.now()
+			toolTime = toolEnd - toolStart
+			toolTimes.append('Get Line Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+			                                                                         toolTime.total_seconds() %
+			                                                                         60) if
+			                 toolTime.total_seconds() >= 60 else 'Get Line Vertices: {0:.1f} secs\n'.format(
+				toolTime.total_seconds()))
+			toolStart = datetime.now()
+			correctDirectionGradLog, correctDirectionGradType, correctDirectionGradPoint = \
+				correctPipeDirectionByInvert(lineLyrs, lineDict, units)
+			toolEnd = datetime.now()
+			toolTime = toolEnd - toolStart
+			toolTimes.append('Correct Line Direction by Invert: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+			                                                                         toolTime.total_seconds() %
+			                                                                         60) if
+			                 toolTime.total_seconds() >= 60 else 'Correct Line Direction by Invert: {0:.1f} secs\n'.format(
+				toolTime.total_seconds()))
+		if correctDirectionByContinuity:
+			toolStart = datetime.now()
+			lineDict, lineDrape = getVertices(lineLyrs, dem)
+			toolEnd = datetime.now()
+			toolTime = toolEnd - toolStart
+			toolTimes.append('Get Line Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+			                                                                         toolTime.total_seconds() %
+			                                                                         60) if
+			                 toolTime.total_seconds() >= 60 else 'Get Line Vertices: {0:.1f} secs\n'.format(
+				toolTime.total_seconds()))
+			if len(pointLyrs) > 0:
+				toolStart = datetime.now()
+				pointDict, pointDrape = getVertices(pointLyrs, dem)
+				toolEnd = datetime.now()
+				toolTime = toolEnd - toolStart
+				toolTimes.append('Get Point Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() /
+				                                                                          60,
+				                                                                          toolTime.total_seconds() %
+				                                                                          60) if
+				                 toolTime.total_seconds() >= 60 else 'Get Point Vertices: {0:.1f} secs\n'.format(
+					toolTime.total_seconds()))
+			toolStart = datetime.now()
+			unsnappedLines, unsnappedLineNames, closestVLines, dsLines = checkSnapping(lines=lineDict,
+			                                                                           points=pointDict, line_layers=lineLyrs,
+			                                                                           dns_conn=correctDirectionByContinuity)
+			toolEnd = datetime.now()
+			toolTime = toolEnd - toolStart
+			toolTimes.append(
+				'Check Line and Point Snapping: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+				                                                                    toolTime.total_seconds() %
+				                                                                    60) if
+				toolTime.total_seconds() >= 60 else 'Check Line and Point Snapping: {0:.1f} secs\n'.format(
+					toolTime.total_seconds()))
+			toolStart = datetime.now()
+			correctDirectionContLog, correctDirectionContType, correctDirectionContPoint = \
+				correctPipeDirectionFromConnections(lineDict, dsLines)
+			toolEnd = datetime.now()
+			toolTime = toolEnd - toolStart
+			toolTimes.append(
+				'Correct Line Direction by Continuity: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
+				                                                                       toolTime.total_seconds() %
+				                                                                       60) if
+				toolTime.total_seconds() >= 60 else 'Correct Line Direction by Continuity: {0:.1f} secs\n'.format(
+					toolTime.total_seconds()))
+		finishTime = datetime.now()
+		computationTime = finishTime - startTime
+		# Output
+		if outMsg or outTxt:
+			if outMsg:
+				results = '###############\n# 1D Integrity Output  #\n###############\n\n'
+			else:
+				results = '#######################\n# 1D Integrity Output #\n#######################\n\n'
+			for toolTime in toolTimes:
+				results += toolTime
+			results += '\nTotal Computation Time: {0:.0f} mins {1:.0f} secs\n'.format(computationTime.total_seconds() / 60,
+			                                                                    computationTime.total_seconds() % 60) \
+				if computationTime.total_seconds() >= 60 else '\nTotal Computation Time: {0:.1f} secs\n'.format(
+				computationTime.total_seconds())
+			if checkLine:
+				results += '\n' + r'\\ Unsnapped Lines \\' + '\n\n'
+				if len(unsnappedLines) == 0:
+					results += 'None\n'
+				else:
+					for line in unsnappedLines:
+						results += '{0}\n'.format(line)
+				if autoSnap:
+					if len(returnLogL) < 1:
+						results += '\n' + r'\\ Auto Snap Lines \\' + '\n\nNone\n'
+					else:
+						results += '\n' + r'\\ Auto Snap Lines \\' + '\n\n{0}\n'.format(returnLogL)
+			if checkPoint:
+				results += '\n' + r'\\ Unsnapped Nodes \\' + '\n\n'
+				if len(unsnappedPoints) == 0:
+					results += 'None\n'
+				else:
+					for node in unsnappedPoints:
+						results += '{0}\n'.format(node)
+				if autoSnap:
+					if len(returnLogP) < 1:
+						results += '\n' + r'\\ Auto Snap Points \\' + '\n\nNone\n'
+					else:
+						results += '\n' + r'\\ Auto Snap Points \\' + '\n\n{0}\n'.format(returnLogP)
+			if getDnsConn:
+				results += '\n' + r'\\ Downstream Connections \\' + '\n\n'
+				results += longProfile.log
+			if continuityCheck:
+				results += '\n' + r'\\ Continuity Checks \\' + '\n\n{0}\n'.format(continuityLog)
+			if correctDirectionByGradient or correctDirectionByContinuity:
+				results += '\n' + r'\\ Correct Pipe Direction \\' + '\n\n'
+				if correctDirectionByGradient:
+					results += '# Pipes Corrected by Gradient\n\n{0}\n'.format(correctDirectionGradLog)
+				if correctDirectionByContinuity:
+					results += '# Pipes Corrected by Continuity\n\n{0}\n'.format(correctDirectionContLog)
+			if outMsg:
+				self.outDialog = tuflowqgis_1d_integrity_output(self.iface, results)
+				self.outDialog.show()
+			if outTxt:
+				outFile = self.outFile.text()
+				f = open(outFile, 'w')
+				f.write(results)
+				f.close()
+		if outSel:
+			# remove any current selection
+			for layer in self.iface.mapCanvas().layers():
+				if layer.type() == 0:
+					layer.removeSelection()
+			# select points
+			if checkPoint:
+				for layer in pointLyrs:
+					for f in layer.getFeatures():
+						if f.attributes()[0] in unsnappedPoints:
+							fid = f.id()
+							layer.select(fid)
+			# select lines
+			if checkLine:
+				for layer in lineLyrs:
+					for f in layer.getFeatures():
+						if f.attributes()[0] in unsnappedLineNames:
+							fid = f.id()
+							layer.select(fid)
+			if getDnsConn:
+				names = longProfile.log.split('\n')
+				for n in names:
+					name = n.split(' ')[0].strip()
+					if len(name) > 0:
+						lyr = lineDict[name][2]
+						fid = lineDict[name][1]
+						idFld = lyr.fields()[0]
+						filter = '"{0}" = \'{1}\''.format(idFld.name(), name)
+						request = QgsFeatureRequest().setFilterExpression(filter)
+						for f in lyr.getFeatures(request):
+							if f.id() == fid:
+								lyr.select(fid)
+			if continuityCheck:
+				names = continuityLog.split('\n')
+				for n in names:
+					name = n.split(' ')[0].strip()
+					if len(name) > 0:
+						lyr = lineDict[name][2]
+						fid = lineDict[name][1]
+						idFld = lyr.fields()[0]
+						filter = '"{0}" = \'{1}\''.format(idFld.name(), name)
+						request = QgsFeatureRequest().setFilterExpression(filter)
+						for f in lyr.getFeatures(request):
+							if f.id() == fid:
+								lyr.select(fid)
+			if correctDirectionByGradient:
+				names = correctDirectionGradLog.split('\n')
+				for n in names:
+					name = n.split(' ')[0].strip()
+					if len(name) > 0:
+						lyr = lineDict[name][2]
+						fid = lineDict[name][1]
+						idFld = lyr.fields()[0]
+						filter = '"{0}" = \'{1}\''.format(idFld.name(), name)
+						request = QgsFeatureRequest().setFilterExpression(filter)
+						for f in lyr.getFeatures(request):
+							if f.id() == fid:
+								lyr.select(fid)
+			if correctDirectionByContinuity:
+				names = correctDirectionContLog.split('\n')
+				for n in names:
+					name = n.split(' ')[0].strip()
+					if len(name) > 0:
+						lyr = lineDict[name][2]
+						fid = lineDict[name][1]
+						idFld = lyr.fields()[0]
+						filter = '"{0}" = \'{1}\''.format(idFld.name(), name)
+						request = QgsFeatureRequest().setFilterExpression(filter)
+						for f in lyr.getFeatures(request):
+							if f.id() == fid:
+								lyr.select(fid)
+		if outLyr:
+			crs = lineLyrs[0].crs()
+			crsId = crs.authid()
+			outName = '_1D_integrity_check'
+			outPath = os.path.join(os.path.dirname(lineLyrs[0].source()), '{0}.shp'.format(outName))
+			messageLyr = QgsVectorLayer("Point?crs={0}".format(crsId), 'temp_points', 'memory')
+			dp = messageLyr.dataProvider()
+			dp.addAttributes([QgsField('Warning', QVariant.String), QgsField('message', QVariant.String)])
+			messageLyr.updateFields()
+			messageFeats = []  # list of QgsFeature objects
+			# lines
+			if autoSnap:
+				if checkLine:
+					loggedEdits = returnLogL.split('\n')
+					for i, line in enumerate(editedLines):
+						id, node = line.split('==')
+						node = int(node)
+						vertex = lineDict[id][0][node]
+						feat = QgsFeature()
+						feat.setGeometry(QgsGeometry.fromPoint(vertex))
+						feat.setAttributes(['Line Snapping Edit', 'Moved Line Vertex: {0}'.format(loggedEdits[i])])
+						messageFeats.append(feat)
+				if checkPoint:
+					loggedEdits = returnLogP.split('\n')
+					for i, point in enumerate(editedPoints):
+						vertex = pointDict[point][0][0]
+						feat = QgsFeature()
+						feat.setGeometry(QgsGeometry.fromPoint(vertex))
+						feat.setAttributes(['Point Snapping Edit', 'Moved Point: {0}'.format(loggedEdits[i])])
+						messageFeats.append(feat)
+			if checkLine:
+				for line in unsnappedLines:
+					if 'upstream' in line:
+						ind = line.find('upstream')
+						node = 0
+					elif 'downstream' in line:
+						ind = line.find('downstream')
+						node = 1
+					else:
+						return
+					id = line[:ind].strip()
+					vertex = lineDict[id][0][node]
+					feat = QgsFeature()
+					feat.setGeometry(QgsGeometry.fromPoint(vertex))
+					feat.setAttributes(
+						['Line Snapping Warning', 'Unsnapped Line: {0} at {1}, {2}'.format(line, vertex[0], vertex[1])])
+					messageFeats.append(feat)
+			if checkPoint:
+				for point in unsnappedPoints:
+					vertex = pointDict[point][0][0]
+					feat = QgsFeature()
+					feat.setGeometry(QgsGeometry.fromPoint(vertex))
+					feat.setAttributes(['Point Snapping Warning',
+					                    'Unsnapped Point: {0} at {1}, {2}'.format(point, vertex[0], vertex[1])])
+					messageFeats.append(feat)
+			if getDnsConn:
+				loggedContinuityErrors = longProfile.log.split('\n')
+				for i, vertex in enumerate(longProfile.warningLocation):
+					feat = QgsFeature()
+					feat.setGeometry(QgsGeometry.fromPoint(vertex))
+					feat.setAttributes(['{0}'.format(longProfile.warningType[i]),
+					                    'Continuity Warning: {0}'.format(loggedContinuityErrors[i])])
+					messageFeats.append(feat)
+			if continuityCheck:
+				loggedContinuityErrors = continuityLog.split('\n')
+				for i, vertex in enumerate(continuityError):
+					feat = QgsFeature()
+					feat.setGeometry(QgsGeometry.fromPoint(vertex))
+					feat.setAttributes(['{0}'.format(continiuityWarningTypes[i]),
+					                    'Continuity Warning: {0}'.format(loggedContinuityErrors[i])])
+					messageFeats.append(feat)
+			if correctDirectionByGradient:
+				loggedDirectionChange = correctDirectionGradLog.split('\n')
+				for i, vertex in enumerate(correctDirectionGradPoint):
+					feat = QgsFeature()
+					feat.setGeometry(QgsGeometry.fromPoint(vertex))
+					feat.setAttributes(['{0}'.format(correctDirectionGradType[i]),
+					                    'Line Direction Edit: {0}'.format(loggedDirectionChange[i])])
+					messageFeats.append(feat)
+			if correctDirectionByContinuity:
+				loggedDirectionChange = correctDirectionContLog.split('\n')
+				for i, vertex in enumerate(correctDirectionContPoint):
+					feat = QgsFeature()
+					feat.setGeometry(QgsGeometry.fromPoint(vertex))
+					feat.setAttributes(['{0}'.format(correctDirectionContType[i]),
+					                    'Line Direction Edit: {0}'.format(loggedDirectionChange[i])])
+					messageFeats.append(feat)
+			dp.addFeatures(messageFeats)
+			messageLyr.updateExtents()
+			QgsVectorFileWriter.writeAsVectorFormat(messageLyr, outPath, 'CP1250', crs, 'ESRI Shapefile')
+			self.iface.addVectorLayer(outPath, outName, 'ogr')
+
+
+# ----------------------------------------------------------
+#    tuflowqgis scenario selection
+# ----------------------------------------------------------
+from ui_tuflowqgis_scenarioSelection import *
+
+
+class tuflowqgis_scenarioSelection_dialog(QDialog, Ui_scenarioSelection):
+	def __init__(self, iface, tcf, scenarios):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.tcf = tcf
+		self.scenarios = scenarios
+		self.setupUi(self)
+		
+		for scenario in self.scenarios:
+			self.scenario_lw.addItem(scenario)
+			
+		self.ok_button.clicked.connect(self.run)
+		self.cancel_button.clicked.connect(self.cancel)
+		self.selectAll_button.clicked.connect(self.selectAll)
+		
+	def cancel(self):
+		return
+	
+	def selectAll(self):
+		for i in range(self.scenario_lw.count()):
+			item = self.scenario_lw.item(i)
+			self.scenario_lw.setItemSelected(item, True)
+			
+	def run(self):
+		scenarios = []
+		for i in range(self.scenario_lw.count()):
+			item = self.scenario_lw.item(i)
+			if item.isSelected():
+				scenarios.append(item.text())
+		openGisFromTcf(self.tcf, self.iface, scenarios)
+		

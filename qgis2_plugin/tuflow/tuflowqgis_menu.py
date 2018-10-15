@@ -19,14 +19,10 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2018-04-AA (QGIS 2.x)'
+build_vers = '2018-10-AA (QGIS 2.x)'
 build_type = 'release' #release / developmental
 
 # Import the PyQt and QGIS libraries
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
-from qgis.core import *
-import os
 
 # Import the code for the dialog
 from tuflowqgis_dialog import *
@@ -34,6 +30,7 @@ from tuflowqgis_dialog import *
 # Import the code for the 1D results viewer
 from tuflowqgis_TuPlot import *
 from TuPLOT_external import *
+#from tuflow.tuflowqgis_bridge.tuflowqgis_bridge_gui import *
 
 #par
 from tuflowqgis_library import tuflowqgis_apply_check_tf
@@ -48,6 +45,7 @@ class tuflowqgis_menu:
 		self.cLayer = None
 		self.tpExternal = None
 		self.defaultPath = 'C:\\'
+		self.resdock = None
 
 	def initGui(self):
 		# About Submenu
@@ -123,6 +121,12 @@ class tuflowqgis_menu:
 		self.run_menu.addAction(self.run_tuflow_action)
 		
 		#top level in menu
+		# Reload Data Added ES 16/07/18
+		icon = QIcon(os.path.dirname(__file__) + "/icons/reload_data.png")
+		self.reload_data_action = QAction(icon, "Reload Data", self.iface.mainWindow())
+		self.reload_data_action.triggered.connect(self.reload_data)
+		self.iface.addToolBarIcon(self.reload_data_action)
+		self.iface.addPluginToMenu("&TUFLOW", self.reload_data_action)
 		# TuPlot
 		icon = QIcon(os.path.dirname(__file__) + "/icons/results.png")
 		self.view_1d_results_action = QAction(icon, "TuPlot", self.iface.mainWindow())
@@ -183,12 +187,29 @@ class tuflowqgis_menu:
 		self.iface.addToolBarIcon(self.apply_auto_label_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.apply_auto_label_action)
 		
-		#ES 2018/01 ARR2016 Beta
-		#icon = QIcon(os.path.dirname(__file__) + "/icons/arr2016.PNG")
-		#self.extract_arr2016_action = QAction(icon, "Extract ARR2016 for TUFLOW (beta)", self.iface.mainWindow())
-		#QObject.connect(self.extract_arr2016_action, SIGNAL("triggered()"), self.extract_arr2016)
-		#self.iface.addPluginToMenu("&TUFLOW", self.extract_arr2016_action)
-		#self.iface.addToolBarIcon(self.extract_arr2016_action)
+		# ES 2018/01 ARR2016
+		icon = QIcon(os.path.dirname(__file__) + "/icons/arr2016.PNG")
+		self.extract_arr2016_action = QAction(icon, "Extract ARR2016 for TUFLOW", self.iface.mainWindow())
+		QObject.connect(self.extract_arr2016_action, SIGNAL("triggered()"), self.extract_arr2016)
+		self.iface.addPluginToMenu("&TUFLOW", self.extract_arr2016_action)
+		self.iface.addToolBarIcon(self.extract_arr2016_action)
+		
+		# ES 2018/05 Load input files from TCF
+		icon = QIcon(os.path.dirname(__file__) + "/icons/load_from_TCF.PNG")
+		self.load_tuflowFiles_from_TCF_action = QAction(icon, "Load TUFLOW Layers from TCF", self.iface.mainWindow())
+		QObject.connect(self.load_tuflowFiles_from_TCF_action, SIGNAL("triggered()"), self.loadTuflowLayers)
+		self.iface.addPluginToMenu("&TUFLOW", self.load_tuflowFiles_from_TCF_action)
+		self.iface.addToolBarIcon(self.load_tuflowFiles_from_TCF_action)
+		
+		# Check 1D network integrity
+		self.check_1d_integrity_action = QAction("Check 1D Network Integrity (beta)", self.iface.mainWindow())
+		self.check_1d_integrity_action.triggered.connect(self.check_1d_integrity)
+		self.iface.addPluginToMenu("&TUFLOW", self.check_1d_integrity_action)
+
+		# Bridge Editor
+		#self.open_bridge_editor_action = QAction("Bridge Editor (beta)", self.iface.mainWindow())
+		#self.open_bridge_editor_action.triggered.connect(self.open_bridge_editor)
+		#self.iface.addPluginToMenu("&TUFLOW", self.open_bridge_editor_action)
 		
 		#Init classes variables
 		self.dockOpened = False		#remember for not reopening dock if there's already one opened
@@ -253,6 +274,17 @@ class tuflowqgis_menu:
 #			self.iface.addDockWidget( Qt.RightDockWidgetArea, self.dock )
 #			self.dockOpened = True
 		
+	def reload_data(self):
+		try:
+			if QGis.QGIS_VERSION_INT >= 211:
+				layer = self.iface.mapCanvas().currentLayer()
+				layer.dataProvider().forceReload()
+				layer.triggerRepaint()
+			else:
+				QMessageBox.information(self.iface.mainWindow, 'Message', 'Reload tool is not compatible with QGIS version 2.10 or lower')
+		except:
+			pass
+	
 	def results_1d(self):
 		#if self.resdockOpened == False:
 		if self.dockOpened:
@@ -348,7 +380,7 @@ class tuflowqgis_menu:
 		#QMessageBox.information(self.iface.mainWindow(), "About TUFLOW QGIS", 'This is a developmental version of the TUFLOW QGIS utitlity, build: '+build_vers)
 		QMessageBox.information(self.iface.mainWindow(), "About TUFLOW QGIS", "This is a {0} version of the TUFLOW QGIS utitlity\nBuild: {1}".format(build_type,build_vers))
 
-      # Added MJS 11/02  
+	# Added MJS 11/02
 	def import_check(self):
 		project = QgsProject.instance()
 		dialog = tuflowqgis_import_check_dialog(self.iface, project)
@@ -377,3 +409,50 @@ class tuflowqgis_menu:
 		error, message = tuflowqgis_apply_autoLabel_clayer(self.iface)
 		if error:
 			QMessageBox.critical(self.iface.mainWindow(), "Error", message)
+	
+	def check_1d_integrity(self):
+		self.dialog = tuflowqgis_check_1d_integrity_dialog(self.iface, self.dockOpened, self.resdock)
+		self.dialog.exec_()
+		self.dockOpened = self.dialog.dockOpened
+		self.resdock = self.dialog.resdock
+		
+	def loadTuflowLayers(self):
+		settings = QSettings()
+		lastFolder = str(settings.value("TUFLOW/TCF_last_folder", os.sep))
+		if (len(lastFolder) > 0):  # use last folder if stored
+			fpath = lastFolder
+		else:
+			cLayer = self.iface.mapCanvas.currentLayer()
+			if cLayer:  # if layer selected use the path to this
+				dp = cLayer.dataProvider()
+				ds = dp.dataSourceUri()
+				fpath = os.path.dirname(unicode(ds))
+			else:  # final resort to current working directory
+				fpath = os.getcwd()
+		
+		inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW TCF', fpath,
+		                                           "TCF (*.tcf)")
+		for inFileName in inFileNames:
+			if not inFileName or len(inFileName) < 1:  # empty list
+				return
+			else:
+				fpath, fname = os.path.split(inFileName)
+				if fpath != os.sep and fpath.lower() != 'c:\\' and fpath != '':
+					settings.setValue("TUFLOW/TCF_last_folder", fpath)
+				if os.path.splitext(inFileName)[1].lower() != '.tcf':
+					QMessageBox.information(self.iface.mainWindow(), "Message", 'Must select TCF')
+					return
+				else:
+					error, message, scenarios = getScenariosFromTcf(inFileName, self.iface)
+					if error:
+						QMessageBox.information(self.iface.mainWindow(), "Message", message)
+					if len(scenarios) > 0:
+						self.dialog = tuflowqgis_scenarioSelection_dialog(self.iface, inFileName, scenarios)
+						self.dialog.exec_()
+					else:
+						openGisFromTcf(inFileName, self.iface)
+
+
+	def open_bridge_editor(self):
+		self.bridgeGui = bridgeGui(self.iface)
+		self.iface.addDockWidget(Qt.RightDockWidgetArea, self.bridgeGui)

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>952</width>
-    <height>591</height>
+    <height>596</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -55,11 +55,11 @@
         <item row="1" column="0">
          <layout class="QHBoxLayout" name="_2">
           <item>
-           <layout class="QVBoxLayout" name="verticalLayout">
+           <layout class="QGridLayout" name="gridLayout_3">
             <property name="sizeConstraint">
              <enum>QLayout::SetMaximumSize</enum>
             </property>
-            <item>
+            <item row="0" column="0">
              <widget class="QLabel" name="label1">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
@@ -72,13 +72,19 @@
               </property>
              </widget>
             </item>
-            <item>
+            <item row="1" column="0">
              <widget class="QListWidget" name="ResList">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>200</width>
+                <height>0</height>
+               </size>
               </property>
               <property name="maximumSize">
                <size>
@@ -91,12 +97,38 @@
               </property>
              </widget>
             </item>
-            <item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="label_4">
+              <property name="text">
+               <string>1D Table Check Files</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QListWidget" name="HydPropList">
+              <property name="minimumSize">
+               <size>
+                <width>200</width>
+                <height>50</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>200</width>
+                <height>75</height>
+               </size>
+              </property>
+              <property name="selectionMode">
+               <enum>QAbstractItemView::ExtendedSelection</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0">
              <widget class="QGroupBox" name="Control">
               <property name="minimumSize">
                <size>
-                <width>10</width>
-                <height>60</height>
+                <width>20</width>
+                <height>85</height>
                </size>
               </property>
               <property name="maximumSize">
@@ -208,9 +240,71 @@
                 <string>Help / About</string>
                </property>
               </widget>
+              <widget class="QPushButton" name="AddHydTab">
+               <property name="geometry">
+                <rect>
+                 <x>10</x>
+                 <y>60</y>
+                 <width>80</width>
+                 <height>20</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>80</width>
+                 <height>20</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>20</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Add 1D Table</string>
+               </property>
+              </widget>
+              <widget class="QPushButton" name="CloseHydTab">
+               <property name="geometry">
+                <rect>
+                 <x>105</x>
+                 <y>60</y>
+                 <width>80</width>
+                 <height>20</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>80</width>
+                 <height>20</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>80</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Close 1D Table</string>
+               </property>
+              </widget>
              </widget>
             </item>
-            <item>
+            <item row="5" column="0">
              <widget class="QLabel" name="label3">
               <property name="maximumSize">
                <size>
@@ -223,7 +317,7 @@
               </property>
              </widget>
             </item>
-            <item>
+            <item row="6" column="0">
              <widget class="QComboBox" name="locationDrop">
               <property name="maximumSize">
                <size>
@@ -233,7 +327,7 @@
               </property>
              </widget>
             </item>
-            <item>
+            <item row="7" column="0">
              <layout class="QHBoxLayout" name="horizontalLayout_2">
               <item>
                <widget class="QLabel" name="label4">
@@ -263,7 +357,7 @@
               </item>
              </layout>
             </item>
-            <item>
+            <item row="8" column="0">
              <layout class="QHBoxLayout" name="horizontalLayout">
               <item>
                <widget class="QListWidget" name="ResTypeList">
@@ -292,6 +386,9 @@
               </item>
               <item>
                <widget class="QListWidget" name="ResTypeList_ax2">
+                <property name="enabled">
+                 <bool>true</bool>
+                </property>
                 <property name="maximumSize">
                  <size>
                   <width>75</width>
@@ -305,7 +402,7 @@
               </item>
              </layout>
             </item>
-            <item>
+            <item row="9" column="0">
              <layout class="QHBoxLayout" name="horizontalLayout_5" stretch="0,0,0">
               <item>
                <widget class="QPushButton" name="pbAnimatePlot">
@@ -360,15 +457,15 @@
            </layout>
           </item>
           <item>
-           <layout class="QVBoxLayout" name="verticalLayout_2">
-            <item>
+           <layout class="QGridLayout" name="gridLayout_2">
+            <item row="0" column="0">
              <widget class="QLabel" name="label5">
               <property name="text">
                <string>Selected Elements (display only)</string>
               </property>
              </widget>
             </item>
-            <item>
+            <item row="1" column="0">
              <widget class="QListWidget" name="IDList">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -378,7 +475,7 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>10</width>
+                <width>5</width>
                 <height>0</height>
                </size>
               </property>
@@ -393,18 +490,18 @@
               </property>
              </widget>
             </item>
-            <item>
+            <item row="2" column="0">
              <widget class="QLabel" name="label6">
               <property name="text">
                <string>Current Time</string>
               </property>
              </widget>
             </item>
-            <item>
+            <item row="3" column="0">
              <widget class="QListWidget" name="listTime">
               <property name="minimumSize">
                <size>
-                <width>10</width>
+                <width>5</width>
                 <height>0</height>
                </size>
               </property>
@@ -416,15 +513,21 @@
               </property>
              </widget>
             </item>
-            <item>
+            <item row="4" column="0">
              <widget class="QLabel" name="label">
               <property name="text">
                <string>Status Dialogue</string>
               </property>
              </widget>
             </item>
-            <item>
+            <item row="5" column="0">
              <widget class="QListWidget" name="lwStatus">
+              <property name="minimumSize">
+               <size>
+                <width>5</width>
+                <height>0</height>
+               </size>
+              </property>
               <property name="maximumSize">
                <size>
                 <width>200</width>
@@ -433,7 +536,7 @@
               </property>
              </widget>
             </item>
-            <item>
+            <item row="6" column="0">
              <widget class="QPushButton" name="pbClearStatus">
               <property name="maximumSize">
                <size>
@@ -475,43 +578,43 @@
                 <number>9</number>
                </property>
                <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_3">
-                 <item>
+                <layout class="QGridLayout" name="gridLayout_4">
+                 <item row="0" column="0">
                   <widget class="QPushButton" name="pbUpdate">
                    <property name="text">
                     <string>UPDATE PLOT</string>
                    </property>
                   </widget>
                  </item>
-                 <item>
+                 <item row="0" column="1">
                   <widget class="QCheckBox" name="cbShowLegend">
                    <property name="text">
                     <string>Legend</string>
                    </property>
                   </widget>
                  </item>
-                 <item>
+                 <item row="0" column="2">
                   <widget class="QCheckBox" name="cbLegendUL">
                    <property name="text">
                     <string>UL</string>
                    </property>
                   </widget>
                  </item>
-                 <item>
+                 <item row="0" column="3">
                   <widget class="QCheckBox" name="cbLegendUR">
                    <property name="text">
                     <string>UR</string>
                    </property>
                   </widget>
                  </item>
-                 <item>
+                 <item row="0" column="4">
                   <widget class="QCheckBox" name="cbLegendLL">
                    <property name="text">
                     <string>LL</string>
                    </property>
                   </widget>
                  </item>
-                 <item>
+                 <item row="0" column="5">
                   <widget class="QCheckBox" name="cbLegendLR">
                    <property name="text">
                     <string>LR</string>
@@ -537,14 +640,14 @@
           </property>
           <property name="minimumSize">
            <size>
-            <width>300</width>
+            <width>600</width>
             <height>40</height>
            </size>
           </property>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>20</height>
+            <height>40</height>
            </size>
           </property>
           <property name="frameShape">
