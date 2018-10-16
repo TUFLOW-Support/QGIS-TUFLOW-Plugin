@@ -407,7 +407,7 @@ def tuflowqgis_import_check_tf(qgis, basepath, runID,showchecks):
 			layer.setRendererV2(renderer)
 			layer.triggerRepaint()
 		else: # use .qml style using tf_styles
-			error, message, slyr = tf_styles.Find(fname) #use tuflow styles to find longest matching 
+			error, message, slyr = tf_styles.Find(fname, layer) #use tuflow styles to find longest matching 
 			if error:
 				QMessageBox.critical(qgis.mainWindow(),"ERROR", message)
 				return message

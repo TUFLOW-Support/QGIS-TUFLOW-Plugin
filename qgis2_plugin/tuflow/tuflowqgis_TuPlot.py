@@ -409,13 +409,15 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 				self.lwStatus.insertItem(0,'.INFO file detected - using TUFLOW_Results2013.')
 				self.lwStatus.item(0).setTextColor(self.qgreen)
 				#self.lwStatus.insertItem(0,'Loading...')
-				try:
-					res=TUFLOW_results2013.ResData(inFileNames[x])
-					self.res.append(res)
+				#try:
+				#res=TUFLOW_results2013.ResData(inFileNames[x])
+				res = TUFLOW_results2013.ResData()
+				res.Load(inFileNames[x], self.iface)
+				self.res.append(res)
 					#self.lwStatus.insertItem(0,'Done')
-				except:
-					self.lwStatus.insertItem(0,'ERROR - Loading Results')
-					self.lwStatus.item(0).setTextColor(self.qred)
+				#except:
+				#	self.lwStatus.insertItem(0,'ERROR - Loading Results')
+				#	self.lwStatus.item(0).setTextColor(self.qred)
 				
 			elif ext.upper()=='.TPC':
 				self.lwStatus.insertItem(0,'.TPC file detected - using TUFLOW_results')

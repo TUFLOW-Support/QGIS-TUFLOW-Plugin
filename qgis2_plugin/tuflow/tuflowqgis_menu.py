@@ -19,7 +19,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2018-10-AA (QGIS 2.x)'
+build_vers = '2018-10-AB (QGIS 2.x)'
 build_type = 'release' #release / developmental
 
 # Import the PyQt and QGIS libraries
@@ -187,9 +187,9 @@ class tuflowqgis_menu:
 		self.iface.addToolBarIcon(self.apply_auto_label_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.apply_auto_label_action)
 		
-		# ES 2018/01 ARR2016
+		# ES 2018/01 ARR2016 Beta
 		icon = QIcon(os.path.dirname(__file__) + "/icons/arr2016.PNG")
-		self.extract_arr2016_action = QAction(icon, "Extract ARR2016 for TUFLOW", self.iface.mainWindow())
+		self.extract_arr2016_action = QAction(icon, "Extract ARR2016 for TUFLOW (beta)", self.iface.mainWindow())
 		QObject.connect(self.extract_arr2016_action, SIGNAL("triggered()"), self.extract_arr2016)
 		self.iface.addPluginToMenu("&TUFLOW", self.extract_arr2016_action)
 		self.iface.addToolBarIcon(self.extract_arr2016_action)
