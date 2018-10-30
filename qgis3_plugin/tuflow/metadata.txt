@@ -6,8 +6,8 @@
 [general]
 name=TUFLOW
 qgisMinimumVersion=3.0
-description=A collection of utilities for TUFLOW modelling in QGIS
-about=A collection of utilities for TUFLOW modelling in QGIS.
+description=A collection of utilities for TUFLOW flood and coastal simulation in QGIS
+about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
 	Includes visualisation of results / inputs
 	Editing tools
 	Styling tools
@@ -30,7 +30,7 @@ changelog=New tool add TUFLOW attributes to an existing GIS layer
           Fix bug with losing empty directory in import empty tool when canceling browse      
 
 # tags are comma separated with spaces allowed
-tags=TUFLOW	
+tags=TUFLOW, simulation, flood, hydraulic modelling	
 
 homepage=http://wiki.tuflow.com/index.php?title=TUFLOW_QGIS_Plugin
 tracker=https://github.com/TUFLOW-Support/QGIS-TUFLOW-Plugin/issues
