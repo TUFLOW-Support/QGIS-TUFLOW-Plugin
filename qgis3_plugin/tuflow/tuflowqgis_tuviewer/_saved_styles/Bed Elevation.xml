@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Bed_Elevation>
+<colorrampshader colorRampType="INTERPOLATED" clip="0" classificationMode="1">
+ <colorramp type="gradient" name="[source]">
+  <prop v="175,240,234,255" k="color1"/>
+  <prop v="255,252,255,255" k="color2"/>
+  <prop v="0" k="discrete"/>
+  <prop v="gradient" k="rampType"/>
+  <prop v="0.143;255,255,178,255:0.286;0,128,64,255:0.429;252,186,2,255:0.571;128,0,0,255:0.714;105,48,12,255:0.857;171,171,171,255" k="stops"/>
+ </colorramp>
+ <item alpha="255" value="36.001" color="#aff0ea" label="36"/>
+ <item alpha="255" value="38.791359" color="#ffffb2" label="38.8"/>
+ <item alpha="255" value="41.581718" color="#008040" label="41.6"/>
+ <item alpha="255" value="44.372077" color="#fcba02" label="44.4"/>
+ <item alpha="255" value="47.142923" color="#800000" label="47.1"/>
+ <item alpha="255" value="49.933282" color="#69300c" label="49.9"/>
+ <item alpha="255" value="52.723641" color="#ababab" label="52.7"/>
+ <item alpha="255" value="55.514" color="#fffcff" label="55.5"/>
+</colorrampshader>

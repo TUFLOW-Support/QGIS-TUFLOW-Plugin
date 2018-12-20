@@ -19,7 +19,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2018-04-AA (QGIS 3.0)'
+build_vers = '2018-11-AC (QGIS 3.0)'
 build_type = 'release' #release / developmental
 
 # Import the PyQt and QGIS libraries
@@ -149,12 +149,12 @@ class tuflowqgis_menu:
 		self.iface.addPluginToMenu("&TUFLOW", self.view_1d_results_action)
 		
 		# TuPLOT External Added ES 2017/11
-		icon = QIcon(os.path.dirname(__file__) + "/icons/TuPLOT_External.PNG")
-		self.open_tuplot_external_action = QAction(icon, "TuPlot_Ext", self.iface.mainWindow())
-		#QObject.connect(self.open_tuplot_external_action, SIGNAL("triggered()"), self.open_tuplot_ext)
-		self.open_tuplot_external_action.triggered.connect(self.open_tuplot_ext)
-		self.iface.addToolBarIcon(self.open_tuplot_external_action)
-		self.iface.addPluginToMenu("&TUFLOW", self.open_tuplot_external_action)
+		#icon = QIcon(os.path.dirname(__file__) + "/icons/TuPLOT_External.PNG")
+		#self.open_tuplot_external_action = QAction(icon, "TuPlot_Ext", self.iface.mainWindow())
+		##QObject.connect(self.open_tuplot_external_action, SIGNAL("triggered()"), self.open_tuplot_ext)
+		#self.open_tuplot_external_action.triggered.connect(self.open_tuplot_ext)
+		#self.iface.addToolBarIcon(self.open_tuplot_external_action)
+		#self.iface.addPluginToMenu("&TUFLOW", self.open_tuplot_external_action)
 		
 		# Added MJS 24/11
 		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_import.png")

@@ -1173,6 +1173,9 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Must select a layer.")
 			return
 		
+		# destroy dialog box
+		self.accept()
+		
 		# get AEPs
 		rare_events = 'false'
 		frequent_events = 'false'
@@ -1459,7 +1462,6 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			QMessageBox.information(self.iface.mainWindow(), "Message",
 								   'Process Complete. Please see\n{0}\nfor warning and error messages.'\
 								   .format(os.path.join(outFolder, 'log.txt')))
-		
 		return
 
 	def aep_all(self):

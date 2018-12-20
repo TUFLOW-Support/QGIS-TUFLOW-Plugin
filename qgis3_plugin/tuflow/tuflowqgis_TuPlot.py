@@ -8,7 +8,15 @@ import sys
 import os
 import csv
 import matplotlib
-import matplotlib.pyplot as plt
+try:
+	import matplotlib.pyplot as plt
+except:
+	current_path = os.path.dirname(__file__)
+	plugin_folder = os.path.dirname(current_path)
+	sys.path.append(os.path.join(plugin_folder, '_tk\\DLLs'))
+	sys.path.append(os.path.join(plugin_folder, '_tk\\libs'))
+	sys.path.append(os.path.join(plugin_folder, '_tk\\Lib'))
+	import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 from matplotlib.patches import Polygon
@@ -1292,7 +1300,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 		a, = self.subplot.plot(x, y)
 		self.artists.append(a)
 		labels.append(label)
-		self.subplot.hold(True)
 		self.plotWdg.draw()
 	
 	def manageMatplotlibAxe(self, axe1):
@@ -1438,7 +1445,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 				a, = self.subplot.plot(xs.x, xs.z)
 				self.artists.append(a)
 				labels.append(label)
-				self.subplot.hold(True)
 				try:
 					if self.ax2_exists:
 						self.axis2.set_xbound(lower=xmin, upper=xmax)
@@ -1462,7 +1468,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 			
 			if self.cbShowLegend.isChecked():
 				self.subplot.legend(self.artists, labels, bbox_to_anchor=(0, 0, 1, 1))
-			self.subplot.hold(False)
 			self.subplot.grid(True)
 			self.plotWdg.draw()
 		
@@ -1579,7 +1584,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 								labels.append(label +" - "+name)
 							else:
 								labels.append(label)
-							self.subplot.hold(True)
 							ymax = max(ymax,max(res.LP.Hmax))
 
 						# plot max energy level
@@ -1595,7 +1599,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 										labels.append(label +" - "+name)
 									else:
 										labels.append(label)
-									self.subplot.hold(True)
 									ymax = max(ymax,max(res.LP.Emax))
 								else:
 									self.lwStatus.insertItem(0,'Warning - No Maximum Energy Levels stored for '+name)
@@ -1622,7 +1625,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 									labels.append(label +" - "+name)
 								else:
 									labels.append(label)
-								self.subplot.hold(True)
 								ymax = max(ymax,max(res.LP.Hdata))
 
 						#plot LP energy at time
@@ -1649,7 +1651,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 										labels.append(label +" - "+name)
 									else:
 										labels.append(label)
-									self.subplot.hold(True)
 									ymax = max(ymax,max(res.LP.Edata))
 
 						#plot adverse sections
@@ -1687,7 +1688,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 								labels.append(label +" - "+name)
 							else:
 								labels.append(label)
-							self.subplot.hold(True)
 							ymax = max(ymax,max(res.LP.chan_inv))
 							
 							#tag on culverts if bed is shown (2015 or later)
@@ -1707,7 +1707,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 								labels.append(label +" - "+name)
 							else:
 								labels.append(label)
-							self.subplot.hold(True)
 							ymax = max(ymax,max(res.LP.chan_LB))
 
 						#plot RB
@@ -1719,7 +1718,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 								labels.append(label +" - "+name)
 							else:
 								labels.append(label)
-							self.subplot.hold(True)
 							ymax = max(ymax,max(res.LP.chan_RB))
 
 						#plot pits
@@ -1745,7 +1743,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 										labels.append(label +" - "+name)
 									else:
 										labels.append(label)
-									self.axis2.hold(True)
 									#ymax = max(ymax,max(res.LP.chan_inv))						
 									self.axis2.set_ylabel("Time of Peak Level")
 				#Timeseries______________________________________________________________________
@@ -1830,7 +1827,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 											a, = self.subplot.plot(xdata, ydata)
 											self.artists.append(a)
 											labels.append(label)
-											self.subplot.hold(True)
 										else:
 											self.lwStatus.insertItem(0,'ERROR - Size of x and y data doesnt match')
 					
@@ -1848,7 +1844,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 									self.artists.append(a)
 									labels.append('Current time ({0})'.format(list_item.text()))
 									self.subplot.set_ylim([ax1y1, ax1y2])
-									#self.subplot.hold(True)
 								except:
 									self.lwStatus.insertItem(0,'Unable to add current time')
 									
@@ -1921,7 +1916,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 												a2, = self.axis2.plot(xdata, ydata, marker='x')
 												self.artists.append(a2)
 												labels.append(label)
-												self.axis2.hold(True)
 											else:
 												self.lwStatus.insertItem(0,'ERROR - Number of x and y data points doesnt match')
 
@@ -2014,7 +2008,6 @@ class TuPlot(QDockWidget, Ui_tuflowqgis_TuPlot):
 				else:
 					self.subplot.legend(self.artists, labels, bbox_to_anchor=(0, 0, 1, 1))
 				
-			self.subplot.hold(False)
 			self.subplot.grid(True)
 			xmin = math.floor(xmin)
 			xmax = math.ceil(xmax)

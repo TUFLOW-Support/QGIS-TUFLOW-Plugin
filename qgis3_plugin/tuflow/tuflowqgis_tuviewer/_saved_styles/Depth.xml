@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Depth>
+<scalar-settings opacity="1" min-val="0" max-val="5.60486">
+ <colorrampshader classificationMode="1" clip="0" colorRampType="DISCRETE">
+  <colorramp name="[source]" type="gradient">
+   <prop v="247,252,245,255" k="color1"/>
+   <prop v="0,68,27,255" k="color2"/>
+   <prop v="0" k="discrete"/>
+   <prop v="gradient" k="rampType"/>
+   <prop v="0.13;229,245,224,255:0.26;199,233,192,255:0.39;161,217,155,255:0.52;116,196,118,255:0.65;65,171,93,255:0.78;35,139,69,255:0.9;0,109,44,255" k="stops"/>
+  </colorramp>
+  <item value="0.5" label="&lt; 0.5" alpha="255" color="#bfffe9"/>
+  <item value="0.8" label="0.5 - 0.8" alpha="255" color="#bfe9ff"/>
+  <item value="1" label="0.8 - 1.0" alpha="255" color="#73b2ff"/>
+  <item value="2" label="1.0 - 2.0" alpha="255" color="#005ce6"/>
+  <item value="50" label="> 2.0" alpha="255" color="#0020c4"/>
+ </colorrampshader>
+</scalar-settings>

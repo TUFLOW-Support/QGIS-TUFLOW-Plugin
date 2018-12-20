@@ -31,8 +31,21 @@ import processing
 from .tuflowqgis_library import *
 from PyQt5.QtWidgets import *
 from qgis.gui import QgsProjectionSelectionWidget
+from datetime import datetime
 import sys
 import subprocess
+import numpy as np
+import matplotlib
+try:
+	import matplotlib.pyplot as plt
+except:
+	current_path = os.path.dirname(__file__)
+	sys.path.append(os.path.join(current_path, '_tk\\DLLs'))
+	sys.path.append(os.path.join(current_path, '_tk\\libs'))
+	sys.path.append(os.path.join(current_path, '_tk\\Lib'))
+	import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from tuflow.tuflowqgis_library import interpolate, convertStrftimToTuviewftim, convertTuviewftimToStrftim
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/forms")
 currentFolder = os.path.dirname(os.path.abspath(__file__))
 
@@ -164,10 +177,9 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		error, message = self.tfsettings.Load()
 		if error:
 			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Settings: "+message)
-		
-		#QObject.connect(self.browsedir, SIGNAL("clicked()"), self.browse_empty_dir)
+			
 		self.browsedir.clicked.connect(self.browse_empty_dir)
-		#QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
+		self.emptydir.editingFinished.connect(self.dirChanged)
 		self.buttonBox.accepted.connect(self.run)
 
 		if self.tfsettings.combined.base_dir:
@@ -175,13 +187,76 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 			self.emptydir.setText(os.path.join(self.tfsettings.combined.base_dir,"TUFLOW","model","gis","empty"))
 		else:
 			self.emptydir.setText("ERROR - Project not loaded")
+			
+		# load empty types
+		self.emptyType.clear()
+		if self.emptydir.text() == "ERROR - Project not loaded":
+			self.emptyType.addItem('No empty directory')
+		elif not os.path.exists(self.emptydir.text()):
+			self.emptyType.addItem('Empty directory not valid')
+		else:
+			search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
+			files = glob.glob(search_string)
+			empty_list = []
+			for file in files:
+				if len(file.split('_empty')) < 2:
+					continue
+				empty_type = os.path.basename(file.split('_empty')[0])
+				if empty_type not in empty_list:
+					empty_list.append(empty_type)
+					self.emptyType.addItem(empty_type)
 
 	def browse_empty_dir(self):
-		newname = QFileDialog.getExistingDirectory(None, "Output Directory")
+		startDir = None
+		dir = self.emptydir.text()
+		while dir:
+			if os.path.exists(dir):
+				startDir = dir
+				break
+			else:
+				dir = os.path.dirname(dir)
+			
+		newname = QFileDialog.getExistingDirectory(None, "Output Directory", startDir)
 		if len(newname) > 0:
 			self.emptydir.setText(newname)
+			
+			# load empty types
+			self.emptyType.clear()
+			if self.emptydir.text() == "ERROR - Project not loaded":
+				self.emptyType.addItem('No empty directory')
+			elif not os.path.exists(self.emptydir.text()):
+				self.emptyType.addItem('Empty directory not valid')
+			else:
+				search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
+				files = glob.glob(search_string)
+				empty_list = []
+				for file in files:
+					if len(file.split('_empty')) < 2:
+						continue
+					empty_type = os.path.basename(file.split('_empty')[0])
+					if empty_type not in empty_list:
+						empty_list.append(empty_type)
+						self.emptyType.addItem(empty_type)
 
-
+	def dirChanged(self):
+		# load empty types
+		self.emptyType.clear()
+		if self.emptydir.text() == "ERROR - Project not loaded":
+			self.emptyType.addItem('No empty directory')
+		elif not os.path.exists(self.emptydir.text()):
+			self.emptyType.addItem('Empty directory not valid')
+		else:
+			search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
+			files = glob.glob(search_string)
+			empty_list = []
+			for file in files:
+				if len(file.split('_empty')) < 2:
+					continue
+				empty_type = os.path.basename(file.split('_empty')[0])
+				if empty_type not in empty_list:
+					empty_list.append(empty_type)
+					self.emptyType.addItem(empty_type)
+	
 	def run(self):
 		runID = unicode(self.txtRunID.displayText()).strip()
 		basedir = unicode(self.emptydir.displayText()).strip()
@@ -1217,7 +1292,7 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			rare_events = 'true'
 		if self.checkBox_500y.isChecked():
 			AEP_list += '500ARI '
-			rare_events = '-true'
+			rare_events = 'true'
 		if self.checkBox_1000y.isChecked():
 			AEP_list += '1000ARI '
 			rare_events = 'true'
@@ -1461,21 +1536,31 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			else:
 				logfile = open(os.path.join(outFolder, 'log.txt'), 'ab')
 			CREATE_NO_WINDOW = 0x08000000 # suppresses python console window
-			proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
-								  creationflags=CREATE_NO_WINDOW)
+			error = False
 			try:
-				for line in proc.stdout:
-					#sys.stdout.write(line)
-					logfile.write(line)
-					proc.wait()
+				proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+				                        creationflags=CREATE_NO_WINDOW)
+				out, err = proc.communicate()
+				logfile.write(out)
+				logfile.write(err)
 				logfile.close()
 			except:
-				QMessageBox.critical(self.iface.mainWindow(), "Error", 'Error writing log file.')
-				logfile.close()
-		
-		QMessageBox.information(self.iface.mainWindow(), "Message", 
-							   'Process Complete. Please see\n{0}\nfor warning and error messages.'\
-							   .format(os.path.join(outFolder, 'log.txt')))
+				try:
+					proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+					out, err = proc.communicate()
+					logfile.write(out)
+					logfile.write(err)
+					logfile.close()
+				except:
+					proc = subprocess.Popen(sys_args)
+					error = True
+					logfile.close()
+		if error:
+			QMessageBox.information(self.iface.mainWindow(), "Error", 'Process Complete. Error writing log file.')
+		else:
+			QMessageBox.information(self.iface.mainWindow(), "Message",
+			                        'Process Complete. Please see\n{0}\nfor warning and error messages.' \
+			                        .format(os.path.join(outFolder, 'log.txt')))
 		
 		return
 
@@ -1600,20 +1685,81 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 			self.emptydir.setText(os.path.join(self.tfsettings.combined.base_dir, "TUFLOW", "model", "gis", "empty"))
 		else:
 			self.emptydir.setText("ERROR - Project not loaded")
+			
+		# load empty types
+		self.comboBox_tfType.clear()
+		if self.emptydir.text() == "ERROR - Project not loaded":
+			self.comboBox_tfType.addItem('No empty directory')
+		elif not os.path.exists(self.emptydir.text()):
+			self.comboBox_tfType.addItem('Empty directory not valid')
+		else:
+			search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
+			files = glob.glob(search_string)
+			empty_list = []
+			for file in files:
+				if len(file.split('_empty')) < 2:
+					continue
+				empty_type = os.path.basename(file.split('_empty')[0])
+				if empty_type not in empty_list:
+					empty_list.append(empty_type)
+					self.comboBox_tfType.addItem(empty_type)
 									
-		#QObject.connect(self.browsedir, SIGNAL("clicked()"), lambda: self.browse_empty_dir(unicode(self.emptydir.displayText()).strip()))
 		self.browsedir.clicked.connect(lambda: self.browse_empty_dir(unicode(self.emptydir.displayText()).strip()))
-		#QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
+		self.emptydir.editingFinished.connect(self.dirChanged)
 		self.buttonBox.accepted.connect(self.run)
 
 
 	def browse_empty_dir(self, oldName):
-		newname = QFileDialog.getExistingDirectory(None, "Output Directory")
+		startDir = None
+		dir = self.emptydir.text()
+		while dir:
+			if os.path.exists(dir):
+				startDir = dir
+				break
+			else:
+				dir = os.path.dirname(dir)
+		
+		newname = QFileDialog.getExistingDirectory(None, "Output Directory", startDir)
 		if len(newname) > 0:
 			self.emptydir.setText(newname)
+			
+			# load empty types
+			self.comboBox_tfType.clear()
+			if self.emptydir.text() == "ERROR - Project not loaded":
+				self.comboBox_tfType.addItem('No empty directory')
+			elif not os.path.exists(self.emptydir.text()):
+				self.comboBox_tfType.addItem('Empty directory not valid')
+			else:
+				search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
+				files = glob.glob(search_string)
+				empty_list = []
+				for file in files:
+					if len(file.split('_empty')) < 2:
+						continue
+					empty_type = os.path.basename(file.split('_empty')[0])
+					if empty_type not in empty_list:
+						empty_list.append(empty_type)
+						self.comboBox_tfType.addItem(empty_type)
+	
+	def dirChanged(self):
+		# load empty types
+		self.comboBox_tfType.clear()
+		if self.emptydir.text() == "ERROR - Project not loaded":
+			self.comboBox_tfType.addItem('No empty directory')
+		elif not os.path.exists(self.emptydir.text()):
+			self.comboBox_tfType.addItem('Empty directory not valid')
 		else:
-			self.emptydir.setText(oldName)
-		
+			search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
+			files = glob.glob(search_string)
+			empty_list = []
+			for file in files:
+				if len(file.split('_empty')) < 2:
+					continue
+				empty_type = os.path.basename(file.split('_empty')[0])
+				if empty_type not in empty_list:
+					empty_list.append(empty_type)
+					self.comboBox_tfType.addItem(empty_type)
+	
 	def run(self):
 		runID = unicode(self.txtRunID.displayText()).strip()
 		basedir = unicode(self.emptydir.displayText()).strip()
@@ -1628,3 +1774,1540 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 		if message is not None:
 			QMessageBox.critical(self.iface.mainWindow(), "Importing TUFLOW Empty File(s)", message)
 
+
+# ----------------------------------------------------------
+#    tuflowqgis tuplot axis editor
+# ----------------------------------------------------------
+from ui_tuflowqgis_tuplotAxisEditor import *
+
+
+class tuflowqgis_tuplotAxisEditor(QDialog, Ui_tuplotAxisEditor):
+	def __init__(self, iface, xLim, yLim, xAuto, yAuto, xInc, yInc, axis2, x2Lim, y2Lim, x2Inc, y2Inc, x2Auto, y2Auto):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.setupUi(self)
+		self.xLim = xLim
+		self.yLim = yLim
+		self.xInc = xInc
+		self.yInc = yInc
+		self.x2Lim = x2Lim
+		self.y2Lim = y2Lim
+		self.x2Inc = x2Inc
+		self.y2Inc = y2Inc
+		
+		
+		# Set tabs enabled and secondary axis group boxes
+		if axis2 is None:
+			self.tabWidget.setTabEnabled(1, False)
+		else:
+			if axis2 == 'sharex':
+				self.groupBox_2.setEnabled(False)
+				self.yMin_sb_2.setValue(y2Lim[0])
+				self.yMax_sb_2.setValue(y2Lim[1])
+				self.yInc_sb_2.setValue(y2Inc)
+			elif axis2 == 'sharey':
+				self.groupBox.setEnabled(False)
+				self.xMin_sb_2.setValue(x2Lim[0])
+				self.xMax_sb_2.setValue(x2Lim[1])
+				self.xInc_sb_2.setValue(x2Inc)
+				
+		# Set Radio Buttons
+		if xAuto:
+			self.xAxisAuto_rb.setChecked(True)
+			self.xAxisCustom_rb.setChecked(False)
+		else:
+			self.xAxisAuto_rb.setChecked(False)
+			self.xAxisCustom_rb.setChecked(True)
+		if yAuto:
+			self.yAxisAuto_rb.setChecked(True)
+			self.yAxisCustom_rb.setChecked(False)
+		else:
+			self.yAxisAuto_rb.setChecked(False)
+			self.yAxisCustom_rb.setChecked(True)
+		if x2Auto:
+			self.xAxisAuto_rb_2.setChecked(True)
+			self.xAxisCustom_rb_2.setChecked(False)
+		else:
+			self.xAxisAuto_rb_2.setChecked(False)
+			self.xAxisCustom_rb_2.setChecked(True)
+		if y2Auto:
+			self.yAxisAuto_rb_2.setChecked(True)
+			self.yAxisCustom_rb_2.setChecked(False)
+		else:
+			self.yAxisAuto_rb_2.setChecked(False)
+			self.yAxisCustom_rb_2.setChecked(True)
+	
+		# Assign Limit values to primary axis dialog box
+		self.xMin_sb.setValue(xLim[0])
+		self.xMax_sb.setValue(xLim[1])
+		self.yMin_sb.setValue(yLim[0])
+		self.yMax_sb.setValue(yLim[1])
+		self.xInc_sb.setValue(xInc)
+		self.yInc_sb.setValue(yInc)
+		
+		# Signals
+		self.buttonBox.accepted.connect(self.run)
+		self.buttonBox.rejected.connect(lambda: self.cancel(xAuto, yAuto, x2Auto, y2Auto))
+		self.xMin_sb.valueChanged.connect(self.value_xChanged)
+		self.xMax_sb.valueChanged.connect(self.value_xChanged)
+		self.xInc_sb.valueChanged.connect(self.value_xChanged)
+		self.yMin_sb.valueChanged.connect(self.value_yChanged)
+		self.yMax_sb.valueChanged.connect(self.value_yChanged)
+		self.yInc_sb.valueChanged.connect(self.value_yChanged)
+		self.xMin_sb_2.valueChanged.connect(self.value_x2Changed)
+		self.xMax_sb_2.valueChanged.connect(self.value_x2Changed)
+		self.xInc_sb_2.valueChanged.connect(self.value_x2Changed)
+		self.yMin_sb_2.valueChanged.connect(self.value_y2Changed)
+		self.yMax_sb_2.valueChanged.connect(self.value_y2Changed)
+		self.yInc_sb_2.valueChanged.connect(self.value_y2Changed)
+		
+		
+	def value_xChanged(self):
+		self.xAxisAuto_rb.setChecked(False)
+		self.xAxisCustom_rb.setChecked(True)
+		
+		
+	def value_yChanged(self):
+		self.yAxisAuto_rb.setChecked(False)
+		self.yAxisCustom_rb.setChecked(True)
+		
+		
+	def value_x2Changed(self):
+		self.xAxisAuto_rb_2.setChecked(False)
+		self.xAxisCustom_rb_2.setChecked(True)
+		
+		
+	def value_y2Changed(self):
+		self.yAxisAuto_rb_2.setChecked(False)
+		self.yAxisCustom_rb_2.setChecked(True)
+	
+	
+	def run(self):
+		if self.xAxisCustom_rb.isChecked():
+			self.xLim = [self.xMin_sb.value(), self.xMax_sb.value()]
+			self.xInc = self.xInc_sb.value()
+		if self.yAxisCustom_rb.isChecked():
+			self.yLim = [self.yMin_sb.value(), self.yMax_sb.value()]
+			self.yInc = self.yInc_sb.value()
+		if self.xAxisCustom_rb_2.isChecked():
+			self.x2Lim = [self.xMin_sb_2.value(), self.xMax_sb_2.value()]
+			self.x2Inc = self.xInc_sb_2.value()
+		if self.yAxisCustom_rb_2.isChecked():
+			self.y2Lim = [self.yMin_sb_2.value(), self.yMax_sb_2.value()]
+			self.y2Inc = self.yInc_sb_2.value()
+		return
+	
+	
+	def cancel(self, xAuto, yAuto, x2Auto, y2Auto):
+		# revert back to original values
+		if xAuto:
+			self.xAxisAuto_rb.setChecked(True)
+			self.xAxisCustom_rb.setChecked(False)
+		else:
+			self.xAxisAuto_rb.setChecked(False)
+			self.xAxisCustom_rb.setChecked(True)
+		if yAuto:
+			self.yAxisAuto_rb.setChecked(True)
+			self.yAxisCustom_rb.setChecked(False)
+		else:
+			self.yAxisAuto_rb.setChecked(False)
+			self.yAxisCustom_rb.setChecked(True)
+		if x2Auto:
+			self.xAxisAuto_rb_2.setChecked(True)
+			self.xAxisCustom_rb_2.setChecked(False)
+		else:
+			self.xAxisAuto_rb_2.setChecked(False)
+			self.xAxisCustom_rb_2.setChecked(True)
+		if y2Auto:
+			self.yAxisAuto_rb_2.setChecked(True)
+			self.yAxisCustom_rb_2.setChecked(False)
+		else:
+			self.yAxisAuto_rb_2.setChecked(False)
+			self.yAxisCustom_rb_2.setChecked(True)
+
+
+# ----------------------------------------------------------
+#    tuflowqgis tuplot axis labels
+# ----------------------------------------------------------
+from ui_tuflowqgis_tuplotAxisLabels import *
+
+
+class tuflowqgis_tuplotAxisLabels(QDialog, Ui_tuplotAxisLabel):
+	def __init__(self, iface, xLabel, yLabel, xLabel2, yLabel2, title, xAxisAuto_cb, yAxisAuto_cb, xAxisAuto2_cb,
+	             yAxisAuto2_cb):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.xLabel = xLabel
+		self.yLabel = yLabel
+		self.xLabel2 = xLabel2
+		self.yLabel2 = yLabel2
+		self.title = title
+		self.setupUi(self)
+		# Setup Axis 1 defaults
+		self.chartTitle.setText(self.title)
+		self.xAxisLabel.setText(self.xLabel)
+		self.yAxisLabel.setText(self.yLabel)
+		if xAxisAuto_cb:
+			self.xAxisAuto_cb.setChecked(True)
+		else:
+			self.xAxisAuto_cb.setChecked(False)
+		if yAxisAuto_cb:
+			self.yAxisAuto_cb.setChecked(True)
+		else:
+			self.yAxisAuto_cb.setChecked(False)
+		# Setup Axis 2 defaults
+		if self.xLabel2 is not None:
+			self.xAxisAuto2_cb.setEnabled(True)
+			self.xAxisLabel2.setEnabled(True)
+			self.xAxisLabel2.setText(self.xLabel2)
+			if xAxisAuto2_cb:
+				self.xAxisAuto2_cb.setChecked(True)
+			else:
+				self.xAxisAuto2_cb.setChecked(False)
+		else:
+			self.xAxisAuto2_cb.setEnabled(False)
+			self.xAxisLabel2.setEnabled(False)
+		if self.yLabel2 is not None:
+			self.yAxisAuto2_cb.setEnabled(True)
+			self.yAxisLabel2.setEnabled(True)
+			self.yAxisLabel2.setText(self.yLabel2)
+			if yAxisAuto2_cb:
+				self.yAxisAuto2_cb.setChecked(True)
+			else:
+				self.yAxisAuto2_cb.setChecked(False)
+		else:
+			self.yAxisAuto2_cb.setEnabled(False)
+			self.yAxisLabel2.setEnabled(False)
+		# Signals
+		self.buttonBox.rejected.connect(lambda: self.cancel(xAxisAuto_cb, yAxisAuto_cb, xAxisAuto2_cb, yAxisAuto2_cb))
+		self.buttonBox.accepted.connect(self.run)
+		self.xAxisLabel.textChanged.connect(lambda: self.auto_label(self.xAxisAuto_cb))
+		self.yAxisLabel.textChanged.connect(lambda: self.auto_label(self.yAxisAuto_cb))
+		self.xAxisLabel2.textChanged.connect(lambda: self.auto_label(self.xAxisAuto2_cb))
+		self.yAxisLabel2.textChanged.connect(lambda: self.auto_label(self.yAxisAuto2_cb))
+	
+	
+	def auto_label(self, cb):
+		cb.setChecked(True)
+	
+	def run(self):
+		self.xLabel = self.xAxisLabel.text()
+		self.yLabel = self.yAxisLabel.text()
+		self.xLabel2 = self.xAxisLabel2.text()
+		self.yLabel2 = self.yAxisLabel2.text()
+		self.title = self.chartTitle.text()
+	
+	def cancel(self, xAxisAuto_cb, yAxisAuto_cb, xAxisAuto2_cb, yAxisAuto2_cb):
+		if xAxisAuto_cb:
+			self.xAxisAuto_cb.setChecked(True)
+		else:
+			self.xAxisAuto_cb.setChecked(False)
+		if yAxisAuto_cb:
+			self.yAxisAuto_cb.setChecked(True)
+		else:
+			self.yAxisAuto_cb.setChecked(False)
+		if xAxisAuto2_cb:
+			self.xAxisAuto2_cb.setChecked(True)
+		else:
+			self.xAxisAuto2_cb.setChecked(False)
+		if yAxisAuto2_cb:
+			self.yAxisAuto2_cb.setChecked(True)
+		else:
+			self.yAxisAuto2_cb.setChecked(False)
+
+
+# ----------------------------------------------------------
+#    tuflowqgis scenario selection
+# ----------------------------------------------------------
+from ui_tuflowqgis_scenarioSelection import *
+
+
+class tuflowqgis_scenarioSelection_dialog(QDialog, Ui_scenarioSelection):
+	def __init__(self, iface, tcf, scenarios):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.tcf = tcf
+		self.scenarios = scenarios
+		self.setupUi(self)
+		
+		for scenario in self.scenarios:
+			self.scenario_lw.addItem(scenario)
+		
+		self.ok_button.clicked.connect(self.run)
+		self.cancel_button.clicked.connect(self.cancel)
+		self.selectAll_button.clicked.connect(self.selectAll)
+	
+	def cancel(self):
+		self.reject()
+	
+	def selectAll(self):
+		for i in range(self.scenario_lw.count()):
+			item = self.scenario_lw.item(i)
+			item.setSelected(True)
+	
+	def run(self):
+		self.scenarios = []
+		for i in range(self.scenario_lw.count()):
+			item = self.scenario_lw.item(i)
+			if item.isSelected():
+				self.scenarios.append(item.text())
+		self.accept()  # destroy dialog window
+
+
+# ----------------------------------------------------------
+#    tuflowqgis event selection
+# ----------------------------------------------------------
+from ui_tuflowqgis_eventSelection import *
+
+
+class tuflowqgis_eventSelection_dialog(QDialog, Ui_eventSelection):
+	def __init__(self, iface, tcf, events):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.tcf = tcf
+		self.events = events
+		self.setupUi(self)
+		
+		for event in self.events:
+			self.events_lw.addItem(event)
+		
+		self.ok_button.clicked.connect(self.run)
+		self.cancel_button.clicked.connect(self.cancel)
+		self.selectAll_button.clicked.connect(self.selectAll)
+	
+	def cancel(self):
+		self.reject()
+	
+	def selectAll(self):
+		for i in range(self.events_lw.count()):
+			item = self.events_lw.item(i)
+			item.setSelected(True)
+	
+	def run(self):
+		self.events = []
+		for i in range(self.events_lw.count()):
+			item = self.events_lw.item(i)
+			if item.isSelected():
+				self.events.append(item.text())
+		self.accept()  # destroy dialog window
+
+
+# ----------------------------------------------------------
+#    tuflowqgis mesh selection
+# ----------------------------------------------------------
+from ui_tuflowqgis_meshSelection import *
+
+
+class tuflowqgis_meshSelection_dialog(QDialog, Ui_meshSelection):
+	def __init__(self, iface, meshes):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.iface = iface
+		self.meshes = meshes
+		self.selectedMesh = None
+		
+		for mesh in self.meshes:
+			self.mesh_lw.addItem(mesh.name())
+		
+		self.ok_button.clicked.connect(self.run)
+		self.cancel_button.clicked.connect(self.cancel)
+	
+	def cancel(self):
+		self.reject()
+
+	def run(self):
+		selection = self.mesh_lw.selectedItems()
+		if selection:
+			self.selectedMesh = selection[0].text()
+			self.accept()  # destroy dialog window
+		else:
+			QMessageBox.information(self.iface.mainWindow(), 'Tuview', 'Please select a result layer to save style.')
+		
+
+# ----------------------------------------------------------
+#    tuView Options Dialog
+# ----------------------------------------------------------
+from ui_tuflowqgis_TuOptionsDialog import *
+
+
+class TuOptionsDialog(QDialog, Ui_TuViewOptions):
+	def __init__(self, TuOptions):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.tuOptions = TuOptions
+		
+		# mesh rendering
+		if self.tuOptions.showGrid:
+			self.cbShowGrid.setChecked(True)
+		else:
+			self.cbShowGrid.setChecked(False)
+		if self.tuOptions.showTriangles:
+			self.cbShowTriangles.setChecked(True)
+		else:
+			self.cbShowTriangles.setChecked(False)
+		
+		# plot live cursor tracking
+		if self.tuOptions.liveMapTracking:
+			self.rbLiveCursorTrackingOn.setChecked(True)
+		else:
+			self.rbLiveCursorTrackingOff.setChecked(True)
+		
+		# x axis dates
+		self.cbDates.setChecked(self.tuOptions.xAxisDates)
+		
+		# zero date
+		d = QDate(self.tuOptions.zeroTime.year, self.tuOptions.zeroTime.month, self.tuOptions.zeroTime.day)
+		t = QTime(self.tuOptions.zeroTime.hour, self.tuOptions.zeroTime.minute, self.tuOptions.zeroTime.second)
+		dt = QDateTime(d, t)
+		self.dteZeroDate.setDateTime(dt)
+		
+		# date format
+		self.leDateFormat.setText(convertStrftimToTuviewftim(self.tuOptions.dateFormat))
+		
+		# date format preview
+		self.date = datetime.now()
+		self.datePreview.setText(self.tuOptions._dateFormat.format(self.date))
+		
+		# x axis label rotation
+		self.sbXAxisLabelRotation.setValue(self.tuOptions.xAxisLabelRotation)
+			
+		# play time delay
+		self.sbPlaySpeed.setValue(self.tuOptions.playDelay)
+		
+		# cross section and flux line resolution
+		self.sbResolution.setValue(self.tuOptions.resolution)
+		
+		# ARR mean event selection
+		if self.tuOptions.meanEventSelection == 'next higher':
+			self.rbARRNextHigher.setChecked(True)
+		else:
+			self.rbARRClosest.setChecked(True)
+		
+		# Signals
+		self.leDateFormat.textChanged.connect(self.updatePreview)
+		self.buttonBox.rejected.connect(self.cancel)
+		self.buttonBox.accepted.connect(self.run)
+		
+	def updatePreview(self):
+		self.tuOptions.dateFormat, self.tuOptions._dateFormat = convertTuviewftimToStrftim(self.leDateFormat.text())
+		self.datePreview.setText(self.tuOptions._dateFormat.format(self.date))
+		
+	def legendOptionsChanged(self, checkBox):
+		if self.rbLegendOn.isChecked():
+			for position, cb in self.positionDict.items():
+				cb.setEnabled(True)
+				if checkBox is None:
+					if position == self.legendPos:
+						cb.setChecked(True)
+					else:
+						cb.setChecked(False)
+				else:
+					if cb == checkBox:
+						self.legendPos = position
+						cb.setChecked(True)
+					else:
+						cb.setChecked(False)
+		else:
+			for position, cb in self.positionDict.items():
+				cb.setEnabled(False)
+		
+	def cancel(self):
+		return
+	
+	def run(self):
+		settings = QSettings()
+		# mesh rendering
+		if self.cbShowGrid.isChecked():
+			self.tuOptions.showGrid = True
+		else:
+			self.tuOptions.showGrid = False
+		if self.cbShowTriangles.isChecked():
+			self.tuOptions.showTriangles = True
+		else:
+			self.tuOptions.showTriangles = False
+		
+		# plot live cursor tracking
+		if self.rbLiveCursorTrackingOn.isChecked():
+			self.tuOptions.liveMapTracking = True
+		else:
+			self.tuOptions.liveMapTracking = False
+		
+		# x axis dates
+		self.tuOptions.xAxisDates = self.cbDates.isChecked()
+		
+		# zero time
+		d = [self.dteZeroDate.date().year(), self.dteZeroDate.date().month(), self.dteZeroDate.date().day()]
+		t = [self.dteZeroDate.time().hour(), self.dteZeroDate.time().minute(), self.dteZeroDate.time().second()]
+		self.tuOptions.zeroTime = datetime(d[0], d[1], d[2], t[0], t[1], t[2])
+		settings.setValue('TUFLOW/tuview_zeroTime', self.tuOptions.zeroTime)
+		
+		# format time
+		self.tuOptions.dateFormat, self.tuOptions._dateFormat = convertTuviewftimToStrftim(self.leDateFormat.text())
+		settings.setValue('TUFLOW/tuview_dateFormat', self.tuOptions.dateFormat)
+		settings.setValue('TUFLOW/tuview__dateFormat', self.tuOptions._dateFormat)
+		
+		# x axis label rotation
+		self.tuOptions.xAxisLabelRotation = self.sbXAxisLabelRotation.value()
+		
+		# play time delay
+		self.tuOptions.playDelay = self.sbPlaySpeed.value()
+		
+		# cross section and flux line resolution
+		self.tuOptions.resolution = self.sbResolution.value()
+		
+		# ARR mean event selection
+		if self.rbARRNextHigher.isChecked():
+			self.tuOptions.meanEventSelection = 'next higher'
+		else:
+			self.tuOptions.meanEventSelection = 'closest'
+			
+
+# ----------------------------------------------------------
+#    tuView Selected Elements Dialog
+# ----------------------------------------------------------
+from ui_tuflowqgis_selectedElements import *
+
+
+class TuSelectedElementsDialog(QDialog, Ui_selectedElements):
+	def __init__(self, iface, elements):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.iface = iface
+		
+		# populate text box with results
+		for element in elements:
+			self.elementList.addItem(element)
+		
+		# Signals
+		self.pbSelectElements.clicked.connect(self.newSelectionFromSelection)
+		self.pbCloseWindow.clicked.connect(self.accept)
+		self.elementList.setContextMenuPolicy(Qt.CustomContextMenu)
+		self.elementList.customContextMenuRequested.connect(self.showMenu)
+		
+	def showMenu(self, pos):
+		self.selectedElementsMenu = QMenu(self)
+		self.newSelection_action = QAction('Selected Elements on Map', self.selectedElementsMenu)
+		self.selectedElementsMenu.addAction(self.newSelection_action)
+		self.newSelection_action.triggered.connect(self.newSelectionFromSelection)
+		
+		self.selectedElementsMenu.popup(self.elementList.mapToGlobal(pos))
+		
+	def newSelectionFromSelection(self):
+		"""
+		Select elements from id List
+
+		:return: bool -> True for successful, False for unsuccessful
+		"""
+		
+		selIds = []
+		for item in self.elementList.selectedItems():
+			selIds.append(item.text())
+		
+		for layer in self.iface.mapCanvas().layers():
+			if layer.type() == 0:
+				if ' plot ' in layer.name().lower() or '_plot_' in layer.name().lower():
+					layer.removeSelection()
+					for feature in layer.getFeatures():
+						if feature.attributes()[0] in selIds:
+							layer.select(feature.id())
+		
+		return True
+	
+
+# ----------------------------------------------------------
+#    Auto Plot and Export Dialog
+# ----------------------------------------------------------
+from ui_BatchExportPlotDialog import *
+
+
+class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
+	def __init__(self, TuView):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.tuView = TuView
+		self.iface = TuView.iface
+		self.project = TuView.project
+		self.canvas = TuView.canvas
+		folderIcon = QgsApplication.getThemeIcon('\mActionFileOpen.svg')
+		self.btnBrowse.setIcon(folderIcon)
+		self.populateGISLayers()
+		self.populateNameAttributes()
+		self.populateResultMesh()
+		self.populateResultTypes()
+		self.populateTimeSteps()
+		self.populateImageFormats()
+		self.selectionEnabled()
+		
+		self.canvas.selectionChanged.connect(self.selectionEnabled)
+		self.project.layersAdded.connect(self.populateGISLayers)
+		self.cbGISLayer.currentIndexChanged.connect(self.populateTimeSteps)
+		self.cbGISLayer.currentIndexChanged.connect(self.populateNameAttributes)
+		self.mcbResultMesh.checkedItemsChanged.connect(self.populateResultTypes)
+		self.mcbResultMesh.checkedItemsChanged.connect(self.populateTimeSteps)
+		self.btnBrowse.clicked.connect(self.browse)
+		self.buttonBox.accepted.connect(self.check)
+		self.buttonBox.rejected.connect(self.reject)
+		
+	def populateGISLayers(self):
+		for name, layer in QgsProject.instance().mapLayers().items():
+			if layer.type() == QgsMapLayer.VectorLayer:
+				if layer.geometryType() == 0 or layer.geometryType() == 1:
+					self.cbGISLayer.addItem(layer.name())
+					
+	def populateNameAttributes(self):
+		self.cbNameAttribute.clear()
+		self.cbNameAttribute.addItem('-None-')
+		layer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
+		if layer is not None:
+			self.cbNameAttribute.addItems(layer.fields().names())
+					
+	def populateResultMesh(self):
+		for resultName, result in self.tuView.tuResults.results.items():
+			for type, items in result.items():
+				if '_ts' not in type and '_lp' not in type:  # check if there is at least one 2D result type
+					self.mcbResultMesh.addItem(resultName)
+					break
+	
+	def populateResultTypes(self):
+		self.mcbResultTypes.clear()
+		resultTypes = []
+		for mesh in self.mcbResultMesh.checkedItems():
+			r = self.tuView.tuResults.results[mesh]
+			for type, t in r.items():
+				if '/Maximums' not in type:
+					if type not in resultTypes:
+						resultTypes.append(type)
+		self.mcbResultTypes.addItems(resultTypes)
+		
+	def populateTimeSteps(self):
+		self.cbTimesteps.setEnabled(False)
+		timesteps = []
+		timestepsFormatted = []
+		maximum = False
+		layer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
+		if layer is not None:
+			if layer.geometryType() == 0:
+				self.cbTimesteps.setEnabled(False)
+			elif layer.geometryType() == 1:
+				self.cbTimesteps.setEnabled(True)
+				for mesh in self.mcbResultMesh.checkedItems():
+					r = self.tuView.tuResults.results[mesh]
+					for type, t in r.items():
+						for time, items in t.items():
+							if time == '-99999':
+								maximum = True
+							elif items[0] not in timesteps:
+								timesteps.append(items[0])
+				timesteps = sorted(timesteps)
+				if timesteps:
+					if timesteps[-1] < 100:
+						timestepsFormatted = ['{0:02d}:{1:02.0f}:{2:05.2f}'.format(int(x), (x - int(x)) * 60,
+						                                                           (x - int(x) - (x - int(x))) * 3600)
+						                                                           for x in timesteps]
+					else:
+						timestepsFormatted = ['{0:03d}:{1:02.0f}:{2:05.2f}'.format(int(x), (x - int(x)) * 60,
+						                                                           (x - int(x) - (x - int(x))) * 3600)
+						                                                           for x in timesteps]
+					if maximum:
+						timestepsFormatted.insert(0, 'Maximum')
+		self.cbTimesteps.addItems(timestepsFormatted)
+	
+	def populateImageFormats(self):
+		formats = plt.gcf().canvas.get_supported_filetypes()
+		self.cbImageFormat.addItems(['.{0}'.format(x) for x in formats.keys()])
+		
+	def selectionEnabled(self):
+		self.rbSelectedFeatures.setEnabled(False)
+		layer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
+		if layer is not None:
+			sel = layer.selectedFeatures()
+			if sel:
+				self.rbSelectedFeatures.setEnabled(True)
+		
+	def browse(self):
+		settings = QSettings()
+		outFolder = settings.value('TUFLOW/batch_export')
+		startDir = None
+		if outFolder:  # if outFolder no longer exists, work backwards in directory until find one that does
+			while outFolder:
+				if os.path.exists(outFolder):
+					startDir = outFolder
+					break
+				else:
+					outFolder = os.path.dirname(outFolder)
+		outFolder = QFileDialog.getExistingDirectory(self, 'Ouput Folder', startDir)
+		if outFolder:
+			self.outputFolder.setText(outFolder)
+			settings.setValue('TUFLOW/batch_export', outFolder)
+			
+	def check(self):
+		if not self.cbGISLayer.currentText():
+			QMessageBox.information(self, 'Missing Data', 'Missing GIS Layer')
+		elif not self.mcbResultMesh.checkedItems():
+			QMessageBox.information(self, 'Missing Data', 'Missing Result Mesh')
+		elif not self.mcbResultTypes.checkedItems():
+			QMessageBox.information(self, 'Missing Data', 'Missing Result Types')
+		elif self.cbTimesteps.isEnabled() and not self.cbTimesteps.currentText():
+			QMessageBox.information(self, 'Missing Data', 'Missing Time Step')
+		elif not self.outputFolder.text():
+			QMessageBox.information(self, 'Missing Data', 'Missing Output Folder')
+		elif not os.path.exists(self.outputFolder.text()):
+			QMessageBox.information(self, 'Missing Data', 'Output Folder Does Not Exist')
+		else:  # made it through the checks :)
+			self.run()
+		
+	def run(self):
+		# first save output folder directory - can have changed if they edit through line edit not browser
+		settings = QSettings()
+		settings.setValue('TUFLOW/batch_export', self.outputFolder.text())
+		
+		# get parameters
+		gisLayer = self.cbGISLayer.currentText()  # str
+		nameField = self.cbNameAttribute.currentText()  # str
+		resultMesh = self.mcbResultMesh.checkedItems()  # list -> str
+		resultTypes = self.mcbResultTypes.checkedItems()  # list -> str
+		timestep = self.cbTimesteps.currentText()  # str
+		features = 'all' if self.rbAllFeatures.isChecked() else 'selection'  # str
+		format = 'csv' if self.rbCSV.isChecked() else 'image'  # str
+		imageFormat = self.cbImageFormat.currentText()
+		outputFolder = self.outputFolder.text()  # str
+		
+		# run process
+		successful = self.tuView.tuMenuBar.tuMenuFunctions.batchPlotExport(gisLayer, resultMesh, resultTypes, timestep, features, format, outputFolder, nameField, imageFormat)
+		
+		if successful:
+			QMessageBox.information(self, 'Batch Export', 'Successfully Exported Data')
+		else:
+			QMessageBox.information(self, 'Batch Export', 'Error Exporting Data')
+		
+		# finally destroy dialog
+		self.accept()
+
+
+# ----------------------------------------------------------
+#    User Plot Data Plot View
+# ----------------------------------------------------------
+from ui_UserPlotDataPlotView import *
+
+
+class TuUserPlotDataPlotView(QDialog, Ui_UserPlotData):
+	def __init__(self, iface, TuUserPlotData):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.iface = iface
+		self.tuUserPlotData = TuUserPlotData
+		if self.tuUserPlotData.dates:
+			self.cbDisplayDates.setEnabled(True)
+		else:
+			self.cbDisplayDates.setEnabled(False)
+
+		#self.layout = self.plotFrame.layout()
+		self.layout = QGridLayout(self.plotFrame)
+		self.fig, self.ax = plt.subplots()
+		self.plotWidget = FigureCanvasQTAgg(self.fig)
+		self.layout.addWidget(self.plotWidget)
+		self.manageAx()
+		
+		name = self.tuUserPlotData.name
+		x = self.tuUserPlotData.x
+		y = self.tuUserPlotData.y
+		dates = self.tuUserPlotData.dates
+		self.ax.plot(x, y, label=name)
+		self.plotWidget.draw()
+		self.refresh()
+		
+		self.pbRefresh.clicked.connect(self.refresh)
+		self.pbOK.clicked.connect(self.accept)
+		self.cbDisplayDates.clicked.connect(self.refresh)
+	
+	def manageAx(self):
+		self.ax.grid()
+		self.ax.tick_params(axis="both", which="major", direction="out", length=10, width=1, bottom=True, top=False,
+		                    left=True, right=False)
+		self.ax.minorticks_on()
+		self.ax.tick_params(axis="both", which="minor", direction="out", length=5, width=1, bottom=True, top=False,
+		                    left=True, right=False)
+		
+	def refresh(self):
+		self.ax.cla()
+		self.manageAx()
+		name = self.tuUserPlotData.name
+		x = self.tuUserPlotData.x
+		y = self.tuUserPlotData.y
+		dates = self.tuUserPlotData.dates
+		self.ax.plot(x, y, label=name)
+		self.fig.tight_layout()
+		if self.cbDisplayDates.isChecked():
+			self.addDates()
+		self.plotWidget.draw()
+		
+	def addDates(self):
+		xlim = self.ax.get_xlim()
+		xmin = min(self.tuUserPlotData.x)
+		xmax = max(self.tuUserPlotData.x)
+		labels = self.ax.get_xticklabels()
+		userLabels = []
+		for label in labels:
+			try:
+				x = label.get_text()
+				x = float(x)
+			except ValueError:
+				try:
+					x = label.get_text()
+					x = x[1:]
+					x = float(x) * -1
+				except ValueError:
+					QMessageBox.information(self.iface.mainWindow(), 'Error', 'Error converting X axis value to float: {0}'.format(label.get_text()))
+					self.cbDisplayDates.setChecked(False)
+					return
+			userLabels.append(self.convertTimeToDate(x))
+
+		if len(userLabels) == len(labels):
+			self.ax.set_xlim(xlim)
+			self.ax.set_xticklabels(userLabels)
+			loc, xLabels = plt.xticks(rotation=45, horizontalalignment='right')
+			self.fig.tight_layout()
+		else:
+			QMessageBox.information(self.iface.mainWindow(), 'Error', 'Error converting X labes to dates.')
+			
+	def convertTimeToDate(self, time):
+		for i, x in enumerate(self.tuUserPlotData.x):
+			if i == 0:
+				if time < x:
+					return interpolate(time, x, self.tuUserPlotData.x[i+1], self.tuUserPlotData.dates[i], self.tuUserPlotData.dates[i+1])
+				iPrev = i
+				xPrev = x
+			if x == time:
+				return self.tuUserPlotData.dates[i]
+			elif x > time and xPrev < time:
+				return interpolate(time, xPrev, x, self.tuUserPlotData.dates[iPrev], self.tuUserPlotData.dates[i])
+			elif i + 1 == len(self.tuUserPlotData.x):
+				if time > x:
+					return interpolate(time, self.tuUserPlotData.x[i-1], x, self.tuUserPlotData.dates[i-1], self.tuUserPlotData.dates[i])
+			else:
+				iPrev = i
+				xPrev = x
+				continue
+			
+
+# ----------------------------------------------------------
+#    User Plot Data Table View
+# ----------------------------------------------------------
+from ui_UserPlotDataTableView import *
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuuserplotdata import TuUserPlotDataSet
+
+
+class TuUserPlotDataTableView(QDialog, Ui_UserTableData):
+	def __init__(self, iface, TuUserPlotData):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.iface = iface
+		self.tuUserPlotData = TuUserPlotData
+		
+		if self.tuUserPlotData.dates:
+			headers = ['Date', 'Time (hr)', self.tuUserPlotData.name]
+			self.dataTable.setColumnCount(3)
+		else:
+			headers = ['Time (hr)', self.tuUserPlotData.name]
+			self.dataTable.setColumnCount(2)
+		self.dataTable.setHorizontalHeaderLabels(headers)
+		
+		self.dataTable.setRowCount(len(self.tuUserPlotData.x))
+		
+		for i in range(len(self.tuUserPlotData.x)):
+			timeCol = 0
+			if self.tuUserPlotData.dates:
+				item = QTableWidgetItem(0)
+				item.setText('{0}'.format(self.tuUserPlotData.dates[i]))
+				self.dataTable.setItem(i, 0, item)
+				timeCol = 1
+			item = QTableWidgetItem(0)
+			item.setText('{0}'.format(self.tuUserPlotData.x[i]))
+			self.dataTable.setItem(i, timeCol, item)
+			item = QTableWidgetItem(0)
+			item.setText('{0}'.format(self.tuUserPlotData.y[i]))
+			self.dataTable.setItem(i, timeCol + 1, item)
+			
+		self.pbPlot.clicked.connect(self.showPlot)
+		self.buttonBox.accepted.connect(self.saveData)
+		
+	def convertStringToDatetime(self, s):
+		date = s.split('-')
+		d = []
+		for c in date:
+			d += c.split(' ')
+		e = []
+		for c in d:
+			e += c.split(':')
+		year = int(e[0])
+		month = int(e[1])
+		day = int(e[2])
+		hour = int(e[3])
+		minute = int(e[4])
+		second = int(e[5])
+		return datetime(year, month, day, hour, minute, second)
+		
+	def saveData(self, widget=None, dummy=False):
+		x = []
+		y = []
+		dates = []
+		
+		if self.dataTable.columnCount() == 2:
+			xCol = 0
+			yCol = 1
+			dateCol = None
+		elif self.dataTable.columnCount() == 3:
+			xCol = 1
+			yCol = 2
+			dateCol = 0
+			
+		for i in range(self.dataTable.rowCount()):
+			if dateCol is not None:
+				date = self.dataTable.item(i, dateCol).text()
+				date = self.convertStringToDatetime(date)
+				dates.append(date)
+			x.append(float(self.dataTable.item(i, xCol).text()))
+			y.append(float(self.dataTable.item(i, yCol).text()))
+		
+		if dummy:
+			data = TuUserPlotDataSet('dummy', [x, y], 'time series', False, 100, dates)
+			return data
+		else:
+			self.tuUserPlotData.setData([x, y], dates=dates)
+		
+		
+	def showPlot(self):
+		data = self.saveData(dummy=True)
+		self.tableDialog = TuUserPlotDataPlotView(self.iface, data)
+		self.tableDialog.exec_()
+		
+		
+# ----------------------------------------------------------
+#    User Plot Data Import Dialog
+# ----------------------------------------------------------
+from ui_UserPlotDataImportDialog import *
+
+
+class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
+	def __init__(self, iface):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.iface = iface
+		folderIcon = QgsApplication.getThemeIcon('\mActionFileOpen.svg')
+		self.btnBrowse.setIcon(folderIcon)
+		self.convertDate()
+		self.convertZeroDate()
+		self.ok = False
+		
+		self.btnBrowse.clicked.connect(self.browse)
+		self.inFile.textChanged.connect(self.populateDataColumns)
+		self.inFile.textChanged.connect(self.updatePreview)
+		self.sbLines2Discard.valueChanged.connect(self.updateLabelRow)
+		self.sbLines2Discard.valueChanged.connect(self.populateDataColumns)
+		self.sbLines2Discard.valueChanged.connect(self.updatePreview)
+		self.cbHeadersAsLabels.clicked.connect(self.populateDataColumns)
+		self.sbLabelRow.valueChanged.connect(self.populateDataColumns)
+		self.cbXColumn.currentIndexChanged.connect(self.updatePreview)
+		self.mcbYColumn.checkedItemsChanged.connect(self.updatePreview)
+		self.nullValue.textChanged.connect(self.updatePreview)
+		self.rbCSV.clicked.connect(self.populateDataColumns)
+		self.rbSpace.clicked.connect(self.populateDataColumns)
+		self.rbTab.clicked.connect(self.populateDataColumns)
+		self.rbOther.clicked.connect(self.populateDataColumns)
+		self.delimiter.textChanged.connect(self.populateDataColumns)
+		self.dateFormat.editingFinished.connect(self.convertDate)
+		self.zeroHourDate.editingFinished.connect(self.convertZeroDate)
+		self.buttonBox.accepted.connect(self.check)
+		self.buttonBox.rejected.connect(self.reject)
+		
+	def browse(self):
+		settings = QSettings()
+		inFile = settings.value('TUFLOW/import_user_data')
+		startDir = None
+		if inFile:  # if outFolder no longer exists, work backwards in directory until find one that does
+			while inFile:
+				if os.path.exists(inFile):
+					startDir = inFile
+					break
+				else:
+					inFile = os.path.dirname(inFile)
+		inFile = QFileDialog.getOpenFileName(self, 'Import Delimited File', startDir)[0]
+		if inFile:
+			self.inFile.setText(inFile)
+			settings.setValue('TUFLOW/import_user_data', inFile)
+			
+	def getDelim(self):
+		if self.rbCSV.isChecked():
+			return ','
+		elif self.rbSpace.isChecked():
+			return ' '
+		elif self.rbTab.isChecked():
+			return '\t'
+		elif self.rbOther.isChecked():
+			return self.delimiter.text()
+		
+	def checkDateFormatLetters(self):
+		for letter in self.dateFormat.text():
+			if letter != 'D' and letter.lower() != 'm' and letter != 'Y' and letter != 'h' and letter != 's' \
+					and letter != ' ' and letter != '/' and letter != '-' and letter != ':':
+				return 'Character {0} not recognised as a date format'.format(letter)
+		else:
+			return ''
+		
+	def checkConsecutive(self, letter):
+		f = self.dateFormat.text()
+		for i in range(f.count(letter)):
+			if i == 0:
+				indPrev = f.find(letter)
+			else:
+				ind = f[indPrev+1:].find(letter)
+				if ind != 0:
+					return False
+				indPrev += 1
+				
+		return True
+	
+	def getIndexes(self, letter):
+		delim1 = None
+		delim2 = None
+		index = None
+		a = None
+		b = None
+		f = self.dateFormat.text()
+		if self.checkConsecutive(letter):
+			i = f.find(letter)
+			j = f.find(letter) + f.count(letter)
+			if i > 0:
+				delim1 = f[i-1]
+				if delim1 == '/' or delim1 == '-' or delim1 == ' ' or delim1 == ':' or delim1 == ',' or delim1 == '.':
+					a = f.split(delim1)
+				else:  # use fixed field
+					delim1 = None
+					index = (i, j)
+					return (delim1, delim2, index)
+			if j < len(f):
+				delim2 = f[j]
+				if delim2 == '/' or delim2 == '-' or delim2 == ' ' or delim2 == ':' or delim2 == ',' or delim2 == '.':
+					b = []
+					if a is not None:
+						for x in a:
+							b += x.split(delim2)
+					else:
+						b = f.split(delim2)
+				else:  # use fixed field
+					delim2 = None
+					index = (i, j)
+					return (delim1, delim2, index)
+			if b is None:
+				if a is None:
+					return 'Date Format is Ambiguous'
+				else:
+					b = a[:]
+			for i, x in enumerate(b):
+				if letter in x:
+					index = i
+					break
+			return (delim1, delim2, index)
+		else:
+			return 'Date Format is Ambiguous'
+	
+	def convertDate(self):
+		self.day = None
+		self.month = None
+		self.year = None
+		self.hour = None
+		self.minute = None
+		self.second = None
+		self.dateCanBeConverted = True
+		f = self.dateFormat.text()
+		if not f:
+			self.dateCanBeConverted = False
+		else:
+			if self.checkDateFormatLetters():
+				self.dateCanBeConverted = False
+			else:
+				# the following gives me a tuple with the delimiters on either side of the variable and the index of the
+				# variable if string is split by both delimiters - or index can be tuple with fixed field indexes
+				if f.count('D'):  # find D day
+					self.day = self.getIndexes('D')
+					if type(self.day) is str:
+						self.dateCanBeConverted = False
+				if f.count('M'):  # find M month
+					self.month = self.getIndexes('M')
+					if type(self.month) is str:
+						self.dateCanBeConverted = False
+				if f.count('Y'):  # find Y year
+					self.year = self.getIndexes('Y')
+					if type(self.year) is str:
+						self.dateCanBeConverted = False
+				if f.count('h'):  # find h hour
+					self.hour = self.getIndexes('h')
+					if type(self.hour) is str:
+						self.dateCanBeConverted = False
+				if f.count('m'):  # find m minutes
+					self.minute = self.getIndexes('m')
+					if type(self.minute) is str:
+						self.dateCanBeConverted = False
+				if f.count('s'):  # find s seconds
+					self.second = self.getIndexes('s')
+					if type(self.second) is str:
+						self.dateCanBeConverted = False
+						
+		self.updatePreview()
+	
+	def convertZeroDate(self):
+		self.zeroDay = (None, '/', 0)
+		self.zeroMonth = ('/', '/', 1)
+		self.zeroYear = ('/', ' ', 2)
+		self.zeroHour = (' ', ':', 1)
+		self.zeroMinute = (':', ':', 1)
+		self.zeroSecond = (':', None, 2)
+		self.zeroCanBeConverted = True
+		f = self.zeroHourDate.text()
+		if not f:
+			self.zeroCanBeConverted = False
+		
+		self.updatePreview()
+		
+	def extractSpecificDateComponent(self, info, date):
+		if info is not None:
+			if type(info[2]) is tuple:  # fixed column
+				i = info[2][0]
+				j = info[2][1]
+				try:
+					a = int(date[i:j])
+				except ValueError:
+					a = None
+				return a
+			else:  # use delimiters
+				delim1 = info[0]
+				delim2 = info[1]
+				index = info[2]
+				if delim1 is not None:
+					a = date.split(delim1)
+				else:
+					a = date[:]
+				if delim2 is not None:
+					b = []
+					if delim1 is not None:
+						for x in a:
+							b += x.split(delim2)
+					else:
+						b = date.split(delim2)
+				else:
+					b = a[:]
+				try:
+					a = int(b[index])
+				except ValueError:
+					a = None
+				except IndexError:
+					a = None
+				return a
+				
+		return None
+	
+	def convertZeroDateToTime(self):
+		date = self.zeroHourDate.text()
+		year = 2000  # default
+		if self.zeroYear is not None:
+			year = self.extractSpecificDateComponent(self.zeroYear, date)
+			if year is not None:
+				if year < 1000:
+					year += 2000  # convert to YY to YYYY assuming it does not cross from one century to the next
+			else:
+				return 'Trouble converting year'
+		month = 1  # default
+		if self.zeroMonth is not None:
+			month = self.extractSpecificDateComponent(self.zeroMonth, date)
+			if month is None:
+				return 'Trouble converting month'
+		day = 1  # default
+		if self.zeroDay is not None:
+			day = self.extractSpecificDateComponent(self.zeroDay, date)
+			if day is None:
+				return 'Trouble converting day'
+		hour = 12  # default
+		if self.zeroHour is not None:
+			hour = self.extractSpecificDateComponent(self.zeroHour, date)
+			if hour is None:
+				return 'Trouble converting hour'
+		minute = 0
+		if self.zeroMinute is not None:
+			minute = self.extractSpecificDateComponent(self.zeroMinute, date)
+			if minute is None:
+				return 'Trouble converting minute'
+		second = 0
+		if self.zeroSecond is not None:
+			second = self.extractSpecificDateComponent(self.zeroSecond, date)
+			if second is None:
+				return 'Trouble converting second'
+		try:
+			date = datetime(year, month, day, hour, minute, second)
+			return date
+		except ValueError:
+			return 'Trouble converting date'
+	
+	def convertDateToTime(self, date, **kwargs):
+		convertToDateTime = kwargs['convert_to_datetime'] if 'convert_to_datetime' in kwargs.keys() else False
+		
+		year = 2000  # default
+		if self.year is not None:
+			year = self.extractSpecificDateComponent(self.year, date)
+			if year is not None:
+				if year < 1000:
+					year += 2000  # convert to YY to YYYY assuming it does not cross from one century to the next
+			else:
+				return 'Trouble converting year'
+		month = 1  # default
+		if self.month is not None:
+			month = self.extractSpecificDateComponent(self.month, date)
+			if month is None:
+				return 'Trouble converting month'
+		day = 1  # default
+		if self.day is not None:
+			day = self.extractSpecificDateComponent(self.day, date)
+			if day is None:
+				return 'Trouble converting day'
+		hour = 12  # default
+		if self.hour is not None:
+			hour = self.extractSpecificDateComponent(self.hour, date)
+			if hour is None:
+				return 'Trouble converting hour'
+		minute = 0
+		if self.minute is not None:
+			minute = self.extractSpecificDateComponent(self.minute, date)
+			if minute is None:
+				return 'Trouble converting minute'
+		second = 0
+		if self.second is not None:
+			second = self.extractSpecificDateComponent(self.second, date)
+			if second is None:
+				return 'Trouble converting second'
+		try:
+			date = datetime(year, month, day, hour, minute, second)
+		except ValueError:
+			return 'Trouble converting date'
+		if convertToDateTime:  # convert to datetime so don't worry about continuing to convert to hrs
+			return date
+		if self.zeroCanBeConverted:
+			self.zeroDate = self.convertZeroDateToTime()
+			if type(self.zeroDate) == str:
+				QMessageBox.information(self.iface.mainWindow(), 'Error', 'Zero Hour Date: {0}'.format(self.zeroDate))
+				return 0
+			else:
+				deltatime = date - self.zeroDate
+				return float(deltatime.days * 24) + float(deltatime.seconds / 60 / 60)
+		elif self.firstDataLine:
+			self.zeroDate = date
+			return 0.0
+		else:
+			deltatime = date - self.zeroDate
+			return float(deltatime.days * 24) + float(deltatime.seconds / 60 / 60)
+	
+	def updateLabelRow(self):
+		self.sbLabelRow.setMaximum(self.sbLines2Discard.value())
+		if self.sbLines2Discard.value() == 0:
+			self.cbHeadersAsLabels.setChecked(False)
+		else:
+			self.cbHeadersAsLabels.setChecked(True)
+			self.sbLabelRow.setValue(self.sbLines2Discard.value())
+			
+	def populateDataColumns(self):
+		self.cbXColumn.clear()
+		self.mcbYColumn.clear()
+		if self.inFile.text():
+			if os.path.exists(self.inFile.text()):
+				with open(self.inFile.text(), 'r') as fo:
+					for i, line in enumerate(fo):
+						header_line = max(self.sbLabelRow.value() - 1, 0)
+						if i == header_line:
+							delim = self.getDelim()
+							if delim != '':
+								headers = line.split(delim)
+								headers[-1] = headers[-1].strip('\n')
+								self.cbXColumn.addItems(headers)
+								self.mcbYColumn.addItems(headers)
+	
+	def updatePreview(self):
+		self.previewTable.clear()
+		self.previewTable.setRowCount(0)
+		self.previewTable.setColumnCount(0)
+		if self.inFile.text():
+			if os.path.exists(self.inFile.text()):
+				if self.cbXColumn.count() and self.mcbYColumn.checkedItems():
+					self.firstDataLine = True
+					with open(self.inFile.text(), 'r') as fo:
+						noIgnored = 1
+						for i, line in enumerate(fo):
+							header_line = max(self.sbLabelRow.value() - 1, 0)
+							if i == header_line:
+								delim = self.getDelim()
+								headers = line.split(delim)
+								xHeader = self.cbXColumn.currentText()
+								try:
+									xHeaderInd = headers.index(xHeader)
+								except ValueError:
+									xHeaderInd = headers.index('{0}\n'.format(xHeader))
+								yHeaders = self.mcbYColumn.checkedItems()
+								yHeaderInds = []
+								for j, yHeader in enumerate(yHeaders):
+									try:
+										yHeaderInds.append(headers.index(yHeader))
+									except ValueError:
+										yHeaderInds.append(headers.index('{0}\n'.format(yHeader)))
+								if not self.dateCanBeConverted:
+									self.previewTable.setColumnCount(len(yHeaders) + 1)
+								else:
+									self.previewTable.setColumnCount(len(yHeaders) + 2)
+								if self.cbHeadersAsLabels.isChecked():
+									if not self.dateCanBeConverted:
+										tableColumnNames = [xHeader] + yHeaders
+									else:
+										tableColumnNames = [xHeader, 'Time (hr)'] + yHeaders
+								else:
+									if not self.dateCanBeConverted:
+										tableColumnNames = ['X'] + ['Y{0}'.format(x) for x in range(1, len(yHeaders) + 1)]
+									else:
+										tableColumnNames = ['Date', 'Time (hr)'] + ['Y{0}'.format(x) for x in range(1, len(yHeaders) + 1)]
+								self.previewTable.setHorizontalHeaderLabels(tableColumnNames)
+							elif i > header_line:
+								if self.previewTable.rowCount() > 9:
+									break
+								self.previewTable.setRowCount(i - header_line - noIgnored + 1)
+								self.previewTable.setVerticalHeaderLabels(['{0}'.format(x) for x in range(1, i - header_line + 1)])
+								delim = self.getDelim()
+								values = line.split(delim)
+								if '{0}'.format(values[xHeaderInd]) == self.nullValue.text() or \
+										'{0}'.format(values[xHeaderInd]) == '':
+									noIgnored += 1
+									continue
+								for yHeaderInd in yHeaderInds:
+									if '{0}'.format(values[yHeaderInd]) == self.nullValue.text() or \
+										'{0}'.format(values[xHeaderInd]) == '':
+										noIgnored += 1
+										continue
+								item = QTableWidgetItem(0)
+								item.setText('{0}'.format(values[xHeaderInd]))
+								self.previewTable.setItem((i - header_line - noIgnored), 0, item)
+								k = 0
+								if self.dateCanBeConverted:
+									item = QTableWidgetItem(0)
+									timeHr = self.convertDateToTime(values[xHeaderInd])
+									if type(timeHr) is str:
+										QMessageBox.information(self.iface.mainWindow(), 'Error', 'Line {0} - {1}'.format(i, timeHr))
+										return
+									item.setText('{0}'.format(timeHr))
+									self.previewTable.setItem((i - header_line - noIgnored), 1, item)
+									k = 1
+								for j, yHeaderInd in enumerate(yHeaderInds):
+									item = QTableWidgetItem(0)
+									item.setText('{0}'.format(values[yHeaderInd]))
+									self.previewTable.setItem((i - header_line - noIgnored), j + k + 1, item)
+								self.firstDataLine = False
+							
+	def check(self):
+		if not self.inFile.text():
+			QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data', 'No Input File Specified')
+		elif not os.path.exists(self.inFile.text()):
+			QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data', 'Invalid Input File')
+		elif self.cbXColumn.count() < 1:
+			QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data', 'Invalid Delimiter or Input File is Empty')
+		elif not self.mcbYColumn.checkedItems():
+			QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data', 'No Y Column Values Selected')
+		if self.checkDateFormatLetters():
+				QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data',
+				                        '{0}'.format(self.checkDateFormatLetters()))
+		else:  # prelim checks out :)
+			self.run()
+		
+	def run(self):
+		self.names = []  # str data series names
+		self.data = []  # tuple -> list x data, y data -> float
+		x = []  # assumed all data share x axis
+		y = []
+		self.dates = []
+		with open(self.inFile.text(), 'r') as fo:
+			for i, line in enumerate(fo):
+				header_line = max(self.sbLabelRow.value() - 1, 0)
+				if i == header_line:
+					delim = self.getDelim()
+					headers = line.split(delim)
+					xHeader = self.cbXColumn.currentText()
+					try:
+						xHeaderInd = headers.index(xHeader)
+					except ValueError:
+						xHeaderInd = headers.index('{0}\n'.format(xHeader))
+					yHeaders = self.mcbYColumn.checkedItems()
+					yHeaderInds = []
+					for j, yHeader in enumerate(yHeaders):
+						try:
+							yHeaderInds.append(headers.index(yHeader))
+						except ValueError:
+							yHeaderInds.append(headers.index('{0}\n'.format(yHeader)))
+					if self.cbHeadersAsLabels.isChecked():
+						self.names = yHeaders
+					else:
+						self.names = ['Y{0}'.format(x) for x in range(1, len(yHeaders) + 1)]
+					x = [[] for x in range(len(self.names))]
+					y = [[] for x in range(len(self.names))]
+					self.dates = [[] for x in range(len(self.names))]
+					if not y:
+						return
+				elif i > header_line:
+					delim = self.getDelim()
+					values = line.split(delim)
+					if '{0}'.format(values[xHeaderInd]) == self.nullValue.text() or \
+							'{0}'.format(values[xHeaderInd]) == '':
+						continue
+					for yHeaderInd in yHeaderInds:
+						if '{0}'.format(values[yHeaderInd]) == self.nullValue.text() or \
+								'{0}'.format(values[xHeaderInd]) == '':
+							continue
+					if self.dateCanBeConverted:
+						timeHr = self.convertDateToTime(values[xHeaderInd])
+					for j, yHeaderInd in enumerate(yHeaderInds):
+						if self.dateCanBeConverted:
+							timeHr = self.convertDateToTime(values[xHeaderInd])
+							self.dates[j].append(self.convertDateToTime(values[xHeaderInd], convert_to_datetime=True))
+						else:
+							timeHr = values[xHeaderInd]
+						try:
+							x[j].append(float(timeHr))
+						except ValueError:
+							x[j].append('')
+						try:
+							y[j].append(float(values[yHeaderInd]))
+						except ValueError:
+							y[j].append('')
+
+		self.data = list(zip(x, y))
+		
+		# finally destroy dialog box
+		self.ok = True
+		self.accept()
+		
+		
+# ----------------------------------------------------------
+#    User Plot Data Manager
+# ----------------------------------------------------------
+from ui_UserPlotDataManagerDialog import *
+
+
+class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
+	def __init__(self, iface, TuUserPlotDataManager):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.tuUserPlotDataManager = TuUserPlotDataManager
+		self.iface = iface
+		self.loadedData = {}  # { name: [ combobox, checkbox ] }
+		self.loadData()
+		
+		self.pbAddData.clicked.connect(self.addData)
+		self.pbViewTable.clicked.connect(self.showDataTable)
+		self.pbViewPlot.clicked.connect(self.showDataPlot)
+		self.pbRemoveData.clicked.connect(self.removeData)
+		self.pbOK.clicked.connect(self.accept)
+		
+	def loadData(self):
+		# load data in correct order.. for dict means a little bit of manipulation
+		for userData in [k for k, v in sorted(self.tuUserPlotDataManager.datasets.items(), key=lambda x: x[-1].number)]:
+			name = self.tuUserPlotDataManager.datasets[userData].name
+			plotType = self.tuUserPlotDataManager.datasets[userData].plotType
+			status = Qt.Checked if self.tuUserPlotDataManager.datasets[userData].status else Qt.Unchecked
+			self.UserPlotDataTable.setRowCount(self.UserPlotDataTable.rowCount() + 1)
+			item = QTableWidgetItem(0)
+			item.setText(name)
+			item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+			item.setCheckState(status)
+			combobox = QComboBox()
+			combobox.setEditable(True)
+			combobox.setMaximumHeight(30)
+			combobox.setMaximumWidth(175)
+			combobox.addItem('Time Series Plot')
+			combobox.addItem('Cross Section / Long Plot')
+			if plotType == 'long plot':
+				combobox.setCurrentIndex(1)
+			self.UserPlotDataTable.setItem(self.UserPlotDataTable.rowCount() - 1, 0, item)
+			self.UserPlotDataTable.setCellWidget(self.UserPlotDataTable.rowCount() - 1, 1, combobox)
+			self.loadedData[name] = [combobox, item]
+			
+			combobox.currentIndexChanged.connect(lambda: self.editData(combobox=combobox))
+			self.UserPlotDataTable.itemClicked.connect(lambda: self.editData(item=item))
+			self.UserPlotDataTable.itemChanged.connect(lambda item: self.editData(item=item))
+		
+	def addData(self):
+		self.addDataDialog = TuUserPlotDataImportDialog(self.iface)
+		self.addDataDialog.exec_()
+		if self.addDataDialog.ok:
+			for i, name in enumerate(self.addDataDialog.names):
+				# add data to class
+				counter = 1
+				while name in self.tuUserPlotDataManager.datasets.keys():
+					name = '{0}_{1}'.format(name, counter)
+					counter += 1
+				self.tuUserPlotDataManager.addDataSet(name, self.addDataDialog.data[i], 'time series', self.addDataDialog.dates[i])
+				if not self.tuUserPlotDataManager.datasets[name].error:
+					# add data to dialog
+					self.UserPlotDataTable.setRowCount(self.UserPlotDataTable.rowCount() + 1)
+					item = QTableWidgetItem(0)
+					item.setText(name)
+					item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+					item.setCheckState(Qt.Checked)
+					combobox = QComboBox()
+					combobox.setEditable(True)
+					combobox.setMaximumHeight(30)
+					combobox.setMaximumWidth(175)
+					combobox.addItem('Time Series Plot')
+					combobox.addItem('Cross Section / Long Plot')
+					self.UserPlotDataTable.setItem(self.UserPlotDataTable.rowCount() - 1, 0, item)
+					self.UserPlotDataTable.setCellWidget(self.UserPlotDataTable.rowCount() - 1, 1, combobox)
+					self.loadedData[name] = [combobox, item]
+					
+					combobox.currentIndexChanged.connect(lambda: self.editData(combobox=combobox))
+					self.UserPlotDataTable.itemClicked.connect(lambda item: self.editData(item=item))
+					self.UserPlotDataTable.itemChanged.connect(lambda item: self.editData(item=item))
+				else:
+					QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data', self.tuUserPlotDataManager.datasets[name].error)
+					
+	def editData(self, **kwargs):
+		combobox = kwargs['combobox'] if 'combobox' in kwargs.keys() else None
+		item = kwargs['item'] if 'item' in kwargs.keys() else None
+		
+		if combobox is not None:
+			for name, widgets in self.loadedData.items():
+				if widgets[0] == combobox:
+					plotType = 'time series' if combobox.currentText() == 'Time Series Plot' else 'long plot'
+					self.tuUserPlotDataManager.editDataSet(name, plotType=plotType)
+	
+		elif item is not None:
+			for name, widgets in self.loadedData.items():
+				if widgets[-1] == item:
+					status = True if item.checkState() == Qt.Checked else False
+					self.tuUserPlotDataManager.editDataSet(name, newname=item.text(), status=status)
+	
+	def showDataTable(self):
+		selectedItems = self.UserPlotDataTable.selectedItems()
+		for item in selectedItems:
+			data = self.tuUserPlotDataManager.datasets[item.text()]
+			self.tableDialog = TuUserPlotDataTableView(self.iface, data)
+			self.tableDialog.exec_()
+			break  # just do first selection only
+			
+	def showDataPlot(self):
+		selectedItems = self.UserPlotDataTable.selectedItems()
+		for item in selectedItems:
+			data = self.tuUserPlotDataManager.datasets[item.text()]
+			self.tableDialog = TuUserPlotDataPlotView(self.iface, data)
+			self.tableDialog.exec_()
+			break  # just do first selection only
+			
+	def removeData(self):
+		selectedItems = self.UserPlotDataTable.selectedItems()
+		for item in selectedItems:
+			name = item.text()
+			self.tuUserPlotDataManager.removeDataSet(name)
+			self.UserPlotDataTable.itemClicked.disconnect()
+			self.UserPlotDataTable.itemChanged.disconnect()
+		self.UserPlotDataTable.setRowCount(0)
+		self.loadData()
+		

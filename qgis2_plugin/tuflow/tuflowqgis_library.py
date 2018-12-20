@@ -100,9 +100,7 @@ def tuflowqgis_duplicate_file(qgis, layer, savename, keepform):
 		if QFile(qml).exists():
 			return "QML File for output already exists."
 		else:
-			QMessageBox.information(qgis.mainWindow(),"Info", "Creating QML")
 			layer.saveNamedStyle(qml)
-			QMessageBox.information(qgis.mainWindow(),"Info", "Done")
 	
 	return None
 
