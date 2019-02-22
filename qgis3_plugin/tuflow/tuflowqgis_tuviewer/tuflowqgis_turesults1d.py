@@ -25,6 +25,10 @@ class TuResults1D():
 		self.sources = []  # list -> str selected time series sources i.e. HU
 		self.items1d = []  # list -> Dataset_View Tree node selected dataset view tree node item
 		self.typesTS = []  # list -> str selected 1D time series result types
+		self.pointTS = []
+		self.lineTS = []
+		self.regionTS = []
+		self.activeType = -1
 		self.typesLP = []  # list -> str selected 1D long plot result types
 	
 	def importResults(self, inFilePaths):
@@ -58,15 +62,19 @@ class TuResults1D():
 				
 			else:
 				return False
-			
-			if res.displayname not in results.keys():
-				openResults.addItem(res.displayname)  # add to widget
-			k = openResults.findItems(res.displayname, Qt.MatchRecursive)[0]
-			k.setSelected(True)
-			
+				
 			# index results
 			index = self.getResultMetaData(res)
 			self.results1d[res.displayname] = res
+			
+			# add result to list widget
+			openResultNames = []
+			for i in range(openResults.count()):
+				openResultNames.append(openResults.item(i).text())
+			if res.displayname not in openResultNames:
+				openResults.addItem(res.displayname)  # add to widget
+			k = openResults.findItems(res.displayname, Qt.MatchRecursive)[0]
+			k.setSelected(True)
 			
 		return True
 		
@@ -161,8 +169,8 @@ class TuResults1D():
 		
 		timesteps = result.timeSteps()
 		for t in timesteps:
-			timekey2time['{0:.4f}'.format(t)] = t
-			timekey2date['{0:.4f}'.format(t)] = zeroTime + timedelta(hours=t)
+			timekey2time['{0:.6f}'.format(t)] = t
+			timekey2date['{0:.6f}'.format(t)] = zeroTime + timedelta(hours=t)
 		
 		if 'point_ts' not in results[result.displayname].keys():
 			resultTypes = result.pointResultTypesTS()
@@ -299,5 +307,8 @@ class TuResults1D():
 						item = self.tuView.OpenResults.item(i)
 						if item is not None and item.text() == res:
 							self.tuView.OpenResults.takeItem(i)
+							
+			if res in self.results1d:
+				del self.results1d[res]
 		
 		return True

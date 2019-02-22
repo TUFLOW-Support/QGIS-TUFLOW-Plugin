@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>338</width>
-    <height>316</height>
+    <width>380</width>
+    <height>325</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -198,17 +198,12 @@
       <widget class="QComboBox" name="cboLegendPos">
        <item>
         <property name="text">
-         <string>Auto</string>
+         <string>Top-Right</string>
         </property>
        </item>
        <item>
         <property name="text">
          <string>Top-Left</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Top-Right</string>
         </property>
        </item>
        <item>

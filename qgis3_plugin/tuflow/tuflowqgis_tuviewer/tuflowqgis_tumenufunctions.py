@@ -1,5 +1,7 @@
 import os
 import numpy as np
+import io
+import datetime
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5 import QtGui
@@ -7,9 +9,14 @@ from qgis.core import *
 from PyQt5.QtWidgets import *
 from qgis.PyQt.QtXml import QDomDocument
 from matplotlib.patches import Polygon
-from tuflow.tuflowqgis_library import loadLastFolder, getResultPathsFromTCF, getScenariosFromTcf, getEventsFromTCF, tuflowqgis_find_layer, getUnit, getCellSizeFromTCF
-from tuflow.tuflowqgis_dialog import tuflowqgis_scenarioSelection_dialog, tuflowqgis_eventSelection_dialog, TuOptionsDialog, TuSelectedElementsDialog, tuflowqgis_meshSelection_dialog, TuBatchPlotExportDialog, TuUserPlotDataManagerDialog
+from tuflow.tuflowqgis_library import loadLastFolder, getResultPathsFromTCF, getScenariosFromTcf, getEventsFromTCF, \
+	tuflowqgis_find_layer, getUnit, getCellSizeFromTCF, getOutputZonesFromTCF, getPathFromRel, convertTimeToFormattedTime, \
+	convertFormattedTimeToTime
+from tuflow.tuflowqgis_dialog import tuflowqgis_scenarioSelection_dialog, tuflowqgis_eventSelection_dialog, \
+	TuOptionsDialog, TuSelectedElementsDialog, tuflowqgis_meshSelection_dialog, TuBatchPlotExportDialog, \
+	TuUserPlotDataManagerDialog, tuflowqgis_outputZoneSelection_dialog
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuanimation import TuAnimationDialog
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumap import TuMapDialog
 
 
 class TuMenuFunctions():
@@ -38,15 +45,33 @@ class TuMenuFunctions():
 			# User get 2D result file
 			inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW 2D results file',
 			                                           fpath,
-			                                           "TUFLOW 2D Results (*.dat *.xmdf)")
+			                                           "TUFLOW 2D Results (*.dat *.xmdf *.sup *.2dm)")
 			if not inFileNames[0]:  # empty list
 				return False
 			
 		else:
 			inFileNames = result2D
-			
+			if not inFileNames[0]:  # empty list
+				return False
+		
+		# if .sup file - read and extract mesh and result datasets
+		for file in inFileNames[0]:
+			filename, ext = os.path.splitext(file)
+			filename = os.path.basename(filename)
+			res = {'path': file}
+			self.tuView.tuResults.tuResults2D.results2d[filename] = res
+		if ext.upper() == '.SUP':
+			sups, engine, build = self.resultsFromSuperFiles(inFileNames[0])
+			if engine == 'FV':
+				self.tuView.tuOptions.timeUnits = 's'
+			else:
+				self.tuView.tuOptions.timeUnits = 'h'
+		
 		# import into qgis
-		loaded = self.tuView.tuResults.importResults('mesh', inFileNames[0])
+		if ext.upper() == '.SUP':
+			loaded = self.tuView.tuResults.importResults('mesh', sups)
+		else:
+			loaded = self.tuView.tuResults.importResults('mesh', inFileNames[0])
 		
 		# finally save the last folder location
 		fpath = os.path.dirname(inFileNames[0][0])
@@ -67,6 +92,7 @@ class TuMenuFunctions():
 		
 		result1D = kwargs['result_1D'] if 'result_1D' in kwargs.keys() else None
 		unlock = kwargs['unlock'] if 'unlock' in kwargs else True
+		askGis = kwargs['ask_gis'] if 'ask_gis' in kwargs else True
 		
 		if not result1D:
 			# Get last loaded settings
@@ -84,12 +110,13 @@ class TuMenuFunctions():
 		
 		# Prompt user if they want to load in GIS files
 		for inFileName in inFileNames[0]:
+			alsoOpenGis = QMessageBox.No
 			if os.path.splitext(inFileName)[1].lower() == '.tpc':
-				alsoOpenGis = QMessageBox.question(self.iface.mainWindow(),
-				                                   "Tuviewer", 'Do you also want to open result GIS layer?',
-				                                   QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-			else:
-				alsoOpenGis = QMessageBox.No
+				if askGis:
+					alsoOpenGis = QMessageBox.question(self.iface.mainWindow(),
+					                                   "TUFLOW Viewer", 'Do you also want to open result GIS layer?',
+					                                   QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+			break  # only need to ask once
 		if alsoOpenGis == QMessageBox.Yes:
 			self.tuView.tuResults.tuResults1D.openGis(inFileNames[0][0])
 		elif alsoOpenGis == QMessageBox.Cancel:
@@ -138,7 +165,7 @@ class TuMenuFunctions():
 				self.scenarioDialog = tuflowqgis_scenarioSelection_dialog(self.iface, file, scenarios)
 				self.scenarioDialog.exec_()
 				if self.scenarioDialog.scenarios is None:
-					return False
+					scenarios = []
 				else:
 					scenarios = self.scenarioDialog.scenarios
 					
@@ -148,24 +175,34 @@ class TuMenuFunctions():
 				self.eventDialog = tuflowqgis_eventSelection_dialog(self.iface, file, events)
 				self.eventDialog.exec_()
 				if self.eventDialog.events is None:
-					return False
+					events = []
 				else:
 					events = self.eventDialog.events
+					
+			# get output zones from TCF and prompt user to select desired output zones
+			outputZones = getOutputZonesFromTCF(file)
+			selectedOutputZones = []
+			if outputZones:
+				self.outputZoneDialog = tuflowqgis_outputZoneSelection_dialog(self.iface, file, outputZones)
+				self.outputZoneDialog.exec_()
+				for opz in outputZones:
+					if opz['name'] in self.outputZoneDialog.outputZones:
+						selectedOutputZones.append(opz)
 
-			res1D, res2D = getResultPathsFromTCF(file, scenarios=scenarios, events=events)
-			
+			res1D, res2D, messages = getResultPathsFromTCF(file, scenarios=scenarios, events=events, output_zones=selectedOutputZones)
+
 			# since going through tcf, may as well grab cell size and use for cross section and flux line resolution
-			if scenarios:
-				# if there are scenarios, there may be a variable set for cell size
-				cellSize = 99999
-				for i, scenario in enumerate(scenarios):
-					size = getCellSizeFromTCF(file, scenario=scenario)
-					if size is not None:
-						cellSize = min(cellSize, size)
-			else:
-				cellSize = getCellSizeFromTCF(file)
-			if cellSize is not None and cellSize != 99999:
-				self.tuView.tuOptions.resolution = cellSize / 2.0
+			#if scenarios:
+			#	# if there are scenarios, there may be a variable set for cell size
+			#	cellSize = 99999
+			#	for i, scenario in enumerate(scenarios):
+			#		size = getCellSizeFromTCF(file, scenario=scenario)
+			#		if size is not None:
+			#			cellSize = min(cellSize, size)
+			#else:
+			#	cellSize = getCellSizeFromTCF(file)
+			#if cellSize is not None and cellSize != 99999:
+			#	self.tuView.tuOptions.resolution = cellSize
 			
 			if res1D:
 				if results1D:
@@ -185,6 +222,16 @@ class TuMenuFunctions():
 		# load 1D results
 		if results1D:
 			self.load1dResults(result_1D=results1D, unlock=False)
+			
+		# if no results found
+		if not results2D and not results1D:
+			mes = ''
+			for i, m in enumerate(messages):
+				if i == 0:
+					mes += m
+				else:
+					mes += '\n\n{0}'.format(m)
+			QMessageBox.information(self.iface.mainWindow(), "TUFLOW Viewer", "Failed to load results from TCF\n\n{0}".format(mes))
 			
 		# finally save the last folder location
 		fpath = os.path.dirname(inFileNames[0][0])
@@ -224,7 +271,7 @@ class TuMenuFunctions():
 		results = []
 		for item in self.tuView.OpenResults.selectedItems():
 			layer = tuflowqgis_find_layer(item.text())
-			self.tuView.project.removeMapLayer(layer)  # this will trigger the removal from results index
+			self.tuView.project.removeMapLayer(layer)
 			
 		self.tuView.canvas.refresh()
 		self.tuView.resultsChanged()
@@ -269,20 +316,29 @@ class TuMenuFunctions():
 		"""
 		
 		xAxisDatesPrev = self.tuView.tuOptions.xAxisDates
+		showGridPrev = self.tuView.tuOptions.showGrid
+		showTrianglesPrev = self.tuView.tuOptions.showTriangles
+		timeUnitsPrev = self.tuView.tuOptions.timeUnits
 		self.tuOptionsDialog = TuOptionsDialog(self.tuView.tuOptions)
 		self.tuOptionsDialog.exec_()
 		self.tuView.tuPlot.updateCurrentPlot(self.tuView.tabWidget.currentIndex(), update='1d and 2d only')
+		self.tuView.tuPlot.tuPlotToolbar.cursorTrackingButton.setChecked(self.tuView.tuOptions.liveMapTracking)
 		if self.tuView.tuMenuBar.showMedianEvent_action.isChecked() or self.tuView.tuMenuBar.showMeanEvent_action.isChecked():
 			self.tuView.renderMap()
+		if self.tuView.tuOptions.showGrid != showGridPrev or self.tuView.tuOptions.showTriangles != showTrianglesPrev:
+			self.tuView.renderMap()
 		if self.tuView.tuOptions.xAxisDates != xAxisDatesPrev:
-			self.tuView.tuResults.updateResultTypes()
+			#self.tuView.tuResults.updateResultTypes()
+			self.tuView.tuResults.updateTimeUnits()
+		if self.tuView.tuOptions.timeUnits != timeUnitsPrev:
+			self.tuView.tuResults.updateTimeUnits()
 		
 		return True
 	
 	def exportCSV(self):
 		"""
 		Export the data as a CSV.
-		
+
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
@@ -291,7 +347,7 @@ class TuMenuFunctions():
 		dataHeader, data = self.getPlotData(plotNo)
 		
 		if dataHeader is None or data is None:
-			QMessageBox.critical(self.iface.mainWindow(), 'TuView', 'Error exporting file')
+			QMessageBox.critical(self.iface.mainWindow(), 'TUFLOW Viewer', 'Error exporting file')
 			return False
 		
 		fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_Results/export_csv")
@@ -304,6 +360,7 @@ class TuMenuFunctions():
 				QSettings().setValue("TUFLOW_Results/export_csv", saveFile)
 			if not os.path.splitext(saveFile)[-1]:  # no extension specified - default to csv
 				saveFile = '{0}.csv'.format(saveFile)
+
 		
 		if saveFile is not None:
 			retry = True
@@ -314,27 +371,85 @@ class TuMenuFunctions():
 					for i, row in enumerate(data):
 						line = ''
 						for j, value in enumerate(row):
-							if not np.isnan(data[i][j]):
+							if type(data[i][j]) is datetime.datetime:
+								line += '{0}\t'.format(data[i][j])
+							elif not np.isnan(data[i][j]):
 								line += '{0},'.format(data[i][j])
 							else:
 								line += '{0},'.format('')
 						line += '\n'
 						file.write(line)
 					file.close()
-					QMessageBox.information(self.iface.mainWindow(), 'TuView', 'Successfully exported data.')
+					QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'Successfully exported data.')
 					retry = False
 				except IOError:
 					questionRetry = QMessageBox.question(self.iface.mainWindow(),
-						                                 "Tuviewer", 'Could not access {0}. Check file is not open.'.format(saveFile),
+						                                 "TUFLOW Viewer", 'Could not access {0}. Check file is not open.'.format(saveFile),
 						                                 QMessageBox.Retry | QMessageBox.Cancel)
 					if questionRetry == QMessageBox.Cancel:
 						retry = False
 						return False
 						
 				except:
-					QMessageBox.critical(self.iface.mainWindow(), 'TuView', 'Error exporting file')
+					QMessageBox.critical(self.iface.mainWindow(), 'TUFLOW Viewer', 'Error exporting file')
 					retry = False
 					return False
+		
+		return True
+	
+	def exportDataToClipboard(self):
+		"""
+		Export plot data to clipboard
+		
+		:return: bool -> True for successful, False for unsuccessful
+		"""
+
+		plotNo = self.tuView.tabWidget.currentIndex()
+		
+		dataHeader, data = self.getPlotData(plotNo)
+		
+		if dataHeader is None or data is None:
+			QMessageBox.critical(self.iface.mainWindow(), 'TUFLOW Viewer', 'Error exporting data')
+			return False
+		
+		copyData = '{0}\n'.format(dataHeader.replace(',', '\t'))
+		for i, row in enumerate(data):
+			line = ''
+			for j, value in enumerate(row):
+				if type(data[i][j]) is datetime.datetime:
+					line += '{0}\t'.format(data[i][j])
+				elif not np.isnan(data[i][j]):
+					line += '{0}\t'.format(data[i][j])
+				else:
+					line += '{0}\t'.format('')
+			line += '\n'
+			copyData += line
+		
+		clipboard = QApplication.clipboard()
+		clipboard.setText(copyData)
+		
+		return True
+	
+	def exportImageToClipboard(self):
+		"""
+		Export plot image to clipboard
+		
+		:return: bool -> True for successful, False for unsuccessful
+		"""
+		
+		plotNo = self.tuView.tabWidget.currentIndex()
+		
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, \
+		yAxisLabel, xAxisLabel, xAxisLimits, yAxisLimits = self.tuView.tuPlot.plotEnumerator(plotNo)
+		
+		# thanks to EelkeSpaak for saving figure to clipboard
+		# https://stackoverflow.com/questions/31607458/how-to-add-clipboard-support-to-matplotlib-figures
+		buf = io.BytesIO()
+		figure.savefig(buf)
+		
+		clipboard = QApplication.clipboard()
+		clipboard.setImage(QImage.fromData(buf.getvalue()))
+		buf.close()
 		
 		return True
 		
@@ -702,7 +817,7 @@ class TuMenuFunctions():
 		
 		# ask user if import or not
 		importLayer = QMessageBox.question(self.iface.mainWindow(),
-		                                   "Tuviewer", 'Successfully saved {0}. Open in workspace?'.format(os.path.basename(saveFile)),
+		                                   "TUFLOW Viewer", 'Successfully saved {0}. Open in workspace?'.format(os.path.basename(saveFile)),
 		                                   QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
 		if importLayer == QMessageBox.Yes:
 			self.iface.addVectorLayer(saveFile, os.path.splitext(os.path.basename(saveFile))[0], 'ogr')
@@ -747,7 +862,7 @@ class TuMenuFunctions():
 		
 		# ask user if import or not
 		importLayer = QMessageBox.question(self.iface.mainWindow(),
-		                                   "Tuviewer", 'Successfully saved {0}. Open in workspace?'.format(
+		                                   "TUFLOW Viewer", 'Successfully saved {0}. Open in workspace?'.format(
 				os.path.basename(saveFile)),
 		                                   QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
 		if importLayer == QMessageBox.Yes:
@@ -829,7 +944,7 @@ class TuMenuFunctions():
 		
 		return True
 		
-	def saveDefaultStyleScalar(self, saveType, **kwargs):
+	def saveDefaultStyleScalar(self, renderType, **kwargs):
 		"""
 		Saves the current active result type style as default for future similar result types.
 		
@@ -837,11 +952,16 @@ class TuMenuFunctions():
 		"""
 		
 		useClicked = kwargs['use_clicked'] if 'use_clicked' in kwargs.keys() else False
+		saveType = kwargs['save_type'] if 'save_type' in kwargs else 'xml'
+		meshIndex = kwargs['mesh_index'] if 'mesh_index' in kwargs else None
+		result = kwargs['result'] if 'result' in kwargs else None
 		
 		# what happens if there are no mesh layer or more than one active mesh layer
-		if not self.tuView.tuResults.tuResults2D.activeMeshLayers:
-			QMessageBox.information(self.iface.mainWindow(), 'Tuview', 'No Active Result Datasets')
-			return False
+		if meshIndex is not None and result is not None:
+			meshLayer = tuflowqgis_find_layer(result)
+		elif not self.tuView.tuResults.tuResults2D.activeMeshLayers:
+				QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Result Datasets')
+				return False
 		elif len(self.tuView.tuResults.tuResults2D.activeMeshLayers) > 1:
 			self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuView.tuResults.tuResults2D.activeMeshLayers)
 			self.meshDialog.exec_()
@@ -863,18 +983,21 @@ class TuMenuFunctions():
 				if dp.datasetGroupMetadata(i).name() == resultType or dp.datasetGroupMetadata(i).name() == '{0}/Maximums'.format(resultType):
 					activeScalarGroupIndex = i
 					break
+		elif meshIndex is not None:
+			activeScalarGroupIndex = meshIndex.group()
 		else:
 			activeScalar = rs.activeScalarDataset()
 			activeScalarGroupIndex = activeScalar.group()
 			if activeScalarGroupIndex == -1:
-				QMessageBox.information(self.iface.mainWindow(), 'Tuview', 'No Active Scalar Dataset')
+				QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Scalar Dataset')
 				return False
+
 		activeScalarType = dp.datasetGroupMetadata(activeScalarGroupIndex).name()
-		activeScalarType = activeScalarType.strip('/Maximums')
+		activeScalarType = activeScalarType.split('/')[0]
 		rsScalar = rs.scalarSettings(activeScalarGroupIndex)
 		
 		# save color ramp if option chosen
-		if saveType == 'color ramp':
+		if renderType == 'color ramp':
 			## get color ramp properties
 			shader = rsScalar.colorRampShader()
 			file = os.path.join(os.path.dirname(__file__), '_saved_styles', '{0}.xml'.format(activeScalarType))
@@ -897,27 +1020,31 @@ class TuMenuFunctions():
 			settings.remove(key)
 		
 		# save color map if option chosen
-		elif saveType == 'color map':
+		elif renderType == 'color map':
 			file = os.path.join(os.path.dirname(__file__), '_saved_styles', '{0}.xml'.format(activeScalarType))
 			doc = QDomDocument(activeScalarType.replace(' ', '_'))
 			element = rsScalar.writeXml(doc)
 			doc.appendChild(element)
-			fo = open(file, 'w')
-			fo.write('<?xml version="1.0" encoding="UTF-8"?>\n')
-			fo.write(doc.toString())
-			fo.close()
-			
-			# save setting so tuview knows to load it in
-			key = "TUFLOW_scalarRenderer/{0}_map".format(activeScalarType)
-			settings = QSettings()
-			settings.setValue(key, file)
-			
-			# remove color ramp key
-			key = "TUFLOW_scalarRenderer/{0}_ramp".format(activeScalarType)
-			settings = QSettings()
-			settings.remove(key)
+			if saveType == 'xml':
+				fo = open(file, 'w')
+				fo.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+				fo.write(doc.toString())
+				fo.close()
+				
+				# save setting so tuview knows to load it in
+				key = "TUFLOW_scalarRenderer/{0}_map".format(activeScalarType)
+				settings = QSettings()
+				settings.setValue(key, file)
+				
+				# remove color ramp key
+				key = "TUFLOW_scalarRenderer/{0}_ramp".format(activeScalarType)
+				settings = QSettings()
+				settings.remove(key)
+			else:  # save to project
+				style = '<?xml version="1.0" encoding="UTF-8"?>\n' + doc.toString()
+				return style
 		
-		QMessageBox.information(self.iface.mainWindow(), 'Tuview', 'Saved default style for {0}'.format(activeScalarType))
+		QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'Saved default style for {0}'.format(activeScalarType))
 		
 		return True
 			
@@ -929,11 +1056,17 @@ class TuMenuFunctions():
 		"""
 		
 		useClicked = kwargs['use_clicked'] if 'use_clicked' in kwargs.keys() else False
+		saveType = kwargs['save_type'] if 'save_type' in kwargs else 'default'
+		meshIndex = kwargs['mesh_index'] if 'mesh_index' in kwargs else None
+		result = kwargs['result'] if 'result' in kwargs else None
 		
 		# what happens if there are no mesh layer or more than one active mesh layer
-		if not self.tuView.tuResults.tuResults2D.activeMeshLayers:
-			QMessageBox.information(self.iface.mainWindow(), 'Tuview', 'No Active Result Datasets')
-			return False
+		if meshIndex is not None and result is not None:
+			meshLayer = tuflowqgis_find_layer(result)
+		elif not self.tuView.tuResults.tuResults2D.activeMeshLayers:
+			if meshIndex is None:
+				QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Result Datasets')
+				return False
 		elif len(self.tuView.tuResults.tuResults2D.activeMeshLayers) > 1:
 			self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuView.tuResults.tuResults2D.activeMeshLayers)
 			self.meshDialog.exec_()
@@ -955,14 +1088,19 @@ class TuMenuFunctions():
 				if dp.datasetGroupMetadata(i).name() == resultType or dp.datasetGroupMetadata(i).name() == '{0}/Maximums'.format(resultType):
 					activeVectorGroupIndex = i
 					break
+		elif meshIndex is not None:
+			activeVectorGroupIndex = meshIndex.group()
 		else:
 			activeVector = rs.activeVectorDataset()
 			activeVectorGroupIndex = activeVector.group()
 			if activeVectorGroupIndex == -1:
-				QMessageBox.information(self.iface.mainWindow(), 'Tuview', 'No Active Vector Dataset')
-				return False
+				if saveType == 'default':
+					QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Vector Dataset')
+					return False
+				else:
+					return ''
 		activeVectorType = dp.datasetGroupMetadata(activeVectorGroupIndex).name()
-		activeVectorType = activeVectorType.strip('/Maximums')
+		activeVectorType = activeVectorType.split('/')[0]
 		rsVector = rs.vectorSettings(activeVectorGroupIndex)
 		
 		# get vector properties
@@ -980,12 +1118,15 @@ class TuMenuFunctions():
 			'shaft length method': rsVector.shaftLengthMethod()
 		}
 		
-		# save as default for that result type
-		key = "TUFLOW_vectorRenderer/vector"
-		settings = QSettings()
-		settings.setValue(key, properties)
+		if saveType == 'default':
+			# save as default for that result type
+			key = "TUFLOW_vectorRenderer/vector"
+			settings = QSettings()
+			settings.setValue(key, properties)
+		else:  # save to project
+			return properties
 		
-		QMessageBox.information(self.iface.mainWindow(), 'Tuview', 'Saved default style for vectors')
+		QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'Saved default style for vectors')
 		
 		return True
 	
@@ -1000,7 +1141,7 @@ class TuMenuFunctions():
 		
 		# what happens if there are no active mesh layers
 		if not self.tuView.tuResults.tuResults2D.activeMeshLayers:
-			QMessageBox.information(self.iface.mainWindow(), 'Tuview', 'No Active Result Datasets')
+			QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Result Datasets')
 			return False
 		
 		for layer in self.tuView.tuResults.tuResults2D.activeMeshLayers:
@@ -1021,13 +1162,13 @@ class TuMenuFunctions():
 				activeScalar = rs.activeScalarDataset()
 				activeScalarGroupIndex = activeScalar.group()
 				if not activeScalar.isValid():
-					QMessageBox.information(self.iface.mainWindow(), 'Tuview', 'No Active Scalar Dataset')
+					QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Scalar Dataset')
 					return False
 			
 			# get the name and try and apply default styling
 			mdGroup = dp.datasetGroupMetadata(activeScalarGroupIndex)
 			if mdGroup.isScalar():  # should be scalar considering we used activeScalarDataset
-				resultType = mdGroup.name().strip('/Maximums')
+				resultType = mdGroup.name().split('/')[0]
 				# try finding if style has been saved as a ramp first
 				key = 'TUFLOW_scalarRenderer/{0}_ramp'.format(resultType)
 				file = QSettings().value(key)
@@ -1052,7 +1193,7 @@ class TuMenuFunctions():
 		
 		# what happens if there are no active mesh layers
 		if not self.tuView.tuResults.tuResults2D.activeMeshLayers:
-			QMessageBox.information(self.iface.mainWindow(), 'Tuview', 'No Active Result Datasets')
+			QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Result Datasets')
 			return False
 		
 		for layer in self.tuView.tuResults.tuResults2D.activeMeshLayers:
@@ -1072,7 +1213,7 @@ class TuMenuFunctions():
 			else:
 				activeVector = rs.activeVectorDataset()
 				if not activeVector.isValid():
-					QMessageBox.information(self.iface.mainWindow(), 'Tuview', 'No Active Scalar Dataset')
+					QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Scalar Dataset')
 					return False
 				
 			# get the name and try and apply default styling
@@ -1080,7 +1221,7 @@ class TuMenuFunctions():
 			mdGroup = dp.datasetGroupMetadata(activeVectorGroupIndex)
 			if mdGroup.isVector():  # should be vector considering we used activeScalarDataset
 				resultType = mdGroup.name()
-				resultType = resultType.strip('/Maximums')
+				resultType = resultType.split('/')[0]
 				mdGroup = dp.datasetGroupMetadata(activeVectorGroupIndex)
 				rsVector = rs.vectorSettings(activeVectorGroupIndex)
 				vectorProperties = QSettings().value('TUFLOW_vectorRenderer/vector')
@@ -1103,7 +1244,7 @@ class TuMenuFunctions():
 			elif 'TUFLOW_vectorRenderer' in key:
 				settings.remove(key)
 		
-		QMessageBox.information(self.iface.mainWindow(), 'Tuview', 'Reset Default Styles')
+		QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'Reset Default Styles')
 				
 		return True
 
@@ -1162,15 +1303,13 @@ class TuMenuFunctions():
 			if timestep == 'Maximum':
 				timestepKey = timestep
 			else:
-				timestepKey = timestep.split(':')
-				timestepKey = float(timestepKey[0]) + (float(timestepKey[1]) / 60.) + (float(timestepKey[2]) / 3600.)
-				timestepKey = '{0:.4f}'.format(timestepKey)
+				timestepKey = '{0:.6f}'.format(convertFormattedTimeToTime(timestep))
 			
 		# setup progress bar
 		if featureCount:
 			complete = 0
 			self.iface.messageBar().clearWidgets()
-			progressWidget = self.iface.messageBar().createMessage("Tuview",
+			progressWidget = self.iface.messageBar().createMessage("TUFLOW Viewer",
 			                                                       " Exporting {0}s . . .".format(format))
 			messageBar = self.iface.messageBar()
 			progress = QProgressBar()
@@ -1221,7 +1360,7 @@ class TuMenuFunctions():
 
 	def toggleMeshRender(self):
 		"""
-		
+		Toggles mesh on and off
 		
 		:return:
 		"""
@@ -1234,5 +1373,75 @@ class TuMenuFunctions():
 		self.tuView.renderMap()
 		
 	def exportAnimation(self):
+		"""
+		Export animation dialog
+		
+		:return:
+		"""
+		
 		self.animationDialog = TuAnimationDialog(self.tuView)
-		self.animationDialog.exec_()
+		self.animationDialog.show()
+		
+	def exportMaps(self):
+		"""
+		Export maps dialog
+		
+		:return:
+		"""
+		
+		self.mapDialog = TuMapDialog(self.tuView)
+		self.mapDialog.show()
+		
+	def resultsFromSuperFiles(self, files):
+		"""
+		Extract mesh files and result datasets from .sup files
+		
+		:param files: list -> str full path to .sup file
+		:return: dict -> 'name': dict -> 'mesh': path to mesh, 'datasets': list -> paths to datasets
+		"""
+
+		results = {}
+		engine = None
+		build = None
+		
+		for file in files:
+			
+			result = {}
+			basename, ext = file, 1
+			while ext:
+				basename, ext = os.path.splitext(basename)
+			name = os.path.basename(basename)
+			dir = os.path.dirname(file)
+			
+			with open(file, 'r') as fo:
+				for line in fo:
+					if 'mesh2d' in line.lower():
+						components = line.split('mesh2d')
+						if len(components) < 2:
+							components = line.split('MESH2D')
+						if len(components) < 2:
+							continue
+						mesh = components[1].strip().strip('"').strip("'")
+						mesh = getPathFromRel(dir, mesh)
+						result['mesh'] = mesh
+					elif 'data' in line.lower():
+						components = line.split('data')
+						if len(components) < 2:
+							components = line.split('DATA')
+						if len(components) < 2:
+							continue
+						dataset = components[1].strip().strip('"').strip("'")
+						dataset = getPathFromRel(dir, dataset)
+						if 'datasets' not in result:
+							result['datasets'] = []
+						result['datasets'].append(dataset)
+					elif 'tuflow' in line.lower() and 'build' in line.lower():
+						if 'fv' in line.lower():
+							engine = 'FV'
+						else:
+							engine = 'CLA'
+						build = line.split(':')[1].strip()
+			
+			results[name] = result
+			
+		return results, engine, build

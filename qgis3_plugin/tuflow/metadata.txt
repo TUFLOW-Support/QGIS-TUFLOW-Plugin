@@ -5,13 +5,13 @@
 
 [general]
 name=TUFLOW
-qgisMinimumVersion=3.0
-description=A collection of utilities for TUFLOW a flood and coastal simulation in QGIS
-about=A collection of utilities for TUFLOW a flood and coastal simulation in QGIS.
-	Includes visualisation of results / inputs
-	Editing tools
-	Styling tools
-version=2.2.2
+qgisMinimumVersion=3.6
+description=A collection of utilities for TUFLOW flood and coastal simulation in QGIS
+about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
+      Includes visualisation of results / inputs
+      Editing tools
+      Styling tools
+version=3.0.0
 author=Phillip Ryan, Ellis Symons
 email=support@tuflow.com
 
@@ -20,10 +20,23 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=Message dialogs no longer appear when saving style layer in increment layer tool
+changelog=Plugin is now OS independent
+          New tool TUFLOW Viewer (replaces Tuplot) - convenient way of viewing time series and map output results
+          New tool Sort and Filter TUFLOW layers - auto sort and / or filter TUFLOW layers in map window
+          New Tool TUFLOW Utilities - easy way to use TUFLOW utilities without creating a batch file
+          Import from TCF now supports Variables and Scenario/Events in file paths
+          ARR2016 tool now now considers areal temporal patterns (user must manually specify csv)
+          ARR2016 user can now manually specify point and areal temporal pattern csv files
+          ARR2016 user can now manually specify storm initial loss and continuing loss
+          ARR2016 now auto outputs rainfall losses file for input into TUFLOW
+          ARR2016 now has offline mode
+          Import empty tool includes tooltips
+          Increment layer now includes more user options for keeping old layer in workspace / superseding layer
+          Configure project tool now works for TUFLOW FV projects
+          Layer styles added for TUFLOW FV
 
 # tags are comma separated with spaces allowed
-tags=TUFLOW, simulation, flood, hydraulic modelling
+tags=TUFLOW, simulation, flood, hydraulic modelling, MDAL, mesh, xmdf, dat, 2dm
 
 homepage=http://wiki.tuflow.com/index.php?title=TUFLOW_QGIS_Plugin
 tracker=https://github.com/TUFLOW-Support/QGIS-TUFLOW-Plugin/issues

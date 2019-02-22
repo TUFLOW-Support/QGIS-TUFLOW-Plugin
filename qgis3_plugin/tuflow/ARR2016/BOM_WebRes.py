@@ -514,14 +514,14 @@ class Bom:
                 val = vals[i]
                 for j in range(naep):
                     depths_normal[i, j] = val[j]
-#
+
             if frequent_events:
                 depths_frequent = numpy.ones((ndur_frequent, naep_frequent)) * -99
                 for i in range(ndur_frequent):
                     val = vals_frequent[i]
                     for j in range(naep_frequent):
                         depths_frequent[i, j] = val[j]
-#
+
             if rare_events:
                 depths_rare = numpy.ones((ndur_rare, naep_rare)) * -99
                 for i in range(ndur_rare):
@@ -530,8 +530,8 @@ class Bom:
                         depths_rare[i, j] = val[j]
                 com_aep, com_dur, dep_com, com_dur_index = common_data(aep_rare, duration, aep_rare,
                                                                        duration_rare, depths_normal)
-                depths_rare = extend_array(com_dur_index, com_aep, depths_rare, duration)
-#
+                depths_rare = extend_array_dur(com_dur_index, com_aep, depths_rare, duration)
+
             depths = depths_normal
             if frequent_events:
                 depths = numpy.append(depths_frequent, depths, axis=1)
@@ -561,6 +561,9 @@ class Bom:
             os.mkdir(os.path.dirname(fname))
         try:
             fo = open(fname, 'w')
+        except PermissionError:
+            self.error = True
+            self.message = 'File is locked for editing: {0}'.format(fname)
         except IOError:
             self.error = True
             self.message = 'Unexpected error opening file {0}'.format(fname)

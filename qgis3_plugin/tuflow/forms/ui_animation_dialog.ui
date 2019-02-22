@@ -211,9 +211,9 @@
             <property name="geometry">
              <rect>
               <x>0</x>
-              <y>-417</y>
+              <y>0</y>
               <width>488</width>
-              <height>869</height>
+              <height>1125</height>
              </rect>
             </property>
             <layout class="QVBoxLayout" name="verticalLayout_4">
@@ -231,79 +231,6 @@
                <layout class="QVBoxLayout" name="verticalLayout">
                 <item>
                  <layout class="QGridLayout" name="gridLayout_5" columnstretch="1,10,0,0,0">
-                  <item row="1" column="4">
-                   <widget class="QgsColorButton" name="colorTitleText">
-                    <property name="minimumSize">
-                     <size>
-                      <width>24</width>
-                      <height>21</height>
-                     </size>
-                    </property>
-                    <property name="color">
-                     <color>
-                      <red>0</red>
-                      <green>0</green>
-                      <blue>0</blue>
-                     </color>
-                    </property>
-                    <property name="showNoColor">
-                     <bool>true</bool>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="2" column="4">
-                   <widget class="QgsColorButton" name="colorTitleBackground">
-                    <property name="minimumSize">
-                     <size>
-                      <width>24</width>
-                      <height>21</height>
-                     </size>
-                    </property>
-                    <property name="color">
-                     <color>
-                      <red>255</red>
-                      <green>255</green>
-                      <blue>255</blue>
-                     </color>
-                    </property>
-                    <property name="defaultColor">
-                     <color>
-                      <red>255</red>
-                      <green>255</green>
-                      <blue>255</blue>
-                     </color>
-                    </property>
-                    <property name="showNoColor">
-                     <bool>true</bool>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="1" column="1" colspan="2">
-                   <widget class="QgsFontButton" name="fbtnTitle">
-                    <property name="minimumSize">
-                     <size>
-                      <width>0</width>
-                      <height>21</height>
-                     </size>
-                    </property>
-                    <property name="font">
-                     <font>
-                      <pointsize>7</pointsize>
-                     </font>
-                    </property>
-                    <property name="text">
-                     <string>Font . . .</string>
-                    </property>
-                    <property name="mode">
-                     <enum>QgsFontButton::ModeQFont</enum>
-                    </property>
-                    <property name="currentFont">
-                     <font>
-                      <pointsize>8</pointsize>
-                     </font>
-                    </property>
-                   </widget>
-                  </item>
                   <item row="0" column="0">
                    <widget class="QLabel" name="label_14">
                     <property name="text">
@@ -311,44 +238,7 @@
                     </property>
                    </widget>
                   </item>
-                  <item row="1" column="0">
-                   <widget class="QLabel" name="label_15">
-                    <property name="text">
-                     <string>Text</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="0" column="1" colspan="4">
-                   <widget class="QLineEdit" name="labelTitle"/>
-                  </item>
-                  <item row="3" column="0">
-                   <widget class="QLabel" name="label_17">
-                    <property name="text">
-                     <string>Position</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="1" column="3">
-                   <spacer name="horizontalSpacer_6">
-                    <property name="orientation">
-                     <enum>Qt::Horizontal</enum>
-                    </property>
-                    <property name="sizeHint" stdset="0">
-                     <size>
-                      <width>40</width>
-                      <height>20</height>
-                     </size>
-                    </property>
-                   </spacer>
-                  </item>
-                  <item row="2" column="0" colspan="4">
-                   <widget class="QCheckBox" name="cbTitleBackground">
-                    <property name="text">
-                     <string>Background</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="3" column="1" colspan="2">
+                  <item row="4" column="1" colspan="2">
                    <widget class="QComboBox" name="cboPosTitle">
                     <item>
                      <property name="text">
@@ -380,6 +270,147 @@
                       <string>Bottom-Center</string>
                      </property>
                     </item>
+                   </widget>
+                  </item>
+                  <item row="1" column="1" colspan="2">
+                   <widget class="QgsFontButton" name="fbtnTitle">
+                    <property name="minimumSize">
+                     <size>
+                      <width>0</width>
+                      <height>21</height>
+                     </size>
+                    </property>
+                    <property name="font">
+                     <font>
+                      <pointsize>7</pointsize>
+                     </font>
+                    </property>
+                    <property name="text">
+                     <string>Font . . .</string>
+                    </property>
+                    <property name="mode">
+                     <enum>QgsFontButton::ModeQFont</enum>
+                    </property>
+                    <property name="currentFont">
+                     <font>
+                      <pointsize>8</pointsize>
+                     </font>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="4">
+                   <widget class="QgsColorButton" name="colorTitleText">
+                    <property name="minimumSize">
+                     <size>
+                      <width>24</width>
+                      <height>21</height>
+                     </size>
+                    </property>
+                    <property name="color">
+                     <color>
+                      <red>0</red>
+                      <green>0</green>
+                      <blue>0</blue>
+                     </color>
+                    </property>
+                    <property name="showNoColor">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="3">
+                   <spacer name="horizontalSpacer_6">
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                  <item row="4" column="0">
+                   <widget class="QLabel" name="label_17">
+                    <property name="text">
+                     <string>Position</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="4">
+                   <widget class="QgsColorButton" name="colorTitleBackground">
+                    <property name="minimumSize">
+                     <size>
+                      <width>24</width>
+                      <height>21</height>
+                     </size>
+                    </property>
+                    <property name="color">
+                     <color>
+                      <red>255</red>
+                      <green>255</green>
+                      <blue>255</blue>
+                     </color>
+                    </property>
+                    <property name="defaultColor">
+                     <color>
+                      <red>255</red>
+                      <green>255</green>
+                      <blue>255</blue>
+                     </color>
+                    </property>
+                    <property name="showNoColor">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1" colspan="4">
+                   <widget class="QLineEdit" name="labelTitle"/>
+                  </item>
+                  <item row="2" column="0" colspan="4">
+                   <widget class="QCheckBox" name="cbTitleBackground">
+                    <property name="text">
+                     <string>Background</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="label_15">
+                    <property name="text">
+                     <string>Text</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="0" colspan="4">
+                   <widget class="QCheckBox" name="cbTitleFrame">
+                    <property name="text">
+                     <string>Border</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="4">
+                   <widget class="QgsColorButton" name="colorTitleFrame">
+                    <property name="minimumSize">
+                     <size>
+                      <width>24</width>
+                      <height>21</height>
+                     </size>
+                    </property>
+                    <property name="color">
+                     <color>
+                      <red>0</red>
+                      <green>0</green>
+                      <blue>0</blue>
+                     </color>
+                    </property>
+                    <property name="defaultColor">
+                     <color>
+                      <red>0</red>
+                      <green>0</green>
+                      <blue>0</blue>
+                     </color>
+                    </property>
                    </widget>
                   </item>
                  </layout>
@@ -438,23 +469,6 @@
                     </property>
                    </spacer>
                   </item>
-                  <item row="1" column="3">
-                   <widget class="QgsColorButton" name="colorTimeText">
-                    <property name="minimumSize">
-                     <size>
-                      <width>24</width>
-                      <height>21</height>
-                     </size>
-                    </property>
-                    <property name="color">
-                     <color>
-                      <red>0</red>
-                      <green>0</green>
-                      <blue>0</blue>
-                     </color>
-                    </property>
-                   </widget>
-                  </item>
                   <item row="1" column="1">
                    <widget class="QgsFontButton" name="fbtnTime">
                     <property name="minimumSize">
@@ -476,8 +490,12 @@
                     </property>
                    </widget>
                   </item>
-                  <item row="0" column="1" colspan="3">
-                   <widget class="QLineEdit" name="labelTime"/>
+                  <item row="2" column="0" colspan="3">
+                   <widget class="QCheckBox" name="cbTimeBackground">
+                    <property name="text">
+                     <string>Background</string>
+                    </property>
+                   </widget>
                   </item>
                   <item row="1" column="0">
                    <widget class="QLabel" name="label_18">
@@ -493,21 +511,7 @@
                     </property>
                    </widget>
                   </item>
-                  <item row="3" column="0">
-                   <widget class="QLabel" name="label_19">
-                    <property name="text">
-                     <string>Position</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="2" column="0" colspan="3">
-                   <widget class="QCheckBox" name="cbTimeBackground">
-                    <property name="text">
-                     <string>Background</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="3" column="1">
+                  <item row="4" column="1">
                    <widget class="QComboBox" name="cboPosTime">
                     <item>
                      <property name="text">
@@ -541,6 +545,64 @@
                     </item>
                    </widget>
                   </item>
+                  <item row="4" column="0">
+                   <widget class="QLabel" name="label_19">
+                    <property name="text">
+                     <string>Position</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="3">
+                   <widget class="QgsColorButton" name="colorTimeText">
+                    <property name="minimumSize">
+                     <size>
+                      <width>24</width>
+                      <height>21</height>
+                     </size>
+                    </property>
+                    <property name="color">
+                     <color>
+                      <red>0</red>
+                      <green>0</green>
+                      <blue>0</blue>
+                     </color>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1" colspan="3">
+                   <widget class="QLineEdit" name="labelTime"/>
+                  </item>
+                  <item row="3" column="0" colspan="3">
+                   <widget class="QCheckBox" name="cbTimeFrame">
+                    <property name="text">
+                     <string>Border</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="3">
+                   <widget class="QgsColorButton" name="colorTimeFrame">
+                    <property name="minimumSize">
+                     <size>
+                      <width>24</width>
+                      <height>21</height>
+                     </size>
+                    </property>
+                    <property name="color">
+                     <color>
+                      <red>0</red>
+                      <green>0</green>
+                      <blue>0</blue>
+                     </color>
+                    </property>
+                    <property name="defaultColor">
+                     <color>
+                      <red>0</red>
+                      <green>0</green>
+                      <blue>0</blue>
+                     </color>
+                    </property>
+                   </widget>
+                  </item>
                  </layout>
                 </item>
                </layout>
@@ -560,48 +622,14 @@
                <layout class="QVBoxLayout" name="verticalLayout_3">
                 <item>
                  <layout class="QGridLayout" name="gridLayout_7">
-                  <item row="1" column="3">
-                   <widget class="QgsColorButton" name="colorLegendText">
-                    <property name="minimumSize">
-                     <size>
-                      <width>24</width>
-                      <height>21</height>
-                     </size>
-                    </property>
-                    <property name="color">
-                     <color>
-                      <red>0</red>
-                      <green>0</green>
-                      <blue>0</blue>
-                     </color>
+                  <item row="4" column="0">
+                   <widget class="QLabel" name="label_22">
+                    <property name="text">
+                     <string>Position</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="2" column="3">
-                   <widget class="QgsColorButton" name="colorLegendBackground">
-                    <property name="minimumSize">
-                     <size>
-                      <width>24</width>
-                      <height>21</height>
-                     </size>
-                    </property>
-                    <property name="color">
-                     <color>
-                      <red>255</red>
-                      <green>255</green>
-                      <blue>255</blue>
-                     </color>
-                    </property>
-                    <property name="defaultColor">
-                     <color>
-                      <red>255</red>
-                      <green>255</green>
-                      <blue>255</blue>
-                     </color>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="3" column="1">
+                  <item row="4" column="1">
                    <widget class="QComboBox" name="cboPosLegend">
                     <item>
                      <property name="text">
@@ -642,12 +670,76 @@
                     </property>
                    </widget>
                   </item>
-                  <item row="3" column="0">
-                   <widget class="QLabel" name="label_22">
-                    <property name="text">
-                     <string>Position</string>
+                  <item row="1" column="3">
+                   <widget class="QgsColorButton" name="colorLegendText">
+                    <property name="minimumSize">
+                     <size>
+                      <width>24</width>
+                      <height>21</height>
+                     </size>
+                    </property>
+                    <property name="color">
+                     <color>
+                      <red>0</red>
+                      <green>0</green>
+                      <blue>0</blue>
+                     </color>
                     </property>
                    </widget>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="label_21">
+                    <property name="text">
+                     <string>Text</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="0" colspan="3">
+                   <widget class="QCheckBox" name="cbLegendBackground">
+                    <property name="text">
+                     <string>Background</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1" colspan="3">
+                   <widget class="QLineEdit" name="labelLegend"/>
+                  </item>
+                  <item row="2" column="3">
+                   <widget class="QgsColorButton" name="colorLegendBackground">
+                    <property name="minimumSize">
+                     <size>
+                      <width>24</width>
+                      <height>21</height>
+                     </size>
+                    </property>
+                    <property name="color">
+                     <color>
+                      <red>255</red>
+                      <green>255</green>
+                      <blue>255</blue>
+                     </color>
+                    </property>
+                    <property name="defaultColor">
+                     <color>
+                      <red>255</red>
+                      <green>255</green>
+                      <blue>255</blue>
+                     </color>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="2">
+                   <spacer name="horizontalSpacer_7">
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
                   </item>
                   <item row="1" column="1">
                    <widget class="QgsFontButton" name="fbtnLegend">
@@ -670,35 +762,36 @@
                     </property>
                    </widget>
                   </item>
-                  <item row="1" column="0">
-                   <widget class="QLabel" name="label_21">
+                  <item row="3" column="0" colspan="3">
+                   <widget class="QCheckBox" name="cbLegendFrame">
                     <property name="text">
-                     <string>Text</string>
+                     <string>Border</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="1" column="2">
-                   <spacer name="horizontalSpacer_7">
-                    <property name="orientation">
-                     <enum>Qt::Horizontal</enum>
-                    </property>
-                    <property name="sizeHint" stdset="0">
+                  <item row="3" column="3">
+                   <widget class="QgsColorButton" name="colorLegendFrame">
+                    <property name="minimumSize">
                      <size>
-                      <width>40</width>
-                      <height>20</height>
+                      <width>24</width>
+                      <height>21</height>
                      </size>
                     </property>
-                   </spacer>
-                  </item>
-                  <item row="2" column="0" colspan="3">
-                   <widget class="QCheckBox" name="cbLegendBackground">
-                    <property name="text">
-                     <string>Background</string>
+                    <property name="color">
+                     <color>
+                      <red>0</red>
+                      <green>0</green>
+                      <blue>0</blue>
+                     </color>
+                    </property>
+                    <property name="defaultColor">
+                     <color>
+                      <red>0</red>
+                      <green>0</green>
+                      <blue>0</blue>
+                     </color>
                     </property>
                    </widget>
-                  </item>
-                  <item row="0" column="1" colspan="3">
-                   <widget class="QLineEdit" name="labelLegend"/>
                   </item>
                  </layout>
                 </item>
@@ -788,13 +881,6 @@
                     </column>
                    </widget>
                   </item>
-                  <item row="0" column="3">
-                   <widget class="QToolButton" name="btnPlotDown">
-                    <property name="text">
-                     <string>...</string>
-                    </property>
-                   </widget>
-                  </item>
                   <item row="0" column="4">
                    <spacer name="horizontalSpacer_3">
                     <property name="orientation">
@@ -807,6 +893,62 @@
                      </size>
                     </property>
                    </spacer>
+                  </item>
+                  <item row="0" column="3">
+                   <widget class="QToolButton" name="btnPlotDown">
+                    <property name="text">
+                     <string>...</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="0" colspan="5">
+                   <widget class="QTableWidget" name="tableGraphics">
+                    <property name="minimumSize">
+                     <size>
+                      <width>0</width>
+                      <height>150</height>
+                     </size>
+                    </property>
+                    <attribute name="horizontalHeaderVisible">
+                     <bool>false</bool>
+                    </attribute>
+                    <attribute name="horizontalHeaderDefaultSectionSize">
+                     <number>110</number>
+                    </attribute>
+                    <attribute name="verticalHeaderDefaultSectionSize">
+                     <number>20</number>
+                    </attribute>
+                    <attribute name="verticalHeaderMinimumSectionSize">
+                     <number>20</number>
+                    </attribute>
+                    <column>
+                     <property name="text">
+                      <string>ID</string>
+                     </property>
+                    </column>
+                    <column>
+                     <property name="text">
+                      <string>User Label</string>
+                     </property>
+                    </column>
+                    <column>
+                     <property name="text">
+                      <string>Label Position</string>
+                     </property>
+                    </column>
+                    <column>
+                     <property name="text">
+                      <string>Properties</string>
+                     </property>
+                    </column>
+                   </widget>
+                  </item>
+                  <item row="2" column="0" colspan="5">
+                   <widget class="QLabel" name="label_23">
+                    <property name="text">
+                     <string>Graphics</string>
+                    </property>
+                   </widget>
                   </item>
                  </layout>
                 </item>
@@ -900,12 +1042,7 @@
                     </column>
                     <column>
                      <property name="text">
-                      <string>Size X (mm)</string>
-                     </property>
-                    </column>
-                    <column>
-                     <property name="text">
-                      <string>Size Y (mm)</string>
+                      <string>Properties</string>
                      </property>
                     </column>
                    </widget>
@@ -1079,6 +1216,13 @@
       <widget class="QProgressBar" name="progress">
        <property name="value">
         <number>0</number>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pbPreview">
+       <property name="text">
+        <string>Preview</string>
        </property>
       </widget>
      </item>

@@ -38,11 +38,12 @@ class TF_Styles:
 		#find all .qml files with glob
 		try:
 			srch_str = os.path.join(self.style_folder,'*.qml')
-			lyr_files = glob.glob(srch_str)
+			srch_str_2 = os.path.join(self.style_folder,'*.QML')
+			lyr_files = glob.glob(srch_str) + glob.glob(srch_str_2)
 			self.nStyles = len(lyr_files)
 		except:
 			error = True
-			message = ('ERROR - Unable to load .qml file names from folder: '+srch_str)
+			message = ('ERROR - Unable to load .qml file names from folder: '+ srch_str)
 			return error, message
 
 		#check we found something

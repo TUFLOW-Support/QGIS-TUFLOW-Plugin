@@ -657,9 +657,9 @@ class TuPlot():
 			artists[0].append(a)
 			labels[0].append('Current Time')
 			if self.tuView.tuMenuBar.freezeAxisXLimits_action.isChecked():
-				subplot.set_xbound(xAxisLimits)
+				subplot.set_xbound(xAxisLimits[0][0])
 			if self.tuView.tuMenuBar.freezeAxisYLimits_action.isChecked():
-				subplot.set_ybound(yAxisLimits)
+				subplot.set_ybound(yAxisLimits[0][0])
 			else:
 				subplot.set_ybound(y)
 			subplot.legend_ = None
@@ -749,6 +749,7 @@ class TuPlot():
 		# Units  (SI, Imperial, ..place holders.. , blank)
 		units = {
 			'level': ('m RL', 'ft RL', ''),
+			'max water level': ('m RL', 'ft RL', ''),
 			'bed level': ('m RL', 'ft RL', ''),
 			'left bank obvert': ('m RL', 'ft RL', ''),
 			'right bank obvert': ('m RL', 'ft RL', ''),
@@ -773,7 +774,9 @@ class TuPlot():
 			'rainfall rate': ('mm/hr', 'in/hr', ''),
 			'stream power': ('W/m$^2%', 'lbf/ft$^2$', 'pdl/ft%^2$', ''),
 			'sink': ('m$^3$/s', 'ft$^3$/s', ''),
-			'source': ('m$^3$/s', 'ft$^3$/s', '')
+			'source': ('m$^3$/s', 'ft$^3$/s', ''),
+			'flow area': ('m$^2$', 'ft$^2$', ''),
+			'time of max h': ('hrs', 'hrs', '')
 		}
 		
 		shortNames = {
@@ -784,7 +787,9 @@ class TuPlot():
 			'velocity': 'V',
 			'cumulative infiltration': 'CI',
 			'water level': 'h',
+			'max water level': 'h',
 			'level': 'h',
+			'bed level': 'h',
 			'us levels': 'h',
 			'ds levels': 'h',
 			'infiltration rate': 'IR',
@@ -795,6 +800,8 @@ class TuPlot():
 			'rfml': 'RFML',
 			'rainfall rate': 'RR',
 			'stream power': 'SP',
+			'flow area': 'QA',
+			'time of max h': 't'
 		}
 		
 		if self.tuView.tuMenuBar.freezeAxisLabels_action.isChecked():
@@ -915,7 +922,7 @@ class TuPlot():
 			elif plotNo == 1:
 				return self.axis2LongPlot
 			
-	def reorderByAxis(self, types, data, label):
+	def reorderByAxis(self, types, data, label, plotAsPoints, plotAsPatch):
 		"""
 		Reorders the data for plotting so that it is ordered by axis - axis 1 then axis 2. This is so that is
 		consistent with how the legend is going to be plotted when freezing the plotting style.
@@ -925,27 +932,35 @@ class TuPlot():
 		:param label: list -> str labels
 		:return: list, list, list
 		"""
-		
+
 		types1, types2, typesOrdered = [], [], []
 		data1, data2, dataOrdered = [], [], []
 		label1, label2, labelOrdered = [], [], []
-		
+		plotAsPoints1, plotAsPoints2, plotAsPointsOrdered = [], [], []
+		plotAsPatch1, plotAsPatch2, plotAsPatchOrdered = [], [], []
+
 		for i, rtype in enumerate(types):
 			if len(data[i][0]) > 0:
 				if rtype in self.tuView.tuResults.secondaryAxisTypes:
 					types2.append(rtype)
 					data2.append(data[i])
 					label2.append(label[i])
+					plotAsPoints2.append(plotAsPoints[i])
+					plotAsPatch2.append(plotAsPatch[i])
 				else:
 					types1.append(rtype)
 					data1.append(data[i])
 					label1.append(label[i])
+					plotAsPoints1.append(plotAsPoints[i])
+					plotAsPatch1.append(plotAsPatch[i])
 		
 		typesOrdered = types1 + types2
 		dataOrdered = data1 + data2
 		labelOrdered = label1 + label2
+		plotAsPointsOrdered = plotAsPoints1 + plotAsPoints2
+		plotAsPatchOrdered = plotAsPatch1 + plotAsPatch2
 		
-		return typesOrdered, dataOrdered, labelOrdered
+		return typesOrdered, dataOrdered, labelOrdered, plotAsPointsOrdered, plotAsPatchOrdered
 	
 	def drawPlot(self, plotNo, data, label, types, **kwargs):
 		"""
@@ -965,8 +980,8 @@ class TuPlot():
 		
 		# deal with kwargs
 		refreshOnly = kwargs['refresh_only'] if 'refresh_only' in kwargs.keys() else False  # essentially add time
-		plotAsPoints = kwargs['plot_as_points'] if 'plot_as_points' in kwargs.keys() else None
-		plotAsPatch = kwargs['plot_as_patch'] if 'plot_as_patch' in kwargs.keys() else None
+		plotAsPoints = kwargs['plot_as_points'] if 'plot_as_points' in kwargs.keys() else [False] * len(data)
+		plotAsPatch = kwargs['plot_as_patch'] if 'plot_as_patch' in kwargs.keys() else [False] * len(data)
 		export = kwargs['export'] if 'export' in kwargs.keys() else None
 		draw = kwargs['draw'] if 'draw' in kwargs.keys() else True
 		time = kwargs['time'] if 'time' in kwargs.keys() else None
@@ -986,7 +1001,8 @@ class TuPlot():
 		
 		# get labels
 		if data:
-			types, data, label = self.reorderByAxis(types, data, label)  # orders the data by axis (axis 1 then axis 2)
+			types, data, label, plotAsPoints, plotAsPatch = self.reorderByAxis(types, data, label,
+			                                                                   plotAsPoints, plotAsPatch)  # orders the data by axis (axis 1 then axis 2)
 			labelsOriginal = label[:]  # save a copy as original labels so it can be referenced later
 			label, artistTemplates = self.getNewPlotProperties(plotNo, label, rtype='lines')  # check if there are any new names and styling
 		
@@ -998,10 +1014,10 @@ class TuPlot():
 				rtype = types[i]
 				if rtype in self.tuView.tuResults.secondaryAxisTypes:
 					axis = 2
-					if len(subplot.get_shared_x_axes().get_siblings(subplot)) < 2:
-						subplot2 = self.getSecondaryAxis(plotNo)
-						if export:  # override axis object for exporting
-							subplot2 = subplot.twinx()
+					#if len(subplot.get_shared_x_axes().get_siblings(subplot)) < 2:
+					subplot2 = self.getSecondaryAxis(plotNo)
+					if export:  # override axis object for exporting
+						subplot2 = subplot.twinx()
 					if not isSecondaryAxis[0]:
 						isSecondaryAxis[0] = True
 						isSecondaryAxisLocal = True
@@ -1146,6 +1162,7 @@ class TuPlot():
 			if isSecondaryAxis[0]:
 				#subplot2 = self.getSecondaryAxis(plotNo)
 				yLimits2 = subplot2.get_ylim()
+				yAxisLimits[1].clear()
 				yAxisLimits[1].append(yLimits2)
 		
 		return True
@@ -1163,6 +1180,7 @@ class TuPlot():
 		time = kwargs['time'] if 'time' in kwargs.keys() else None
 		showCurrentTime = kwargs['show_current_time'] if 'show_current_time' in kwargs.keys() else False
 		retainFlow = kwargs['retain_flow'] if 'retain_flow' in kwargs.keys() else False
+		meshRendered = kwargs['mesh_rendered'] if 'mesh_rendered' in kwargs.keys() else True
 		
 		if not plot:
 			if update == '1d only':
@@ -1180,10 +1198,14 @@ class TuPlot():
 				multi = True
 			
 			for i, point in enumerate(self.tuRubberBand.markerPoints):
-				self.tuPlot2D.plotTimeSeriesFromMap(None, QgsPointXY(point), bypass=multi, plot='2D Only', draw=draw, time=time, show_current_time=showCurrentTime)
+				self.tuPlot2D.plotTimeSeriesFromMap(None, QgsPointXY(point), bypass=multi, plot='2D Only',
+				                                    draw=draw, time=time, show_current_time=showCurrentTime,
+				                                    retain_flow=retainFlow, mesh_rendered=meshRendered)
 			
 			for f in self.tuPlot2D.plotSelectionPointFeat:
-				self.tuPlot2D.plotTimeSeriesFromMap(None, f.geometry().asPoint(), bypass=multi, plot='2D Only', draw=draw, time=time, show_current_time=showCurrentTime)
+				self.tuPlot2D.plotTimeSeriesFromMap(None, f.geometry().asPoint(), bypass=multi, plot='2D Only',
+				                                    draw=draw, time=time, show_current_time=showCurrentTime,
+				                                    retain_flow=retainFlow, mesh_rendered=meshRendered)
 				
 			if self.tuPlot2D.multiPointSelectCount > 1:
 				self.tuPlot2D.reduceMultiPointCount(1)
@@ -1201,10 +1223,12 @@ class TuPlot():
 					geom = line.asGeometry().asPolyline()
 					feat = QgsFeature()
 					feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
-					self.tuPlot2D.plotFlowFromMap(None, feat, bypass=multiFlow, plot='flow only', draw=draw, time=time, show_current_time=showCurrentTime)
+					self.tuPlot2D.plotFlowFromMap(None, feat, bypass=multiFlow, plot='flow only', draw=draw, time=time,
+					                              show_current_time=showCurrentTime, mesh_rendered=meshRendered)
 					
 				for feat in self.tuPlot2D.plotSelectionFlowFeat:
-					self.tuPlot2D.plotFlowFromMap(None, feat, bypass=multiFlow, plot='flow only', draw=draw, time=time, show_current_time=showCurrentTime)
+					self.tuPlot2D.plotFlowFromMap(None, feat, bypass=multiFlow, plot='flow only', draw=draw, time=time,
+					                              show_current_time=showCurrentTime, mesh_rendered=meshRendered)
 					
 				if self.tuPlot2D.multiFlowLineSelectCount > 1:
 					self.tuPlot2D.reduceMultiFlowLineCount(1)
@@ -1237,8 +1261,11 @@ class TuPlot():
 		plot = kwargs['plot'] if 'plot' in kwargs.keys() else ''
 		draw = kwargs['draw'] if 'draw' in kwargs.keys() else True
 		time = kwargs['time'] if 'time' in kwargs.keys() else None
+		meshRendered = kwargs['mesh_rendered'] if 'mesh_rendered' in kwargs.keys() else True
+		
 		if time is not None:
-			time = '{0:.4f}'.format(kwargs['time']) if 'time' in kwargs.keys() else None
+			if time != 'Maximum' and time != 99999:
+				time = '{0:.4f}'.format(kwargs['time']) if 'time' in kwargs.keys() else None
 		
 		if not plot:
 			self.clearPlot(1)
@@ -1258,12 +1285,15 @@ class TuPlot():
 				feat = QgsFeature()
 				feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
 				if i == 0:
-					self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=multi, plot='2D Only', draw=draw, time=time)
+					self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=multi, plot='2D Only', draw=draw,
+					                                      time=time, mesh_rendered=meshRendered)
 				else:
-					self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=True, plot='2D Only', draw=draw, time=time)
+					self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=True, plot='2D Only', draw=draw,
+					                                      time=time, mesh_rendered=meshRendered)
 			
 			for feat in self.tuPlot2D.plotSelectionLineFeat:
-				self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=multi, plot='2D Only', draw=draw, time=time)
+				self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=multi, plot='2D Only', draw=draw,
+				                                      time=time, mesh_rendered=meshRendered)
 				
 			if self.tuPlot2D.multiLineSelectCount > 1:
 				self.tuPlot2D.reduceMultiLineCount(1)
@@ -1277,7 +1307,7 @@ class TuPlot():
 			
 		return True
 	
-	def updateCurrentPlot(self, plotNo, **kwargs):
+	def updateCurrentPlot(self, plotNo=None, **kwargs):
 		"""
 		Will update plot based on current tab index.
 
@@ -1292,11 +1322,22 @@ class TuPlot():
 		time = kwargs['time'] if 'time' in kwargs.keys() else None
 		showCurrentTime = kwargs['show_current_time'] if 'show_current_time' in kwargs.keys() else False
 		retainFlow = kwargs['retain_flow'] if 'retain_flow' in kwargs.keys() else False
+		meshRendered = kwargs['mesh_rendered'] if 'mesh_rendered' in kwargs.keys() else True
 
+		if plotNo is None:
+			plotNo = self.tuView.tabWidget.currentIndex()
+		
 		if plotNo == 0:
-			return self.updateTimeSeriesPlot(update=update, retain_flow=retainFlow, draw=draw, time=time, show_current_time=showCurrentTime)
+			return self.updateTimeSeriesPlot(update=update, retain_flow=retainFlow, draw=draw, time=time,
+			                                 show_current_time=showCurrentTime, mesh_rendered=meshRendered)
 		elif plotNo == 1:
-			return self.updateCrossSectionPlot(draw=draw, time=time)
+			return self.updateCrossSectionPlot(draw=draw, time=time, mesh_rendered=meshRendered)
+		
+		# disconnect map canvas refresh if it is connected - used for rendering after loading from project
+		try:
+			self.tuView.canvas.mapCanvasRefreshed.disconnect(self.updateCurrentPlot)
+		except:
+			pass
 	
 	def updateAllPlots(self):
 		"""

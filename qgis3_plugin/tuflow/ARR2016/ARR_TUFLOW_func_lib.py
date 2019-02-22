@@ -155,7 +155,7 @@ def use_60min(dur, aep60m):
     return il60m
 
 
-def extend_array(common_dur_index, common_aep, input_array, dur):
+def extend_array_dur(common_dur_index, common_aep, input_array, dur):
     """Takes an array and extends the durations (rows) with nan values.
 
     common_dur_index: list of index positions in the extended array
@@ -175,6 +175,36 @@ def extend_array(common_dur_index, common_aep, input_array, dur):
 
     return extended_array
 
+
+def extend_array_aep(common_aep, complete_aep, input_array):
+    """
+    Takes an array and extends the aep (columns) with nan values.
+    
+    :param common_aep: list -> str common aep names
+    :param complete_aep: list -> str all aep names
+    :param input_array: ndarray -> current complete initial loss array
+    :return: ndarray
+    """
+    
+    old_shape = input_array.shape
+    new_shape = (old_shape[0], len(complete_aep))  # shape of the new extended array
+    
+    # get common aep indexes
+    common_aep_indexes = []  # index of common aeps in complete aep list
+    for aep in common_aep:
+        index = complete_aep.index(aep)
+        common_aep_indexes.append(index)
+        
+    # Create new array and insert values from input array into correct positions based on common aep
+    extended_array = np.multiply(np.zeros(new_shape), np.nan)
+    for i in range(new_shape[1]):  # iterate through columns
+        if i in common_aep_indexes:
+            j = common_aep_indexes.index(i)  # index of column in original input array
+            values = input_array[:,j]
+            extended_array[:,i] = values
+    
+    return extended_array
+            
 
 def interpolate(ref, lower_ref, upper_ref, lower_values, upper_values):
     """Interpolates between single row numpy arrrays.
@@ -677,3 +707,63 @@ def tpRegion_coords(region):
                   }
 
     return region_dict[region.lower()]
+
+
+def convertMagToAEP(mag, unit, frequent_events):
+    """
+    Convert incoming magnitude to an AEP
+    
+    :param mag: str event magnitude
+    :param unit: str magnitude unit... 'ARI' 'AEP' 'EY'
+    :param frequent_events: bool frequent events are included
+    """
+
+    if frequent_events:
+        aep_conv = {5: '0.2EY', 2: '0.5EY', 1: '63.2%'}
+    else:
+        aep_conv = {5: '20%', 2: '50%', 1: '63.2%'}  # closest conversion for small ARI events
+
+    message = ''
+    # convert magnitude to float
+    if unit.lower() == 'ey':
+        mag = float(mag)
+    else:
+        mag = float(mag[:-1])
+    # convert ari to aep
+    if unit.lower() == 'ari':
+        if mag <= 5:
+            try:
+                if mag == 1:
+                    print('MESSAGE: ARI {0:.0f} year being converted to available AEP'.format(mag))
+                    print('MESSAGE: using {0}'.format(aep_conv[mag]))
+                elif frequent_events:
+                    print('MESSAGE: ARI {0:.0f} year being converted to available EY'.format(mag))
+                    print('MESSAGE: using {0}'.format(aep_conv[mag]))
+                else:
+                    print('WARNING: ARI {0} year does not correspond to available AEP'.format(mag))
+                    print('MESSAGE: using closest available AEP: {0}.. or turn on "frequent events" ' \
+                          'to obtain exact storm magnitude'.format(aep_conv[mag]))
+                if mag in aep_conv:
+                    return aep_conv[mag]
+                else:
+                    return None
+            except:
+                message = 'Unable to convert ARI {0}year to AEP'.format(mag)
+        elif mag <= 100:
+            return '{0:.0f}%'.format((1 / float(mag)) * 100)
+        else:
+            return '{0}%'.format((1 / float(mag)) * 100)
+    elif unit.lower() == 'ey':
+        if mag >= 1:
+            return '{0:.0f}EY'.format(mag)
+        else:
+            return '{0}EY'.format(mag)
+    elif unit.lower() == 'aep':
+        if mag > 50:
+            return '{0:.1f}%'.format(mag)
+        elif mag >= 1:
+            return '{0:.0f}%'.format(mag)
+        else:
+            return '{0}%'.format(mag)
+    
+    return None

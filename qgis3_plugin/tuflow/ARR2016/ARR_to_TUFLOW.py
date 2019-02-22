@@ -5,55 +5,71 @@ from datetime import datetime
 import ARR_WebRes
 import BOM_WebRes
 from ARR_TUFLOW_func_lib import get_args, tpRegion_coords
+from tuflow.tuflowqgis_library import build_vers
 pythonV = sys.version_info[0]
 if pythonV == 3:
     from urllib import request as urllib2
 elif pythonV == 2:
     import urllib2
 
-version = '2018-01-AB Beta'  # added output figures
+version = build_vers
 now = datetime.now()
 disclaimer = 'This plugin is provided free of charge as a tool to automate the process of obtaining hydrologic data\n' \
              'from the ARR datahub and BOM IFD. In no event will BMT WBM Pty Ltd (the developer) be liable for the\n' \
              'results of this plugin. The accuracy of this data, and any pre-processing done by this plugin is the\n' \
              'responsibility of the user. Please cross check all results with the raw ARR datahub text files.'
 # inputs
-latitude = -21.729  # note negative sign
-longitude = 119.328  # non negative :)
-site_name = 'catch_A'  # site id, used in outputs
-AEP = {'1%': 'AEP'} # dict object {magnitude(str): unit(str)} e.g. {'100y': 'ARI', '2%': 'AEP', '0.5': 'EY'} or 'all'
-duration = {60: 'min'}  # dict object {mag(float/int): unit(str)} e.g. {30: 'm', 60: 'm', 1.5: 'h'} or 'all'
-access_web = True  # once the .html files have been read, they are saved and you can set this to false for debugging
+site_name = '3'  # site id, used in outputs
+latitude = -21.93  # note negative sign
+longitude = 120.04  # non negative :)
+catchment_area = 88.02017937171432  # catchment area (km2)
+AEP = {'100y': 'ARI'} # dict object {magnitude(str): unit(str)} e.g. {'100y': 'ARI', '2%': 'AEP', '0.5': 'EY'} or 'all'
+duration = {72: 'h'}  # dict object {mag(float/int): unit(str)} e.g. {30: 'm', 60: 'm', 1.5: 'h'} or 'all'
+non_stnd_dur = {}  # non-standard durations. dict object similar to duraton e.g. {4.5: 'hr'}
+point_tp_csv = None  #r"C:\_Advanced_Training\Module_Data\ARR\WT_Increments.csv"  # file path or None
+areal_tp_csv = None  #"C:\_Advanced_Training\Module_Data\ARR\Areal_Rwest_Increments.csv"  # file path or None
 out_form = 'csv'   # csv or ts1
-export_path = r'C:\_Introductory_Training\Module_Data\ARR\workaround'  # Export path
-non_stnd_dur = {}  # non-standard durations. dict object similar to duraiton e.g. {4.5: 'hr'}
+output_notation = 'ari'  # controls output notation e.g. output as 1p_60m or 100y_60m
 frequent_events = False  # set to true to include frequent events (12EY - 0.2EY)
 rare_events = False  # set to true to include rare events (1 in 200 - 1 in 2000)
 cc = False  # Set to True to output climate change
-cc_years = []  # climate change years. List object [year(int)] e.g. [2090]
-cc_RCP = []  # Representative Concentration Pathways. List object [RCP(str)] e.g. ['RCP8.5']
+cc_years = [2090]  # climate change years. List object [year(int)] e.g. [2090]
+cc_RCP = ['RCP8.5']  # Representative Concentration Pathways. List object [RCP(str)] e.g. ['RCP8.5']
 preBurst = '50%'  # preburst percentile
-lossMethod = '60min'  # chosen loss method e.g. 60min, interpolate, rahman, hill, static
+lossMethod = 'interpolate'  # chosen loss method e.g. 60min, interpolate, rahman, hill, static
 mar = 1500  # mean annual rainfall - for the rahman loss method
 staticLoss = 10  # for the static loss method
-catchment_area = 88.0201793717  # catchment area (km2)
+tuflow_loss_method = 'infiltration'  # options: infiltration, excess
+user_initial_loss = None  # float or str or None  e.g. 10, '10', None
+user_continuing_loss = None  # float or str or None e.g. 2.5, '2.5', None
 add_tp = []  # additional temporal patterns to include in the extract
-ARF_frequent = True  # Set to true if you want to ignore ARF limits and apply to frequent events (>50% AEP)
+ARF_frequent = False  # Set to true if you want to ignore ARF limits and apply to frequent events (>50% AEP)
 min_ARF = 0.2  # minimum ARF factor
+export_path = r'C:\TUFLOW\ARR2016\DualVersion\Output'  # Export path
+access_web = True  # once the .html files have been read, they are saved and you can set this to false for debugging
+bom_raw_fname = None  # str or None
+arr_raw_fname = None  # str or None
 catchment_no = 0  # used in batch mode if specifying more than one catchment. Iterate in cmd to append catchments.
-output_notation = 'aep'  # controls output notation e.g. output as 1p_60m or 100y_60m
 
 # batch inputs (system/cmd arguments). If not running from GIS, will use above inputs as defaults so be careful.
 arg_error, arg_message, args = get_args(sys.argv)
 print('STARTING ARR2016 to TUFLOW SCRIPT\nVersion: {0}\nScript run date: {1:02d}-{2:02d}-{3} at ' \
       '{4:02d}:{5:02d}:{6:02d}\n\nFound the following system arguments:'\
       .format(version, now.day, now.month, now.year, now.hour, now.minute, now.second))
-for key, value in args.items():
+# create argument order map so arguments are always printed in the same order
+arg_map = {'name': 0, 'coords': 1, 'area': 2, 'mag': 3, 'dur': 4, 'nonstnd': 5, 'format': 6, 'output_notation': 7,
+           'frequent': 8, 'rare': 9, 'cc': 10, 'year': 11, 'rcp': 12, 'preburst': 13, 'lossmethod': 14, 'mar': 15,
+           'lossvalue': 16, 'tuflow_loss_method': 17, 'user_initial_loss': 18, 'user_continuing_loss': 19, 'addtp': 20,
+           'point_tp': 21, 'areal_tp': 22, 'arffreq': 23, 'minarf': 24, 'out': 25, 'offline_mode': 26, 'arr_file': 27,
+           'bom_file': 28, 'catchment_no': 29}
+for key in sorted(args, key=lambda k: arg_map[k]):
+    value = args[key]
     print('{0}={1};'.format(key, ",".join(map(str,value))))
 print('\n')
 if arg_error == True:
     print(arg_message)
-    sys.exit('ERROR in input arguemnts')
+    raise SystemExit(arg_message)
+
 # longitude and latitude (must be input as argument)
 if 'coords' in args.keys():
     coords = args['coords']
@@ -65,7 +81,9 @@ if 'coords' in args.keys():
         else:
             print('Coordinates not recognised. Must be in decimal degrees. Latitude must be negative. ' \
                   'Or input coordinates may be out of available range for ARR2016')
-            sys.exit('ERROR in coordinate input')
+            raise SystemExit('Coordinates not recognised. Must be in decimal degrees. Latitude must be negative. ' \
+                             'Or input coordinates may be out of available range for ARR2016')
+
 # site name
 if 'name' in args.keys():
     site_name = args['name'][0]
@@ -88,7 +106,8 @@ if 'mag' in args.keys():
                     AEP[event_mag[:-3] + '%'] = event_mag[-3:]
     except:
         print('Could not process event magnitude arguments. Make sure it is in the form [X]AEP or [X]ARI or [X]EY')
-        sys.exit('ERROR: processing event magnitudes')
+        raise SystemExit('Could not process event magnitude arguments. Make sure it is in the form [X]AEP or [X]ARI or [X]EY')
+
 # duration
 if 'dur' in args.keys():
     duration = {}
@@ -113,7 +132,7 @@ if 'dur' in args.keys():
 
         except:
             print('Could not process duration arguments. Make sure unit is specified (s, m, h, d)')
-            sys.exit('ERROR: processing event durations')
+            raise SystemExit('Could not process duration arguments. Make sure unit is specified (s, m, h, d)')
 
 # non standard durations
 if 'nonstnd' in args.keys():
@@ -135,7 +154,7 @@ if 'nonstnd' in args.keys():
                         non_stnd_dur[float(event_nonstnd_dur[:-3])] = event_nonstnd_dur[-3:]
         except:
             print('Could not process non-standard event duration arguments. Make sure unit is specified (s, m, h, d)')
-            sys.exit('ERROR: processing non-standard event durations')
+            raise SystemExit('Could not process non-standard event duration arguments. Make sure unit is specified (s, m, h, d)')
 
 # frequent event switch
 if 'frequent' in args.keys():
@@ -181,7 +200,8 @@ if 'year' in args.keys():
                 cc_years.append(float(item))
         except:
             print('Could not process climate change forecast year arguments')
-            sys.exit('ERROR: processing climate change forecast years')
+            raise SystemExit('Could not process climate change forecast year arguments')
+
 # RCP
 if 'rcp' in args.keys():
     cc_RCP = []
@@ -196,7 +216,8 @@ if 'rcp' in args.keys():
                 cc_RCP.append('RCP{0}'.format(item))
         except:
             print('Could not process climate change RCP arguments')
-            sys.exit('ERROR: processing climate change RCP')
+            raise SystemExit('Could not process climate change RCP arguments')
+
 # catchment area
 if 'area' in args.keys():
     catchment_area = float(args['area'][0])
@@ -254,13 +275,63 @@ if 'addtp' in args.keys():
         add_tp = []
         for tp in args['addtp'][0].split(','):
             add_tp.append(tp.strip())
-
+# tuflow loss method
+if 'tuflow_loss_method' in args.keys():
+    if args['tuflow_loss_method'][0] in ['infiltration', 'excess']:
+        tuflow_loss_method = args['tuflow_loss_method'][0]
+    else:
+        tuflow_loss_method = 'infiltration'
+# point temporal pattern
+if 'point_tp' in args.keys():
+    if args['point_tp'][0] == 'none':
+        point_tp_csv = None
+    else:
+        point_tp_csv = args['point_tp'][0]
+# areal temporal pattern
+if 'areal_tp' in args.keys():
+    if args['areal_tp'][0] == 'none':
+        areal_tp_csv = None
+    else:
+        areal_tp_csv = args['areal_tp'][0]
+# access web / offline mode
+if 'offline_mode' in args.keys():
+    if args['offline_mode'][0] == 'true':
+        access_web = False
+    else:
+        access_web = True
+# arr file
+if 'arr_file' in args.keys():
+    if args['arr_file'][0] == 'none':
+        arr_raw_fname = None
+    else:
+        arr_raw_fname = args['arr_file'][0]
+# bom file
+if 'bom_file' in args.keys():
+    if args['bom_file'][0] == 'none':
+        bom_raw_fname = None
+    else:
+        bom_raw_fname = args['bom_file'][0]
+# user initial loss
+if 'user_initial_loss' in args.keys():
+    if args['user_initial_loss'][0] == 'none':
+        user_initial_loss = None
+    else:
+        user_initial_loss = args['user_initial_loss'][0]
+# user continuing loss
+if 'user_continuing_loss' in args.keys():
+    if args['user_continuing_loss'][0] == 'none':
+        user_continuing_loss = None
+    else:
+        user_continuing_loss = args['user_continuing_loss'][0]
 
 # BOM Depth Data
 # Open and save raw BOM depth information
 if not os.path.exists(export_path):  # check output directory exists
     os.mkdir(export_path)
-bom_raw_fname = os.path.join(export_path, 'data', 'BOM_raw_web_{0}.html'.format(site_name))
+if bom_raw_fname is None:
+    bom_raw_fname = os.path.join(export_path, 'data', 'BOM_raw_web_{0}.html'.format(site_name))
+else:
+    print("Using user specified BOM IFD file: {0}".format(bom_raw_fname))
 if not os.path.exists(os.path.dirname(bom_raw_fname)):  # check output directory exists
     os.mkdir(os.path.dirname(bom_raw_fname))
 if access_web:
@@ -300,10 +371,17 @@ if access_web:
             page_rare = f_rare.read()
     except:
         print('Failed to get data from BOM website')
-        sys.exit()
+        raise SystemExit('Failed to get data from BOM website')
 
     print('Saving: {0}'.format(bom_raw_fname))
-    fo = open(bom_raw_fname, 'wb')
+    try:
+        fo = open(bom_raw_fname, 'wb')
+    except PermissionError:
+        print("File is locked for editing: {0}".format(bom_raw_fname))
+        raise SystemExit("ERROR: File is locked for editing: {0}".format(bom_raw_fname))
+    except IOError:
+        print("Unexpected error opening file: {0}".format(bom_raw_fname))
+        raise SystemExit("ERROR: Unexpected error opening file: {0}".format(bom_raw_fname))
     fo.write(page)
     if frequent_events:
         fo.write(page_frequent)
@@ -317,8 +395,9 @@ if access_web:
 Bom = BOM_WebRes.Bom()
 Bom.load(bom_raw_fname, frequent_events, rare_events)
 if Bom.error:
-    print ('ERROR: {0}'.format(Bom.message))
-    sys.exit("ERROR: {0}".format(Bom.message))
+    print('ERROR: {0}'.format(Bom.message))
+    raise SystemExit(Bom.message)
+
 print ('Found {0} AEPs and {1} durations in .html file'.format(Bom.naep, Bom.ndur))
 
 # save out depth table
@@ -331,7 +410,10 @@ if catchment_area <= 1.0:  # no catchment area, so no ARF. otherwise write out r
 
 # ARR data
 # Open and save raw ARR information
-arr_raw_fname = os.path.join(export_path, 'data', 'ARR_Web_data_{0}.txt'.format(site_name))
+if arr_raw_fname is None:
+    arr_raw_fname = os.path.join(export_path, 'data', 'ARR_Web_data_{0}.txt'.format(site_name))
+else:
+    print("Using user specified ARR datahub file: {0}".format(arr_raw_fname))
 if access_web:
     url = 'http://data.arr-software.org/?lon_coord={0}5&lat_coord={1}&All=on'.format(longitude, -abs(latitude))
 
@@ -347,7 +429,14 @@ if access_web:
         the_page = response.read()
         # save the page to file
         print('Saving: {0}'.format(arr_raw_fname))
-        fo = open(arr_raw_fname, 'wb')
+        try:
+            fo = open(arr_raw_fname, 'wb')
+        except PermissionError:
+            print("File is locked for editing: {0}".format(arr_raw_fname))
+            raise SystemExit("ERROR: File is locked for editing: {0}".format(arr_raw_fname))
+        except IOError:
+            print("Unexpected error opening file: {0}".format(arr_raw_fname))
+            raise SystemExit("ERROR: Unexpected error opening file: {0}".format(arr_raw_fname))
         fo.write(the_page)
         fo.flush()
         fo.close()
@@ -365,11 +454,30 @@ if access_web:
                     arr_raw_fname))
             else:
                 print('Failed to get data from ARR website')
-                sys.exit()
+                raise SystemExit('Failed to get data from ARR website')
         else:
             print('Failed to get data from ARR website')
-            sys.exit()
-
+            raise SystemExit('Failed to get data from ARR website')
+    
+    if point_tp_csv is None:  # only check if user has not specified temporal patterns manually
+        print('Checking Temporal Pattern Region...')
+        tpRegionCheck = ARR_WebRes.Arr()
+        tpRegion = tpRegionCheck.temporalPatternRegion(arr_raw_fname)
+        print(tpRegion)
+        if tpRegion.upper() == 'RANGELANDS WEST AND RANGELANDS':
+            print("Splitting {0} into separate regions: Rangelands West, Rangelands".format(tpRegion))
+            if 'rangelands west' not in add_tp:
+                print('Adding Rangelands West to additional temporal patterns')
+                add_tp.append("rangelands west")
+            else:
+                print("Rangelands West already selected in additional temporal patterns... skipping")
+            if 'rangelands' not in add_tp:
+                print('Adding Rangelands to additional temporal patterns')
+                add_tp.append("rangelands")
+            else:
+                print("Rangelands already selected in additional temporal patterns... skipping")
+    
+    
     if add_tp != False:
         if len(add_tp) > 0:
             for tp in add_tp:
@@ -385,10 +493,17 @@ if access_web:
                     the_page = response.read()
                 except urllib2.URLError:
                     print('Failed to get data from ARR website')
-                    sys.exit()
+                    raise SystemExit('Failed to get data from ARR website')
 
                 print('Saving: {0}'.format(add_tpFilename))
-                fo = open(add_tpFilename, 'wb')
+                try:
+                    fo = open(add_tpFilename, 'wb')
+                except PermissionError:
+                    print("File is locked for editing: {0}".format(add_tpFilename))
+                    raise SystemExit("ERROR: File is locked for editing: {0}".format(add_tpFilename))
+                except IOError:
+                    print("Unexpected error opening file: {0}".format(add_tpFilename))
+                    raise SystemExit("ERROR: Unexpected error opening file: {0}".format(add_tpFilename))
                 fo.write(the_page)
                 fo.flush()
                 fo.close()
@@ -396,32 +511,36 @@ if access_web:
 
 # load from file
 ARR = ARR_WebRes.Arr()
-ARR.load(arr_raw_fname, add_tp=add_tp)
+ARR.load(arr_raw_fname, catchment_area, add_tp=add_tp, point_tp=point_tp_csv, areal_tp=areal_tp_csv,
+         user_initial_loss=user_initial_loss, user_continuing_loss=user_continuing_loss)
 if ARR.error:
-    print ('ERROR: {0}'.format(ARR.message))
-    sys.exit("ERROR: if problem persists please email input files and log.txt to support@tuflow.com.")
+    print('ERROR: {0}'.format(ARR.message))
+    print("ERROR: if problem persists please email input files and log.txt to support@tuflow.com.")
+    raise SystemExit(ARR.message)
 
 # loop through each AEP and export
 print ('Exporting data...\n')
 # noinspection PyBroadException
-try:
-    # Combine standard and non standard durations
-    if len(non_stnd_dur) > 0:
-        for len, unit in non_stnd_dur.items():
-            duration[len] = unit
+#try:
+# Combine standard and non standard durations
+if len(non_stnd_dur) > 0:
+    for len, unit in non_stnd_dur.items():
+        duration[len] = unit
 
-    ARR.export(export_path, aep=AEP, dur=duration, name=site_name, format=out_form, BOM_data=Bom, climate_change=cc,
-               climate_change_years=cc_years, cc_rcp=cc_RCP, area=catchment_area, frequent=frequent_events,
-               rare=rare_events, catch_no=catchment_no, out_notation=output_notation, ARF_frequent=ARF_frequent,
-               min_ARF=min_ARF, preBurst=preBurst, lossMethod=lossMethod, mar=mar, staticLoss=staticLoss,
-               add_tp=add_tp)
-except:
-    print ('ERROR: Unable to export data ')
-    sys.exit("ERROR: if problem persists please email input files and log.txt to support@tuflow.com.")
+ARR.export(export_path, aep=AEP, dur=duration, name=site_name, format=out_form, bom_data=Bom, climate_change=cc,
+           climate_change_years=cc_years, cc_rcp=cc_RCP, area=catchment_area, frequent=frequent_events,
+           rare=rare_events, catch_no=catchment_no, out_notation=output_notation, arf_frequent=ARF_frequent,
+           min_arf=min_ARF, preburst=preBurst, lossmethod=lossMethod, mar=mar, staticloss=staticLoss,
+           add_tp=add_tp, tuflow_loss_method=tuflow_loss_method)
+#except:
+#    print('ERROR: Unable to export data')
+#    print("ERROR: if problem persists please email input files and log.txt to support@tuflow.com.")
+#    raise SystemExit("Unable to export data")
 
 if ARR.error:
-    print ('ERROR: {0}'.format(ARR.message))
-    sys.exit("ERROR: if problem persists please email input files and log.txt to support@tuflow.com.")
+    print('ERROR: {0}'.format(ARR.message))
+    print("ERROR: if problem persists please email input files and log.txt to support@tuflow.com.")
+    raise SystemExit(ARR.message)
 else:
     print('\nDisclaimer: {0}'.format(disclaimer))
     print('\nSCRIPT FINISHED\n')

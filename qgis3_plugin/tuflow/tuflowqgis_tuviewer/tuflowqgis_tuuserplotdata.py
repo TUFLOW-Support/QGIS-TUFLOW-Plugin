@@ -1,4 +1,4 @@
-
+from datetime import datetime
 
 
 class TuUserPlotDataManager():
@@ -77,7 +77,34 @@ class TuUserPlotDataManager():
 		
 		if name in self.datasets.keys():
 			del self.datasets[name]
+			
+	def saveProject(self, project):
+		"""
 		
+		:param project: QgsProject
+		:return:
+		"""
+		
+		i = -1
+		for i, dataset in enumerate([k for k, v in sorted(self.datasets.items(), key=lambda x: x[-1].number)]):
+			self.datasets[dataset].saveProject(project, i)
+			
+		project.writeEntry("TUVIEW", "userplotdatano", str(i + 1))
+	
+	def loadProject(self, project):
+		"""
+		
+		:param project: QgsProject
+		:return:
+		"""
+		
+		no  = int(project.readEntry("TUVIEW", "userplotdatano")[0])
+		for i in range(no):
+			dataset = TuUserPlotDataSet()
+			dataset.loadProject(project, i)
+			if not dataset.error:
+				self.datasets[dataset.name] = dataset
+				self.count += 1
 		
 class TuUserPlotDataSet():
 	"""
@@ -85,7 +112,7 @@ class TuUserPlotDataSet():
 	
 	"""
 	
-	def __init__(self, name, data, plotType, status, number, dates=None):
+	def __init__(self, name=None, data=[], plotType=None, status=False, number=-1, dates=None):
 		self.error = ''
 		self.number = number
 		self.status = status
@@ -95,24 +122,25 @@ class TuUserPlotDataSet():
 		else:
 			self.name = name
 		
-		if plotType.lower() == 'time series' or plotType.lower() == 'long plot':
-			self.plotType = plotType
-		else:
-			plotType = None
+		if plotType is not None:
+			if plotType.lower() == 'time series' or plotType.lower() == 'long plot':
+				self.plotType = plotType
+			else:
+				plotType = None
 		
 		
-		self.x = None  # list -> float  [ x1, x2, ... ]
-		self.y = None  # list -> float  [ y1, y2, ... ]
+		self.x = []  # list -> float  [ x1, x2, ... ]
+		self.y = []  # list -> float  [ y1, y2, ... ]
 		if len(data) == 2:
 			if data[0]:
 				self.x = data[0]
 			if data[1]:
 				self.y = data[1]
-		if self.x is not None or self.y is not None:
-			if self.x is None:
-				self.error = 'X, Y data set lengths do not match'
-			if self.y is None:
-				self.error = 'X, Y data set lengths do not match'
+		#if self.x is not None or self.y is not None:
+		#	if self.x is None:
+		#		self.error = 'X, Y data set lengths do not match'
+		#	if self.y is None:
+		#		self.error = 'X, Y data set lengths do not match'
 		if self.x is not None and self.y is not None:
 			if len(self.x) != len(self.y):
 				self.error = 'X, Y data set lengths do not match'
@@ -154,7 +182,7 @@ class TuUserPlotDataSet():
 		else:
 			self.name = None
 			
-	def setData(self, data, dates=None):
+	def setData(self, data=None, dates=None):
 		"""
 		
 		
@@ -164,26 +192,27 @@ class TuUserPlotDataSet():
 		
 		self.error = ''
 		
-		if len(data) == 2:
-			if data[0]:
-				self.x = data[0]
+		if data is not None:
+			if len(data) == 2:
+				if data[0]:
+					self.x = data[0]
+				else:
+					self.x = None
+				if data[1]:
+					self.y = data[1]
+				else:
+					self.y = None
 			else:
 				self.x = None
-			if data[1]:
-				self.y = data[1]
-			else:
 				self.y = None
-		else:
-			self.x = None
-			self.y = None
-		
-		if self.x is not None or self.y is not None:
-			if self.x is None:
+			
+			if self.x is not None or self.y is not None:
+				if self.x is None:
+					self.error = 'X, Y data set lengths do not match'
+				if self.y is None:
+					self.error = 'X, Y data set lengths do not match'
+			elif len(self.x) != len(self.y):
 				self.error = 'X, Y data set lengths do not match'
-			if self.y is None:
-				self.error = 'X, Y data set lengths do not match'
-		elif len(self.x) != len(self.y):
-			self.error = 'X, Y data set lengths do not match'
 			
 		if not self.error:
 			if dates:
@@ -201,3 +230,112 @@ class TuUserPlotDataSet():
 		
 		if status is not None:
 			self.status = status
+			
+	def saveProject(self, project, no):
+		"""
+		
+		:param project: QgsProject
+		:param no: int
+		:return:
+		"""
+		
+		if not self.error:
+			# name
+			project.writeEntry("TUVIEW", "userplotdata{0}name".format(no), self.name)
+			
+			# data and dates
+			x = ''
+			y = ''
+			datesyear = ''
+			datesmonth = ''
+			datesday = ''
+			dateshour = ''
+			datesminute = ''
+			datessecond = ''
+			for i in range(len(self.x)):
+				if i == 0:
+					x += '{0}'.format(self.x[i])
+					y += '{0}'.format(self.y[i])
+					if self.dates:
+						datesyear += '{0}'.format(self.dates[i].year)
+						datesmonth += '{0}'.format(self.dates[i].month)
+						datesday += '{0}'.format(self.dates[i].day)
+						dateshour += '{0}'.format(self.dates[i].hour)
+						datesminute += '{0}'.format(self.dates[i].minute)
+						datessecond += '{0}'.format(self.dates[i].second)
+				else:
+					x += '~~{0}'.format(self.x[i])
+					y += '~~{0}'.format(self.y[i])
+					if self.dates:
+						datesyear += '~~{0}'.format(self.dates[i].year)
+						datesmonth += '~~{0}'.format(self.dates[i].month)
+						datesday += '~~{0}'.format(self.dates[i].day)
+						dateshour += '~~{0}'.format(self.dates[i].hour)
+						datesminute += '~~{0}'.format(self.dates[i].minute)
+						datessecond += '~~{0}'.format(self.dates[i].second)
+			project.writeEntry("TUVIEW", "userplotdata{0}x".format(no), x)
+			project.writeEntry("TUVIEW", "userplotdata{0}y".format(no), y)
+			project.writeEntry("TUVIEW", "userplotdata{0}datesyear".format(no), datesyear)
+			project.writeEntry("TUVIEW", "userplotdata{0}datesmonth".format(no), datesmonth)
+			project.writeEntry("TUVIEW", "userplotdata{0}datesday".format(no), datesday)
+			project.writeEntry("TUVIEW", "userplotdata{0}dateshour".format(no), dateshour)
+			project.writeEntry("TUVIEW", "userplotdata{0}datesminute".format(no), datesminute)
+			project.writeEntry("TUVIEW", "userplotdata{0}datessecond".format(no), datessecond)
+			
+			# plot type
+			project.writeEntry("TUVIEW", "userplotdata{0}plottype".format(no), self.plotType)
+			
+			# status
+			project.writeEntry("TUVIEW", "userplotdata{0}status".format(no), str(self.status))
+			
+			# number
+			project.writeEntry("TUVIEW", "userplotdata{0}number".format(no), str(self.number))
+			
+	def loadProject(self, project, no):
+		"""
+		
+		:param project: QgsProject
+		:param no: int
+		:return:
+		"""
+		
+		# name
+		self.name = project.readEntry("TUVIEW", "userplotdata{0}name".format(no))[0]
+		
+		# data and dates
+		x = project.readEntry("TUVIEW", "userplotdata{0}x".format(no))[0]
+		y = project.readEntry("TUVIEW", "userplotdata{0}y".format(no))[0]
+		datesyear = project.readEntry("TUVIEW", "userplotdata{0}datesyear".format(no))[0]
+		datesmonth = project.readEntry("TUVIEW", "userplotdata{0}datesmonth".format(no))[0]
+		datesday = project.readEntry("TUVIEW", "userplotdata{0}datesday".format(no))[0]
+		dateshour = project.readEntry("TUVIEW", "userplotdata{0}dateshour".format(no))[0]
+		datesminute = project.readEntry("TUVIEW", "userplotdata{0}datesminute".format(no))[0]
+		datessecond = project.readEntry("TUVIEW", "userplotdata{0}datessecond".format(no))[0]
+		d = []
+		if x:
+			x = x.split('~~')
+			y = y.split('~~')
+			if datesyear:
+				datesyear = datesyear.split('~~')
+				datesmonth = datesmonth.split('~~')
+				datesday = datesday.split('~~')
+				dateshour = dateshour.split('~~')
+				datesminute = datesminute.split('~~')
+				datessecond = datessecond.split('~~')
+			for i in range(len(x)):
+				self.x.append(float(x[i]))
+				self.y.append(float(y[i]))
+				if datesyear:
+					d.append(datetime(int(datesyear[i]), int(datesmonth[i]), int(datesday[i]),
+					                  int(dateshour[i]), int(datesminute[i]), int(datessecond[i])))
+		if d:
+			self.setData(dates=d)
+		
+		# plot type
+		self.plotType = project.readEntry("TUVIEW", "userplotdata{0}plottype".format(no))[0]
+		
+		# status
+		self.status = True if project.readEntry("TUVIEW", "userplotdata{0}status".format(no))[0] == 'True' else False
+		
+		# number
+		self.number = int(project.readEntry("TUVIEW", "userplotdata{0}number".format(no))[0])

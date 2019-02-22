@@ -41,13 +41,23 @@ class TuFlowLine():
 			result = results[meshLayer.name()]
 			for resultType in result:
 				if '_ts' not in resultType and '_lp' not in resultType and 'Maximum' not in resultType:  # not a 1D result
-					if 'dep' in resultType.lower():
+					if 'dep' in resultType.lower() and 'time' not in resultType.lower() and \
+							'dur' not in resultType.lower():
 						foundDepth = True
-					elif 'vel' in resultType.lower():
+					elif resultType[0].lower() == 'd' and 'time' not in resultType.lower() and \
+							'dur' not in resultType.lower():
+						foundDepth = True
+					elif 'vel' in resultType.lower() and 'time' not in resultType.lower() and \
+							'dur' not in resultType.lower():
 						foundVel = True
-					elif 'water level' in resultType.lower():
+					elif resultType[0].lower() == 'v' and 'time' not in resultType.lower() and \
+					     'dur' not in resultType.lower():
+						foundVel = True
+					elif 'water level' in resultType.lower() and 'time' not in resultType.lower() and \
+							'dur' not in resultType.lower():
 						foundWL = True
-					elif resultType[0].lower() == 'h':
+					elif resultType[0].lower() == 'h' and 'time' not in resultType.lower() and \
+							'dur' not in resultType.lower():
 						foundWL = True
 			if foundVel:
 				if foundDepth or foundWL:
@@ -62,7 +72,7 @@ class TuFlowLine():
 
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		# check for velocity and one of depth or water level - to see if it is possible to get flow
 		if not self.checkIsPossible():
 			return False
@@ -104,6 +114,8 @@ class TuFlowLine():
 			self.line = canvasEvent(self.iface, self.canvas)
 			self.canvas.setMapTool(self.line)
 			self.mouseTrackConnect()  # start the tuflowqgis_bridge_rubberband
+		
+		return True
 	
 	def mouseTrackConnect(self):
 		"""

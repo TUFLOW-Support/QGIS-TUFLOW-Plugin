@@ -2,7 +2,7 @@ import os
 import numpy
 import csv
 import sys
-from PyQt5.QtWidgets import *
+from tuflow.tuflowqgis_library import getOSIndependentFilePath
 version = '2015-05-AA'
 
 class LP():
@@ -75,6 +75,7 @@ class Timeseries():
     Timeseries - used for both 1D and 2D data
     """
     def __init__(self,fullpath,prefix, simID):
+        self.loaded = False
         try:
             with open(fullpath, 'r') as csvfile:
                 reader = csv.reader(csvfile, delimiter=',', quotechar='"')
@@ -98,6 +99,7 @@ class Timeseries():
         self.Header = header
         try:
             self.Values = numpy.genfromtxt(fullpath, delimiter=",", skip_header=1)
+            self.loaded = True
         except:
             print("ERROR - Error reading data from: "+fullpath)
 
@@ -405,7 +407,7 @@ class ResData():
         self.LP.H_nd_index = []
         self.LP.node_index = []
         self.LP.Hmax = []
-        for nd in self.LP.node_list:
+        for i, nd in enumerate(self.LP.node_list):
             try: #get node index and elevations
                 ind = self.nodes.node_name.index(nd)
                 self.LP.node_index.append(ind)
@@ -418,7 +420,15 @@ class ResData():
             try: #get index to data in 1d_H.csv used when getting temporal data
                 ind = self.Data_1D.H.Header.index(nd)
                 self.LP.H_nd_index.append(ind)
-                self.LP.Hmax.append(max(self.Data_1D.H.Values[:,ind]))
+                if i == 0:
+                    self.LP.Hmax.append(max(self.Data_1D.H.Values[:,ind]))
+                elif i < len(self.LP.node_list) - 1:
+                    #self.LP.Hmax.append(max(self.Data_1D.H.Values[:,ind], self.LP.chan_inv[2 * i - 1]))
+                    self.LP.Hmax.append(max(self.Data_1D.H.Values[:, ind]))
+                    self.LP.Hmax.append(max(self.Data_1D.H.Values[:, ind]))
+                else:
+                    #self.LP.Hmax.append(max(self.Data_1D.H.Values[:, ind], self.LP.chan_inv[2 * i - 1]))
+                    self.LP.Hmax.append(max(self.Data_1D.H.Values[:, ind]))
             except:
                 error = True
                 message = 'Unable to find node in _1d_H.csv file. Node: '+nd
@@ -427,11 +437,12 @@ class ResData():
 
         # channel info
         self.LP.dist_nodes = [0.0] # nodes only
-        self.LP.dist_chan_inverts = [0.0] # at each channel end (no nodes)
+        #self.LP.dist_chan_inverts = [0.0] # at each channel end (no nodes)
+        self.LP.dist_chan_inverts = []
         self.LP.dist_inverts = [0.0] # nodes and channel ends
-        self.LP.chan_inv = [0.0]
-        self.LP.chan_LB = [0.0]
-        self.LP.chan_RB = [0.0]
+        self.LP.chan_inv = []
+        self.LP.chan_LB = []
+        self.LP.chan_RB = []
 
         for i, chan_index in enumerate(self.LP.chan_index):
             #length of current channel
@@ -442,7 +453,11 @@ class ResData():
             self.LP.dist_nodes.append(cur_len+chan_len)
 
             #distance at inverts
-            cur_len = self.LP.dist_chan_inverts[len(self.LP.dist_chan_inverts)-1] #current length at invert locations
+            #cur_len = self.LP.dist_chan_inverts[len(self.LP.dist_chan_inverts)-1] #current length at invert locations
+            if len(self.LP.dist_chan_inverts) == 0:
+                cur_len = 0.
+            else:
+                cur_len = self.LP.dist_chan_inverts[len(self.LP.dist_chan_inverts) - 1]
             self.LP.dist_chan_inverts.append(cur_len+0.0001) # dist for upstream invert
             new_len = cur_len + chan_len
             self.LP.dist_chan_inverts.append(new_len-0.0001) #dist for downstream invert
@@ -494,9 +509,17 @@ class ResData():
             error = True
             message = 'ERROR - Closest time: '+str(self.times[t_ind])+' outside time search tolerance: '+str(dt_tol)
             return  error, message
-        if dat_type == 'Head':
-            for h_ind in self.LP.H_nd_index:
-                self.LP.Hdata.append(self.Data_1D.H.Values[t_ind,h_ind])
+        if dat_type == 'Water Level' or dat_type == 'Head':
+            #for h_ind in self.LP.H_nd_index:
+            #    self.LP.Hdata.append(self.Data_1D.H.Values[t_ind,h_ind])
+            for i, h_ind in enumerate(self.LP.H_nd_index):
+                if i == 0:
+                    self.LP.Hdata.append(self.Data_1D.H.Values[t_ind, h_ind])
+                elif i < len(self.LP.H_nd_index) - 1:
+                    self.LP.Hdata.append(max(self.Data_1D.H.Values[t_ind, h_ind], self.LP.chan_inv[2 * i - 1]))
+                    self.LP.Hdata.append(self.Data_1D.H.Values[t_ind, h_ind])
+                else:
+                    self.LP.Hdata.append(max(self.Data_1D.H.Values[t_ind, h_ind], self.LP.chan_inv[2 * i - 1]))
         else:
             error = True
             message = 'ERROR - Only head supported for LP temporal data'
@@ -515,7 +538,7 @@ class ResData():
 
     
     def Load(self, fname, qgis):
-        self.filename == fname
+        self.filename = fname
         self.fpath = os.path.dirname(fname)
         try:
             data = numpy.genfromtxt(fname, dtype=str, delimiter="==")
@@ -528,20 +551,20 @@ class ResData():
             dat_type = tmp.strip()
             tmp = data[i,1]
             rdata = tmp.strip()
-            if (dat_type=='Format Version'):
+            if dat_type == 'Format Version':
                 self.formatVersion = int(rdata)
-            elif (dat_type=='Units'):
+            elif dat_type == 'Units':
                 self.units = rdata
-            elif (dat_type=='Simulation ID'):
+            elif dat_type == 'Simulation ID':
                 self.displayname = rdata
-            elif (dat_type=='Number Channels'):
+            elif dat_type == 'Number Channels':
                 #self.nChannels = int(rdata)
                 self.Data_1D.nChan = int(rdata)
-            elif (dat_type=='Number Nodes'):
+            elif dat_type == 'Number Nodes':
                 self.Data_1D.nNode = int(rdata)
-            elif (dat_type=='Channel Info'):
+            elif dat_type == 'Channel Info':
                 if rdata != 'NONE':
-                    fullpath = os.path.join(self.fpath,rdata)
+                    fullpath = getOSIndependentFilePath(self.fpath, rdata)
                     if not os.path.isfile(fullpath):
                         print (fullpath+' does not exist')
                         fname = rdata.replace('_1d_','_1d_1d_')
@@ -549,37 +572,206 @@ class ResData():
                     self.Channels = ChanInfo(fullpath)
                     if (self.Data_1D.nChan != self.Channels.nChan):
                         raise RuntimeError("Number of Channels does not match value in .info")
-            elif (dat_type=='Node Info'):
+            elif dat_type == 'Node Info':
                 if rdata != 'NONE':
-                    fullpath = os.path.join(self.fpath,rdata)
+                    fullpath = getOSIndependentFilePath(self.fpath, rdata)
                     if not os.path.isfile(fullpath):
                         print(fullpath+' does not exist')
                         fname = rdata.replace('_1d_','_1d_1d_')
                         fullpath = os.path.join(self.fpath,fname)
                     self.nodes = NodeInfo(fullpath)
-            elif (dat_type=='Water Levels'):
+            elif dat_type == 'Water Levels':
                 if rdata != 'NONE':
-                    fullpath = os.path.join(self.fpath,rdata)
-                    self.Data_1D.H = Timeseries(fullpath,'H',self.displayname)
+                    fullpath = getOSIndependentFilePath(self.fpath, rdata)
+                    self.Data_1D.H = Timeseries(fullpath, 'H', self.displayname)
                     self.nTypes = self.nTypes + 1
                     self.Types.append('1D Water Levels')
                     if self.nTypes == 1:
                         self.times = self.Data_1D.H.Values[:,1]
-            elif (dat_type=='Flows'):
+            elif dat_type == 'Flows':
                 if rdata != 'NONE':
-                    fullpath = os.path.join(self.fpath,rdata)
-                    self.Data_1D.Q = Timeseries(fullpath,'Q',self.displayname)
+                    fullpath = getOSIndependentFilePath(self.fpath, rdata)
+                    self.Data_1D.Q = Timeseries(fullpath, 'Q', self.displayname)
                     self.nTypes = self.nTypes + 1
                     self.Types.append('1D Flows')
                     if self.nTypes == 1:
                         self.times = self.Data_1D.Q.Values[:,1]
-            elif (dat_type=='Velocities'):
+            elif dat_type == 'Velocities':
                 if rdata != 'NONE':
-                    fullpath = os.path.join(self.fpath,rdata)
-                    self.Data_1D.V = Timeseries(fullpath,'V',self.displayname)
+                    fullpath = getOSIndependentFilePath(self.fpath, rdata)
+                    self.Data_1D.V = Timeseries(fullpath, 'V', self.displayname)
                     self.nTypes = self.nTypes + 1
                     self.Types.append('1D Velocities')
                     if self.nTypes == 1:
                         self.times = self.Data_1D.V.Values[:,1]
             else:
                 print("Warning - Unknown Data Type "+dat_type)
+
+    def pointResultTypesTS(self):
+        """
+		Returns a list of all the available point result types.
+
+		:return: list -> str result type e.g. 'flows'
+		"""
+    
+        types = []
+    
+        for type in self.Types:
+            if 'WATER LEVELS' in type.upper():
+                types.append('Level')
+            elif 'ENERGY LEVELS' in type.upper():
+                types.append('Energy Level')
+            elif 'POINT VELOCITY' in type.upper():
+                types.append('Velocity')
+            elif 'POINT X-VEL' in type.upper():
+                types.append('VX')
+            elif 'POINT Y-VEL' in type.upper():
+                types.append('VY')
+    
+        return types
+
+    def lineResultTypesTS(self):
+        """
+		Returns a list of all the available line result types.
+
+		:return: list -> str result type e.g. 'flows'
+		"""
+    
+        types = []
+    
+        for type in self.Types:
+            if 'FLOWS' in type.upper():
+                types.append('Flow')
+            elif 'VELOCITIES' in type.upper():
+                types.append('Velocity')
+            elif 'LINE FLOW AREA' in type.upper():
+                types.append('Flow Area')
+            elif 'LINE INTEGRAL FLOW' in type.upper():
+                types.append('Flow Integral')
+            elif 'US LEVELS' in type.upper():
+                types.append('US Levels')
+            elif 'DS LEVELS' in type.upper():
+                types.append('DS Levels')
+            elif 'DS LEVELS' in type.upper():
+                types.append('DS Levels')
+            elif 'LINE STRUCTURE FLOW' in type.upper():
+                types.append('Structure Flows')
+            elif 'STRUCTURE LEVELS' in type.upper():
+                types.append('Structure Levels')
+    
+        if types:
+            if 'US Levels' not in types:
+                types.append('US Levels')
+            if 'DS Levels' not in types:
+                types.append('DS Levels')
+    
+        return types
+
+    def regionResultTypesTS(self):
+        """
+		Returns a list of all the available region result types. For 2013 results should return empty list.
+
+		:return: list -> str result type e.g. 'flows'
+		"""
+    
+        types = []
+    
+        for type in self.Types:
+            if 'REGION AVERAGE WATER LEVEL' in type.upper():  # 2017-09-AA
+                types.append('Average Level')
+            elif 'REGION MAX WATER LEVEL' in type.upper():  # 2017-09-AA
+                types.append('Max Level')
+            elif 'REGION FLOW INTO' in type.upper():  # 2017-09-AA
+                types.append('Flow Into')
+            elif 'REGION FLOW OUT OF' in type.upper():  # 2017-09-AA
+                types.append('Flow Out')
+            elif 'REGION VOLUME' in type.upper():  # 2017-09-AA
+                types.append('Volume')
+            elif 'REGION SINK/SOURCE' in type.upper():  # 2017-09-AA
+                types.append('Sink/Source')
+    
+        return types
+
+    def lineResultTypesLP(self):
+        """
+		Returns a list of all the available line result types for long plotting.
+
+		:return: list -> str result type e.g. 'flows'
+		"""
+    
+        types = []
+    
+        for type in self.Types:
+            if 'WATER LEVELS' in type.upper():
+                types.append('Water Level')
+            # types.append('Water Level at Time')
+            elif 'ENERGY LEVELS' in type.upper():
+                types.append('Energy Level')
+            # types.append('Energy Level at Time')
+    
+        types.append('Bed Level')
+        #types.append('Culverts and Pipes')
+        types.append('Left Bank Obvert')
+        types.append('Right Bank Obvert')
+        #types.append('Pit Ground Levels (if any)')
+        #types.append('Adverse Gradients (if any)')
+    
+        return types
+
+    def timeSteps(self):
+        """
+		Returns a list of the available time steps. Assumes all time series results have the same timesteps.
+
+		:return: list -> float time (hr)
+		"""
+    
+        if self.Data_1D.H.loaded:
+            return self.Data_1D.H.Values[:, 1]
+        elif self.Data_1D.V.loaded:
+            return self.Data_1D.V.Values[:, 1]
+        elif self.Data_1D.Q.loaded:
+            return self.Data_1D.Q.Values[:, 1]
+
+        else:
+            return []
+
+    def getLongPlotXY(self, type, time):
+        """
+		Generates long plot X, Y coordinates
+
+		:param type: str -> result type e.g. 'Water Level'
+		:param time: float
+		:return: tuple -> list -> float e.g. (x, y)
+		"""
+
+        error = False
+        message = ''
+    
+        if 'water level' in type.lower():
+            if time == -99999:
+                return (self.LP.dist_chan_inverts, self.LP.Hmax)
+            else:
+                error, message = self.LP_getData('Water Level', time, 0.01)
+                return (self.LP.dist_chan_inverts, self.LP.Hdata)
+    
+        #elif 'adverse gradients (if any)' in type.lower():
+        #    return (self.LP.adverseH.chainage, self.LP.adverseH.elevation), \
+        #           (self.LP.adverseE.chainage, self.LP.adverseE.elevation)
+    
+        elif 'bed level' in type.lower():
+            return (self.LP.dist_chan_inverts, self.LP.chan_inv)
+    
+        elif 'left bank obvert' in type.lower():
+            return (self.LP.dist_chan_inverts, self.LP.chan_LB)
+    
+        elif 'right bank obvert' in type.lower():
+            return (self.LP.dist_chan_inverts, self.LP.chan_RB)
+    
+        elif 'pit ground levels (if any)' in type.lower():
+            return (self.LP.pit_dist, self.LP.pit_z)
+    
+        #elif 'culverts and pipes' in type.lower():
+        #    return self.LP.culv_verts, [0, 1, 2, 3, 4, 5]  # dummy y data - ultimately not used
+    
+        else:
+            return (None, None)

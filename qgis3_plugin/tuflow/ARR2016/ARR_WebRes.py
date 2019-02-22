@@ -138,6 +138,10 @@ class ArrLosses:
         self.message = None
         self.ils = None
         self.cls = None
+        self.ils_datahub = None
+        self.cls_datahub = None
+        self.ils_user = None
+        self.cls_user = None
 
     def load(self, fi):
         for line in fi:
@@ -149,8 +153,10 @@ class ArrLosses:
                     if finished:
                         break
                     if data[0].lower() == 'storm initial losses (mm)':
+                        self.ils_datahub = data[1]
                         self.ils = data[1]
                     if data[0].lower() == 'storm continuing losses (mm/h)':
+                        self.cls_datahub = data[1]
                         self.cls = data[1]
                 if finished:
                     break
@@ -162,7 +168,21 @@ class ArrLosses:
         fi.seek(0)  # rewind file
         self.loaded = True
         print('Finished reading file.')
-
+        
+    def applyUserInitialLoss(self, loss):
+        """apply user specified (storm) initial loss to calculations instead of datahub loss"""
+        
+        self.ils = loss
+        self.ils_user = loss
+        print("Using user specified intial loss: {0}".format(loss))
+        
+    def applyUserContinuingLoss(self, loss):
+        """apply user specified continuing loss to calculations instead of datahub loss"""
+    
+        self.cls = loss
+        self.cls_user = loss
+        print("Using user specified continuing loss: {0}".format(loss))
+        
 
 # noinspection PyBroadException,PyBroadException
 class ArrPreburst:
@@ -402,14 +422,52 @@ class ArrTemporal:
         self.loaded = False
         self.error = False
         self.message = None
+        self.tpCount = 0
+        # point temporal pattern data
+        self.pointID = []
+        self.pointDuration = []
+        self.pointTimeStep = []
+        self.pointRegion = []
+        self.pointAEP_Band = []
+        self.pointincrements = []
+        # areal temporal pattern data
+        self.arealID = {}  # dict {tp catchment area: [id]} e.g. { 100: [ 9802, 9803, 9804, .. ], 200: [ .. ], ..  }
+        self.arealDuration = {}  # dict {tp cathcment area: [duration]} e.g. { 100: [ 10, 10, 10, .. ] }
+        self.arealTimeStep = {}  # dict {tp catchment area: [timestep]} e.g. { 100: [ 5, 5, 5, .. ] }
+        self.arealRegion = {}  # dict {tp catchment area: [region]} e.g. { 100: [ 'Wet Tropics', .. ] }
+        self.arealAEP_Band = {}  # dict {tp catchment area: [aep band]} e.g. { 100: [ 'frequent', .. ] }
+        self.arealincrements = {}  # dict {tp catchment area: [increments]} e.g. { 100: [ [ 53.95, 46.05 ], .. ] }
+        # adopted temporal pattern data
         self.ID = []
         self.Duration = []
         self.TimeStep = []
         self.Region = []
         self.AEP_Band = []
         self.increments = []  # list of rainfall increments, length varies depending on duration
-
-    def load(self, fi):
+        self.tpRegion = ''  # extracted before patterns start
+    
+    def load(self, fname, fi, tpRegion, point_tp_csv, areal_tp_csv):
+        """Load ARR data"""
+        
+        if point_tp_csv is None:
+            print("Loading point temporal patterns from download: {0}".format(fname))
+            self.loadPointTpFromDownload(fi, tpRegion)
+        else:
+            print("Loading point temporal patterns from user input: {0}".format(point_tp_csv))
+            self.loadPointTpFromCSV(point_tp_csv)
+        if self.error:
+            print("ERROR loading point temporal patterns: {0}".format(self.message))
+            raise SystemExit("Error loading point temporal patterns")
+            
+        if areal_tp_csv is not None:
+            print("Loading areal temporal patterns from user input: {0}".format(areal_tp_csv))
+            self.loadArealTpFromCSV(areal_tp_csv)
+            if self.error:
+                print("ERROR loading areal temporal patterns: {0}".format(self.message))
+                raise SystemExit("Error loading areal temporal patterns")
+    
+    def loadPointTpFromDownload(self, fi, tpRegion):
+        self.tpRegion = tpRegion
         for line in fi:
             if line.find('[STARTPATTERNS]') >= 0:
                 finished = False
@@ -421,29 +479,32 @@ class ArrTemporal:
                         break
                     if not finished:
                         try:
-                            self.ID.append(int(data[0]))
+                            self.pointID.append(int(data[0]))
                             dur = int(data[1])
-                            self.Duration.append(dur)
+                            self.pointDuration.append(dur)
                             inc = int(data[2])
-                            self.TimeStep.append(inc)
-                            self.Region.append(data[3])
-                            self.AEP_Band.append(data[4].lower())
+                            self.pointTimeStep.append(inc)
+                            self.pointRegion.append(data[3])
+                            self.pointAEP_Band.append(data[4].lower())
                         except:
                             self.error = True
                             self.message = 'Error processing line {0}'.format(block_line)
-                            return
+                            break
                         try:
                             incs = []
                             for i in range(int(dur / inc)):
                                 incs.append(float(data[5 + i]))
-                            self.increments.append(incs)
+                            self.pointincrements.append(incs)
                         except:
                             self.error = True
                             self.message = 'Error processing from line {0}'.format(block_line)
-                            return
+                            break
                 if finished:
                     break
         fi.seek(0)  # rewind file
+        if not self.pointincrements and self.tpRegion.upper() != 'RANGELANDS WEST AND RANGELANDS':
+            self.error = True
+            self.message = 'No temporal patterns found. Please check "ARR_web_data" to see if temporal patterns are present.'
         self.loaded = True
         print('Finished reading file.')
 
@@ -459,31 +520,203 @@ class ArrTemporal:
                         break
                     if not finished:
                         try:
-                            self.ID.append(int(data[0]))
+                            self.pointID.append(int(data[0]))
                             dur = int(data[1])
-                            self.Duration.append(dur)
+                            self.pointDuration.append(dur)
                             inc = int(data[2])
-                            self.TimeStep.append(inc)
-                            self.Region.append(data[3])
-                            self.AEP_Band.append(data[4].lower())
+                            self.pointTimeStep.append(inc)
+                            self.pointRegion.append(data[3])
+                            self.pointAEP_Band.append(data[4].lower())
                         except:
                             self.error = True
                             self.message = 'Error processing line {0}'.format(block_line)
-                            return
+                            break
                         try:
                             incs = []
                             for i in range(int(dur / inc)):
                                 incs.append(float(data[5 + i]))
-                            self.increments.append(incs)
+                            self.pointincrements.append(incs)
                         except:
                             self.error = True
                             self.message = 'Error processing from line {0}'.format(block_line)
-                            return
+                            break
                 if finished:
                     break
         fi.seek(0)  # rewind file
         self.loaded = True
         print('Finished reading file.')
+        
+    def loadPointTpFromCSV(self, tp):
+        """
+        Load point temporal patterns from csv (i.e. "_Increments.csv")
+        
+        :param tp: str full file path to csv
+        :return: void
+        """
+        
+        if os.path.exists(tp):
+            try:
+                with open(tp, 'r') as tp_open:
+                    for i, line in enumerate(tp_open):
+                        if i > 0:
+                            data = line.split(',')
+                            finished = data[0] == '\n'
+                            if finished:
+                                break
+                            if not finished:
+                                try:
+                                    self.pointID.append(int(data[0]))
+                                    dur = int(data[1])
+                                    self.pointDuration.append(dur)
+                                    inc = int(data[2])
+                                    self.pointTimeStep.append(inc)
+                                    self.pointRegion.append(data[3])
+                                    self.pointAEP_Band.append(data[4].lower())
+                                except:
+                                    self.error = True
+                                    self.message = 'Error processing line {0}'.format(line)
+                                    break
+                                try:
+                                    incs = []
+                                    for i in range(int(dur / inc)):
+                                        incs.append(float(data[5 + i]))
+                                    self.pointincrements.append(incs)
+                                except:
+                                    self.error = True
+                                    self.message = 'Error processing from line {0}'.format(line)
+                                    break
+            except IOError:
+                print("Could not open {0}".format(tp))
+                raise ("Could not open point temporal pattern csv")
+        else:
+            print("Could not find {0}".format(tp))
+            raise ("Could not find point temporal pattern csv")
+
+    def loadArealTpFromCSV(self, tp):
+        """
+        Load areal temporal patterns from csv (i.e. "Areal_Increments.csv")
+
+        :param tp: str full file path to csv
+        :return: void
+        """
+    
+        if os.path.exists(tp):
+            try:
+                with open(tp, 'r') as tp_open:
+                    for i, line in enumerate(tp_open):
+                        if i > 0:
+                            data = line.split(',')
+                            finished = data[0] == '\n'
+                            if finished:
+                                break
+                            if not finished:
+                                try:
+                                    area = int(data[4])
+                                    if area not in self.arealID:
+                                        self.arealID[area] = []
+                                    self.arealID[area].append(int(data[0]))
+                                    dur = int(data[1])
+                                    if area not in self.arealDuration:
+                                        self.arealDuration[area] = []
+                                    self.arealDuration[area].append(dur)
+                                    inc = int(data[2])
+                                    if area not in self.arealTimeStep:
+                                        self.arealTimeStep[area] = []
+                                    self.arealTimeStep[area].append(inc)
+                                    if area not in self.arealRegion:
+                                        self.arealRegion[area] = []
+                                    self.arealRegion[area].append(data[3])
+                                    if area not in self.arealAEP_Band:
+                                        self.arealAEP_Band[area] = []
+                                    self.arealAEP_Band[area].append('all')
+                                except:
+                                    self.error = True
+                                    self.message = 'Error processing line {0}'.format(line)
+                                    break
+                                try:
+                                    incs = []
+                                    for i in range(int(dur / inc)):
+                                        incs.append(float(data[5 + i]))
+                                    if area not in self.arealincrements:
+                                        self.arealincrements[area] = []
+                                    self.arealincrements[area].append(incs)
+                                except:
+                                    self.error = True
+                                    self.message = 'Error processing from line {0}'.format(line)
+                                    break
+            except IOError:
+                print("Could not open {0}".format(tp))
+                raise ("Could not open areal temporal pattern csv")
+        else:
+            print("Could not find {0}".format(tp))
+            raise ("Could not find areal temporal pattern csv")
+        
+    def combineArealTp(self, area):
+        """
+        Combines point temporal pattern with areal temporal patterns
+        
+        :param area: float catchment area
+        :return: void
+        """
+        
+        # determine if areal pattern is needed
+        # if yes, which one
+        if area < 75:
+            tp_area = None
+        elif area <= 140:
+            tp_area = 100
+        elif area <= 300:
+            tp_area = 200
+        elif area <= 700:
+            tp_area = 500
+        elif area <= 1600:
+            tp_area = 1000
+        elif area <= 3500:
+            tp_area = 2500
+        elif area <= 7000:
+            tp_area = 5000
+        elif area <= 14000:
+            tp_area = 10000
+        elif area <= 28000:
+            tp_area = 20000
+        else:
+            tp_area = 40000
+
+        self.ID = self.pointID[:]
+        self.Duration = self.pointDuration[:]
+        self.TimeStep = self.pointTimeStep[:]
+        self.Region = self.pointRegion[:]
+        self.AEP_Band = self.pointAEP_Band[:]
+        self.increments = self.pointincrements[:]
+        
+        # check if there are any areal temporal patterns available
+        if self.arealDuration:
+           # check if areal patterns are required for catchment size
+            if tp_area is not None:
+                point_durations = self.getTemporalPatternDurations(self.pointDuration)
+                areal_durations = self.getTemporalPatternDurations(self.arealDuration[tp_area])
+                inclusions, exclusions = self.getExclusions(point_durations, areal_durations)
+                printed_messages = []
+                k = 0
+                for i, dur in enumerate(self.Duration):
+                    if dur >= inclusions[0]:
+                        if dur not in exclusions:
+                            j = self.arealDuration[tp_area].index(dur)
+                            if self.Region[i] == self.arealRegion[tp_area][j]:
+                                self.ID[i] = self.arealID[tp_area][j + k]
+                                self.TimeStep[i] = self.arealTimeStep[tp_area][j + k]
+                                self.increments[i] = self.arealincrements[tp_area][j + k]
+                                if k == 9:
+                                    k = 0
+                                else:
+                                    k += 1
+                        else:
+                            message = "WARNING: {0} min duration does not have an areal temporal pattern... using point temporal pattern".format(dur)
+                            if message not in printed_messages:
+                                print(message)
+                                printed_messages.append(message)
+        
+        self.getTPCount()
 
     def get_dur_aep(self, duration, aep):
         # print ('Getting all events with duration {0} min and AEP band {1}'.format(duration,AEP))
@@ -505,6 +738,45 @@ class ArrTemporal:
                 duration_all.append(self.Duration[i])
         durations = sorted(set(duration_all))  # sorted, unique list
         return durations
+    
+    def getTemporalPatternDurations(self, all_durations):
+        """Get unique list of durations"""
+        
+        durations = []
+        for dur in all_durations:
+            if dur not in durations:
+                durations.append(dur)
+        durations = sorted(set(durations))
+        
+        return durations
+    
+    def getExclusions(self, firstTP, secondTP):
+        """Creates an exclusion list of temporal patterns based on the second list of TP i.e. anything not in
+        secondTP greater than the minimum duration is counted as an exclusion.
+        
+        The reason is to find all temporal patterns that are missing from the areal temporal list not counting the
+        short durations.
+        
+        Also returns list of all temporal patterns not counting short durations"""
+        
+        minDur = secondTP[0]
+        i = firstTP.index(minDur)
+        exclusion_list = []
+        inclusion_list = []
+        for dur in firstTP[i:]:
+            inclusion_list.append(dur)
+            if dur not in secondTP:
+                exclusion_list.append(dur)
+
+        return inclusion_list, exclusion_list
+    
+    def getTPCount(self):
+        """Get temporal pattern count"""
+        
+        if self.Duration:
+            dur = self.Duration[0]
+            count = self.Duration.count(dur)
+            self.tpCount = int(count / 3)
 
 
 # noinspection PyBroadException,PyBroadException,PyBroadException,PyBroadException,PyBroadException,PyBroadException
@@ -521,14 +793,14 @@ class Arr:
         self.Losses = ArrLosses()
         self.Arf = ArrArf()
 
-    def load(self, fname, **kwargs):
-        for kw in kwargs:
-            if kw.lower() == 'add_tp':
-                add_tp = kwargs[kw]
-            else:
-                self.error = True
-                self.message = 'Unrecognised keyword argument: {0}'.format(kw)
-                return
+    def load(self, fname, area, **kwargs):
+        
+        # deal with kwargs
+        add_tp = kwargs['add_tp'] if 'add_tp' in kwargs else None
+        point_tp_csv = kwargs['point_tp'] if 'point_tp' in kwargs else None
+        areal_tp_csv = kwargs['areal_tp'] if 'areal_tp' in kwargs else None
+        user_initial_loss = kwargs['user_initial_loss'] if 'user_initial_loss' in kwargs else None
+        user_continuing_loss = kwargs['user_continuing_loss'] if 'user_continuing_loss' in kwargs else None
 
         print('Loading ARR website output .txt file')
         if not os.path.isfile(fname):
@@ -539,7 +811,7 @@ class Arr:
             fi = open(fname, 'r')
         except IOError:
             print('Unexpected error opening file {0}'.format(fname))
-            sys.exit("ERROR: Opening file.")
+            raise SystemExit('Unexpected error opening file {0}'.format(fname))
 
         # INPUT DATA
         print('Loading Input Data Block')
@@ -547,7 +819,7 @@ class Arr:
         if self.Input.error:
             print('An error was encountered, when reading Input Data Information.')
             print('Return message = {0}'.format(self.Input.message))
-            sys.exit("ERROR: Reading Input Data Information.")
+            raise SystemExit("ERROR: {0}".format(self.Input.message))
 
         # RIVER REGION
         print('Loading River Region Block')
@@ -555,7 +827,7 @@ class Arr:
         if self.RivReg.error:
             print('An error was encountered, when reading River Region Information.')
             print('Return message = {0}'.format(self.RivReg.message))
-            sys.exit("ERROR: Reading River Region Information.")
+            raise SystemExit("ERROR: {0}".format(self.RivReg.message))
 
         # ARF
         print('Loading ARF block')
@@ -563,7 +835,7 @@ class Arr:
         if self.Arf.error:
             print('An error was encountered, when reading ARF information.')
             print('Return message = {0}'.format(self.Arf.message))
-            sys.exit("ERROR: Reading ARF Information.")
+            raise SystemExit("ERROR: {0}".format(self.Arr.message))
 
         # STORM LOSSES
         print('Loading Storm Losses Block')
@@ -571,7 +843,11 @@ class Arr:
         if self.Losses.error:
             print('An error was encountered, when reading Storm Losses Information.')
             print('Return message = {0}'.format(self.Losses.message))
-            # sys.exit("ERROR: Reading Storm Losses Information.")
+        if user_initial_loss is not None:
+            self.Losses.applyUserInitialLoss(user_initial_loss)
+        if user_continuing_loss is not None:
+            self.Losses.applyUserContinuingLoss(user_continuing_loss)
+            
 
         # INTERIM CLIMATE CHANGE FACTOR
         print('Loading Interim Climate Change Factors Block')
@@ -579,15 +855,16 @@ class Arr:
         if self.CCF.error:
             print('An error was encountered, when reading Interim Climate Change Factors Information.')
             print('Return message = {0}'.format(self.CCF.message))
-            sys.exit("ERROR: Reading Interim Climate Change Factors Information.")
+            raise SystemExit("ERROR: {0}".format(self.CCF.message))
 
         # TEMPORAL PATTERNS
         print('Loading Temporal Patterns')
-        self.Temporal.load(fi)
+        tpRegion = self.temporalPatternRegion(fi)
+        self.Temporal.load(fname, fi, tpRegion, point_tp_csv, areal_tp_csv)
         if self.Temporal.error:
             print('An error was encountered, when reading temporal patterns.')
             print('Return message = {0}'.format(self.Temporal.message))
-            sys.exit("ERROR: Reading temporal data.")
+            raise SystemExit("ERROR: {0}".format(self.Temporal.message))
         if add_tp != False:
             if len(add_tp) > 0:
                 for tp in add_tp:
@@ -598,7 +875,9 @@ class Arr:
                     if self.Temporal.error:
                         print('An error was encountered, when reading temporal pattern: {0}'.format(tp))
                         print('Return message = {0}'.format(self.Temporal.message))
-                        sys.exit("ERROR: Reading temporal data.")
+                        raise SystemExit("ERROR: {0}".format(self.Temporal.message))
+
+        self.Temporal.combineArealTp(area)
 
 
         # PREBURST DEPTH
@@ -607,137 +886,33 @@ class Arr:
         if self.PreBurst.error:
             print('An error was encountered, when reading median preburst data.')
             print('Return message = {0}'.format(self.PreBurst.message))
-            # sys.exit("ERROR: Reading temporal data.")
 
         print('Data Loaded')
 
-    def export(self, fpath, aep, dur, **keywords):
-        for kw in keywords:
-            if kw.lower() == 'format':
-                if (keywords[kw]).lower() == 'csv':
-                    out_form = 'csv'
-                elif (keywords[kw]).lower() == 'ts1':
-                    out_form = 'ts1'
-                else:
-                    self.error = True
-                    self.message = \
-                        'Unrecognised ouput format {0} - expecting "csv" or "ts1"'.format(keywords[kw].lower())
-                    return
-            elif kw.lower() == 'name':
-                try:
-                    site_name = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Unable to Read Site Name: {0}'.format(keywords[kw])
-            elif kw.lower() == 'climate_change':
-                try:
-                    cc = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Unrecognised Climate Change argument: {0}'.format(keywords[kw].lower())
-                    return
-            elif kw.lower() == 'climate_change_years':
-                try:
-                    cc_years = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Unable to process year from climate change years argument: {0}' \
-                        .format(keywords[kw].lower())
-                    return
-            elif kw.lower() == 'cc_rcp':
-                try:
-                    cc_RCP = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Unable to process RCP from climate change RCP argument: {0}' \
-                        .format(keywords[kw].lower())
-                    return
-            elif kw.lower() == 'bom_data':
-                try:
-                    bom = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Unable to process year from CCF_PH argument: {0}'.format(keywords[kw].lower())
-                    return
-            elif kw.lower() == 'area':
-                try:
-                    catchment_area = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Unable to process catchment area argument: {0}'.format(keywords[kw].lower())
-                    return
-            elif kw.lower() == 'frequent':
-                try:
-                    frequent_events = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Problem reading arguement: {0}'.format(keywords[kw].lower())
-            elif kw.lower() == 'rare':
-                try:
-                    rare_events = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Problem reading arguement: {0}'.format(keywords[kw].lower())
-
-            elif kw.lower() == 'catch_no':
-                try:
-                    catch_no = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Problem reading argument: {0}'.format(keywords[kw].lower())
-            elif kw.lower() == 'out_notation':
-                try:
-                    out_notation = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Problem reading argument: {0}'.format(keywords[kw].lower())
-            elif kw.lower() == 'arf_frequent':
-                try:
-                    ARF_frequent = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Problem reading argument: {0}'.format(keywords[kw].lower())
-            elif kw.lower() == 'min_arf':
-                try:
-                    min_ARF = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Problem reading argument: {0}'.format(keywords[kw].lower())
-            elif kw.lower() == 'preburst':
-                try:
-                    preBurst = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Problem reading argument: {0}'.format(keywords[kw].lower())
-            elif kw.lower() == 'lossmethod':
-                try:
-                    lossMethod = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Problem reading argument: {0}'.format(keywords[kw].lower())
-            elif kw.lower() == 'mar':
-                try:
-                    mar = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Problem reading argument: {0}'.format(keywords[kw].lower())
-            elif kw.lower() == 'staticloss':
-                try:
-                    staticLoss = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Problem reading argument: {0}'.format(keywords[kw].lower())
-            elif kw.lower() == 'add_tp':
-                try:
-                    add_tp = keywords[kw]
-                except:
-                    self.error = True
-                    self.message = 'Problem reading argument: {0}'.format(keywords[kw].lower())
-            else:
-                self.error = True
-                self.message = 'Unrecognised keyword argument: {0}'.format(kw)
-                return
-
+    def export(self, fpath, aep, dur, **kwargs):
+        """Process and export ARR2016 data"""
+        
+        # deal with kwargs
+        out_form = kwargs['format'] if 'format' in kwargs else 'csv'
+        site_name = kwargs['name'] if 'name' in kwargs else 'name'
+        cc = kwargs['climate_change'] if 'climate_change' in kwargs else False
+        cc_years = kwargs['climate_change_years'] if 'climate_change_years' in kwargs else [2090]
+        cc_RCP = kwargs['cc_rcp'] if 'cc_rcp' in kwargs else ['RCP8.5']
+        bom = kwargs['bom_data'] if 'bom_data' in kwargs else None
+        catchment_area = kwargs['area'] if 'area' in kwargs else 0
+        frequent_events = kwargs['frequent'] if 'frequent' in kwargs else False
+        rare_events = kwargs['rare'] if 'rare' in kwargs else False
+        catch_no = kwargs['catch_no'] if 'catch_no' in kwargs else 0
+        out_notation = kwargs['out_notation'] if 'out_notation' in kwargs else 'aep'
+        ARF_frequent = kwargs['arf_frequent'] if 'arf_frequent' in kwargs else True
+        min_ARF = kwargs['min_arf'] if 'min_arf' in kwargs else 0
+        preBurst = kwargs['preburst'] if 'preburst' in kwargs else '50%'
+        lossMethod = kwargs['lossmethod'] if 'lossmethod' in kwargs else 'interpolate'
+        mar = kwargs['mar'] if 'mar' in kwargs else 1500
+        staticLoss = kwargs['staticloss'] if 'staticloss' in kwargs else 0
+        add_tp = kwargs['add_tp'] if 'add_tp' else []
+        tuflow_loss_method = kwargs['tuflow_loss_method'] if 'tuflow_loss_method' in kwargs else 'infiltration'
+        
         # convert input RCP if 'all' is specified
         if str(cc_RCP).lower() == 'all':
             cc_RCP = ['RCP4.5', 'RCP6', 'RCP8.5']
@@ -747,10 +922,11 @@ class Arr:
 
         # create year dictionary with index as the value so the appropriate multiplier can be called from self.CCF
         # later on
-        if add_tp != False:
-            tpCount = 10 + 10 * len(add_tp)
-        else:
-            tpCount = 10
+        tpCount = self.Temporal.tpCount
+        #if add_tp != False:
+        #    tpCount = 10 + 10 * len(add_tp)
+        #else:
+        #    tpCount = 10
         cc_years_dict = {}
         for i, year in enumerate(self.CCF.Year):
             if year in cc_years:
@@ -774,53 +950,9 @@ class Arr:
                 else:
                     aep_list.append(aep)
         else:
-            if frequent_events:
-                aep_conv = {5: '0.2EY', 2: '0.5EY', 1: '63.2%'}
-            else:
-                aep_conv = {5: '20%', 2: '50%', 1: '63.2%'}  # closest conversion for small ARI events
             for mag, unit in aep.items():
-                # convert magnitude to float
-                if unit.lower() == 'ey':
-                    mag = float(mag)
-                else:
-                    mag = float(mag[:-1])
-                # convert ari to aep
-                if unit.lower() == 'ari':
-                    if mag <= 5:
-                        try:
-                            aep_list.append(aep_conv[mag])
-                            if mag == 1:
-                                print('MESSAGE: ARI {0:.0f} year being converted to available AEP'.format(mag))
-                                print('MESSAGE: using {0}'.format(aep_conv[mag]))
-                            elif frequent_events:
-                                print('MESSAGE: ARI {0:.0f} year being converted to available EY'.format(mag))
-                                print('MESSAGE: using {0}'.format(aep_conv[mag]))
-                            else:
-                                print('WARNING: ARI {0} year does not correspond to available AEP'.format(mag))
-                                print('MESSAGE: using closest available AEP: {0}.. or turn on "frequent events" ' \
-                                      'to obtain exact storm magnitude'.format(aep_conv[mag]))
-                        except:
-                            self.error = True
-                            self.message = 'Unable to convert ARI {0}year to AEP'.format(mag)
-                    elif mag <= 100:
-                        aep_list.append('{0:.0f}%'.format((1 / float(mag)) * 100))
-                    else:
-                        aep_list.append('{0}%'.format((1 / float(mag)) * 100))
-                elif unit.lower() == 'ey':
-                    if mag >= 1:
-                        aep_list.append('{0:.0f}EY'.format(mag))
-                    else:
-                        aep_list.append('{0}EY'.format(mag))
-                elif unit.lower() == 'aep':
-                    if mag > 50:
-                        aep_list.append('{0:.1f}%'.format(mag))
-                    elif mag >= 1:
-                        aep_list.append('{0:.0f}%'.format(mag))
-                    else:
-                        aep_list.append('{0}%'.format(mag))
-                else:
-                    self.error = True
-                    self.message = 'Not a valid storm magnitude unit: {0}'.format(unit.upper())
+                aep_list.append(convertMagToAEP(mag, unit, frequent_events))
+
         # House Keeping: Order list based on high AEP to low AEP
         aep_map = {'0.05%': 1, '0.1%': 2, '0.2%': 3, '0.5%': 4, '1%': 5, '2%': 6, '5%': 7, '10%': 8,
                    '20%': 9, '50%': 10, '63.2%': 11, '0.2EY': 12, '0.5EY': 13, '2EY': 14, '3EY': 15, '4EY': 16,
@@ -942,15 +1074,15 @@ class Arr:
         if cc:
             if len(cc_years) < 1:
                 print('No year(s) specified when considering climate change.')
-                sys.exit('ERROR: no year(s) specified in Climate Change consideration')
+                raise SystemExit('ERROR: no year(s) specified in Climate Change consideration')
             if len(cc_RCP) < 1:
                 print('No RCP(s) specified when considering climate change.')
-                sys.exit('ERROR: no RCP(s) specified in Climate Change consideration.')
+                raise SystemExit('ERROR: no RCP(s) specified in Climate Change consideration.')
             for year, k in cc_years_dict.items():
                 # j is year index of year in self.CCF.Year so multiplier can be extracted
                 if year not in self.CCF.Year:
                     print('Climate change year ({0}) not recognised, or not a valid year.'.format(year))
-                    sys.exit('ERROR: Climate change year not valid.')
+                    raise SystemExit('ERROR: Climate change year ({0}) not recognised, or not a valid year.'.format(year))
                 for rcp in cc_RCP:
                     if rcp == 'RCP4.5':
                         cc_multip = (self.CCF.RCP4p5[k] / 100) + 1
@@ -960,7 +1092,8 @@ class Arr:
                         cc_multip = (self.CCF.RCP8p5[k] / 100) + 1
                     else:
                         print('Climate change RCP ({0}) not recognised, or valid.'.format(rcp))
-                        sys.exit('ERROR: Climate change RCP not valid')
+                        raise SystemExit("ERROR: Climate change RCP ({0}) not recognised, or valid".format(rcp))
+
                     # start by writing out climate change rainfall depths
                     cc_depths = bom.depths * cc_multip
                     cc_file = 'BOM_Rainfall_Depths_{0}_{1}_{2}.csv'.format(site_name, year, rcp)
@@ -1077,42 +1210,42 @@ class Arr:
                     if aep[-1] == '%':
                         aep_list_formatted.append('{0:06.1f}y'.format(float(ari_conv[aep][:-1])))
                     else:
-                        aep_list_formatted.append('{0:06.1f}e'.format(float(ari_conv[aep][:-1])))
+                        aep_list_formatted.append('{0:06.1f}e'.format(float(aep[:-2])))
                 elif padding == 4 and decimal_places == 0:
                     if aep[-1] == '%':
                         aep_list_formatted.append('{0:04.0f}y'.format(float(ari_conv[aep][:-1])))
                     else:
-                        aep_list_formatted.append('{0:04.0f}e'.format(float(ari_conv[aep][:-1])))
+                        aep_list_formatted.append('{0:04.0f}e'.format(float(aep[:-2])))
                 elif padding == 3 and decimal_places == 1:
                     if aep[-1] == '%':
                         aep_list_formatted.append('{0:05.1f}y'.format(float(ari_conv[aep][:-1])))
                     else:
-                        aep_list_formatted.append('{0:05.1f}e'.format(float(ari_conv[aep][:-1])))
+                        aep_list_formatted.append('{0:05.1f}e'.format(float(aep[:-2])))
                 elif padding == 3 and decimal_places == 0:
                     if aep[-1] == '%':
                         aep_list_formatted.append('{0:03.0f}y'.format(float(ari_conv[aep][:-1])))
                     else:
-                        aep_list_formatted.append('{0:03.0f}e'.format(float(ari_conv[aep][:-1])))
+                        aep_list_formatted.append('{0:03.0f}e'.format(float(aep[:-2])))
                 elif padding == 2 and decimal_places == 1:
                     if aep[-1] == '%':
                         aep_list_formatted.append('{0:04.1f}y'.format(float(ari_conv[aep][:-1])))
                     else:
-                        aep_list_formatted.append('{0:04.1f}e'.format(float(ari_conv[aep][:-1])))
+                        aep_list_formatted.append('{0:04.1f}e'.format(float(aep[:-2])))
                 elif padding == 2 and decimal_places == 0:
                     if aep[-1] == '%':
                         aep_list_formatted.append('{0:02.0f}y'.format(float(ari_conv[aep][:-1])))
                     else:
-                        aep_list_formatted.append('{0:02.0f}e'.format(float(ari_conv[aep][:-1])))
+                        aep_list_formatted.append('{0:02.0f}e'.format(float(aep[:-2])))
                 elif padding == 1 and decimal_places == 1:
                     if aep[-1] == '%':
                         aep_list_formatted.append('{0:.1f}y'.format(float(ari_conv[aep][:-1])))
                     else:
-                        aep_list_formatted.append('{0:.1f}e'.format(float(ari_conv[aep][:-1])))
+                        aep_list_formatted.append('{0:.1f}e'.format(float(aep[:-2])))
                 else:
                     if aep[-1] == '%':
                         aep_list_formatted.append('{0:.0f}y'.format(float(ari_conv[aep][:-1])))
                     else:
-                        aep_list_formatted.append('{0:.0f}e'.format(float(ari_conv[aep][:-1])))
+                        aep_list_formatted.append('{0:.0f}e'.format(float(aep[:-2])))
 
         for a, aep in enumerate(aep_list):
             # get AEP band as per Figure 2.5.12. Temporal Pattern Ranges
@@ -1171,6 +1304,11 @@ class Arr:
                         if duration not in exported_dur:
                             exported_dur.append(duration)
                         depth = bom.depths[dur_ind, aep_ind]
+                        depth_available = True
+                        if numpy.isnan(depth):
+                            if float(aep[:-1]) < 1:
+                                print("WARNING: Depths for very rare events (< 1% AEP) are not yet provided.")
+                                depth_available = False
                         ids, increments, dts = self.Temporal.get_dur_aep(duration, aep_band)
                         nid = len(ids)
                         ntimes = len(increments[0]) + 2  # add zero to start and end
@@ -1237,7 +1375,10 @@ class Arr:
                             fo = open(outfname, 'w')
                         except IOError:
                             print('Unexpected error opening file {0}'.format(outfname))
-                            sys.exit("ERROR: Opening file.")
+                            raise SystemExit('Unexpected error opening file {0}'.format(outfname))
+                        except PermissionError:
+                            print("File is locked for editing {0}".format(outfname))
+                            raise SystemExit("File is locked for editing {0}".format(outfname))
                         # ts1
                         fo.write('! Written by TUFLOW ARR Python Script based on {0} temporal pattern\n'.format
                                  (aep_band))
@@ -1274,8 +1415,13 @@ class Arr:
                         for i in range(ntimes):
                             line = '{0}'.format(times[i])
                             for j in range(rf_array.shape[0]):
-                                line = line + ', {0}'.format(rf_array[j, i])
+                                if numpy.isnan(rf_array[j, i]):
+                                    line += ',0'
+                                else:
+                                    line += ',{0}'.format(rf_array[j, i])
                             fo.write(line + '\n')
+                        if not depth_available:
+                            fo.write("**Depth data not available for very rare events (< 1% AEP)")
                         fo.flush()
                         fo.close()
 
@@ -1315,16 +1461,22 @@ class Arr:
         pb_dep_final = numpy.maximum(pb_dep_com, pb_rto_d_com)  # take the max of preburst ratios and depths
 
         # calculate burst intial loss (storm il minus preburst depth)
-        if self.Losses.ils == 0 and self.Losses.cls == 0:
+        if float(self.Losses.ils) == 0 and float(self.Losses.cls) == 0:
             print('WARNING: No rainfall losses found.')
+        if float(self.Losses.ils) < 0:
+            print('WARNING: initial loss value is {0}'.format(self.Losses.ils))
+        if float(self.Losses.cls) < 0:
+            print('WARNING: continuing loss value is {0}'.format(self.Losses.cls))
         shape_com = pb_dep_final.shape  # array dimensions of preburst depths
         ils = numpy.zeros(shape_com) + float(self.Losses.ils)  # storm initial loss array
         ilb = numpy.add(ils, -pb_dep_final)  # burst initial loss (storm initial loss subtract preburst)
 
         # extend loss array to all durations using interpolation
-        ilb_complete = extend_array(b_com_dur_index, b_com_aep, ilb, bom.duration)  # add all durations to array
+        ilb_complete = extend_array_dur(b_com_dur_index, b_com_aep, ilb, bom.duration)  # add all durations to array
         ilb_complete = interpolate_nan(ilb_complete, bom.duration, self.Losses.ils, lossMethod=lossMethod, mar=mar,
                                        staticLoss=staticLoss)
+        # complete loss array to include all aeps (with nans)
+        ilb_complete = extend_array_aep(b_com_aep, bom.aep_names, ilb_complete)
 
         # set up negative entry and perc neg entry calculations
         shape_ilb_complete = ilb_complete.shape  # array dimensions of preburst depths
@@ -1336,12 +1488,15 @@ class Arr:
         fname_losses_out = os.path.join(fpath, 'data', fname_losses)
         try:
             flosses = open(fname_losses_out, 'w')
+        except PermissionError:
+            print("File is locked for editing {0}".format(fname_losses_out))
+            raise SystemExit("ERROR: File is locked for editing {0}".format(fname_losses_out))
         except IOError:
             print('Unexpected error opening file {0}'.format(fname_losses_out))
-            sys.exit('ERROR: Opening File.')
+            raise SystemExit('ERROR: Unexpected error opening file {0}'.format(fname_losses_out))
         flosses.write('This File has been generated using ARR_to_TUFLOW. The Burst losses have been calculated by '
                       'subtracting the maximum preburst (Depth or Ratios) from the storm initial loss.\n')
-        flosses.write('Duration (mins),{0}\n'.format(",".join(map(str, b_com_aep))))
+        flosses.write('Duration (mins),{0}\n'.format(",".join(map(str, bom.aep_names))))
 
         for i, dur in enumerate(bom.duration):
             line = '{0}'.format(dur)
@@ -1376,9 +1531,12 @@ class Arr:
         if catch_no == 0:
             try:
                 bcdb = open(bc_fname, 'w')
+            except PermissionError:
+                print("File is locked for editing: {0}".format(bc_fname))
+                raise SystemExit("ERROR: File is locked for editing: {0}".format(bc_fname))
             except IOError:
                 print('Unexpected error opening file {0}'.format(bc_fname))
-                sys.exit("ERROR: Opening file.")
+                raise SystemExit('ERROR: Unexpected error opening file {0}'.format(bc_fname))
             bcdb.write('Name,Source,Column 1, Column 2\n')
             if out_form == 'ts1':
                 bcdb.write('{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~\n'.format(site_name,
@@ -1393,9 +1551,12 @@ class Arr:
         else:
             try:
                 bcdb = open(bc_fname, 'a')
+            except PermissionError:
+                print("File is locked for editing: {0}".format(bc_fname))
+                raise SystemExit("ERROR: File is locked for editing: {0}".format(bc_fname))
             except IOError:
                 print('Unexpected error opening file {0}'.format(bc_fname))
-                sys.exit("ERROR: Opening file.")
+                raise SystemExit('ERROR: Unexpected error opening file {0}'.format(bc_fname))
             if out_form == 'ts1':
                 bcdb.write('{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~\n'.format(site_name,
                                                                                            out_notation.upper(),
@@ -1413,9 +1574,12 @@ class Arr:
                 bc_fname_cc = os.path.join(fpath, 'bc_dbase_CC.csv')
                 try:
                     bcdb_cc = open(bc_fname_cc, 'w')
+                except PermissionError:
+                    print("File is locked for editing: {0}".format(bc_fname_cc))
+                    raise SystemExit("ERROR: File is locked for editing: {0}".format(bc_fname_cc))
                 except IOError:
                     print('Unexpected error opening file {0}'.format(bc_fname_cc))
-                    sys.exit("ERROR: Opening file.")
+                    raise SystemExit('ERROR: Unexpected error opening file {0}'.format(bc_fname_cc))
                 bcdb_cc.write('Name,Source,Column 1, Column 2\n')
                 if out_form == 'ts1':
                     bcdb_cc.write('{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~_~CC~\n'.
@@ -1429,9 +1593,12 @@ class Arr:
                 bc_fname_cc = os.path.join(fpath, 'bc_dbase_CC.csv')
                 try:
                     bcdb_cc = open(bc_fname_cc, 'a')
+                except PermissionError:
+                    print("File is locked for editing: {0}".format(bc_fname_cc))
+                    raise SystemExit("ERROR: File is locked for editing: {0}".format(bc_fname_cc))
                 except IOError:
                     print('Unexpected error opening file {0}'.format(bc_fname_cc))
-                    sys.exit("ERROR: Opening file.")
+                    raise SystemExit('ERROR: Unexpected error opening file {0}'.format(bc_fname_cc))
                 if out_form == 'ts1':
                     bcdb_cc.write('{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~_~CC~\n'.
                                   format(site_name, out_notation.upper(), out_form))
@@ -1445,9 +1612,12 @@ class Arr:
         tef_fname = os.path.join(fpath, 'Event_File.tef')
         try:
             tef = open(tef_fname, 'w')
+        except PermissionError:
+            print("File is locked for editing: {0}".format(tef_fname))
+            raise SystemExit("ERROR: File is locked for editing: {0}".format(tef_fname))
         except IOError:
             print('Unexpected error opening file {0}'.format(tef_fname))
-            sys.exit("ERROR: Opening file.")
+            raise SystemExit('ERROR: Unexpected error opening file {0}'.format(tef_fname))
         tef.write('!EVENT MAGNITUDES\n')
         for a, aep in enumerate(exported_aep):
             if aep[-2:] == 'EY':
@@ -1506,3 +1676,194 @@ class Arr:
         # close up
         tef.flush()
         tef.close()
+        
+        # write losses control file
+        if tuflow_loss_method == 'infiltration':
+            tsoilf = os.path.join(fpath, 'soils.tsoilf')
+            try:
+                if catch_no == 0:
+                    tsoilf_open = open(tsoilf, 'w')
+                else:
+                    tsoilf_open = open(tsoilf, 'a')
+            except PermissionError:
+                print("File is locked for editing: {0}".format(tsoilf))
+                raise SystemExit("ERROR: File is locked for editing: {0}".format(tsoilf))
+            except IOError:
+                print('Unexpected error opening file {0}'.format(tsoilf))
+                raise SystemExit('ERROR: Unexpected error opening file {0}'.format(tsoilf))
+            if catch_no == 0:
+                tsoilf_open.write('! Soil ID, Method, IL, CL\n')
+            tsoilf_open.write('{1:.0f}, ILCL, <<IL_{0}>>, <<CL_{0}>>  ! Design ARR2016 Losses for catchment {0}\n'.format(site_name, catch_no + 1))
+            tsoilf_open.close()
+        else:
+            materials = os.path.join(fpath, 'materials.csv')
+            try:
+                if catch_no == 0:
+                    materials_open = open(materials, 'w')
+                else:
+                    materials_open = open(materials, 'a')
+            except IOError:
+                print('Unexpected error opening file {0}'.format(materials))
+                raise ('Unexpected error opening file')
+            if catch_no == 0:
+                materials_open.write("Material ID, Manning's n, Rainfall Loss Parameters, Land Use Hazard ID, ! Description\n")
+            materials_open.write('{1:.0f},,"<<IL_{0}>>, <<CL_{0}>>",,! Design ARR2016 Losses for catchment {0}\n'.format(site_name, catch_no + 1))
+            materials_open.close()
+        
+        rareMag2Name = {'0.5%': '1 in 200', '0.2%': '1 in 500', '0.1%': '1 in 1000',
+                        '0.05%': '1 in 2000'}
+        # write trd losses file
+        trd = os.path.join(fpath, 'rainfall_losses.trd')
+        if catch_no == 0:  # write new file
+            try:
+                trd_open = open(trd, 'w')
+            except PermissionError:
+                print("File is locked for editing: {0}".format(trd))
+                raise SystemExit("ERROR: File is locked for editing: {0}".format(trd))
+            except IOError:
+                print('Unexpected error opening file {0}'.format(trd))
+                raise SystemExit('ERROR: Unexpected error opening file {0}'.format(trd))
+            trd_open.write("! TUFLOW READ FILE - SET RAINFALL LOSS VARIABLES\n")
+            for i, aep in enumerate(aep_list_formatted):
+                if i == 0:
+                    trd_open.write("If Event == {0}\n".format(aep))
+                else:
+                    trd_open.write("Else If Event == {0}\n".format(aep))
+                if aep_list[i] in rareMag2Name:
+                    mag_index = bom.aep_names.index(rareMag2Name[aep_list[i]])
+                else:
+                    mag_index = bom.aep_names.index(aep_list[i])
+                for j, dur in enumerate(dur_list_formatted):
+                    if j == 0:
+                        trd_open.write("    If Event == {0}m\n".format(dur))
+                    else:
+                        trd_open.write("    Else If Event == {0}m\n".format(dur))
+                    # get intial loss value
+                    dur_index = bom.duration.index(dur_list[j])
+                    il = ilb_complete[dur_index, mag_index]
+                    if np.isnan(il):
+                        il = 0
+                    trd_open.write("        Set Variable IL_{1} == {0:.1f}\n".format(il, site_name))
+                    trd_open.write("        Set Variable CL_{1} == {0:.1f}\n".format(float(self.Losses.cls), site_name))
+                trd_open.write("    Else\n")
+                trd_open.write("        Pause == Event Not Recognised\n")
+                trd_open.write("    End If\n")
+            trd_open.write("Else\n")
+            trd_open.write("    Pause == Event Not Recognised\n")
+            trd_open.write("End If")
+            trd_open.close()
+        else:  # insert losses in already defined IF statements rather than straight append
+            try:
+                trd_text = []
+                insert_index = []
+                insert_il = []
+                k = 0
+                with open(trd, 'r') as trd_open:
+                    for i, line in enumerate(trd_open):
+                        i = k + 1
+                        trd_text.append(line)
+                        if 'If Event' in line:  # first level would be mag
+                            ind = line.find('If Event')
+                            if '!' not in line[:ind]:
+                                command, mag = line.split('==')
+                                mag = mag.split('!')[0]
+                                mag = mag.strip()
+                                if mag[-1] == 'y':
+                                    unit = 'ARI'
+                                elif mag[-1] == 'p':
+                                    unit = 'AEP'
+                                else:
+                                    unit = 'EY'
+                                    mag = mag[:-1]
+                                mag = convertMagToAEP(mag, unit, frequent_events)
+                                if mag in rareMag2Name:
+                                    mag_index = bom.aep_names.index(rareMag2Name[mag])
+                                else:
+                                    mag_index = bom.aep_names.index(mag)
+                                for j, subline in enumerate(trd_open):
+                                    k = i + j + 1
+                                    trd_text.append(subline)
+                                    if 'If Event' in subline:  # sub level would be dur
+                                        ind = line.find('If Event')
+                                        if '!' not in line[:ind]:
+                                            command, dur = subline.split('==')
+                                            dur = dur.split('!')[0]
+                                            dur = dur.strip().strip('m')
+                                            dur_index = bom.duration.index(int(dur))
+                                            il = ilb_complete[dur_index, mag_index]
+                                            if np.isnan(il):
+                                                il = 0
+                                            insert_index.append(k + catch_no * 2 + 1)
+                                            insert_il.append(il)
+                                    if 'End If' in subline:
+                                        break
+            except PermissionError:
+                print("File is locked for editing: {0}".format(trd))
+                raise SystemExit("ERROR: File is locked for editing: {0}".format(trd))
+            except IOError:
+                print('Unexpected error opening file {0}'.format(trd))
+                raise SystemExit('ERROR: Unexpected error opening file {0}'.format(trd))
+            
+            if trd_text:
+                for i, j in enumerate(reversed(insert_index)):
+                    j = int(j)
+                    k = int(len(insert_index) - 1 - i)
+                    trd_text.insert(j, '        Set Variable CL_{0} == {1:.1f}\n'.format(site_name, float(self.Losses.cls)))
+                    trd_text.insert(j, '        Set Variable IL_{0} == {1:.1f}\n'.format(site_name, insert_il[k]))
+                text = ''
+                for t in trd_text:
+                    text += t
+                try:
+                    trd_open = open(trd, 'w')
+                    trd_open.write(text)
+                    trd_open.close()
+                except PermissionError:
+                    print("File is locked for editing: {0}".format(trd))
+                    raise SystemExit("ERROR: File is locked for editing: {0}".format(trd))
+                except IOError:
+                    print('Unexpected error opening file {0}'.format(trd))
+                    raise SystemExit('ERROR: Unexpected error opening file {0}'.format(trd))
+
+    def temporalPatternRegion(self, fi):
+        """
+        Collects the temporal pattern region
+        
+        :param fi: str full file path to input file
+        :return: str temporal pattern region
+        """
+        
+        label = ''
+        
+        # if fi is a string then open
+        if type(fi) is str:
+            with open(fi, 'r') as fo:
+                for line in fo:
+                    if "[TP]" in line.upper():
+                        for subline in fo:
+                            if '[END_TP]' in subline.upper():
+                                return label
+                            if 'LABEL' in subline.upper():
+                                property_name, property_value = subline.split(',')
+                                label = property_value.strip()
+        
+        # else file may already be an open object
+        else:
+            for line in fi:
+                if "[TP]" in line.upper():
+                    for subline in fi:
+                        if '[END_TP]' in subline.upper():
+                            fi.seek(0)
+                            return label
+                        if 'LABEL' in subline.upper():
+                            property_name, property_value = subline.split(',')
+                            label = property_value.strip()
+            fi.seek(0)
+            
+        return label
+    
+if __name__ == '__main__':
+    file = r"C:\TUFLOW\ARR2016\QGIS\Whole_catchment\data\ARR_Web_data_catch_A.txt"
+    areal_tp_csv = r"C:\_Advanced_Training\Module_Data\ARR\Areal_WT_Increments.csv"
+    ARR = Arr()
+    ARR.load(file, 125, add_tp=[], areal_tp=areal_tp_csv)
+    

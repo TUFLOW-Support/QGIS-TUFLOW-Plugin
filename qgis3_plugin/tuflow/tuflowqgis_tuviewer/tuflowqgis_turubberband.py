@@ -26,6 +26,7 @@ class TuRubberBand():
 		self.markers = []  # list -> QgsMarkers
 		self.markerPoints = []  # list -> QgsPoint
 		self.point = None  # single point for time series
+		self.points = []  # list of x, y coords of line
 		self.linePoints = []  # list of QgsVertexMarkers for line vertices
 		self.line = None  # line for cross section
 		self.cursorTrackingConnected = False

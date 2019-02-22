@@ -90,6 +90,7 @@ class TuPlot1D():
 							if len(xdata) != len(ydata):
 								xAll.append([])
 								yAll.append([])
+								labels.append('')
 								continue
 						else:
 							continue
@@ -112,7 +113,7 @@ class TuPlot1D():
 		:param kwargs: dict -> keyword arguments
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		activeMeshLayers = self.tuView.tuResults.tuResults2D.activeMeshLayers  # list
 		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
 		
@@ -154,35 +155,38 @@ class TuPlot1D():
 						if '{0}_1d'.format(type) in self.tuView.tuResults.maxResultTypes:
 							type = '{0}/Maximums'.format(type)
 							time = -99999
+						if 'max' in type.lower():
+							time = -99999
 						else:
 							if timestep is None:
 								timestep = self.tuView.tuResults.activeTime
 							if timestep not in self.tuView.tuResults.timekey2time.keys():
 								continue
 							time = self.tuView.tuResults.timekey2time[timestep]
+
 						x, y = res.getLongPlotXY(type, time)
 						
 						if x is not None and y is not None:
 							# treat differently if adverse gradients
 							if 'adverse gradients (if any)' in type.lower():
-								if x[0]:
-									xAll.append(x[0])
-									yAll.append(x[1])
-									label = 'Adverse Water Level Gradient' \
-										if len(self.tuView.OpenResults.selectedItems()) < 2 \
-										else '{0} - Adverse Water Level Gradient'.format(result)
-									labels.append(label)
-									plotAsPoints.append(True)
-									plotAsPatch.append(False)
-								if y[0]:
-									xAll.append(y[0])
-									yAll.append(y[1])
-									label = 'Adverse Energy Level Gradient' \
-										if len(self.tuView.OpenResults.selectedItems()) < 2 \
-										else '{0} - Adverse Energy Level Gradient'.format(result)
-									labels.append(label)
-									plotAsPoints.append(True)
-									plotAsPatch.append(False)
+								#if x[0]:
+								xAll.append(x[0])
+								yAll.append(x[1])
+								label = 'Adverse Water Level Gradient' \
+									if len(self.tuView.OpenResults.selectedItems()) < 2 \
+									else '{0} - Adverse Water Level Gradient'.format(result)
+								labels.append(label)
+								plotAsPoints.append(True)
+								plotAsPatch.append(False)
+								#if y[0]:
+								xAll.append(y[0])
+								yAll.append(y[1])
+								label = 'Adverse Energy Level Gradient' \
+									if len(self.tuView.OpenResults.selectedItems()) < 2 \
+									else '{0} - Adverse Energy Level Gradient'.format(result)
+								labels.append(label)
+								plotAsPoints.append(True)
+								plotAsPatch.append(False)
 							# treat differently if culverts and pipes
 							elif 'culverts and pipes' in type.lower():
 								if x:
@@ -196,6 +200,11 @@ class TuPlot1D():
 									plotAsPatch.append(True)
 							# else normal X, Y data
 							else:
+								if len(x) != len(y):
+									xAll.append([])
+									yAll.append([])
+									labels.append('')
+									continue
 								xAll.append(x)
 								yAll.append(y)
 								if type == 'Water Level' or type == 'Bed Elevation':  # add 1D to label if name also in 2D results

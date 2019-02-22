@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>TUFLOW</string>
+   <string>TUFLOW Viewer</string>
   </property>
   <widget class="QWidget" name="dockWidgetContents">
    <layout class="QGridLayout" name="gridLayout" columnstretch="10,0,0,0,0">
@@ -42,6 +42,9 @@
           </property>
           <property name="selectionMode">
            <enum>QAbstractItemView::MultiSelection</enum>
+          </property>
+          <property name="selectionBehavior">
+           <enum>QAbstractItemView::SelectRows</enum>
           </property>
          </widget>
         </item>
@@ -298,7 +301,7 @@
          </widget>
         </item>
         <item row="0" column="0" colspan="9">
-         <widget class="QSlider" name="sliderTime">
+         <widget class="TimeSlider" name="sliderTime">
           <property name="maximum">
            <number>100</number>
           </property>
@@ -456,6 +459,11 @@ p, li { white-space: pre-wrap; }
    <class>DataSetView</class>
    <extends>QTreeView</extends>
    <header>tuflow.dataset_view</header>
+  </customwidget>
+  <customwidget>
+   <class>TimeSlider</class>
+   <extends>QSlider</extends>
+   <header>tuflow.time_slider</header>
   </customwidget>
  </customwidgets>
  <resources>

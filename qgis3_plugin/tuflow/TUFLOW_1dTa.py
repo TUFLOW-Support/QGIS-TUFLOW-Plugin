@@ -2,9 +2,7 @@ import sys
 import os
 import re
 import numpy as np
-# Debug using PyCharm
-sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2018.1\debug-eggs')
-sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2018.1\helpers\pydev')
+
 
 class HydTableData():
 

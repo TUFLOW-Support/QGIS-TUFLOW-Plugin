@@ -3,6 +3,7 @@ from PyQt5.QtGui import *
 from PyQt5 import QtGui
 from qgis.core import *
 from PyQt5.QtWidgets  import *
+from tuflow.dataset_menu import DatasetMenu
 import sys
 import os
 import matplotlib
@@ -89,18 +90,19 @@ class TuPlotToolbar():
 		self.mapOutputPlotToolbar.resize(QSize(250, 30))
 		
 		# icons
-		tsIcon = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\results_2.png")
-		csIcon = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\CrossSection_2.png")
-		fluxIcon = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\FluxLine.png")
-		fluxSecAxisIcon = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\2nd_axis_2.png")
-		cursorTrackingIcon = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\live_cursor_tracking.png")
-		meshGridIcon = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\meshGrid.png")
+		dir = os.path.dirname(os.path.dirname(__file__))
+		tsIcon = QIcon(os.path.join(dir, "icons", "results_2.png"))
+		csIcon = QIcon(os.path.join(dir, "icons", "CrossSection_2.png"))
+		fluxIcon = QIcon(os.path.join(dir, "icons", "FluxLine.png"))
+		fluxSecAxisIcon = QIcon(os.path.join(dir, "icons", "2nd_axis_2.png"))
+		cursorTrackingIcon = QIcon(os.path.join(dir, "icons", "live_cursor_tracking.png"))
+		meshGridIcon = QIcon(os.path.join(dir, "icons", "meshGrid.png"))
 		
 		# buttons
-		self.plotTSMenu = QMenu('Plot Time Series From Map Output')
+		self.plotTSMenu = DatasetMenu('Plot Time Series From Map Output')
 		self.plotTSMenu.menuAction().setIcon(tsIcon)
 		self.plotTSMenu.menuAction().setCheckable(True)
-		self.plotLPMenu = QMenu('Plot Cross Section / Long PLot From Map Output')
+		self.plotLPMenu = DatasetMenu('Plot Cross Section / Long PLot From Map Output')
 		self.plotLPMenu.menuAction().setIcon(csIcon)
 		self.plotLPMenu.menuAction().setCheckable(True)
 		self.plotFluxButton = QToolButton(self.mapOutputPlotToolbar)
@@ -261,7 +263,10 @@ class TuPlotToolbar():
 					if self.tuView.cboSelectType.currentText() == 'Layer Selection':
 						self.tuPlot.tuPlotSelection.useSelection(plotNo)
 					else:
-						self.tuPlot.tuRubberBand.startRubberBand(plotNo)
+						started = self.tuPlot.tuRubberBand.startRubberBand(plotNo)
+						if not started:
+							# turn off self plotting instance
+							self.plotLPMenu.menuAction().setChecked(False)
 				else:
 					self.plotLPMenu.menuAction().setChecked(False)
 			else:
@@ -281,7 +286,10 @@ class TuPlotToolbar():
 					if self.tuView.cboSelectType.currentText() == 'Layer Selection':
 						self.tuPlot.tuPlotSelection.useSelection(0, type='flow')
 					else:
-						self.tuPlot.tuFlowLine.startRubberBand()
+						started = self.tuPlot.tuFlowLine.startRubberBand()
+						if not started:
+							# turn off self plotting instance
+							self.plotFluxButton.setChecked(False)
 				else:
 					self.plotFluxButton.setChecked(False)
 			else:

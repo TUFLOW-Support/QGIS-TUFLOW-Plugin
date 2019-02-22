@@ -1,4 +1,5 @@
 import os
+import webbrowser
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5 import QtGui
@@ -6,6 +7,7 @@ from qgis.core import *
 from qgis.gui import *
 from PyQt5.QtWidgets import *
 import tuflowqgis_tumenufunctions
+from tuflow.tuflowqgis_library import about
 
 
 class TuMenuBar():
@@ -91,8 +93,8 @@ class TuMenuBar():
 		if not update:  # only create view menu if not just an update (updates when switching between plot type tabs)
 			self.viewMenu = self.menuBar.addMenu('&View')
 		iconRefresh = QgsApplication.getThemeIcon("/mActionRefresh.svg")
-		iconRefreshPlot = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\RefreshPlotBlack.png")
-		iconClearPlot = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\ClearPlot.png")
+		iconRefreshPlot = QIcon(os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons", "refreshplotblack.png"))
+		iconClearPlot = QIcon(os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons", "ClearPlot.png"))
 		
 		# view menu items
 		self.freezeAxisLimits_action = viewToolbar.freezeXYAxisButton.defaultAction()
@@ -162,8 +164,8 @@ class TuMenuBar():
 		if not update:  # only create view menu if not just an update (updates when switching between plot type tabs)
 			self.settingsMenu = self.menuBar.addMenu('&Settings')
 		iconOptions = QgsApplication.getThemeIcon("/mActionOptions.svg")
-		iconScalar = QIcon(os.path.dirname(os.path.dirname(__file__)) + "/icons/icon_contours.png")
-		iconVector = QIcon(os.path.dirname(os.path.dirname(__file__)) + "/icons/icon_vectors.png")
+		iconScalar = QIcon(os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons", "icon_contours.png"))
+		iconVector = QIcon(os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons" "icon_vectors.png"))
 		
 		# settings menu items
 		self.userPlotDataManager_action = viewToolbar.userPlotDataManagerButton.defaultAction()
@@ -228,28 +230,39 @@ class TuMenuBar():
 			self.exportMenu = self.menuBar.addMenu('&Export')
 		lineFeatureIcon = QgsApplication.getThemeIcon("/mActionMoveFeatureLine.svg")
 		pointFeatureIcon = QgsApplication.getThemeIcon("/mActionMoveFeaturePoint.svg")
-		iconAnimation = QIcon(os.path.dirname(os.path.dirname(__file__)) + "/icons/icon_video.png")
+		iconAnimation = QIcon(os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons", "icon_video.png"))
 		
 		# export menu items
 		self.exportAsCSV_action = QAction('Export Plot As CSV', self.window)
 		self.autoPlotExport_action = QAction('Batch Plot and Export Features in Shape File', self.window)
+		self.exportDataToClipboard_action = QAction('Copy Data to Clipboard', self.window)
+		self.exportImageToClipboard_action = QAction('Copy Image to Clipboard', self.window)
 		self.exportTempLine_action = QAction(lineFeatureIcon, 'Export Temporary Line(s) to SHP', self.window)
 		self.exportTempPoint_action = QAction(pointFeatureIcon, 'Export Temporary Point(s) to SHP', self.window)
-		self.exportAnimation_action = QAction(iconAnimation, 'Export Animation', self.window)
+		self.exportAnimation_action = QAction(iconAnimation, 'Export Animation (beta)', self.window)
+		self.exportMaps_action = QAction('Export Maps (beta)', self.window)
 		self.exportMenu.addAction(toolbar[9])
 		self.exportMenu.addAction(self.exportAsCSV_action)
 		self.exportMenu.addAction(self.autoPlotExport_action)
+		self.exportMenu.addSeparator()
+		self.exportMenu.addAction(self.exportDataToClipboard_action)
+		self.exportMenu.addAction(self.exportImageToClipboard_action)
 		self.exportMenu.addSeparator()
 		self.exportMenu.addAction(self.exportTempLine_action)
 		self.exportMenu.addAction(self.exportTempPoint_action)
 		self.exportMenu.addSeparator()
 		self.exportMenu.addAction(self.exportAnimation_action)
+		#self.exportMenu.addSeparator()
+		#self.exportMenu.addAction(self.exportMaps_action)
 		
 		self.exportAsCSV_action.triggered.connect(self.tuMenuFunctions.exportCSV)
 		self.autoPlotExport_action.triggered.connect(self.tuMenuFunctions.batchPlotExportInitialise)
+		self.exportDataToClipboard_action.triggered.connect(self.tuMenuFunctions.exportDataToClipboard)
+		self.exportImageToClipboard_action.triggered.connect(self.tuMenuFunctions.exportImageToClipboard)
 		self.exportTempLine_action.triggered.connect(self.tuMenuFunctions.exportTempLines)
 		self.exportTempPoint_action.triggered.connect(self.tuMenuFunctions.exportTempPoints)
 		self.exportAnimation_action.triggered.connect(self.tuMenuFunctions.exportAnimation)
+		self.exportMaps_action.triggered.connect(self.tuMenuFunctions.exportMaps)
 		
 		return True
 	
@@ -289,114 +302,31 @@ class TuMenuBar():
 		
 		helpMenu = self.menuBar.addMenu('&Help')
 		helpIcon = QgsApplication.getThemeIcon('/mActionHelpContents.svg')
-		aboutIcon = QIcon(os.path.dirname(os.path.dirname(__file__)) + "/icons/Flood.ico")
+		aboutIcon = QIcon(os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons", "tuview.png"))
 		
 		# Help Menu
-		documentation = r'https://wiki.tuflow.com/index.php?title=TuPlot'
 		self.help_action = QAction(helpIcon, 'Help', self.window)
 		self.about_action = QAction(aboutIcon, 'About', self.window)
 		helpMenu.addAction(self.help_action)
 		helpMenu.addSeparator()
 		helpMenu.addAction(self.about_action)
 		
-	def connectMenu(self):
-		"""
-		Connects menu items to their functions.
+		self.about_action.triggered.connect(self.about)
+		self.help_action.triggered.connect(self.help)
 		
-		:return: bool -> True for successful, False for unsuccessful
-		"""
-		
-		if not self.connected:
-			
-			# file menu
-			self.load2dResults_action.triggered.connect(self.tuMenuFunctions.load2dResults)
-			self.load1dResults_action.triggered.connect(self.tuMenuFunctions.load1dResults)
-			self.load1d2dResults_action.triggered.connect(self.tuMenuFunctions.load1d2dResults)
-			self.remove1d2dResults_action.triggered.connect(self.tuMenuFunctions.remove1d2dResults)
-			self.remove2dResults_action.triggered.connect(self.tuMenuFunctions.remove2dResults)
-			self.remove1dResults_action.triggered.connect(self.tuMenuFunctions.remove1dResults)
-			
-			# view menu
-			self.freezeAxisLimits_action.triggered.connect(lambda: self.tuMenuFunctions.freezeAxisLimits(0))
-			self.freezeAxisXLimits_action.triggered.connect(lambda: self.tuMenuFunctions.freezeAxisXLimits(0))
-			self.freezeAxisYLimits_action.triggered.connect(lambda: self.tuMenuFunctions.freezeAxisYLimits(0))
-			self.freezeAxisLabels_action.triggered.connect(lambda: self.tuMenuFunctions.freezeAxisLabels(0))
-			#self.freezeLegendLabels_action.triggered.connect(lambda: self.tuMenuFunctions.freezeLegendLabels(0))
-			self.refreshMapWindow_action.triggered.connect(self.tuView.renderMap)
-			self.refreshCurrentPlotWindow_action.triggered.connect(self.tuView.refreshCurrentPlot)
-			self.refreshAllPlotWindows_action.triggered.connect(self.tuView.tuPlot.updateAllPlots)
-			#self.refreshMapPlotWindow_action.triggered.connect(self.tuMenuFunctions.updateMapPlotWindows)
-			self.clearPlotWindow_action.triggered.connect(
-				lambda: self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), clear_rubberband=True, clear_selection=True))
-			self.clearAllPlotWindows_action.triggered.connect(self.tuView.tuPlot.clearAllPlots)
-			
-			# settings menu
-			self.tuView.tuPlot.tuPlotToolbar.lstActionsTimeSeries[7].triggered.connect(self.tuMenuFunctions.updateLegend)
-			self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot[7].triggered.connect(self.tuMenuFunctions.updateLegend)
-			self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection[7].triggered.connect(self.tuMenuFunctions.updateLegend)
-			self.saveColorRampForActiveResult_action.triggered.connect(lambda: self.tuMenuFunctions.saveDefaultStyleScalar('color ramp'))
-			self.saveColorMapForActiveResult_action.triggered.connect(lambda: self.tuMenuFunctions.saveDefaultStyleScalar('color map'))
-			self.saveStyleForVectorResult_action.triggered.connect(self.tuMenuFunctions.saveDefaultStyleVector)
-			self.loadStyleForActiveResult_action.triggered.connect(self.tuMenuFunctions.loadDefaultStyleScalar)
-			self.loadStyleForVectorResult_action.triggered.connect(self.tuMenuFunctions.loadDefaultStyleVector)
-			self.resetDefaultStyles_action.triggered.connect(self.tuMenuFunctions.resetDefaultStyles)
-			self.options_action.triggered.connect(self.tuMenuFunctions.options)
-			
-			# export menu
-			self.exportAsCSV_action.triggered.connect(self.tuMenuFunctions.exportCSV)
-			self.exportTempLine_action.triggered.connect(self.tuMenuFunctions.exportTempLines)
-			self.exportTempPoint_action.triggered.connect(self.tuMenuFunctions.exportTempPoints)
-			
-			# Results Menu
-			self.showSelectedElements_action.triggered.connect(self.tuMenuFunctions.showSelectedElements)
-			self.showMedianEvent_action.triggered.connect(self.tuMenuFunctions.showMedianEvent)
-			self.showMeanEvent_action.triggered.connect(self.tuMenuFunctions.showMeanEvent)
-			
-			self.connected = True
-			
-		return True
-	
-	def disconnectMenu(self):
-		"""
-		Disconnects items to their funcitons.
-		
-		:return: bool -> True for successful, False for unsuccessful
+	def about(self):
 		"""
 		
-		if self.connected:
-			# file menu
-			self.load2dResults_action.triggered.disconnect()
-			self.load1dResults_action.triggered.disconnect()
-			self.load2dResults_action.triggered.disconnect()
-			self.remove1d2dResults_action.triggered.disconnect()
-			self.remove2dResults_action.triggered.disconnect()
-			self.remove1dResults_action.triggered.disconnect()
-			
-			# view menu
-			self.freezeAxisLimits_action.triggered.disconnect()
-			self.refreshMapWindow_action.triggered.disconnect()
-			self.refreshCurrentPlotWindow_action.triggered.disconnect()
-			self.refreshAllPlotWindows_action.triggered.disconnect()
-			#self.refreshMapPlotWindow_action.triggered.disconnect()
-			self.clearPlotWindow_action.triggered.disconnect()
-			self.clearAllPlotWindows_action.triggered.disconnect()
-			
-			# settings menu
-			self.tuView.tuPlot.tuPlotToolbar.lstActionsTimeSeries[7].triggered.disconnect(self.tuMenuFunctions.updateLegend)
-			self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot[7].triggered.disconnect(self.tuMenuFunctions.updateLegend)
-			self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection[7].triggered.disconnect(self.tuMenuFunctions.updateLegend)
-			self.options_action.triggered.disconnect()
-			
-			# export menu
-			self.exportAsCSV_action.triggered.disconnect()
-			self.exportTempLine_action.triggered.disconnect()
-			self.exportTempPoint_action.triggered.disconnect()
-			
-			# Results Menu
-			self.showSelectedElements_action.triggered.disconnect()
-			self.showMedianEvent_action.triggered.disconnect()
-			self.showMeanEvent_action.triggered.disconnect()
-			
-			self.connected = False
+		:return:
+		"""
+
+		about(self.tuView)
 		
-		return True
+	def help(self):
+		"""
+		
+		:return:
+		"""
+		
+		url = r'https://wiki.tuflow.com/index.php?title=TUFLOW_Viewer'
+		webbrowser.open(url)

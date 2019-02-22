@@ -20,6 +20,7 @@
  ***************************************************************************/
  This script initializes the plugin, making it known to QGIS.
 """
+from qgis.core import *
 
 def name():
     return "TUFLOW"
@@ -34,11 +35,11 @@ def version():
 
 
 def icon():
-    return "icon.png"
+    return "tuflow.png"
 
 
 def qgisMinimumVersion():
-    return "3.0"
+    return "3.4"
 
 def author():
     return "Phillip Ryan, Ellis Symons"
@@ -46,7 +47,35 @@ def author():
 def email():
     return "support@tuflow.com"
 
+def openTuview(event, tuflowqgis):
+    if Qgis.QGIS_VERSION_INT >= 30400:
+        tuviewOpen = QgsProject().instance().readEntry("TUVIEW", "dock_opened")[0]
+        if tuviewOpen == 'Open':
+            tuflowqgis.openResultsPlottingWindow()
+            tuflowqgis.resultsPlottingDock.loadProject()
+            tuflowqgis.resultsPlottingDock.canvas.mapCanvasRefreshed.connect(
+                tuflowqgis.resultsPlottingDock.tuResults.tuResults2D.renderMap)
+            tuflowqgis.resultsPlottingDock.canvas.mapCanvasRefreshed.connect(
+                tuflowqgis.resultsPlottingDock.tuPlot.updateCurrentPlot)
+        elif tuviewOpen == 'Close':
+            tuflowqgis.openResultsPlottingWindow()
+            tuflowqgis.resultsPlottingDock.setVisible(False)
+            tuflowqgis.resultsPlottingDock.loadProject()
+            tuflowqgis.resultsPlottingDock.canvas.mapCanvasRefreshed.connect(
+                tuflowqgis.resultsPlottingDock.tuResults.tuResults2D.renderMap)
+            tuflowqgis.resultsPlottingDock.canvas.mapCanvasRefreshed.connect(
+                tuflowqgis.resultsPlottingDock.tuPlot.updateCurrentPlot)
+
 def classFactory(iface):
     # load tuflowqgis_menu class from file tuflowqgis_menu
     from .tuflowqgis_menu import tuflowqgis_menu
-    return tuflowqgis_menu(iface)
+    
+    menu = tuflowqgis_menu(iface)
+
+    # check if tuview should be opened
+    openTuview(None, menu)
+    
+    # setup signal to capture project opens so tuview can be opened if needed
+    QgsProject.instance().readProject.connect(lambda event: openTuview(event, menu))
+    
+    return menu

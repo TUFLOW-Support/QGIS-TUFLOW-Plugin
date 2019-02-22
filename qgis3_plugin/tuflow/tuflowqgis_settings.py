@@ -24,6 +24,8 @@ class stored():
 		self.CRS_ID = None
 		self.tf_exe = None
 		self.base_dir = None
+		self.engine = None
+		self.tutorial = None
 
 class TF_Settings():
 	def __init__(self):
@@ -42,10 +44,13 @@ class TF_Settings():
 			self.global_settings.CRS_ID = self.settings.value("TUFLOW/CRS", "Undefined")
 			self.global_settings.tf_exe = self.settings.value("TUFLOW/exe", "Undefined")
 			self.global_settings.base_dir = self.settings.value("TUFLOW/dir", "Undefined")
+			self.global_settings.engine = self.settings.value('TUFLOW/engine', None)
+			self.global_settings.tutorial = self.settings.value('TUFLOW/tutorial', None)
 		except:
 			error = True
 			message = 'Unable to load global setting'
-			return error, message		
+			return error, message
+		
 		#set to None type if not defined
 		if self.global_settings.CRS_ID=="Undefined":
 			self.global_settings.CRS_ID = None
@@ -59,9 +64,11 @@ class TF_Settings():
 			self.project_settings.CRS_ID = self.project.readEntry("TUFLOW","CRS","Undefined")[0]
 			self.project_settings.tf_exe = self.project.readEntry("TUFLOW","exe","Undefined")[0]
 			self.project_settings.base_dir = self.project.readEntry("TUFLOW","dir","Undefined")[0]
+			self.project_settings.engine = self.project.readEntry("TUFLOW", "engine", None)[0]
+			self.project_settings.tutorial = self.project.readEntry("TUFLOW", 'tutorial', '')[0]
 		except:
 			error = True
-			message = 'Unable to load global setting'
+			message = 'Unable to load project setting'
 			return error, message
 		#set to None type if not defined
 		if self.project_settings.CRS_ID=="Undefined":
@@ -70,6 +77,8 @@ class TF_Settings():
 			self.project_settings.tf_exe = None
 		if self.project_settings.base_dir=="Undefined":
 			self.project_settings.base_dir = None
+		if not self.project_settings.tutorial:
+			self.project_settings.tutorial = None
 			
 		#normal return
 		try:
@@ -89,6 +98,10 @@ class TF_Settings():
 				self.settings.setValue("TUFLOW/exe", self.global_settings.tf_exe)
 			if self.global_settings.base_dir:
 				self.settings.setValue("TUFLOW/dir", self.global_settings.base_dir)
+			if self.global_settings.engine:
+				self.settings.setValue("TUFLOW/engine", self.global_settings.engine)
+			if self.global_settings.tutorial:
+				self.settings.setValue('TUFLOW/tutorial', self.global_settings.tutorial)
 		except:
 			error = True
 			message = 'Unable to save global settings'
@@ -105,6 +118,10 @@ class TF_Settings():
 				self.project.writeEntry("TUFLOW", "exe", self.project_settings.tf_exe)
 			if self.project_settings.base_dir:
 				self.project.writeEntry("TUFLOW", "dir", self.project_settings.base_dir)
+			if self.project_settings.engine:
+				self.project.writeEntry("TUFLOW", "engine", self.project_settings.engine)
+			if self.project_settings.tutorial:
+				self.project.writeEntry("TUFLOW", 'tutorial', self.project_settings.tutorial)
 		except:
 			error = True
 			message = 'Unable to save project data'
@@ -132,6 +149,25 @@ class TF_Settings():
 			self.combined.base_dir = self.global_settings.base_dir
 		else:
 			self.combined.base_dir = None
+			
+		# engine
+		if self.project_settings.engine:
+			self.combined.engine = self.project_settings.engine
+		elif self.global_settings.engine:
+			self.combined.engine = self.global_settings.engine
+		else:
+			self.combined.engine = None
+			
+		# tutorial
+		if self.project_settings.tutorial:
+			if self.project_settings.tutorial == 'True':
+				self.combined.tutorial = True
+			else:
+				self.combined.tutorial = False
+		elif self.global_settings.tutorial:
+			self.combined.tutorial = self.global_settings.tutorial
+		else:
+			self.combined.tutorial = None
 			
 	def get_last_exe(self):
 		error = False

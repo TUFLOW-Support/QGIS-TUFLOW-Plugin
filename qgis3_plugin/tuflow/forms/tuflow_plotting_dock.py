@@ -27,6 +27,7 @@ class Ui_Tuplot(object):
         self.OpenResultTypes.setMinimumSize(QtCore.QSize(150, 55))
         self.OpenResultTypes.setMouseTracking(True)
         self.OpenResultTypes.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
+        self.OpenResultTypes.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.OpenResultTypes.setObjectName("OpenResultTypes")
         self.ResultsLayout.addWidget(self.OpenResultTypes, 1, 2, 7, 2)
         spacerItem = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
@@ -120,7 +121,7 @@ class Ui_Tuplot(object):
         self.btn2dLock.setAutoRaise(True)
         self.btn2dLock.setObjectName("btn2dLock")
         self.ReultOptionLayout.addWidget(self.btn2dLock, 1, 7, 1, 1)
-        self.sliderTime = QtWidgets.QSlider(self.dockWidgetContents)
+        self.sliderTime = TimeSlider(self.dockWidgetContents)
         self.sliderTime.setMaximum(100)
         self.sliderTime.setPageStep(100)
         self.sliderTime.setOrientation(QtCore.Qt.Horizontal)
@@ -214,7 +215,7 @@ class Ui_Tuplot(object):
 
     def retranslateUi(self, Tuplot):
         _translate = QtCore.QCoreApplication.translate
-        Tuplot.setWindowTitle(_translate("Tuplot", "TUFLOW"))
+        Tuplot.setWindowTitle(_translate("Tuplot", "TUFLOW Viewer"))
         self.label_2.setText(_translate("Tuplot", "Result Type"))
         self.OpenResultTypes.setToolTip(_translate("Tuplot", "Test"))
         self.cbShowCurrentTime.setText(_translate("Tuplot", "Show Current Time"))
@@ -247,4 +248,5 @@ class Ui_Tuplot(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.CrossSectionTab), _translate("Tuplot", "1D Cross Section Viewer"))
 
 from tuflow.dataset_view import DataSetView
+from tuflow.time_slider import TimeSlider
 import tuflow.resources.TUFLOW_logo_rc

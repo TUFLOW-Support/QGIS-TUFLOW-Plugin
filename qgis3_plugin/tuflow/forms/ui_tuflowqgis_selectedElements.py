@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\Users\Ellis.Symons\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\tuflow\forms\ui_tuflowqgis_selectedElements.ui'
 #
-# Created by: PyQt5 UI code generator 5.9
+# Created by: PyQt5 UI code generator 5.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -30,7 +30,7 @@ class Ui_selectedElements(object):
 
     def retranslateUi(self, selectedElements):
         _translate = QtCore.QCoreApplication.translate
-        selectedElements.setWindowTitle(_translate("selectedElements", "Tuview: Selected Elements"))
+        selectedElements.setWindowTitle(_translate("selectedElements", "TUFLOW Viewer: Selected Elements"))
         self.pbSelectElements.setText(_translate("selectedElements", "Select Elements On Map"))
         self.pbCloseWindow.setText(_translate("selectedElements", "Close Window"))
 

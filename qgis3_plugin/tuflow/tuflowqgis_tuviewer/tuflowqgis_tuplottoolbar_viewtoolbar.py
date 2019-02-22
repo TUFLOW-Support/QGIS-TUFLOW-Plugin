@@ -34,13 +34,14 @@ class ViewToolbar():
 		self.viewToolbar.resize(QSize(250, 30))
 		
 		# icons
-		refreshIcon = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\RefreshPlotBlack.png")
-		clearIcon = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\ClearPlot.png")
-		freezeXYAxisIcon = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\freeze_xyaxis.png")
-		freezeXAxisIcon = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\freeze_xaxis.png")
-		freezeYAxisIcon = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\freeze_yaxis.png")
-		legendIcon = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\legend_icon.png")
-		userPlotDataIcon = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\userPlotData.png")
+		dir = os.path.dirname(os.path.dirname(__file__))
+		refreshIcon = QIcon(os.path.join(dir, "icons", "refreshplotblack.png"))
+		clearIcon = QIcon(os.path.join(dir, "icons", "ClearPlot.png"))
+		freezeXYAxisIcon = QIcon(os.path.join(dir, "icons", "freeze_xyaxis.png"))
+		freezeXAxisIcon = QIcon(os.path.join(dir, "icons", "freeze_xaxis.png"))
+		freezeYAxisIcon = QIcon(os.path.join(dir, "icons", "freeze_yaxis.png"))
+		legendIcon = QIcon(os.path.join(dir, "icons", "legend_icon.png"))
+		userPlotDataIcon = QIcon(os.path.join(dir, "icons", "userPlotData.png"))
 		
 		# buttons
 		self.refreshPlotButton = QToolButton(self.viewToolbar)
@@ -153,8 +154,8 @@ class ViewToolbar():
 		else:
 			self.viewToolbar.setVisible(False)
 			
-	def legendPosChanged(self, posAction):
-		actions = [self.legendAuto, self.legendUL, self.legendLL, self.legendUR, self.legendLR]
+	def legendPosChanged(self, posAction, index=None):
+		actions = {self.legendAuto: 0, self.legendUL: 2, self.legendLL: 3, self.legendUR: 1, self.legendLR: 4}
 		
 		if posAction is not None:
 			for action in actions:
@@ -163,8 +164,25 @@ class ViewToolbar():
 						posAction.setChecked(True)  # cannot toggle off position - must choose a new one
 				else:
 					action.setChecked(False)
+		elif index is not None:
+			for action, i in actions.items():
+				if i == index:
+					action.setChecked(True)
+				else:
+					action.setChecked(False)
 		
 		self.tuView.refreshCurrentPlot()
 				
 		return True
 		
+	def legendCurrentIndex(self):
+		if self.legendUR.isChecked():
+			return 1
+		elif self.legendUL.isChecked():
+			return 2
+		elif self.legendLL.isChecked():
+			return 3
+		elif self.legendLR.isChecked():
+			return 4
+		else:
+			return 0

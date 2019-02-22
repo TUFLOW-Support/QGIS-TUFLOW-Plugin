@@ -48,8 +48,8 @@ class TuContextMenu():
 		
 		if not update:  # only create menu if not just an update (updates when switching between plot type tabs)
 			self.plotMenu = QMenu(self.tuView)
-		iconRefreshPlot = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\RefreshPlotBlack.png")
-		iconClearPlot = QIcon(os.path.dirname(os.path.dirname(__file__)) + "\\icons\\ClearPlot.png")
+		iconRefreshPlot = QIcon(os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons", "RefreshPlotBlack.png"))
+		iconClearPlot = QIcon(os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons" "ClearPlot.png"))
 		
 		self.userPlotDataManager_action = viewToolbar.userPlotDataManagerButton.defaultAction()
 		self.freezeAxisLimits_action = viewToolbar.freezeXYAxisButton.defaultAction()
@@ -73,6 +73,9 @@ class TuContextMenu():
 		self.plotMenu.addAction(self.refreshCurrentPlotWindow_action)
 		self.plotMenu.addAction(self.clearPlotWindow_action)
 		self.plotMenu.addSeparator()
+		copyMenu = self.plotMenu.addMenu('&Copy')
+		copyMenu.addAction(self.tuView.tuMenuBar.exportDataToClipboard_action)
+		copyMenu.addAction(self.tuView.tuMenuBar.exportImageToClipboard_action)
 		exportMenu = self.plotMenu.addMenu('&Export')
 		exportMenu.addAction(self.tuView.tuPlot.tuPlotToolbar.lstActionsTimeSeries[9])
 		exportMenu.addAction(self.exportAsCSV_action)
