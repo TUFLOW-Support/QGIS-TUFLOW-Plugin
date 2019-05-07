@@ -7,7 +7,8 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt4 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui
+from PyQt5.QtWidgets import *
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -16,12 +17,12 @@ except AttributeError:
         return s
 
 try:
-    _encoding = QtGui.QApplication.UnicodeUTF8
+    _encoding = QApplication.UnicodeUTF8
     def _translate(context, text, disambig):
-        return QtGui.QApplication.translate(context, text, disambig, _encoding)
+        return QApplication.translate(context, text, disambig, _encoding)
 except AttributeError:
     def _translate(context, text, disambig):
-        return QtGui.QApplication.translate(context, text, disambig)
+        return QApplication.translate(context, text, disambig)
 
 class Ui_tuflowqgis_1d_iface(object):
     def setupUi(self, tuflowqgis_1d_iface):
@@ -30,35 +31,35 @@ class Ui_tuflowqgis_1d_iface(object):
         tuflowqgis_1d_iface.setEnabled(True)
         tuflowqgis_1d_iface.resize(388, 460)
         tuflowqgis_1d_iface.setMouseTracking(False)
-        self.buttonBox = QtGui.QDialogButtonBox(tuflowqgis_1d_iface)
+        self.buttonBox = QDialogButtonBox(tuflowqgis_1d_iface)
         self.buttonBox.setGeometry(QtCore.QRect(100, 430, 160, 26))
         self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QtGui.QDialogButtonBox.Cancel|QtGui.QDialogButtonBox.Ok)
+        self.buttonBox.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Ok)
         self.buttonBox.setObjectName(_fromUtf8("buttonBox"))
-        self.label1 = QtGui.QLabel(tuflowqgis_1d_iface)
+        self.label1 = QLabel(tuflowqgis_1d_iface)
         self.label1.setGeometry(QtCore.QRect(10, 70, 108, 22))
         self.label1.setObjectName(_fromUtf8("label1"))
-        self.label2 = QtGui.QLabel(tuflowqgis_1d_iface)
+        self.label2 = QLabel(tuflowqgis_1d_iface)
         self.label2.setGeometry(QtCore.QRect(10, 138, 108, 22))
         self.label2.setObjectName(_fromUtf8("label2"))
-        self.ResTypeList = QtGui.QListWidget(tuflowqgis_1d_iface)
+        self.ResTypeList = QListWidget(tuflowqgis_1d_iface)
         self.ResTypeList.setGeometry(QtCore.QRect(10, 160, 191, 81))
-        self.ResTypeList.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+        self.ResTypeList.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.ResTypeList.setObjectName(_fromUtf8("ResTypeList"))
-        self.label3 = QtGui.QLabel(tuflowqgis_1d_iface)
+        self.label3 = QLabel(tuflowqgis_1d_iface)
         self.label3.setGeometry(QtCore.QRect(10, 249, 108, 22))
         self.label3.setObjectName(_fromUtf8("label3"))
-        self.IDList = QtGui.QListWidget(tuflowqgis_1d_iface)
+        self.IDList = QListWidget(tuflowqgis_1d_iface)
         self.IDList.setGeometry(QtCore.QRect(10, 270, 361, 151))
-        self.IDList.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+        self.IDList.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.IDList.setObjectName(_fromUtf8("IDList"))
-        self.locationDrop = QtGui.QComboBox(tuflowqgis_1d_iface)
+        self.locationDrop = QComboBox(tuflowqgis_1d_iface)
         self.locationDrop.setGeometry(QtCore.QRect(10, 90, 331, 22))
         self.locationDrop.setObjectName(_fromUtf8("locationDrop"))
-        self.sourcelayer = QtGui.QComboBox(tuflowqgis_1d_iface)
+        self.sourcelayer = QComboBox(tuflowqgis_1d_iface)
         self.sourcelayer.setGeometry(QtCore.QRect(10, 40, 331, 22))
         self.sourcelayer.setObjectName(_fromUtf8("sourcelayer"))
-        self.label1_2 = QtGui.QLabel(tuflowqgis_1d_iface)
+        self.label1_2 = QLabel(tuflowqgis_1d_iface)
         self.label1_2.setGeometry(QtCore.QRect(10, 20, 151, 22))
         self.label1_2.setObjectName(_fromUtf8("label1_2"))
 

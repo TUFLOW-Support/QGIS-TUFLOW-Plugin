@@ -20,8 +20,7 @@
  ***************************************************************************/
  This script initializes the plugin, making it known to QGIS.
 """
-
-from tuflowqgis_menu import tuflowqgis_menu
+from qgis.core import *
 
 def name():
     return "TUFLOW"
@@ -32,22 +31,51 @@ def description():
 
 
 def version():
-    return "Version 2017-06-AD"
+    return "Version 2018-02-AB"
 
 
 def icon():
-    return "icon.png"
+    return "tuflow.png"
 
 
 def qgisMinimumVersion():
-    return "2.0"
+    return "3.4"
 
 def author():
-    return "Phillip Ryan"
+    return "Phillip Ryan, Ellis Symons"
 
 def email():
     return "support@tuflow.com"
 
+def openTuview(event, tuflowqgis):
+    if Qgis.QGIS_VERSION_INT >= 30400:
+        tuviewOpen = QgsProject().instance().readEntry("TUVIEW", "dock_opened")[0]
+        if tuviewOpen == 'Open':
+            tuflowqgis.openResultsPlottingWindow()
+            tuflowqgis.resultsPlottingDock.loadProject()
+            tuflowqgis.resultsPlottingDock.canvas.mapCanvasRefreshed.connect(
+                tuflowqgis.resultsPlottingDock.tuResults.tuResults2D.renderMap)
+            tuflowqgis.resultsPlottingDock.canvas.mapCanvasRefreshed.connect(
+                tuflowqgis.resultsPlottingDock.tuPlot.updateCurrentPlot)
+        elif tuviewOpen == 'Close':
+            tuflowqgis.openResultsPlottingWindow()
+            tuflowqgis.resultsPlottingDock.setVisible(False)
+            tuflowqgis.resultsPlottingDock.loadProject()
+            tuflowqgis.resultsPlottingDock.canvas.mapCanvasRefreshed.connect(
+                tuflowqgis.resultsPlottingDock.tuResults.tuResults2D.renderMap)
+            tuflowqgis.resultsPlottingDock.canvas.mapCanvasRefreshed.connect(
+                tuflowqgis.resultsPlottingDock.tuPlot.updateCurrentPlot)
+
 def classFactory(iface):
     # load tuflowqgis_menu class from file tuflowqgis_menu
-    return tuflowqgis_menu(iface)
+    from .tuflowqgis_menu import tuflowqgis_menu
+    
+    menu = tuflowqgis_menu(iface)
+
+    # check if tuview should be opened
+    openTuview(None, menu)
+    
+    # setup signal to capture project opens so tuview can be opened if needed
+    QgsProject.instance().readProject.connect(lambda event: openTuview(event, menu))
+    
+    return menu

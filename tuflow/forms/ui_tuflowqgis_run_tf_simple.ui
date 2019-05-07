@@ -34,12 +34,12 @@
     <rect>
      <x>10</x>
      <y>23</y>
-     <width>141</width>
+     <width>191</width>
      <height>22</height>
     </rect>
    </property>
    <property name="text">
-    <string>TUFLOW Control File (.tcf)</string>
+    <string>TUFLOW Control File (.tcf or .fvc)</string>
    </property>
   </widget>
   <widget class="QLineEdit" name="tcf">
@@ -52,7 +52,7 @@
     </rect>
    </property>
    <property name="text">
-    <string>&lt;.tcf file&gt;</string>
+    <string>&lt;control file&gt;</string>
    </property>
    <property name="readOnly">
     <bool>false</bool>

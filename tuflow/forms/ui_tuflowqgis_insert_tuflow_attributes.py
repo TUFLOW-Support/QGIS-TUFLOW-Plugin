@@ -7,7 +7,8 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt4 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui
+from PyQt5.QtWidgets import *
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -16,12 +17,12 @@ except AttributeError:
         return s
 
 try:
-    _encoding = QtGui.QApplication.UnicodeUTF8
+    _encoding = QApplication.UnicodeUTF8
     def _translate(context, text, disambig):
-        return QtGui.QApplication.translate(context, text, disambig, _encoding)
+        return QApplication.translate(context, text, disambig, _encoding)
 except AttributeError:
     def _translate(context, text, disambig):
-        return QtGui.QApplication.translate(context, text, disambig)
+        return QApplication.translate(context, text, disambig)
 
 class Ui_tuflowqgis_insert_tuflow_attributes(object):
     def setupUi(self, tuflowqgis_insert_tuflow_attributes):
@@ -30,38 +31,38 @@ class Ui_tuflowqgis_insert_tuflow_attributes(object):
         tuflowqgis_insert_tuflow_attributes.setEnabled(True)
         tuflowqgis_insert_tuflow_attributes.resize(372, 242)
         tuflowqgis_insert_tuflow_attributes.setMouseTracking(False)
-        self.buttonBox = QtGui.QDialogButtonBox(tuflowqgis_insert_tuflow_attributes)
+        self.buttonBox = QDialogButtonBox(tuflowqgis_insert_tuflow_attributes)
         self.buttonBox.setGeometry(QtCore.QRect(200, 210, 160, 26))
         self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QtGui.QDialogButtonBox.Cancel|QtGui.QDialogButtonBox.Ok)
+        self.buttonBox.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Ok)
         self.buttonBox.setObjectName(_fromUtf8("buttonBox"))
-        self.label1 = QtGui.QLabel(tuflowqgis_insert_tuflow_attributes)
+        self.label1 = QLabel(tuflowqgis_insert_tuflow_attributes)
         self.label1.setGeometry(QtCore.QRect(10, 10, 108, 22))
         self.label1.setObjectName(_fromUtf8("label1"))
-        self.emptydir = QtGui.QLineEdit(tuflowqgis_insert_tuflow_attributes)
+        self.emptydir = QLineEdit(tuflowqgis_insert_tuflow_attributes)
         self.emptydir.setGeometry(QtCore.QRect(10, 30, 261, 21))
         self.emptydir.setReadOnly(False)
         self.emptydir.setObjectName(_fromUtf8("emptydir"))
-        self.browsedir = QtGui.QPushButton(tuflowqgis_insert_tuflow_attributes)
+        self.browsedir = QPushButton(tuflowqgis_insert_tuflow_attributes)
         self.browsedir.setGeometry(QtCore.QRect(281, 27, 79, 26))
         self.browsedir.setObjectName(_fromUtf8("browsedir"))
-        self.label2 = QtGui.QLabel(tuflowqgis_insert_tuflow_attributes)
+        self.label2 = QLabel(tuflowqgis_insert_tuflow_attributes)
         self.label2.setGeometry(QtCore.QRect(10, 110, 121, 22))
         self.label2.setObjectName(_fromUtf8("label2"))
-        self.txtRunID = QtGui.QLineEdit(tuflowqgis_insert_tuflow_attributes)
+        self.txtRunID = QLineEdit(tuflowqgis_insert_tuflow_attributes)
         self.txtRunID.setGeometry(QtCore.QRect(10, 180, 261, 21))
         self.txtRunID.setReadOnly(False)
         self.txtRunID.setObjectName(_fromUtf8("txtRunID"))
-        self.label3 = QtGui.QLabel(tuflowqgis_insert_tuflow_attributes)
+        self.label3 = QLabel(tuflowqgis_insert_tuflow_attributes)
         self.label3.setGeometry(QtCore.QRect(10, 160, 108, 22))
         self.label3.setObjectName(_fromUtf8("label3"))
-        self.label3_2 = QtGui.QLabel(tuflowqgis_insert_tuflow_attributes)
+        self.label3_2 = QLabel(tuflowqgis_insert_tuflow_attributes)
         self.label3_2.setGeometry(QtCore.QRect(10, 60, 108, 22))
         self.label3_2.setObjectName(_fromUtf8("label3_2"))
-        self.comboBox_inputLayer = QtGui.QComboBox(tuflowqgis_insert_tuflow_attributes)
+        self.comboBox_inputLayer = QComboBox(tuflowqgis_insert_tuflow_attributes)
         self.comboBox_inputLayer.setGeometry(QtCore.QRect(10, 80, 351, 22))
         self.comboBox_inputLayer.setObjectName(_fromUtf8("comboBox_inputLayer"))
-        self.comboBox_tfType = QtGui.QComboBox(tuflowqgis_insert_tuflow_attributes)
+        self.comboBox_tfType = QComboBox(tuflowqgis_insert_tuflow_attributes)
         self.comboBox_tfType.setGeometry(QtCore.QRect(10, 130, 261, 22))
         self.comboBox_tfType.setObjectName(_fromUtf8("comboBox_tfType"))
         self.comboBox_tfType.addItem(_fromUtf8(""))
@@ -99,8 +100,10 @@ class Ui_tuflowqgis_insert_tuflow_attributes(object):
         self.comboBox_tfType.addItem(_fromUtf8(""))
 
         self.retranslateUi(tuflowqgis_insert_tuflow_attributes)
-        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL(_fromUtf8("accepted()")), tuflowqgis_insert_tuflow_attributes.accept)
-        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL(_fromUtf8("rejected()")), tuflowqgis_insert_tuflow_attributes.reject)
+        #QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL(_fromUtf8("accepted()")), tuflowqgis_insert_tuflow_attributes.accept)
+        self.buttonBox.accepted.connect(tuflowqgis_insert_tuflow_attributes.accept)
+        #QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL(_fromUtf8("rejected()")), tuflowqgis_insert_tuflow_attributes.reject)
+        self.buttonBox.rejected.connect(tuflowqgis_insert_tuflow_attributes.reject)
         QtCore.QMetaObject.connectSlotsByName(tuflowqgis_insert_tuflow_attributes)
 
     def retranslateUi(self, tuflowqgis_insert_tuflow_attributes):

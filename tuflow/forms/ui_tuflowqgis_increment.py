@@ -1,78 +1,91 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'ui_tuflowqgis_increment.ui'
+# Form implementation generated from reading ui file 'C:\Users\Ellis.Symons\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\tuflow\forms\ui_tuflowqgis_increment.ui'
 #
-# Created: Tue Mar 29 20:47:10 2016
-#      by: PyQt4 UI code generator 4.11.1
+# Created by: PyQt5 UI code generator 5.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt4 import QtCore, QtGui
-
-try:
-    _fromUtf8 = QtCore.QString.fromUtf8
-except AttributeError:
-    def _fromUtf8(s):
-        return s
-
-try:
-    _encoding = QtGui.QApplication.UnicodeUTF8
-    def _translate(context, text, disambig):
-        return QtGui.QApplication.translate(context, text, disambig, _encoding)
-except AttributeError:
-    def _translate(context, text, disambig):
-        return QtGui.QApplication.translate(context, text, disambig)
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 class Ui_tuflowqgis_increment(object):
     def setupUi(self, tuflowqgis_increment):
-        tuflowqgis_increment.setObjectName(_fromUtf8("tuflowqgis_increment"))
-        tuflowqgis_increment.resize(400, 275)
-        self.buttonBox = QtGui.QDialogButtonBox(tuflowqgis_increment)
-        self.buttonBox.setGeometry(QtCore.QRect(-60, 230, 341, 32))
-        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QtGui.QDialogButtonBox.Cancel|QtGui.QDialogButtonBox.Ok)
-        self.buttonBox.setObjectName(_fromUtf8("buttonBox"))
-        self.label_1 = QtGui.QLabel(tuflowqgis_increment)
-        self.label_1.setGeometry(QtCore.QRect(12, 10, 108, 22))
-        self.label_1.setObjectName(_fromUtf8("label_1"))
-        self.sourcelayer = QtGui.QComboBox(tuflowqgis_increment)
-        self.sourcelayer.setGeometry(QtCore.QRect(10, 30, 361, 27))
-        self.sourcelayer.setObjectName(_fromUtf8("sourcelayer"))
-        self.label = QtGui.QLabel(tuflowqgis_increment)
-        self.label.setGeometry(QtCore.QRect(10, 170, 108, 22))
-        self.label.setObjectName(_fromUtf8("label"))
-        self.outfilename = QtGui.QLineEdit(tuflowqgis_increment)
-        self.outfilename.setGeometry(QtCore.QRect(10, 190, 261, 21))
-        self.outfilename.setReadOnly(False)
-        self.outfilename.setObjectName(_fromUtf8("outfilename"))
-        self.browseoutfile = QtGui.QPushButton(tuflowqgis_increment)
-        self.browseoutfile.setGeometry(QtCore.QRect(290, 190, 79, 26))
-        self.browseoutfile.setObjectName(_fromUtf8("browseoutfile"))
-        self.label_2 = QtGui.QLabel(tuflowqgis_increment)
-        self.label_2.setGeometry(QtCore.QRect(10, 120, 108, 22))
-        self.label_2.setObjectName(_fromUtf8("label_2"))
-        self.outfolder = QtGui.QLineEdit(tuflowqgis_increment)
-        self.outfolder.setGeometry(QtCore.QRect(10, 140, 361, 21))
+        tuflowqgis_increment.setObjectName("tuflowqgis_increment")
+        tuflowqgis_increment.resize(444, 330)
+        self.verticalLayout_2 = QtWidgets.QVBoxLayout(tuflowqgis_increment)
+        self.verticalLayout_2.setObjectName("verticalLayout_2")
+        self.verticalLayout = QtWidgets.QVBoxLayout()
+        self.verticalLayout.setObjectName("verticalLayout")
+        self.label_1 = QtWidgets.QLabel(tuflowqgis_increment)
+        self.label_1.setObjectName("label_1")
+        self.verticalLayout.addWidget(self.label_1)
+        self.sourcelayer = QtWidgets.QComboBox(tuflowqgis_increment)
+        self.sourcelayer.setObjectName("sourcelayer")
+        self.verticalLayout.addWidget(self.sourcelayer)
+        self.label_2 = QtWidgets.QLabel(tuflowqgis_increment)
+        self.label_2.setObjectName("label_2")
+        self.verticalLayout.addWidget(self.label_2)
+        self.outfolder = QtWidgets.QLineEdit(tuflowqgis_increment)
         self.outfolder.setReadOnly(False)
-        self.outfolder.setObjectName(_fromUtf8("outfolder"))
-        self.checkBox = QtGui.QCheckBox(tuflowqgis_increment)
-        self.checkBox.setGeometry(QtCore.QRect(10, 70, 141, 17))
-        self.checkBox.setAcceptDrops(False)
-        self.checkBox.setChecked(False)
-        self.checkBox.setObjectName(_fromUtf8("checkBox"))
+        self.outfolder.setObjectName("outfolder")
+        self.verticalLayout.addWidget(self.outfolder)
+        self.label = QtWidgets.QLabel(tuflowqgis_increment)
+        self.label.setObjectName("label")
+        self.verticalLayout.addWidget(self.label)
+        self.gridLayout = QtWidgets.QGridLayout()
+        self.gridLayout.setObjectName("gridLayout")
+        self.outfilename = QtWidgets.QLineEdit(tuflowqgis_increment)
+        self.outfilename.setReadOnly(False)
+        self.outfilename.setObjectName("outfilename")
+        self.gridLayout.addWidget(self.outfilename, 0, 0, 1, 1)
+        self.browseoutfile = QtWidgets.QPushButton(tuflowqgis_increment)
+        self.browseoutfile.setObjectName("browseoutfile")
+        self.gridLayout.addWidget(self.browseoutfile, 0, 1, 1, 1)
+        self.verticalLayout.addLayout(self.gridLayout)
+        self.cbMoveToSS = QtWidgets.QCheckBox(tuflowqgis_increment)
+        self.cbMoveToSS.setObjectName("cbMoveToSS")
+        self.verticalLayout.addWidget(self.cbMoveToSS)
+        self.rbRemoveSource = QtWidgets.QRadioButton(tuflowqgis_increment)
+        self.rbRemoveSource.setChecked(True)
+        self.rbRemoveSource.setObjectName("rbRemoveSource")
+        self.buttonGroup = QtWidgets.QButtonGroup(tuflowqgis_increment)
+        self.buttonGroup.setObjectName("buttonGroup")
+        self.buttonGroup.addButton(self.rbRemoveSource)
+        self.verticalLayout.addWidget(self.rbRemoveSource)
+        self.rbKeepSource = QtWidgets.QRadioButton(tuflowqgis_increment)
+        self.rbKeepSource.setObjectName("rbKeepSource")
+        self.buttonGroup.addButton(self.rbKeepSource)
+        self.verticalLayout.addWidget(self.rbKeepSource)
+        spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.verticalLayout.addItem(spacerItem)
+        self.horizontalLayout = QtWidgets.QHBoxLayout()
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem1)
+        self.pbOk = QtWidgets.QPushButton(tuflowqgis_increment)
+        self.pbOk.setObjectName("pbOk")
+        self.horizontalLayout.addWidget(self.pbOk)
+        self.pbCancel = QtWidgets.QPushButton(tuflowqgis_increment)
+        self.pbCancel.setObjectName("pbCancel")
+        self.horizontalLayout.addWidget(self.pbCancel)
+        self.verticalLayout.addLayout(self.horizontalLayout)
+        self.verticalLayout_2.addLayout(self.verticalLayout)
 
         self.retranslateUi(tuflowqgis_increment)
-        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL(_fromUtf8("accepted()")), tuflowqgis_increment.accept)
-        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL(_fromUtf8("rejected()")), tuflowqgis_increment.reject)
         QtCore.QMetaObject.connectSlotsByName(tuflowqgis_increment)
 
     def retranslateUi(self, tuflowqgis_increment):
-        tuflowqgis_increment.setWindowTitle(_translate("tuflowqgis_increment", "Increment Selected Layer", None))
-        self.label_1.setText(_translate("tuflowqgis_increment", "Source Layer", None))
-        self.label.setText(_translate("tuflowqgis_increment", "Output File", None))
-        self.outfilename.setText(_translate("tuflowqgis_increment", "<filename.shp>", None))
-        self.browseoutfile.setText(_translate("tuflowqgis_increment", "Browse...", None))
-        self.label_2.setText(_translate("tuflowqgis_increment", "Output Folder", None))
-        self.outfolder.setText(_translate("tuflowqgis_increment", "<outfolder>", None))
-        self.checkBox.setText(_translate("tuflowqgis_increment", "Keep Source Formatting", None))
+        _translate = QtCore.QCoreApplication.translate
+        tuflowqgis_increment.setWindowTitle(_translate("tuflowqgis_increment", "Increment Selected Layer"))
+        self.label_1.setText(_translate("tuflowqgis_increment", "Source Layer"))
+        self.label_2.setText(_translate("tuflowqgis_increment", "Output Folder"))
+        self.outfolder.setText(_translate("tuflowqgis_increment", "<outfolder>"))
+        self.label.setText(_translate("tuflowqgis_increment", "Output File"))
+        self.outfilename.setText(_translate("tuflowqgis_increment", "<filename.shp>"))
+        self.browseoutfile.setText(_translate("tuflowqgis_increment", "Browse..."))
+        self.cbMoveToSS.setText(_translate("tuflowqgis_increment", "Move Source Layer to Superseded (SS) folder"))
+        self.rbRemoveSource.setText(_translate("tuflowqgis_increment", "Remove Source Layer from Workspace"))
+        self.rbKeepSource.setText(_translate("tuflowqgis_increment", "Keep Source Layer in Workspace"))
+        self.pbOk.setText(_translate("tuflowqgis_increment", "OK"))
+        self.pbCancel.setText(_translate("tuflowqgis_increment", "Cancel"))
 

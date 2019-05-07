@@ -1,0 +1,10 @@
+location == TUFLOW Control File (.tcf)
+
+command == Read GIS FC
+
+description == Used for 2D flow constrictions, representing additional losses associated with bridges or box culverts. This command has been superseded with the TGC commands:\n\tRead GIS FC Shape\nRead GIS Layered FC Shape.\n\tThe template file and command only remain for the purpose of version backward compatibility.
+
+wiki link == https://wiki.tuflow.com/index.php?title=TUFLOW_Empty_Files#TUFLOW_Control_file_.28TCF.29
+
+manual link == https://www.tuflow.com/Download/TUFLOW/Releases/2017-09/TUFLOW%20Manual.2017-09-AC.pdf
+manual page == 287

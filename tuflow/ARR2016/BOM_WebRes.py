@@ -15,6 +15,12 @@ class Bom:
         self.aep = None
         self.aep_names = []
         self.depths = None
+        self.winter_factor_1d_standard = []
+        self.winter_factor_7d_standard = []
+        self.winter_factor_1d_frequent = []
+        self.winter_factor_7d_frequent = []
+        self.winter_factor_1d_rare = []
+        self.winter_factor_7d_rare = []
 
     # noinspection PyBroadException
     def load(self, fname, frequent_events, rare_events):
@@ -43,6 +49,10 @@ class Bom:
                 duration = []
                 vals = []
                 naep = 0
+                winter_factor_1d_standard = []
+                winter_factor_7d_standard = []
+                wf1d_next = False  # the next ifdTableHeader is winter factor 1 day
+                wf7d_next = False  # the next ifdTableHeader is winter factor 7 day
                 while not finished:
                     l2 = next(fi)
                     if l2.find('</table>') >= 0:
@@ -63,6 +73,12 @@ class Bom:
                                 self.error = True
                                 self.message = 'Unable to convert to duration {0}'.format(l2)
                                 return
+                            
+                    elif l2.find('1 day winter factor') >= 0:
+                        wf1d_next = True  # next ifdAepTableColumn is winter factor
+                        
+                    elif l2.find('7 day winter factor') >= 0:
+                        wf7d_next = True  # next ifdAepTableColumn is winter factor
 
                     elif l2.find('ifdAepTableColumn') >= 0:
                         if header:  # read AEP
@@ -80,6 +96,58 @@ class Bom:
                                     self.message = 'Unable to convert to AEP {0}'.format(col)
                                     return
                             naep = len(aep)
+                        elif wf1d_next:
+                            cols = l2.split('</td>')
+                            cols.pop(-1)
+                            row = []
+                            for col in cols:
+                                col = col.strip()
+                                try:
+                                    tmps = col[col.rfind('>') + 1:]
+                                    winter_factor_1d_standard.append(float(tmps))
+                                except TypeError:
+                                    # float can accept string, int, float types
+                                    # so if this fails something has gone wrong
+                                    self.error = True
+                                    self.message = 'Unable to convert to depths {0}'.format(col)
+                                    return
+                                except ValueError:
+                                    # probably a string object that is not a number
+                                    # e.g. '-' so factor would be 1.0
+                                    winter_factor_1d_standard.append(1.0)
+                            if len(winter_factor_1d_standard) == naep:
+                                wf1d_next = False
+                            else:
+                                self.error = True
+                                self.message = \
+                                    'Number of columns extracted does not match number of AEPs\n Line: '.format(l2)
+                                return
+                        elif wf7d_next:
+                            cols = l2.split('</td>')
+                            cols.pop(-1)
+                            row = []
+                            for col in cols:
+                                col = col.strip()
+                                try:
+                                    tmps = col[col.rfind('>') + 1:]
+                                    winter_factor_7d_standard.append(float(tmps))
+                                except TypeError:
+                                    # float can accept string, int, float types
+                                    # so if this fails something has gone wrong
+                                    self.error = True
+                                    self.message = 'Unable to convert to depths {0}'.format(col)
+                                    return
+                                except ValueError:
+                                    # probably a string object that is not a number
+                                    # e.g. '-' so factor would be 1.0
+                                    winter_factor_7d_standard.append(1.0)
+                            if len(winter_factor_7d_standard) == naep:
+                                wf7d_next = False
+                            else:
+                                self.error = True
+                                self.message = \
+                                    'Number of columns extracted does not match number of AEPs\n Line: '.format(l2)
+                                return
                         else:  # normal row of data
                             cols = l2.split('</td>')
                             cols.pop(-1)
@@ -90,9 +158,15 @@ class Bom:
                                     tmps = col[col.rfind('>') + 1:]
                                     row.append(float(tmps))
                                 except TypeError:
+                                    # float can accept string, int, float types
+                                    # so if this fails something has gone wrong
                                     self.error = True
                                     self.message = 'Unable to convert to depths {0}'.format(col)
                                     return
+                                except ValueError:
+                                    # probably a string object that is not a number
+                                    # e.g. '-' so let tool run and use a value of zero
+                                    row.append(0)
                             if len(row) == naep:
                                 vals.append(row)
                             else:
@@ -100,6 +174,8 @@ class Bom:
                                 self.message = \
                                     'Number of columns extracted does not match number of AEPs\n Line: '.format(l2)
                                 return
+                self.winter_factor_1d_standard = winter_factor_1d_standard[:]
+                self.winter_factor_7d_standard = winter_factor_7d_standard[:]
         if not found:
             self.error = True
             self.message = 'No data read - check .html file is complete'
@@ -128,6 +204,10 @@ class Bom:
                     header = True
                     duration_frequent = []
                     naep_frequent = 0
+                    winter_factor_1d_frequent = []
+                    winter_factor_7d_frequent = []
+                    wf1d_next = False  # the next ifdTableHeader is winter factor 1 day
+                    wf7d_next = False  # the next ifdTableHeader is winter factor 7 day
                     while not finished:
                         l2 = next(fi)
                         if l2.find('</table>') >= 0:
@@ -149,6 +229,12 @@ class Bom:
                                     self.message = 'Unable to convert to duration {0}'.format(l2)
                                     return
 
+                        elif l2.find('1 day winter factor') >= 0:
+                            wf1d_next = True  # next ifdAepTableColumn is winter factor
+
+                        elif l2.find('7 day winter factor') >= 0:
+                            wf7d_next = True  # next ifdAepTableColumn is winter factor
+
                         elif l2.find('ifdAepTableColumn') >= 0:
                             if header:  # read AEP
                                 header = False
@@ -166,6 +252,58 @@ class Bom:
                                         self.message = 'Unable to convert to AEP {0}'.format(col)
                                         return
                                 naep_frequent = len(aep_frequent)
+                            elif wf1d_next:
+                                cols = l2.split('</td>')
+                                cols.pop(-1)
+                                row = []
+                                for col in cols:
+                                    col = col.strip()
+                                    try:
+                                        tmps = col[col.rfind('>') + 1:]
+                                        winter_factor_1d_frequent.append(float(tmps))
+                                    except TypeError:
+                                        # float can accept string, int, float types
+                                        # so if this fails something has gone wrong
+                                        self.error = True
+                                        self.message = 'Unable to convert to depths {0}'.format(col)
+                                        return
+                                    except ValueError:
+                                        # probably a string object that is not a number
+                                        # e.g. '-' so factor would be 1.0
+                                        winter_factor_1d_frequent.append(1.0)
+                                if len(winter_factor_1d_frequent) == naep_frequent + 1:
+                                    wf1d_next = False
+                                else:
+                                    self.error = True
+                                    self.message = \
+                                        'Number of columns extracted does not match number of AEPs\n Line: '.format(l2)
+                                    return
+                            elif wf7d_next:
+                                cols = l2.split('</td>')
+                                cols.pop(-1)
+                                row = []
+                                for col in cols:
+                                    col = col.strip()
+                                    try:
+                                        tmps = col[col.rfind('>') + 1:]
+                                        winter_factor_7d_frequent.append(float(tmps))
+                                    except TypeError:
+                                        # float can accept string, int, float types
+                                        # so if this fails something has gone wrong
+                                        self.error = True
+                                        self.message = 'Unable to convert to depths {0}'.format(col)
+                                        return
+                                    except ValueError:
+                                        # probably a string object that is not a number
+                                        # e.g. '-' so factor would be 1.0
+                                        winter_factor_7d_frequent.append(1.0)
+                                if len(winter_factor_7d_frequent) == naep_frequent + 1:
+                                    wf7d_next = False
+                                else:
+                                    self.error = True
+                                    self.message = \
+                                        'Number of columns extracted does not match number of AEPs\n Line: '.format(l2)
+                                    return
                             else:  # normal row of data
                                 cols = l2.split('</td>')
                                 cols.pop(-1)
@@ -176,9 +314,15 @@ class Bom:
                                         tmps = col[col.rfind('>') + 1:]
                                         row.append(float(tmps))
                                     except TypeError:
+                                        # float() can accept string, int, float types
+                                        # so if this fails something has gone wrong
                                         self.error = True
                                         self.message = 'Unable to convert to depths {0}'.format(col)
                                         return
+                                    except ValueError:
+                                        # probably a string object that is not a number
+                                        # e.g. '-' so factor would be 1.0
+                                        winter_factor_1d_frequent.append(1.0)
                                 if len(row) == naep_frequent + 1:
                                     vals_frequent.append(row[:5] + row[6:])
                                 else:
@@ -186,6 +330,8 @@ class Bom:
                                     self.message = \
                                         'Number of columns extracted does not match number of AEPs\n Line: '.format(l2)
                                     return
+                    self.winter_factor_1d_frequent = winter_factor_1d_frequent[:]
+                    self.winter_factor_7d_frequent = winter_factor_7d_frequent[:]
             if not found:
                 self.error = True
                 self.message = 'No data read - check .html file is complete'
@@ -220,6 +366,10 @@ class Bom:
                     header = True
                     duration_rare = []
                     naep_rare = 0
+                    winter_factor_1d_rare = []
+                    winter_factor_7d_rare = []
+                    wf1d_next = False
+                    wf7d_next = False
                     while not finished:
                         l2 = next(fi)
                         if l2.find('</table>') >= 0:
@@ -240,6 +390,12 @@ class Bom:
                                     self.error = True
                                     self.message = 'Unable to convert to duration {0}'.format(l2)
                                     return
+                                
+                        elif l2.find('1 day winter factor') >= 0:
+                            wf1d_next = True  # next ifdAepTableColumn is winter factor
+
+                        elif l2.find('7 day winter factor') >= 0:
+                            wf7d_next = True  # next ifdAepTableColumn is winter factor
 
                         elif l2.find('ifdAepTableColumn') >= 0:
                             if header:  # read AEP
@@ -258,6 +414,58 @@ class Bom:
                                         self.message = 'Unable to convert to AEP {0}'.format(col)
                                         return
                                 naep_rare = len(aep_rare)
+                            elif wf1d_next:
+                                cols = l2.split('</td>')
+                                cols.pop(-1)
+                                row = []
+                                for col in cols:
+                                    col = col.strip()
+                                    try:
+                                        tmps = col[col.rfind('>') + 1:]
+                                        winter_factor_1d_rare.append(float(tmps))
+                                    except TypeError:
+                                        # float can accept string, int, float types
+                                        # so if this fails something has gone wrong
+                                        self.error = True
+                                        self.message = 'Unable to convert to depths {0}'.format(col)
+                                        return
+                                    except ValueError:
+                                        # probably a string object that is not a number
+                                        # e.g. '-' so factor would be 1.0
+                                        winter_factor_1d_rare.append(1.0)
+                                if len(winter_factor_1d_rare) == naep_rare + 1:
+                                    wf1d_next = False
+                                else:
+                                    self.error = True
+                                    self.message = \
+                                        'Number of columns extracted does not match number of AEPs\n Line: '.format(l2)
+                                    return
+                            elif wf7d_next:
+                                cols = l2.split('</td>')
+                                cols.pop(-1)
+                                row = []
+                                for col in cols:
+                                    col = col.strip()
+                                    try:
+                                        tmps = col[col.rfind('>') + 1:]
+                                        winter_factor_7d_rare.append(float(tmps))
+                                    except TypeError:
+                                        # float can accept string, int, float types
+                                        # so if this fails something has gone wrong
+                                        self.error = True
+                                        self.message = 'Unable to convert to depths {0}'.format(col)
+                                        return
+                                    except ValueError:
+                                        # probably a string object that is not a number
+                                        # e.g. '-' so factor would be 1.0
+                                        winter_factor_7d_rare.append(1.0)
+                                if len(winter_factor_7d_rare) == naep_rare + 1:
+                                    wf7d_next = False
+                                else:
+                                    self.error = True
+                                    self.message = \
+                                        'Number of columns extracted does not match number of AEPs\n Line: '.format(l2)
+                                    return
                             else:  # normal row of data
                                 cols = l2.split('</td>')
                                 cols.pop(-1)
@@ -278,6 +486,8 @@ class Bom:
                                     self.message = \
                                         'Number of columns extracted does not match number of AEPs\n Line: '.format(l2)
                                     return
+                    self.winter_factor_1d_rare = winter_factor_1d_rare[:]
+                    self.winter_factor_7d_rare = winter_factor_7d_rare[:]
             if not found:
                 self.error = True
                 self.message = 'No data read - check .html file is complete'
@@ -304,14 +514,14 @@ class Bom:
                 val = vals[i]
                 for j in range(naep):
                     depths_normal[i, j] = val[j]
-#
+
             if frequent_events:
                 depths_frequent = numpy.ones((ndur_frequent, naep_frequent)) * -99
                 for i in range(ndur_frequent):
                     val = vals_frequent[i]
                     for j in range(naep_frequent):
                         depths_frequent[i, j] = val[j]
-#
+
             if rare_events:
                 depths_rare = numpy.ones((ndur_rare, naep_rare)) * -99
                 for i in range(ndur_rare):
@@ -320,8 +530,8 @@ class Bom:
                         depths_rare[i, j] = val[j]
                 com_aep, com_dur, dep_com, com_dur_index = common_data(aep_rare, duration, aep_rare,
                                                                        duration_rare, depths_normal)
-                depths_rare = extend_array(com_dur_index, com_aep, depths_rare, duration)
-#
+                depths_rare = extend_array_dur(com_dur_index, com_aep, depths_rare, duration)
+
             depths = depths_normal
             if frequent_events:
                 depths = numpy.append(depths_frequent, depths, axis=1)
@@ -351,6 +561,9 @@ class Bom:
             os.mkdir(os.path.dirname(fname))
         try:
             fo = open(fname, 'w')
+        except PermissionError:
+            self.error = True
+            self.message = 'File is locked for editing: {0}'.format(fname)
         except IOError:
             self.error = True
             self.message = 'Unexpected error opening file {0}'.format(fname)

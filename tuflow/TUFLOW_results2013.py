@@ -2,6 +2,7 @@ import os
 import numpy
 import csv
 import sys
+from tuflow.tuflowqgis_library import getOSIndependentFilePath
 version = '2015-05-AA'
 
 class LP():
@@ -537,7 +538,7 @@ class ResData():
 
     
     def Load(self, fname, qgis):
-        self.filename == fname
+        self.filename = fname
         self.fpath = os.path.dirname(fname)
         try:
             data = numpy.genfromtxt(fname, dtype=str, delimiter="==")
@@ -550,20 +551,20 @@ class ResData():
             dat_type = tmp.strip()
             tmp = data[i,1]
             rdata = tmp.strip()
-            if (dat_type=='Format Version'):
+            if dat_type == 'Format Version':
                 self.formatVersion = int(rdata)
-            elif (dat_type=='Units'):
+            elif dat_type == 'Units':
                 self.units = rdata
-            elif (dat_type=='Simulation ID'):
+            elif dat_type == 'Simulation ID':
                 self.displayname = rdata
-            elif (dat_type=='Number Channels'):
+            elif dat_type == 'Number Channels':
                 #self.nChannels = int(rdata)
                 self.Data_1D.nChan = int(rdata)
-            elif (dat_type=='Number Nodes'):
+            elif dat_type == 'Number Nodes':
                 self.Data_1D.nNode = int(rdata)
-            elif (dat_type=='Channel Info'):
+            elif dat_type == 'Channel Info':
                 if rdata != 'NONE':
-                    fullpath = os.path.join(self.fpath,rdata)
+                    fullpath = getOSIndependentFilePath(self.fpath, rdata)
                     if not os.path.isfile(fullpath):
                         print (fullpath+' does not exist')
                         fname = rdata.replace('_1d_','_1d_1d_')
@@ -571,34 +572,34 @@ class ResData():
                     self.Channels = ChanInfo(fullpath)
                     if (self.Data_1D.nChan != self.Channels.nChan):
                         raise RuntimeError("Number of Channels does not match value in .info")
-            elif (dat_type=='Node Info'):
+            elif dat_type == 'Node Info':
                 if rdata != 'NONE':
-                    fullpath = os.path.join(self.fpath,rdata)
+                    fullpath = getOSIndependentFilePath(self.fpath, rdata)
                     if not os.path.isfile(fullpath):
                         print(fullpath+' does not exist')
                         fname = rdata.replace('_1d_','_1d_1d_')
                         fullpath = os.path.join(self.fpath,fname)
                     self.nodes = NodeInfo(fullpath)
-            elif (dat_type=='Water Levels'):
+            elif dat_type == 'Water Levels':
                 if rdata != 'NONE':
-                    fullpath = os.path.join(self.fpath,rdata)
-                    self.Data_1D.H = Timeseries(fullpath,'H',self.displayname)
+                    fullpath = getOSIndependentFilePath(self.fpath, rdata)
+                    self.Data_1D.H = Timeseries(fullpath, 'H', self.displayname)
                     self.nTypes = self.nTypes + 1
                     self.Types.append('1D Water Levels')
                     if self.nTypes == 1:
                         self.times = self.Data_1D.H.Values[:,1]
-            elif (dat_type=='Flows'):
+            elif dat_type == 'Flows':
                 if rdata != 'NONE':
-                    fullpath = os.path.join(self.fpath,rdata)
-                    self.Data_1D.Q = Timeseries(fullpath,'Q',self.displayname)
+                    fullpath = getOSIndependentFilePath(self.fpath, rdata)
+                    self.Data_1D.Q = Timeseries(fullpath, 'Q', self.displayname)
                     self.nTypes = self.nTypes + 1
                     self.Types.append('1D Flows')
                     if self.nTypes == 1:
                         self.times = self.Data_1D.Q.Values[:,1]
-            elif (dat_type=='Velocities'):
+            elif dat_type == 'Velocities':
                 if rdata != 'NONE':
-                    fullpath = os.path.join(self.fpath,rdata)
-                    self.Data_1D.V = Timeseries(fullpath,'V',self.displayname)
+                    fullpath = getOSIndependentFilePath(self.fpath, rdata)
+                    self.Data_1D.V = Timeseries(fullpath, 'V', self.displayname)
                     self.nTypes = self.nTypes + 1
                     self.Types.append('1D Velocities')
                     if self.nTypes == 1:
@@ -708,7 +709,7 @@ class ResData():
                 types.append('Energy Level')
             # types.append('Energy Level at Time')
     
-        types.append('Bed Elevation')
+        types.append('Bed Level')
         #types.append('Culverts and Pipes')
         types.append('Left Bank Obvert')
         types.append('Right Bank Obvert')
@@ -748,7 +749,7 @@ class ResData():
     
         if 'water level' in type.lower():
             if time == -99999:
-                return (None, None)  # max not possible for 2013 results
+                return (self.LP.dist_chan_inverts, self.LP.Hmax)
             else:
                 error, message = self.LP_getData('Water Level', time, 0.01)
                 return (self.LP.dist_chan_inverts, self.LP.Hdata)
@@ -757,7 +758,7 @@ class ResData():
         #    return (self.LP.adverseH.chainage, self.LP.adverseH.elevation), \
         #           (self.LP.adverseE.chainage, self.LP.adverseE.elevation)
     
-        elif 'bed elevation' in type.lower():
+        elif 'bed level' in type.lower():
             return (self.LP.dist_chan_inverts, self.LP.chan_inv)
     
         elif 'left bank obvert' in type.lower():

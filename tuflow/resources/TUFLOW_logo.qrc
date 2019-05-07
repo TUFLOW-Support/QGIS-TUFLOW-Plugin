@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="logo">
+    <file>TUFLOW_logo_resized.png</file>
+  </qresource>
+</RCC>

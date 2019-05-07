@@ -2,6 +2,7 @@ import os
 import numpy
 import csv
 import sys
+from tuflow.tuflowqgis_library import getOSIndependentFilePath
 version = '2018-03-AA' #added reporting location regions
 
 class LP():
@@ -657,9 +658,9 @@ class ChanInfo():
 				self.chan_n.append(float(row[9]))
 				try:
 					self.chan_slope.append(float(row[10]))
-				except:  # tuflow outputs ******* when slope is really steep (>100%) so calculate slope manually
-					slope = ( float(row[11]) - float(row[12]) ) / float(row[7]) * 100.0  # in percentage
-					self.chan_slope.append(slope)
+				except ValueError:
+					# caused when tuflow outputs ****** for steep slopes
+					self.chan_slope.append(0)
 				self.chan_US_Inv.append(float(row[11]))
 				self.chan_DS_Inv.append(float(row[12]))
 				self.chan_LBUS_Obv.append(float(row[13]))
@@ -676,7 +677,7 @@ class ResData():
 	ResData class for reading and processing results
 	"""
 
-	def getTSData(self, id,dom,res,geom):
+	def getTSData(self, id, dom, res, geom):
 		message = None
 		if (dom.upper() == "1D"):
 			if(res.upper() in ("H", "H_", "LEVEL","LEVELS")):
@@ -1334,22 +1335,28 @@ class ResData():
 				ind = self.Data_1D.Node_Max.ID.index(nd)
 				if self.Data_1D.Node_Max.HMax:
 					if i == 0:
-						self.LP.Hmax.append(self.Data_1D.Node_Max.HMax[ind])
+						self.LP.Hmax.append(max(self.Data_1D.Node_Max.HMax[ind], self.LP.chan_inv[i]))
 					elif i < len(self.LP.node_list) - 1:
 						self.LP.Hmax.append(max(self.Data_1D.Node_Max.HMax[ind], self.LP.chan_inv[2*i-1]))
-						self.LP.Hmax.append(self.Data_1D.Node_Max.HMax[ind])
+						self.LP.Hmax.append(max(self.Data_1D.Node_Max.HMax[ind], self.LP.chan_inv[2*i]))
 					else:
 						self.LP.Hmax.append(max(self.Data_1D.Node_Max.HMax[ind], self.LP.chan_inv[2*i-1]))
 				if self.Data_1D.Node_Max.EMax:
 					if i == 0:
-						self.LP.Emax.append(self.Data_1D.Node_Max.EMax[ind])
+						self.LP.Emax.append(max(self.Data_1D.Node_Max.EMax[ind], self.LP.chan_inv[i]))
 					elif i < len(self.LP.node_list) - 1:
 						self.LP.Emax.append(max(self.Data_1D.Node_Max.EMax[ind], self.LP.chan_inv[2*i-1]))
-						self.LP.Emax.append(self.Data_1D.Node_Max.EMax[ind])
+						self.LP.Emax.append(max(self.Data_1D.Node_Max.EMax[ind], self.LP.chan_inv[2*i]))
 					else:
 						self.LP.Emax.append(max(self.Data_1D.Node_Max.EMax[ind], self.LP.chan_inv[2*i-1]))
 				if self.Data_1D.Node_Max.tHmax:
-					self.LP.tHmax.append(self.Data_1D.Node_Max.tHmax[ind])
+					if i== 0:
+						self.LP.tHmax.append(self.Data_1D.Node_Max.tHmax[ind])
+					elif i < len(self.LP.node_list) - 1:
+						self.LP.tHmax.append(self.Data_1D.Node_Max.tHmax[ind])
+						self.LP.tHmax.append(self.Data_1D.Node_Max.tHmax[ind])
+					else:
+						self.LP.tHmax.append(self.Data_1D.Node_Max.tHmax[ind])
 			except:
 				error = True
 				message = 'Unable to get maximum for node: '+nd
@@ -1411,6 +1418,7 @@ class ResData():
 		return error, message
 
 	def LP_getData(self,dat_type,time,dt_tol):
+
 		error = False
 		message = None
 		dt_abs = abs(self.times - time)
@@ -1419,7 +1427,7 @@ class ResData():
 			error = True
 			message = 'ERROR - Closest time: '+str(self.times[t_ind])+' outside time search tolerance: '+str(dt_tol)
 			return  error, message
-		if dat_type == 'Head':
+		if dat_type == 'Water Level':
 			self.LP.Hdata = []
 			if not self.Data_1D.H.loaded:
 				error = True
@@ -1427,13 +1435,13 @@ class ResData():
 				return error, message
 			for i, h_ind in enumerate(self.LP.H_nd_index):
 				if i == 0:
-					self.LP.Hdata.append(self.Data_1D.H.Values[t_ind,h_ind])
+					self.LP.Hdata.append(max(self.Data_1D.H.Values[t_ind,h_ind], self.LP.chan_inv[i]))
 				elif i < len(self.LP.H_nd_index) - 1:
 					self.LP.Hdata.append(max(self.Data_1D.H.Values[t_ind,h_ind], self.LP.chan_inv[2*i-1]))
-					self.LP.Hdata.append(self.Data_1D.H.Values[t_ind,h_ind])
+					self.LP.Hdata.append(max(self.Data_1D.H.Values[t_ind,h_ind], self.LP.chan_inv[2*i]))
 				else:
 					self.LP.Hdata.append(max(self.Data_1D.H.Values[t_ind,h_ind], self.LP.chan_inv[2*i-1]))
-		elif dat_type == 'Energy':
+		elif dat_type == 'Energy Level':
 			self.LP.Edata = []
 			if not self.Data_1D.E.loaded:
 				error = True
@@ -1441,7 +1449,7 @@ class ResData():
 				return error, message
 			for i, h_ind in enumerate(self.LP.H_nd_index):
 				if i == 0:
-					self.LP.Edata.append(max(self.Data_1D.E.Values[t_ind,h_ind], self.LP.chan_inv[2*i]))
+					self.LP.Edata.append(max(self.Data_1D.E.Values[t_ind,h_ind], self.LP.chan_inv[i]))
 				elif i < len(self.LP.H_nd_index) - 1:
 					self.LP.Edata.append(max(self.Data_1D.E.Values[t_ind,h_ind], self.LP.chan_inv[2*i-1]))
 					self.LP.Edata.append(max(self.Data_1D.E.Values[t_ind,h_ind], self.LP.chan_inv[2*i]))
@@ -1489,86 +1497,87 @@ class ResData():
 			dat_type = tmp.strip()
 			tmp = data[i,1]
 			rdata = tmp.strip()
-			if (dat_type=='Format Version'):
+			
+			if dat_type == 'Format Version':
 				self.formatVersion = int(rdata)
-			elif (dat_type=='Units'):
+			elif dat_type == 'Units':
 				self.units = rdata
-			elif (dat_type=='Simulation ID'):
+			elif dat_type == 'Simulation ID':
 				self.displayname = rdata
-			elif (dat_type=='GIS Plot Layer Points'):
+			elif dat_type == 'GIS Plot Layer Points':
 				self.GIS.P = rdata[2:]
-			elif (dat_type=='GIS Plot Layer Lines'):
+			elif dat_type == 'GIS Plot Layer Lines':
 				self.GIS.L = rdata[2:]
-			elif (dat_type=='GIS Plot Layer Regions'):
+			elif dat_type == 'GIS Plot Layer Regions':
 				self.GIS.R = rdata[2:]
-			elif (dat_type=='GIS Plot Objects'):
-				fullpath = os.path.join(self.fpath,rdata[2:])
+			elif dat_type == 'GIS Plot Objects':
+				fullpath = getOSIndependentFilePath(self.fpath, rdata)
 				self.Index = PlotObjects(fullpath)
-			elif (dat_type=='GIS Reporting Location Points'):
+			elif dat_type == 'GIS Reporting Location Points':
 				self.GIS.RL_P = rdata[2:]
-			elif (dat_type=='GIS Reporting Location Lines'):
+			elif dat_type == 'GIS Reporting Location Lines':
 				self.GIS.RL_L = rdata[2:]
-			elif (dat_type=='GIS Reporting Location Regions'):
+			elif dat_type == 'GIS Reporting Location Regions':
 				self.GIS.RL_R = rdata[2:]
-			elif (dat_type=='Number 1D Channels'):
+			elif dat_type == 'Number 1D Channels':
 				#self.nChannels = int(rdata)
 				self.Data_1D.nChan = int(rdata)
-			elif (dat_type=='Number 1D Nodes'):
+			elif dat_type == 'Number 1D Nodes':
 				self.Data_1D.nNode = int(rdata)
-			elif (dat_type=='Number Reporting Location Points'):
+			elif dat_type == 'Number Reporting Location Points':
 				self.Data_RL.nPoint= int(rdata)
-			elif (dat_type=='Number Reporting Location Lines'):
+			elif dat_type == 'Number Reporting Location Lines':
 				self.Data_RL.nLine= int(rdata)
-			elif (dat_type=='Number Reporting Location Regions'):
+			elif dat_type == 'Number Reporting Location Regions':
 				self.Data_RL.nRegion= int(rdata)
-			elif (dat_type=='1D Channel Info'):
+			elif dat_type == '1D Channel Info':
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					self.Channels = ChanInfo(fullpath)
-					if (self.Data_1D.nChan != self.Channels.nChan):
+					if self.Data_1D.nChan != self.Channels.nChan:
 						error = True
 						message = 'Number of Channels does not match value in .tpc'
 						return error, message
-			elif (dat_type=='1D Node Info'):
+			elif dat_type == '1D Node Info':
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					self.nodes = NodeInfo(fullpath)
-			elif (dat_type=='1D Water Levels'):
+			elif dat_type == '1D Water Levels':
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
-					error, message = self.Data_1D.H.Load(fullpath,'H',self.displayname)
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
+					error, message = self.Data_1D.H.Load(fullpath, 'H', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
 					self.Types.append('1D Water Levels')
 					if self.nTypes == 1:
 						self.times = self.Data_1D.H.Values[:,1]
-			elif (dat_type=='1D Energy Levels'):
+			elif dat_type == '1D Energy Levels':
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
-					error, message = self.Data_1D.E.Load(fullpath,'H',self.displayname)
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
+					error, message = self.Data_1D.E.Load(fullpath, 'H', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
 					self.Types.append('1D Energy Levels')
 					if self.nTypes == 1:
 						self.times = self.Data_1D.H.Values[:,1]
-			elif (dat_type=='Reporting Location Points Water Levels'):
+			elif dat_type == 'Reporting Location Points Water Levels':
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
-					error, message = self.Data_RL.H_P.Load(fullpath,'H',self.displayname)
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
+					error, message = self.Data_RL.H_P.Load(fullpath, 'H', self.displayname)
 					if error:
 						return error, message
-			elif (dat_type=='Reporting Location Lines Flows'):
+			elif dat_type == 'Reporting Location Lines Flows':
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
-					error, message = self.Data_RL.Q_L.Load(fullpath,'Q',self.displayname)
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
+					error, message = self.Data_RL.Q_L.Load(fullpath, 'Q', self.displayname)
 					if error:
 						return error, message
-			elif (dat_type=='Reporting Location Regions Volumes'):
+			elif dat_type == 'Reporting Location Regions Volumes':
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
-					error, message = self.Data_RL.Vol_R.Load(fullpath,'Vol',self.displayname)
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
+					error, message = self.Data_RL.Vol_R.Load(fullpath, 'Vol', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
@@ -1581,55 +1590,55 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type=='1D Node Maximums'):
+			elif dat_type == '1D Node Maximums':
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					error, message = self.Data_1D.Node_Max.Load(fullpath)
 					if error:
 						return error, message
-			elif (dat_type=='1D Channel Maximums'):
+			elif dat_type == '1D Channel Maximums':
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					error, message = self.Data_1D.Chan_Max.Load(fullpath)
 					if error:
 						return error, message
-			elif (dat_type=='1D Flows'):
+			elif dat_type == '1D Flows':
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
-					error, message = self.Data_1D.Q.Load(fullpath,'Q',self.displayname)
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
+					error, message = self.Data_1D.Q.Load(fullpath, 'Q', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
 					self.Types.append('1D Flows')
 					if self.nTypes == 1:
 						self.times = self.Data_1D.Q.Values[:,1]
-			elif (dat_type=='1D Flow Areas'):
+			elif dat_type == '1D Flow Areas':
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
-					error, message = self.Data_1D.A.Load(fullpath,'A',self.displayname)
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
+					error, message = self.Data_1D.A.Load(fullpath, 'A', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
 					self.Types.append('1D Flow Area')
 					if self.nTypes == 1:
 						self.times = self.Data_1D.Q.Values[:,1]
-			elif (dat_type=='1D Velocities'):
+			elif dat_type == '1D Velocities':
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
-					error, message = self.Data_1D.V.Load(fullpath,'V',self.displayname)
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
+					error, message = self.Data_1D.V.Load(fullpath, 'V', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
 					self.Types.append('1D Velocities')
 					if self.nTypes == 1:
 						self.times = self.Data_1D.V.Values[:,1]
-			elif (dat_type.find('2D Line Flow Area') >= 0):
+			elif dat_type.find('2D Line Flow Area') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.QA = Timeseries(fullpath,'QA',self.displayname)
-					error, message = self.Data_2D.QA.Load(fullpath,'QA',self.displayname)
+					error, message = self.Data_2D.QA.Load(fullpath, 'QA', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
@@ -1641,13 +1650,13 @@ class ResData():
 							exit()
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('2D Line Flow') >= 0):
+			elif dat_type.find('2D Line Flow') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.Q = Timeseries(fullpath,'Q',self.displayname)
-					error, message = self.Data_2D.Q.Load(fullpath,'Q',self.displayname)
+					error, message = self.Data_2D.Q.Load(fullpath, 'Q', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
@@ -1662,13 +1671,13 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('2D Point Gauge Level') >= 0):
+			elif dat_type.find('2D Point Gauge Level') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.GL = Timeseries(fullpath,'G',self.displayname)
-					error, message = self.Data_2D.GL.Load(fullpath,'G',self.displayname)
+					error, message = self.Data_2D.GL.Load(fullpath, 'G', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
@@ -1681,13 +1690,13 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('2D Point Water Level') >= 0):
+			elif dat_type.find('2D Point Water Level') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.H = Timeseries(fullpath,'H',self.displayname)
-					error, message = self.Data_2D.H.Load(fullpath,'H',self.displayname)
+					error, message = self.Data_2D.H.Load(fullpath, 'H', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
@@ -1702,13 +1711,13 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('2D Point X-Vel') >= 0):
+			elif dat_type.find('2D Point X-Vel') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.Vx = Timeseries(fullpath,'VX',self.displayname)
-					error, message = self.Data_2D.Vx.Load(fullpath,'VX',self.displayname)
+					error, message = self.Data_2D.Vx.Load(fullpath, 'VX', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
@@ -1721,13 +1730,13 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('2D Point Y-Vel') >= 0):
+			elif dat_type.find('2D Point Y-Vel') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.Vy = Timeseries(fullpath,'VY',self.displayname)
-					error, message = self.Data_2D.Vy.Load(fullpath,'VY',self.displayname)
+					error, message = self.Data_2D.Vy.Load(fullpath, 'VY', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
@@ -1740,13 +1749,13 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('2D Point Velocity') >= 0):
+			elif dat_type.find('2D Point Velocity') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.V = Timeseries(fullpath,'V',self.displayname)
-					error, message = self.Data_2D.V.Load(fullpath,'V',self.displayname)
+					error, message = self.Data_2D.V.Load(fullpath, 'V', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
@@ -1759,13 +1768,13 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('2D Line Integral Flow') >= 0):
+			elif dat_type.find('2D Line Integral Flow') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.QI = Timeseries(fullpath,'QI',self.displayname)
-					error, message = self.Data_2D.QI.Load(fullpath,'QI',self.displayname)
+					error, message = self.Data_2D.QI.Load(fullpath, 'QI', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
@@ -1778,13 +1787,13 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('2D Line Structure Flow') >= 0):
+			elif dat_type.find('2D Line Structure Flow') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.QI = Timeseries(fullpath,'QI',self.displayname)
-					error, message = self.Data_2D.QS.Load(fullpath,'QS',self.displayname)
+					error, message = self.Data_2D.QS.Load(fullpath, 'QS', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
@@ -1797,13 +1806,13 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('2D Line U/S Structure Water') >= 0):
+			elif dat_type.find('2D Line U/S Structure Water') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.QI = Timeseries(fullpath,'QI',self.displayname)
-					error, message = self.Data_2D.HUS.Load(fullpath,'HU',self.displayname)
+					error, message = self.Data_2D.HUS.Load(fullpath, 'HU', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
@@ -1816,13 +1825,13 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('2D Line D/S Structure Water') >= 0):
+			elif dat_type.find('2D Line D/S Structure Water') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					#self.Data_2D.QI = Timeseries(fullpath,'QI',self.displayname)
-					error, message = self.Data_2D.HDS.Load(fullpath,'HD',self.displayname)
+					error, message = self.Data_2D.HDS.Load(fullpath, 'HD', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
@@ -1835,12 +1844,12 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('2D Region Average Water Level') >= 0):
+			elif dat_type.find('2D Region Average Water Level') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
-					error, message = self.Data_2D.HAvg.Load(fullpath,'HA',self.displayname)
+					error, message = self.Data_2D.HAvg.Load(fullpath, 'HA', self.displayname)
 					if error:
 						return error, message
 					self.nTypes = self.nTypes + 1
@@ -1853,9 +1862,9 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('2D Region Max Water Level') >= 0):
+			elif dat_type.find('2D Region Max Water Level') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					error, message = self.Data_2D.HMax.Load(fullpath,'HM',self.displayname)
@@ -1871,9 +1880,9 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('2D Region Flow into Region') >= 0):
+			elif dat_type.find('2D Region Flow into Region') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					error, message = self.Data_2D.QIn.Load(fullpath,'FI',self.displayname)
@@ -1889,9 +1898,9 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('2D Region Flow out of Region') >= 0):
+			elif dat_type.find('2D Region Flow out of Region') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					error, message = self.Data_2D.QOut.Load(fullpath,'FO',self.displayname)
@@ -1907,9 +1916,9 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('2D Region Volume') >= 0):
+			elif dat_type.find('2D Region Volume') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					error, message = self.Data_2D.Vol.Load(fullpath,'VL',self.displayname)
@@ -1925,9 +1934,9 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type.find('Region Sink/Source') >= 0):
+			elif dat_type.find('Region Sink/Source') >= 0:
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					indA = dat_type.index('[')
 					indB = dat_type.index(']')
 					error, message = self.Data_2D.SS.Load(fullpath,'SS',self.displayname)
@@ -1943,21 +1952,21 @@ class ResData():
 							return error, message
 					except:
 						print('WARNING - Unable to extact number of values in .tpc file entry')
-			elif (dat_type=='Reporting Location Points Maximums'):
+			elif dat_type == 'Reporting Location Points Maximums':
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata[2:])
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					error, message = self.Data_RL.P_Max.Load(fullpath)
 					if error:
 						return error, message
-			elif (dat_type=='Reporting Location Lines Maximums'):
+			elif dat_type == 'Reporting Location Lines Maximums':
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					error, message = self.Data_RL.L_Max.Load(fullpath)
 					if error:
 						return error, message
-			elif (dat_type=='Reporting Location Regions Maximums'):
+			elif dat_type == 'Reporting Location Regions Maximums':
 				if rdata != 'NONE':
-					fullpath = os.path.join(self.fpath,rdata)
+					fullpath = getOSIndependentFilePath(self.fpath, rdata)
 					error, message = self.Data_RL.R_Max.Load(fullpath)
 					if error:
 						return error, message
@@ -1965,3 +1974,233 @@ class ResData():
 				print('Warning - Unknown Data Type '+dat_type)
 		#successful load
 		return error, message
+	
+	def pointResultTypesTS(self):
+		"""
+		Returns a list of all the available point result types.
+		
+		:return: list -> str result type e.g. 'flows'
+		"""
+		
+		types = []
+		
+		for type in self.Types:
+			if 'WATER LEVELS' in type.upper():
+				types.append('Level')
+			elif 'ENERGY LEVELS' in type.upper():
+				types.append('Energy Level')
+			elif 'POINT VELOCITY' in type.upper():
+				types.append('Velocity')
+			elif 'POINT X-VEL' in type.upper():
+				types.append('VX')
+			elif 'POINT Y-VEL' in type.upper():
+				types.append('VY')
+				
+		return types
+	
+	def lineResultTypesTS(self):
+		"""
+		Returns a list of all the available line result types.
+		
+		:return: list -> str result type e.g. 'flows'
+		"""
+		
+		types = []
+		
+		for type in self.Types:
+			if 'FLOW' in type.upper():
+				types.append('Flow')
+			elif 'VELOCITIES' in type.upper():
+				types.append('Velocity')
+			elif 'LINE FLOW AREA' in type.upper():
+				types.append('Flow Area')
+			elif 'LINE INTEGRAL FLOW' in type.upper():
+				types.append('Flow Integral')
+			elif 'US LEVELS' in type.upper():
+				types.append('US Levels')
+			elif 'DS LEVELS' in type.upper():
+				types.append('DS Levels')
+			elif 'DS LEVELS' in type.upper():
+				types.append('DS Levels')
+			elif 'LINE STRUCTURE FLOW' in type.upper():
+				types.append('Structure Flows')
+			elif 'STRUCTURE LEVELS' in type.upper():
+				types.append('Structure Levels')
+			elif '1D Flow Area' in type:
+				types.append('Flow Area')
+		
+		if self.nodes is not None:
+			point_types = self.pointResultTypesTS()
+			if 'Level' in point_types:
+				if 'US Levels' not in types:
+					types.append('US Levels')
+				if 'DS Levels' not in types:
+					types.append('DS Levels')
+		
+		return types
+	
+	def regionResultTypesTS(self):
+		"""
+		Returns a list of all the available region result types.
+		
+		:return: list -> str result type e.g. 'flows'
+		"""
+		
+		types = []
+		
+		for type in self.Types:
+			if 'REGION AVERAGE WATER LEVEL' in type.upper():  # 2017-09-AA
+				types.append('Average Level')
+			elif 'REGION MAX WATER LEVEL' in type.upper():  # 2017-09-AA
+				types.append('Max Level')
+			elif 'REGION FLOW INTO' in type.upper():  # 2017-09-AA
+				types.append('Flow Into')
+			elif 'REGION FLOW OUT OF' in type.upper():  # 2017-09-AA
+				types.append('Flow Out')
+			elif 'REGION VOLUME' in type.upper():  # 2017-09-AA
+				types.append('Volume')
+			elif 'REGION SINK/SOURCE' in type.upper():  # 2017-09-AA
+				types.append('Sink/Source')
+				
+		return types
+	
+	def lineResultTypesLP(self):
+		"""
+		Returns a list of all the available line result types for long plotting.
+
+		:return: list -> str result type e.g. 'flows'
+		"""
+		
+		types = []
+		
+		if self.nodes is not None:
+			for type in self.Types:
+				if 'WATER LEVELS' in type.upper():
+					types.append('Water Level')
+					types.append('Max Water Level')
+					types.append('Time of Max H')
+					#types.append('Water Level at Time')
+				elif 'ENERGY LEVELS' in type.upper():
+					types.append('Energy Level')
+					types.append('Max Energy Level')
+					#types.append('Energy Level at Time')
+					
+			types.append('Bed Level')
+			types.append('Culverts and Pipes')
+			types.append('Left Bank Obvert')
+			types.append('Right Bank Obvert')
+			types.append('Pit Ground Levels (if any)')
+			types.append('Adverse Gradients (if any)')
+		
+		return types
+	
+	def timeSteps(self):
+		"""
+		Returns a list of the available time steps. Assumes all time series results have the same timesteps.
+		
+		:return: list -> float time (hr)
+		"""
+		
+		if self.Data_1D.H.loaded:
+			return self.Data_1D.H.Values[:,1]
+		elif self.Data_1D.V.loaded:
+			return self.Data_1D.V.Values[:,1]
+		elif self.Data_1D.E.loaded:
+			return self.Data_1D.E.Values[:,1]
+		elif self.Data_1D.Q.loaded:
+			return self.Data_1D.Q.Values[:,1]
+		elif self.Data_1D.A.loaded:
+			return self.Data_1D.A.Values[:,1]
+		elif self.Data_2D.H.loaded:
+			return self.Data_2D.H.Values[:,1]
+		elif self.Data_2D.V.loaded:
+			return self.Data_2D.V.Values[:,1]
+		elif self.Data_2D.Q.loaded:
+			return self.Data_2D.Q.Values[:,1]
+		elif self.Data_2D.GL.loaded:
+			return self.Data_2D.GL.Values[:,1]
+		elif self.Data_2D.QA.loaded:
+			return self.Data_2D.QA.Values[:,1]
+		elif self.Data_2D.QI.loaded:
+			return self.Data_2D.QI.Values[:,1]
+		elif self.Data_2D.Vx.loaded:
+			return self.Data_2D.Vx.Values[:,1]
+		elif self.Data_2D.Vy.loaded:
+			return self.Data_2D.Vy.Values[:,1]
+		elif self.Data_2D.QS.loaded:
+			return self.Data_2D.QS.Values[:,1]
+		elif self.Data_2D.HUS.loaded:
+			return self.Data_2D.HUS.Values[:,1]
+		elif self.Data_2D.HDS.loaded:
+			return self.Data_2D.HDS.Values[:,1]
+		elif self.Data_2D.HAvg.loaded:
+			return self.Data_2D.HAvg.Values[:,1]
+		elif self.Data_2D.HMax.loaded:
+			return self.Data_2D.HMax.Values[:,1]
+		elif self.Data_2D.QIn.loaded:
+			return self.Data_2D.QIn.Values[:,1]
+		elif self.Data_2D.QOut.loaded:
+			return self.Data_2D.QOut.Values[:,1]
+		elif self.Data_2D.SS.loaded:
+			return self.Data_2D.SS.Values[:,1]
+		elif self.Data_2D.Vol.loaded:
+			return self.Data_2D.Vol.Values[:,1]
+		elif self.Data_RL.H_P.loaded:
+			return self.Data_RL.H_P.Values[:,1]
+		elif self.Data_RL.Q_L.loaded:
+			return self.Data_RL.Q_L.Values[:,1]
+		elif self.Data_RL.Vol_R.loaded:
+			return self.Data_RL.Vol_R.Values[:,1]
+		else:
+			return []
+		
+	def getLongPlotXY(self, type, time):
+		"""
+		Generates long plot X, Y coordinates
+		
+		:param type: str -> result type e.g. 'Water Level'
+		:param time: float
+		:return: tuple -> list -> float e.g. (x, y)
+		"""
+		
+		error = False
+		message = ''
+		
+		if 'water level' in type.lower():
+			if time == -99999:
+				return (self.LP.dist_chan_inverts, self.LP.Hmax)
+			else:
+				error, message = self.LP_getData('Water Level', time, 0.01)
+				return (self.LP.dist_chan_inverts, self.LP.Hdata)
+		
+		elif 'energy level' in type.lower():
+			if time == -99999:
+				return (self.LP.dist_chan_inverts, self.LP.Emax)
+			else:
+				error, message = self.LP_getData('Energy Level', time, 0.01)
+				return (self.LP.dist_chan_inverts, self.LP.Edata)
+			
+		elif 'adverse gradients (if any)' in type.lower():
+			return (self.LP.adverseH.chainage, self.LP.adverseH.elevation), \
+			       (self.LP.adverseE.chainage, self.LP.adverseE.elevation)
+		
+		elif 'bed level' in type.lower():
+			return (self.LP.dist_chan_inverts, self.LP.chan_inv)
+		
+		elif 'left bank obvert' in type.lower():
+			return (self.LP.dist_chan_inverts, self.LP.chan_LB)
+		
+		elif 'right bank obvert' in type.lower():
+			return (self.LP.dist_chan_inverts, self.LP.chan_RB)
+		
+		elif 'pit ground levels (if any)' in type.lower():
+			return (self.LP.pit_dist, self.LP.pit_z)
+		
+		elif 'culverts and pipes' in type.lower():
+			return self.LP.culv_verts, [0, 1, 2, 3, 4, 5]  # dummy y data - ultimately not used
+		
+		elif 'time of max h' in type.lower():
+			return (self.LP.dist_chan_inverts, self.LP.tHmax)
+		
+		else:
+			return (None, None)

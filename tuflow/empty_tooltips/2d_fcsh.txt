@@ -1,0 +1,10 @@
+location == Geometry Control File (.tgc)
+
+command == Read GIS FC Shape
+
+description == Used for 2D flow constrictions to represent additional losses associated with bridges or box culverts. This input only account for flow below the bridge obvert (soffit).
+
+wiki link == https://wiki.tuflow.com/index.php?title=TUFLOW_Empty_Files#TUFLOW_Geometry_Control_file_.28TGC.29
+
+manual link == https://www.tuflow.com/Download/TUFLOW/Releases/2017-09/TUFLOW%20Manual.2017-09-AC.pdf
+manual page == 284

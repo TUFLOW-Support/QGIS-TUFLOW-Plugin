@@ -19,31 +19,35 @@
  *                                                                         *
  ***************************************************************************/
 """
-import logging
+
 #import csv
 import os.path
 import operator
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
 from qgis.core import *
-import processing
 import glob
-from datetime import datetime, timedelta
-from tuflowqgis_library import *
-from tuflowqgis_TuPlot import *
-import TUFLOW_longprofile
-
+import processing
+from .tuflowqgis_library import *
+from PyQt5.QtWidgets import *
+from qgis.gui import QgsProjectionSelectionWidget
+from datetime import datetime
 import sys
 import subprocess
+import numpy as np
+import matplotlib
+try:
+	import matplotlib.pyplot as plt
+except:
+	current_path = os.path.dirname(__file__)
+	sys.path.append(os.path.join(current_path, '_tk\\DLLs'))
+	sys.path.append(os.path.join(current_path, '_tk\\libs'))
+	sys.path.append(os.path.join(current_path, '_tk\\Lib'))
+	import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from tuflow.tuflowqgis_library import interpolate, convertStrftimToTuviewftim, convertTuviewftimToStrftim
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/forms")
 currentFolder = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(currentFolder, 'forms'))
-
-sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2018.2\debug-eggs')
-sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2018.2\helpers\pydev')
-
-
-sys.path.append(r'C:\Users\Ellis\.p2\pool\plugins\org.python.pydev.core_6.3.2.201803171248\pysrc')
 
 
 # ----------------------------------------------------------
@@ -62,29 +66,33 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		cName = None
 		fname = ''
 		fpath = None
+		self.fname = None
 		self.curr_file = None
-		self.outname = None
 		
 		if cLayer:
 			cName = cLayer.name()
 			dp = cLayer.dataProvider()
 			ds = dp.dataSourceUri()
 			fpath = os.path.dirname(unicode(ds))
+			self.fpath = fpath
 			basename = os.path.basename(unicode(ds))
 			ind = basename.find('|')
 			if (ind>0):
 				fname = basename[0:ind]
 			else:
 				fname = basename
+			self.fname = fname
 			self.curr_file = os.path.join(fpath,fname)
 		else:
 			QMessageBox.information( self.iface.mainWindow(),"Information", "No layer is currently selected in the layer control")
-		QObject.connect(self.browseoutfile, SIGNAL("clicked()"), self.browse_outfile)
-		QObject.connect(self.buttonBox, SIGNAL("accepted()"), self.run)
-		QObject.connect(self.sourcelayer, SIGNAL("currentIndexChanged(int)"), self.sourcelayer_changed)
+
+		self.browseoutfile.clicked.connect(self.browse_outfile)
+		self.pbOk.clicked.connect(self.run)
+		self.pbCancel.clicked.connect(self.reject)
+		self.sourcelayer.currentIndexChanged[int].connect(self.sourcelayer_changed)
 		
 		i = 0
-		for name, layer in QgsMapLayerRegistry.instance().mapLayers().iteritems():
+		for name, layer in QgsProject.instance().mapLayers().items():
 			if layer.type() == QgsMapLayer.VectorLayer:
 				self.sourcelayer.addItem(layer.name())
 				if layer.name() == cName:
@@ -100,9 +108,9 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 
 	def browse_outfile(self):
 		outfolder = unicode(self.outfolder.displayText()).strip()
-		newname = QFileDialog.getSaveFileName(None, "Output Shapefile", outfolder, "*.shp")
-		if len(newname)>0:
-			fpath, fname = os.path.split(newname)
+		newname = QFileDialog.getSaveFileName(self, "Output Shapefile", outfolder, "*.shp *.SHP")
+		if len(newname) > 0:
+			fpath, fname = os.path.split(newname[0])
 			self.outfolder.setText(fpath)
 			outfname = tuflowqgis_increment_fname(fname)
 			self.outfilename.setText(outfname)
@@ -128,73 +136,270 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 			QMessageBox.information( self.iface.mainWindow(),"Information", "Unexpected error")
 
 	def run(self):
-		if self.checkBox.isChecked():
-			keepform = True
-		else:
-			keepform = False
+		# collect information
 		layername = unicode(self.sourcelayer.currentText())
 		layer = tuflowqgis_find_layer(layername)
 		outname = unicode(self.outfilename.displayText()).strip()
 		if not outname[-4:].upper() == '.SHP':
-			self.outname = outname
 			outname = outname+'.shp'
 			QMessageBox.information( self.iface.mainWindow(),"Information", "Appending .shp to filename.")
-		else:
-			self.outname = outname[:-4]
 		outfolder = unicode(self.outfolder.displayText()).strip()
-		savename = os.path.join(outfolder,outname)
+		savename = os.path.join(outfolder, outname)
 		if savename == self.curr_file:
 			QMessageBox.critical( self.iface.mainWindow(),"ERROR", "Output filename is the same as the current layer.")
 			return
 		
-		#check if file exists
+		# check if file exists
 		if os.path.isfile(savename):
-			QMessageBox.critical( self.iface.mainWindow(),"ERROR", "Output file already exists \n"+savename)
-			return
-		message = tuflowqgis_duplicate_file(self.iface, layer, savename, keepform)
-		if message <> None:
+			# ask if the user wants to override data
+			override_existing = QMessageBox.question(self, "Increment Layer", 'File alreay exists. Do you want to replace the existing file?',
+			                                         QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+			if override_existing == QMessageBox.No or override_existing == QMessageBox.Cancel:
+				return
+		
+		# duplicate layer with incremented name
+		message = tuflowqgis_duplicate_file(self.iface, layer, savename, False)
+		if message != None:
 			QMessageBox.critical(self.iface.mainWindow(), "Duplicating File", message)
-		QgsMapLayerRegistry.instance().removeMapLayer(layer.id())
-		self.iface.addVectorLayer(savename, os.path.basename(savename)[:-4], "ogr")
-
+		
+		# change existing layer datasource to incremented layer
+		changeDataSource(self.iface, layer, savename)
+		
+		# check if need to move to SS folder
+		if self.cbMoveToSS.isChecked():
+			ssFolder = os.path.join(outfolder, 'ss')
+			if not os.path.exists(ssFolder):
+				os.mkdir(ssFolder)
+			name = os.path.splitext(self.fname)[0]
+			search = os.path.join(outfolder, name) + '.*'
+			files = glob.glob(search)
+			for file in files:
+				os.rename(file, os.path.join(ssFolder, os.path.basename(file)))
+		
+		# check if need to keep layer in workspace
+		if self.rbKeepSource.isChecked():  # remove layer
+			if self.cbMoveToSS.isChecked():
+				oldFile = os.path.join(ssFolder, self.fname)
+			else:
+				oldFile = os.path.join(outfolder, self.fname)
+			oldLayer = self.iface.addVectorLayer(oldFile, os.path.basename(oldFile)[:-4], "ogr")
+			copyLayerStyle(self.iface, layer, oldLayer)
+			
+		self.accept()
+			
 
 # ----------------------------------------------------------
 #    tuflowqgis import empty tuflow files
 # ----------------------------------------------------------
 from ui_tuflowqgis_import_empties import *
-from tuflowqgis_settings import TF_Settings
+from .tuflowqgis_settings import TF_Settings
 class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 	def __init__(self, iface, project):
 		QDialog.__init__(self)
 		self.iface = iface
 		self.setupUi(self)
 		self.tfsettings = TF_Settings()
+		showToolTip = QgsProject.instance().readBoolEntry("TUFLOW", "import_empty_tooltip", True)[0]
+		self.teToolTip.setVisible(showToolTip)
+		self.pbShowToolTip.setVisible(not showToolTip)
+		self.pbHideToolTip.setVisible(showToolTip)
+		self.teToolTip.setTabStopWidth(16)
+		
+		# find out which tuflow engine to use
+		self.engine = 'classic'  # set a default - other option is 'flexible mesh'
+		self.tfsettings = TF_Settings()
+		error, message = self.tfsettings.Load()
+		if self.tfsettings.project_settings.engine:
+			self.engine = self.tfsettings.project_settings.engine
 		
 		# load stored settings
 		error, message = self.tfsettings.Load()
 		if error:
 			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Settings: "+message)
+			
+		engine = self.tfsettings.combined.engine
+		self.parent_folder_name = 'TUFLOWFV' if engine == 'flexible mesh' else 'TUFLOW'
 		
-		basepath = self.tfsettings.combined.base_dir
-		if basepath:
-			path_split = basepath.split('\\')
-			if path_split[-1].lower() == 'tuflow':
-				basepath = '\\'.join(path_split[:-1])
-			self.emptydir.setText(os.path.join(basepath,"TUFLOW","model","gis","empty"))
+		self.browsedir.clicked.connect(self.browse_empty_dir)
+		self.emptydir.editingFinished.connect(self.dirChanged)
+		self.pbShowToolTip.clicked.connect(self.toggleToolTip)
+		self.pbHideToolTip.clicked.connect(self.toggleToolTip)
+		self.emptyType.itemSelectionChanged.connect(self.updateToolTip)
+		self.buttonBox.accepted.connect(self.run)
+
+		if self.tfsettings.combined.base_dir:
+			subfolders = [self.parent_folder_name.lower(), 'model', 'gis', 'empty']
+			emptydir = self.tfsettings.combined.base_dir
+			for i, subfolder in enumerate(subfolders):
+				for p in os.walk(emptydir):
+					for d in p[1]:
+						if d.lower() == subfolder:
+							if i == 0:
+								self.parent_folder_name = d
+							emptydir = os.path.join(emptydir, d)
+							break
+					break
+			self.emptydir.setText(emptydir)
+			#self.emptydir.setText(os.path.join(self.tfsettings.combined.base_dir, self.parent_folder_name, "model", "gis", "empty"))
 		else:
 			self.emptydir.setText("ERROR - Project not loaded")
+			
+		# load empty types
+		self.emptyType.clear()
+		if self.emptydir.text() == "ERROR - Project not loaded":
+			self.emptyType.addItem('No empty directory')
+		elif not os.path.exists(self.emptydir.text()):
+			self.emptyType.addItem('Empty directory not valid')
+		else:
+			search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
+			files = glob.glob(search_string)
+			if not files:
+				search_string = '{0}{1}*.SHP'.format(self.emptydir.text(), os.path.sep)
+				files = glob.glob(search_string)
+			empty_list = []
+			for file in files:
+				if len(file.split('_empty')) < 2:
+					continue
+				empty_type = os.path.basename(file.split('_empty')[0])
+				if empty_type not in empty_list:
+					empty_list.append(empty_type)
+			empty_list = sorted(empty_list)
+			self.emptyType.addItems(empty_list)
 		
-		QObject.connect(self.browsedir, SIGNAL("clicked()"), lambda: self.browse_empty_dir(unicode(self.emptydir.displayText()).strip()))
-		QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
-
-	def browse_empty_dir(self, oldName):
-		newname = QFileDialog.getExistingDirectory(None, "Output Directory")
+	def toggleToolTip(self):
+		showToolTip = not self.teToolTip.isVisible()
+		self.teToolTip.setVisible(showToolTip)
+		self.pbShowToolTip.setVisible(not showToolTip)
+		self.pbHideToolTip.setVisible(showToolTip)
+		h = self.height()
+		self.adjustSize()
+		w = self.width()
+		self.resize(w, h)
+		
+	def updateToolTip(self):
+		self.teToolTip.clear()
+		self.teToolTip.setFontUnderline(True)
+		self.teToolTip.setTextColor(QColor(Qt.black))
+		self.teToolTip.setFontFamily('MS Shell Dlg 2')
+		self.teToolTip.setFontPointSize(18)
+		self.teToolTip.setFontWeight(QFont.Bold)
+		self.teToolTip.append('Tool Tip')
+		self.teToolTip.append('\n')
+		items = self.emptyType.selectedItems()
+		for item in items:
+			tooltip = findToolTip(item.text(), self.engine)
+			if tooltip['location'] is not None:
+				self.teToolTip.setFontUnderline(False)
+				self.teToolTip.setTextColor(QColor(Qt.black))
+				self.teToolTip.setFontFamily('Courier New')
+				self.teToolTip.setFontPointSize(13)
+				self.teToolTip.setFontWeight(QFont.Normal)
+				self.teToolTip.append(tooltip['location'])
+				self.teToolTip.append('\n')
+			if tooltip['command'] is not None:
+				html = "<body style=\" font-family:'Courier New'; font-size:8.25pt; font-weight:400; " \
+				       "font-style:normal;\"><p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; " \
+				       "margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:12pt; " \
+				       "color:#0000ff;\">{0} </span><span style=\" font-size:12pt; " \
+				       "color:#ff0000;\">==</span></p></body>".format(tooltip['command'])
+				self.teToolTip.insertHtml(html)
+				self.teToolTip.append('\n')
+			if tooltip['description'] is not None:
+				self.teToolTip.setFontUnderline(False)
+				self.teToolTip.setTextColor(QColor(Qt.black))
+				self.teToolTip.setFontFamily('MS Shell Dlg 2')
+				self.teToolTip.setFontPointSize(10)
+				self.teToolTip.setFontWeight(QFont.Normal)
+				self.teToolTip.append(tooltip['description'])
+				self.teToolTip.append('\n')
+			if tooltip['wiki link'] is not None:
+				self.teToolTip.setFontUnderline(False)
+				self.teToolTip.setTextColor(QColor(Qt.black))
+				self.teToolTip.setFontFamily('MS Shell Dlg 2')
+				self.teToolTip.setFontPointSize(10)
+				self.teToolTip.setFontWeight(QFont.Bold)
+				self.teToolTip.append('TUFLOW Wiki')
+				self.teToolTip.append('\n')
+				html = "<body style=\" font-family:'MS Shell Dlg 2'; font-size:10pt; font-weight:400; " \
+				       "font-style:normal;\"><p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; " \
+				       "margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><a href=\"{0}\">" \
+				       "<span style=\" text-decoration: underline; " \
+				       "color:#0000ff;\">{0}</span></a></p></body></html>".format(tooltip['wiki link'])
+				self.teToolTip.insertHtml(html)
+				self.teToolTip.append('\n')
+			if tooltip['manual link'] is not None:
+				self.teToolTip.setFontUnderline(False)
+				self.teToolTip.setTextColor(QColor(Qt.black))
+				self.teToolTip.setFontFamily('MS Shell Dlg 2')
+				self.teToolTip.setFontPointSize(10)
+				self.teToolTip.setFontWeight(QFont.Bold)
+				self.teToolTip.append('TUFLOW Manual')
+				self.teToolTip.append('\n')
+				page = ''
+				if tooltip['manual page'] is not None:
+					page = '#page={0}'.format(tooltip['manual page'])
+				html = "<body style=\" font-family:'MS Shell Dlg 2'; font-size:10pt; font-weight:400; " \
+				       "font-style:normal;\"><p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; " \
+				       "margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><a href=\"{0}{1}\">" \
+				       "<span style=\" text-decoration: underline; " \
+				       "color:#0000ff;\">{0}{1}</span></a></p></body></html>".format(tooltip['manual link'], page)
+				self.teToolTip.insertHtml(html)
+				self.teToolTip.append('\n')
+	
+	def browse_empty_dir(self):
+		startDir = None
+		dir = self.emptydir.text()
+		while dir:
+			if os.path.exists(dir):
+				startDir = dir
+				break
+			else:
+				dir = os.path.dirname(dir)
+			
+		newname = QFileDialog.getExistingDirectory(None, "Output Directory", startDir)
 		if len(newname) > 0:
 			self.emptydir.setText(newname)
+			
+			# load empty types
+			self.emptyType.clear()
+			if self.emptydir.text() == "ERROR - Project not loaded":
+				self.emptyType.addItem('No empty directory')
+			elif not os.path.exists(self.emptydir.text()):
+				self.emptyType.addItem('Empty directory not valid')
+			else:
+				search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
+				files = glob.glob(search_string)
+				empty_list = []
+				for file in files:
+					if len(file.split('_empty')) < 2:
+						continue
+					empty_type = os.path.basename(file.split('_empty')[0])
+					if empty_type not in empty_list:
+						empty_list.append(empty_type)
+						self.emptyType.addItem(empty_type)
+
+	def dirChanged(self):
+		# load empty types
+		self.emptyType.clear()
+		if self.emptydir.text() == "ERROR - Project not loaded":
+			self.emptyType.addItem('No empty directory')
+		elif not os.path.exists(self.emptydir.text()):
+			self.emptyType.addItem('Empty directory not valid')
 		else:
-			self.emptydir.setText(oldName)
-
-
+			search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
+			files = glob.glob(search_string)
+			if not files:
+				search_string = '{0}{1}*.SHP'.format(self.emptydir.text(), os.path.sep)
+				files = glob.glob(search_string)
+			empty_list = []
+			for file in files:
+				if len(file.split('_empty')) < 2:
+					continue
+				empty_type = os.path.basename(file.split('_empty')[0])
+				if empty_type not in empty_list:
+					empty_list.append(empty_type)
+					self.emptyType.addItem(empty_type)
+	
 	def run(self):
 		runID = unicode(self.txtRunID.displayText()).strip()
 		basedir = unicode(self.emptydir.displayText()).strip()
@@ -214,14 +419,14 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		# run create dir script
 		message = tuflowqgis_import_empty_tf(self.iface, basedir, runID, empty_types, points, lines, regions)
 		#message = tuflowqgis_create_tf_dir(self.iface, crs, basedir)
-		if message <> None:
-			QMessageBox.critical(self.iface.mainWindow(), "Importing TUFLOW Empty File(s)", message)
+		if message != None:
+			QMessageBox.critical(self.iface.mainWindow(), "Importing {0} Empty File(s)".format(self.parent_folder_name), message)
 
 # ----------------------------------------------------------
 #    tuflowqgis Run TUFLOW (Simple)
 # ----------------------------------------------------------
 from ui_tuflowqgis_run_tf_simple import *
-from tuflowqgis_settings import TF_Settings
+from .tuflowqgis_settings import TF_Settings
 class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 	def __init__(self, iface, project):
 		QDialog.__init__(self)
@@ -253,9 +458,12 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 			
 		self.TUFLOW_exe.setText(tfexe)
 		
-		QObject.connect(self.browsetcffile, SIGNAL("clicked()"), self.browse_tcf)
-		QObject.connect(self.browseexe, SIGNAL("clicked()"), self.browse_exe)
-		QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
+		#QObject.connect(self.browsetcffile, SIGNAL("clicked()"), self.browse_tcf)
+		self.browsetcffile.clicked.connect(self.browse_tcf)
+		#QObject.connect(self.browseexe, SIGNAL("clicked()"), self.browse_exe)
+		self.browseexe.clicked.connect(self.browse_exe)
+		#QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
+		self.buttonBox.accepted.connect(self.run)
 
 		files = glob.glob(unicode(self.runfolder)+os.path.sep+"*.tcf")
 		self.tcfin=''
@@ -268,8 +476,10 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 
 	def browse_tcf(self):
 		# Get the file name
-		inFileName = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Select TUFLOW Control File', self.runfolder, "TUFLOW Control File (*.tcf)")
-		inFileName = str(inFileName)
+		inFileName = QFileDialog.getOpenFileName(self, 'Select TUFLOW Control File', self.runfolder,
+		                                         "All Supported Formats (*.tcf *.fvc *.TCF *.FVC);;"
+		                                         "TCF (*.tcf *.TCF);;FVC (*.fvc *.FVC)")
+		inFileName = inFileName[0]
 		if len(inFileName) == 0: # If the length is 0 the user pressed cancel 
 			return
 		# Store the exe location and path we just looked in
@@ -278,13 +488,13 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 		
 		self.tcf.setText(inFileName)
 		head, tail = os.path.split(inFileName)
-		if head <> os.sep and head.lower() <> 'c:\\' and head <> '':
+		if head != os.sep and head.lower() != 'c:\\' and head != '':
 			self.tfsettings.save_last_run_folder(head)
 			#self.tfsettings.setValue("TUFLOW_Run_TUFLOW/tcfDir", head)
 
 	def browse_exe(self):
 		# Get the file name
-		inFileName = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Select TUFLOW exe', self.exefolder, "TUFLOW Executable (*.exe)")
+		inFileName = QFileDialog.getOpenFileName(self, 'Select TUFLOW exe', self.exefolder, "TUFLOW Executable (*.exe)")
 		inFileName = str(inFileName)
 		if len(inFileName) == 0: # If the length is 0 the user pressed cancel 
 			return
@@ -302,7 +512,7 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 		tfexe = unicode(self.TUFLOW_exe.displayText()).strip()
 		QMessageBox.information(self.iface.mainWindow(), "Running TUFLOW","Starting simulation: "+tcf+"\n Executable: "+tfexe)
 		message = run_tuflow(self.iface, tfexe, tcf)
-		if message <> None:
+		if message != None:
 			QMessageBox.critical(self.iface.mainWindow(), "Running TUFLOW", message)
 
 # ----------------------------------------------------------
@@ -350,7 +560,7 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 			#		self.elev_attr.setCurrentIndex(key)
 
 		i = 0
-		for name, layer in QgsMapLayerRegistry.instance().mapLayers().iteritems():
+		for name, layer in QgsProject.instance().mapLayers().items():
 			if layer.type() == QgsMapLayer.VectorLayer:
 				self.sourcelayer.addItem(layer.name())
 				if layer.name() == cName:
@@ -361,14 +571,17 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 			self.outfilename.setText(fpath + "/"+fname)
 
 		# Connect signals and slots
-		QObject.connect(self.sourcelayer, SIGNAL("currentIndexChanged(int)"), self.source_changed) 
-		QObject.connect(self.browseoutfile, SIGNAL("clicked()"), self.browse_outfile)
-		QObject.connect(self.buttonBox, SIGNAL("accepted()"), self.run)
+		#QObject.connect(self.sourcelayer, SIGNAL("currentIndexChanged(int)"), self.source_changed) 
+		self.sourcelayer.currentIndexChanged[int].connect(self.source_changed)
+		#QObject.connect(self.browseoutfile, SIGNAL("clicked()"), self.browse_outfile)
+		self.browseoutfile.clicked.connect(self.browse_outfile)
+		#QObject.connect(self.buttonBox, SIGNAL("accepted()"), self.run)
+		self.buttonBox.accepted.connect(self.run)
 
 
 	def browse_outfile(self):
 		newname = QFileDialog.getSaveFileName(None, "Output Shapefile", 
-			self.outfilename.displayText(), "*.shp")
+		self.outfilename.displayText(), "*.shp")
 		if newname != None:
 			self.outfilename.setText(newname)
 
@@ -444,7 +657,7 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 		if (outfile.hasError() != QgsVectorFileWriter.NoError):
 			message = "Failure creating output shapefile: " + unicode(outfile.errorMessage())
 		
-		if message <> None:
+		if message != None:
 			QMessageBox.critical( self.iface.mainWindow(),"Error", message)
 			
 		line_num = 0
@@ -475,7 +688,7 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 					pol = pol+1
 				else:
 					seg = QgsFeature()
-					if point_list <> None and (pol > 2):
+					if point_list != None and (pol > 2):
 						seg.setGeometry(QgsGeometry.fromPolyline(point_list))
 						outfile.addFeatures( [ seg ] )
 						outfile.updateExtents()
@@ -486,35 +699,45 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 		del outfile
 		#QgsMapLayerRegistry.instance().addMapLayers([v_layer])
 		self.iface.addVectorLayer(savename, os.path.basename(savename), "ogr")
-
+		#line_start = QgsPoint(x[0],y[0])
+		#QMessageBox.information(self.iface.mainWindow(),"debug", "x1 = "+str(x[1])+", y0 = "+str(y[1]))
+		#line_end = QgsPoint(x[1],y[1])
+		#line = QgsGeometry.fromPolyline([line_start,line_end])
+		# create a new memory layer
+		#v_layer = QgsVectorLayer("LineString", "line", "memory")
+		#pr = v_layer.dataProvider()
+		# create a new feature
+		#seg = QgsFeature()
+		# add the geometry to the feature, 
+		#seg.setGeometry(QgsGeometry.fromPolyline([line_start, line_end]))
+		# ...it was here that you can add attributes, after having defined....
+		# add the geometry to the layer
+		#pr.addFeatures( [ seg ] )
+		# update extent of the layer (not necessary)
+		#v_layer.updateExtents()
+		# show the line  
+		#QgsMapLayerRegistry.instance().addMapLayers([v_layer])
 
 # ----------------------------------------------------------
 #    tuflowqgis configure tuflow project
 # ----------------------------------------------------------
 from ui_tuflowqgis_configure_tuflow_project import *		
-from tuflowqgis_settings import TF_Settings
-from qgis.gui import QgsGenericProjectionSelector
+from .tuflowqgis_settings import TF_Settings
+from qgis.gui import QgsProjectionSelectionTreeWidget
 class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
-	def __init__(self, iface, project):
-		QDialog.__init__(self)
+	def __init__(self, iface, project, parent=None):
+		QDialog.__init__(self, parent)
 		self.iface = iface
 		self.setupUi(self)
 		self.canvas = self.iface.mapCanvas()
-		#self.project = project
 		cLayer = self.canvas.currentLayer()
 		self.tfsettings = TF_Settings()
 		self.crs = None
 		fname = ''
-		#message, tffolder, tfexe, tf_prj = load_project(self.project)
-		#dont give error here as it may be the first occurence
-		#if message != None:
-		#	QMessageBox.critical( self.iface.mainWindow(),"Error", message)
-		
-		# load global tfsettings
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "loading gloabal settings")
+
 		error, message = self.tfsettings.Load()
 		if error:
-			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Global Settings: "+message)
+			QMessageBox.information( self.iface.mainWindow(),"Error", message)
 		
 		#set fields
 		if self.tfsettings.project_settings.base_dir:
@@ -544,7 +767,6 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 			if success:
 				self.crsDesc.setText(self.crs.description())
 		else:
-			#self.form_crsID.setText("Not Yet Set")
 			if cLayer:
 				cName = cLayer.name()
 				self.crs = cLayer.crs()
@@ -562,7 +784,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		
 		#add vector data as options in dropbox
 		i = 0
-		for name, layer in QgsMapLayerRegistry.instance().mapLayers().iteritems():
+		for name, layer in QgsProject.instance().mapLayers().items():
 			if layer.type() == QgsMapLayer.VectorLayer:
 				self.sourcelayer.addItem(layer.name())
 				if cLayer:
@@ -570,19 +792,35 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 						self.sourcelayer.setCurrentIndex(i)
 				i = i + 1
 		if i == 0:
-			self.sourcelayer.addItem("No Vector Data Open - use Set CRS Below")				
-		
-
-		QObject.connect(self.browseoutfile, SIGNAL("clicked()"), self.browse_outdir)
-		QObject.connect(self.browseexe, SIGNAL("clicked()"), self.browse_exe)
-		QObject.connect(self.pbSelectCRS, SIGNAL("clicked()"), self.select_CRS)
-		QObject.connect(self.sourcelayer, SIGNAL("currentIndexChanged(int)"), self.layer_changed)
-		QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
-		
-
-
-			#QMessageBox.critical(self.iface.mainWindow(), "Setting Projection", "No vector data open, a shapefile is required for setting the model projection. \nPlease open or create a file in the desired projection.")
-
+			self.sourcelayer.addItem("No Vector Data Open - use Set CRS Below")
+			
+		# engine
+		if self.tfsettings.project_settings.engine:
+			if self.tfsettings.project_settings.engine == 'classic':
+				self.rbTuflowCla.setChecked(True)
+			elif self.tfsettings.project_settings.engine == 'flexible mesh':
+				self.rbTuflowFM.setChecked(True)
+			else:
+				self.rbTuflowCla.setChecked(True)
+		elif self.tfsettings.global_settings.engine:
+			if self.tfsettings.global_settings.engine == 'classic':
+				self.rbTuflowCla.setChecked(True)
+			elif self.tfsettings.global_settings.engine == 'flexible mesh':
+				self.rbTuflowFM.setChecked(True)
+			else:
+				self.rbTuflowCla.setChecked(True)
+				
+		# tutorial
+		if self.tfsettings.combined.tutorial:
+			if type(self.tfsettings.combined.tutorial) is str:
+				self.tfsettings.combined.tutorial = True if self.tfsettings.combined.tutorial == 'True' else False
+			self.cbTutorial.setChecked(self.tfsettings.combined.tutorial)
+				
+		self.browseoutfile.clicked.connect(self.browse_outdir)
+		self.browseexe.clicked.connect(self.browse_exe)
+		self.pbSelectCRS.clicked.connect(self.select_CRS)
+		self.sourcelayer.currentIndexChanged[int].connect(self.layer_changed)
+		self.buttonBox.accepted.connect(self.run)
 
 	def browse_outdir(self):
 		#newname = QFileDialog.getExistingDirectory(None, QString.fromLocal8Bit("Output Directory"))
@@ -592,16 +830,17 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 			self.outdir.setText(newname)
 	
 	def select_CRS(self):
-		projSelector = QgsGenericProjectionSelector()
-		projSelector.exec_()
+		projSelector = QgsProjectionSelectionWidget()
+		projSelector.selectCrs()
 		try:
-			authid = projSelector.selectedAuthId()
-			self.crs = QgsCoordinateReferenceSystem()
-			success = self.crs.createFromString(authid)
+			authid = projSelector.crs().authid()
+			description = projSelector.crs().description()
+			self.crs = projSelector.crs()
+			success = projSelector.crs()
 			if not success:
 				self.crs = None
 			else:
-				self.crsDesc.setText(self.crs.description())
+				self.crsDesc.setText(description)
 				self.form_crsID.setText(authid)
 		except:
 			self.crs = None
@@ -615,8 +854,8 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 			last_dir = ''
 			
 		# Get the file name
-		inFileName = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Select TUFLOW exe', last_dir, "TUFLOW Executable (*.exe)")
-		inFileName = str(inFileName)
+		inFileName = QFileDialog.getOpenFileName(self, 'Select TUFLOW exe', last_dir, "TUFLOW Executable (*.exe)")
+		inFileName = inFileName[0]
 		if len(inFileName) == 0: # If the length is 0 the user pressed cancel 
 			return
 		# Store the exe location and path we just looked in
@@ -624,7 +863,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		self.tfsettings.save_last_exe(inFileName)
 
 	def layer_changed(self):
-		layername = unicode(self.sourcelayer.currentText()) 
+		layername = self.sourcelayer.currentText()
 		if layername != "Use saved projection":
 			layer = tuflowqgis_find_layer(layername)
 			if layer != None:
@@ -632,225 +871,74 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 				self.form_crsID.setText(self.crs.authid())
 				self.crsDesc.setText(self.crs.description())
 	def run(self):
-		tf_prj = unicode(self.form_crsID.displayText()).strip()
-		basedir = unicode(self.outdir.displayText()).strip()
-		path_split = basedir.split('\\')
-		if path_split[-1].lower() == 'tuflow':
-			basedir = '\\'.join(path_split[:-1])
-		tfexe = unicode(self.TUFLOW_exe.displayText()).strip()
+		tf_prj = self.form_crsID.displayText().strip()
+		engine = 'flexible mesh' if self.rbTuflowFM.isChecked() else 'classic'
+		parent_folder_name = 'TUFLOWFV' if engine == 'flexible mesh' else 'TUFLOW'
+		tutorial = self.cbTutorial.isChecked()
+		basedir = self.outdir.displayText().strip()
+		path_split = basedir.split('/')
+		for p in path_split[:]:
+			path_split += p.split(os.sep)
+			path_split.remove(p)
+		if path_split[-1].lower() == parent_folder_name.lower():
+			basedir = os.path.dirname(basedir)
+		tfexe = self.TUFLOW_exe.displayText().strip()
+		
+		baseexe = os.path.basename(tfexe)
+		if 'tuflowfv' in baseexe.lower():
+			if engine == 'classic':
+				fv = QMessageBox.question(self, "TUFLOW Project Settings",
+				                          "Executable Appears to be TUFLOW Flexible Mesh . . . "
+				                          "Would You Like to Create a TUFLOW Flexible Mesh Project "
+				                          "Instead of TUFLOW Classic / HPC?",
+				                          QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+				if fv == QMessageBox.Cancel:
+					return
+				elif fv == QMessageBox.Yes:
+					engine = 'flexible mesh'
 		
 		#Save Project Settings
 		self.tfsettings.project_settings.CRS_ID = tf_prj
 		self.tfsettings.project_settings.tf_exe = tfexe
 		self.tfsettings.project_settings.base_dir = basedir
+		self.tfsettings.project_settings.engine = engine
+		self.tfsettings.project_settings.tutorial = tutorial
 		error, message = self.tfsettings.Save_Project()
 		if error:
 			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Saving Project Settings. Message: "+message)
-		else:
-			QMessageBox.information( self.iface.mainWindow(),"Information", "Project Settings Saved")
+		#else:
+		#	QMessageBox.information( self.iface.mainWindow(),"Information", "Project Settings Saved")
 		
-		#Save Global Settings
-		if (self.cbGlobal.isChecked()):
+		# Save Global Settings
+		if self.cbGlobal.isChecked():
 			self.tfsettings.global_settings.CRS_ID = tf_prj
 			self.tfsettings.global_settings.tf_exe = tfexe
 			self.tfsettings.global_settings.base_dir = basedir
+			self.tfsettings.global_settings.engine = engine
+			self.tfsettings.global_settings.tutorial = tutorial
 			error, message = self.tfsettings.Save_Global()
 			if error:
 				QMessageBox.information( self.iface.mainWindow(),"Error", "Error Saving Global Settings. Message: "+message)
-			else:
-				QMessageBox.information( self.iface.mainWindow(),"Information", "Global Settings Saved")
+			#else:
+			#	QMessageBox.information( self.iface.mainWindow(),"Information", "Global Settings Saved")
 		
-		if (self.cbCreate.isChecked()):
+		if self.cbCreate.isChecked():
 			crs = QgsCoordinateReferenceSystem()
 			crs.createFromString(tf_prj)
 	
-			#QMessageBox.information( self.iface.mainWindow(),"Creating TUFLOW directory", basedir)
-			message = tuflowqgis_create_tf_dir(self.iface, crs, basedir)
-			if message <> None:
+			message = tuflowqgis_create_tf_dir(self.iface, crs, basedir, engine, tutorial)
+			if message != None:
 				QMessageBox.critical(self.iface.mainWindow(), "Creating TUFLOW Directory ", message)
 		
-		if (self.cbRun.isChecked()):
-				#tcf = os.path.join(basedir+"\\TUFLOW\\runs\\Create_Empties.tcf")
-				tcf = os.path.join(basedir,"TUFLOW","runs","Create_Empties.tcf")
-				QMessageBox.information(self.iface.mainWindow(), "Running TUFLOW","Starting simulation: "+tcf+"\n Executable: "+tfexe)
-				message = run_tuflow(self.iface, tfexe, tcf)
-				if message <> None:
-					QMessageBox.critical(self.iface.mainWindow(), "Running TUFLOW ", message)
+		if self.cbRun.isChecked():
+			ext = '.fvc' if engine == 'flexible mesh' else '.tcf'
+			runfile = os.path.join(basedir, parent_folder_name, "runs", "Create_Empties{0}".format(ext))
+			#QMessageBox.information(self.iface.mainWindow(), "Running {0}".format(parent_folder_name),"Starting simulation: "+runfile+"\n Executable: "+tfexe)
+			message = run_tuflow(self.iface, tfexe, runfile)
+			if message != None:
+				QMessageBox.critical(self.iface.mainWindow(), "Running {0} ".format(parent_folder_name), message)
 			
 			
-# ----------------------------------------------------------
-#    tuflowqgis splitMI into shapefiles
-# ----------------------------------------------------------
-from ui_tuflowqgis_splitMI import *
-from splitMI_mod import *
-class tuflowqgis_splitMI_dialog(QDialog, Ui_tuflowqgis_splitMI):
-	def __init__(self, iface):
-		QDialog.__init__(self)
-		self.iface = iface
-		self.setupUi(self)
-		self.canvas = self.iface.mapCanvas()
-		cLayer = self.canvas.currentLayer()
-		fname = ''
-		cName = 'not defined'
-		fpath = None
-		
-	#	if cLayer:
-	#		cName = cLayer.name()
-	#		dp = cLayer.dataProvider()
-	#		ds = dp.dataSourceUri()
-	#		try:
-	#			fpath, fname = os.path.split(unicode(ds))
-	#			ind = fname.find('|')
-	#			if (ind>0):
-	#				fname = fname[0:ind]
-	#			fext, fname_noext, message = get_file_ext(fname)
-	#		except:
-	#			fpath = None
-	#			fname = ''
-
-		QObject.connect(self.browseoutfile, SIGNAL("clicked()"), self.browse_outdir)
-		QObject.connect(self.buttonBox, SIGNAL("accepted()"), self.run)
-		QObject.connect(self.sourcelayer, SIGNAL("currentIndexChanged(int)"), self.layer_changed)
-		i = 0
-		for name, layer in QgsMapLayerRegistry.instance().mapLayers().iteritems():
-			if layer.type() == QgsMapLayer.VectorLayer:
-				self.sourcelayer.addItem(layer.name())
-				if layer.name() == cName:
-					self.sourcelayer.setCurrentIndex(i)
-				i = i + 1
-		if cLayer == None:
-			self.sourcelayer.setCurrentIndex(0)
-		
-		layername = unicode(self.sourcelayer.currentText()) 
-		if layername != "Undefined":
-			layer = tuflowqgis_find_layer(layername)
-			if layer != None:
-				dp = layer.dataProvider()
-				ds = dp.dataSourceUri()
-				try:
-					fpath, fname = os.path.split(unicode(ds))
-					ind = fname.find('|')
-					if (ind>0):
-						fname = fname[0:ind]
-					fext, fname_noext, message = get_file_ext(fname)
-				except:
-					fpath = None
-					fname = ''
-				self.outfolder.setText(fpath)
-				self.outprefix.setText(fname_noext)
-		if (fpath):
-			self.outfolder.setText(fpath)
-			self.outprefix.setText(fname_noext)
-		else:
-			self.outfolder.setText('No layer currently open!')
-			self.outprefix.setText('No layer currently open!')
-
-	def browse_outdir(self):
-		newname = QFileDialog.getExistingDirectory(None, "Output Directory")
-		if newname != None:
-			self.outfolder.setText(newname)
-	
-	def layer_changed(self):
-		layername = unicode(self.sourcelayer.currentText()) 
-		if layername != "Undefined":
-			layer = tuflowqgis_find_layer(layername)
-			if layer != None:
-				dp = layer.dataProvider()
-				ds = dp.dataSourceUri()
-				try:
-					fpath, fname = os.path.split(unicode(ds))
-					ind = fname.find('|')
-					if (ind>0):
-						fname = fname[0:ind]
-					fext, fname_noext, message = get_file_ext(fname)
-				except:
-					fpath = None
-					fname = ''
-				self.outfolder.setText(fpath)
-				self.outprefix.setText(fname_noext)
-	def run(self):
-		layername = unicode(self.sourcelayer.currentText())
-		layer = tuflowqgis_find_layer(layername)
-		fext = "unknown"
-		if layer != None:
-			dp = layer.dataProvider()
-			ds = unicode(dp.dataSourceUri())
-			ind = ds.find('|')
-			if (ind>0):
-				fname = ds[0:ind]
-			else:
-				fname = ds
-			fext, fname_noext, message = get_file_ext(fname)
-		else:
-			QMessageBox.critical(self.iface.mainWindow(), "ERROR", "Layer name is blank, or unable to find layer")
-		outfolder = unicode(self.outfolder.displayText()).strip()
-		outprefix = unicode(self.outprefix.displayText()).strip()
-		message, ptshp, lnshp, rgshp, npt, nln, nrg = split_MI_util(self.iface, fname, outfolder, outprefix)
-		
-		if message <> None:
-			QMessageBox.critical(self.iface.mainWindow(), "Error Splitting file", message)
-		QgsMapLayerRegistry.instance().removeMapLayer(layer.id())
-		
-# ----------------------------------------------------------
-#    tuflowqgis flow trace
-# ----------------------------------------------------------
-
-# ----------------------------------------------------------
-#    tuflowqgis splitMI into shapefiles
-# ----------------------------------------------------------
-from ui_tuflowqgis_splitMI_folder import *
-from tuflowqgis_settings import TF_Settings
-from splitMI_func import *
-from splitMI_mod2 import *
-import os
-import fnmatch
-
-class tuflowqgis_splitMI_folder_dialog(QDialog, Ui_tuflowqgis_splitMI_folder):
-	def __init__(self, iface):
-		QDialog.__init__(self)
-		self.iface = iface
-		self.setupUi(self)
-		self.tfsettings = TF_Settings()
-		self.last_mi = self.tfsettings.get_last_mi_folder()
-		
-		QObject.connect(self.browseoutfile, SIGNAL("clicked()"), self.browse_outdir)
-		QObject.connect(self.buttonBox, SIGNAL("accepted()"), self.run)
-		
-
-
-	def browse_outdir(self):
-		#newname = QFileDialog.getExistingDirectory(None, "Output Directory")
-		newname = QFileDialog.getExistingDirectory(None, "Output Directory",self.last_mi)
-		if newname != None:
-			self.outfolder.setText(newname)
-			self.tfsettings.save_last_mi_folder(newname)
-	
-	def run(self):
-		QMessageBox.information( self.iface.mainWindow(),"debug", "run" )
-		folder = unicode(self.outfolder.displayText()).strip()
-		QMessageBox.information( self.iface.mainWindow(),"debug", "Folder: \n"+folder)
-
-		mif_files = []
-		if self.cbRecursive.isChecked(): #look in subfolders:
-			for root, dirnames, filenames in os.walk(folder):
-				for filename in fnmatch.filter(filenames, '*.mif'):
-					mif_files.append(os.path.join(root, filename))
-		else: #only specified folder
-			filenames = os.listdir(folder)
-			for filename in fnmatch.filter(filenames, '*.mif'):
-				mif_files.append(os.path.join(folder, filename))
-		
-		nF = len(mif_files)
-		#QMessageBox.information( self.iface.mainWindow(),"debug", "Number of mif files = :"+str(nF))
-		
-		for mif_file in mif_files:
-			message, fname_P, fname_L, fname_R, npts, nln, nrg = split_MI_util2(mif_file)
-			
-			if message <> None:
-				QMessageBox.information( self.iface.mainWindow(),"ERROR", message)
-				QMessageBox.information( self.iface.mainWindow(),"point file", fname_P)
-			else:
-				QMessageBox.information( self.iface.mainWindow(),"ERROR", "Success")
 		
 # ----------------------------------------------------------
 #    tuflowqgis flow trace
@@ -883,8 +971,10 @@ class tuflowqgis_flowtrace_dialog(QDialog, Ui_tuflowqgis_flowtrace):
 			QDialog.done(self,0)
 			
 
-		QObject.connect(self.pb_Run, SIGNAL("clicked()"), self.run_clicked)
-		QObject.connect(self.buttonBox, SIGNAL("accepted()"), self.run)
+		#QObject.connect(self.pb_Run, SIGNAL("clicked()"), self.run_clicked)
+		self.pb_Run.clicked.connect(self.run_clicked)
+		#QObject.connect(self.buttonBox, SIGNAL("accepted()"), self.run)
+		self.buttonBox.accept.connect(self.run)
 #
 	def run_clicked(self):
 		#tolerance = 1.00
@@ -991,12 +1081,12 @@ class tuflowqgis_flowtrace_dialog(QDialog, Ui_tuflowqgis_flowtrace):
 		QMessageBox.information( self.iface.mainWindow(),"Information", "Use RUN button")
   
   
- # MJS added 11/02 
+# MJS added 11/02
 # ----------------------------------------------------------
 #    tuflowqgis import check files
 # ----------------------------------------------------------
 from ui_tuflowqgis_import_check import *
-from tuflowqgis_settings import TF_Settings
+from .tuflowqgis_settings import TF_Settings
 class tuflowqgis_import_check_dialog(QDialog, Ui_tuflowqgis_import_check):
 	def __init__(self, iface, project):
 		QDialog.__init__(self)
@@ -1010,20 +1100,32 @@ class tuflowqgis_import_check_dialog(QDialog, Ui_tuflowqgis_import_check):
 		if error:
 			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Settings: "+message)
 
-		QObject.connect(self.browsedir, SIGNAL("clicked()"), self.browse_empty_dir)
-		QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
+		self.browsedir.clicked.connect(self.browse_empty_dir)
+		self.buttonBox.accepted.connect(self.run)
+		
+		engine = self.tfsettings.combined.engine
+		self.parent_folder_name = 'TUFLOWFV' if engine == 'flexible mesh' else 'TUFLOW'
 
-		if (self.last_chk_folder == "Undefined"):
+		if self.last_chk_folder == "Undefined":
 			if self.tfsettings.combined.base_dir:
-				self.last_chk_folder = os.path.join(self.tfsettings.combined.base_dir,"TUFLOW","Check")
+				subfolders = [self.parent_folder_name.lower(), 'check']
+				checkdir = self.tfsettings.combined.base_dir
+				for i, subfolder in enumerate(subfolders):
+					for p in os.walk(checkdir):
+						for d in p[1]:
+							if d.lower() == subfolder:
+								if i == 0:
+									self.parent_folder_name = d
+								checkdir = os.path.join(checkdir, d)
+								break
+						break
+				self.last_chk_folder = checkdir
 				self.emptydir.setText(self.last_chk_folder)
-		#	self.emptydir.setText(self.tfsettings.combined.base_dir+"\\TUFLOW\\check")
 		else:
 			self.emptydir.setText(self.last_chk_folder)
-		#self.emptydir.setText = self.tfsettings.get_last_mi_folder()
 
 	def browse_empty_dir(self):
-		newname = QFileDialog.getExistingDirectory(None, "Output Directory",self.last_chk_folder)
+		newname = QFileDialog.getExistingDirectory(None, "Output Directory", self.last_chk_folder)
 		if newname != None:
 			try:
 				self.emptydir.setText(newname)
@@ -1040,16 +1142,17 @@ class tuflowqgis_import_check_dialog(QDialog, Ui_tuflowqgis_import_check):
 
 		# run create dir script
 		#message = tuflowqgis_import_check_tf(self.iface, basedir, runID, empty_types, points, lines, regions)
-		message = tuflowqgis_import_check_tf(self.iface, basedir, runID,showchecks)
+		message = tuflowqgis_import_check_tf(self.iface, basedir, runID, showchecks)
 		#message = tuflowqgis_create_tf_dir(self.iface, crs, basedir)
-		if message <> None:
+		if message != None:
 			QMessageBox.critical(self.iface.mainWindow(), "Importing TUFLOW Empty File(s)", message)
-			
+
+
 # ----------------------------------------------------------
 #    tuflowqgis extract ARR2016
 # ----------------------------------------------------------
 from ui_tuflowqgis_arr2016 import *
-from tuflowqgis_settings import TF_Settings
+from .tuflowqgis_settings import TF_Settings
 import webbrowser
 
 class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
@@ -1062,17 +1165,17 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		self.tfsettings = TF_Settings()
 		
 		# Set up Input Catchment File ComboBox
-		for name, layer in QgsMapLayerRegistry.instance().mapLayers().iteritems():
+		for name, layer in QgsProject.instance().mapLayers().items():
 				if layer.type() == QgsMapLayer.VectorLayer:
-					if layer == 0 or layer.geometryType() == 2:
+					if layer.geometryType() == 0 or layer.geometryType() == 2:
 						self.comboBox_inputCatchment.addItem(layer.name())
 							
-		layerName = unicode(self.comboBox_inputCatchment.currentText())
+		layerName = self.comboBox_inputCatchment.currentText()
 		layer = tuflowqgis_find_layer(layerName)
 						
 		# Set up Catchment Field ID ComboBox
 		if layer is not None:
-			for f in layer.pendingFields():
+			for f in layer.fields():
 				#QMessageBox.information(self.iface.mainWindow(), "Debug", '{0}'.format(f.name()))
 				self.comboBox_CatchID.addItem(f.name())
 				
@@ -1083,37 +1186,78 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			self.comboBox_CatchArea.setEnabled(True)
 			self.comboBox_CatchArea.addItem('-None-')
 			if layer is not None:
-				for f in layer.pendingFields():
+				for f in layer.fields():
 					self.comboBox_CatchArea.addItem(f.name())
-					
+		
+		# set up output format
+		outputFormatIndex = int(QSettings().value("ARR2016_output_format", 0))
+		self.comboBox_outputF.setCurrentIndex(outputFormatIndex)
+		
+		# set up output notation
+		outputNotationIndex = int(QSettings().value("ARR2016_output_notation", 0))
+		self.comboBox_outputN.setCurrentIndex(outputNotationIndex)
+		
 		# Set up MAR and Static Value box
 		self.mar_staticValue.setEnabled(False)
 		
-		#QObject.connect(self.commandLinkButton_BOMconditions, SIGNAL("clicked()"), self.open_BOMconditions)
-		#QObject.connect(self.commandLinkButton_BOMcaveat, SIGNAL("clicked()"), self.open_BOMcaveat)
-		QObject.connect(self.comboBox_inputCatchment, SIGNAL("currentIndexChanged(int)"), self.catchmentLayer_changed)
-		QObject.connect(self.pushButton_browse, SIGNAL("clicked()"), self.browse_outFolder)
-		QObject.connect(self.checkBox_aepAll, SIGNAL("clicked()"), self.aep_all)
-		QObject.connect(self.checkBox_durAll, SIGNAL("clicked()"), self.dur_all)
-		QObject.connect(self.radioButton_ARF_auto, SIGNAL("clicked()"), self.toggle_comboBox_CatchArea)
-		QObject.connect(self.radioButton_ARF_manual, SIGNAL("clicked()"), self.toggle_comboBox_CatchArea)
-		QObject.connect(self.comboBox_ilMethod, SIGNAL("currentIndexChanged(int)"), self.ilMethod_changed)
-		QObject.connect(self.buttonBox, SIGNAL("accepted()"), self.run)
-	
-	def open_BOMconditions(self):
-		webbrowser.open(r'http://www.bom.gov.au/other/disclaimer.shtml')
+		# setup preburst percentile
+		preBurstIndex = int(QSettings().value("ARR2016_preburst_percentile", 0))
+		self.comboBox_preBurstptile.setCurrentIndex(preBurstIndex)
 		
-	def open_BOMcaveat(self):
-		webbrowser.open(r'http://www.bom.gov.au/water/designRainfalls/revised-ifd/?content=caveat')
+		# set up initial loss for short durations
+		ilMethodIndex = int(QSettings().value("ARR2016_IL_short_durations", 0))
+		self.comboBox_ilMethod.setCurrentIndex(ilMethodIndex)
+		if ilMethodIndex == 2 or ilMethodIndex == 3:
+			ilInputValue = QSettings().value("ARR2016_IL_input_value", "")
+			self.mar_staticValue.setText(ilInputValue)
+			
+		# tuflow loss method
+		tuflowLMindex = int(QSettings().value("ARR2016_TUFLOW_loss_method", 0))
+		self.cboTuflowLM.setCurrentIndex(tuflowLMindex)
+		
+		# min arf
+		minARFValue = float(QSettings().value("ARR2016_min_arf", 0))
+		self.minArf.setValue(minARFValue)
+		
+		# setup browse boxes
+		folderIcon = QgsApplication.getThemeIcon('/mActionFileOpen.svg')
+		self.btnBrowsePTP.setIcon(folderIcon)
+		self.btnBrowseATP.setIcon(folderIcon)
+		self.btnBrowseOut.setIcon(folderIcon)
+		self.btnBrowseARRFile.setIcon(folderIcon)
+		self.btnBrowseBOMFile.setIcon(folderIcon)
+		
+		self.comboBox_inputCatchment.currentIndexChanged.connect(self.catchmentLayer_changed)
+		self.checkBox_aepAll.clicked.connect(self.aep_all)
+		self.checkBox_durAll.clicked.connect(self.dur_all)
+		self.radioButton_ARF_auto.clicked.connect(self.toggle_comboBox_CatchArea)
+		self.radioButton_ARF_manual.clicked.connect(self.toggle_comboBox_CatchArea)
+		self.comboBox_ilMethod.currentIndexChanged.connect(self.ilMethod_changed)
+		self.btnBrowsePTP.clicked.connect(lambda: self.browse("existing file", "ARR2016_browse_PTP",
+		                                                      "ARR2016 Point Temporal Pattern",
+		                                                      "CSV format (*.csv *.CSV)", self.lePTP))
+		self.btnBrowseATP.clicked.connect(lambda: self.browse("existing file", "ARR2016_browse_ATP",
+		                                                      "ARR2016 Areal Temporal Pattern",
+		                                                      "CSV format (*.csv *.CSV)", self.leATP))
+		self.btnBrowseOut.clicked.connect(lambda: self.browse("existing folder", "ARR2016_browse_out",
+		                                                      "Output Folder", None, self.outfolder))
+		self.btnBrowseARRFile.clicked.connect(lambda: self.browse("existing file", "ARR2016_datahub_file",
+		                                                          "ARR2016 Datahub File",
+		                                                          "TXT format (*.txt *.TXT)", self.leARRFile))
+		self.btnBrowseBOMFile.clicked.connect(lambda: self.browse("existing file", "BOM_IFD_file",
+		                                                          "BOM IFD File",
+		                                                          "HTML format (*.html *.HTML)", self.leBOMFile))
+		self.pbOk.clicked.connect(self.check)
+		self.pbCancel.clicked.connect(self.reject)
 	
 	def catchmentLayer_changed(self):
-		layerName = unicode(self.comboBox_inputCatchment.currentText())
+		layerName = self.comboBox_inputCatchment.currentText()
 		layer = tuflowqgis_find_layer(layerName)
 		
 		# Set up Catchment Field ID ComboBox
 		self.comboBox_CatchID.clear()
 		if layer is not None:
-			for f in layer.pendingFields():
+			for f in layer.fields():
 				self.comboBox_CatchID.addItem(f.name())
 		
 		# Set up Catchment Area Field ComboBox
@@ -1126,19 +1270,41 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			if layer is not None:
 				for f in layer.pendingFields():
 					self.comboBox_CatchArea.addItem(f.name())
-				
-	def browse_outFolder(self):
-		self.last_arr_outFolder = self.tfsettings.get_last_arr_outFolder()
-		new_outFolder = QFileDialog.getExistingDirectory(None, "Output Directory", self.last_arr_outFolder)
-		if new_outFolder != None:
-			try:
-				self.outfolder.setText(new_outFolder)
-				self.tfsettings.save_last_arr_outFolder(new_outFolder)
-			except:
-				self.outfolder.setText("Problem Saving Settings")
+	
+	def browse(self, browseType, key, dialogName, fileType, lineEdit):
+		"""
+		Browse folder directory
+
+		:param type: str browse type 'folder' or 'file'
+		:param key: str settings key
+		:param dialogName: str dialog box label
+		:param fileType: str file extension e.g. "AVI files (*.avi)"
+		:param lineEdit: QLineEdit to be updated by browsing
+		:return: void
+		"""
+
+		settings = QSettings()
+		lastFolder = settings.value(key)
+		startDir = "C:\\"
+		if lastFolder:  # if outFolder no longer exists, work backwards in directory until find one that does
+			while lastFolder:
+				if os.path.exists(lastFolder):
+					startDir = lastFolder
+					break
+				else:
+					lastFolder = os.path.dirname(lastFolder)
+		if browseType == 'existing folder':
+			f = QFileDialog.getExistingDirectory(self, dialogName, startDir)
+		elif browseType == 'existing file':
+			f = QFileDialog.getOpenFileName(self, dialogName, startDir, fileType)[0]
+		else:
+			return
+		if f:
+			lineEdit.setText(f)
+			settings.setValue(key, f)
 				
 	def toggle_comboBox_CatchArea(self):
-		layerName = unicode(self.comboBox_inputCatchment.currentText())
+		layerName = self.comboBox_inputCatchment.currentText()
 		layer = tuflowqgis_find_layer(layerName)
 		
 		if self.radioButton_ARF_auto.isChecked():
@@ -1152,195 +1318,279 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 					self.comboBox_CatchArea.addItem(f.name())
 					
 	def ilMethod_changed(self):
-		ilMethod = unicode(self.comboBox_ilMethod.currentText())
+		ilMethod = self.comboBox_ilMethod.currentText()
 		
 		if ilMethod == 'Hill et al 1996: 1998' or ilMethod == 'Static Value':
 			self.mar_staticValue.setEnabled(True)
 		else:
 			self.mar_staticValue.setEnabled(False)
-				
-	def run(self):
-		# Check BOM Conditions of Use and Conditions Caveat have been ticked
-		if not self.checkBox_BOMconditions.isChecked() or not self.checkBox_BOMcaveat.isChecked():
-			QMessageBox.critical(self.iface.mainWindow(),"ERROR", 
-								 "Must accept BOM Conditions of Use and Conditions Caveat before you can continue.")
-			return
-		
-		# Check vector layer has been specified
-		layerName = unicode(self.comboBox_inputCatchment.currentText())
+			
+	def AEPs(self):
+		self.rare_events = 'false'
+		self.frequent_events = 'false'
+		self.AEP_list = ''
+		if self.checkBox_1p.isChecked():
+			self.AEP_list += '1AEP '
+		if self.checkBox_2p.isChecked():
+			self.AEP_list += '2AEP '
+		if self.checkBox_5p.isChecked():
+			self.AEP_list += '5AEP '
+		if self.checkBox_10p.isChecked():
+			self.AEP_list += '10AEP '
+		if self.checkBox_20p.isChecked():
+			self.AEP_list += '20AEP '
+		if self.checkBox_50p.isChecked():
+			self.AEP_list += '50AEP '
+		if self.checkBox_63p.isChecked():
+			self.AEP_list += '63.2AEP '
+		if self.checkBox_200y.isChecked():
+			self.AEP_list += '200ARI '
+			self.rare_events = 'true'
+		if self.checkBox_500y.isChecked():
+			self.AEP_list += '500ARI '
+			self.rare_events = 'true'
+		if self.checkBox_1000y.isChecked():
+			self.AEP_list += '1000ARI '
+			self.rare_events = 'true'
+		if self.checkBox_2000y.isChecked():
+			self.AEP_list += '2000ARI '
+			self.rare_events = 'true'
+		if self.checkBox_12ey.isChecked():
+			self.AEP_list += '12EY '
+			self.frequent_events = 'true'
+		if self.checkBox_6ey.isChecked():
+			self.AEP_list += '6EY '
+			self.frequent_events = 'true'
+		if self.checkBox_4ey.isChecked():
+			self.AEP_list += '4EY '
+			self.frequent_events = 'true'
+		if self.checkBox_3ey.isChecked():
+			self.AEP_list += '3EY '
+			self.frequent_events = 'true'
+		if self.checkBox_2ey.isChecked():
+			self.AEP_list += '2EY '
+			self.frequent_events = 'true'
+		if self.checkBox_05ey.isChecked():
+			self.AEP_list += '0.5EY '
+			self.frequent_events = 'true'
+		if self.checkBox_02ey.isChecked():
+			self.AEP_list += '0.2EY '
+			self.frequent_events = 'true'
+			
+	def durations(self):
+		self.dur_list = 'none'
+		self.nonstnd_list = 'none'
+		if self.checkBox_10m.isChecked():
+			self.dur_list += '10m '
+		if self.checkBox_15m.isChecked():
+			self.dur_list += '15m '
+		if self.checkBox_20m.isChecked():
+			self.nonstnd_list += '20m '
+		if self.checkBox_25m.isChecked():
+			self.nonstnd_list += '25m '
+		if self.checkBox_30m.isChecked():
+			self.dur_list += '30m '
+		if self.checkBox_45m.isChecked():
+			self.nonstnd_list += '45m '
+		if self.checkBox_60m.isChecked():
+			self.dur_list += '60m '
+		if self.checkBox_90m.isChecked():
+			self.nonstnd_list += '90m '
+		if self.checkBox_120m.isChecked():
+			self.dur_list += '2h '
+		if self.checkBox_180m.isChecked():
+			self.dur_list += '3h '
+		if self.checkBox_270m.isChecked():
+			self.nonstnd_list += '270m '
+		if self.checkBox_6h.isChecked():
+			self.dur_list += '6h '
+		if self.checkBox_9h.isChecked():
+			self.nonstnd_list += '9h '
+		if self.checkBox_12h.isChecked():
+			self.dur_list += '12h '
+		if self.checkBox_18h.isChecked():
+			self.nonstnd_list += '18h '
+		if self.checkBox_24h.isChecked():
+			self.dur_list += '24h '
+		if self.checkBox_30h.isChecked():
+			self.nonstnd_list += '30h '
+		if self.checkBox_36h.isChecked():
+			self.nonstnd_list += '36h '
+		if self.checkBox_48h.isChecked():
+			self.dur_list += '48h '
+		if self.checkBox_72h.isChecked():
+			self.dur_list += '72h '
+		if self.checkBox_96h.isChecked():
+			self.dur_list += '96h '
+		if self.checkBox_120h.isChecked():
+			self.dur_list += '120h '
+		if self.checkBox_144h.isChecked():
+			self.dur_list += '144h '
+		if self.checkBox_168h.isChecked():
+			self.dur_list += '168h '
+		if self.dur_list != 'none':
+			self.dur_list = self.dur_list.strip('none')
+		if self.nonstnd_list != 'none':
+			self.nonstnd_list = self.nonstnd_list.strip('none')
+			
+	def climateChange(self):
+		self.cc_years = 'none'
+		self.cc_rcp = 'none'
+		self.cc = 'false'
+		if self.checkBox_2030.isChecked():
+			self.cc_years += '2030 '
+		if self.checkBox_2040.isChecked():
+			self.cc_years += '2040 '
+		if self.checkBox_2050.isChecked():
+			self.cc_years += '2050 '
+		if self.checkBox_2060.isChecked():
+			self.cc_years += '2060 '
+		if self.checkBox_2070.isChecked():
+			self.cc_years += '2070 '
+		if self.checkBox_2080.isChecked():
+			self.cc_years += '2080 '
+		if self.checkBox_2090.isChecked():
+			self.cc_years += '2090 '
+		if self.checkBox_45rcp.isChecked():
+			self.cc_rcp += '4.5 '
+		if self.checkBox_6rcp.isChecked():
+			self.cc_rcp += '6 '
+		if self.checkBox_85rcp.isChecked():
+			self.cc_rcp += '8.5 '
+		if self.cc_years != 'none':
+			self.cc = 'true'
+			self.cc_years = self.cc_years.strip('none')
+		if self.cc_rcp != 'none':
+			self.cc = 'true'
+			self.cc_rcp = self.cc_rcp.strip('none')
+			
+	def check(self):
+		"""Do some basic checks on inputs before trying to run"""
+		layerName = self.comboBox_inputCatchment.currentText()
 		layer = tuflowqgis_find_layer(layerName)
 		if layer is None:
-			QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Must select a layer.")
+			QMessageBox.critical(self.iface.mainWindow(), "ERROR", "Must select a layer.")
 			return
-		
-		# destroy dialog box
-		self.accept()
-		
-		# get AEPs
-		rare_events = 'false'
-		frequent_events = 'false'
-		AEP_list = ''
-		if self.checkBox_1p.isChecked():
-			AEP_list += '1AEP '
-		if self.checkBox_2p.isChecked():
-			AEP_list += '2AEP '
-		if self.checkBox_5p.isChecked():
-			AEP_list += '5AEP '
-		if self.checkBox_10p.isChecked():
-			AEP_list += '10AEP '
-		if self.checkBox_20p.isChecked():
-			AEP_list += '20AEP '
-		if self.checkBox_50p.isChecked():
-			AEP_list += '50AEP '
-		if self.checkBox_63p.isChecked():
-			AEP_list += '63.2AEP '
-		if self.checkBox_200y.isChecked():
-			AEP_list += '200ARI '
-			rare_events = 'true'
-		if self.checkBox_500y.isChecked():
-			AEP_list += '500ARI '
-			rare_events = 'true'
-		if self.checkBox_1000y.isChecked():
-			AEP_list += '1000ARI '
-			rare_events = 'true'
-		if self.checkBox_2000y.isChecked():
-			AEP_list += '2000ARI '
-			rare_events = 'true'
-		if self.checkBox_12ey.isChecked():
-			AEP_list += '12EY '
-			frequent_events = 'true'
-		if self.checkBox_6ey.isChecked():
-			AEP_list += '6EY '
-			frequent_events = 'true'
-		if self.checkBox_4ey.isChecked():
-			AEP_list += '4EY '
-			frequent_events = 'true'
-		if self.checkBox_3ey.isChecked():
-			AEP_list += '3EY '
-			frequent_events = 'true'
-		if self.checkBox_2ey.isChecked():
-			AEP_list += '2EY '
-			frequent_events = 'true'
-		if self.checkBox_05ey.isChecked():
-			AEP_list += '0.5EY '
-			frequent_events = 'true'
-		if self.checkBox_02ey.isChecked():
-			AEP_list += '0.2EY '
-			frequent_events = 'true'
-		if len(AEP_list) < 1:
-			QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Must select at least one AEP.")
+		self.AEPs()
+		if not self.AEP_list:
+			QMessageBox.critical(self, "ARR2016 to TUFLOW", "Must select at least one AEP")
 			return
+		self.durations()
+		if self.dur_list == 'none' and self.nonstnd_list == 'none':
+			QMessageBox.critical(self, "ARR2016 to TUFLOW", "Must select at least one duration")
+			return
+		self.climateChange()
+		if self.cc == 'true':
+			if self.cc_years == 'none':
+				QMessageBox.critical(self, "ARR2016 to TUFLOW", "Must select a year when calculating climate change")
+				return
+			if self.cc_rcp == 'none':
+				QMessageBox.critical(self, "ARR2016 to TUFLOW", "Must select a RCP when calculating climate change")
+				return
+		if self.lePTP.text():
+			if not os.path.exists(self.lePTP.text()):
+				QMessageBox.critical(self, "ARR2016 to TUFLOW", "Point Temporal Pattern CSV does not exist")
+				return
+		if self.leATP.text():
+			if not os.path.exists(self.leATP.text()):
+				QMessageBox.critical(self, "ARR2016 to TUFLOW", "Areal Temporal Pattern CSV does not exist")
+				return
+		if self.mar_staticValue.text():
+			try:
+				float(self.mar_staticValue.text())
+				if float(self.mar_staticValue.text()) < 0:
+					QMessageBox.critical(self, "ARR2016 to TUFLOW",
+					                     "{0} cannot be less than zero".format(self.comboBox_ilMethod.currentText()))
+					return
+			except ValueError:
+				QMessageBox.critical(self, "ARR2016 to TUFLOW",
+				                     "{0} must be a number".format(self.comboBox_ilMethod.currentText()))
+				return
+		if self.outfolder.text() == '<outfolder>':
+			QMessageBox.critical(self, "ARR2016 to TUFLOW", "Must specify an output folder")
+			return
+		if not self.outfolder.text():
+			QMessageBox.critical(self, "ARR2016 to TUFLOW", "Must specify an output folder")
+			return
+		if self.gbOfflineMode.isChecked():
+			if not self.leARRFile.text():
+				QMessageBox.critical(self, "ARR2016 to TUFLOW", "Must specify an ARR datahub file in offline mode")
+				return
+			if not os.path.exists(self.leARRFile.text()):
+				QMessageBox.critical(self, "ARR2016 to TUFLOW",
+				                     "ARR datahub file does not exist: {0}".format(self.leARRFile.text()))
+				return
+			if not self.leBOMFile.text():
+				QMessageBox.critical(self, "ARR2016 to TUFLOW", "Must specify an BOM IFD file in offline mode")
+				return
+			if not os.path.exists(self.leBOMFile.text()):
+				QMessageBox.critical(self, "ARR2016 to TUFLOW",
+				                     "BOM IFD file does not exist: {0}".format(self.leBOMFile.text()))
+				return
+		self.run()
 		
-		# get durations
-		dur_list = 'none'
-		nonstnd_list = 'none'
-		if self.checkBox_10m.isChecked():
-			dur_list += '10m '
-		if self.checkBox_15m.isChecked():
-			dur_list += '15m '
-		if self.checkBox_20m.isChecked():
-			nonstnd_list += '20m '
-		if self.checkBox_25m.isChecked():
-			nonstnd_list += '25m '
-		if self.checkBox_30m.isChecked():
-			dur_list += '30m '
-		if self.checkBox_45m.isChecked():
-			nonstnd_list += '45m '
-		if self.checkBox_60m.isChecked():
-			dur_list += '60m '
-		if self.checkBox_90m.isChecked():
-			nonstnd_list += '90m '
-		if self.checkBox_120m.isChecked():
-			dur_list += '2h '
-		if self.checkBox_180m.isChecked():
-			dur_list += '3h '
-		if self.checkBox_270m.isChecked():
-			nonstnd_list += '270m '
-		if self.checkBox_6h.isChecked():
-			dur_list += '6h '
-		if self.checkBox_9h.isChecked():
-			nonstnd_list += '9h '
-		if self.checkBox_12h.isChecked():
-			dur_list += '12h '
-		if self.checkBox_18h.isChecked():
-			nonstnd_list += '18h '
-		if self.checkBox_24h.isChecked():
-			dur_list += '24h '
-		if self.checkBox_30h.isChecked():
-			nonstnd_list += '30h '
-		if self.checkBox_36h.isChecked():
-			nonstnd_list += '36h '
-		if self.checkBox_48h.isChecked():
-			dur_list += '48h '
-		if self.checkBox_72h.isChecked():
-			dur_list += '72h '
-		if self.checkBox_96h.isChecked():
-			dur_list += '96h '
-		if self.checkBox_120h.isChecked():
-			dur_list += '120h '
-		if self.checkBox_144h.isChecked():
-			dur_list += '144h '
-		if self.checkBox_168h.isChecked():
-			dur_list += '168h '
-		if len(dur_list) > 4 or len(nonstnd_list) > 4:
-			if len(dur_list) > 4:
-				dur_list = dur_list[4:]
-			if len(nonstnd_list) > 4:
-				nonstnd_list = nonstnd_list[4:]
+	def updateProgress(self, catchment_no, total_no, start_again=False):
+		if start_again:
+			self.timer.stop()
+		if self.progressCount == -1:
+			self.pbOk.setEnabled(False)
+			self.pbCancel.setEnabled(False)
+			QApplication.setOverrideCursor(Qt.WaitCursor)
+			self.progressBar.setRange(0, 0)
+			self.progressCount = 0
+			start_again = True
+		if self.progressCount == 4:
+			self.progressCount = 0
 		else:
-			QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Must select at least one duration.")
-			return
+			self.progressCount += 1
+		progressLabel = 'Processing (Catchment {0} of {1})'.format(catchment_no, total_no) + ' .' * self.progressCount
+		self.progressLabel.setText(progressLabel)
+		QgsApplication.processEvents()
 		
-		# get climate change parameters
-		cc_years = 'none'
-		cc_rcp = 'none'
-		cc = 'false'
-		if self.checkBox_2030.isChecked():
-			cc_years += '2030 '
-		if self.checkBox_2040.isChecked():
-			cc_years += '2040 '
-		if self.checkBox_2050.isChecked():
-			cc_years += '2050 '
-		if self.checkBox_2060.isChecked():
-			cc_years += '2060 '
-		if self.checkBox_2070.isChecked():
-			cc_years += '2070 '
-		if self.checkBox_2080.isChecked():
-			cc_years += '2080 '
-		if self.checkBox_2090.isChecked():
-			cc_years += '2090 '
-		if self.checkBox_45rcp.isChecked():
-			cc_rcp += '4.5 '
-		if self.checkBox_6rcp.isChecked():
-			cc_rcp += '6 '
-		if self.checkBox_85rcp.isChecked():
-			cc_rcp += '8.5 '
-		if len(cc_years) > 4 and len(cc_rcp) > 4:
-			cc = 'true'
-			cc_years = cc_years[4:]
-			cc_rcp = cc_rcp[4:]
-		elif len(cc_years) > 4:
-			QMessageBox.critical(self.iface.mainWindow(),"ERROR", 
-								 "Must select at least one RCP when opting for Climate Change.")
-			return
-		elif len(cc_rcp) > 4:
-			QMessageBox.critical(self.iface.mainWindow(),"ERROR", 
-								 "Must select at least one Year when opting for Climate Change.")
-			return
+		if start_again:
+			self.timer = QTimer()
+			self.timer.setInterval(500)
+			self.timer.timeout.connect(lambda: self.updateProgress(catchment_no, total_no))
+			self.timer.start()
+		
+	def complete(self, error, outFolder):
+		self.thread.quit()
+		self.timer.stop()
+		self.progressBar.setMaximum(100)
+		self.progressBar.setValue(100)
+		QApplication.restoreOverrideCursor()
+		if error:
+			self.progressLabel.setText("Errors occured")
+			QMessageBox.critical(self, "Message",
+			                     'Process Complete with errors. Please see\n{0}\nfor warning and error messages.' \
+			                     .format(os.path.join(outFolder, 'log.txt')))
+		else:
+			self.progressLabel.setText("Complete")
+			QMessageBox.information(self, "Message",
+			                        'Process Complete. Please see\n{0}\nfor warning and error messages.' \
+			                        .format(os.path.join(outFolder, 'log.txt')))
+			
+		self.saveDefaults()
+	
+	def run(self):
+		
+		# get layer
+		layerName = self.comboBox_inputCatchment.currentText()
+		layer = tuflowqgis_find_layer(layerName)
 		
 		# Get format
-		format = unicode(self.comboBox_outputF.currentText())
+		format = self.comboBox_outputF.currentText()
 		
 		# Get output notation
-		output_notation = unicode(self.comboBox_outputN.currentText())
+		output_notation = self.comboBox_outputN.currentText()
 		
 		# Get output folder
-		outFolder = unicode(self.outfolder.displayText()).strip()
+		outFolder = self.outfolder.displayText().strip()
 		if not os.path.exists(outFolder):  # check output directory exists
 			os.mkdir(outFolder)
 			
 		# Get preburst percentile
-		preburst = unicode(self.comboBox_preBurstptile.currentText())
+		preburst = self.comboBox_preBurstptile.currentText()
 		if preburst == 'Median':
 			preburst = '50%'
 			
@@ -1348,31 +1598,30 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		mar = '0'
 		staticValue = '0'
 		
-		ilMethod = unicode(self.comboBox_ilMethod.currentText())
+		ilMethod = self.comboBox_ilMethod.currentText()
 		if ilMethod == 'Interpolate to zero':
 			ilMethod = 'interpolate'
 		elif ilMethod == 'Rahman et al 2002':
 			ilMethod = 'rahman'
 		elif ilMethod == 'Hill et al 1996: 1998':
 			ilMethod = 'hill'
-			mar = unicode(self.mar_staticValue.displayText())
+			mar = self.mar_staticValue.displayText()
 			if mar == '':
 				QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Mean Annual Rainfall (MAR) must be specified for Hill et al loss method and must be greater than 0")
 			if float(mar) <= 0:
 				QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Mean Annual Rainfall (MAR) must be specified for Hill et al loss method and must be greater than 0")
 		elif ilMethod == 'Static Value':
 			ilMethod = 'static'
-			staticValue = unicode(self.mar_staticValue.displayText())
+			staticValue = self.mar_staticValue.displayText()
 			if staticValue == '':
 				QMessageBox.critical(self.iface.mainWindow(),"ERROR", "A value must be specified when using the Static Loss Method")
 			if float(staticValue) < 0:
 				QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Static Loss value must be greater than 0")
 		elif ilMethod == 'Use 60min Losses':
 			ilMethod = '60min'
-				
+			
 		# Get additional Temporal Patterns
 		addTp = []
-		
 		for x in range(self.listWidget_tpRegions.count()):
 			list_item = self.listWidget_tpRegions.item(x)
 			if list_item.isSelected():
@@ -1382,21 +1631,38 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			addTp = ','.join(addTp)
 		else:
 			addTp = 'false'
-				
+			
+		# get file path to point and areal temporal pattern csv files
+		point_tp_csv = 'none'
+		if self.lePTP.text():
+			point_tp_csv = self.lePTP.text()
+		areal_tp_csv = 'none'
+		if self.leATP.text():
+			areal_tp_csv = self.leATP.text()
+			
+		# get tuflow loss method
+		tuflowLossMethod = 'infiltration' if self.cboTuflowLM.currentIndex() == 0 else 'excess'
+		
+		# get user defined losses
+		userInitialLoss = 'none'
+		if self.cbUserIL.isChecked():
+			userInitialLoss = str(self.sbUserIL.value())
+		userContinuingLoss = 'none'
+		if self.cbUserCL.isChecked():
+			userContinuingLoss = str(self.sbUserCL.value())
+		
 		# Get Minimum ARF Value
-		minArf = self.minArf.displayText()
-		if float(minArf) < 0:
-			QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Minimum ARF Value cannot be negative")
+		minArf = str(self.minArf.value())
 		
 		# Get area and ID from input layer
-		idField = unicode(self.comboBox_CatchID.currentText())
+		idField = self.comboBox_CatchID.currentText()
 		area_list = []
 		name_list = []
 		for feature in layer.getFeatures():
 			area_list.append(str(feature.geometry().area() / 1000000))
 			name_list.append(str(feature[idField]))
 		
-		areaField = unicode(self.comboBox_CatchArea.currentText())
+		areaField = self.comboBox_CatchArea.currentText()
 		if not self.radioButton_ARF_auto.isChecked():
 			if areaField == '-None-':
 				area_list = ['0'] * len(name_list)
@@ -1412,7 +1678,10 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 					area_list.append(str(a))
 		
 		# Convert layer to long/lat and get centroid
-		reproject = processing.runalg("qgis:reprojectlayer", layer, "epsg:4203", None)
+		temp_shp = os.path.join(outFolder, '_reproject.shp')
+		parameters = {'INPUT': layer, 'TARGET_CRS': 'epsg:4203', 'OUTPUT': temp_shp}
+		reproject = processing.run("qgis:reprojectlayer", parameters)
+		#reproject = processing.run("qgis:reprojectlayer", layer, "epsg:4203", None)
 		reproject_layer = QgsVectorLayer(reproject['OUTPUT'], 'reproject_layer', 'ogr')
 		centroid_list = []
 		for feature in reproject_layer.getFeatures():
@@ -1420,49 +1689,70 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			centroid.append('{0:.4f}'.format(feature.geometry().centroid().asPoint()[0]))
 			centroid.append('{0:.4f}'.format(feature.geometry().centroid().asPoint()[1]))
 			centroid_list.append(centroid)
+		del reproject
+		del reproject_layer
+		QgsVectorFileWriter.deleteShapeFile(temp_shp)
 		
-		script = os.path.join(currentFolder, 'ARR2016', 'ARR_to_TUFLOW.py')
-		QMessageBox.information(self.iface.mainWindow(), "information", 
-							   'Starting ARR2016 to TUFLOW. Depending on how many catchments are being input, this can take a few minutes.\n\nA window will appear once finished.')
-		for i in range(len(name_list)):
-			sys_args = ['python', script, '-out', outFolder, '-name', name_list[i], 
-						'-coords', centroid_list[i][0], centroid_list[i][1], '-mag', AEP_list, 
-						'-frequent', frequent_events, '-rare', rare_events, '-dur', dur_list, '-nonstnd', nonstnd_list,
-						'-area', area_list[i], '-cc', cc, '-year', cc_years, '-rcp', cc_rcp, '-format', format, 
-						'-catchment_no', str(i), '-output_notation', output_notation, '-preburst', preburst, 
-						'-lossmethod', ilMethod, '-mar', mar, '-lossvalue', staticValue, '-minarf', minArf,
-						'-addtp', addTp]
-			if i == 0:
-				logfile = open(os.path.join(outFolder, 'log.txt'), 'w')
-			else:
-				logfile = open(os.path.join(outFolder, 'log.txt'), 'a')
-			CREATE_NO_WINDOW = 0x08000000 # suppresses python console window
-			error = False
-			try:
-				proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-									    creationflags=CREATE_NO_WINDOW)
-				out, err = proc.communicate()
-				logfile.write(out)
-				logfile.write(err)
-				logfile.close()
-			except:
-				#try:
-				#	proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-				#	out, err = proc.communicate()
-				#	logfile.write(out)
-				#	logfile.write(err)
-				#	logfile.close()
-				#except:
-				proc = subprocess.Popen(sys_args)
-				error = True
-				logfile.close()
-		if error:
-			QMessageBox.information(self.iface.mainWindow(), "Error", 'Process Complete. Error writing log file.')
+		# offline mode
+		if self.gbOfflineMode.isChecked():
+			offlineMode = 'true'
+			arrFile = self.leARRFile.text()
+			bomFile = self.leBOMFile.text()
 		else:
-			QMessageBox.information(self.iface.mainWindow(), "Message",
-								   'Process Complete. Please see\n{0}\nfor warning and error messages.'\
-								   .format(os.path.join(outFolder, 'log.txt')))
-		return
+			offlineMode = 'false'
+			arrFile = 'none'
+			bomFile = 'none'
+		
+		# get system arguments and call ARR2016 tool
+		# use QThread so that progress bar works properly
+		self.thread = QThread()
+		self.arr2016 = Arr2016()  # QObject so that it can be sent to QThread
+		self.arr2016.load(os.path.join(outFolder, 'log.txt'))
+		self.arr2016.sys_args.clear()
+		script = os.path.join(currentFolder, 'ARR2016', 'ARR_to_TUFLOW.py')
+		for i in range(len(name_list)):
+			sys_args = ['python3', script, '-out', outFolder, '-name', name_list[i], 
+						'-coords', centroid_list[i][0], centroid_list[i][1], '-mag', self.AEP_list,
+						'-frequent', self.frequent_events, '-rare', self.rare_events, '-dur', self.dur_list,
+						'-nonstnd', self.nonstnd_list, '-area', area_list[i], '-cc', self.cc, '-year', self.cc_years,
+						'-rcp', self.cc_rcp, '-format', format, '-catchment_no', str(i),
+						'-output_notation', output_notation, '-preburst', preburst, '-lossmethod', ilMethod,
+						'-mar', mar, '-lossvalue', staticValue, '-minarf', minArf, '-addtp', addTp,
+			            '-tuflow_loss_method', tuflowLossMethod, '-point_tp', point_tp_csv, '-areal_tp', areal_tp_csv,
+			            '-offline_mode', offlineMode, '-arr_file', arrFile, '-bom_file', bomFile,
+			            '-user_initial_loss', userInitialLoss, '-user_continuing_loss', userContinuingLoss]
+			self.arr2016.append(sys_args, name_list[i])
+			
+		self.arr2016.moveToThread(self.thread)
+		self.arr2016.updated.connect(lambda i: self.updateProgress(i + 1, len(name_list), True))
+		self.arr2016.finished.connect(lambda error: self.complete(error, outFolder))
+		self.thread.started.connect(self.arr2016.run)
+		self.progressCount = -1
+		self.thread.start()
+		self.updateProgress(1, len(name_list))  # update progress bar.. I hope it was worth the effort of using QThread!
+	
+	def saveDefaults(self):
+		settings = QSettings()
+		settings.setValue("ARR2016_preburst_percentile", self.comboBox_preBurstptile.currentIndex())
+		settings.setValue("ARR2016_IL_short_durations", self.comboBox_ilMethod.currentIndex())
+		if self.comboBox_ilMethod.currentIndex() == 2 or self.comboBox_ilMethod.currentIndex() == 3:
+			settings.setValue("ARR2016_IL_input_value", self.mar_staticValue)
+		settings.setValue("ARR2016_TUFLOW_loss_method", self.cboTuflowLM.currentIndex())
+		settings.setValue("ARR2016_min_arf", self.minArf.value())
+		settings.setValue("ARR2016_output_format", self.comboBox_outputF.currentIndex())
+		settings.setValue("ARR2016_output_notation", self.comboBox_outputN.currentIndex())
+		if self.lePTP.text():
+			settings.setValue("ARR2016_browse_PTP", self.lePTP.text())
+		if self.leATP.text():
+			settings.setValue("ARR2016_browse_ATP", self.leATP.text())
+		if self.gbOfflineMode.isChecked():
+			if self.leARRFile.text():
+				settings.setValue("ARR2016_datahub_file", self.leARRFile.text())
+			if self.leBOMFile.text():
+				settings.setValue("BOM_IFD_file", self.leBOMFile.text())
+		settings.setValue("ARR2016_browse_out", self.outfolder.text())
+		
+		self.accept()
 
 	def aep_all(self):
 		if self.checkBox_aepAll.isChecked():
@@ -1555,13 +1845,76 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			self.checkBox_120h.setChecked(False)
 			self.checkBox_144h.setChecked(False)
 			self.checkBox_168h.setChecked(False)
+
+
+class Arr2016(QObject):
+
+	finished = pyqtSignal(str)
+	updated = pyqtSignal(int)
+	sys_args = []
+	name_list = []
+	
+	def load(self, logfile):
+		self.logfile = logfile
+		
+	def append(self, sys_args, name):
+		self.sys_args.append(sys_args)
+		self.name_list.append(name)
+
+	def run(self):
+		errors = ''
+		for i, sys_args in enumerate(self.sys_args):
+			if i > 0:
+				self.updated.emit(i)
+			if i == 0:
+				logfile = open(self.logfile, 'wb')
+			else:
+				logfile = open(self.logfile, 'ab')
 			
-			
+			CREATE_NO_WINDOW = 0x08000000  # suppresses python console window
+			error = False
+			if sys.platform == 'win32':
+				try:  # for some reason (in QGIS2 at least) creationsflags didn't work on all computers
+					proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+					                        creationflags=CREATE_NO_WINDOW)
+					out, err = proc.communicate()
+					logfile.write(out)
+					logfile.write(err)
+					logfile.close()
+					if err:
+						errors += '{0} - {1}'.format(self.name_list[i], err)
+				except:
+					try:
+						proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+						out, err = proc.communicate()
+						logfile.write(out)
+						logfile.write(err)
+						logfile.close()
+						if err:
+							errors += '{0} - {1}'.format(self.name_list[i], err)
+					except:
+						error = 'Error with subprocess call'
+			else:  # linux and mac
+				try:
+					proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+					out, err = proc.communicate()
+					logfile.write(out)
+					logfile.write(err)
+					logfile.close()
+					if err:
+						errors += '{0} - {1}'.format(self.name_list[i], err)
+				except:
+					error = 'Error with subprocess call'
+				
+		
+		self.finished.emit(errors)
+		
+
 # ----------------------------------------------------------
 #    tuflowqgis insert tuflow attributes
 # ----------------------------------------------------------
 from ui_tuflowqgis_insert_tuflow_attributes import *
-from tuflowqgis_settings import TF_Settings
+from .tuflowqgis_settings import TF_Settings
 
 class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_tuflow_attributes):
 	def __init__(self, iface, project):
@@ -1571,7 +1924,7 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 		self.tfsettings = TF_Settings()
 		
 		# Set up Input Catchment File ComboBox
-		for name, layer in QgsMapLayerRegistry.instance().mapLayers().iteritems():
+		for name, layer in QgsProject.instance().mapLayers().items():
 			if layer.type() == QgsMapLayer.VectorLayer:
 				self.comboBox_inputLayer.addItem(layer.name())						
 		
@@ -1581,23 +1934,107 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Settings: "+message)			
 			return
 		
+		engine = self.tfsettings.combined.engine
+		self.parent_folder_name = 'TUFLOWFV' if engine == 'flexible mesh' else 'TUFLOW'
+		
 		# Get empty dir
 		if self.tfsettings.combined.base_dir:
-			self.emptydir.setText(os.path.join(self.tfsettings.combined.base_dir, "TUFLOW", "model", "gis", "empty"))
+			subfolders = [self.parent_folder_name.lower(), 'model', 'gis', 'empty']
+			emptydir = self.tfsettings.combined.base_dir
+			for i, subfolder in enumerate(subfolders):
+				for p in os.walk(emptydir):
+					for d in p[1]:
+						if d.lower() == subfolder:
+							if i == 0:
+								self.parent_folder_name = d
+							emptydir = os.path.join(emptydir, d)
+							break
+					break
+			self.emptydir.setText(emptydir)
 		else:
 			self.emptydir.setText("ERROR - Project not loaded")
+			
+		# load empty types
+		self.comboBox_tfType.clear()
+		if self.emptydir.text() == "ERROR - Project not loaded":
+			self.comboBox_tfType.addItem('No empty directory')
+		elif not os.path.exists(self.emptydir.text()):
+			self.comboBox_tfType.addItem('Empty directory not valid')
+		else:
+			search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
+			files = glob.glob(search_string)
+			if not files:
+				search_string = '{0}{1}*.SHP'.format(self.emptydir.text(), os.path.sep)
+				files = glob.glob(search_string)
+			empty_list = []
+			for file in files:
+				if len(file.split('_empty')) < 2:
+					continue
+				empty_type = os.path.basename(file.split('_empty')[0])
+				if empty_type not in empty_list:
+					empty_list.append(empty_type)
+			empty_list = sorted(empty_list)
+			self.comboBox_tfType.addItems(empty_list)
 									
-		QObject.connect(self.browsedir, SIGNAL("clicked()"), lambda: self.browse_empty_dir(unicode(self.emptydir.displayText()).strip()))
-		QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
+		self.browsedir.clicked.connect(lambda: self.browse_empty_dir(unicode(self.emptydir.displayText()).strip()))
+		self.emptydir.editingFinished.connect(self.dirChanged)
+		self.buttonBox.accepted.connect(self.run)
 
 
 	def browse_empty_dir(self, oldName):
-		newname = QFileDialog.getExistingDirectory(None, "Output Directory")
+		startDir = None
+		dir = self.emptydir.text()
+		while dir:
+			if os.path.exists(dir):
+				startDir = dir
+				break
+			else:
+				dir = os.path.dirname(dir)
+		
+		newname = QFileDialog.getExistingDirectory(None, "Output Directory", startDir)
 		if len(newname) > 0:
 			self.emptydir.setText(newname)
+			
+			# load empty types
+			self.comboBox_tfType.clear()
+			if self.emptydir.text() == "ERROR - Project not loaded":
+				self.comboBox_tfType.addItem('No empty directory')
+			elif not os.path.exists(self.emptydir.text()):
+				self.comboBox_tfType.addItem('Empty directory not valid')
+			else:
+				search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
+				files = glob.glob(search_string)
+				empty_list = []
+				for file in files:
+					if len(file.split('_empty')) < 2:
+						continue
+					empty_type = os.path.basename(file.split('_empty')[0])
+					if empty_type not in empty_list:
+						empty_list.append(empty_type)
+						self.comboBox_tfType.addItem(empty_type)
+	
+	def dirChanged(self):
+		# load empty types
+		self.comboBox_tfType.clear()
+		if self.emptydir.text() == "ERROR - Project not loaded":
+			self.comboBox_tfType.addItem('No empty directory')
+		elif not os.path.exists(self.emptydir.text()):
+			self.comboBox_tfType.addItem('Empty directory not valid')
 		else:
-			self.emptydir.setText(oldName)
-		
+			search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
+			files = glob.glob(search_string)
+			if not files:
+				search_string = '{0}{1}*.SHP'.format(self.emptydir.text(), os.path.sep)
+				files = glob.glob(search_string)
+			empty_list = []
+			for file in files:
+				if len(file.split('_empty')) < 2:
+					continue
+				empty_type = os.path.basename(file.split('_empty')[0])
+				if empty_type not in empty_list:
+					empty_list.append(empty_type)
+					self.comboBox_tfType.addItem(empty_type)
+	
 	def run(self):
 		runID = unicode(self.txtRunID.displayText()).strip()
 		basedir = unicode(self.emptydir.displayText()).strip()
@@ -1633,6 +2070,7 @@ class tuflowqgis_tuplotAxisEditor(QDialog, Ui_tuplotAxisEditor):
 		self.x2Inc = x2Inc
 		self.y2Inc = y2Inc
 		
+		
 		# Set tabs enabled and secondary axis group boxes
 		if axis2 is None:
 			self.tabWidget.setTabEnabled(1, False)
@@ -1647,7 +2085,7 @@ class tuflowqgis_tuplotAxisEditor(QDialog, Ui_tuplotAxisEditor):
 				self.xMin_sb_2.setValue(x2Lim[0])
 				self.xMax_sb_2.setValue(x2Lim[1])
 				self.xInc_sb_2.setValue(x2Inc)
-		
+				
 		# Set Radio Buttons
 		if xAuto:
 			self.xAxisAuto_rb.setChecked(True)
@@ -1673,7 +2111,7 @@ class tuflowqgis_tuplotAxisEditor(QDialog, Ui_tuplotAxisEditor):
 		else:
 			self.yAxisAuto_rb_2.setChecked(False)
 			self.yAxisCustom_rb_2.setChecked(True)
-		
+	
 		# Assign Limit values to primary axis dialog box
 		self.xMin_sb.setValue(xLim[0])
 		self.xMax_sb.setValue(xLim[1])
@@ -1697,22 +2135,27 @@ class tuflowqgis_tuplotAxisEditor(QDialog, Ui_tuplotAxisEditor):
 		self.yMin_sb_2.valueChanged.connect(self.value_y2Changed)
 		self.yMax_sb_2.valueChanged.connect(self.value_y2Changed)
 		self.yInc_sb_2.valueChanged.connect(self.value_y2Changed)
-	
+		
+		
 	def value_xChanged(self):
 		self.xAxisAuto_rb.setChecked(False)
 		self.xAxisCustom_rb.setChecked(True)
-	
+		
+		
 	def value_yChanged(self):
 		self.yAxisAuto_rb.setChecked(False)
 		self.yAxisCustom_rb.setChecked(True)
-	
+		
+		
 	def value_x2Changed(self):
 		self.xAxisAuto_rb_2.setChecked(False)
 		self.xAxisCustom_rb_2.setChecked(True)
-	
+		
+		
 	def value_y2Changed(self):
 		self.yAxisAuto_rb_2.setChecked(False)
 		self.yAxisCustom_rb_2.setChecked(True)
+	
 	
 	def run(self):
 		if self.xAxisCustom_rb.isChecked():
@@ -1728,6 +2171,7 @@ class tuflowqgis_tuplotAxisEditor(QDialog, Ui_tuplotAxisEditor):
 			self.y2Lim = [self.yMin_sb_2.value(), self.yMax_sb_2.value()]
 			self.y2Inc = self.yInc_sb_2.value()
 		return
+	
 	
 	def cancel(self, xAuto, yAuto, x2Auto, y2Auto):
 		# revert back to original values
@@ -1817,6 +2261,7 @@ class tuflowqgis_tuplotAxisLabels(QDialog, Ui_tuplotAxisLabel):
 		self.xAxisLabel2.textChanged.connect(lambda: self.auto_label(self.xAxisAuto2_cb))
 		self.yAxisLabel2.textChanged.connect(lambda: self.auto_label(self.yAxisAuto2_cb))
 	
+	
 	def auto_label(self, cb):
 		cb.setChecked(True)
 	
@@ -1844,967 +2289,6 @@ class tuflowqgis_tuplotAxisLabels(QDialog, Ui_tuplotAxisLabel):
 			self.yAxisAuto2_cb.setChecked(True)
 		else:
 			self.yAxisAuto2_cb.setChecked(False)
-			
-
-# ----------------------------------------------------------
-#    tuflowqgis 1D integrity output window
-# ----------------------------------------------------------
-from ui_tuflowqgis_integrityOutput import *
-
-
-class tuflowqgis_1d_integrity_output(QDialog, Ui_integrityOutput):
-	def __init__(self, iface, results):
-		QDialog.__init__(self)
-		self.iface = iface
-		self.setupUi(self)
-		
-		# populate text box with results
-		self.textBrowser.append(results)
-		
-		# Signals
-		self.buttonBox.accepted.connect(self.run)
-		
-	def run(self):
-		return
-
-
-# ----------------------------------------------------------
-#    tuflowqgis check 1D network integrity
-# ----------------------------------------------------------
-from ui_tuflowqgis_check1dIntegrity import *
-
-
-class tuflowqgis_check_1d_integrity_dialog(QDialog, Ui_check1dIntegrity):
-	def __init__(self, iface, dockOpened, resdock):
-		QDialog.__init__(self)
-		self.iface = iface
-		self.dockOpened = dockOpened
-		self.resdock = resdock
-		self.project = QgsProject.instance()
-		self.setupUi(self)
-		
-		# Set up input line and point layer combobox
-		for name, layer in QgsMapLayerRegistry.instance().mapLayers().iteritems():
-			if layer.type() == QgsMapLayer.VectorLayer:
-				if layer.geometryType() == 0:
-					self.addPoint_combo.addItem(layer.name())
-				elif layer.geometryType() == 1:
-					self.addLine_combo.addItem(layer.name())
-					self.addTa_combo.addItem(layer.name())
-		
-		# signals
-		self.addLine_button.clicked.connect(lambda: self.addLyr(self.addLine_combo, self.lineLyrs_lw))
-		self.addPoint_button.clicked.connect(lambda: self.addLyr(self.addPoint_combo, self.pointLyrs_lw))
-		self.addTa_button.clicked.connect(lambda: self.addLyr(self.addTa_combo, self.taLyrs_lw))
-		self.removeLine_button.clicked.connect(lambda: self.removeLyr(self.lineLyrs_lw))
-		self.removePoint_button.clicked.connect(lambda: self.removeLyr(self.pointLyrs_lw))
-		self.removeTa_button.clicked.connect(lambda: self.removeLyr(self.taLyrs_lw))
-		self.addStartNwk_button.clicked.connect(self.addFeature)
-		self.removeStartNwk_button.clicked.connect(self.removeFeature)
-		self.addLine_button.clicked.connect(self.toggleStartElement)
-		self.browse_button.clicked.connect(self.browse)
-		self.outTxtFile_cb.clicked.connect(self.toggleOutFile)
-		self.autoSnap_cb.clicked.connect(self.toggleSearchRadius_sb)
-		self.groupBox_3.clicked.connect(self.toggleStartElement)
-		self.checkAngle_cb.clicked.connect(self.toggleAngleLimit)
-		self.checkCover_cb.clicked.connect(self.toggleCoverLimit)
-		self.groupBox_3.clicked.connect(
-			lambda: self.toggleGroupBox(self.groupBox_3, self.groupBox_4, self.groupBox_6, self.groupBox_7))
-		self.groupBox_4.clicked.connect(
-			lambda: self.toggleGroupBox(self.groupBox_4, self.groupBox_3, self.groupBox_6, self.groupBox_7))
-		self.groupBox_6.clicked.connect(
-			lambda: self.toggleGroupBox(self.groupBox_6, self.groupBox_4, self.groupBox_3, self.groupBox_7))
-		self.groupBox_7.clicked.connect(
-			lambda: self.toggleGroupBox(self.groupBox_7, self.groupBox_4, self.groupBox_6, self.groupBox_3))
-		self.addLine_button.clicked.connect(self.toggleStartElement)
-		self.getGroundElev_cb.clicked.connect(self.toggleDemSel)
-		self.buttonBox.accepted.connect(self.preRunCheck)
-		
-		# Populate List Boxes with saved project values
-		try:
-			saveLineLyrs = self.project.readListEntry('TUFLOW', 'line_layers')[0]
-			for lyr in saveLineLyrs:
-				if tuflowqgis_find_layer(lyr) is not None:
-					self.lineLyrs_lw.addItem(lyr)
-		except:
-			pass
-		try:
-			savePointLyrs = self.project.readListEntry('TUFLOW', 'point_layers')[0]
-			for lyr in savePointLyrs:
-				if tuflowqgis_find_layer(lyr) is not None:
-					self.pointLyrs_lw.addItem(lyr)
-		except:
-			pass
-		try:
-			saveTableLyrs = self.project.readListEntry('TUFLOW', 'table_layers')[0]
-			for lyr in saveTableLyrs:
-				if tuflowqgis_find_layer(lyr) is not None:
-					self.taLyrs_lw.addItem(lyr)
-		except:
-			pass
-	
-	def addLyr(self, combo, lw):
-		inLyrs = []
-		for i in range(lw.count()):
-			a = lw.item(i).text()
-			inLyrs.append(a)
-		inLyr = combo.currentText()
-		if inLyr is not None and len(inLyr) > 0:
-			if inLyr not in inLyrs:
-				lw.insertItem(0, inLyr)
-				item = lw.item(0)
-				lw.setItemSelected(item, True)
-	
-	def removeLyr(self, lw):
-		removeIndex = []
-		for i in range(lw.count()):
-			if lw.item(i).isSelected():
-				removeIndex.append(i)
-		for i in reversed(removeIndex):
-			lw.takeItem(i)
-				
-	def addFeature(self):
-		inFeatures = []
-		for i in range(self.startNwk_lw.count()):
-			a = self.startNwk_lw.item(i).text()
-			inFeatures.append(a)
-		inFeat = self.name1d_combo.currentText()
-		if inFeat not in inFeatures:
-			self.startNwk_lw.insertItem(0, inFeat)
-		
-	def removeFeature(self):
-		removeIndex = []
-		for i in range(self.startNwk_lw.count()):
-			if self.startNwk_lw.item(i).isSelected():
-				removeIndex.append(i)
-		for i in reversed(removeIndex):
-			self.startNwk_lw.takeItem(i)
-
-	def browse(self):
-		outFile_old = None
-		if len(self.outFile.text()) > 0:
-			outFile_old = self.outFile.text()
-		settings = QSettings()
-		lastFolder = str(settings.value("check1dIntegrity", os.sep))
-		if len(lastFolder) > 0:  # use last folder if stored
-			fpath = lastFolder
-		else:
-			fpath = os.getcwd()
-		outFile = QFileDialog.getSaveFileName(self, 'Output File', fpath, '*.txt')
-		if outFile is None or len(outFile) < 3 or outFile == os.sep or outFile == 'c:\\':
-			if outFile_old is not None:
-				self.outFile.setText(outFile_old)
-		else:
-			settings.setValue("check1dIntegrity", os.path.dirname(outFile))
-			self.outFile.setText(outFile)
-	
-	def toggleOutFile(self):
-		if self.outTxtFile_cb.isChecked():
-			self.outFile.setEnabled(True)
-			self.browse_button.setEnabled(True)
-		else:
-			self.outFile.setEnabled(False)
-			self.browse_button.setEnabled(False)
-
-	def toggleAngleLimit(self):
-		if self.checkAngle_cb.isChecked():
-			self.label_10.setEnabled(True)
-			self.angle2_sb.setEnabled(True)
-			self.label_14.setEnabled(True)
-		else:
-			self.label_10.setEnabled(False)
-			self.angle2_sb.setEnabled(False)
-			self.label_14.setEnabled(False)
-
-	def toggleCoverLimit(self):
-		if self.checkCover_cb.isChecked():
-			self.dem_combo.clear()
-			self.label_11.setEnabled(True)
-			self.coverDepth2_sb.setEnabled(True)
-			self.label_13.setEnabled(True)
-			self.label_12.setEnabled(True)
-			self.dem_combo_2.setEnabled(True)
-			rasterLyrs = findAllRasterLyrs()
-			if len(rasterLyrs) > 0:
-				for raster in rasterLyrs:
-					self.dem_combo_2.addItem(raster)
-		else:
-			self.label_11.setEnabled(False)
-			self.coverDepth2_sb.setEnabled(False)
-			self.label_13.setEnabled(False)
-			self.label_12.setEnabled(False)
-			self.dem_combo_2.setEnabled(False)
-	
-	def toggleSearchRadius_sb(self):
-		if self.autoSnap_cb.isChecked():
-			self.snapSearchDis_sb.setEnabled(True)
-		else:
-			self.snapSearchDis_sb.setEnabled(False)
-
-	def toggleStartElement(self):
-		if self.groupBox_3.isChecked():
-			self.name1d_combo.setEnabled(True)
-			self.addStartNwk_button.setEnabled(True)
-			self.removeStartNwk_button.setEnabled(True)
-			self.label_3.setEnabled(True)
-			self.label_9.setEnabled(True)
-			self.angle_sb.setEnabled(True)
-			self.startNwk_lw.setEnabled(True)
-			self.plotDsConn_cb.setEnabled(True)
-			self.getGroundElev_cb.setEnabled(True)
-			features = []
-			for i in range(self.startNwk_lw.count()):
-				a = self.startNwk_lw.item(i).text()
-				features.append(a)
-			if self.lineLyrs_lw.count() > 0:
-				for i in range(self.lineLyrs_lw.count()):
-					name = self.lineLyrs_lw.item(i).text()
-					lyr = tuflowqgis_find_layer(name)
-					if lyr is not None:
-						for feature in lyr.getFeatures():
-							try:
-								self.name1d_combo.addItem(feature.attributes()[0])
-							except:
-								pass
-				#cLyr = self.iface.mapCanvas().currentLayer()
-				selFeatures = []
-				for i in range(self.lineLyrs_lw.count()):
-					name = self.lineLyrs_lw.item(i).text()
-					lyr = tuflowqgis_find_layer(name)
-					selFeat = lyr.selectedFeatures()
-					selFeatures.append(selFeat)
-				txt = None
-				for selFeat in selFeatures:
-					for f in selFeat:
-						txt = f.attributes()[0]
-						if txt is not None:
-							index = self.name1d_combo.findText(txt, Qt.MatchFixedString)
-							if index >= 0:
-								self.name1d_combo.setCurrentIndex(index)
-							if txt not in features:
-								self.startNwk_lw.insertItem(0, txt)
-		else:
-			self.name1d_combo.clear()
-			self.name1d_combo.setEnabled(False)
-			self.addStartNwk_button.setEnabled(False)
-			self.removeStartNwk_button.setEnabled(False)
-			self.label_3.setEnabled(False)
-			self.label_9.setEnabled(False)
-			self.angle_sb.setEnabled(False)
-			self.startNwk_lw.setEnabled(False)
-			self.plotDsConn_cb.setEnabled(False)
-			self.getGroundElev_cb.setEnabled(False)
-			
-	def toggleDemSel(self):
-		self.dem_combo.clear()
-		if self.getGroundElev_cb.isChecked():
-			self.dem_combo.setEnabled(True)
-			self.label_15.setEnabled(True)
-			self.label_16.setEnabled(True)
-			self.coverDepth_sb.setEnabled(True)
-			self.label_17.setEnabled(True)
-			rasterLyrs = findAllRasterLyrs()
-			if len(rasterLyrs) > 0:
-				for raster in rasterLyrs:
-					self.dem_combo.addItem(raster)
-		else:
-			self.dem_combo.setEnabled(False)
-			self.label_15.setEnabled(False)
-			self.label_16.setEnabled(False)
-			self.coverDepth_sb.setEnabled(False)
-			self.label_17.setEnabled(False)
-			
-	def toggleGroupBox(self, clickedGB, *args):
-		if clickedGB.isChecked():
-			for gb in args:
-				gb.setChecked(False)
-	
-	def saveInputLayers(self):
-		saveLineLyrs = []
-		for i in range(self.lineLyrs_lw.count()):
-			saveLineLyrs.append(self.lineLyrs_lw.item(i).text())
-		self.project.writeEntry("TUFLOW", "line_layers", saveLineLyrs)
-		
-		savePointLyrs = []
-		for i in range(self.pointLyrs_lw.count()):
-			savePointLyrs.append(self.pointLyrs_lw.item(i).text())
-		self.project.writeEntry("TUFLOW", "point_layers", savePointLyrs)
-		
-		saveTableLyrs = []
-		for i in range(self.taLyrs_lw.count()):
-			saveTableLyrs.append(self.taLyrs_lw.item(i).text())
-		self.project.writeEntry("TUFLOW", "table_layers", saveTableLyrs)
-	
-	def checkLayerType(self, lyr):
-		error = False
-		message = ''
-		for feature in lyr.getFeatures():
-			break
-		if feature.fields().field(0).type() != QVariant.String:
-			error = True
-			message = '{0} must be in a 1D_nwk format: Error with ID Attribute'.format(lyr.name())
-		elif feature.fields().field(1).type() != QVariant.String:
-			error = True
-			message = '{0} must be in a 1D_nwk format: Error with Type Attribute'.format(lyr.name())
-		elif feature.fields().field(4).type() != QVariant.Double:
-			error = True
-			message = '{0} must be in a 1D_nwk format: Error with Length Attribute'.format(lyr.name())
-		elif feature.fields().field(6).type() != QVariant.Double:
-			error = True
-			message = '{0} must be in a 1D_nwk format: Error with Upstream Invert Attribute'.format(lyr.name())
-		elif feature.fields().field(7).type() != QVariant.Double:
-			error = True
-			message = '{0} must be in a 1D_nwk format: Error with Downstream Invert Attribute'.format(lyr.name())
-		elif feature.fields().field(13).type() != QVariant.Double:
-			error = True
-			message = '{0} must be in a 1D_nwk format: Error with Width Attribute'.format(lyr.name())
-		elif feature.fields().field(14).type() != QVariant.Double:
-			error = True
-			message = '{0} must be in a 1D_nwk format: Error with Height Attribute'.format(lyr.name())
-		elif feature.fields().field(15).type() != QVariant.LongLong and \
-				feature.fields().field(15).type() != QVariant.Int and feature.fields().field(15).type() != QVariant.Double:
-			error = True
-			message = '{0} must be in a 1D_nwk format: Error with Number Of Attribute'.format(lyr.name())
-		return error, message
-	
-	def preRunCheck(self):
-		error = False
-		warning = False
-		message = ''
-		# Check inputs
-		for i in range(self.lineLyrs_lw.count()):
-			lyr = tuflowqgis_find_layer(self.lineLyrs_lw.item(i).text())
-			error, message = self.checkLayerType(lyr)
-			if error:
-				break
-		for i in range(self.pointLyrs_lw.count()):
-			lyr = tuflowqgis_find_layer(self.pointLyrs_lw.item(i).text())
-			error, message = self.checkLayerType(lyr)
-			if error:
-				break
-		if error:
-			pass
-		elif self.lineLyrs_lw.count() < 1:
-			error = True
-			message = 'No 1d_nwk line layer has been input.'
-		elif self.check1dPoint_cb.isChecked() and self.pointLyrs_lw.count() < 1:
-			error = True
-			message = 'No 1d_nwk point layer has been input.'
-		elif self.getGroundElev_cb.isChecked() and len(self.dem_combo.currentText()) < 1:
-			error = True
-			message = 'No DEM has been input'
-		elif self.checkCover_cb.isChecked() and len(self.dem_combo_2.currentText()) < 1:
-			error = True
-			message = 'No DEM has been input'
-		# Check an output is selected
-		elif not self.outMessBox_cb.isChecked() and not self.outSel_cb.isChecked() and \
-		  not self.outTxtFile_cb.isChecked() and not self.outPLayer_cb.isChecked() and \
-		  not self.plotDsConn_cb.isChecked():
-			warning = True
-			message = 'No output selected. Do you wish to continue?'
-		# Check map projection
-		elif self.iface.mapCanvas().mapUnits() != 0 and self.iface.mapCanvas().mapUnits() != 1:
-			warning = True
-			message = 'Map Projection may not be cartesian. This can cause an error in the tool. ' \
-					  'Do you wish to continue?'
-		if error:
-			QMessageBox.information(self.iface.mainWindow(), 'Error', message)
-		elif warning:
-			run = QMessageBox.question(self.iface.mainWindow(), "Warning", message,
-									   QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-			if run == QMessageBox.Yes:
-				self.run()
-		else:
-			self.run()
-
-
-	def run(self):
-		self.saveInputLayers()
-		startTime = datetime.now()
-		self.check1dIntegrity.accept()  # destroy dialog window
-		# Get inputs
-		if self.iface.mapCanvas().mapUnits() == 0:
-			units = 'm'
-		elif self.iface.mapCanvas().mapUnits() == 1:
-			units = 'ft'
-		else:
-			units = ''
-		checkLine = False
-		checkPoint = False
-		autoSnap = False
-		correctPipeDir = False
-		getDnsConn = False
-		plotDnsConn = False
-		getDemElev = False
-		continuityCheck = False
-		checkArea = False
-		checkGradient = False
-		checkAngle = False
-		checkCover = False
-		angleLimit = 90
-		coverLimit = 0.5
-		correctDirectionByGradient = False
-		correctDirectionByContinuity = False
-		outMsg = False
-		outSel = False
-		outTxt = False
-		outLyr = False
-		dem = None
-		plotCoverDepth = None
-		if self.check1dLine_cb.isChecked():
-			checkLine = True
-		if self.check1dPoint_cb.isChecked():
-			checkPoint = True
-		if self.autoSnap_cb.isChecked():
-			autoSnap = True
-			searchRadius = self.snapSearchDis_sb.value()
-		if self.groupBox_3.isChecked():
-			getDnsConn = True
-			angleLimit = self.angle_sb.value()
-			startElem = []
-			for i in range(self.startNwk_lw.count()):
-				a = self.startNwk_lw.item(i).text()
-				startElem.append(a)
-			if self.plotDsConn_cb.isChecked():
-				plotDnsConn = True
-			if self.getGroundElev_cb.isChecked():
-				getDemElev = True
-				dem = tuflowqgis_find_layer(self.dem_combo.currentText())
-				plotCoverDepth = self.coverDepth_sb.value()
-		if self.checkArea_cb.isChecked():
-			continuityCheck = True
-			checkArea = True
-		if self.checkGradient_cb.isChecked():
-			continuityCheck = True
-			checkGradient = True
-		if self.checkAngle_cb.isChecked():
-			continuityCheck = True
-			checkAngle = True
-			angleLimit = self.angle2_sb.value()
-		if self.checkCover_cb.isChecked():
-			continuityCheck = True
-			checkCover = True
-			coverLimit = self.coverDepth2_sb.value()
-			dem = tuflowqgis_find_layer(self.dem_combo_2.currentText())
-		if self.correctPipeDir_inverts_cb.isChecked():
-			correctDirectionByGradient = True
-		if self.correctPipeDir_continuity_cb.isChecked():
-			correctDirectionByContinuity = True
-		if self.outMessBox_cb.isChecked():
-			outMsg = True
-		if self.outSel_cb.isChecked():
-			outSel = True
-		if self.outTxtFile_cb.isChecked():
-			outTxt = True
-		if self.outPLayer_cb.isChecked():
-			outLyr = True
-		toolTimes = []
-		lineLyrs = []
-		lineDict = {}
-		for i in range(self.lineLyrs_lw.count()):
-			lineLyrs.append(tuflowqgis_find_layer(self.lineLyrs_lw.item(i).text()))
-		pointLyrs = []
-		pointDict = {}
-		for i in range(self.pointLyrs_lw.count()):
-			pointLyrs.append(tuflowqgis_find_layer(self.pointLyrs_lw.item(i).text()))
-		taLyrs = []
-		for i in range(self.taLyrs_lw.count()):
-			taLyrs.append(tuflowqgis_find_layer(self.taLyrs_lw.item(i).text()))
-		# Start Line Check section
-		if checkLine:
-			toolStart = datetime.now()
-			lineDict, lineDrape = getVertices(lineLyrs, dem)
-			toolEnd = datetime.now()
-			toolTime = toolEnd - toolStart
-			toolTimes.append('Get Line Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-			                                                                    toolTime.total_seconds() % 60) if
-			                 toolTime.total_seconds() >= 60 else 'Get Line Vertices: {0:.1f} secs\n'.format(
-				toolTime.total_seconds()))
-			toolStart = datetime.now()
-			unsnappedLines, unsnappedLineNames, closestVLines, dsLines = checkSnapping(assessment='lines',
-			                                                                           lines=lineDict, line_layers=lineLyrs,
-			                                                                           points=pointDict,
-			                                                                           dns_conn=getDnsConn)  # Get unsnapped line vertices
-			toolEnd = datetime.now()
-			toolTime = toolEnd - toolStart
-			toolTimes.append('Check Line Snapping: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-			                                                                    toolTime.total_seconds() % 60) if
-			                 toolTime.total_seconds() >= 60 else 'Check Line Snapping: {0:.1f} secs\n'.format(
-				toolTime.total_seconds()))
-			if autoSnap:
-				toolStart = datetime.now()
-				editedLines, returnLogL = moveVertices(lineLyrs, closestVLines, searchRadius, units)  # perform auto snap routine
-				toolEnd = datetime.now()
-				toolTime = toolEnd - toolStart
-				toolTimes.append('Snapping Lines: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-				                                                                      toolTime.total_seconds() % 60) if
-				                 toolTime.total_seconds() >= 60 else 'Snapping Lines: {0:.1f} secs\n'.format(
-					toolTime.total_seconds()))
-				if checkPoint:
-					toolStart = datetime.now()
-					lineDict, lineDrape = getVertices(lineLyrs, dem)
-					toolEnd = datetime.now()
-					toolTime = toolEnd - toolStart
-					toolTimes.append('Re-Collecting Line Vertices for Points analysis: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() /
-					                                                                      60,
-					                                                                      toolTime.total_seconds() %
-					                                                                      60) if
-					                 toolTime.total_seconds() >= 60 else 'Re-Collecting Line Vertices for Points analysis: {0:.1f} secs\n'.format(
-						toolTime.total_seconds()))
-		# Start Point Check Section
-		if checkPoint:
-			if len(lineDict) == 0:
-				toolStart = datetime.now()
-				lineDict, lineDrape = getVertices(lineLyrs, dem)
-				toolEnd = datetime.now()
-				toolTime = toolEnd - toolStart
-				toolTimes.append('Get Line Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-				                                                                         toolTime.total_seconds() %
-				                                                                         60) if
-				                 toolTime.total_seconds() >= 60 else 'Get Line Vertices: {0:.1f} secs\n'.format(
-					toolTime.total_seconds()))
-			toolStart = datetime.now()
-			pointDict, pointDrape = getVertices(pointLyrs, dem)
-			toolEnd = datetime.now()
-			toolTime = toolEnd - toolStart
-			toolTimes.append('Get Point Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-			                                                                         toolTime.total_seconds() %
-			                                                                         60) if
-			                 toolTime.total_seconds() >= 60 else 'Get Point Vertices: {0:.1f} secs\n'.format(
-				toolTime.total_seconds()))
-			toolStart = datetime.now()
-			unsnappedPoints, closestVPoints = checkSnapping(assessment='points', lines=lineDict, line_layers=lineLyrs,
-				                                            points=pointDict)  # Get unsnapped points
-			toolTimes.append('Check Point Snapping: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-			                                                                           toolTime.total_seconds() %
-			                                                                           60) if
-			                 toolTime.total_seconds() >= 60 else 'Check Point Snapping: {0:.1f} secs\n'.format(
-				toolTime.total_seconds()))
-			if autoSnap:
-				toolStart = datetime.now()
-				editedPoints, returnLogP = moveVertices(pointLyrs, closestVPoints, searchRadius, units)
-				toolEnd = datetime.now()
-				toolTime = toolEnd - toolStart
-				toolTimes.append('Snapping Points: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-				                                                                      toolTime.total_seconds() % 60) if
-				                 toolTime.total_seconds() >= 60 else 'Snapping Points: {0:.1f} secs\n'.format(
-					toolTime.total_seconds()))
-		if getDnsConn:
-			if len(startElem) == 0:
-				return
-			toolStart = datetime.now()
-			lineDict, lineDrape = getVertices(lineLyrs, dem)
-			toolEnd = datetime.now()
-			toolTime = toolEnd - toolStart
-			toolTimes.append('Get Line Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-			                                                                         toolTime.total_seconds() %
-			                                                                         60) if
-			                 toolTime.total_seconds() >= 60 else 'Get Line Vertices: {0:.1f} secs\n'.format(
-				toolTime.total_seconds()))
-			if len(pointLyrs) > 0:
-				toolStart = datetime.now()
-				pointDict, pointDrape = getVertices(pointLyrs, dem)
-				toolEnd = datetime.now()
-				toolTime = toolEnd - toolStart
-				toolTimes.append('Get Point Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() /
-				                                                                          60,
-				                                                                          toolTime.total_seconds() %
-				                                                                          60) if
-				                 toolTime.total_seconds() >= 60 else 'Get Point Vertices: {0:.1f} secs\n'.format(
-					toolTime.total_seconds()))
-			toolStart = datetime.now()
-			unsnappedLines, unsnappedLineNames, closestVLines, dsLines = \
-				checkSnappingFlowTrace(lines=lineDict, points=pointDict, line_layers=lineLyrs, point_layers=pointLyrs, dns_conn=getDnsConn, start_lines=startElem)
-			toolEnd = datetime.now()
-			toolTime = toolEnd - toolStart
-			toolTimes.append('Check Line and Point Snapping: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-			                                                                           toolTime.total_seconds() %
-			                                                                           60) if
-			                 toolTime.total_seconds() >= 60 else 'Check Line and Point Snapping: {0:.1f} secs\n'.format(
-				toolTime.total_seconds()))
-			if len(taLyrs) > 0:
-				toolStart = datetime.now()
-				dsLines = getElevFromTa(lineDict, dsLines, lineLyrs, taLyrs)
-				toolEnd = datetime.now()
-				toolTime = toolEnd - toolStart
-				toolTimes.append(
-					'Get Elevations from Table Files: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-					                                                                    toolTime.total_seconds() %
-					                                                                    60) if
-					toolTime.total_seconds() >= 60 else 'Get Elevations from Table Files: {0:.1f} secs\n'.format(
-						toolTime.total_seconds()))
-			toolStart = datetime.now()
-			longProfile = TUFLOW_longprofile.DownstreamConnectivity(dsLines, startElem, lineLyrs, angleLimit,
-			                                                        lineDrape, plotCoverDepth, lineDict, units)
-			longProfile.getBranches()
-			longProfile.reportLog()
-			if plotDnsConn:
-				longProfile.getPlotFormat()
-				if self.dockOpened:
-					self.resdock.qgis_connect()
-					self.resdock.show()
-					self.resdock.layerChanged()
-					self.resdock.add_profileIntTool(longProfile)
-				else:
-					self.dockOpened = True
-					self.resdock = TuPlot(self.iface, profile_integerity_tool=longProfile)
-					self.iface.addDockWidget(Qt.RightDockWidgetArea, self.resdock)
-			toolEnd = datetime.now()
-			toolTime = toolEnd - toolStart
-			toolTimes.append(
-				'Collecting Long Section: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-				                                                                      toolTime.total_seconds() %
-				                                                                      60) if
-				toolTime.total_seconds() >= 60 else 'Collecting Long Section: {0:.1f} secs\n'.format(
-					toolTime.total_seconds()))
-		# Check network continuity
-		if continuityCheck:
-			continuityLog = ''
-			continuityError = []
-			toolStart = datetime.now()
-			lineDict, lineDrape = getVertices(lineLyrs, dem)
-			toolEnd = datetime.now()
-			toolTime = toolEnd - toolStart
-			toolTimes.append('Get Line Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-			                                                                         toolTime.total_seconds() %
-			                                                                         60) if
-			                 toolTime.total_seconds() >= 60 else 'Get Line Vertices: {0:.1f} secs\n'.format(
-				toolTime.total_seconds()))
-			if len(pointLyrs) > 0:
-				toolStart = datetime.now()
-				pointDict, pointDrape = getVertices(pointLyrs, dem)
-				toolEnd = datetime.now()
-				toolTime = toolEnd - toolStart
-				toolTimes.append('Get Point Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() /
-				                                                                          60,
-				                                                                          toolTime.total_seconds() %
-				                                                                          60) if
-				                 toolTime.total_seconds() >= 60 else 'Get Point Vertices: {0:.1f} secs\n'.format(
-					toolTime.total_seconds()))
-			toolStart = datetime.now()
-			unsnappedLines, unsnappedLineNames, closestVLines, dsLines = checkSnapping(lines=lineDict,
-																					     points=pointDict, line_layers=lineLyrs,
-																					     dns_conn=continuityCheck)
-			toolEnd = datetime.now()
-			toolTime = toolEnd - toolStart
-			toolTimes.append(
-				'Check Line and Point Snapping: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-				                                                                    toolTime.total_seconds() %
-				                                                                    60) if
-				toolTime.total_seconds() >= 60 else 'Check Line and Point Snapping: {0:.1f} secs\n'.format(
-					toolTime.total_seconds()))
-			if len(taLyrs) > 0:
-				toolStart = datetime.now()
-				dsLines = getElevFromTa(lineDict, dsLines, lineLyrs, taLyrs)
-				toolEnd = datetime.now()
-				toolTime = toolEnd - toolStart
-				toolTimes.append(
-					'Get Elevations from Table Files: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() /
-					                                                                      60,
-					                                                                      toolTime.total_seconds() %
-					                                                                      60) if
-					toolTime.total_seconds() >= 60 else 'Get Elevations from Table Files: {0:.1f} secs\n'.format(
-						toolTime.total_seconds()))
-			toolStart = datetime.now()
-			continuityLog, continiuityWarningTypes, continuityError = checkNetworkContinuity(lineDict, dsLines,
-			                                                                                 lineDrape, angleLimit,
-			                                                                                 coverLimit,
-			                                                                                 [checkArea, checkGradient,
-			                                                                                  checkAngle, checkCover],
-			                                                                                 units)
-			toolEnd = datetime.now()
-			toolTime = toolEnd - toolStart
-			toolTimes.append(
-				'Check Continuity: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() /
-				                                                                      60,
-				                                                                      toolTime.total_seconds() %
-				                                                                      60) if
-				toolTime.total_seconds() >= 60 else 'Check Continuity: {0:.1f} secs\n'.format(
-					toolTime.total_seconds()))
-		# Correct Network Direction
-		if correctDirectionByGradient:
-			toolStart = datetime.now()
-			lineDict, lineDrape = getVertices(lineLyrs, dem)
-			toolEnd = datetime.now()
-			toolTime = toolEnd - toolStart
-			toolTimes.append('Get Line Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-			                                                                         toolTime.total_seconds() %
-			                                                                         60) if
-			                 toolTime.total_seconds() >= 60 else 'Get Line Vertices: {0:.1f} secs\n'.format(
-				toolTime.total_seconds()))
-			toolStart = datetime.now()
-			correctDirectionGradLog, correctDirectionGradType, correctDirectionGradPoint = \
-				correctPipeDirectionByInvert(lineLyrs, lineDict, units)
-			toolEnd = datetime.now()
-			toolTime = toolEnd - toolStart
-			toolTimes.append('Correct Line Direction by Invert: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-			                                                                         toolTime.total_seconds() %
-			                                                                         60) if
-			                 toolTime.total_seconds() >= 60 else 'Correct Line Direction by Invert: {0:.1f} secs\n'.format(
-				toolTime.total_seconds()))
-		if correctDirectionByContinuity:
-			toolStart = datetime.now()
-			lineDict, lineDrape = getVertices(lineLyrs, dem)
-			toolEnd = datetime.now()
-			toolTime = toolEnd - toolStart
-			toolTimes.append('Get Line Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-			                                                                         toolTime.total_seconds() %
-			                                                                         60) if
-			                 toolTime.total_seconds() >= 60 else 'Get Line Vertices: {0:.1f} secs\n'.format(
-				toolTime.total_seconds()))
-			if len(pointLyrs) > 0:
-				toolStart = datetime.now()
-				pointDict, pointDrape = getVertices(pointLyrs, dem)
-				toolEnd = datetime.now()
-				toolTime = toolEnd - toolStart
-				toolTimes.append('Get Point Vertices: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() /
-				                                                                          60,
-				                                                                          toolTime.total_seconds() %
-				                                                                          60) if
-				                 toolTime.total_seconds() >= 60 else 'Get Point Vertices: {0:.1f} secs\n'.format(
-					toolTime.total_seconds()))
-			toolStart = datetime.now()
-			unsnappedLines, unsnappedLineNames, closestVLines, dsLines = checkSnapping(lines=lineDict,
-			                                                                           points=pointDict, line_layers=lineLyrs,
-			                                                                           dns_conn=correctDirectionByContinuity)
-			toolEnd = datetime.now()
-			toolTime = toolEnd - toolStart
-			toolTimes.append(
-				'Check Line and Point Snapping: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-				                                                                    toolTime.total_seconds() %
-				                                                                    60) if
-				toolTime.total_seconds() >= 60 else 'Check Line and Point Snapping: {0:.1f} secs\n'.format(
-					toolTime.total_seconds()))
-			toolStart = datetime.now()
-			correctDirectionContLog, correctDirectionContType, correctDirectionContPoint = \
-				correctPipeDirectionFromConnections(lineDict, dsLines)
-			toolEnd = datetime.now()
-			toolTime = toolEnd - toolStart
-			toolTimes.append(
-				'Correct Line Direction by Continuity: {0:.0f} mins {1:.0f} secs\n'.format(toolTime.total_seconds() / 60,
-				                                                                       toolTime.total_seconds() %
-				                                                                       60) if
-				toolTime.total_seconds() >= 60 else 'Correct Line Direction by Continuity: {0:.1f} secs\n'.format(
-					toolTime.total_seconds()))
-		finishTime = datetime.now()
-		computationTime = finishTime - startTime
-		# Output
-		if outMsg or outTxt:
-			if outMsg:
-				results = '###############\n# 1D Integrity Output  #\n###############\n\n'
-			else:
-				results = '#######################\n# 1D Integrity Output #\n#######################\n\n'
-			for toolTime in toolTimes:
-				results += toolTime
-			results += '\nTotal Computation Time: {0:.0f} mins {1:.0f} secs\n'.format(computationTime.total_seconds() / 60,
-			                                                                    computationTime.total_seconds() % 60) \
-				if computationTime.total_seconds() >= 60 else '\nTotal Computation Time: {0:.1f} secs\n'.format(
-				computationTime.total_seconds())
-			if checkLine:
-				results += '\n' + r'\\ Unsnapped Lines \\' + '\n\n'
-				if len(unsnappedLines) == 0:
-					results += 'None\n'
-				else:
-					for line in unsnappedLines:
-						results += '{0}\n'.format(line)
-				if autoSnap:
-					if len(returnLogL) < 1:
-						results += '\n' + r'\\ Auto Snap Lines \\' + '\n\nNone\n'
-					else:
-						results += '\n' + r'\\ Auto Snap Lines \\' + '\n\n{0}\n'.format(returnLogL)
-			if checkPoint:
-				results += '\n' + r'\\ Unsnapped Nodes \\' + '\n\n'
-				if len(unsnappedPoints) == 0:
-					results += 'None\n'
-				else:
-					for node in unsnappedPoints:
-						results += '{0}\n'.format(node)
-				if autoSnap:
-					if len(returnLogP) < 1:
-						results += '\n' + r'\\ Auto Snap Points \\' + '\n\nNone\n'
-					else:
-						results += '\n' + r'\\ Auto Snap Points \\' + '\n\n{0}\n'.format(returnLogP)
-			if getDnsConn:
-				results += '\n' + r'\\ Downstream Connections \\' + '\n\n'
-				results += longProfile.log
-			if continuityCheck:
-				results += '\n' + r'\\ Continuity Checks \\' + '\n\n{0}\n'.format(continuityLog)
-			if correctDirectionByGradient or correctDirectionByContinuity:
-				results += '\n' + r'\\ Correct Pipe Direction \\' + '\n\n'
-				if correctDirectionByGradient:
-					results += '# Pipes Corrected by Gradient\n\n{0}\n'.format(correctDirectionGradLog)
-				if correctDirectionByContinuity:
-					results += '# Pipes Corrected by Continuity\n\n{0}\n'.format(correctDirectionContLog)
-			if outMsg:
-				self.outDialog = tuflowqgis_1d_integrity_output(self.iface, results)
-				self.outDialog.show()
-			if outTxt:
-				outFile = self.outFile.text()
-				f = open(outFile, 'w')
-				f.write(results)
-				f.close()
-		if outSel:
-			# remove any current selection
-			for layer in self.iface.mapCanvas().layers():
-				if layer.type() == 0:
-					layer.removeSelection()
-			# select points
-			if checkPoint:
-				for layer in pointLyrs:
-					for f in layer.getFeatures():
-						if f.attributes()[0] in unsnappedPoints:
-							fid = f.id()
-							layer.select(fid)
-			# select lines
-			if checkLine:
-				for layer in lineLyrs:
-					for f in layer.getFeatures():
-						if f.attributes()[0] in unsnappedLineNames:
-							fid = f.id()
-							layer.select(fid)
-			if getDnsConn:
-				names = longProfile.log.split('\n')
-				for n in names:
-					name = n.split(' ')[0].strip()
-					if len(name) > 0:
-						lyr = lineDict[name][2]
-						fid = lineDict[name][1]
-						idFld = lyr.fields()[0]
-						filter = '"{0}" = \'{1}\''.format(idFld.name(), name)
-						request = QgsFeatureRequest().setFilterExpression(filter)
-						for f in lyr.getFeatures(request):
-							if f.id() == fid:
-								lyr.select(fid)
-			if continuityCheck:
-				names = continuityLog.split('\n')
-				for n in names:
-					name = n.split(' ')[0].strip()
-					if len(name) > 0:
-						lyr = lineDict[name][2]
-						fid = lineDict[name][1]
-						idFld = lyr.fields()[0]
-						filter = '"{0}" = \'{1}\''.format(idFld.name(), name)
-						request = QgsFeatureRequest().setFilterExpression(filter)
-						for f in lyr.getFeatures(request):
-							if f.id() == fid:
-								lyr.select(fid)
-			if correctDirectionByGradient:
-				names = correctDirectionGradLog.split('\n')
-				for n in names:
-					name = n.split(' ')[0].strip()
-					if len(name) > 0:
-						lyr = lineDict[name][2]
-						fid = lineDict[name][1]
-						idFld = lyr.fields()[0]
-						filter = '"{0}" = \'{1}\''.format(idFld.name(), name)
-						request = QgsFeatureRequest().setFilterExpression(filter)
-						for f in lyr.getFeatures(request):
-							if f.id() == fid:
-								lyr.select(fid)
-			if correctDirectionByContinuity:
-				names = correctDirectionContLog.split('\n')
-				for n in names:
-					name = n.split(' ')[0].strip()
-					if len(name) > 0:
-						lyr = lineDict[name][2]
-						fid = lineDict[name][1]
-						idFld = lyr.fields()[0]
-						filter = '"{0}" = \'{1}\''.format(idFld.name(), name)
-						request = QgsFeatureRequest().setFilterExpression(filter)
-						for f in lyr.getFeatures(request):
-							if f.id() == fid:
-								lyr.select(fid)
-		if outLyr:
-			crs = lineLyrs[0].crs()
-			crsId = crs.authid()
-			outName = '_1D_integrity_check'
-			outPath = os.path.join(os.path.dirname(lineLyrs[0].source()), '{0}.shp'.format(outName))
-			messageLyr = QgsVectorLayer("Point?crs={0}".format(crsId), 'temp_points', 'memory')
-			dp = messageLyr.dataProvider()
-			dp.addAttributes([QgsField('Warning', QVariant.String), QgsField('message', QVariant.String)])
-			messageLyr.updateFields()
-			messageFeats = []  # list of QgsFeature objects
-			# lines
-			if autoSnap:
-				if checkLine:
-					loggedEdits = returnLogL.split('\n')
-					for i, line in enumerate(editedLines):
-						id, node = line.split('==')
-						node = int(node)
-						vertex = lineDict[id][0][node]
-						feat = QgsFeature()
-						feat.setGeometry(QgsGeometry.fromPoint(vertex))
-						feat.setAttributes(['Line Snapping Edit', 'Moved Line Vertex: {0}'.format(loggedEdits[i])])
-						messageFeats.append(feat)
-				if checkPoint:
-					loggedEdits = returnLogP.split('\n')
-					for i, point in enumerate(editedPoints):
-						vertex = pointDict[point][0][0]
-						feat = QgsFeature()
-						feat.setGeometry(QgsGeometry.fromPoint(vertex))
-						feat.setAttributes(['Point Snapping Edit', 'Moved Point: {0}'.format(loggedEdits[i])])
-						messageFeats.append(feat)
-			if checkLine:
-				for line in unsnappedLines:
-					if 'upstream' in line:
-						ind = line.find('upstream')
-						node = 0
-					elif 'downstream' in line:
-						ind = line.find('downstream')
-						node = 1
-					else:
-						return
-					id = line[:ind].strip()
-					vertex = lineDict[id][0][node]
-					feat = QgsFeature()
-					feat.setGeometry(QgsGeometry.fromPoint(vertex))
-					feat.setAttributes(
-						['Line Snapping Warning', 'Unsnapped Line: {0} at {1}, {2}'.format(line, vertex[0], vertex[1])])
-					messageFeats.append(feat)
-			if checkPoint:
-				for point in unsnappedPoints:
-					vertex = pointDict[point][0][0]
-					feat = QgsFeature()
-					feat.setGeometry(QgsGeometry.fromPoint(vertex))
-					feat.setAttributes(['Point Snapping Warning',
-					                    'Unsnapped Point: {0} at {1}, {2}'.format(point, vertex[0], vertex[1])])
-					messageFeats.append(feat)
-			if getDnsConn:
-				loggedContinuityErrors = longProfile.log.split('\n')
-				for i, vertex in enumerate(longProfile.warningLocation):
-					feat = QgsFeature()
-					feat.setGeometry(QgsGeometry.fromPoint(vertex))
-					feat.setAttributes(['{0}'.format(longProfile.warningType[i]),
-					                    'Continuity Warning: {0}'.format(loggedContinuityErrors[i])])
-					messageFeats.append(feat)
-			if continuityCheck:
-				loggedContinuityErrors = continuityLog.split('\n')
-				for i, vertex in enumerate(continuityError):
-					feat = QgsFeature()
-					feat.setGeometry(QgsGeometry.fromPoint(vertex))
-					feat.setAttributes(['{0}'.format(continiuityWarningTypes[i]),
-					                    'Continuity Warning: {0}'.format(loggedContinuityErrors[i])])
-					messageFeats.append(feat)
-			if correctDirectionByGradient:
-				loggedDirectionChange = correctDirectionGradLog.split('\n')
-				for i, vertex in enumerate(correctDirectionGradPoint):
-					feat = QgsFeature()
-					feat.setGeometry(QgsGeometry.fromPoint(vertex))
-					feat.setAttributes(['{0}'.format(correctDirectionGradType[i]),
-					                    'Line Direction Edit: {0}'.format(loggedDirectionChange[i])])
-					messageFeats.append(feat)
-			if correctDirectionByContinuity:
-				loggedDirectionChange = correctDirectionContLog.split('\n')
-				for i, vertex in enumerate(correctDirectionContPoint):
-					feat = QgsFeature()
-					feat.setGeometry(QgsGeometry.fromPoint(vertex))
-					feat.setAttributes(['{0}'.format(correctDirectionContType[i]),
-					                    'Line Direction Edit: {0}'.format(loggedDirectionChange[i])])
-					messageFeats.append(feat)
-			dp.addFeatures(messageFeats)
-			messageLyr.updateExtents()
-			QgsVectorFileWriter.writeAsVectorFormat(messageLyr, outPath, 'CP1250', crs, 'ESRI Shapefile')
-			self.iface.addVectorLayer(outPath, outName, 'ogr')
 
 
 # ----------------------------------------------------------
@@ -2823,24 +2307,2258 @@ class tuflowqgis_scenarioSelection_dialog(QDialog, Ui_scenarioSelection):
 		
 		for scenario in self.scenarios:
 			self.scenario_lw.addItem(scenario)
-			
+		
 		self.ok_button.clicked.connect(self.run)
 		self.cancel_button.clicked.connect(self.cancel)
 		self.selectAll_button.clicked.connect(self.selectAll)
-		
+	
 	def cancel(self):
-		return
+		self.reject()
 	
 	def selectAll(self):
 		for i in range(self.scenario_lw.count()):
 			item = self.scenario_lw.item(i)
-			self.scenario_lw.setItemSelected(item, True)
-			
+			item.setSelected(True)
+	
 	def run(self):
-		scenarios = []
+		self.scenarios = []
 		for i in range(self.scenario_lw.count()):
 			item = self.scenario_lw.item(i)
 			if item.isSelected():
-				scenarios.append(item.text())
-		openGisFromTcf(self.tcf, self.iface, scenarios)
+				self.scenarios.append(item.text())
+		self.accept()  # destroy dialog window
+
+
+# ----------------------------------------------------------
+#    tuflowqgis event selection
+# ----------------------------------------------------------
+from ui_tuflowqgis_eventSelection import *
+
+
+class tuflowqgis_eventSelection_dialog(QDialog, Ui_eventSelection):
+	def __init__(self, iface, tcf, events):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.tcf = tcf
+		self.events = events
+		self.setupUi(self)
 		
+		for event in self.events:
+			self.events_lw.addItem(event)
+		
+		self.ok_button.clicked.connect(self.run)
+		self.cancel_button.clicked.connect(self.cancel)
+		self.selectAll_button.clicked.connect(self.selectAll)
+	
+	def cancel(self):
+		self.reject()
+	
+	def selectAll(self):
+		for i in range(self.events_lw.count()):
+			item = self.events_lw.item(i)
+			item.setSelected(True)
+	
+	def run(self):
+		self.events = []
+		for i in range(self.events_lw.count()):
+			item = self.events_lw.item(i)
+			if item.isSelected():
+				self.events.append(item.text())
+		self.accept()  # destroy dialog window
+
+
+# ----------------------------------------------------------
+#    tuflowqgis mesh selection
+# ----------------------------------------------------------
+from ui_tuflowqgis_meshSelection import *
+
+
+class tuflowqgis_meshSelection_dialog(QDialog, Ui_meshSelection):
+	def __init__(self, iface, meshes):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.iface = iface
+		self.meshes = meshes
+		self.selectedMesh = None
+		
+		for mesh in self.meshes:
+			self.mesh_lw.addItem(mesh.name())
+		
+		self.ok_button.clicked.connect(self.run)
+		self.cancel_button.clicked.connect(self.cancel)
+	
+	def cancel(self):
+		self.reject()
+
+	def run(self):
+		selection = self.mesh_lw.selectedItems()
+		if selection:
+			self.selectedMesh = selection[0].text()
+			self.accept()  # destroy dialog window
+		else:
+			QMessageBox.information(self.iface.mainWindow(), 'Tuview', 'Please select a result layer to save style.')
+
+
+# ----------------------------------------------------------
+#    tuflowqgis Output Zone selection
+# ----------------------------------------------------------
+from ui_tuflowqgis_outputZoneSelection import *
+
+
+class tuflowqgis_outputZoneSelection_dialog(QDialog, Ui_outputZoneSelection):
+	def __init__(self, iface, tcf, outputZones):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.tcf = tcf
+		self.outputZones = outputZones
+		self.setupUi(self)
+		
+		for outputZone in self.outputZones:
+			self.listWidget.addItem(outputZone['name'])
+		
+		self.ok_button.clicked.connect(self.run)
+		self.cancel_button.clicked.connect(self.cancel)
+		self.selectAll_button.clicked.connect(self.selectAll)
+	
+	def cancel(self):
+		self.reject()
+	
+	def selectAll(self):
+		for i in range(self.listWidget.count()):
+			item = self.listWidget.item(i)
+			item.setSelected(True)
+	
+	def run(self):
+		self.outputZones = []
+		for i in range(self.listWidget.count()):
+			item = self.listWidget.item(i)
+			if item.isSelected():
+				self.outputZones.append(item.text())
+		self.accept()  # destroy dialog window
+
+
+# ----------------------------------------------------------
+#    tuView Options Dialog
+# ----------------------------------------------------------
+from ui_tuflowqgis_TuOptionsDialog import *
+
+
+class TuOptionsDialog(QDialog, Ui_TuViewOptions):
+	def __init__(self, TuOptions):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.tuOptions = TuOptions
+		
+		# mesh rendering
+		if self.tuOptions.showGrid:
+			self.cbShowGrid.setChecked(True)
+		else:
+			self.cbShowGrid.setChecked(False)
+		if self.tuOptions.showTriangles:
+			self.cbShowTriangles.setChecked(True)
+		else:
+			self.cbShowTriangles.setChecked(False)
+			
+		# xmdf dat time units
+		if self.tuOptions.timeUnits == 's':
+			self.rbTimeUnitsSeconds.setChecked(True)
+		else:
+			self.rbTimeUnitsHours.setChecked(True)
+		
+		# plot live cursor tracking
+		if self.tuOptions.liveMapTracking:
+			self.rbLiveCursorTrackingOn.setChecked(True)
+		else:
+			self.rbLiveCursorTrackingOff.setChecked(True)
+		
+		# x axis dates
+		self.cbDates.setChecked(self.tuOptions.xAxisDates)
+		
+		# zero date
+		d = QDate(self.tuOptions.zeroTime.year, self.tuOptions.zeroTime.month, self.tuOptions.zeroTime.day)
+		t = QTime(self.tuOptions.zeroTime.hour, self.tuOptions.zeroTime.minute, self.tuOptions.zeroTime.second)
+		dt = QDateTime(d, t)
+		self.dteZeroDate.setDateTime(dt)
+		
+		# date format
+		self.leDateFormat.setText(convertStrftimToTuviewftim(self.tuOptions.dateFormat))
+		
+		# date format preview
+		self.date = datetime.now()
+		self.datePreview.setText(self.tuOptions._dateFormat.format(self.date))
+		
+		# x axis label rotation
+		self.sbXAxisLabelRotation.setValue(self.tuOptions.xAxisLabelRotation)
+			
+		# play time delay
+		self.sbPlaySpeed.setValue(self.tuOptions.playDelay)
+		
+		# cross section and flux line resolution
+		self.sbResolution.setValue(self.tuOptions.resolution)
+		
+		# ARR mean event selection
+		if self.tuOptions.meanEventSelection == 'next higher':
+			self.rbARRNextHigher.setChecked(True)
+		else:
+			self.rbARRClosest.setChecked(True)
+		
+		# Signals
+		self.leDateFormat.textChanged.connect(self.updatePreview)
+		self.buttonBox.rejected.connect(self.cancel)
+		self.buttonBox.accepted.connect(self.run)
+		
+	def updatePreview(self):
+		self.tuOptions.dateFormat, self.tuOptions._dateFormat = convertTuviewftimToStrftim(self.leDateFormat.text())
+		self.datePreview.setText(self.tuOptions._dateFormat.format(self.date))
+		
+	def legendOptionsChanged(self, checkBox):
+		if self.rbLegendOn.isChecked():
+			for position, cb in self.positionDict.items():
+				cb.setEnabled(True)
+				if checkBox is None:
+					if position == self.legendPos:
+						cb.setChecked(True)
+					else:
+						cb.setChecked(False)
+				else:
+					if cb == checkBox:
+						self.legendPos = position
+						cb.setChecked(True)
+					else:
+						cb.setChecked(False)
+		else:
+			for position, cb in self.positionDict.items():
+				cb.setEnabled(False)
+		
+	def cancel(self):
+		return
+	
+	def run(self):
+		settings = QSettings()
+		# mesh rendering
+		if self.cbShowGrid.isChecked():
+			self.tuOptions.showGrid = True
+		else:
+			self.tuOptions.showGrid = False
+		if self.cbShowTriangles.isChecked():
+			self.tuOptions.showTriangles = True
+		else:
+			self.tuOptions.showTriangles = False
+			
+		# xmdf dat time units
+		if self.rbTimeUnitsSeconds.isChecked():
+			self.tuOptions.timeUnits = 's'
+		else:
+			self.tuOptions.timeUnits = 'h'
+		
+		# plot live cursor tracking
+		if self.rbLiveCursorTrackingOn.isChecked():
+			self.tuOptions.liveMapTracking = True
+		else:
+			self.tuOptions.liveMapTracking = False
+		
+		# x axis dates
+		self.tuOptions.xAxisDates = self.cbDates.isChecked()
+		
+		# zero time
+		d = [self.dteZeroDate.date().year(), self.dteZeroDate.date().month(), self.dteZeroDate.date().day()]
+		t = [self.dteZeroDate.time().hour(), self.dteZeroDate.time().minute(), self.dteZeroDate.time().second()]
+		self.tuOptions.zeroTime = datetime(d[0], d[1], d[2], t[0], t[1], t[2])
+		settings.setValue('TUFLOW/tuview_zeroTime', self.tuOptions.zeroTime)
+		
+		# format time
+		self.tuOptions.dateFormat, self.tuOptions._dateFormat = convertTuviewftimToStrftim(self.leDateFormat.text())
+		settings.setValue('TUFLOW/tuview_dateFormat', self.tuOptions.dateFormat)
+		settings.setValue('TUFLOW/tuview__dateFormat', self.tuOptions._dateFormat)
+		
+		# x axis label rotation
+		self.tuOptions.xAxisLabelRotation = self.sbXAxisLabelRotation.value()
+		
+		# play time delay
+		self.tuOptions.playDelay = self.sbPlaySpeed.value()
+		
+		# cross section and flux line resolution
+		self.tuOptions.resolution = self.sbResolution.value()
+		
+		# ARR mean event selection
+		if self.rbARRNextHigher.isChecked():
+			self.tuOptions.meanEventSelection = 'next higher'
+		else:
+			self.tuOptions.meanEventSelection = 'closest'
+			
+
+# ----------------------------------------------------------
+#    tuView Selected Elements Dialog
+# ----------------------------------------------------------
+from ui_tuflowqgis_selectedElements import *
+
+
+class TuSelectedElementsDialog(QDialog, Ui_selectedElements):
+	def __init__(self, iface, elements):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.iface = iface
+		
+		# populate text box with results
+		for element in elements:
+			self.elementList.addItem(element)
+		
+		# Signals
+		self.pbSelectElements.clicked.connect(self.newSelectionFromSelection)
+		self.pbCloseWindow.clicked.connect(self.accept)
+		self.elementList.setContextMenuPolicy(Qt.CustomContextMenu)
+		self.elementList.customContextMenuRequested.connect(self.showMenu)
+		
+	def showMenu(self, pos):
+		self.selectedElementsMenu = QMenu(self)
+		self.newSelection_action = QAction('Selected Elements on Map', self.selectedElementsMenu)
+		self.selectedElementsMenu.addAction(self.newSelection_action)
+		self.newSelection_action.triggered.connect(self.newSelectionFromSelection)
+		
+		self.selectedElementsMenu.popup(self.elementList.mapToGlobal(pos))
+		
+	def newSelectionFromSelection(self):
+		"""
+		Select elements from id List
+
+		:return: bool -> True for successful, False for unsuccessful
+		"""
+		
+		selIds = []
+		for item in self.elementList.selectedItems():
+			selIds.append(item.text())
+		
+		for layer in self.iface.mapCanvas().layers():
+			if layer.type() == 0:
+				if ' plot ' in layer.name().lower() or '_plot_' in layer.name().lower():
+					layer.removeSelection()
+					for feature in layer.getFeatures():
+						if feature.attributes()[0] in selIds:
+							layer.select(feature.id())
+		
+		return True
+	
+
+# ----------------------------------------------------------
+#    Auto Plot and Export Dialog
+# ----------------------------------------------------------
+from ui_BatchExportPlotDialog import *
+
+
+class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
+	def __init__(self, TuView):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.tuView = TuView
+		self.iface = TuView.iface
+		self.project = TuView.project
+		self.canvas = TuView.canvas
+		folderIcon = QgsApplication.getThemeIcon('/mActionFileOpen.svg')
+		self.btnBrowse.setIcon(folderIcon)
+		self.populateGISLayers()
+		self.populateNameAttributes()
+		self.populateResultMesh()
+		self.populateResultTypes()
+		self.populateTimeSteps()
+		self.populateImageFormats()
+		self.selectionEnabled()
+		
+		self.canvas.selectionChanged.connect(self.selectionEnabled)
+		self.project.layersAdded.connect(self.populateGISLayers)
+		self.cbGISLayer.currentIndexChanged.connect(self.populateTimeSteps)
+		self.cbGISLayer.currentIndexChanged.connect(self.populateNameAttributes)
+		self.mcbResultMesh.checkedItemsChanged.connect(self.populateResultTypes)
+		self.mcbResultMesh.checkedItemsChanged.connect(self.populateTimeSteps)
+		self.btnBrowse.clicked.connect(self.browse)
+		self.buttonBox.accepted.connect(self.check)
+		self.buttonBox.rejected.connect(self.reject)
+		
+	def populateGISLayers(self):
+		for name, layer in QgsProject.instance().mapLayers().items():
+			if layer.type() == QgsMapLayer.VectorLayer:
+				if layer.geometryType() == 0 or layer.geometryType() == 1:
+					self.cbGISLayer.addItem(layer.name())
+					
+	def populateNameAttributes(self):
+		self.cbNameAttribute.clear()
+		self.cbNameAttribute.addItem('-None-')
+		layer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
+		if layer is not None:
+			self.cbNameAttribute.addItems(layer.fields().names())
+					
+	def populateResultMesh(self):
+		for resultName, result in self.tuView.tuResults.results.items():
+			for type, items in result.items():
+				if '_ts' not in type and '_lp' not in type:  # check if there is at least one 2D result type
+					self.mcbResultMesh.addItem(resultName)
+					break
+	
+	def populateResultTypes(self):
+		self.mcbResultTypes.clear()
+		resultTypes = []
+		for mesh in self.mcbResultMesh.checkedItems():
+			r = self.tuView.tuResults.results[mesh]
+			for type, t in r.items():
+				if '/Maximums' not in type:
+					if type not in resultTypes:
+						resultTypes.append(type)
+		self.mcbResultTypes.addItems(resultTypes)
+		
+	def populateTimeSteps(self):
+		self.cbTimesteps.setEnabled(False)
+		timesteps = []
+		timestepsFormatted = []
+		maximum = False
+		layer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
+		if layer is not None:
+			if layer.geometryType() == 0:
+				self.cbTimesteps.setEnabled(False)
+			elif layer.geometryType() == 1:
+				self.cbTimesteps.setEnabled(True)
+				for mesh in self.mcbResultMesh.checkedItems():
+					r = self.tuView.tuResults.results[mesh]
+					for type, t in r.items():
+						for time, items in t.items():
+							if time == '-99999':
+								maximum = True
+							elif items[0] not in timesteps:
+								timesteps.append(items[0])
+				timesteps = sorted(timesteps)
+				if timesteps:
+					if timesteps[-1] < 100:
+						timestepsFormatted = ['{0:02d}:{1:02.0f}:{2:05.2f}'.format(int(x), (x - int(x)) * 60,
+						                                                           (x - int(x) - (x - int(x))) * 3600)
+						                                                           for x in timesteps]
+					else:
+						timestepsFormatted = ['{0:03d}:{1:02.0f}:{2:05.2f}'.format(int(x), (x - int(x)) * 60,
+						                                                           (x - int(x) - (x - int(x))) * 3600)
+						                                                           for x in timesteps]
+					if maximum:
+						timestepsFormatted.insert(0, 'Maximum')
+		self.cbTimesteps.addItems(timestepsFormatted)
+	
+	def populateImageFormats(self):
+		formats = plt.gcf().canvas.get_supported_filetypes()
+		self.cbImageFormat.addItems(['.{0}'.format(x) for x in formats.keys()])
+		
+	def selectionEnabled(self):
+		self.rbSelectedFeatures.setEnabled(False)
+		layer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
+		if layer is not None:
+			sel = layer.selectedFeatures()
+			if sel:
+				self.rbSelectedFeatures.setEnabled(True)
+		
+	def browse(self):
+		settings = QSettings()
+		outFolder = settings.value('TUFLOW/batch_export')
+		startDir = None
+		if outFolder:  # if outFolder no longer exists, work backwards in directory until find one that does
+			while outFolder:
+				if os.path.exists(outFolder):
+					startDir = outFolder
+					break
+				else:
+					outFolder = os.path.dirname(outFolder)
+		outFolder = QFileDialog.getExistingDirectory(self, 'Ouput Folder', startDir)
+		if outFolder:
+			self.outputFolder.setText(outFolder)
+			settings.setValue('TUFLOW/batch_export', outFolder)
+			
+	def check(self):
+		if not self.cbGISLayer.currentText():
+			QMessageBox.information(self, 'Missing Data', 'Missing GIS Layer')
+		elif not self.mcbResultMesh.checkedItems():
+			QMessageBox.information(self, 'Missing Data', 'Missing Result Mesh')
+		elif not self.mcbResultTypes.checkedItems():
+			QMessageBox.information(self, 'Missing Data', 'Missing Result Types')
+		elif self.cbTimesteps.isEnabled() and not self.cbTimesteps.currentText():
+			QMessageBox.information(self, 'Missing Data', 'Missing Time Step')
+		elif not self.outputFolder.text():
+			QMessageBox.information(self, 'Missing Data', 'Missing Output Folder')
+		elif not os.path.exists(self.outputFolder.text()):
+			QMessageBox.information(self, 'Missing Data', 'Output Folder Does Not Exist')
+		else:  # made it through the checks :)
+			self.run()
+		
+	def run(self):
+		# first save output folder directory - can have changed if they edit through line edit not browser
+		settings = QSettings()
+		settings.setValue('TUFLOW/batch_export', self.outputFolder.text())
+		
+		# get parameters
+		gisLayer = self.cbGISLayer.currentText()  # str
+		nameField = self.cbNameAttribute.currentText()  # str
+		resultMesh = self.mcbResultMesh.checkedItems()  # list -> str
+		resultTypes = self.mcbResultTypes.checkedItems()  # list -> str
+		timestep = self.cbTimesteps.currentText()  # str
+		features = 'all' if self.rbAllFeatures.isChecked() else 'selection'  # str
+		format = 'csv' if self.rbCSV.isChecked() else 'image'  # str
+		imageFormat = self.cbImageFormat.currentText()
+		outputFolder = self.outputFolder.text()  # str
+		
+		# run process
+		successful = self.tuView.tuMenuBar.tuMenuFunctions.batchPlotExport(gisLayer, resultMesh, resultTypes, timestep, features, format, outputFolder, nameField, imageFormat)
+		
+		if successful:
+			QMessageBox.information(self, 'Batch Export', 'Successfully Exported Data')
+		else:
+			QMessageBox.information(self, 'Batch Export', 'Error Exporting Data')
+		
+		# finally destroy dialog
+		self.accept()
+
+
+# ----------------------------------------------------------
+#    User Plot Data Plot View
+# ----------------------------------------------------------
+from ui_UserPlotDataPlotView import *
+
+
+class TuUserPlotDataPlotView(QDialog, Ui_UserPlotData):
+	def __init__(self, iface, TuUserPlotData):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.iface = iface
+		self.tuUserPlotData = TuUserPlotData
+		if self.tuUserPlotData.dates:
+			self.cbDisplayDates.setEnabled(True)
+		else:
+			self.cbDisplayDates.setEnabled(False)
+
+		#self.layout = self.plotFrame.layout()
+		self.layout = QGridLayout(self.plotFrame)
+		self.fig, self.ax = plt.subplots()
+		self.plotWidget = FigureCanvasQTAgg(self.fig)
+		self.layout.addWidget(self.plotWidget)
+		self.manageAx()
+		
+		name = self.tuUserPlotData.name
+		x = self.tuUserPlotData.x
+		y = self.tuUserPlotData.y
+		dates = self.tuUserPlotData.dates
+		self.ax.plot(x, y, label=name)
+		self.plotWidget.draw()
+		self.refresh()
+		
+		self.pbRefresh.clicked.connect(self.refresh)
+		self.pbOK.clicked.connect(self.accept)
+		self.cbDisplayDates.clicked.connect(self.refresh)
+	
+	def manageAx(self):
+		self.ax.grid()
+		self.ax.tick_params(axis="both", which="major", direction="out", length=10, width=1, bottom=True, top=False,
+		                    left=True, right=False)
+		self.ax.minorticks_on()
+		self.ax.tick_params(axis="both", which="minor", direction="out", length=5, width=1, bottom=True, top=False,
+		                    left=True, right=False)
+		
+	def refresh(self):
+		self.ax.cla()
+		self.manageAx()
+		name = self.tuUserPlotData.name
+		x = self.tuUserPlotData.x
+		y = self.tuUserPlotData.y
+		dates = self.tuUserPlotData.dates
+		self.ax.plot(x, y, label=name)
+		self.fig.tight_layout()
+		if self.cbDisplayDates.isChecked():
+			self.addDates()
+		self.plotWidget.draw()
+		
+	def addDates(self):
+		xlim = self.ax.get_xlim()
+		xmin = min(self.tuUserPlotData.x)
+		xmax = max(self.tuUserPlotData.x)
+		labels = self.ax.get_xticklabels()
+		userLabels = []
+		for label in labels:
+			try:
+				x = label.get_text()
+				x = float(x)
+			except ValueError:
+				try:
+					x = label.get_text()
+					x = x[1:]
+					x = float(x) * -1
+				except ValueError:
+					QMessageBox.information(self.iface.mainWindow(), 'Error', 'Error converting X axis value to float: {0}'.format(label.get_text()))
+					self.cbDisplayDates.setChecked(False)
+					return
+			userLabels.append(self.convertTimeToDate(x))
+
+		if len(userLabels) == len(labels):
+			self.ax.set_xlim(xlim)
+			self.ax.set_xticklabels(userLabels)
+			loc, xLabels = plt.xticks(rotation=45, horizontalalignment='right')
+			self.fig.tight_layout()
+		else:
+			QMessageBox.information(self.iface.mainWindow(), 'Error', 'Error converting X labes to dates.')
+			
+	def convertTimeToDate(self, time):
+		for i, x in enumerate(self.tuUserPlotData.x):
+			if i == 0:
+				if time < x:
+					return interpolate(time, x, self.tuUserPlotData.x[i+1], self.tuUserPlotData.dates[i], self.tuUserPlotData.dates[i+1])
+				iPrev = i
+				xPrev = x
+			if x == time:
+				return self.tuUserPlotData.dates[i]
+			elif x > time and xPrev < time:
+				return interpolate(time, xPrev, x, self.tuUserPlotData.dates[iPrev], self.tuUserPlotData.dates[i])
+			elif i + 1 == len(self.tuUserPlotData.x):
+				if time > x:
+					return interpolate(time, self.tuUserPlotData.x[i-1], x, self.tuUserPlotData.dates[i-1], self.tuUserPlotData.dates[i])
+			else:
+				iPrev = i
+				xPrev = x
+				continue
+			
+
+# ----------------------------------------------------------
+#    User Plot Data Table View
+# ----------------------------------------------------------
+from ui_UserPlotDataTableView import *
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuuserplotdata import TuUserPlotDataSet
+
+
+class TuUserPlotDataTableView(QDialog, Ui_UserTableData):
+	def __init__(self, iface, TuUserPlotData):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.iface = iface
+		self.tuUserPlotData = TuUserPlotData
+		
+		if self.tuUserPlotData.dates:
+			headers = ['Date', 'Time (hr)', self.tuUserPlotData.name]
+			self.dataTable.setColumnCount(3)
+		else:
+			headers = ['Time (hr)', self.tuUserPlotData.name]
+			self.dataTable.setColumnCount(2)
+		self.dataTable.setHorizontalHeaderLabels(headers)
+		
+		self.dataTable.setRowCount(len(self.tuUserPlotData.x))
+		
+		for i in range(len(self.tuUserPlotData.x)):
+			timeCol = 0
+			if self.tuUserPlotData.dates:
+				item = QTableWidgetItem(0)
+				item.setText('{0}'.format(self.tuUserPlotData.dates[i]))
+				self.dataTable.setItem(i, 0, item)
+				timeCol = 1
+			item = QTableWidgetItem(0)
+			item.setText('{0}'.format(self.tuUserPlotData.x[i]))
+			self.dataTable.setItem(i, timeCol, item)
+			item = QTableWidgetItem(0)
+			item.setText('{0}'.format(self.tuUserPlotData.y[i]))
+			self.dataTable.setItem(i, timeCol + 1, item)
+			
+		self.pbPlot.clicked.connect(self.showPlot)
+		self.buttonBox.accepted.connect(self.saveData)
+		
+	def convertStringToDatetime(self, s):
+		date = s.split('-')
+		d = []
+		for c in date:
+			d += c.split(' ')
+		e = []
+		for c in d:
+			e += c.split(':')
+		year = int(e[0])
+		month = int(e[1])
+		day = int(e[2])
+		hour = int(e[3])
+		minute = int(e[4])
+		second = int(e[5])
+		return datetime(year, month, day, hour, minute, second)
+		
+	def saveData(self, widget=None, dummy=False):
+		x = []
+		y = []
+		dates = []
+		
+		if self.dataTable.columnCount() == 2:
+			xCol = 0
+			yCol = 1
+			dateCol = None
+		elif self.dataTable.columnCount() == 3:
+			xCol = 1
+			yCol = 2
+			dateCol = 0
+			
+		for i in range(self.dataTable.rowCount()):
+			if dateCol is not None:
+				date = self.dataTable.item(i, dateCol).text()
+				date = self.convertStringToDatetime(date)
+				dates.append(date)
+			x.append(float(self.dataTable.item(i, xCol).text()))
+			y.append(float(self.dataTable.item(i, yCol).text()))
+		
+		if dummy:
+			data = TuUserPlotDataSet('dummy', [x, y], 'time series', False, 100, dates)
+			return data
+		else:
+			self.tuUserPlotData.setData([x, y], dates=dates)
+		
+		
+	def showPlot(self):
+		data = self.saveData(dummy=True)
+		self.tableDialog = TuUserPlotDataPlotView(self.iface, data)
+		self.tableDialog.exec_()
+		
+		
+# ----------------------------------------------------------
+#    User Plot Data Import Dialog
+# ----------------------------------------------------------
+from ui_UserPlotDataImportDialog import *
+
+
+class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
+	def __init__(self, iface):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.iface = iface
+		folderIcon = QgsApplication.getThemeIcon('/mActionFileOpen.svg')
+		self.btnBrowse.setIcon(folderIcon)
+		self.convertDate()
+		self.convertZeroDate()
+		self.ok = False
+		
+		self.btnBrowse.clicked.connect(self.browse)
+		self.inFile.textChanged.connect(self.populateDataColumns)
+		self.inFile.textChanged.connect(self.updatePreview)
+		self.sbLines2Discard.valueChanged.connect(self.updateLabelRow)
+		self.sbLines2Discard.valueChanged.connect(self.populateDataColumns)
+		self.sbLines2Discard.valueChanged.connect(self.updatePreview)
+		self.cbHeadersAsLabels.clicked.connect(self.populateDataColumns)
+		self.sbLabelRow.valueChanged.connect(self.populateDataColumns)
+		self.cbXColumn.currentIndexChanged.connect(self.updatePreview)
+		self.mcbYColumn.checkedItemsChanged.connect(self.updatePreview)
+		self.nullValue.textChanged.connect(self.updatePreview)
+		self.rbCSV.clicked.connect(self.populateDataColumns)
+		self.rbSpace.clicked.connect(self.populateDataColumns)
+		self.rbTab.clicked.connect(self.populateDataColumns)
+		self.rbOther.clicked.connect(self.populateDataColumns)
+		self.delimiter.textChanged.connect(self.populateDataColumns)
+		self.dateFormat.editingFinished.connect(self.convertDate)
+		self.zeroHourDate.editingFinished.connect(self.convertZeroDate)
+		self.buttonBox.accepted.connect(self.check)
+		self.buttonBox.rejected.connect(self.reject)
+		
+	def browse(self):
+		settings = QSettings()
+		inFile = settings.value('TUFLOW/import_user_data')
+		startDir = None
+		if inFile:  # if outFolder no longer exists, work backwards in directory until find one that does
+			while inFile:
+				if os.path.exists(inFile):
+					startDir = inFile
+					break
+				else:
+					inFile = os.path.dirname(inFile)
+		inFile = QFileDialog.getOpenFileName(self, 'Import Delimited File', startDir)[0]
+		if inFile:
+			self.inFile.setText(inFile)
+			settings.setValue('TUFLOW/import_user_data', inFile)
+			
+	def getDelim(self):
+		if self.rbCSV.isChecked():
+			return ','
+		elif self.rbSpace.isChecked():
+			return ' '
+		elif self.rbTab.isChecked():
+			return '\t'
+		elif self.rbOther.isChecked():
+			return self.delimiter.text()
+		
+	def checkDateFormatLetters(self):
+		for letter in self.dateFormat.text():
+			if letter != 'D' and letter.lower() != 'm' and letter != 'Y' and letter != 'h' and letter != 's' \
+					and letter != ' ' and letter != '/' and letter != '-' and letter != ':':
+				return 'Character {0} not recognised as a date format'.format(letter)
+		else:
+			return ''
+		
+	def checkConsecutive(self, letter):
+		f = self.dateFormat.text()
+		for i in range(f.count(letter)):
+			if i == 0:
+				indPrev = f.find(letter)
+			else:
+				ind = f[indPrev+1:].find(letter)
+				if ind != 0:
+					return False
+				indPrev += 1
+				
+		return True
+	
+	def getIndexes(self, letter):
+		delim1 = None
+		delim2 = None
+		index = None
+		a = None
+		b = None
+		f = self.dateFormat.text()
+		if self.checkConsecutive(letter):
+			i = f.find(letter)
+			j = f.find(letter) + f.count(letter)
+			if i > 0:
+				delim1 = f[i-1]
+				if delim1 == '/' or delim1 == '-' or delim1 == ' ' or delim1 == ':' or delim1 == ',' or delim1 == '.':
+					a = f.split(delim1)
+				else:  # use fixed field
+					delim1 = None
+					index = (i, j)
+					return (delim1, delim2, index)
+			if j < len(f):
+				delim2 = f[j]
+				if delim2 == '/' or delim2 == '-' or delim2 == ' ' or delim2 == ':' or delim2 == ',' or delim2 == '.':
+					b = []
+					if a is not None:
+						for x in a:
+							b += x.split(delim2)
+					else:
+						b = f.split(delim2)
+				else:  # use fixed field
+					delim2 = None
+					index = (i, j)
+					return (delim1, delim2, index)
+			if b is None:
+				if a is None:
+					return 'Date Format is Ambiguous'
+				else:
+					b = a[:]
+			for i, x in enumerate(b):
+				if letter in x:
+					index = i
+					break
+			return (delim1, delim2, index)
+		else:
+			return 'Date Format is Ambiguous'
+	
+	def convertDate(self):
+		self.day = None
+		self.month = None
+		self.year = None
+		self.hour = None
+		self.minute = None
+		self.second = None
+		self.dateCanBeConverted = True
+		f = self.dateFormat.text()
+		if not f:
+			self.dateCanBeConverted = False
+		else:
+			if self.checkDateFormatLetters():
+				self.dateCanBeConverted = False
+			else:
+				# the following gives me a tuple with the delimiters on either side of the variable and the index of the
+				# variable if string is split by both delimiters - or index can be tuple with fixed field indexes
+				if f.count('D'):  # find D day
+					self.day = self.getIndexes('D')
+					if type(self.day) is str:
+						self.dateCanBeConverted = False
+				if f.count('M'):  # find M month
+					self.month = self.getIndexes('M')
+					if type(self.month) is str:
+						self.dateCanBeConverted = False
+				if f.count('Y'):  # find Y year
+					self.year = self.getIndexes('Y')
+					if type(self.year) is str:
+						self.dateCanBeConverted = False
+				if f.count('h'):  # find h hour
+					self.hour = self.getIndexes('h')
+					if type(self.hour) is str:
+						self.dateCanBeConverted = False
+				if f.count('m'):  # find m minutes
+					self.minute = self.getIndexes('m')
+					if type(self.minute) is str:
+						self.dateCanBeConverted = False
+				if f.count('s'):  # find s seconds
+					self.second = self.getIndexes('s')
+					if type(self.second) is str:
+						self.dateCanBeConverted = False
+						
+		self.updatePreview()
+	
+	def convertZeroDate(self):
+		self.zeroDay = (None, '/', 0)
+		self.zeroMonth = ('/', '/', 1)
+		self.zeroYear = ('/', ' ', 2)
+		self.zeroHour = (' ', ':', 1)
+		self.zeroMinute = (':', ':', 1)
+		self.zeroSecond = (':', None, 2)
+		self.zeroCanBeConverted = True
+		f = self.zeroHourDate.text()
+		if not f:
+			self.zeroCanBeConverted = False
+		
+		self.updatePreview()
+		
+	def extractSpecificDateComponent(self, info, date):
+		if info is not None:
+			if type(info[2]) is tuple:  # fixed column
+				i = info[2][0]
+				j = info[2][1]
+				try:
+					a = int(date[i:j])
+				except ValueError:
+					a = None
+				return a
+			else:  # use delimiters
+				delim1 = info[0]
+				delim2 = info[1]
+				index = info[2]
+				if delim1 is not None:
+					a = date.split(delim1)
+				else:
+					a = date[:]
+				if delim2 is not None:
+					b = []
+					if delim1 is not None:
+						for x in a:
+							b += x.split(delim2)
+					else:
+						b = date.split(delim2)
+				else:
+					b = a[:]
+				try:
+					a = int(b[index])
+				except ValueError:
+					a = None
+				except IndexError:
+					a = None
+				return a
+				
+		return None
+	
+	def convertZeroDateToTime(self):
+		date = self.zeroHourDate.text()
+		year = 2000  # default
+		if self.zeroYear is not None:
+			year = self.extractSpecificDateComponent(self.zeroYear, date)
+			if year is not None:
+				if year < 1000:
+					year += 2000  # convert to YY to YYYY assuming it does not cross from one century to the next
+			else:
+				return 'Trouble converting year'
+		month = 1  # default
+		if self.zeroMonth is not None:
+			month = self.extractSpecificDateComponent(self.zeroMonth, date)
+			if month is None:
+				return 'Trouble converting month'
+		day = 1  # default
+		if self.zeroDay is not None:
+			day = self.extractSpecificDateComponent(self.zeroDay, date)
+			if day is None:
+				return 'Trouble converting day'
+		hour = 12  # default
+		if self.zeroHour is not None:
+			hour = self.extractSpecificDateComponent(self.zeroHour, date)
+			if hour is None:
+				return 'Trouble converting hour'
+		minute = 0
+		if self.zeroMinute is not None:
+			minute = self.extractSpecificDateComponent(self.zeroMinute, date)
+			if minute is None:
+				return 'Trouble converting minute'
+		second = 0
+		if self.zeroSecond is not None:
+			second = self.extractSpecificDateComponent(self.zeroSecond, date)
+			if second is None:
+				return 'Trouble converting second'
+		try:
+			date = datetime(year, month, day, hour, minute, second)
+			return date
+		except ValueError:
+			return 'Trouble converting date'
+	
+	def convertDateToTime(self, date, **kwargs):
+		convertToDateTime = kwargs['convert_to_datetime'] if 'convert_to_datetime' in kwargs.keys() else False
+		
+		year = 2000  # default
+		if self.year is not None:
+			year = self.extractSpecificDateComponent(self.year, date)
+			if year is not None:
+				if year < 1000:
+					year += 2000  # convert to YY to YYYY assuming it does not cross from one century to the next
+			else:
+				return 'Trouble converting year'
+		month = 1  # default
+		if self.month is not None:
+			month = self.extractSpecificDateComponent(self.month, date)
+			if month is None:
+				return 'Trouble converting month'
+		day = 1  # default
+		if self.day is not None:
+			day = self.extractSpecificDateComponent(self.day, date)
+			if day is None:
+				return 'Trouble converting day'
+		hour = 12  # default
+		if self.hour is not None:
+			hour = self.extractSpecificDateComponent(self.hour, date)
+			if hour is None:
+				return 'Trouble converting hour'
+		minute = 0
+		if self.minute is not None:
+			minute = self.extractSpecificDateComponent(self.minute, date)
+			if minute is None:
+				return 'Trouble converting minute'
+		second = 0
+		if self.second is not None:
+			second = self.extractSpecificDateComponent(self.second, date)
+			if second is None:
+				return 'Trouble converting second'
+		try:
+			date = datetime(year, month, day, hour, minute, second)
+		except ValueError:
+			return 'Trouble converting date'
+		if convertToDateTime:  # convert to datetime so don't worry about continuing to convert to hrs
+			return date
+		if self.zeroCanBeConverted:
+			self.zeroDate = self.convertZeroDateToTime()
+			if type(self.zeroDate) == str:
+				QMessageBox.information(self.iface.mainWindow(), 'Error', 'Zero Hour Date: {0}'.format(self.zeroDate))
+				return 0
+			else:
+				deltatime = date - self.zeroDate
+				return float(deltatime.days * 24) + float(deltatime.seconds / 60 / 60)
+		elif self.firstDataLine:
+			self.zeroDate = date
+			return 0.0
+		else:
+			deltatime = date - self.zeroDate
+			return float(deltatime.days * 24) + float(deltatime.seconds / 60 / 60)
+	
+	def updateLabelRow(self):
+		self.sbLabelRow.setMaximum(self.sbLines2Discard.value())
+		if self.sbLines2Discard.value() == 0:
+			self.cbHeadersAsLabels.setChecked(False)
+		else:
+			self.cbHeadersAsLabels.setChecked(True)
+			self.sbLabelRow.setValue(self.sbLines2Discard.value())
+			
+	def populateDataColumns(self):
+		self.cbXColumn.clear()
+		self.mcbYColumn.clear()
+		if self.inFile.text():
+			if os.path.exists(self.inFile.text()):
+				with open(self.inFile.text(), 'r') as fo:
+					for i, line in enumerate(fo):
+						header_line = max(self.sbLabelRow.value() - 1, 0)
+						if i == header_line:
+							delim = self.getDelim()
+							if delim != '':
+								headers = line.split(delim)
+								headers[-1] = headers[-1].strip('\n')
+								self.cbXColumn.addItems(headers)
+								self.mcbYColumn.addItems(headers)
+	
+	def updatePreview(self):
+		self.previewTable.clear()
+		self.previewTable.setRowCount(0)
+		self.previewTable.setColumnCount(0)
+		if self.inFile.text():
+			if os.path.exists(self.inFile.text()):
+				if self.cbXColumn.count() and self.mcbYColumn.checkedItems():
+					self.firstDataLine = True
+					with open(self.inFile.text(), 'r') as fo:
+						noIgnored = 1
+						for i, line in enumerate(fo):
+							header_line = max(self.sbLabelRow.value() - 1, 0)
+							if i == header_line:
+								delim = self.getDelim()
+								headers = line.split(delim)
+								xHeader = self.cbXColumn.currentText()
+								try:
+									xHeaderInd = headers.index(xHeader)
+								except ValueError:
+									xHeaderInd = headers.index('{0}\n'.format(xHeader))
+								yHeaders = self.mcbYColumn.checkedItems()
+								yHeaderInds = []
+								for j, yHeader in enumerate(yHeaders):
+									try:
+										yHeaderInds.append(headers.index(yHeader))
+									except ValueError:
+										yHeaderInds.append(headers.index('{0}\n'.format(yHeader)))
+								if not self.dateCanBeConverted:
+									self.previewTable.setColumnCount(len(yHeaders) + 1)
+								else:
+									self.previewTable.setColumnCount(len(yHeaders) + 2)
+								if self.cbHeadersAsLabels.isChecked():
+									if not self.dateCanBeConverted:
+										tableColumnNames = [xHeader] + yHeaders
+									else:
+										tableColumnNames = [xHeader, 'Time (hr)'] + yHeaders
+								else:
+									if not self.dateCanBeConverted:
+										tableColumnNames = ['X'] + ['Y{0}'.format(x) for x in range(1, len(yHeaders) + 1)]
+									else:
+										tableColumnNames = ['Date', 'Time (hr)'] + ['Y{0}'.format(x) for x in range(1, len(yHeaders) + 1)]
+								self.previewTable.setHorizontalHeaderLabels(tableColumnNames)
+							elif i > header_line:
+								if self.previewTable.rowCount() > 9:
+									break
+								self.previewTable.setRowCount(i - header_line - noIgnored + 1)
+								self.previewTable.setVerticalHeaderLabels(['{0}'.format(x) for x in range(1, i - header_line + 1)])
+								delim = self.getDelim()
+								values = line.split(delim)
+								if '{0}'.format(values[xHeaderInd]) == self.nullValue.text() or \
+										'{0}'.format(values[xHeaderInd]) == '':
+									noIgnored += 1
+									continue
+								for yHeaderInd in yHeaderInds:
+									if '{0}'.format(values[yHeaderInd]) == self.nullValue.text() or \
+										'{0}'.format(values[xHeaderInd]) == '':
+										noIgnored += 1
+										continue
+								item = QTableWidgetItem(0)
+								item.setText('{0}'.format(values[xHeaderInd]))
+								self.previewTable.setItem((i - header_line - noIgnored), 0, item)
+								k = 0
+								if self.dateCanBeConverted:
+									item = QTableWidgetItem(0)
+									timeHr = self.convertDateToTime(values[xHeaderInd])
+									if type(timeHr) is str:
+										QMessageBox.information(self.iface.mainWindow(), 'Error', 'Line {0} - {1}'.format(i, timeHr))
+										return
+									item.setText('{0}'.format(timeHr))
+									self.previewTable.setItem((i - header_line - noIgnored), 1, item)
+									k = 1
+								for j, yHeaderInd in enumerate(yHeaderInds):
+									item = QTableWidgetItem(0)
+									item.setText('{0}'.format(values[yHeaderInd]))
+									self.previewTable.setItem((i - header_line - noIgnored), j + k + 1, item)
+								self.firstDataLine = False
+							
+	def check(self):
+		if not self.inFile.text():
+			QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data', 'No Input File Specified')
+		elif not os.path.exists(self.inFile.text()):
+			QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data', 'Invalid Input File')
+		elif self.cbXColumn.count() < 1:
+			QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data', 'Invalid Delimiter or Input File is Empty')
+		elif not self.mcbYColumn.checkedItems():
+			QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data', 'No Y Column Values Selected')
+		if self.checkDateFormatLetters():
+				QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data',
+				                        '{0}'.format(self.checkDateFormatLetters()))
+		else:  # prelim checks out :)
+			self.run()
+		
+	def run(self):
+		self.names = []  # str data series names
+		self.data = []  # tuple -> list x data, y data -> float
+		x = []  # assumed all data share x axis
+		y = []
+		self.dates = []
+		with open(self.inFile.text(), 'r') as fo:
+			for i, line in enumerate(fo):
+				header_line = max(self.sbLabelRow.value() - 1, 0)
+				if i == header_line:
+					delim = self.getDelim()
+					headers = line.split(delim)
+					xHeader = self.cbXColumn.currentText()
+					try:
+						xHeaderInd = headers.index(xHeader)
+					except ValueError:
+						xHeaderInd = headers.index('{0}\n'.format(xHeader))
+					yHeaders = self.mcbYColumn.checkedItems()
+					yHeaderInds = []
+					for j, yHeader in enumerate(yHeaders):
+						try:
+							yHeaderInds.append(headers.index(yHeader))
+						except ValueError:
+							yHeaderInds.append(headers.index('{0}\n'.format(yHeader)))
+					if self.cbHeadersAsLabels.isChecked():
+						self.names = yHeaders
+					else:
+						self.names = ['Y{0}'.format(x) for x in range(1, len(yHeaders) + 1)]
+					x = [[] for x in range(len(self.names))]
+					y = [[] for x in range(len(self.names))]
+					self.dates = [[] for x in range(len(self.names))]
+					if not y:
+						return
+				elif i > header_line:
+					delim = self.getDelim()
+					values = line.split(delim)
+					if '{0}'.format(values[xHeaderInd]) == self.nullValue.text() or \
+							'{0}'.format(values[xHeaderInd]) == '':
+						continue
+					for yHeaderInd in yHeaderInds:
+						if '{0}'.format(values[yHeaderInd]) == self.nullValue.text() or \
+								'{0}'.format(values[xHeaderInd]) == '':
+							continue
+					if self.dateCanBeConverted:
+						timeHr = self.convertDateToTime(values[xHeaderInd])
+					for j, yHeaderInd in enumerate(yHeaderInds):
+						if self.dateCanBeConverted:
+							timeHr = self.convertDateToTime(values[xHeaderInd])
+							self.dates[j].append(self.convertDateToTime(values[xHeaderInd], convert_to_datetime=True))
+						else:
+							timeHr = values[xHeaderInd]
+						try:
+							x[j].append(float(timeHr))
+						except ValueError:
+							x[j].append('')
+						try:
+							y[j].append(float(values[yHeaderInd]))
+						except ValueError:
+							y[j].append('')
+
+		self.data = list(zip(x, y))
+		
+		# finally destroy dialog box
+		self.ok = True
+		self.accept()
+		
+		
+	
+# ----------------------------------------------------------
+#    User Plot Data Manager
+# ----------------------------------------------------------
+from ui_UserPlotDataManagerDialog import *
+
+
+class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
+	def __init__(self, iface, TuUserPlotDataManager):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.tuUserPlotDataManager = TuUserPlotDataManager
+		self.iface = iface
+		self.loadedData = {}  # { name: [ combobox, checkbox ] }
+		self.loadData()
+		
+		self.pbAddData.clicked.connect(self.addData)
+		self.pbViewTable.clicked.connect(self.showDataTable)
+		self.pbViewPlot.clicked.connect(self.showDataPlot)
+		self.pbRemoveData.clicked.connect(self.removeData)
+		self.pbOK.clicked.connect(self.accept)
+		
+	def loadData(self):
+		# load data in correct order.. for dict means a little bit of manipulation
+		for userData in [k for k, v in sorted(self.tuUserPlotDataManager.datasets.items(), key=lambda x: x[-1].number)]:
+			name = self.tuUserPlotDataManager.datasets[userData].name
+			plotType = self.tuUserPlotDataManager.datasets[userData].plotType
+			status = Qt.Checked if self.tuUserPlotDataManager.datasets[userData].status else Qt.Unchecked
+			self.UserPlotDataTable.setRowCount(self.UserPlotDataTable.rowCount() + 1)
+			item = QTableWidgetItem(0)
+			item.setText(name)
+			item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+			item.setCheckState(status)
+			combobox = QComboBox()
+			combobox.setEditable(True)
+			combobox.setMaximumHeight(30)
+			combobox.setMaximumWidth(175)
+			combobox.addItem('Time Series Plot')
+			combobox.addItem('Cross Section / Long Plot')
+			if plotType == 'long plot':
+				combobox.setCurrentIndex(1)
+			self.UserPlotDataTable.setItem(self.UserPlotDataTable.rowCount() - 1, 0, item)
+			self.UserPlotDataTable.setCellWidget(self.UserPlotDataTable.rowCount() - 1, 1, combobox)
+			self.loadedData[name] = [combobox, item]
+			
+			combobox.currentIndexChanged.connect(lambda: self.editData(combobox=combobox))
+			self.UserPlotDataTable.itemClicked.connect(lambda: self.editData(item=item))
+			self.UserPlotDataTable.itemChanged.connect(lambda item: self.editData(item=item))
+		
+	def addData(self):
+		self.addDataDialog = TuUserPlotDataImportDialog(self.iface)
+		self.addDataDialog.exec_()
+		if self.addDataDialog.ok:
+			for i, name in enumerate(self.addDataDialog.names):
+				# add data to class
+				counter = 1
+				while name in self.tuUserPlotDataManager.datasets.keys():
+					name = '{0}_{1}'.format(name, counter)
+					counter += 1
+				self.tuUserPlotDataManager.addDataSet(name, self.addDataDialog.data[i], 'time series', self.addDataDialog.dates[i])
+				if not self.tuUserPlotDataManager.datasets[name].error:
+					# add data to dialog
+					self.UserPlotDataTable.setRowCount(self.UserPlotDataTable.rowCount() + 1)
+					item = QTableWidgetItem(0)
+					item.setText(name)
+					item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+					item.setCheckState(Qt.Checked)
+					combobox = QComboBox()
+					combobox.setEditable(True)
+					combobox.setMaximumHeight(30)
+					combobox.setMaximumWidth(175)
+					combobox.addItem('Time Series Plot')
+					combobox.addItem('Cross Section / Long Plot')
+					self.UserPlotDataTable.setItem(self.UserPlotDataTable.rowCount() - 1, 0, item)
+					self.UserPlotDataTable.setCellWidget(self.UserPlotDataTable.rowCount() - 1, 1, combobox)
+					self.loadedData[name] = [combobox, item]
+					
+					combobox.currentIndexChanged.connect(lambda: self.editData(combobox=combobox))
+					self.UserPlotDataTable.itemClicked.connect(lambda item: self.editData(item=item))
+					self.UserPlotDataTable.itemChanged.connect(lambda item: self.editData(item=item))
+				else:
+					QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data', self.tuUserPlotDataManager.datasets[name].error)
+					
+	def editData(self, **kwargs):
+		combobox = kwargs['combobox'] if 'combobox' in kwargs.keys() else None
+		item = kwargs['item'] if 'item' in kwargs.keys() else None
+		
+		if combobox is not None:
+			for name, widgets in self.loadedData.items():
+				if widgets[0] == combobox:
+					plotType = 'time series' if combobox.currentText() == 'Time Series Plot' else 'long plot'
+					self.tuUserPlotDataManager.editDataSet(name, plotType=plotType)
+	
+		elif item is not None:
+			for name, widgets in self.loadedData.items():
+				if widgets[-1] == item:
+					status = True if item.checkState() == Qt.Checked else False
+					self.tuUserPlotDataManager.editDataSet(name, newname=item.text(), status=status)
+	
+	def showDataTable(self):
+		selectedItems = self.UserPlotDataTable.selectedItems()
+		for item in selectedItems:
+			data = self.tuUserPlotDataManager.datasets[item.text()]
+			self.tableDialog = TuUserPlotDataTableView(self.iface, data)
+			self.tableDialog.exec_()
+			break  # just do first selection only
+			
+	def showDataPlot(self):
+		selectedItems = self.UserPlotDataTable.selectedItems()
+		for item in selectedItems:
+			data = self.tuUserPlotDataManager.datasets[item.text()]
+			self.tableDialog = TuUserPlotDataPlotView(self.iface, data)
+			self.tableDialog.exec_()
+			break  # just do first selection only
+			
+	def removeData(self):
+		selectedItems = self.UserPlotDataTable.selectedItems()
+		for item in selectedItems:
+			name = item.text()
+			self.tuUserPlotDataManager.removeDataSet(name)
+			self.UserPlotDataTable.itemClicked.disconnect()
+			self.UserPlotDataTable.itemChanged.disconnect()
+		self.UserPlotDataTable.setRowCount(0)
+		self.loadData()
+		
+		
+# ----------------------------------------------------------
+#    Filter and Sort TUFLOW Layers in Map Window
+# ----------------------------------------------------------
+from ui_filter_sort_TUFLOW_layers import *
+
+
+class FilterSortLayersDialog(QDialog, Ui_FilterAndSortLayers):
+	def __init__(self, iface):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.iface = iface
+		self.type2rbs = {}  # e.g. { '2d_bc': ( rbOn, rbCurrent, rbOff ) }
+		self.type2buttonGroup = {}
+		self.bgCheck.setId(self.rbCheckOn, 0)
+		self.bgCheck.setId(self.rbCheckCurrent, 1)
+		self.bgCheck.setId(self.rbCheckOff, 2)
+		self.bgDem.setId(self.rbDemOn, 0)
+		self.bgDem.setId(self.rbDemCurrent, 1)
+		self.bgDem.setId(self.rbDemOff, 2)
+		self.bgMesh.setId(self.rbMeshOn, 0)
+		self.bgMesh.setId(self.rbMeshCurrent, 1)
+		self.bgMesh.setId(self.rbMeshOff, 2)
+		self.initialiseTable()
+		
+		self.pbFilter.clicked.connect(self.filter)
+		self.pbSort.clicked.connect(self.sort)
+		self.pbFinished.clicked.connect(self.accept)
+		
+	def initialiseTable(self):
+		"""Set up TableWidget with open tuflow layer types"""
+		
+		# remove row numbers
+		self.tableWidget.verticalHeader().setVisible(False)
+		
+		# add all on / off button
+		self.tableWidget.setRowCount(1)
+		
+		item = QTableWidgetItem(0)
+		item.setText('All Layers')
+		self.tableWidget.setItem(0, 0, item)
+		
+		# radio check boxes
+		widgetOn = QWidget(self.tableWidget)
+		rbOn = QRadioButton(widgetOn)
+		hboxOn = QHBoxLayout()
+		hboxOn.setContentsMargins(0, 0, 0, 0)
+		hboxOn.addStretch()
+		hboxOn.addWidget(rbOn)
+		hboxOn.addStretch()
+		widgetOn.setLayout(hboxOn)
+		
+		widgetCurrent = QWidget(self.tableWidget)
+		rbCurrent = QRadioButton(widgetCurrent)
+		hboxCurrent = QHBoxLayout()
+		hboxCurrent.setContentsMargins(0, 0, 0, 0)
+		hboxCurrent.addStretch()
+		hboxCurrent.addWidget(rbCurrent)
+		hboxCurrent.addStretch()
+		widgetCurrent.setLayout(hboxCurrent)
+		
+		widgetOff = QWidget(self.tableWidget)
+		rbOff = QRadioButton(widgetOff)
+		hboxOff = QHBoxLayout()
+		hboxOff.setContentsMargins(0, 0, 0, 0)
+		hboxOff.addStretch()
+		hboxOff.addWidget(rbOff)
+		hboxOff.addStretch()
+		widgetOff.setLayout(hboxOff)
+		
+		rbCurrent.setChecked(True)
+		rbGroup = QButtonGroup()
+		rbGroup.addButton(rbOn)
+		rbGroup.setId(rbOn, 0)
+		rbGroup.addButton(rbCurrent)
+		rbGroup.setId(rbCurrent, 1)
+		rbGroup.addButton(rbOff)
+		rbGroup.setId(rbOff, 2)
+		rbGroup.setExclusive(True)
+		
+		self.tableWidget.setCellWidget(0, 1, widgetOn)
+		self.tableWidget.setCellWidget(0, 2, widgetCurrent)
+		self.tableWidget.setCellWidget(0, 3, widgetOff)
+		self.type2rbs['all_layers'] = (rbOn, rbCurrent, rbOff)
+		self.type2buttonGroup['all_layers'] = rbGroup
+
+		# collect open layer tuflow types
+		inputLayers = getOpenTUFLOWLayers('input_types')
+		self.tableWidget.setRowCount(len(inputLayers) + 1)
+		for i, inputLayer in enumerate(inputLayers):
+			# tuflow type label
+			item = QTableWidgetItem(0)
+			item.setText(inputLayer)
+			self.tableWidget.setItem(i+1, 0, item)
+			
+			# radio check boxes
+			widgetOn = QWidget(self.tableWidget)
+			rbOn = QRadioButton(widgetOn)
+			hboxOn = QHBoxLayout()
+			hboxOn.setContentsMargins(0, 0, 0, 0)
+			hboxOn.addStretch()
+			hboxOn.addWidget(rbOn)
+			hboxOn.addStretch()
+			widgetOn.setLayout(hboxOn)
+			
+			widgetCurrent = QWidget(self.tableWidget)
+			rbCurrent = QRadioButton(widgetCurrent)
+			hboxCurrent = QHBoxLayout()
+			hboxCurrent.setContentsMargins(0, 0, 0, 0)
+			hboxCurrent.addStretch()
+			hboxCurrent.addWidget(rbCurrent)
+			hboxCurrent.addStretch()
+			widgetCurrent.setLayout(hboxCurrent)
+			
+			widgetOff = QWidget(self.tableWidget)
+			rbOff = QRadioButton(widgetOff)
+			hboxOff = QHBoxLayout()
+			hboxOff.setContentsMargins(0, 0, 0, 0)
+			hboxOff.addStretch()
+			hboxOff.addWidget(rbOff)
+			hboxOff.addStretch()
+			widgetOff.setLayout(hboxOff)
+			
+			rbCurrent.setChecked(True)
+			rbGroup = QButtonGroup()
+			rbGroup.addButton(rbOn)
+			rbGroup.setId(rbOn, 0)
+			rbGroup.addButton(rbCurrent)
+			rbGroup.setId(rbCurrent, 1)
+			rbGroup.addButton(rbOff)
+			rbGroup.setId(rbOff, 2)
+			rbGroup.setExclusive(True)
+			
+			self.tableWidget.setCellWidget(i+1, 1, widgetOn)
+			self.tableWidget.setCellWidget(i+1, 2, widgetCurrent)
+			self.tableWidget.setCellWidget(i+1, 3, widgetOff)
+			self.type2rbs[inputLayer] = (rbOn, rbCurrent, rbOff)
+			self.type2buttonGroup[inputLayer] = rbGroup
+		
+		# resize columns
+		self.tableWidget.resizeColumnsToContents()
+		
+	def filter(self):
+		filterKey = {0: 'on', 1: 'current', 2: 'off'}
+		filterProp = {}  # properties / settings
+		
+		# input layers
+		tuflowLayers = getOpenTUFLOWLayers('input_all')
+		for tuflowLayer in tuflowLayers:
+			if self.type2buttonGroup['all_layers'].checkedId() == 0:
+				filterProp[tuflowLayer] = 'on'
+			elif self.type2buttonGroup['all_layers'].checkedId() == 2:
+				filterProp[tuflowLayer] = 'off'
+			else:
+				comp = tuflowLayer.split('_')
+				ltype = '_'.join(comp[:2]).lower()
+				filterProp[tuflowLayer] = filterKey[self.type2buttonGroup[ltype].checkedId()]
+		
+		# check layers
+		if self.bgCheck.checkedId() != 1:
+			checkLayers = getOpenTUFLOWLayers('check_all')
+			for checkLayer in checkLayers:
+				filterProp[checkLayer] = filterKey[self.bgCheck.checkedId()]
+				
+		# dem layers
+		if self.bgDem.checkedId() != 1:
+			demLayers = findAllRasterLyrs()
+			for demLayer in demLayers:
+				filterProp[demLayer] = filterKey[self.bgDem.checkedId()]
+				
+		# mesh layers
+		if self.bgMesh.checkedId() != 1:
+			meshLayers = findAllMeshLyrs()
+			for meshLayer in meshLayers:
+				filterProp[meshLayer] = filterKey[self.bgMesh.checkedId()]
+				
+		turnLayersOnOff(filterProp)
+		
+	def sort(self):
+		sortLocally = True
+		if self.rbSortGlobally.isChecked():
+			sortLocally = False
+			
+		sortLayerPanel(sort_locally=sortLocally)
+		
+		
+# ----------------------------------------------------------
+#    TUFLOW Utilities
+# ----------------------------------------------------------
+from TUFLOW_utilities import *
+
+
+class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
+	def __init__(self, iface):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.iface = iface
+		self.applyIcons()
+		self.applyPrevExeLocations()
+		self.commonUtilityChanged(0)
+		self.populateGrids()
+		self.buttonGroup = QButtonGroup()
+		self.buttonGroup.addButton(self.rbCommonFunctions)
+		self.buttonGroup.addButton(self.rbAdvanced)
+		self.rbCommonFunctions.setChecked(True)
+		self.loadProjectSettings()
+		
+		self.connectBrowseButtons()
+		self.cboCommonUtility.currentIndexChanged.connect(self.commonUtilityChanged)
+		self.btnAddGrid.clicked.connect(self.addGrid)
+		self.btnRemoveGrid.clicked.connect(self.removeGrid)
+		self.btnAddMesh.clicked.connect(self.addMesh)
+		self.btnRemoveMesh.clicked.connect(self.removeMesh)
+		self.pbDownloadExecutables.clicked.connect(self.downloadExecutables)
+		self.pbOK.clicked.connect(self.check)
+		self.pbCancel.clicked.connect(self.reject)
+		
+	def downloadExecutables(self):
+		# check if windows
+		if sys.platform == 'win32':
+			self.thread = QThread()
+			self.progressDialog = UtilityDownloadProgressBar(self)
+			self.downloadUtilities = DownloadTuflowUtilities()
+			self.downloadUtilities.moveToThread(self.thread)
+			self.downloadUtilities.updated.connect(self.progressDialog.updateProgress)
+			self.downloadUtilities.finished.connect(self.progressDialog.progressFinished)
+			self.downloadUtilities.finished.connect(self.downloadFinished)
+			self.thread.started.connect(self.downloadUtilities.download)
+			self.progressDialog.show()
+			self.thread.start()
+		else:
+			QMessageBox.critical(self, "TUFLOW Utilities", "Download feature only available on Windows")
+	
+	def downloadFinished(self, e):
+		utilities = {'asc_to_asc': self.leAsc2Asc, 'tuflow_to_gis': self.leTUFLOW2GIS,
+		             'res_to_res': self.leRes2Res, '12da_to_from_gis': self.le12da2GIS,
+		             'convert_to_ts1': self.leConvert2TS1, 'tin_to_tin': self.leTin2Tin,
+		             'xsGenerator': self.leXSGenerator}
+		
+		for key, value in e.items():
+			utilities[key].setText(value)
+		self.progressDialog.accept()
+	
+	def populateGrids(self):
+		rasters = findAllRasterLyrs()
+		grids = []  # only select rasters that are .asc or .flt
+		for raster in rasters:
+			layer = tuflowqgis_find_layer(raster)
+			dataSource = layer.dataProvider().dataSourceUri()
+			ext = os.path.splitext(dataSource)[1]
+			if ext.upper() == '.ASC' or ext.upper() == '.FLT' or ext.upper() == '.TXT':
+				grids.append(raster)
+				
+		self.cboDiffGrid1.addItems(grids)
+		self.cboDiffGrid2.addItems(grids)
+		self.cboGrid.addItems(grids)
+	
+	def addGrid(self):
+		if self.cboGrid.currentText():
+			if self.cboGrid.currentText().replace('/', os.sep).count(os.sep) > 0:
+				a = self.cboGrid.currentText().split(';;')
+				for i, b in enumerate(a):
+					b = b.strip('"').strip("'")
+					a[i] = b
+				self.lwGrids.addItems(a)
+			else:
+				layer = tuflowqgis_find_layer(self.cboGrid.currentText().strip('"').strip("'"))
+				if layer is not None:
+					dataSource = layer.dataProvider().dataSourceUri()
+					self.lwGrids.addItem(dataSource)
+		self.cboGrid.setCurrentText('')
+	
+	def removeGrid(self):
+		selectedItems = self.lwGrids.selectedItems()
+		indexes = []
+		for i in range(self.lwGrids.count()):
+			item = self.lwGrids.item(i)
+			if item in selectedItems:
+				indexes.append(i)
+		for i in reversed(indexes):
+			self.lwGrids.takeItem(i)
+			
+	def addMesh(self):
+		if self.leMeshMulti.text():
+			a = self.leMeshMulti.text().split(';;')
+			for i, b in enumerate(a):
+				b = b.strip('"').strip("'")
+				a[i] = b
+			self.lwMeshes.addItems(a)
+		self.leMeshMulti.setText('')
+			
+	def removeMesh(self):
+		selectedItems = self.lwMeshes.selectedItems()
+		indexes = []
+		for i in range(self.lwMeshes.count()):
+			item = self.lwMeshes.item(i)
+			if item in selectedItems:
+				indexes.append(i)
+		for i in reversed(indexes):
+			self.lwMeshes.takeItem(i)
+	
+	def commonUtilityChanged(self, i):
+		if i == 0:  # asc_to_asc
+			self.asc2Asc.setVisible(True)
+			self.tuflow2Gis.setVisible(False)
+			self.res2Res.setVisible(False)
+		elif i == 1:
+			self.asc2Asc.setVisible(False)
+			self.tuflow2Gis.setVisible(True)
+			self.res2Res.setVisible(False)
+		elif i == 2:
+			self.asc2Asc.setVisible(False)
+			self.tuflow2Gis.setVisible(False)
+			self.res2Res.setVisible(True)
+		
+	def browse(self, browseType, key, dialogName, fileType, lineEdit):
+		"""
+		Browse folder directory
+
+		:param type: str browse type 'folder' or 'file'
+		:param key: str settings key
+		:param dialogName: str dialog box label
+		:param fileType: str file extension e.g. "AVI files (*.avi)"
+		:param lineEdit: QLineEdit to be updated by browsing
+		:return: void
+		"""
+		
+		settings = QSettings()
+		lastFolder = settings.value(key)
+		if type(lineEdit) is QLineEdit:
+			startDir = lineEdit.text()
+		elif type(lineEdit) is QComboBox:
+			startDir = lineEdit.currentText()
+		else:
+			startDir = None
+		if lastFolder:  # if outFolder no longer exists, work backwards in directory until find one that does
+			while lastFolder:
+				if os.path.exists(lastFolder):
+					startDir = lastFolder
+					break
+				else:
+					lastFolder = os.path.dirname(lastFolder)
+		if browseType == 'existing folder':
+			f = QFileDialog.getExistingDirectory(self, dialogName, startDir)
+		elif browseType == 'existing file':
+			f = QFileDialog.getOpenFileName(self, dialogName, startDir, fileType)[0]
+		elif browseType == 'existing files':
+			f = QFileDialog.getOpenFileNames(self, dialogName, startDir, fileType)[0]
+		else:
+			return
+		if f:
+			if type(f) is list:
+				fs = ''
+				for i, a in enumerate(f):
+					if i == 0:
+						value = a
+						fs += a
+					else:
+						fs += ';;' + a
+				f = fs
+			else:
+				value = f
+			if type(lineEdit) is QLineEdit:
+				lineEdit.setText(f)
+			elif type(lineEdit) is QComboBox:
+				lineEdit.setCurrentText(f)
+			settings.setValue(key, value)
+	
+	def applyIcons(self):
+		folderIcon = QgsApplication.getThemeIcon('/mActionFileOpen.svg')
+		addIcon = QgsApplication.getThemeIcon('mActionAdd.svg')
+		removeIcon = QgsApplication.getThemeIcon('symbologyRemove.svg')
+		
+		browseButtons = [self.btnBrowseComOutputDir, self.btnBrowseDiffGrid1, self.btnBrowseDiffGrid2,
+		                 self.btnBrowseGrid, self.btnBrowseAdvWorkingDir, self.btnBrowseAsc2Asc,
+		                 self.btnBrowseAsc2Asc, self.btnBrowseTUFLOW2GIS, self.btnBrowseRes2Res, self.btnBrowse12da2GIS,
+		                 self.btnBrowseConvert2TS1, self.btnBrowseTin2Tin, self.btnBrowseXSGenerator,
+		                 self.btnBrowseMeshToGis, self.btnBrowseMeshToRes, self.btnBrowseMeshMulti]
+		addButtons = [self.btnAddGrid, self.btnAddMesh]
+		removeButtons = [self.btnRemoveGrid, self.btnRemoveMesh]
+		
+		for button in browseButtons:
+			button.setIcon(folderIcon)
+		for button in addButtons:
+			button.setIcon(addIcon)
+		for button in removeButtons:
+			button.setIcon(removeIcon)
+		
+	def check(self):
+		if self.rbCommonFunctions.isChecked():
+			if self.leOutputName.text():
+				if not self.leComOutputDir.text():
+					QMessageBox.critical(self, "TUFLOW Utilities", "Must specify output location if specifying output name")
+					return
+				elif not os.path.exists(self.leComOutputDir.text().strip('"').strip("'")):
+					QMessageBox.critical(self, "TUFLOW Utilities", "Output location does not exist")
+					return
+			if self.cboCommonUtility.currentIndex() == 0:  # asc_to_asc
+				if not self.leAsc2Asc.text():
+					QMessageBox.critical(self, "TUFLOW Utilities", "Must specify asc_to_asc.exe location")
+					return
+				else:
+					if not os.path.exists(self.leAsc2Asc.text().strip('"').strip("'")):
+						QMessageBox.critical(self, "TUFLOW Utilities", "asc_to_asc.exe location does not exist")
+						return
+				if self.rbAscDiff.isChecked():
+					if not self.cboDiffGrid1.currentText() or not self.cboDiffGrid2.currentText():
+						QMessageBox.critical(self, "TUFLOW Utilities", "Must specify grid 1 and grid 2")
+						return
+					if self.cboDiffGrid1.currentText().replace('/', os.sep).count(os.sep) == 0:
+						layer = tuflowqgis_find_layer(self.cboDiffGrid1.currentText().strip('"').strip("'"))
+						if layer is None:
+							QMessageBox.critical(self, "TUFLOW Utilities", "Could not find grid 1 in workspace")
+							return
+					if self.cboDiffGrid2.currentText().replace('/', os.sep).count(os.sep) == 0:
+						layer = tuflowqgis_find_layer(self.cboDiffGrid2.currentText().strip('"').strip("'"))
+						if layer is None:
+							QMessageBox.critical(self, "TUFLOW Utilities", "Could not find grid 2 in workspace")
+							return
+					if self.cboDiffGrid1.currentText().strip('"').strip("'") == \
+							self.cboDiffGrid2.currentText().strip('"').strip("'"):
+						reply = QMessageBox.warning(self, "TUFLOW Utilities",
+						                            "Input grid 1 and grid 2 are the same. Do you wish to continue?",
+						                            QMessageBox.Yes | QMessageBox.No)
+						if reply == QMessageBox.No:
+							return
+				elif self.rbAscConv.isChecked():
+					if not self.lwGrids.count():
+						QMessageBox.critical(self, "TUFLOW Utilities", "Must specify at least one grid")
+						return
+				else:
+					if self.lwGrids.count() < 2:
+						QMessageBox.critical(self, "TUFLOW Utilities", "Must specify 2 or more grids")
+						return
+					grids = []
+					for i in range(self.lwGrids.count()):
+						item = self.lwGrids.item(i)
+						grid = item.text()
+						if grid in grids:
+							j = grids.index(grid)
+							reply = QMessageBox.warning(self, "TUFLOW Utilities",
+							                            "Input grid {0} and grid {1} are the same. "
+							                            "Do you wish to continue?".format(j+1, i+1),
+							                            QMessageBox.Yes | QMessageBox.No)
+							if reply == QMessageBox.No:
+								return
+						else:
+							grids.append(grid)
+			elif self.cboCommonUtility.currentIndex() == 1:  # tuflow_to_gis
+				if not self.leTUFLOW2GIS.text():
+					QMessageBox.critical(self, "TUFLOW Utilities", "Must specify tuflow_to_gis.exe location")
+					return
+				else:
+					if not os.path.exists(self.leTUFLOW2GIS.text().strip('"').strip("'")):
+						QMessageBox.critical(self, "TUFLOW Utilities", "tuflow_to_gis.exe location does not exist")
+						return
+				if not self.leMeshToGis.text():
+					QMessageBox.critical(self, "TUFLOW Utilities", "Must specify and input mesh (XMDF or DAT)")
+					return
+				elif not os.path.exists(self.leMeshToGis.text().strip('"').strip("'")):
+					QMessageBox.critical(self, "TUFLOW Utilities", "Input mesh layer does not exist")
+					return
+				elif os.path.splitext(self.leMeshToGis.text())[1].upper() == '.XMDF':
+					if not self.cboToGisMeshDataset.currentText():
+						QMessageBox.critical(self, "TUFLOW Utilities", "Must specify an input data type for XMDF")
+						return
+				if not self.cboTimestep.currentText():
+					QMessageBox.critical(self, "TUFLOW Utilities", "Must specify a timestep")
+					return
+				if self.cboTimestep.currentText().lower() != 'max' and self.cboTimestep.currentText().lower() != 'maximum':
+					try:
+						float(self.cboTimestep.currentText())
+					except ValueError:
+						QMessageBox.critical(self, "TUFLOW Utilities", "Timestep must be a number or max")
+						return
+			elif self.cboCommonUtility.currentIndex() == 2:  # res_to_res
+				if not self.leRes2Res.text():
+					QMessageBox.critical(self, "TUFLOW Utilities", "Must specify res_to_res.exe location")
+					return
+				else:
+					if not os.path.exists(self.leRes2Res.text().strip('"').strip("'")):
+						QMessageBox.critical(self, "TUFLOW Utilities", "res_to_res.exe location does not exist")
+						return
+				if self.rbMeshInfo.isChecked() or self.rbMeshConvert.isChecked():
+					if not self.leMeshToRes.text():
+						QMessageBox.critical(self, "TUFLOW Utilities", "Must an input mesh file")
+						return
+					elif not os.path.exists(self.leMeshToRes.text().strip('"').strip("'")):
+						QMessageBox.critical(self, "TUFLOW Utilities", "Input mesh file does not exist")
+						return
+					ext = os.path.splitext(self.leMeshToRes.text())[1].upper()
+				else:
+					if self.lwMeshes.count() == 0:
+						QMessageBox.critical(self, "TUFLOW Utilities", "Must specify at least one mesh file")
+						return
+					meshes = []
+					for i in range(self.lwMeshes.count()):
+						if not os.path.exists(self.lwMeshes.item(i).text().strip('"').strip("'")):
+							QMessageBox.critical(self, "TUFLOW Utilities",
+							                     "Input mesh {0} location does not exist".format(i))
+							return
+						if self.lwMeshes.item(i).text() in meshes:
+							j = meshes.index(self.lwMeshes.item(i).text())
+							reply = QMessageBox.warning(self, "TUFLOW Utilities",
+							                            "Input mesh {0} and mesh {1} are the same. "
+							                            "Do you wish to continue?".format(j + 1, i + 1),
+							                            QMessageBox.Yes | QMessageBox.No)
+							if reply == QMessageBox.No:
+								return
+						else:
+							meshes.append(self.lwMeshes.item(i).text())
+						if i == 0:
+							ext = os.path.splitext(self.lwMeshes.item(i).text())[1].upper()
+						else:
+							if ext != os.path.splitext(self.lwMeshes.item(i).text())[1].upper():
+								QMessageBox.critical(self, "TUFLOW Utilities",
+								                     "Input meshes must all be of the same type (XMDF or DAT)")
+								return
+				if ext == '.XMDF':
+					if not self.rbMeshInfo.isChecked():
+						if not self.cboToResMeshDataset.currentText():
+							QMessageBox.critical(self, "TUFLOW Utilities", "Must specify datatype for XMDF inputs")
+							return
+				
+		else:
+			if not self.leAdvWorkingDir.text():
+				QMessageBox.critical(self, "TUFLOW Utilities", "Must specify a working directory")
+				return
+			if not os.path.exists(self.leAdvWorkingDir.text().strip('"').strip("'")):
+				QMessageBox.critical(self, "TUFLOW Utilities", "Working directory does not exist")
+				return
+			if not self.teCommands.toPlainText():
+				QMessageBox.critical(self, "TUFLOW Utilities", "Must specify some flags")
+				return
+		
+		self.run()
+		
+	def run(self):
+		self.pbOK.setEnabled(False)
+		self.pbCancel.setEnabled(False)
+		QgsApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+		error = False
+		
+		# precoded functions
+		if self.rbCommonFunctions.isChecked():
+			workdir = self.leComOutputDir.text().strip('"').strip("'")
+			
+			# asc_to_asc
+			if self.cboCommonUtility.currentIndex() == 0:
+				# difference
+				if self.rbAscDiff.isChecked():
+					function = 'diff'
+					grids = [self.cboDiffGrid1.currentText().strip('"').strip("'"),
+					         self.cboDiffGrid2.currentText().strip('"').strip("'")]
+				else:
+					grids = []
+					for i in range(self.lwGrids.count()):
+						grids.append(self.lwGrids.item(i).text())
+					# Max
+					if self.rbAscMax.isChecked():
+						function = 'max'
+					# stat
+					if self.rbAscStat.isChecked():
+						function = 'stat'
+					# convert
+					if self.rbAscConv.isChecked():
+						function = 'conv'
+				error, message = ascToAsc(self.leAsc2Asc.text().strip('"').strip("'"), function, workdir, grids,
+				                          out=self.leOutputName.text())
+				
+			# tuflow_to_gis
+			elif self.cboCommonUtility.currentIndex() == 1:
+				if self.rbMeshToGrid.isChecked():
+					function = 'grid'
+				elif self.rbMeshToPoints.isChecked():
+					function = 'points'
+				else:
+					function = 'vectors'
+				error, message = tuflowToGis(self.leTUFLOW2GIS.text().strip('"').strip("'"), function, workdir, self.leMeshToGis.text(),
+				                             self.cboToGisMeshDataset.currentText(), self.cboTimestep.currentText())
+				
+			# res_to_res
+			elif self.cboCommonUtility.currentIndex() == 2:
+				if self.rbMeshInfo.isChecked():
+					function = 'info'
+					meshes = [self.leMeshToRes.text().strip('"').strip("'")]
+				elif self.rbMeshConvert.isChecked():
+					function = 'conv'
+					meshes = [self.leMeshToRes.text().strip('"').strip("'")]
+				else:
+					meshes = []
+					for i in range(self.lwMeshes.count()):
+						meshes.append(self.lwMeshes.item(i).text())
+					if self.rbMeshMaximum.isChecked():
+						function = 'max'
+					else:
+						function = 'conc'
+				error, message = resToRes(self.leRes2Res.text().strip('"').strip("'"), function, workdir, meshes,
+				                          self.cboToResMeshDataset.currentText(), out=self.leOutputName.text())
+				
+				
+		# user input arguments (advanced mode)
+		else:
+			cbo2utility = {0: self.leAsc2Asc.text().strip('"').strip("'"), 1: self.leTUFLOW2GIS.text().strip('"').strip("'"), 2: self.leRes2Res.text().strip('"').strip("'"),
+			               3: self.le12da2GIS.text().strip('"').strip("'"), 4: self.leConvert2TS1.text().strip('"').strip("'"), 5: self.leTin2Tin.text().strip('"').strip("'"),
+			               6: self.leXSGenerator.text().strip('"').strip("'")}
+			error, message = tuflowUtility(cbo2utility[self.cboAdvancedUtility.currentIndex()],
+			                               self.leAdvWorkingDir.text().strip('"').strip("'"),
+			                               self.teCommands.toPlainText())
+		
+		self.setDefaults()
+		self.saveProjectSettings()
+		QgsApplication.restoreOverrideCursor()
+		self.pbOK.setEnabled(True)
+		self.pbCancel.setEnabled(True)
+		if error:
+			if message.count('\n') > 50:
+				QMessageBox.critical(self, "TUFLOW Utilities", "Error Occured")
+				self.errorDialog = UtilityErrorDialog(message)
+				self.errorDialog.exec_()
+			else:
+				QMessageBox.critical(self, "TUFLOW Utilities", "Error Occured: {0}".format(message))
+			self.pbOK.setEnabled(True)
+			self.pbCancel.setEnabled(True)
+		else:
+			if self.rbCommonFunctions.isChecked() and \
+					self.cboCommonUtility.currentIndex() == 2 and self.rbMeshInfo.isChecked():
+				self.xmdfInfoDialog = XmdfInfoDialog(message)
+				self.xmdfInfoDialog.exec_()
+			else:
+				#QMessageBox.information(self, "TUFLOW Utilities", "Utility Finished")
+				self.accept()
+		
+	def saveProjectSettings(self):
+		project = QgsProject.instance()
+		project.writeEntry("TUFLOW", "utilities_current_tab", self.tabWidget.currentIndex())
+		project.writeEntry("TUFLOW", "utilities_common_functions_cb", self.rbCommonFunctions.isChecked())
+		project.writeEntry("TUFLOW", "utilities_advanced_cb", self.rbAdvanced.isChecked())
+		if self.rbCommonFunctions.isChecked():
+			project.writeEntry("TUFLOW", "utilities_common_functions", self.cboCommonUtility.currentIndex())
+			project.writeEntry("TUFLOW", "utilities_output_directory", self.leComOutputDir.text())
+			if self.leOutputName.text():
+				project.writeEntry("TUFLOW", "utilities_output_name", self.leOutputName.text())
+			if self.cboCommonUtility.currentIndex() == 0:
+				project.writeEntry("TUFLOW", "utilities_asc_diff", self.rbAscDiff.isChecked())
+				project.writeEntry("TUFLOW", "utilities_asc_max", self.rbAscMax.isChecked())
+				project.writeEntry("TUFLOW", "utilities_asc_stat", self.rbAscStat.isChecked())
+				project.writeEntry("TUFLOW", "utilities_asc_conv", self.rbAscConv.isChecked())
+				if self.rbAscDiff.isChecked():
+					project.writeEntry("TUFLOW", "utilities_asc_diff_grid1", self.cboDiffGrid1.currentText())
+					project.writeEntry("TUFLOW", "utilities_asc_diff_grid2", self.cboDiffGrid2.currentText())
+				else:
+					grids = []
+					for i in range(self.lwGrids.count()):
+						grids.append(self.lwGrids.item(i).text())
+					project.writeEntry("TUFLOW", "utilities_asc_diff_grids", grids)
+			elif self.cboCommonUtility.currentIndex() == 1:
+				project.writeEntry("TUFLOW", "utilities_tuflow_to_gis_mesh", self.leMeshToGis.text())
+				project.writeEntry("TUFLOW", "utilities_tuflow_to_gis_datatype", self.cboToGisMeshDataset.currentText())
+				project.writeEntry("TUFLOW", "utilities_tuflow_to_gis_togrid", self.rbMeshToGrid.isChecked())
+				project.writeEntry("TUFLOW", "utilities_tuflow_to_gis_topoints", self.rbMeshToPoints.isChecked())
+				project.writeEntry("TUFLOW", "utilities_tuflow_to_gis_tovectors", self.rbMeshToVectors.isChecked())
+				project.writeEntry("TUFLOW", "utilities_tuflow_to_gis_timestep", self.cboTimestep.currentText())
+			elif self.cboCommonUtility.currentIndex() == 2:
+				project.writeEntry("TUFLOW", "utilities_res_to_res_datatype", self.cboToResMeshDataset.currentText())
+				project.writeEntry("TUFLOW", "utilities_res_to_res_mesh", self.leMeshToRes.text())
+				project.writeEntry("TUFLOW", "utilities_res_to_res_info", self.rbMeshInfo.isChecked())
+				project.writeEntry("TUFLOW", "utilities_res_to_res_max", self.rbMeshMaximum.isChecked())
+				project.writeEntry("TUFLOW", "utilities_res_to_res_conv", self.rbMeshConvert.isChecked())
+				project.writeEntry("TUFLOW", "utilities_res_to_res_conc", self.rbMeshConcatenate.isChecked())
+				meshes = []
+				for i in range(self.lwMeshes.count()):
+					meshes.append(self.lwMeshes.item(i).text())
+				project.writeEntry("TUFLOW", "utilities_res_to_res_meshes", meshes)
+		else:
+			project.writeEntry("TUFLOW", "utilities_advanced", self.cboAdvancedUtility.currentIndex())
+			project.writeEntry("TUFLOW", "utilities_working_directory", self.leAdvWorkingDir.text())
+			project.writeEntry("TUFLOW", "utilities_flags", self.teCommands.toPlainText())
+			
+	def loadProjectSettings(self):
+		project = QgsProject.instance()
+		self.tabWidget.setCurrentIndex(project.readNumEntry("TUFLOW", "utilities_current_tab")[0])
+		self.rbCommonFunctions.setChecked(project.readBoolEntry("TUFLOW", "utilities_common_functions_cb")[0])
+		self.rbAdvanced.setChecked(project.readBoolEntry("TUFLOW", "utilities_advanced_cb")[0])
+		self.cboCommonUtility.setCurrentIndex(project.readNumEntry("TUFLOW", "utilities_common_functions")[0])
+		self.commonUtilityChanged(self.cboCommonUtility.currentIndex())
+		self.leComOutputDir.setText(project.readEntry("TUFLOW", "utilities_output_directory")[0])
+		self.leOutputName.setText(project.readEntry("TUFLOW", "utilities_output_name")[0])
+		self.rbAscDiff.setChecked(project.readBoolEntry("TUFLOW", "utilities_asc_diff")[0])
+		self.rbAscMax.setChecked(project.readBoolEntry("TUFLOW", "utilities_asc_max")[0])
+		self.rbAscStat.setChecked(project.readBoolEntry("TUFLOW", "utilities_asc_stat")[0])
+		self.rbAscConv.setChecked(project.readBoolEntry("TUFLOW", "utilities_asc_conv")[0])
+		self.cboDiffGrid1.setCurrentText(project.readEntry("TUFLOW", "utilities_asc_diff_grid1")[0])
+		self.cboDiffGrid2.setCurrentText(project.readEntry("TUFLOW", "utilities_asc_diff_grid2")[0])
+		self.lwGrids.addItems(project.readListEntry("TUFLOW", "utilities_asc_diff_grids")[0])
+		self.leMeshToGis.setText(project.readEntry("TUFLOW", "utilities_tuflow_to_gis_mesh")[0])
+		self.cboToGisMeshDataset.setCurrentText(project.readEntry("TUFLOW", "utilities_tuflow_to_gis_datatype")[0])
+		self.rbMeshToGrid.setChecked(project.readBoolEntry("TUFLOW", "utilities_tuflow_to_gis_togrid")[0])
+		self.rbMeshToPoints.setChecked(project.readBoolEntry("TUFLOW", "utilities_tuflow_to_gis_topoints")[0])
+		self.rbMeshToVectors.setChecked(project.readBoolEntry("TUFLOW", "utilities_tuflow_to_gis_tovectors")[0])
+		self.cboTimestep.setCurrentText(project.readEntry("TUFLOW", "utilities_tuflow_to_gis_timestep", 'Max')[0])
+		self.cboToResMeshDataset.setCurrentText(project.readEntry("TUFLOW", "utilities_res_to_res_datatype")[0])
+		self.leMeshToRes.setText(project.readEntry("TUFLOW", "utilities_res_to_res_mesh")[0])
+		self.rbMeshInfo.setChecked(project.readBoolEntry("TUFLOW", "utilities_res_to_res_info")[0])
+		self.rbMeshMaximum.setChecked(project.readBoolEntry("TUFLOW", "utilities_res_to_res_max")[0])
+		self.rbMeshConvert.setChecked(project.readBoolEntry("TUFLOW", "utilities_res_to_res_conv")[0])
+		self.rbMeshConcatenate.setChecked(project.readBoolEntry("TUFLOW", "utilities_res_to_res_conc")[0])
+		self.lwMeshes.addItems(project.readListEntry("TUFLOW", "utilities_res_to_res_meshes")[0])
+		self.cboAdvancedUtility.setCurrentIndex(project.readNumEntry("TUFLOW", "utilities_advanced")[0])
+		self.leAdvWorkingDir.setText(project.readEntry("TUFLOW", "utilities_working_directory")[0])
+		self.teCommands.setPlainText(project.readEntry("TUFLOW", "utilities_flags")[0])
+	
+	def setDefaults(self, executables_only=False):
+		if not executables_only:
+			if self.leComOutputDir.text():
+				QSettings().setValue('TUFLOW_Utilities/output_directory', self.leComOutputDir.text())
+			if self.cboDiffGrid1.currentText():
+				if self.cboDiffGrid1.currentText().count(os.sep) > 0:
+					QSettings().setValue('TUFLOW_Utilities/ASC_to_ASC_difference_grid1', self.cboDiffGrid1.currentText())
+			if self.cboDiffGrid2.currentText():
+				if self.cboDiffGrid2.currentText().count(os.sep) > 0:
+					QSettings().setValue('TUFLOW_Utilities/ASC_to_ASC_difference_grid2', self.cboDiffGrid2.currentText())
+			if self.leAdvWorkingDir.text():
+				QSettings().setValue("TUFLOW_Utilities/advanced_working_directory", self.leAdvWorkingDir.text())
+			if self.leMeshToGis.text():
+				QSettings().setValue("TUFLOW_Utilities/TUFLOW_to_GIS_mesh", self.leMeshToGis.text())
+			if self.leMeshToRes.text():
+				QSettings().setValue("'TUFLOW_Utilities/Res_to_Res_mesh'", self.leMeshToRes.text())
+		if self.leAsc2Asc.text():
+			QSettings().setValue("TUFLOW_Utilities/ASC_to_ASC_exe", self.leAsc2Asc.text())
+		if self.leTUFLOW2GIS.text():
+			QSettings().setValue("TUFLOW_Utilities/TUFLOW_to_GIS_exe", self.leTUFLOW2GIS.text())
+		if self.leRes2Res.text():
+			QSettings().setValue("TUFLOW_Utilities/Res_to_Res_exe", self.leRes2Res.text())
+		if self.le12da2GIS.text():
+			QSettings().setValue("TUFLOW_Utilities/12da_to_from_GIS_exe", self.le12da2GIS.text())
+		if self.leConvert2TS1.text():
+			QSettings().setValue("TUFLOW_Utilities/Convert_to_TS1_exe", self.leConvert2TS1.text())
+		if self.leTin2Tin.text():
+			QSettings().setValue("Tin_to_Tin executable location", self.leTin2Tin.text())
+		if self.leXSGenerator.text():
+			QSettings().setValue("TUFLOW_Utilities/xsGenerator_exe", self.leXSGenerator.text())
+	
+	def applyPrevExeLocations(self):
+		self.leAsc2Asc.setText(QSettings().value("TUFLOW_Utilities/ASC_to_ASC_exe"))
+		self.leTUFLOW2GIS.setText(QSettings().value("TUFLOW_Utilities/TUFLOW_to_GIS_exe"))
+		self.leRes2Res.setText(QSettings().value("TUFLOW_Utilities/Res_to_Res_exe"))
+		self.le12da2GIS.setText(QSettings().value("TUFLOW_Utilities/12da_to_from_GIS_exe"))
+		self.leConvert2TS1.setText(QSettings().value("TUFLOW_Utilities/Convert_to_TS1_exe"))
+		self.leTin2Tin.setText(QSettings().value("Tin_to_Tin executable location"))
+		self.leXSGenerator.setText(QSettings().value("TUFLOW_Utilities/xsGenerator_exe"))
+		
+	def connectBrowseButtons(self):
+		self.btnBrowseComOutputDir.clicked.connect(lambda: self.browse('existing folder',
+		                                                               'TUFLOW_Utilities/output_directory',
+		                                                               'Output Directory', None, self.leComOutputDir))
+		self.btnBrowseDiffGrid1.clicked.connect(lambda: self.browse('existing file',
+		                                                            'TUFLOW_Utilities/ASC_to_ASC_difference_grid1',
+		                                                            'ASC_to_ASC Difference Grid 1',
+		                                                            "All grid formats (*.asc *.ASC *.flt *.FLT *.txt *.TXT);;"
+		                                                            "ASC format(*.asc *.ASC);;"
+		                                                            "FLT format (*.flt *.FLT);;"
+		                                                            "TXT format (*.txt *.TXT", self.cboDiffGrid1))
+		self.btnBrowseDiffGrid2.clicked.connect(lambda: self.browse('existing file',
+		                                                            'TUFLOW_Utilities/ASC_to_ASC_difference_grid2',
+		                                                            'ASC_to_ASC Difference Grid 2',
+		                                                            "All grid formats (*.asc *.ASC *.flt *.FLT *.txt *.TXT);;"
+		                                                            "ASC format(*.asc *.ASC);;"
+		                                                            "FLT format (*.flt *.FLT);;"
+		                                                            "TXT format (*.txt *.TXT", self.cboDiffGrid2))
+		self.btnBrowseGrid.clicked.connect(lambda: self.browse('existing files',
+		                                                       'TUFLOW_Utilities/ASC_to_ASC_grid',
+		                                                       'ASC_to_ASC Input Grid',
+		                                                       "All grid formats (*.asc *.ASC *.flt *.FLT *.txt *.TXT);;"
+		                                                       "ASC format(*.asc *.ASC);;"
+		                                                       "FLT format (*.flt *.FLT);;"
+		                                                       "TXT format (*.txt *.TXT", self.cboGrid))
+		self.btnBrowseAdvWorkingDir.clicked.connect(lambda: self.browse('existing folder',
+		                                                                "TUFLOW_Utilities/advanced_working_directory",
+		                                                                "Working Directory", None,
+		                                                                self.leAdvWorkingDir))
+		self.btnBrowseAsc2Asc.clicked.connect(lambda: self.browse('existing file', "TUFLOW_Utilities/ASC_to_ASC_exe",
+		                                                          "ASC_to_ASC executable location", "EXE (*.exe *.EXE)",
+		                                                          self.leAsc2Asc))
+		self.btnBrowseTUFLOW2GIS.clicked.connect(lambda: self.browse('existing file',
+		                                                             "TUFLOW_Utilities/TUFLOW_to_GIS_exe",
+		                                                             "TUFLOW_to_GIS executable location",
+		                                                             "EXE (*.exe *.EXE)", self.leTUFLOW2GIS))
+		self.btnBrowseRes2Res.clicked.connect(lambda: self.browse('existing file',
+		                                                          "TUFLOW_Utilities/Res_to_Res_exe",
+		                                                          "Res_to_Res executable location",
+		                                                          "EXE (*.exe *.EXE)", self.leRes2Res))
+		self.btnBrowse12da2GIS.clicked.connect(lambda: self.browse('existing file',
+		                                                           "TUFLOW_Utilities/12da_to_from_GIS_exe",
+		                                                           "12da_to_from_GIS executable location",
+		                                                           "EXE (*.exe *.EXE)", self.le12da2GIS))
+		self.btnBrowseConvert2TS1.clicked.connect(lambda: self.browse('existing file',
+		                                                              "TUFLOW_Utilities/Convert_to_TS1_exe",
+		                                                              "Convert_to_TS1 executable location",
+		                                                              "EXE (*.exe *.EXE)", self.leConvert2TS1))
+		self.btnBrowseTin2Tin.clicked.connect(lambda: self.browse('existing file',
+		                                                          "TUFLOW_Utilities/Tin_to_Tin_exe",
+		                                                          "Tin_to_Tin executable location",
+		                                                          "EXE (*.exe *.EXE)", self.leTin2Tin))
+		self.btnBrowseXSGenerator.clicked.connect(lambda: self.browse('existing file',
+		                                                              "TUFLOW_Utilities/xsGenerator_exe",
+		                                                              "xsGenerator executable location",
+		                                                              "EXE (*.exe *.EXE)", self.leXSGenerator))
+		self.btnBrowseMeshToGis.clicked.connect(lambda: self.browse('existing file',
+		                                                            'TUFLOW_Utilities/TUFLOW_to_GIS_mesh',
+		                                                            'XMDF or DAT location',
+		                                                            "All mesh formats (*.xmdf *.XMDF *.dat *.DAT);;"
+		                                                            "XMDF format(*.xmdf *.XMDF);;"
+		                                                            "DAT format (*.dat *.DAT)", self.leMeshToGis))
+		self.btnBrowseMeshToRes.clicked.connect(lambda: self.browse('existing file',
+		                                                            'TUFLOW_Utilities/Res_to_Res_mesh',
+		                                                            'XMDF or DAT location',
+		                                                            "All mesh formats (*.xmdf *.XMDF *.dat *.DAT);;"
+		                                                            "XMDF format(*.xmdf *.XMDF);;"
+		                                                            "DAT format (*.dat *.DAT)", self.leMeshToRes))
+		self.btnBrowseMeshMulti.clicked.connect(lambda: self.browse('existing files',
+		                                                            'TUFLOW_Utilities/TUFLOW_to_GIS_meshes',
+		                                                            'XMDF or DAT location',
+		                                                            "All mesh formats (*.xmdf *.XMDF *.dat *.DAT);;"
+		                                                            "XMDF format(*.xmdf *.XMDF);;"
+		                                                            "DAT format (*.dat *.DAT)", self.leMeshMulti))
+		
+		
+# ----------------------------------------------------------
+#    XMDF info
+# ----------------------------------------------------------
+from XMDF_info import *
+
+
+class XmdfInfoDialog(QDialog, Ui_XmdfInfoDialog):
+	def __init__(self, text):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.teXmdfInfo.setPlainText(text)
+		
+		
+# ----------------------------------------------------------
+#    Tuflow utility error
+# ----------------------------------------------------------
+from Tuflow_utility_error import *
+
+
+class UtilityErrorDialog(QDialog, Ui_utilityErrorDialog):
+	def __init__(self, text):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.teError.setPlainText(text)
+		
+		
+# ----------------------------------------------------------
+#    Tuflow utility download progress bar
+# ----------------------------------------------------------
+from download_utility_progress import *
+
+
+class UtilityDownloadProgressBar(QDialog, Ui_downloadUtilityProgressDialog):
+	def __init__(self, parent=None):
+		QDialog.__init__(self, parent=parent)
+		self.setupUi(self)
+		self.progressBar.setRange(0, 0)
+		self.progressCount = 0
+		self.start = True
+		
+	def updateProgress(self, e, start_again=True):
+		self.label.setText('Downloading {0}'.format(e) + ' .' * self.progressCount)
+		self.progressCount += 1
+		if self.progressCount > 4:
+			self.progressCount = 0
+		QgsApplication.processEvents()
+		
+		if start_again:
+			if not self.start:
+				self.timer.stop()
+			else:
+				self.start = False
+			self.timer = QTimer()
+			self.timer.setInterval(500)
+			self.timer.timeout.connect(lambda: self.updateProgress(e, start_again=False))
+			self.timer.start()
+		
+	def progressFinished(self, e):
+		self.timer.stop()
+		self.progressBar.setRange(100, 100)
+		self.label.setText('Complete')
+
+
+class DownloadTuflowUtilities(QObject):
+	finished = pyqtSignal(dict)
+	updated = pyqtSignal(str)
+	
+	utilities = ['asc_to_asc', 'tuflow_to_gis', 'res_to_res', '12da_to_from_gis', 'convert_to_ts1', 'tin_to_tin',
+	             'xsGenerator']
+	paths = {}
+	
+	def download(self):
+		for utility in self.utilities:
+			self.updated.emit(utility)
+			path = downloadUtility(utility)
+			self.paths[utility] = path
+		
+		self.finished.emit(self.paths)
+
+
+# ----------------------------------------------------------
+#    tuflowqgis broken links
+# ----------------------------------------------------------
+from ui_tuflowqgis_brokenLinks import *
+
+
+class tuflowqgis_brokenLinks_dialog(QDialog, Ui_scenarioSelection):
+	def __init__(self, iface, brokenLinks):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.brokenLinks = brokenLinks
+		self.setupUi(self)
+		
+		for brokenLink in self.brokenLinks:
+			self.brokenLinks_lw.addItem(brokenLink)
+		
+		self.ok_button.clicked.connect(self.accept)

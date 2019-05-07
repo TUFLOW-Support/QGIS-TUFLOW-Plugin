@@ -5,13 +5,13 @@
 
 [general]
 name=TUFLOW
-qgisMinimumVersion=2.0
-description=A collection of utilities for TUFLOW modelling in QGIS
-about=A collection of utilities for TUFLOW modelling in QGIS.
-	Includes visualisation of results / inputs
-	Editing tools
-	Styling tools
-version=1.6.4
+qgisMinimumVersion=3.6
+description=A collection of utilities for TUFLOW flood and coastal simulation in QGIS
+about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
+      Includes visualisation of results / inputs
+      Editing tools
+      Styling tools
+version=3.0.2
 author=Phillip Ryan, Ellis Symons
 email=support@tuflow.com
 
@@ -20,10 +20,14 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=Message dialogs no longer appear when saving style layer in increment layer tool
+changelog=ARR2016 - rare event rainfall depths for durations less than 24hrs are now available, tool has been updated to also allow this
+          Fixed a bug in loading default colour ramps for map outputs
+          Fixed bug when running TUFLOW FV from QGIS
+          Fix bug - TUFLOW Viewer will now let you remove results from gui when results weren't loaded properly
+          TUFLOW Viewer will now check if result paths for timeseries are still valid when loading from .qgz or .qgs
 
 # tags are comma separated with spaces allowed
-tags=TUFLOW	
+tags=TUFLOW, simulation, flood, hydraulic modelling, MDAL, mesh, xmdf, dat, 2dm
 
 homepage=http://wiki.tuflow.com/index.php?title=TUFLOW_QGIS_Plugin
 tracker=https://github.com/TUFLOW-Support/QGIS-TUFLOW-Plugin/issues

@@ -1,5 +1,5 @@
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
 from qgis.core import *
 from qgis.gui import *
 
@@ -9,6 +9,7 @@ class canvasEvent(QgsMapTool):
 	rightClicked = pyqtSignal(dict)
 	leftClicked = pyqtSignal(dict)
 	doubleClicked = pyqtSignal(dict)
+	keyPressed = pyqtSignal(dict)
 	desactivate = pyqtSignal()
 	
 	def __init__(self, iface, canvas):
@@ -27,6 +28,12 @@ class canvasEvent(QgsMapTool):
 			self.rightClicked.emit({'x': event.pos().x(), 'y': event.pos().y()})
 		elif event.button() == Qt.LeftButton:
 			self.leftClicked.emit({'x': event.pos().x(), 'y': event.pos().y()})
+			
+	def canvasDoubleClickEvent(self, event):
+		self.doubleClicked.emit({'x': event.pos().x(), 'y': event.pos().y()})
+			
+	def keyReleaseEvent(self, event):
+		self.keyPressed.emit({'key': event.key()})
 	
 	def activate(self):
 		pass

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Water_Level>
+<colorrampshader colorRampType="INTERPOLATED" clip="0" classificationMode="1">
+ <colorramp type="gradient" name="[source]">
+  <prop v="77,172,38,255" k="color1"/>
+  <prop v="208,28,139,255" k="color2"/>
+  <prop v="0" k="discrete"/>
+  <prop v="gradient" k="rampType"/>
+  <prop v="0.25;184,225,134,255:0.5;247,247,247,255:0.75;241,182,218,255" k="stops"/>
+ </colorramp>
+ <item value="35.903038024902344" label="35.9" color="#4dac26" alpha="255"/>
+ <item value="39.558414459228516" label="39.56" color="#b8e186" alpha="255"/>
+ <item value="43.21379089355469" label="43.21" color="#f7f7f7" alpha="255"/>
+ <item value="46.86916732788086" label="46.87" color="#f1b6da" alpha="255"/>
+ <item value="50.52454376220703" label="50.52" color="#d01c8b" alpha="255"/>
+</colorrampshader>

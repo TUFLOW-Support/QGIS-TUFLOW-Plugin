@@ -19,47 +19,59 @@
  *                                                                         *
  ***************************************************************************/
 """
-build_vers = '2018-10-AE (QGIS 2.x)'
-build_type = 'release' #release / developmental
 
 # Import the PyQt and QGIS libraries
+#from PyQt5.QtWidgets  import ( QMenu )
 
 # Import the code for the dialog
-from tuflowqgis_dialog import *
+from .tuflowqgis_dialog import *
+from tuflow.tuflowqgis_library import about
 
 # Import the code for the 1D results viewer
-from tuflowqgis_TuPlot import *
-from TuPLOT_external import *
-#from tuflow.tuflowqgis_bridge.tuflowqgis_bridge_gui import *
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+#from tuflowqgis_TuPlot import *
+#from TuPLOT_external import *
+
+# Import the code for the 1D results viewer
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuview import TuView
 
 #par
-from tuflowqgis_library import tuflowqgis_apply_check_tf
+from .tuflowqgis_library import tuflowqgis_apply_check_tf
+
+# remote debugging
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1\debug-eggs')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1\helpers\pydev')
 
 class tuflowqgis_menu:
 
 	def __init__(self, iface):
 		self.iface = iface
-		self.dockOpened = False
+		self.resultsPlottingDockOpened = False
 		self.tpOpen = 'not open'
 		self.intFile = ''
 		self.cLayer = None
 		self.tpExternal = None
 		self.defaultPath = 'C:\\'
-		self.resdock = None
 
 	def initGui(self):
+		dir = os.path.dirname(__file__)
+		icon = QIcon(os.path.join(dir, "tuflow.png"))
+		self.iface.pluginMenu().addMenu(icon, "&TUFLOW")
+		
 		# About Submenu
 		self.about_menu = QMenu(QCoreApplication.translate("TUFLOW", "&About"))
 		self.iface.addPluginToMenu("&TUFLOW", self.about_menu.menuAction())
-
-		icon = QIcon(os.path.dirname(__file__) + "/icons/info.png")
+		
+		icon = QIcon(os.path.join(dir, "icons", "info.png"))
 		self.about_action = QAction(icon, "About", self.iface.mainWindow())
-		QObject.connect(self.about_action, SIGNAL("triggered()"), self.about_tuflowqgis)
+		#QObject.connect(self.about_action, SIGNAL("triggered()"), self.about_tuflowqgis)
+		self.about_action.triggered.connect(self.about_tuflowqgis)
 		self.about_menu.addAction(self.about_action)
 		
-		icon = QIcon(os.path.dirname(__file__) + "/icons/check_dependancy.png")
+		icon = QIcon(os.path.join(dir, "icons", "check_dependancy.png"))
 		self.check_dependancy_action = QAction(icon, "Check Python Dependencies Installed", self.iface.mainWindow())
-		QObject.connect(self.check_dependancy_action, SIGNAL("triggered()"), self.check_dependencies)
+		#QObject.connect(self.check_dependancy_action, SIGNAL("triggered()"), self.check_dependencies)
+		self.check_dependancy_action.triggered.connect(self.check_dependencies)
 		self.about_menu.addAction(self.check_dependancy_action)
 		
 		# Editing Submenu
@@ -67,43 +79,46 @@ class tuflowqgis_menu:
 		self.iface.addPluginToMenu("&TUFLOW", self.editing_menu.menuAction())
 		
 		#icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_increment_24px.png")
-		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow.png")
+		icon = QIcon(os.path.join(dir, "icons", "tuflow.png"))
 		self.configure_tf_action = QAction(icon, "Configure / Create TUFLOW Project", self.iface.mainWindow())
-		QObject.connect(self.configure_tf_action, SIGNAL("triggered()"), self.configure_tf)
+		#QObject.connect(self.configure_tf_action, SIGNAL("triggered()"), self.configure_tf)
+		self.configure_tf_action.triggered.connect(self.configure_tf)
 		self.editing_menu.addAction(self.configure_tf_action)
-		
-		#icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow.png")
-		#self.create_tf_dir_action = QAction(icon, "Create TUFLOW Directory", self.iface.mainWindow())
-		#QObject.connect(self.create_tf_dir_action, SIGNAL("triggered()"), self.create_tf_dir)
-		#self.editing_menu.addAction(self.create_tf_dir_action)
 
-		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_import.png")
+		icon = QIcon(os.path.join(dir, "icons"," tuflow_import.png"))
 		self.import_empty_tf_action = QAction(icon, "Import Empty File", self.iface.mainWindow())
-		QObject.connect(self.import_empty_tf_action, SIGNAL("triggered()"), self.import_empty_tf)
+		#QObject.connect(self.import_empty_tf_action, SIGNAL("triggered()"), self.import_empty_tf)
+		self.import_empty_tf_action.triggered.connect(self.import_empty_tf)
 		self.editing_menu.addAction(self.import_empty_tf_action)
 		
 		# Add TUFLOW attribute fields to existing GIS layer Added ES 23/02/2018
-		icon = QIcon(os.path.dirname(__file__) + "/icons/insert_tuflow_attributes.png")
+		icon = QIcon(os.path.join(dir, "icons", "insert_tuflow_attributes.png"))
 		self.insert_TUFLOW_attributes_action = QAction(icon, "Insert TUFLOW Attributes to existing GIS layer", self.iface.mainWindow())
-		QObject.connect(self.insert_TUFLOW_attributes_action, SIGNAL("triggered()"), self.insert_TUFLOW_attributes)
+		#QObject.connect(self.insert_TUFLOW_attributes_action, SIGNAL("triggered()"), self.insert_TUFLOW_attributes)
+		self.insert_TUFLOW_attributes_action.triggered.connect(self.insert_TUFLOW_attributes)
 		self.editing_menu.addAction(self.insert_TUFLOW_attributes_action)
-		
-		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_increment_24px.png")
+
+		icon = QIcon(os.path.join(dir, "icons", "tuflow_increment_24px.png"))
 		self.increment_action = QAction(icon, "Increment Selected Layer", self.iface.mainWindow())
-		QObject.connect(self.increment_action, SIGNAL("triggered()"), self.increment_layer)
+		#QObject.connect(self.increment_action, SIGNAL("triggered()"), self.increment_layer)
+		self.increment_action.triggered.connect(self.increment_layer)
 		self.editing_menu.addAction(self.increment_action)
 		
-		icon = QIcon(os.path.dirname(__file__) + "/icons/mif_2_shp.png")
-		self.splitMI_action = QAction(icon, "Convert MapInfo file to Shapefile (beta)", self.iface.mainWindow())
-		QObject.connect(self.splitMI_action, SIGNAL("triggered()"), self.split_MI)
-		self.editing_menu.addAction(self.splitMI_action)
+		"""Removed split_MI beta tool for now"""
+		#icon = QIcon(os.path.dirname(__file__) + "/icons/mif_2_shp.png")
+		#self.splitMI_action = QAction(icon, "Convert MapInfo file to Shapefile (beta)", self.iface.mainWindow())
+		##QObject.connect(self.splitMI_action, SIGNAL("triggered()"), self.split_MI)
+		#self.splitMI_action.triggered.connect(self.split_MI)
+		#self.editing_menu.addAction(self.splitMI_action)
 
-		icon = QIcon(os.path.dirname(__file__) + "/icons/mif_2_shp.png")
-		self.splitMI_folder_action = QAction(icon, "Convert MapInfo files in folder Shapefile (beta)", self.iface.mainWindow())
-		QObject.connect(self.splitMI_folder_action, SIGNAL("triggered()"), self.split_MI_folder)
-		self.editing_menu.addAction(self.splitMI_folder_action)
+		"""Removed split_MI_folder tool for now"""
+		#icon = QIcon(os.path.dirname(__file__) + "/icons/mif_2_shp.png")
+		#self.splitMI_folder_action = QAction(icon, "Convert MapInfo files in folder Shapefile (beta)", self.iface.mainWindow())
+		##QObject.connect(self.splitMI_folder_action, SIGNAL("triggered()"), self.split_MI_folder)
+		#self.splitMI_folder_action.triggered.connect(self.split_MI_folder)
+		#self.editing_menu.addAction(self.splitMI_folder_action)
 		
-		#Not tested enough to include
+		"""Not tested enough to include"""
 		#icon = QIcon(os.path.dirname(__file__) + "/icons/icon.png")
 		#self.points_to_lines_action = QAction(icon, "Convert Points to Lines (survey to breaklines) ALPHA", self.iface.mainWindow())
 		#QObject.connect(self.points_to_lines_action, SIGNAL("triggered()"), self.points_to_lines)
@@ -115,101 +130,116 @@ class tuflowqgis_menu:
 		self.run_menu = QMenu(QCoreApplication.translate("TUFLOW", "&Run"))
 		self.iface.addPluginToMenu("&TUFLOW", self.run_menu.menuAction())
 		
-		icon = QIcon(os.path.dirname(__file__) + "/icons/Run_TUFLOW.png")
+		icon = QIcon(os.path.join(dir, "icons", "Run_TUFLOW.png"))
 		self.run_tuflow_action = QAction(icon, "Run TUFLOW Simulation", self.iface.mainWindow())
-		QObject.connect(self.run_tuflow_action, SIGNAL("triggered()"), self.run_tuflow)
+		#QObject.connect(self.run_tuflow_action, SIGNAL("triggered()"), self.run_tuflow)
+		self.run_tuflow_action.triggered.connect(self.run_tuflow)
 		self.run_menu.addAction(self.run_tuflow_action)
 		
 		#top level in menu
+		
 		# Reload Data Added ES 16/07/18
-		icon = QIcon(os.path.dirname(__file__) + "/icons/reload_data.png")
+		icon = QIcon(os.path.join(dir, "icons", "Reload_Data.PNG"))
 		self.reload_data_action = QAction(icon, "Reload Data", self.iface.mainWindow())
 		self.reload_data_action.triggered.connect(self.reload_data)
 		self.iface.addToolBarIcon(self.reload_data_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.reload_data_action)
+		
 		# TuPlot
-		icon = QIcon(os.path.dirname(__file__) + "/icons/results.png")
-		self.view_1d_results_action = QAction(icon, "TuPlot", self.iface.mainWindow())
-		QObject.connect(self.view_1d_results_action, SIGNAL("triggered()"), self.results_1d)
-		self.iface.addToolBarIcon(self.view_1d_results_action)
-		self.iface.addPluginToMenu("&TUFLOW", self.view_1d_results_action)
+		icon = QIcon(os.path.join(dir, "icons", "tuview.png"))
+		self.view_results_action = QAction(icon, "TUFLOW Viewer", self.iface.mainWindow())
+		self.view_results_action.triggered.connect(self.openResultsPlottingWindow)
+		self.iface.addToolBarIcon(self.view_results_action)
+		self.iface.addPluginToMenu("&TUFLOW", self.view_results_action)
 		
 		# TuPLOT External Added ES 2017/11
-		icon = QIcon(os.path.dirname(__file__) + "/icons/TuPLOT_External.PNG")
-		self.open_tuplot_external_action = QAction(icon, "TuPlot_Ext", self.iface.mainWindow())
-		QObject.connect(self.open_tuplot_external_action, SIGNAL("triggered()"), self.open_tuplot_ext)
-		self.iface.addToolBarIcon(self.open_tuplot_external_action)
-		self.iface.addPluginToMenu("&TUFLOW", self.open_tuplot_external_action)
+		#icon = QIcon(os.path.dirname(__file__) + "/icons/TuPLOT_External.PNG")
+		#self.open_tuplot_external_action = QAction(icon, "TuPlot_Ext", self.iface.mainWindow())
+		##QObject.connect(self.open_tuplot_external_action, SIGNAL("triggered()"), self.open_tuplot_ext)
+		#self.open_tuplot_external_action.triggered.connect(self.open_tuplot_ext)
+		#self.iface.addToolBarIcon(self.open_tuplot_external_action)
+		#self.iface.addPluginToMenu("&TUFLOW", self.open_tuplot_external_action)
 		
 		# Added MJS 24/11
-		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_import.png")
+		icon = QIcon(os.path.join(dir, "icons", "tuflow_import.png"))
 		self.import_empty_tf_action = QAction(icon, "Import Empty File", self.iface.mainWindow())
-		QObject.connect(self.import_empty_tf_action, SIGNAL("triggered()"), self.import_empty_tf)
+		#QObject.connect(self.import_empty_tf_action, SIGNAL("triggered()"), self.import_empty_tf)
+		self.import_empty_tf_action.triggered.connect(self.import_empty_tf)
 		self.iface.addToolBarIcon(self.import_empty_tf_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.import_empty_tf_action)
 		
 		# insert TUFLOW attributes to existing GIS layer
 		self.iface.addPluginToMenu("&TUFLOW", self.insert_TUFLOW_attributes_action)
 		self.iface.addToolBarIcon(self.insert_TUFLOW_attributes_action)
+		
+		# ES 2018/05 Load input files from TCF
+		icon = QIcon(os.path.join(dir, "icons", "Load_from_TCF.PNG"))
+		self.load_tuflowFiles_from_TCF_action = QAction(icon, "Load TUFLOW Layers from TCF", self.iface.mainWindow())
+		self.load_tuflowFiles_from_TCF_action.triggered.connect(self.loadTuflowLayersFromTCF)
+		self.iface.addPluginToMenu("&TUFLOW", self.load_tuflowFiles_from_TCF_action)
+		self.iface.addToolBarIcon(self.load_tuflowFiles_from_TCF_action)
+		
+		# ES 2019/01 Filter and Sort TUFLOW Layers in Map Window
+		icon = QIcon(os.path.join(dir, "icons", "filter_sort_layers.png"))
+		self.filterAndSortLayersAction = QAction(icon, "Filter and Sort TUFLOW Layers in Map Window",
+		                                         self.iface.mainWindow())
+		self.filterAndSortLayersAction.triggered.connect(self.filterAndSortLayers)
+		self.iface.addPluginToMenu("&TUFLOW", self.filterAndSortLayersAction)
+		self.iface.addToolBarIcon(self.filterAndSortLayersAction)
 
 		# Added MJS 24/11
-		icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_increment_24px.png")
+		icon = QIcon(os.path.join(dir, "icons", "tuflow_increment_24px.png"))
 		self.increment_action = QAction(icon, "Increment Selected Layer", self.iface.mainWindow())
-		QObject.connect(self.increment_action, SIGNAL("triggered()"), self.increment_layer)
+		#QObject.connect(self.increment_action, SIGNAL("triggered()"), self.increment_layer)
+		self.increment_action.triggered.connect(self.increment_layer)
 		self.iface.addToolBarIcon(self.increment_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.increment_action)
   
 		# Added MJS 11/02   
-		icon = QIcon(os.path.dirname(__file__) + "/icons/check_files_folder.png")
+		icon = QIcon(os.path.join(dir, "icons", "check_files_folder.png"))
 		self.import_chk_action = QAction(icon, "Import Check Files from Folder", self.iface.mainWindow())
-		QObject.connect(self.import_chk_action, SIGNAL("triggered()"), self.import_check)
+		#QObject.connect(self.import_chk_action, SIGNAL("triggered()"), self.import_check)
+		self.import_chk_action.triggered.connect(self.import_check)
 		self.iface.addToolBarIcon(self.import_chk_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.import_chk_action)
 	
 		#PAR 2016/02/12
-		icon = QIcon(os.path.dirname(__file__) + "/icons/check_files_open.png")
+		icon = QIcon(os.path.join(dir, "icons", "check_files_open.png"))
 		self.apply_chk_action = QAction(icon, "Apply TUFLOW Styles to Open Layers", self.iface.mainWindow())
-		QObject.connect(self.apply_chk_action, SIGNAL("triggered()"), self.apply_check)
+		#Object.connect(self.apply_chk_action, SIGNAL("triggered()"), self.apply_check)
+		self.apply_chk_action.triggered.connect(self.apply_check)
 		self.iface.addToolBarIcon(self.apply_chk_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.apply_chk_action)
 		
 		#PAR 2016/02/15
-		icon = QIcon(os.path.dirname(__file__) + "/icons/check_files_currentlayer.png")
+		icon = QIcon(os.path.join(dir, "icons", "check_files_currentlayer.png"))
 		self.apply_chk_cLayer_action = QAction(icon, "Apply TUFLOW Styles to Current Layer", self.iface.mainWindow())
-		QObject.connect(self.apply_chk_cLayer_action, SIGNAL("triggered()"), self.apply_check_cLayer)
+		#QObject.connect(self.apply_chk_cLayer_action, SIGNAL("triggered()"), self.apply_check_cLayer)
+		self.apply_chk_cLayer_action.triggered.connect(self.apply_check_cLayer)
 		self.iface.addToolBarIcon(self.apply_chk_cLayer_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.apply_chk_cLayer_action)
 		
 		#Auto label generator ES 8/03/2018
-		icon = QIcon(os.path.dirname(__file__) + "/icons/Label_icon.PNG")
+		icon = QIcon(os.path.join(dir, "icons", "Label_icon.PNG"))
 		self.apply_auto_label_action = QAction(icon, "Apply Label to Current Layer", self.iface.mainWindow())
-		QObject.connect(self.apply_auto_label_action, SIGNAL("triggered()"), self.apply_label_cLayer)
+		self.apply_auto_label_action.triggered.connect(self.apply_label_cLayer)
 		self.iface.addToolBarIcon(self.apply_auto_label_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.apply_auto_label_action)
 		
-		# ES 2018/01 ARR2016 Beta
-		icon = QIcon(os.path.dirname(__file__) + "/icons/arr2016.PNG")
+		#ES 2018/01 ARR2016 Beta
+		icon = QIcon(os.path.join(dir, "icons", "arr2016.PNG"))
 		self.extract_arr2016_action = QAction(icon, "Extract ARR2016 for TUFLOW (beta)", self.iface.mainWindow())
-		QObject.connect(self.extract_arr2016_action, SIGNAL("triggered()"), self.extract_arr2016)
+		#QObject.connect(self.extract_arr2016_action, SIGNAL("triggered()"), self.extract_arr2016)
+		self.extract_arr2016_action.triggered.connect(self.extract_arr2016)
 		self.iface.addPluginToMenu("&TUFLOW", self.extract_arr2016_action)
 		self.iface.addToolBarIcon(self.extract_arr2016_action)
 		
-		# ES 2018/05 Load input files from TCF
-		icon = QIcon(os.path.dirname(__file__) + "/icons/load_from_TCF.PNG")
-		self.load_tuflowFiles_from_TCF_action = QAction(icon, "Load TUFLOW Layers from TCF", self.iface.mainWindow())
-		QObject.connect(self.load_tuflowFiles_from_TCF_action, SIGNAL("triggered()"), self.loadTuflowLayers)
-		self.iface.addPluginToMenu("&TUFLOW", self.load_tuflowFiles_from_TCF_action)
-		self.iface.addToolBarIcon(self.load_tuflowFiles_from_TCF_action)
-		
-		# Check 1D network integrity
-		self.check_1d_integrity_action = QAction("Check 1D Network Integrity (beta)", self.iface.mainWindow())
-		self.check_1d_integrity_action.triggered.connect(self.check_1d_integrity)
-		self.iface.addPluginToMenu("&TUFLOW", self.check_1d_integrity_action)
-
-		# Bridge Editor
-		#self.open_bridge_editor_action = QAction("Bridge Editor (beta)", self.iface.mainWindow())
-		#self.open_bridge_editor_action.triggered.connect(self.open_bridge_editor)
-		#self.iface.addPluginToMenu("&TUFLOW", self.open_bridge_editor_action)
+		# ES 2019/01 TUFLOW Utilities
+		icon = QgsApplication.getThemeIcon('mActionTerminal.svg')
+		self.tuflowUtilitiesAction = QAction(icon, "TUFLOW Utilities", self.iface.mainWindow())
+		self.tuflowUtilitiesAction.triggered.connect(self.tuflowUtilities)
+		self.iface.addPluginToMenu("&TUFLOW", self.tuflowUtilitiesAction)
+		self.iface.addToolBarIcon(self.tuflowUtilitiesAction)
 		
 		#Init classes variables
 		self.dockOpened = False		#remember for not reopening dock if there's already one opened
@@ -230,7 +260,7 @@ class tuflowqgis_menu:
 
 	def configure_tf(self):
 		project = QgsProject.instance()
-		dialog = tuflowqgis_configure_tf_dialog(self.iface,project)
+		dialog = tuflowqgis_configure_tf_dialog(self.iface, project, self.iface.mainWindow())
 		dialog.exec_()
 
 	def create_tf_dir(self):
@@ -273,73 +303,55 @@ class tuflowqgis_menu:
 #			self.dock = TUFLOWifaceDock(self.iface)
 #			self.iface.addDockWidget( Qt.RightDockWidgetArea, self.dock )
 #			self.dockOpened = True
-		
-	def reload_data(self):
-		try:
-			if QGis.QGIS_VERSION_INT >= 211:
-				layer = self.iface.mapCanvas().currentLayer()
-				layer.dataProvider().forceReload()
-				layer.triggerRepaint()
-			else:
-				QMessageBox.information(self.iface.mainWindow, 'Message', 'Reload tool is not compatible with QGIS version 2.10 or lower')
-		except:
-			pass
 	
-	def results_1d(self):
-		#if self.resdockOpened == False:
-		if self.dockOpened:
-			#QMessageBox.information(self.iface.mainWindow(), "debug", "Show it")
-			self.resdock.qgis_connect()
-			self.resdock.show()
-			self.resdock.layerChanged()
-			
+	def openResultsPlottingWindow(self):
+		if self.resultsPlottingDockOpened:
+			self.resultsPlottingDock.show()
+			self.resultsPlottingDock.qgisConnect()
 		else:
-			self.dockOpened = True
-			self.resdock = TuPlot(self.iface)
-			self.iface.addDockWidget( Qt.RightDockWidgetArea, self.resdock)
-		#else:
-		#	if self.resdock.dockOpened:
-		#		#QMessageBox.information(self.iface.mainWindow(), "debug", "Dock already open")
-		#		#QMessageBox.information(self.iface.mainWindow(), "debug", "Show it")
-		#		self.resdock.show()
-		#	else:
-		#		QMessageBox.information(self.iface.mainWindow(), "debug", "Dock not open??")
+			self.resultsPlottingDock = TuView(self.iface)
+			self.iface.addDockWidget(Qt.BottomDockWidgetArea, self.resultsPlottingDock)
+			self.resultsPlottingDockOpened = True
 		
-	def open_tuplot_ext(self):
-		"""TuPLOT external function."""
-		
-		# initiate External TuPLOT library
-		self.tpExternal = TuPLOT(self.iface)
-		
-		# below try statement just checks if TuPLOT is already open
-		try:
-			poll = self.tpOpen.poll()
-			if poll == None: # TuPLOT is open
-				self.tpOpen, self.intFile, self.defaultPath = self.tpExternal.open(self.tpOpen, self.intFile, self.defaultPath)
-				self.cLayer = self.iface.mapCanvas().currentLayer()
-			else: # TuPLOT is not already open
-				self.tpOpen, self.intFile, self.defaultPath = self.tpExternal.open('not open', self.intFile, self.defaultPath)
-				self.cLayer = self.iface.mapCanvas().currentLayer()
-		except: # first time TuPLOT has been initiated so must not be open
-			self.tpOpen, self.intFile, self.defaultPath = self.tpExternal.open('not open', self.intFile, self.defaultPath)
-			self.cLayer = self.iface.mapCanvas().currentLayer()
-		
-		# connect external TuPLOT to signals
-		try:
-			poll = self.tpOpen.poll()
-			if poll == None: # TuPLOT is running so connect
-				if self.cLayer is not None: # there is a current layer selected so connect both selection change and layer change
-					QObject.connect(self.cLayer,SIGNAL("selectionChanged()"),self.select_changed)
-					QObject.connect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layer_changed)
-				else: # there is no current layer selected so connect layer change only
-					QObject.connect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layer_changed)
-			else: # TuPLOT is not running so disconnect
-				QObject.disconnect(self.cLayer,SIGNAL("selectionChanged()"),self.select_changed)
-				QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layer_changed)
-		except:
-			None
-		#QMessageBox.information(self.iface.mainWindow(), "Debug", "completed")
-		
+	#def open_tuplot_ext(self):
+	#	"""TuPLOT external function."""
+	#
+	#	# initiate External TuPLOT library
+	#	self.tpExternal = TuPLOT(self.iface)
+	#
+	#	# below try statement just checks if TuPLOT is already open
+	#	try:
+	#		poll = self.tpOpen.poll()
+	#		if poll == None: # TuPLOT is open
+	#			self.tpOpen, self.intFile, self.defaultPath = self.tpExternal.open(self.tpOpen, self.intFile, self.defaultPath)
+	#			self.cLayer = self.iface.mapCanvas().currentLayer()
+	#		else: # TuPLOT is not already open
+	#			self.tpOpen, self.intFile, self.defaultPath = self.tpExternal.open('not open', self.intFile, self.defaultPath)
+	#			self.cLayer = self.iface.mapCanvas().currentLayer()
+	#	except: # first time TuPLOT has been initiated so must not be open
+	#		self.tpOpen, self.intFile, self.defaultPath = self.tpExternal.open('not open', self.intFile, self.defaultPath)
+	#		self.cLayer = self.iface.mapCanvas().currentLayer()
+	#
+	#	# connect external TuPLOT to signals
+	#	try:
+	#		poll = self.tpOpen.poll()
+	#		if poll == None: # TuPLOT is running so connect
+	#			if self.cLayer is not None: # there is a current layer selected so connect both selection change and layer change
+	#				#QObject.connect(self.cLayer,SIGNAL("selectionChanged()"),self.select_changed)
+	#				self.cLayer.selectionChanged.connect(self.select_changed)
+	#				#QObject.connect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layer_changed)
+	#				self.iface.currentLayerChanged.connect(self.layer_changed)
+	#			else: # there is no current layer selected so connect layer change only
+	#				#QObject.connect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layer_changed)
+	#				self.iface.currentLayerChanged.connect(self.layer_changed)
+	#		else: # TuPLOT is not running so disconnect
+	#			#QObject.disconnect(self.cLayer,SIGNAL("selectionChanged()"),self.select_changed)
+	#			self.cLayer.selectionChanged.disconnect(self.select_changed)
+	#			#QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layer_changed)
+	#			self.iface.currentLayerChanged.disconnect(self.layer_changed)
+	#	except:
+	#		None
+			
 	def select_changed(self):
 		"""Used with TuPLOT external function. Is called when current selection changes."""
 		
@@ -348,17 +360,20 @@ class tuflowqgis_menu:
 		if poll == None: # TuPLOT is open so update .int file
 			self.tpOpen, self.intFile, self.defaultPath = self.tpExternal.open(self.tpOpen, self.intFile, self.defaultPath)
 		else: # TuPLOT is not open so disconnect signals
-			QObject.disconnect(self.cLayer,SIGNAL("selectionChanged()"),self.select_changed)
-			QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layer_changed)
+			#QObject.disconnect(self.cLayer,SIGNAL("selectionChanged()"),self.select_changed)
+			self.cLayer.selectionChanged.disconnect(self.select_changed)
+			#QObject.disconnect(self.iface, SIGNAL("currentLayerChanged(QgsMapLayer *)"), self.layer_changed)
+			self.iface.currentLayerChanged.disconnect(self.layer_changed)
 		
 	def layer_changed(self):
 		"""Used with TuPLOT external function. Is called when current layer changes."""
 		
 		self.cLayer = self.iface.mapCanvas().currentLayer()
 		if self.cLayer is not None:
-			QObject.connect(self.cLayer,SIGNAL("selectionChanged()"),self.select_changed)
+			#QObject.connect(self.cLayer,SIGNAL("selectionChanged()"),self.select_changed)
+			self.cLayer.selectionChanged.connect(self.select_changed)
 
-	def cleaning_res(res):
+	def cleaning_res(self):
 		QMessageBox.information(self.iface.mainWindow(), "debug", "Dock Closed")
 		self.dockOpened = False
 		
@@ -369,16 +384,17 @@ class tuflowqgis_menu:
 	
 	def check_dependencies(self):
 		#QMessageBox.critical(self.iface.mainWindow(), "Info", "Not yet implemented!")
-		from tuflowqgis_library import check_python_lib
+		from tuflow.tuflowqgis_library import check_python_lib
 		error = check_python_lib(self.iface)
-		if error <> None:
+		if error != None:
 			QMessageBox.critical(self.iface.mainWindow(), "Error", "Not all dependencies installed.")
 		else:
 			QMessageBox.information(self.iface.mainWindow(), "Information", "All dependencies installed :)")
 
 	def about_tuflowqgis(self):
 		#QMessageBox.information(self.iface.mainWindow(), "About TUFLOW QGIS", 'This is a developmental version of the TUFLOW QGIS utitlity, build: '+build_vers)
-		QMessageBox.information(self.iface.mainWindow(), "About TUFLOW QGIS", "This is a {0} version of the TUFLOW QGIS utitlity\nBuild: {1}".format(build_type,build_vers))
+		#QMessageBox.information(self.iface.mainWindow(), "About TUFLOW QGIS", "This is a {0} version of the TUFLOW QGIS utility\nBuild: {1}".format(build_type,build_vers))
+		about(self.iface.mainWindow())
 
 	# Added MJS 11/02
 	def import_check(self):
@@ -395,11 +411,11 @@ class tuflowqgis_menu:
 		error, message = tuflowqgis_apply_check_tf_clayer(self.iface)
 		if error:
 			QMessageBox.critical(self.iface.mainWindow(), "Error", message)
-	
+			
 	def extract_arr2016(self):
 		dialog = tuflowqgis_extract_arr2016_dialog(self.iface)
 		dialog.exec_()
-		
+			
 	def insert_TUFLOW_attributes(self):
 		project = QgsProject.instance()
 		dialog = tuflowqgis_insert_tuflow_attributes_dialog(self.iface, project)
@@ -410,15 +426,9 @@ class tuflowqgis_menu:
 		if error:
 			QMessageBox.critical(self.iface.mainWindow(), "Error", message)
 	
-	def check_1d_integrity(self):
-		self.dialog = tuflowqgis_check_1d_integrity_dialog(self.iface, self.dockOpened, self.resdock)
-		self.dialog.exec_()
-		self.dockOpened = self.dialog.dockOpened
-		self.resdock = self.dialog.resdock
-		
-	def loadTuflowLayers(self):
+	def loadTuflowLayersFromTCF(self):
 		settings = QSettings()
-		lastFolder = str(settings.value("TUFLOW/TCF_last_folder", os.sep))
+		lastFolder = str(settings.value("TUFLOW/load_TCF_last_folder", os.sep))
 		if (len(lastFolder) > 0):  # use last folder if stored
 			fpath = lastFolder
 		else:
@@ -432,27 +442,38 @@ class tuflowqgis_menu:
 		
 		inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW TCF', fpath,
 		                                           "TCF (*.tcf)")
-		for inFileName in inFileNames:
+		for inFileName in inFileNames[0]:
 			if not inFileName or len(inFileName) < 1:  # empty list
 				return
 			else:
 				fpath, fname = os.path.split(inFileName)
-				if fpath != os.sep and fpath.lower() != 'c:\\' and fpath != '':
-					settings.setValue("TUFLOW/TCF_last_folder", fpath)
+				if fpath != os.sep and fpath.lower() != 'c://' and fpath != '':
+					settings.setValue("TUFLOW/load_TCF_last_folder", fpath)
 				if os.path.splitext(inFileName)[1].lower() != '.tcf':
 					QMessageBox.information(self.iface.mainWindow(), "Message", 'Must select TCF')
 					return
 				else:
-					error, message, scenarios = getScenariosFromTcf(inFileName, self.iface)
+					error, message, scenarios = getScenariosFromTcf(inFileName)
 					if error:
 						QMessageBox.information(self.iface.mainWindow(), "Message", message)
 					if len(scenarios) > 0:
 						self.dialog = tuflowqgis_scenarioSelection_dialog(self.iface, inFileName, scenarios)
 						self.dialog.exec_()
+						scenarios = self.dialog.scenarios[:]
 					else:
-						openGisFromTcf(inFileName, self.iface)
+						scenarios = []
+					openGisFromTcf(inFileName, self.iface, scenarios)
+	
+	def reload_data(self):
+		layer = self.iface.mapCanvas().currentLayer()
+		if layer is not None:
+			layer.dataProvider().forceReload()
+			layer.triggerRepaint()
 
-
-	def open_bridge_editor(self):
-		self.bridgeGui = bridgeGui(self.iface)
-		self.iface.addDockWidget(Qt.RightDockWidgetArea, self.bridgeGui)
+	def filterAndSortLayers(self):
+		self.filterSortLayerDialog = FilterSortLayersDialog(self.iface)
+		self.filterSortLayerDialog.exec_()
+		
+	def tuflowUtilities(self):
+		self.tuflowUtilitiesDialog = TuflowUtilitiesDialog(self.iface)
+		self.tuflowUtilitiesDialog.exec_()
