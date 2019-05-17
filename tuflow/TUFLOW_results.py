@@ -1985,7 +1985,7 @@ class ResData():
 		types = []
 		
 		for type in self.Types:
-			if 'WATER LEVELS' in type.upper():
+			if 'WATER LEVEL' in type.upper():
 				types.append('Level')
 			elif 'ENERGY LEVELS' in type.upper():
 				types.append('Energy Level')
@@ -2008,9 +2008,7 @@ class ResData():
 		types = []
 		
 		for type in self.Types:
-			if 'FLOW' in type.upper():
-				types.append('Flow')
-			elif 'VELOCITIES' in type.upper():
+			if 'VELOCITIES' in type.upper():
 				types.append('Velocity')
 			elif 'LINE FLOW AREA' in type.upper():
 				types.append('Flow Area')
@@ -2028,6 +2026,8 @@ class ResData():
 				types.append('Structure Levels')
 			elif '1D Flow Area' in type:
 				types.append('Flow Area')
+			elif 'FLOW' in type.upper():
+				types.append('Flow')
 		
 		if self.nodes is not None:
 			point_types = self.pointResultTypesTS()

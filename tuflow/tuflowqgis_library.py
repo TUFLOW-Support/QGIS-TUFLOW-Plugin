@@ -1305,6 +1305,8 @@ def lineToPoints(feat, spacing, mapUnits):
 				usedPoint = True
 			else:
 				length = calculateLength(p, pPrev, mapUnits)
+				if length is None:
+					return None, None, None
 				if length < spacing:
 					points.append(p)
 					chainage += length
@@ -4117,8 +4119,11 @@ def calculateLength(p1, p2, mapUnits, desiredUnits='m'):
 		return ((p1.y() - p2.y()) ** 2. + (p1.x() - p2.x()) ** 2.) ** 0.5  # simple trig
 	else:
 		# do some spherical conversions
-		p1Converted = from_latlon(p1.y(), p1.x())
-		p2Converted = from_latlon(p2.y(), p2.x())
+		try:
+			p1Converted = from_latlon(p1.y(), p1.x())
+			p2Converted = from_latlon(p2.y(), p2.x())
+		except:
+			return None
 		metres = ((p1Converted[1] - p2Converted[1]) ** 2. + (p1Converted[0] - p2Converted[0]) ** 2.) ** 0.5
 		if desiredUnits == 'm':
 			return metres

@@ -62,7 +62,7 @@ class TuResults1D():
 				
 			else:
 				return False
-				
+			
 			# index results
 			index = self.getResultMetaData(res)
 			self.results1d[res.displayname] = res

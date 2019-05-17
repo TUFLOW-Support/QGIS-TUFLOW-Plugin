@@ -239,8 +239,11 @@ class TuFlowLine():
 		# unpress button
 		self.tuPlot.tuPlotToolbar.plotFluxButton.setChecked(False)
 		
-		# create memory polyline layer
-		self.createMemoryLayer()
+		if not rubberBand.asGeometry().isNull():
+			# create memory polyline layer
+			self.createMemoryLayer()
+		else:
+			self.rubberBands.pop()
 		
 		return True
 	
@@ -265,8 +268,11 @@ class TuFlowLine():
 		# unpress button
 		self.tuPlot.tuPlotToolbar.plotFluxButton.setChecked(False)
 		
-		# create memory polyline layer
-		self.createMemoryLayer()
+		if not rubberBand.asGeometry().isNull():
+			# create memory polyline layer
+			self.createMemoryLayer()
+		else:
+			self.rubberBands.pop()
 		
 		return True
 	
@@ -304,7 +310,11 @@ class TuFlowLine():
 		# create feature layer
 		feat = QgsFeature()
 		feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]))
-		self.tuPlot.tuPlot2D.plotFlowFromMap(None, feat)
+		worked = self.tuPlot.tuPlot2D.plotFlowFromMap(None, feat)
+		if not worked:
+			self.escape(QKeyEvent(QEvent.KeyPress, Qt.Key_Escape, Qt.NoModifier))
+			self.clearRubberBand()
+			return False
 		
 		return True
 	

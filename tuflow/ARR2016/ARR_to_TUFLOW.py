@@ -417,7 +417,7 @@ if arr_raw_fname is None:
 else:
     print("Using user specified ARR datahub file: {0}".format(arr_raw_fname))
 if access_web:
-    url = 'http://data.arr-software.org/?lon_coord={0}5&lat_coord={1}&All=on'.format(longitude, -abs(latitude))
+    url = 'http://data.arr-software.org/?lon_coord={0}5&lat_coord={1}&type=text&All=1'.format(longitude, -abs(latitude))
 
     # seems to require a dummy browser, or ARR rejects the connection
     user_agent = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'

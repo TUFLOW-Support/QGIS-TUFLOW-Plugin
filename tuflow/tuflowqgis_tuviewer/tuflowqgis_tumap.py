@@ -12,6 +12,7 @@ from ui_map_dialog import Ui_MapDialog
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuanimation import ImagePropertiesDialog, PlotProperties, TextPropertiesDialog
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuanimation import prepare_composition, prepare_composition_from_template, createText
 from tuflow.tuflowqgis_library import tuflowqgis_find_layer
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 
 
 def getResultTypes(results, layer):
@@ -59,22 +60,22 @@ def getTimes(results, layer, stype, vtype):
 		result = results[layer]
 		for rtype, ts in result.items():
 			if '_ts' not in rtype and '_lp' not in rtype:
-				t = rtype.split('/')[0].strip()
-				if t == typ:
-					if '/Maximums' in ts:
+				if TuResults.isMaximumResultType(TuResults(None), rtype):
+					t = TuResults.stripMaximumName(TuResults(None), rtype)
+					if t == typ:
 						if 'Max' not in times:
 							times.insert(0, 'Max')
-					else:
-						for key, item in ts.items():
-							x = item[0]
-							if x == -99999:
-								if 'Max' not in times:
-									times.insert(0, 'Max')
-							else:
-								time = '{0:02d}:{1:02.0f}:{2:05.2f}'.format(int(x), (x - int(x)) * 60, (x - int(x) - (x - int(x))) * 3600)
-								if time not in times:
-									times.append(time)
-							
+				else:
+					for key, item in ts.items():
+						x = item[0]
+						if x == -99999:
+							if 'Max' not in times:
+								times.insert(0, 'Max')
+						else:
+							time = '{0:02d}:{1:02.0f}:{2:05.2f}'.format(int(x), (x - int(x)) * 60, (x - int(x) - (x - int(x))) * 3600)
+							if time not in times:
+								times.append(time)
+						
 	return times
 
 

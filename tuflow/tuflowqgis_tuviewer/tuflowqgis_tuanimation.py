@@ -18,7 +18,7 @@ from ui_animation_dialog import Ui_AnimationDialog
 from animation_plot_properties import Ui_PlotProperties
 from label_properties import Ui_textPropertiesDialog
 from image_properties import Ui_ImageProperties
-from tuflow.tuflowqgis_library import tuflowqgis_find_layer, applyMatplotLibArtist, convertTimeToFormattedTime
+from tuflow.tuflowqgis_library import tuflowqgis_find_layer, applyMatplotLibArtist, convertTimeToFormattedTime, convertFormattedTimeToTime
 import matplotlib
 import numpy as np
 try:
@@ -148,6 +148,8 @@ def setPlotProperties(fig, ax, prop, ax2, layout_type, layout_item):
 	if layout_type == 'default':
 		fig.set_size_inches(prop.sbFigSizeX.value() / 25.4, prop.sbFigSizeY.value() / 25.4)
 	elif layout_type == 'template':
+		if layout_item is None:
+			return
 		r = layout_item.sizeWithUnits()
 		fig.set_size_inches(r.width() / 25.4, r.height() / 25.4)
 	else:
@@ -2304,9 +2306,8 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 					ymax2 = -99999
 					for i in range(animation.tuView.cboTime.count()):
 						timeFormatted = animation.tuView.cboTime.itemText(i)
-						time = timeFormatted.split(':')
-						time = float(time[0]) + float(time[1]) / 60 + float(time[2]) / 3600
-						timeKey = '{0:.4f}'.format(time)
+						unit = self.animationDialog.tuView.tuOptions.timeUnits
+						time = convertFormattedTimeToTime(timeFormatted, unit=unit)
 						animation.tuView.tuPlot.updateCurrentPlot(1, draw=False, time=time)
 						lines, labels, axis = animation.plotItems(plotType)
 						if 'axis 1' in axis and 'axis 2' in axis:

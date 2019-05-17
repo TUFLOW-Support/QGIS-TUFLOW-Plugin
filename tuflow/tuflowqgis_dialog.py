@@ -1314,8 +1314,8 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			self.comboBox_CatchArea.clear()
 			self.comboBox_CatchArea.addItem('-None-')
 			if layer is not None:
-				for f in layer.pendingFields():
-					self.comboBox_CatchArea.addItem(f.name())
+				for f in layer.fields().names():
+					self.comboBox_CatchArea.addItem(f)
 					
 	def ilMethod_changed(self):
 		ilMethod = self.comboBox_ilMethod.currentText()

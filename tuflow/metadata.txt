@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.0.2
+version=3.0.3
 author=Phillip Ryan, Ellis Symons
 email=support@tuflow.com
 
@@ -20,14 +20,20 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=ARR2016 - rare event rainfall depths for durations less than 24hrs are now available, tool has been updated to also allow this
-          Fixed a bug in loading default colour ramps for map outputs
-          Fixed bug when running TUFLOW FV from QGIS
-          Fix bug - TUFLOW Viewer will now let you remove results from gui when results weren't loaded properly
-          TUFLOW Viewer will now check if result paths for timeseries are still valid when loading from .qgz or .qgs
+changelog=ARR2016 to TUFLOW tool updated to be compatible with updated ARR datahub
+          Fixed NULL geometry bug when drawing cross sections and flux lines
+          Fixed bug when water level PO points were not being displayed as result type
+          Fixed bug when adding cross section plots to animations
+          Better error checking when results are not in correct CRS and drawing graphic layers
+          Using a template for animations will now work even if number of plots does not match
+          Fixed bug in ARR2016 to TUFLOW dialog when clicking 'User Area' for ARF
+          Fixed bug when loading a Project with more than 1 open mesh layer - result types used to be duplicated
+          Fixed bug when loading in map outputs after loading in time series results
+          Fixed bug where tuflow viewer would not recognise map output result types if there was no temporal results but there was maximum results
+          Fixed bug with time series result types not showing for all types e.g. 2D flow area
 
 # tags are comma separated with spaces allowed
-tags=TUFLOW, simulation, flood, hydraulic modelling, MDAL, mesh, xmdf, dat, 2dm
+tags=TUFLOW, simulation, flood, hydraulic modelling, MDAL, mesh, xmdf, dat, 2dm, Australian Rainfall & Runoff, ARR
 
 homepage=http://wiki.tuflow.com/index.php?title=TUFLOW_QGIS_Plugin
 tracker=https://github.com/TUFLOW-Support/QGIS-TUFLOW-Plugin/issues

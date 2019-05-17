@@ -617,7 +617,7 @@ class ResData():
         types = []
     
         for type in self.Types:
-            if 'WATER LEVELS' in type.upper():
+            if 'WATER LEVEL' in type.upper():
                 types.append('Level')
             elif 'ENERGY LEVELS' in type.upper():
                 types.append('Energy Level')

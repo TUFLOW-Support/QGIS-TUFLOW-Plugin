@@ -400,6 +400,10 @@ class ArrCCF:
                         finished = True
                         break
                     if not finished:
+                        if 'rcp' in block_line.lower():
+                            continue
+                        elif block_line == '\n':
+                            continue
                         try:
                             data = block_line.split(',')
                             self.Year.append(int(data[0]))
@@ -478,6 +482,10 @@ class ArrTemporal:
                     if finished:
                         break
                     if not finished:
+                        if 'eventid' in block_line.lower():
+                            continue
+                        elif block_line == '\n':
+                            continue
                         try:
                             self.pointID.append(int(data[0]))
                             dur = int(data[1])
@@ -519,6 +527,10 @@ class ArrTemporal:
                     if finished:
                         break
                     if not finished:
+                        if 'eventid' in block_line.lower():
+                            continue
+                        elif block_line == '\n':
+                            continue
                         try:
                             self.pointID.append(int(data[0]))
                             dur = int(data[1])
@@ -835,7 +847,7 @@ class Arr:
         if self.Arf.error:
             print('An error was encountered, when reading ARF information.')
             print('Return message = {0}'.format(self.Arf.message))
-            raise SystemExit("ERROR: {0}".format(self.Arr.message))
+            raise SystemExit("ERROR: {0}".format(self.Arf.message))
 
         # STORM LOSSES
         print('Loading Storm Losses Block')

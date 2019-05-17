@@ -79,7 +79,7 @@ class TuProject():
 			self.tuView.setVisible(visible)
 		
 			# 2D results
-			self.processResults2d('load')
+			#self.processResults2d('load')
 		
 			# 1D results
 			self.processResults1d('load')
@@ -89,7 +89,7 @@ class TuProject():
 			self.tuView.tuResults.updateResultTypes()
 			
 			# active result types
-			self.processActiveResultTypes('load')
+			#self.processActiveResultTypes('load')
 			
 			# active time
 			self.processActiveTime('load')

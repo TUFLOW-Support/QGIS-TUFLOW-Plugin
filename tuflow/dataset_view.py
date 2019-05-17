@@ -140,18 +140,18 @@ class DataSetModel(QAbstractItemModel):
             self.name2item_ts[ds_name] = item
             
 
-    def setEnabled(self, enumerator):
+    def setEnabled(self, *args):
         """
         Sets which time series type is enabled. Map outputs are always enabled.
         
-        :param enumerator: int -> 4: enable point result types
-                                  5: enabled line result types
-                                  6: enable region result types
+        :param args: list -> int -> 4: enable point result types
+                                    5: enabled line result types
+                                    6: enable region result types
         :return: void
         """
         
         for item in self.timeSeriesItem.children():
-            if item.ds_type == enumerator:
+            if item.ds_type in args:
                 item.enabled = True
             else:
                 item.enabled = False

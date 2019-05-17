@@ -18,30 +18,31 @@ class TuResults():
 	"""
 	
 	def __init__(self, TuView):
-		self.tuView = TuView
-		self.iface = TuView.iface
-		self.results = {}  # dict - e.g. { M01_5m_001: { depth: { '0.0000': ( timestep, type, QgsMeshDatasetIndex )}, point_ts: ( types, timesteps ) } }
-		self.cboTime2timekey = {}
-		self.timekey2time = {}  # e.g. {'1.8333': 1.8333333}
-		self.timekey2date = {}  # e.g. {'1.8333': '01/01/2000 09:00:00'}
-		self.time2date = {}
-		self.date2timekey = {}
-		self.date2time = {}
-		self.secondaryAxisTypes = []
-		self.maxResultTypes = []
-		self.activeTime = None  # active time for rendering
-		self.activeResults = []  # str result type names
-		self.activeResultsTypes = []  # int result types (e.g. 1 - scalar, 2 - vector...)
-		self.activeResultsIndexes = []  # QModelIndex
-		self.activeResultsItems = []  # DataSetTreeNode
-		self.dateFormat = '%d/%m/%Y %H:%M:%S'  # for time combobox not plotting
-		self._dateFormat = '{0:%d}/{0:%m}/{0:%Y} {0:%H}:{0:%M}:{0:%S}'  # for time combobox not plotting
-		
-		# 1D results
-		self.tuResults1D = tuflowqgis_turesults1d.TuResults1D(TuView)
-		
-		# 2D results
-		self.tuResults2D = tuflowqgis_turesults2d.TuResults2D(TuView)
+		if TuView is not None:
+			self.tuView = TuView
+			self.iface = TuView.iface
+			self.results = {}  # dict - e.g. { M01_5m_001: { depth: { '0.0000': ( timestep, type, QgsMeshDatasetIndex )}, point_ts: ( types, timesteps ) } }
+			self.cboTime2timekey = {}
+			self.timekey2time = {}  # e.g. {'1.8333': 1.8333333}
+			self.timekey2date = {}  # e.g. {'1.8333': '01/01/2000 09:00:00'}
+			self.time2date = {}
+			self.date2timekey = {}
+			self.date2time = {}
+			self.secondaryAxisTypes = []
+			self.maxResultTypes = []
+			self.activeTime = None  # active time for rendering
+			self.activeResults = []  # str result type names
+			self.activeResultsTypes = []  # int result types (e.g. 1 - scalar, 2 - vector...)
+			self.activeResultsIndexes = []  # QModelIndex
+			self.activeResultsItems = []  # DataSetTreeNode
+			self.dateFormat = '%d/%m/%Y %H:%M:%S'  # for time combobox not plotting
+			self._dateFormat = '{0:%d}/{0:%m}/{0:%Y} {0:%H}:{0:%M}:{0:%S}'  # for time combobox not plotting
+			
+			# 1D results
+			self.tuResults1D = tuflowqgis_turesults1d.TuResults1D(TuView)
+			
+			# 2D results
+			self.tuResults2D = tuflowqgis_turesults2d.TuResults2D(TuView)
 	
 	def importResults(self, type, inFileNames):
 		"""
@@ -130,11 +131,9 @@ class TuResults():
 		r = self.results[resultName]
 		for type, t in r.items():
 			info = ()  # (name, type, haMax) e.g. (depth, 1, True) 1=Scalar 2=Vector, 3=none
-			if '/Maximums' in type or ('max_' in type and 'time' not in type):
+			if self.isMaximumResultType(type):
 				if type not in maxResultTypes:
-					rt = type.split('/')[0]
-					if 'max_' in rt:
-						rt = rt.split('max_')[1]
+					rt = self.stripMaximumName(type)
 					maxResultTypes.append(rt)
 			elif '_ts' in type:
 				timestepsTS = t[-1]
@@ -356,28 +355,46 @@ class TuResults():
 		mapOutputs = []
 		if openResults.selectedItems():
 			result = openResults.selectedItems()[0]  # just take the first selection
-			for type in temporalResultTypes:
-				if type not in self.results[result.text()].keys():
+			for rtype in temporalResultTypes:
+				if rtype not in self.results[result.text()].keys():
 					# find the selected result that has it
 					for result in openResults.selectedItems():
-						if type in self.results[result.text()].keys():
+						if rtype in self.results[result.text()].keys():
 							break
-				t = self.results[result.text()][type]
+				t = self.results[result.text()][rtype]
 				for i, (time, values) in enumerate(t.items()):
 					if i == 0:  # get the data type from the first timestep i.e. scalar or vector
-						if type in maxResultTypes:
-							info = (type, values[1], True)
+						if rtype in maxResultTypes:
+							info = (rtype, values[1], True)
 						else:
-							info = (type, values[1], False)
+							info = (rtype, values[1], False)
 						mapOutputs.append(info)
 					else:
 						break
-				self.tuView.tuPlot.tuPlotToolbar.addItemToPlotOptions(type, 0)
-				self.tuView.tuPlot.tuPlotToolbar.addItemToPlotOptions(type, 1)
+				self.tuView.tuPlot.tuPlotToolbar.addItemToPlotOptions(rtype, 0)
+				self.tuView.tuPlot.tuPlotToolbar.addItemToPlotOptions(rtype, 1)
 				#mcboResultType.addItem(type)
+			for rtype in maxResultTypes:  # check - there may be results that only have maximums
+				if rtype not in temporalResultTypes:
+					mrtype = self.findMaxResultType(result.text(), rtype)
+					if not mrtype:
+						# find the selected result that has it
+						for result in openResults.selectedItems():
+							mrtype = self.findMaxResultType(result.text(), rtype)
+							if mrtype:
+								break
+					if not mrtype:  # couldn't be found - hopefully not the case!
+						continue
+					t = self.results[result.text()][mrtype]
+					for i, (time, values) in enumerate(t.items()):
+						if i == 0:  # get the data type from the first timestep i.e. scalar or vector
+							info = (rtype, values[1], True)
+							mapOutputs.append(info)
+						else:
+							break
 		if not mapOutputs:
 			mapOutputs = [("None", 3, False)]
-		
+			
 		timeSeries = []
 		timeSeries = timeSeries + pointTypesTS + lineTypesTS + regionTypesTS + lineTypesLP
 		if not timeSeries:
@@ -440,7 +457,7 @@ class TuResults():
 			if geomType == 0:
 				self.tuResults1D.typesTS = self.tuResults1D.pointTS[:]
 			elif geomType == 1:
-				self.tuResults1D.typesTS = self.tuResults1D.lineTS[:]
+				self.tuResults1D.typesTS = self.tuResults1D.lineTS[:] + self.tuResults1D.pointTS[:]
 			elif geomType == 2:
 				self.tuResults1D.typesTS = self.tuResults1D.regionTS[:]
 			else:
@@ -484,7 +501,7 @@ class TuResults():
 						if self.tuResults1D.activeType == 0:
 							self.tuResults1D.typesTS = self.tuResults1D.pointTS[:]
 						elif self.tuResults1D.activeType == 1:
-							self.tuResults1D.typesTS = self.tuResults1D.lineTS[:]
+							self.tuResults1D.typesTS = self.tuResults1D.lineTS[:] + self.tuResults1D.pointTS[:]
 						elif self.tuResults1D.activeType == 2:
 							self.tuResults1D.typesTS = self.tuResults1D.regionTS[:]
 						else:
@@ -812,7 +829,7 @@ class TuResults():
 						if self.tuResults1D.activeType == 0:
 							self.tuResults1D.typesTS = self.tuResults1D.pointTS[:]
 						elif self.tuResults1D.activeType == 1:
-							self.tuResults1D.typesTS = self.tuResults1D.lineTS[:]
+							self.tuResults1D.typesTS = self.tuResults1D.lineTS[:] + self.tuResults1D.pointTS[:]
 						elif self.tuResults1D.activeType == 2:
 							self.tuResults1D.typesTS = self.tuResults1D.regionTS[:]
 						else:
@@ -820,3 +837,52 @@ class TuResults():
 					elif item.ds_type == 7:  # long plot
 						self.tuResults1D.typesLP.append(item.ds_name)
 						
+	def findMaxResultType(self, result: str, resultType: str) -> str:
+		"""
+		Find maximum result type in results.
+		Used when only maximum result type exists (no temporal results)
+		
+		It is assumed that there is no temporal output for result type.
+		
+		:param result: str result name e.g. 'M03_5m_001'
+		:param resultType: str result type e.g. 'depth'
+		:return: str max result type e.g. 'depth/Maximums'
+		"""
+		
+		for rtype in self.results[result]:
+			if self.isMaximumResultType(rtype):
+				if self.stripMaximumName(rtype) == resultType:
+					return rtype
+				
+		return ''
+		
+	def stripMaximumName(self, resultType: str) -> str:
+		"""
+		Strips the maximum identifier from the name.
+		
+		e.g. 'depth/Maximum' will return 'depth'
+		
+		:param resultType: str
+		:return: str
+		"""
+		
+		rtype = resultType.split('/')[0]
+		if 'max_' in rtype:
+			rt = rtype.split('max_')[1]
+			
+		return rtype
+	
+	def isMaximumResultType(self, resultType: str) -> bool:
+		"""
+		Determines if the result type is a maximum or not.
+		
+		e.g. Depth/Maximums will return True
+		
+		:param resultType: str
+		:return: bool
+		"""
+		
+		if '/Maximums' in resultType or ('max_' in resultType and 'time' not in resultType):
+			return True
+		
+		return False

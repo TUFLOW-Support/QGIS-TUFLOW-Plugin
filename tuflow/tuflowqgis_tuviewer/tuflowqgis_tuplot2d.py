@@ -225,6 +225,11 @@ class TuPlot2D():
 		# get extraction points
 		resolution = self.tuView.tuOptions.resolution
 		points, chainage, direction = lineToPoints(feat, resolution, self.iface.mapCanvas().mapUnits())
+		if points is None or chainage is None or direction is None:
+			QMessageBox.critical(self.tuView, "TUFLOW Viewer", "Error Converting Cross Section From Long \ Lat\n"
+			                                                   "Double Check the Projection of the Workspace and Input"
+			                                                   " Files are Correct.")
+			return False
 		
 		# initialise plotting variables
 		xAll = []
@@ -364,6 +369,11 @@ class TuPlot2D():
 		# get extraction points
 		resolution = self.tuView.tuOptions.resolution
 		points, chainages, directions = lineToPoints(feat, resolution, self.iface.mapCanvas().mapUnits())
+		if points is None or chainages is None or directions is None:
+			QMessageBox.critical(self.tuView, "TUFLOW Viewer", "Error Converting Cross Section From Long \ Lat\n"
+			                                                   "Double Check the Projection of the Workspace and Input"
+			                                                   " Files are Correct.")
+			return False
 
 		# initialise plotting variables
 		xAll = []

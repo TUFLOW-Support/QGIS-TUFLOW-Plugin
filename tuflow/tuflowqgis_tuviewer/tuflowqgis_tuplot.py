@@ -1266,7 +1266,7 @@ class TuPlot():
 		
 		if time is not None:
 			if time != 'Maximum' and time != 99999:
-				time = '{0:.4f}'.format(kwargs['time']) if 'time' in kwargs.keys() else None
+				time = '{0:.6f}'.format(kwargs['time']) if 'time' in kwargs.keys() else None
 		
 		if not plot:
 			self.clearPlot(1)

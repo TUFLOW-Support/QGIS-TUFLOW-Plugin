@@ -124,7 +124,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 								self.OpenResultTypes.model().setEnabled(4)
 								self.tuResults.tuResults1D.activeType = 0
 							elif self.currentLayer.geometryType() == 1:
-								self.OpenResultTypes.model().setEnabled(5)
+								self.OpenResultTypes.model().setEnabled(4, 5)
 								self.tuResults.tuResults1D.activeType = 1
 							elif self.currentLayer.geometryType() == 2:
 								self.OpenResultTypes.model().setEnabled(6)

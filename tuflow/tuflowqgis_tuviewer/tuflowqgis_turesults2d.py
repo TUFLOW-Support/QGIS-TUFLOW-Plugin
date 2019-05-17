@@ -752,7 +752,7 @@ class TuResults2D():
 			for resultType in results[result]:
 				if firstTime is not None:
 					break
-				if '_ts' not in results[result][resultType] and '_lp' not in results[result][resultType]:
+				if '_ts' not in resultType and '_lp' not in resultType:
 					if len(results[result][resultType]) > 1:
 						for i in results[result][resultType]:
 							firstTime = results[result][resultType][i][0]
@@ -763,7 +763,7 @@ class TuResults2D():
 					continue  # move onto next result dataset
 				else:  # find time 0 values and change to firstTime
 					for resultType in results[result]:
-						if '_ts' not in results[result][resultType] and '_lp' not in results[result][resultType]:
+						if '_ts' not in resultType and '_lp' not in resultType:
 							if len(results[result][resultType]) == 1:
 								for i in results[result][resultType]:
 									if results[result][resultType][i][0] == 0:

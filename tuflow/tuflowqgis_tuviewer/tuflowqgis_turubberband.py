@@ -370,7 +370,8 @@ class TuRubberBand():
 			
 			# create memory polyline layer
 			if self.tuView.tuOptions.liveMapTracking:
-				self.createMemoryLayer(True, points=points)
+				if not rubberBand.asGeometry().isNull():
+					self.createMemoryLayer(True, points=points)
 			
 		return True
 	
@@ -410,7 +411,7 @@ class TuRubberBand():
 		:param position: dict -> event signal position
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		rubberBand = self.rubberBands[-1]
 		
 		# draw line up to last locked in point and disconnect
@@ -420,8 +421,11 @@ class TuRubberBand():
 		# unpress time series button
 		self.tuPlot.tuPlotToolbar.plotLPMenu.menuAction().setChecked(False)
 		
-		# create memory polyline layer
-		self.createMemoryLayer(False)
+		if not rubberBand.asGeometry().isNull():
+			# create memory polyline layer
+			self.createMemoryLayer(False)
+		else:
+			self.rubberBands.pop()
 		
 		return True
 	
@@ -446,8 +450,11 @@ class TuRubberBand():
 		# unpress time series button
 		self.tuPlot.tuPlotToolbar.plotLPMenu.menuAction().setChecked(False)
 		
-		# create memory polyline layer
-		self.createMemoryLayer(False)
+		if not rubberBand.asGeometry().isNull():
+			# create memory polyline layer
+			self.createMemoryLayer(False)
+		else:
+			self.rubberBands.pop()
 		
 		return  True
 	
@@ -501,10 +508,18 @@ class TuRubberBand():
 				self.tuPlot.tuPlot2D.plotCrossSectionFromMap(None, feat)
 				self.tuPlot.clearedLongPlot = False
 			else:
-				self.tuPlot.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=True)
+				worked = self.tuPlot.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=True)
+				if not worked:
+					self.csEscape(QKeyEvent(QEvent.KeyPress, Qt.Key_Escape, Qt.NoModifier))
+					self.clearRubberBand()
+					return False
 			self.tuPlot.holdLongProfilePlot = False
 		else:
-			self.tuPlot.tuPlot2D.plotCrossSectionFromMap(None, feat)
+			worked = self.tuPlot.tuPlot2D.plotCrossSectionFromMap(None, feat)
+			if not worked:
+				self.csEscape(QKeyEvent(QEvent.KeyPress, Qt.Key_Escape, Qt.NoModifier))
+				self.clearRubberBand()
+				return False
 			self.tuPlot.clearedLongPlot = False
 			
 		return True
