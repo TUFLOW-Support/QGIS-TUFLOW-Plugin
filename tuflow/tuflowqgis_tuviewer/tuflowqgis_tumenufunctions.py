@@ -11,12 +11,13 @@ from qgis.PyQt.QtXml import QDomDocument
 from matplotlib.patches import Polygon
 from tuflow.tuflowqgis_library import loadLastFolder, getResultPathsFromTCF, getScenariosFromTcf, getEventsFromTCF, \
 	tuflowqgis_find_layer, getUnit, getCellSizeFromTCF, getOutputZonesFromTCF, getPathFromRel, convertTimeToFormattedTime, \
-	convertFormattedTimeToTime
+	convertFormattedTimeToTime, getResultPathsFromTLF
 from tuflow.tuflowqgis_dialog import tuflowqgis_scenarioSelection_dialog, tuflowqgis_eventSelection_dialog, \
 	TuOptionsDialog, TuSelectedElementsDialog, tuflowqgis_meshSelection_dialog, TuBatchPlotExportDialog, \
 	TuUserPlotDataManagerDialog, tuflowqgis_outputZoneSelection_dialog, tuflowqgis_brokenLinks_dialog
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuanimation import TuAnimationDialog
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumap import TuMapDialog
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 
 
 class TuMenuFunctions():
@@ -165,59 +166,52 @@ class TuMenuFunctions():
 		# User get TCF file
 		inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW results file',
 		                                           fpath,
-		                                           "TUFLOW Control File (*.tcf)")
+		                                           "All Available (*.tcf *.tlf *.TCF *.TLF);;TUFLOW Control File (*.tcf *.TCF);;TUFLOW Log File (*.tlf *.TLF)")
 		
 		if not inFileNames[0]:  # empty list
 			return False
 		
-		# get 1D and 2D results from TCF
-		results1D, results2D = [], []
+		# get 1D and 2D results from TCF or TLF
+		results1D, results2D, messages = [], [], []
 		for file in inFileNames[0]:
+			ext = os.path.splitext(file)[1].lower()
 			
-			# get scenarios from TCF and prompt user to select desired scenarios
-			error, message, scenarios = getScenariosFromTcf(file)
-			if scenarios:
-				self.scenarioDialog = tuflowqgis_scenarioSelection_dialog(self.iface, file, scenarios)
-				self.scenarioDialog.exec_()
-				if self.scenarioDialog.scenarios is None:
-					scenarios = []
-				else:
-					scenarios = self.scenarioDialog.scenarios
-					
-			# get events from TCF and prompt user to select desired events
-			events = getEventsFromTCF(file)
-			if events:
-				self.eventDialog = tuflowqgis_eventSelection_dialog(self.iface, file, events)
-				self.eventDialog.exec_()
-				if self.eventDialog.events is None:
-					events = []
-				else:
-					events = self.eventDialog.events
-					
-			# get output zones from TCF and prompt user to select desired output zones
-			outputZones = getOutputZonesFromTCF(file)
-			selectedOutputZones = []
-			if outputZones:
-				self.outputZoneDialog = tuflowqgis_outputZoneSelection_dialog(self.iface, file, outputZones)
-				self.outputZoneDialog.exec_()
-				for opz in outputZones:
-					if opz['name'] in self.outputZoneDialog.outputZones:
-						selectedOutputZones.append(opz)
+			if ext == '.tcf':
+				# get scenarios from TCF and prompt user to select desired scenarios
+				error, message, scenarios = getScenariosFromTcf(file)
+				if error:
+					QMessageBox.critical(self.tuView, "Load From TCF", message)
+				if scenarios:
+					self.scenarioDialog = tuflowqgis_scenarioSelection_dialog(self.iface, file, scenarios)
+					self.scenarioDialog.exec_()
+					if self.scenarioDialog.scenarios is None:
+						scenarios = []
+					else:
+						scenarios = self.scenarioDialog.scenarios
+						
+				# get events from TCF and prompt user to select desired events
+				events = getEventsFromTCF(file)
+				if events:
+					self.eventDialog = tuflowqgis_eventSelection_dialog(self.iface, file, events)
+					self.eventDialog.exec_()
+					if self.eventDialog.events is None:
+						events = []
+					else:
+						events = self.eventDialog.events
+						
+				# get output zones from TCF and prompt user to select desired output zones
+				outputZones = getOutputZonesFromTCF(file)
+				selectedOutputZones = []
+				if outputZones:
+					self.outputZoneDialog = tuflowqgis_outputZoneSelection_dialog(self.iface, file, outputZones)
+					self.outputZoneDialog.exec_()
+					for opz in outputZones:
+						if opz['name'] in self.outputZoneDialog.outputZones:
+							selectedOutputZones.append(opz)
 
-			res1D, res2D, messages = getResultPathsFromTCF(file, scenarios=scenarios, events=events, output_zones=selectedOutputZones)
-
-			# since going through tcf, may as well grab cell size and use for cross section and flux line resolution
-			#if scenarios:
-			#	# if there are scenarios, there may be a variable set for cell size
-			#	cellSize = 99999
-			#	for i, scenario in enumerate(scenarios):
-			#		size = getCellSizeFromTCF(file, scenario=scenario)
-			#		if size is not None:
-			#			cellSize = min(cellSize, size)
-			#else:
-			#	cellSize = getCellSizeFromTCF(file)
-			#if cellSize is not None and cellSize != 99999:
-			#	self.tuView.tuOptions.resolution = cellSize
+				res1D, res2D, mess = getResultPathsFromTCF(file, scenarios=scenarios, events=events, output_zones=selectedOutputZones)
+			else:
+				res1D, res2D, mess = getResultPathsFromTLF(file)
 			
 			if res1D:
 				if results1D:
@@ -229,6 +223,8 @@ class TuMenuFunctions():
 					results2D[0] += res2D
 				else:
 					results2D.append(res2D)
+			if mess:
+				messages += mess
 
 		# load 2D results
 		if results2D:
@@ -246,7 +242,7 @@ class TuMenuFunctions():
 					mes += m
 				else:
 					mes += '\n\n{0}'.format(m)
-			QMessageBox.information(self.iface.mainWindow(), "TUFLOW Viewer", "Failed to load results from TCF\n\n{0}".format(mes))
+			QMessageBox.information(self.iface.mainWindow(), "TUFLOW Viewer", "Failed to load results from {1}\n\n{0}".format(mes, ext.upper()[1:]))
 			
 		# finally save the last folder location
 		fpath = os.path.dirname(inFileNames[0][0])
@@ -334,10 +330,10 @@ class TuMenuFunctions():
 		showGridPrev = self.tuView.tuOptions.showGrid
 		showTrianglesPrev = self.tuView.tuOptions.showTriangles
 		timeUnitsPrev = self.tuView.tuOptions.timeUnits
+		zeroDatePrev = self.tuView.tuOptions.zeroTime
 		self.tuOptionsDialog = TuOptionsDialog(self.tuView.tuOptions)
 		self.tuOptionsDialog.exec_()
-		self.tuView.tuPlot.updateCurrentPlot(self.tuView.tabWidget.currentIndex(), update='1d and 2d only')
-		self.tuView.tuPlot.tuPlotToolbar.cursorTrackingButton.setChecked(self.tuView.tuOptions.liveMapTracking)
+
 		if self.tuView.tuMenuBar.showMedianEvent_action.isChecked() or self.tuView.tuMenuBar.showMeanEvent_action.isChecked():
 			self.tuView.renderMap()
 		if self.tuView.tuOptions.showGrid != showGridPrev or self.tuView.tuOptions.showTriangles != showTrianglesPrev:
@@ -347,6 +343,12 @@ class TuMenuFunctions():
 			self.tuView.tuResults.updateTimeUnits()
 		if self.tuView.tuOptions.timeUnits != timeUnitsPrev:
 			self.tuView.tuResults.updateTimeUnits()
+		if self.tuView.tuOptions.xAxisDates:
+			if self.tuView.tuOptions.zeroTime != zeroDatePrev:
+				self.tuView.tuResults.updateDateTimes()
+
+		self.tuView.tuPlot.updateCurrentPlot(self.tuView.tabWidget.currentIndex(), update='1d and 2d only')
+		self.tuView.tuPlot.tuPlotToolbar.cursorTrackingButton.setChecked(self.tuView.tuOptions.liveMapTracking)
 		
 		return True
 	
@@ -474,7 +476,7 @@ class TuMenuFunctions():
 		
 		:return: str Headers, numpy array data
 		"""
-		
+
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.tuView.tuPlot.plotEnumerator(plotNo)
 		
@@ -501,7 +503,7 @@ class TuMenuFunctions():
 		# put all data into one big numpy array and adjust data accordingly to max length - axis 1
 		data = None
 		for i, line in enumerate(lines):
-			if i ==0:
+			if i == 0:
 				data = np.zeros((maxLen, 1))  # set up data array.. start with zeros and delete first column once populated
 			if type(line) == Polygon:
 				xy = line.get_xy()
@@ -560,16 +562,31 @@ class TuMenuFunctions():
 			if i == 0:
 				if needToDeleteFirstColumn:
 					data = np.delete(data, 0, 1)  # delete initialised row of zeros
-			
+
 		if plotNo == 0:
 			dataHeader = self.getTimeSeriesPlotHeaders(labels, labels2)
 		elif plotNo == 1:
 			dataHeader = self.getLongPlotHeaders(labels, labels2)
 		else:
 			dataHeader = ''
-			
+
+		# delete duplicate Time arrays
+		timeColumns = []
+		for i in range(1, data.shape[1]):
+			if i % 2 == 0:
+				if np.allclose(data[:, i - 2], data[:, i], equal_nan=True):		# avoid nan == nan not being True
+					timeColumns.append(i)
+		data = np.delete(data, timeColumns, axis=1)
+		# keep data headers only for remaining arrays
+		dataHeader = dataHeader.split(',')
+		remainingHeader = []
+		for i in range(len(dataHeader)):
+			if i not in timeColumns:
+				remainingHeader.append(dataHeader[i])
+		dataHeader = ','.join(remainingHeader)
+
 		return dataHeader, data
-	
+
 	def getTimeSeriesPlotHeaders(self, labels, labels2):
 		"""
 		Returns column headings in comma delimiter format for time series export to csv.
@@ -817,13 +834,19 @@ class TuMenuFunctions():
 		for i, rubberBand in enumerate(self.tuView.tuPlot.tuRubberBand.rubberBands):
 			geom = rubberBand.asGeometry().asPolyline()
 			feat = QgsFeature()
-			feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
+			try:
+				feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
+			except:
+				feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in geom]))
 			feat.setAttributes(['Line {0}'.format(i+1)])
 			feats.append(feat)
 		for i, line in enumerate(self.tuView.tuPlot.tuFlowLine.rubberBands):
 			geom = line.asGeometry().asPolyline()
 			feat = QgsFeature()
-			feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
+			try:
+				feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
+			except:
+				feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in geom]))
 			feat.setAttributes(['Flow Location {0}'.format(i + 1)])
 			feats.append(feat)
 		error = dp.addFeatures(feats)
@@ -994,14 +1017,16 @@ class TuMenuFunctions():
 		# get scalar renderer settings
 		if useClicked:
 			resultType = self.tuView.tuContextMenu.resultTypeContextItem.ds_name
-			if resultType in self.tuView.tuResults.maxResultTypes:
-				for i in range(dp.datasetGroupCount()):
-					if dp.datasetGroupMetadata(i).name() == '{0}/Maximums'.format(resultType):
+			for i in range(dp.datasetGroupCount()):
+				# is the datasetGroup a maximum?
+				isDatasetMax = TuResults.isMaximumResultType(TuResults(), dp.datasetGroupMetadata(i).name(),
+				                                             dp=dp, groupIndex=i)
+				if self.tuView.tuContextMenu.resultTypeContextItem.isMax and isDatasetMax:
+					if TuResults.stripMaximumName(TuResults(), dp.datasetGroupMetadata(i).name()) == resultType:
 						activeScalarGroupIndex = i
 						break
-			else:
-				for i in range(dp.datasetGroupCount()):
-					if dp.datasetGroupMetadata(i).name() == resultType:
+				else:
+					if dp.datasetGroupMetadata(i).name() == resultType and not isDatasetMax:
 						activeScalarGroupIndex = i
 						break
 		elif meshIndex is not None:
@@ -1014,7 +1039,7 @@ class TuMenuFunctions():
 				return False
 
 		activeScalarType = dp.datasetGroupMetadata(activeScalarGroupIndex).name()
-		activeScalarType = activeScalarType.split('/')[0]
+		activeScalarType = TuResults.stripMaximumName(TuResults(None), activeScalarType)
 		rsScalar = rs.scalarSettings(activeScalarGroupIndex)
 		
 		# save color ramp if option chosen
@@ -1075,7 +1100,7 @@ class TuMenuFunctions():
 		
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		useClicked = kwargs['use_clicked'] if 'use_clicked' in kwargs.keys() else False
 		saveType = kwargs['save_type'] if 'save_type' in kwargs else 'default'
 		meshIndex = kwargs['mesh_index'] if 'mesh_index' in kwargs else None
@@ -1106,9 +1131,15 @@ class TuMenuFunctions():
 		if useClicked:
 			resultType = self.tuView.tuContextMenu.resultTypeContextItem.ds_name
 			for i in range(dp.datasetGroupCount()):
-				if dp.datasetGroupMetadata(i).name() == resultType or dp.datasetGroupMetadata(i).name() == '{0}/Maximums'.format(resultType):
-					activeVectorGroupIndex = i
-					break
+				if self.tuView.tuContextMenu.resultTypeContextItem.isMax and \
+						TuResults.isMaximumResultType(TuResults(), dp.datasetGroupMetadata(i).name()):
+					if TuResults.stripMaximumName(TuResults(), dp.datasetGroupMetadata(i).name()) == resultType:
+						activeVectorGroupIndex = i
+						break
+				else:
+					if dp.datasetGroupMetadata(i).name() == resultType:
+						activeVectorGroupIndex = i
+						break
 		elif meshIndex is not None:
 			activeVectorGroupIndex = meshIndex.group()
 		else:
@@ -1121,7 +1152,7 @@ class TuMenuFunctions():
 				else:
 					return ''
 		activeVectorType = dp.datasetGroupMetadata(activeVectorGroupIndex).name()
-		activeVectorType = activeVectorType.split('/')[0]
+		activeVectorType = TuResults.stripMaximumName(TuResults(None), activeVectorType)
 		rsVector = rs.vectorSettings(activeVectorGroupIndex)
 		
 		# get vector properties
@@ -1157,7 +1188,7 @@ class TuMenuFunctions():
 		
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		useClicked = kwargs['use_clicked'] if 'use_clicked' in kwargs.keys() else False
 		
 		# what happens if there are no active mesh layers
@@ -1173,23 +1204,30 @@ class TuMenuFunctions():
 			# get active dataset and check if it is scalar
 			if useClicked:
 				resultType = self.tuView.tuContextMenu.resultTypeContextItem.ds_name
-				if self.tuView.tuContextMenu.resultTypeContextItem.isMax:
-					resultType = "{0}/Maximums".format(resultType)
 				for i in range(dp.datasetGroupCount()):
-					if dp.datasetGroupMetadata(i).name() == resultType:
-						activeScalarGroupIndex = i
-						break
+					# is the datasetGroup a maximum?
+					isDatasetMax = TuResults.isMaximumResultType(TuResults(), dp.datasetGroupMetadata(i).name(),
+					                                             dp=dp, groupIndex=i)
+					if self.tuView.tuContextMenu.resultTypeContextItem.isMax and isDatasetMax:
+						if TuResults.stripMaximumName(TuResults(), dp.datasetGroupMetadata(i).name()) == resultType:
+							activeScalarGroupIndex = i
+							break
+					else:
+						if dp.datasetGroupMetadata(i).name() == resultType and not isDatasetMax:
+							activeScalarGroupIndex = i
+							break
+						
 			else:
 				activeScalar = rs.activeScalarDataset()
 				activeScalarGroupIndex = activeScalar.group()
 				if not activeScalar.isValid():
 					QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Scalar Dataset')
 					return False
-			
+
 			# get the name and try and apply default styling
 			mdGroup = dp.datasetGroupMetadata(activeScalarGroupIndex)
 			if mdGroup.isScalar():  # should be scalar considering we used activeScalarDataset
-				resultType = mdGroup.name().split('/')[0]
+				resultType = TuResults.stripMaximumName(TuResults(), mdGroup.name())
 				# try finding if style has been saved as a ramp first
 				key = 'TUFLOW_scalarRenderer/{0}_ramp'.format(resultType)
 				file = QSettings().value(key)
@@ -1209,7 +1247,7 @@ class TuMenuFunctions():
 		
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		useClicked = kwargs['use_clicked'] if 'use_clicked' in kwargs.keys() else False
 		
 		# what happens if there are no active mesh layers
@@ -1225,24 +1263,28 @@ class TuMenuFunctions():
 			# get active dataset and check if it is vector
 			if useClicked:
 				resultType = self.tuView.tuContextMenu.resultTypeContextItem.ds_name
-				if self.tuView.tuContextMenu.resultTypeContextItem.isMax:
-					resultType = "{0}/Maximums".format(resultType)
 				for i in range(dp.datasetGroupCount()):
-					if dp.datasetGroupMetadata(i).name() == resultType:
-						activeVectorGroupIndex = i
-						break
+					if self.tuView.tuContextMenu.resultTypeContextItem.isMax and \
+							TuResults.isMaximumResultType(TuResults(), dp.datasetGroupMetadata(i).name()):
+						if TuResults.stripMaximumName(TuResults(), dp.datasetGroupMetadata(i).name()) == resultType:
+							activeVectorGroupIndex = i
+							break
+					else:
+						if dp.datasetGroupMetadata(i).name() == resultType:
+							activeVectorGroupIndex = i
+							break
 			else:
 				activeVector = rs.activeVectorDataset()
+				activeVectorGroupIndex = activeVector.group()
 				if not activeVector.isValid():
 					QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Scalar Dataset')
 					return False
 				
 			# get the name and try and apply default styling
-			activeVectorGroupIndex = activeVector.group()
 			mdGroup = dp.datasetGroupMetadata(activeVectorGroupIndex)
 			if mdGroup.isVector():  # should be vector considering we used activeScalarDataset
 				resultType = mdGroup.name()
-				resultType = resultType.split('/')[0]
+				resultType = TuResults.stripMaximumName(TuResults(None), resultType)
 				mdGroup = dp.datasetGroupMetadata(activeVectorGroupIndex)
 				rsVector = rs.vectorSettings(activeVectorGroupIndex)
 				vectorProperties = QSettings().value('TUFLOW_vectorRenderer/vector')
@@ -1342,7 +1384,7 @@ class TuMenuFunctions():
 			complete = 0
 		# loop through features and output
 		for f in featIterator:
-			if vLayer.geometryType() == 0:
+			if vLayer.geometryType() == QgsWkbTypes.PointGeometry:
 				if nameIndex is not None:
 					name = '{0}'.format(f.attributes()[nameIndex])
 				else:
@@ -1350,7 +1392,7 @@ class TuMenuFunctions():
 				self.tuView.tuPlot.tuPlot2D.plotTimeSeriesFromMap(
 					vLayer, f, bypass=True, mesh=mLayers, types=resultTypes, export=format,
 					export_location=outputFolder, name=name, export_format=imageFormat)
-			elif vLayer.geometryType() == 1:
+			elif vLayer.geometryType() == QgsWkbTypes.LineGeometry:
 				if nameIndex is not None:
 					name = '{0}'.format(f.attributes()[nameIndex])
 				else:

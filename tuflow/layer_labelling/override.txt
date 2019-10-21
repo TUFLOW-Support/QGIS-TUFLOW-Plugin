@@ -1,0 +1,13 @@
+! overrides labelling properties
+
+! can override a certain rule 
+! e.g.
+!Attribute == 2 | C
+!    buffer == ON
+!    box == OFF
+!    Label Attributes == 7 | 8
+!End Attribute
+
+! and / or override everything - override rule (like above) takes precedence over global overrides (like below)
+!buffer == OFF
+!box == ON

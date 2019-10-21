@@ -1,4 +1,4 @@
-
+from qgis.core import QgsWkbTypes, QgsVectorLayer
 
 
 class TuPlotSelection():
@@ -26,12 +26,21 @@ class TuPlotSelection():
 		if len(sel) > 1:
 			multi = True
 		for i, f in enumerate(sel):
+			# get feature name from attribute
+			iFeatName = self.tuPlot.tuView.tuOptions.iLabelField
+			if len(f.attributes()) > iFeatName:
+				featName = f.attributes()[iFeatName]
+			else:
+				featName = None
+
 			if i == 0:
 				self.tuPlot.clearPlot(0, retain_1d=True, retain_flow=True)  # clear plot
 				self.tuPlot.tuPlot2D.resetMultiPointCount()
-				self.tuPlot.tuPlot2D.plotTimeSeriesFromMap(layer, f.geometry().asPoint(), bypass=multi)
+				self.tuPlot.tuPlot2D.plotTimeSeriesFromMap(layer, f.geometry().asPoint(), bypass=multi,
+				                                           featName=featName)
 			else:
-				self.tuPlot.tuPlot2D.plotTimeSeriesFromMap(layer, f.geometry().asPoint(), bypass=multi)
+				self.tuPlot.tuPlot2D.plotTimeSeriesFromMap(layer, f.geometry().asPoint(), bypass=multi,
+				                                           featName=featName)
 			self.tuPlot.tuPlot2D.plotSelectionPointFeat.append(f)
 		
 		self.tuPlot.tuPlot2D.reduceMultiPointCount(1)  # have to minus 1 off to make it count properly
@@ -58,12 +67,19 @@ class TuPlotSelection():
 		if len(sel) > 1:
 			multi = True
 		for i, f in enumerate(sel):
+			# get feature name from attribute
+			iFeatName = self.tuPlot.tuView.tuOptions.iLabelField
+			if len(f.attributes()) > iFeatName:
+				featName = f.attributes()[iFeatName]
+			else:
+				featName = None
+
 			if i == 0:
 				self.tuPlot.clearPlot(1, retain_1d=True, retain_flow=True)  # clear plot
 				self.tuPlot.tuPlot2D.resetMultiLineCount()
-				self.tuPlot.tuPlot2D.plotCrossSectionFromMap(layer, f, bypass=multi)
+				self.tuPlot.tuPlot2D.plotCrossSectionFromMap(layer, f, bypass=multi, featName=featName)
 			else:
-				self.tuPlot.tuPlot2D.plotCrossSectionFromMap(layer, f, bypass=multi)
+				self.tuPlot.tuPlot2D.plotCrossSectionFromMap(layer, f, bypass=multi, featName=featName)
 			self.tuPlot.tuPlot2D.plotSelectionLineFeat.append(f)
 		
 		self.tuPlot.tuPlot2D.reduceMultiLineCount(1)  # have to minus 1 off to make it count properly
@@ -81,7 +97,7 @@ class TuPlotSelection():
 		:param layer: QgsVectorLayer
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		self.tuPlot.tuPlot2D.plotSelectionFlowFeat = []
 		
 		sel = layer.selectedFeatures()
@@ -89,12 +105,23 @@ class TuPlotSelection():
 		if len(sel) > 1:
 			multi = True
 		for i, f in enumerate(sel):
-			if i == 0:
-				self.tuPlot.clearPlot(1, retain_1d=True, retain_2d=True)  # clear plot
-				self.tuPlot.tuPlot2D.resetMultiFlowLineCount()
-				self.tuPlot.tuPlot2D.plotFlowFromMap(layer, f, bypass=multi)
+			# get feature name from attribute
+			iFeatName = self.tuPlot.tuView.tuOptions.iLabelField
+			if len(f.attributes()) > iFeatName:
+				featName = f.attributes()[iFeatName]
 			else:
-				self.tuPlot.tuPlot2D.plotFlowFromMap(layer, f, bypass=multi)
+				featName = None
+
+			if i == 0:
+				if self.tuPlot.timeSeriesPlotFirst:  # first plot so need to remove test line
+					self.tuPlot.clearPlot(0)
+					self.tuPlot.timeSeriesPlotFirst = False
+				else:
+					self.tuPlot.clearPlot(0, retain_1d=True, retain_2d=True)  # clear plot
+				self.tuPlot.tuPlot2D.resetMultiFlowLineCount()
+				self.tuPlot.tuPlot2D.plotFlowFromMap(layer, f, bypass=multi, featName=featName)
+			else:
+				self.tuPlot.tuPlot2D.plotFlowFromMap(layer, f, bypass=multi, featName=featName)
 			self.tuPlot.tuPlot2D.plotSelectionFlowFeat.append(f)
 		
 		self.tuPlot.tuPlot2D.reduceMultiFlowLineCount(1)  # have to minus 1 off to make it count properly
@@ -122,17 +149,17 @@ class TuPlotSelection():
 		if layer is not None:
 			
 			# check that layer is vector type
-			if layer.type() == 0:
+			if isinstance(layer, QgsVectorLayer):
 				
 				# check geometry type i.e. point, line
 				if plotNo == 0:
-					if layer.geometryType() == 0:
+					if layer.geometryType() == QgsWkbTypes.PointGeometry:
 						plot = self.plotTimeSeries(layer)
-					elif layer.geometryType() == 1:
+					elif layer.geometryType() == QgsWkbTypes.LineGeometry:
 						if plotType == 'flow':
 							plot = self.plotFlow(layer)
 				elif plotNo == 1:
-					if layer.geometryType() == 1:
+					if layer.geometryType() == QgsWkbTypes.LineGeometry:
 						plot = self.plotCrossSection(layer)
 		
 		self.tuPlot.plotSelectionPoint = True

@@ -1,6 +1,7 @@
 import numpy
 import os
 import math
+import logging
 from ARR_TUFLOW_func_lib import *
 
 
@@ -21,6 +22,7 @@ class Bom:
         self.winter_factor_7d_frequent = []
         self.winter_factor_1d_rare = []
         self.winter_factor_7d_rare = []
+        self.logger = logging.getLogger('ARR2019')
 
     # noinspection PyBroadException
     def load(self, fname, frequent_events, rare_events):

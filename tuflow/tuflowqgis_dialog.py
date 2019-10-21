@@ -36,6 +36,7 @@ import sys
 import subprocess
 import numpy as np
 import matplotlib
+import dateutil.parser
 try:
 	import matplotlib.pyplot as plt
 except:
@@ -45,7 +46,7 @@ except:
 	sys.path.append(os.path.join(current_path, '_tk\\Lib'))
 	import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from tuflow.tuflowqgis_library import interpolate, convertStrftimToTuviewftim, convertTuviewftimToStrftim
+from tuflow.tuflowqgis_library import interpolate, convertStrftimToTuviewftim, convertTuviewftimToStrftim, browse
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/forms")
 currentFolder = os.path.dirname(os.path.abspath(__file__))
 
@@ -225,7 +226,8 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		self.pbShowToolTip.clicked.connect(self.toggleToolTip)
 		self.pbHideToolTip.clicked.connect(self.toggleToolTip)
 		self.emptyType.itemSelectionChanged.connect(self.updateToolTip)
-		self.buttonBox.accepted.connect(self.run)
+		self.pbOk.clicked.connect(self.run)
+		self.pbCancel.clicked.connect(self.reject)
 
 		if self.tfsettings.combined.base_dir:
 			subfolders = [self.parent_folder_name.lower(), 'model', 'gis', 'empty']
@@ -417,10 +419,13 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		regions = self.checkRegion.isChecked()
 
 		# run create dir script
-		message = tuflowqgis_import_empty_tf(self.iface, basedir, runID, empty_types, points, lines, regions)
+		message = tuflowqgis_import_empty_tf(self.iface, basedir, runID, empty_types, points, lines, regions, self)
 		#message = tuflowqgis_create_tf_dir(self.iface, crs, basedir)
-		if message != None:
-			QMessageBox.critical(self.iface.mainWindow(), "Importing {0} Empty File(s)".format(self.parent_folder_name), message)
+		if message is not None:
+			if message != 1:
+				QMessageBox.critical(self.iface.mainWindow(), "Importing {0} Empty File(s)".format(self.parent_folder_name), message)
+		else:
+			self.accept()
 
 # ----------------------------------------------------------
 #    tuflowqgis Run TUFLOW (Simple)
@@ -854,7 +859,13 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 			last_dir = ''
 			
 		# Get the file name
-		inFileName = QFileDialog.getOpenFileName(self, 'Select TUFLOW exe', last_dir, "TUFLOW Executable (*.exe)")
+		if sys.platform == 'win32':
+			ftypes = "TUFLOW Executable (*.exe)"
+		else:
+			ftypes = "TUFLOW Executable (*)"
+		inFileName = QFileDialog.getOpenFileName(self, 'Select TUFLOW exe', last_dir, ftypes)
+
+
 		inFileName = inFileName[0]
 		if len(inFileName) == 0: # If the length is 0 the user pressed cancel 
 			return
@@ -926,7 +937,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 			crs = QgsCoordinateReferenceSystem()
 			crs.createFromString(tf_prj)
 	
-			message = tuflowqgis_create_tf_dir(self.iface, crs, basedir, engine, tutorial)
+			message = tuflowqgis_create_tf_dir(self, crs, basedir, engine, tutorial)
 			if message != None:
 				QMessageBox.critical(self.iface.mainWindow(), "Creating TUFLOW Directory ", message)
 		
@@ -1163,11 +1174,13 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		self.setupUi(self)
 		self.canvas = self.iface.mapCanvas()
 		self.tfsettings = TF_Settings()
+		icon = QIcon(os.path.join(os.path.dirname(__file__), "icons", "arr2016.PNG"))
+		self.setWindowIcon(icon)
 		
 		# Set up Input Catchment File ComboBox
 		for name, layer in QgsProject.instance().mapLayers().items():
 				if layer.type() == QgsMapLayer.VectorLayer:
-					if layer.geometryType() == 0 or layer.geometryType() == 2:
+					if layer.geometryType() == QgsWkbTypes.PointGeometry or layer.geometryType() == QgsWkbTypes.PolygonGeometry:
 						self.comboBox_inputCatchment.addItem(layer.name())
 							
 		layerName = self.comboBox_inputCatchment.currentText()
@@ -1197,9 +1210,6 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		outputNotationIndex = int(QSettings().value("ARR2016_output_notation", 0))
 		self.comboBox_outputN.setCurrentIndex(outputNotationIndex)
 		
-		# Set up MAR and Static Value box
-		self.mar_staticValue.setEnabled(False)
-		
 		# setup preburst percentile
 		preBurstIndex = int(QSettings().value("ARR2016_preburst_percentile", 0))
 		self.comboBox_preBurstptile.setCurrentIndex(preBurstIndex)
@@ -1209,7 +1219,14 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		self.comboBox_ilMethod.setCurrentIndex(ilMethodIndex)
 		if ilMethodIndex == 2 or ilMethodIndex == 3:
 			ilInputValue = QSettings().value("ARR2016_IL_input_value", "")
-			self.mar_staticValue.setText(ilInputValue)
+			if type(ilInputValue) is str:
+				self.mar_staticValue.setText(ilInputValue)
+				
+		# Set up MAR and Static Value box
+		if self.comboBox_ilMethod.currentIndex() == 2 or self.comboBox_ilMethod.currentIndex() == 3:
+			self.mar_staticValue.setEnabled(True)
+		else:
+			self.mar_staticValue.setEnabled(False)
 			
 		# tuflow loss method
 		tuflowLMindex = int(QSettings().value("ARR2016_TUFLOW_loss_method", 0))
@@ -1253,23 +1270,34 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 	def catchmentLayer_changed(self):
 		layerName = self.comboBox_inputCatchment.currentText()
 		layer = tuflowqgis_find_layer(layerName)
+		fieldname2index = {f: i for i, f in enumerate(layer.fields().names())}
 		
 		# Set up Catchment Field ID ComboBox
+		if self.comboBox_CatchID.currentText() in fieldname2index:
+			fieldIndex = fieldname2index[self.comboBox_CatchID.currentText()]
+		else:
+			fieldIndex = 0
 		self.comboBox_CatchID.clear()
 		if layer is not None:
-			for f in layer.fields():
-				self.comboBox_CatchID.addItem(f.name())
+			for f in layer.fields().names():
+				self.comboBox_CatchID.addItem(f)
+		self.comboBox_CatchID.setCurrentIndex(fieldIndex)
 		
 		# Set up Catchment Area Field ComboBox
 		if self.radioButton_ARF_auto.isChecked():
 			self.comboBox_CatchArea.setEnabled(False)
 		else:
+			if self.comboBox_CatchArea.currentText() in fieldname2index:
+				fieldIndex = fieldname2index[self.comboBox_CatchArea.currentText()] + 1  # +1 because '-none-' is added as first
+			else:
+				fieldIndex = 0
 			self.comboBox_CatchArea.setEnabled(True)
 			self.comboBox_CatchArea.clear()
 			self.comboBox_CatchArea.addItem('-None-')
 			if layer is not None:
-				for f in layer.pendingFields():
-					self.comboBox_CatchArea.addItem(f.name())
+				for f in layer.fields().names():
+					self.comboBox_CatchArea.addItem(f)
+			self.comboBox_CatchArea.setCurrentIndex(fieldIndex)
 	
 	def browse(self, browseType, key, dialogName, fileType, lineEdit):
 		"""
@@ -1302,7 +1330,7 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		if f:
 			lineEdit.setText(f)
 			settings.setValue(key, f)
-				
+		
 	def toggle_comboBox_CatchArea(self):
 		layerName = self.comboBox_inputCatchment.currentText()
 		layer = tuflowqgis_find_layer(layerName)
@@ -1561,9 +1589,12 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		QApplication.restoreOverrideCursor()
 		if error:
 			self.progressLabel.setText("Errors occured")
+			if type(error) is bytes:
+				error = error.decode('utf-8')
 			QMessageBox.critical(self, "Message",
-			                     'Process Complete with errors. Please see\n{0}\nfor warning and error messages.' \
-			                     .format(os.path.join(outFolder, 'log.txt')))
+			                     'Process Complete with errors. Please see\n{0}\nfor more information on ' \
+			                     'warning and error messages.\n\n{1}' \
+			                     .format(os.path.join(outFolder, 'log.txt'), error))
 		else:
 			self.progressLabel.setText("Complete")
 			QMessageBox.information(self, "Message",
@@ -1650,9 +1681,19 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		userContinuingLoss = 'none'
 		if self.cbUserCL.isChecked():
 			userContinuingLoss = str(self.sbUserCL.value())
+		urbanInitialLoss = 'none'
+		urbanContinuingLoss = 'none'
+		if self.gbUrbanLosses.isChecked():
+			urbanInitialLoss = '{0}'.format(self.sbUrbanIL.value())
+			urbanContinuingLoss = '{0}'.format(self.sbUrbanCL.value())
 		
 		# Get Minimum ARF Value
 		minArf = str(self.minArf.value())
+		# should arf be applied to events less than 50% AEP?
+		if self.cbArfFrequent.isChecked():
+			arfFrequent = 'true'
+		else:
+			arfFrequent = 'false'
 		
 		# Get area and ID from input layer
 		idField = self.comboBox_CatchID.currentText()
@@ -1660,7 +1701,10 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		name_list = []
 		for feature in layer.getFeatures():
 			area_list.append(str(feature.geometry().area() / 1000000))
-			name_list.append(str(feature[idField]))
+			name = str(feature[idField])
+			if not name:
+				name = 'NULL'
+			name_list.append(name)
 		
 		areaField = self.comboBox_CatchArea.currentText()
 		if not self.radioButton_ARF_auto.isChecked():
@@ -1669,20 +1713,30 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			else:
 				area_list = []
 				for feature in layer.getFeatures():
-					try:
-						a = float(feature[areaField])
-					except:
-						QMessageBox.critical(self.iface.mainWindow(),"ERROR", 
-								 "Area Field must contain numbers only.")
-						return
-					area_list.append(str(a))
-		
-		# Convert layer to long/lat and get centroid
-		temp_shp = os.path.join(outFolder, '_reproject.shp')
-		parameters = {'INPUT': layer, 'TARGET_CRS': 'epsg:4203', 'OUTPUT': temp_shp}
+					if areaField in layer.fields().names():
+						try:
+							a = float(feature[areaField])
+						except ValueError:
+							QMessageBox.critical(self.iface.mainWindow(),"ERROR",
+									 "Area Field must contain numbers only.")
+							return
+						area_list.append(str(a))
+					else:
+						try:
+							a = float(areaField)
+							if a < 0:
+								a = 0
+							area_list = ['{0}'.format(a)] * len(name_list)
+						except ValueError:
+							QMessageBox.critical(self.iface.mainWindow(), "ERROR",
+							                     "User area must either be field containing the area or a user "
+							                     "input number.")
+							return
+
+		parameters = {'INPUT': layer, 'TARGET_CRS': 'epsg:4203', 'OUTPUT': 'memory:Reprojected'}
 		reproject = processing.run("qgis:reprojectlayer", parameters)
-		#reproject = processing.run("qgis:reprojectlayer", layer, "epsg:4203", None)
-		reproject_layer = QgsVectorLayer(reproject['OUTPUT'], 'reproject_layer', 'ogr')
+		reproject_layer = reproject['OUTPUT']
+
 		centroid_list = []
 		for feature in reproject_layer.getFeatures():
 			centroid = []
@@ -1691,7 +1745,6 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			centroid_list.append(centroid)
 		del reproject
 		del reproject_layer
-		QgsVectorFileWriter.deleteShapeFile(temp_shp)
 		
 		# offline mode
 		if self.gbOfflineMode.isChecked():
@@ -1720,7 +1773,9 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 						'-mar', mar, '-lossvalue', staticValue, '-minarf', minArf, '-addtp', addTp,
 			            '-tuflow_loss_method', tuflowLossMethod, '-point_tp', point_tp_csv, '-areal_tp', areal_tp_csv,
 			            '-offline_mode', offlineMode, '-arr_file', arrFile, '-bom_file', bomFile,
-			            '-user_initial_loss', userInitialLoss, '-user_continuing_loss', userContinuingLoss]
+			            '-user_initial_loss', userInitialLoss, '-user_continuing_loss', userContinuingLoss,
+			            '-arffreq', arfFrequent, '-urban_initial_loss', urbanInitialLoss,
+			            '-urban_continuing_loss', urbanContinuingLoss]
 			self.arr2016.append(sys_args, name_list[i])
 			
 		self.arr2016.moveToThread(self.thread)
@@ -1736,7 +1791,7 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		settings.setValue("ARR2016_preburst_percentile", self.comboBox_preBurstptile.currentIndex())
 		settings.setValue("ARR2016_IL_short_durations", self.comboBox_ilMethod.currentIndex())
 		if self.comboBox_ilMethod.currentIndex() == 2 or self.comboBox_ilMethod.currentIndex() == 3:
-			settings.setValue("ARR2016_IL_input_value", self.mar_staticValue)
+			settings.setValue("ARR2016_IL_input_value", self.mar_staticValue.text())
 		settings.setValue("ARR2016_TUFLOW_loss_method", self.cboTuflowLM.currentIndex())
 		settings.setValue("ARR2016_min_arf", self.minArf.value())
 		settings.setValue("ARR2016_output_format", self.comboBox_outputF.currentIndex())
@@ -1862,50 +1917,60 @@ class Arr2016(QObject):
 		self.name_list.append(name)
 
 	def run(self):
-		errors = ''
-		for i, sys_args in enumerate(self.sys_args):
-			if i > 0:
-				self.updated.emit(i)
-			if i == 0:
-				logfile = open(self.logfile, 'wb')
-			else:
-				logfile = open(self.logfile, 'ab')
-			
-			CREATE_NO_WINDOW = 0x08000000  # suppresses python console window
-			error = False
-			if sys.platform == 'win32':
-				try:  # for some reason (in QGIS2 at least) creationsflags didn't work on all computers
-					proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-					                        creationflags=CREATE_NO_WINDOW)
-					out, err = proc.communicate()
-					logfile.write(out)
-					logfile.write(err)
-					logfile.close()
-					if err:
-						errors += '{0} - {1}'.format(self.name_list[i], err)
-				except:
+		try:
+			errors = ''
+			for i, sys_args in enumerate(self.sys_args):
+				if i > 0:
+					self.updated.emit(i)
+				#if i == 0:
+				#	logfile = open(self.logfile, 'wb')
+				#else:
+				#	logfile = open(self.logfile, 'ab')
+
+				CREATE_NO_WINDOW = 0x08000000  # suppresses python console window
+				error = False
+				if sys.platform == 'win32':
+					try:  # for some reason (in QGIS2 at least) creationsflags didn't work on all computers
+						proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+						                        creationflags=CREATE_NO_WINDOW)
+						out, err = proc.communicate()
+						#logfile.write(out)
+						#logfile.write(err)
+						#logfile.close()
+						if err:
+							if type(err) is bytes:
+								err = err.decode('utf-8')
+							errors += '{0} - {1}'.format(self.name_list[i], err)
+					except:
+						try:
+							proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+							out, err = proc.communicate()
+							#logfile.write(out)
+							#logfile.write(err)
+							#logfile.close()
+							if err:
+								if type(err) is bytes:
+									err = err.decode('utf-8')
+								errors += '{0} - {1}'.format(self.name_list[i], err)
+						except:
+							error = 'Error with subprocess call'
+				else:  # linux and mac
 					try:
 						proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 						out, err = proc.communicate()
-						logfile.write(out)
-						logfile.write(err)
-						logfile.close()
+						#logfile.write(out)
+						#logfile.write(err)
+						#logfile.close()
 						if err:
+							if type(err) is bytes:
+								err = err.decode('utf-8')
 							errors += '{0} - {1}'.format(self.name_list[i], err)
 					except:
 						error = 'Error with subprocess call'
-			else:  # linux and mac
-				try:
-					proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-					out, err = proc.communicate()
-					logfile.write(out)
-					logfile.write(err)
-					logfile.close()
-					if err:
-						errors += '{0} - {1}'.format(self.name_list[i], err)
-				except:
-					error = 'Error with subprocess call'
-				
+		except Exception as e:
+			if type(e) is bytes:
+				e = err.decode('utf-8')
+			errors += e
 		
 		self.finished.emit(errors)
 		
@@ -1978,7 +2043,8 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 									
 		self.browsedir.clicked.connect(lambda: self.browse_empty_dir(unicode(self.emptydir.displayText()).strip()))
 		self.emptydir.editingFinished.connect(self.dirChanged)
-		self.buttonBox.accepted.connect(self.run)
+		self.pbOk.clicked.connect(self.run)
+		self.pbCancel.clicked.connect(self.reject)
 
 
 	def browse_empty_dir(self, oldName):
@@ -2045,9 +2111,12 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 		lenFields = len(inputLayer.fields())
 		
 		# run insert tuflow attributes script
-		message = tuflowqgis_insert_tf_attributes(self.iface, inputLayer, basedir, runID, template, lenFields)
+		message = tuflowqgis_insert_tf_attributes(self.iface, inputLayer, basedir, runID, template, lenFields, self)
 		if message is not None:
-			QMessageBox.critical(self.iface.mainWindow(), "Importing TUFLOW Empty File(s)", message)
+			if message != 1:
+				QMessageBox.critical(self.iface.mainWindow(), "Importing TUFLOW Empty File(s)", message)
+		else:
+			self.accept()
 
 
 # ----------------------------------------------------------
@@ -2495,6 +2564,9 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		
 		# cross section and flux line resolution
 		self.sbResolution.setValue(self.tuOptions.resolution)
+
+		# layer selection labelling
+		self.sbLabelFieldIndex.setValue(self.tuOptions.iLabelField + 1)
 		
 		# ARR mean event selection
 		if self.tuOptions.meanEventSelection == 'next higher':
@@ -2579,6 +2651,9 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		
 		# cross section and flux line resolution
 		self.tuOptions.resolution = self.sbResolution.value()
+
+		# layer selection labelling
+		self.tuOptions.iLabelField = self.sbLabelFieldIndex.value() - 1
 		
 		# ARR mean event selection
 		if self.rbARRNextHigher.isChecked():
@@ -2676,7 +2751,7 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 	def populateGISLayers(self):
 		for name, layer in QgsProject.instance().mapLayers().items():
 			if layer.type() == QgsMapLayer.VectorLayer:
-				if layer.geometryType() == 0 or layer.geometryType() == 1:
+				if layer.geometryType() == QgsWkbTypes.PointGeometry or layer.geometryType() == QgsWkbTypes.LineGeometry:
 					self.cbGISLayer.addItem(layer.name())
 					
 	def populateNameAttributes(self):
@@ -2711,28 +2786,25 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 		maximum = False
 		layer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
 		if layer is not None:
-			if layer.geometryType() == 0:
+			if layer.geometryType() == QgsWkbTypes.PointGeometry:
 				self.cbTimesteps.setEnabled(False)
-			elif layer.geometryType() == 1:
+			elif layer.geometryType() == QgsWkbTypes.LineGeometry:
 				self.cbTimesteps.setEnabled(True)
 				for mesh in self.mcbResultMesh.checkedItems():
 					r = self.tuView.tuResults.results[mesh]
-					for type, t in r.items():
-						for time, items in t.items():
-							if time == '-99999':
-								maximum = True
-							elif items[0] not in timesteps:
-								timesteps.append(items[0])
+					for rtype, t in r.items():
+						if type(t) is dict:  # map outputs results stored in dict, time series results stored as tuple
+							for time, items in t.items():
+								if time == '-99999':
+									maximum = True
+								elif items[0] not in timesteps:
+									timesteps.append(items[0])
 				timesteps = sorted(timesteps)
 				if timesteps:
 					if timesteps[-1] < 100:
-						timestepsFormatted = ['{0:02d}:{1:02.0f}:{2:05.2f}'.format(int(x), (x - int(x)) * 60,
-						                                                           (x - int(x) - (x - int(x))) * 3600)
-						                                                           for x in timesteps]
+						timestepsFormatted = [convertTimeToFormattedTime(x) for x in timesteps]
 					else:
-						timestepsFormatted = ['{0:03d}:{1:02.0f}:{2:05.2f}'.format(int(x), (x - int(x)) * 60,
-						                                                           (x - int(x) - (x - int(x))) * 3600)
-						                                                           for x in timesteps]
+						timestepsFormatted = [convertTimeToFormattedTime(x, hour_padding=3) for x in timesteps]
 					if maximum:
 						timestepsFormatted.insert(0, 'Maximum')
 		self.cbTimesteps.addItems(timestepsFormatted)
@@ -3020,315 +3092,105 @@ class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
 		self.iface = iface
 		folderIcon = QgsApplication.getThemeIcon('/mActionFileOpen.svg')
 		self.btnBrowse.setIcon(folderIcon)
-		self.convertDate()
+		self.convertDateError = False
+		self.convertDateErrorItems = ()
+		self.zeroDate = None
 		self.convertZeroDate()
 		self.ok = False
+		self.message = ''
+		self._dateFormat = '{0:%d}/{0:%m}/{0:%Y} {0:%H}:{0:%M}:{0:%S}'
 		
-		self.btnBrowse.clicked.connect(self.browse)
+		self.btnBrowse.clicked.connect(lambda: browse(self, 'existing file', 'TUFLOW/import_user_data',
+		                                              'Import Delimited File', lineEdit=self.inFile))
 		self.inFile.textChanged.connect(self.populateDataColumns)
 		self.inFile.textChanged.connect(self.updatePreview)
+		self.rbCSV.clicked.connect(self.populateDataColumns)
+		self.rbSpace.clicked.connect(self.populateDataColumns)
+		self.rbTab.clicked.connect(self.populateDataColumns)
+		self.rbOther.clicked.connect(self.populateDataColumns)
+		self.delimiter.textChanged.connect(self.populateDataColumns)
 		self.sbLines2Discard.valueChanged.connect(self.updateLabelRow)
 		self.sbLines2Discard.valueChanged.connect(self.populateDataColumns)
 		self.sbLines2Discard.valueChanged.connect(self.updatePreview)
 		self.cbHeadersAsLabels.clicked.connect(self.populateDataColumns)
 		self.sbLabelRow.valueChanged.connect(self.populateDataColumns)
 		self.cbXColumn.currentIndexChanged.connect(self.updatePreview)
-		self.mcbYColumn.checkedItemsChanged.connect(self.updatePreview)
+		self.mcbYColumn.currentTextChanged.connect(self.updatePreview)
 		self.nullValue.textChanged.connect(self.updatePreview)
-		self.rbCSV.clicked.connect(self.populateDataColumns)
-		self.rbSpace.clicked.connect(self.populateDataColumns)
-		self.rbTab.clicked.connect(self.populateDataColumns)
-		self.rbOther.clicked.connect(self.populateDataColumns)
-		self.delimiter.textChanged.connect(self.populateDataColumns)
-		self.dateFormat.editingFinished.connect(self.convertDate)
-		self.zeroHourDate.editingFinished.connect(self.convertZeroDate)
-		self.buttonBox.accepted.connect(self.check)
-		self.buttonBox.rejected.connect(self.reject)
+		self.gbUseDates.toggled.connect(self.updatePreview)
+		self.cbManualZeroTime.toggled.connect(self.convertZeroDate)
+		self.cbManualZeroTime.toggled.connect(self.updatePreview)
+		self.dteZeroTime.dateTimeChanged.connect(self.convertZeroDate)
+		self.dteZeroTime.dateTimeChanged.connect(self.updatePreview)
+		self.pbOk.clicked.connect(self.check)
+		self.pbCancel.clicked.connect(self.reject)
+
+	def addDateConversionError(self, txt='', clear=False):
+		"""
+		Adds an error when converting date
 		
-	def browse(self):
-		settings = QSettings()
-		inFile = settings.value('TUFLOW/import_user_data')
-		startDir = None
-		if inFile:  # if outFolder no longer exists, work backwards in directory until find one that does
-			while inFile:
-				if os.path.exists(inFile):
-					startDir = inFile
-					break
-				else:
-					inFile = os.path.dirname(inFile)
-		inFile = QFileDialog.getOpenFileName(self, 'Import Delimited File', startDir)[0]
-		if inFile:
-			self.inFile.setText(inFile)
-			settings.setValue('TUFLOW/import_user_data', inFile)
-			
+		:return: None
+		"""
+		
+		if clear:
+			if self.convertDateErrorItems:
+				layout = self.convertDateErrorItems[0]
+				label = self.convertDateErrorItems[1]
+				layout.removeWidget(label)
+				label.deleteLater()
+				label.setParent(None)
+				gbLayout = self.gbUseDates.layout()
+				for i in range(gbLayout.count()):
+					if gbLayout.itemAt(i) == layout:
+						gbLayout.takeAt(i)
+						layout.deleteLater()
+						layout.setParent(None)
+				self.convertDateErrorItems = ()
+				self.convertDateError = False
+			return
+		
+		label = QLabel()
+		label.setVisible(True)
+		label.setTextFormat(Qt.RichText)
+		label.setText(txt)
+		palette = label.palette()
+		palette.setColor(QPalette.Foreground, Qt.red)
+		font = label.font()
+		font.setItalic(True)
+		label.setPalette(palette)
+		label.setFont(font)
+		
+		layout = QHBoxLayout()
+		layout.addWidget(label)
+		self.gbUseDates.layout().addLayout(layout)
+		self.convertDateError = True
+		self.convertDateErrorItems = (layout, label)
+
 	def getDelim(self):
-		if self.rbCSV.isChecked():
-			return ','
-		elif self.rbSpace.isChecked():
-			return ' '
-		elif self.rbTab.isChecked():
-			return '\t'
-		elif self.rbOther.isChecked():
-			return self.delimiter.text()
-		
-	def checkDateFormatLetters(self):
-		for letter in self.dateFormat.text():
-			if letter != 'D' and letter.lower() != 'm' and letter != 'Y' and letter != 'h' and letter != 's' \
-					and letter != ' ' and letter != '/' and letter != '-' and letter != ':':
-				return 'Character {0} not recognised as a date format'.format(letter)
-		else:
-			return ''
-		
-	def checkConsecutive(self, letter):
-		f = self.dateFormat.text()
-		for i in range(f.count(letter)):
-			if i == 0:
-				indPrev = f.find(letter)
-			else:
-				ind = f[indPrev+1:].find(letter)
-				if ind != 0:
-					return False
-				indPrev += 1
-				
-		return True
-	
-	def getIndexes(self, letter):
-		delim1 = None
-		delim2 = None
-		index = None
-		a = None
-		b = None
-		f = self.dateFormat.text()
-		if self.checkConsecutive(letter):
-			i = f.find(letter)
-			j = f.find(letter) + f.count(letter)
-			if i > 0:
-				delim1 = f[i-1]
-				if delim1 == '/' or delim1 == '-' or delim1 == ' ' or delim1 == ':' or delim1 == ',' or delim1 == '.':
-					a = f.split(delim1)
-				else:  # use fixed field
-					delim1 = None
-					index = (i, j)
-					return (delim1, delim2, index)
-			if j < len(f):
-				delim2 = f[j]
-				if delim2 == '/' or delim2 == '-' or delim2 == ' ' or delim2 == ':' or delim2 == ',' or delim2 == '.':
-					b = []
-					if a is not None:
-						for x in a:
-							b += x.split(delim2)
-					else:
-						b = f.split(delim2)
-				else:  # use fixed field
-					delim2 = None
-					index = (i, j)
-					return (delim1, delim2, index)
-			if b is None:
-				if a is None:
-					return 'Date Format is Ambiguous'
-				else:
-					b = a[:]
-			for i, x in enumerate(b):
-				if letter in x:
-					index = i
-					break
-			return (delim1, delim2, index)
-		else:
-			return 'Date Format is Ambiguous'
-	
-	def convertDate(self):
-		self.day = None
-		self.month = None
-		self.year = None
-		self.hour = None
-		self.minute = None
-		self.second = None
-		self.dateCanBeConverted = True
-		f = self.dateFormat.text()
-		if not f:
-			self.dateCanBeConverted = False
-		else:
-			if self.checkDateFormatLetters():
-				self.dateCanBeConverted = False
-			else:
-				# the following gives me a tuple with the delimiters on either side of the variable and the index of the
-				# variable if string is split by both delimiters - or index can be tuple with fixed field indexes
-				if f.count('D'):  # find D day
-					self.day = self.getIndexes('D')
-					if type(self.day) is str:
-						self.dateCanBeConverted = False
-				if f.count('M'):  # find M month
-					self.month = self.getIndexes('M')
-					if type(self.month) is str:
-						self.dateCanBeConverted = False
-				if f.count('Y'):  # find Y year
-					self.year = self.getIndexes('Y')
-					if type(self.year) is str:
-						self.dateCanBeConverted = False
-				if f.count('h'):  # find h hour
-					self.hour = self.getIndexes('h')
-					if type(self.hour) is str:
-						self.dateCanBeConverted = False
-				if f.count('m'):  # find m minutes
-					self.minute = self.getIndexes('m')
-					if type(self.minute) is str:
-						self.dateCanBeConverted = False
-				if f.count('s'):  # find s seconds
-					self.second = self.getIndexes('s')
-					if type(self.second) is str:
-						self.dateCanBeConverted = False
-						
-		self.updatePreview()
-	
+			if self.rbCSV.isChecked():
+				return ','
+			elif self.rbSpace.isChecked():
+				return ' '
+			elif self.rbTab.isChecked():
+				return '\t'
+			elif self.rbOther.isChecked():
+				return self.delimiter.text()
+
 	def convertZeroDate(self):
-		self.zeroDay = (None, '/', 0)
-		self.zeroMonth = ('/', '/', 1)
-		self.zeroYear = ('/', ' ', 2)
-		self.zeroHour = (' ', ':', 1)
-		self.zeroMinute = (':', ':', 1)
-		self.zeroSecond = (':', None, 2)
-		self.zeroCanBeConverted = True
-		f = self.zeroHourDate.text()
-		if not f:
-			self.zeroCanBeConverted = False
+
+		if self.cbManualZeroTime.isChecked():
+			year = self.dteZeroTime.date().year()
+			month = self.dteZeroTime.date().month()
+			day = self.dteZeroTime.date().day()
+			hour = self.dteZeroTime.time().hour()
+			minute = self.dteZeroTime.time().minute()
+			second = self.dteZeroTime.time().second()
+			self.zeroDate = datetime(year, month, day, hour, minute, second)
+		else:
+			self.zeroDate = None
 		
 		self.updatePreview()
-		
-	def extractSpecificDateComponent(self, info, date):
-		if info is not None:
-			if type(info[2]) is tuple:  # fixed column
-				i = info[2][0]
-				j = info[2][1]
-				try:
-					a = int(date[i:j])
-				except ValueError:
-					a = None
-				return a
-			else:  # use delimiters
-				delim1 = info[0]
-				delim2 = info[1]
-				index = info[2]
-				if delim1 is not None:
-					a = date.split(delim1)
-				else:
-					a = date[:]
-				if delim2 is not None:
-					b = []
-					if delim1 is not None:
-						for x in a:
-							b += x.split(delim2)
-					else:
-						b = date.split(delim2)
-				else:
-					b = a[:]
-				try:
-					a = int(b[index])
-				except ValueError:
-					a = None
-				except IndexError:
-					a = None
-				return a
-				
-		return None
-	
-	def convertZeroDateToTime(self):
-		date = self.zeroHourDate.text()
-		year = 2000  # default
-		if self.zeroYear is not None:
-			year = self.extractSpecificDateComponent(self.zeroYear, date)
-			if year is not None:
-				if year < 1000:
-					year += 2000  # convert to YY to YYYY assuming it does not cross from one century to the next
-			else:
-				return 'Trouble converting year'
-		month = 1  # default
-		if self.zeroMonth is not None:
-			month = self.extractSpecificDateComponent(self.zeroMonth, date)
-			if month is None:
-				return 'Trouble converting month'
-		day = 1  # default
-		if self.zeroDay is not None:
-			day = self.extractSpecificDateComponent(self.zeroDay, date)
-			if day is None:
-				return 'Trouble converting day'
-		hour = 12  # default
-		if self.zeroHour is not None:
-			hour = self.extractSpecificDateComponent(self.zeroHour, date)
-			if hour is None:
-				return 'Trouble converting hour'
-		minute = 0
-		if self.zeroMinute is not None:
-			minute = self.extractSpecificDateComponent(self.zeroMinute, date)
-			if minute is None:
-				return 'Trouble converting minute'
-		second = 0
-		if self.zeroSecond is not None:
-			second = self.extractSpecificDateComponent(self.zeroSecond, date)
-			if second is None:
-				return 'Trouble converting second'
-		try:
-			date = datetime(year, month, day, hour, minute, second)
-			return date
-		except ValueError:
-			return 'Trouble converting date'
-	
-	def convertDateToTime(self, date, **kwargs):
-		convertToDateTime = kwargs['convert_to_datetime'] if 'convert_to_datetime' in kwargs.keys() else False
-		
-		year = 2000  # default
-		if self.year is not None:
-			year = self.extractSpecificDateComponent(self.year, date)
-			if year is not None:
-				if year < 1000:
-					year += 2000  # convert to YY to YYYY assuming it does not cross from one century to the next
-			else:
-				return 'Trouble converting year'
-		month = 1  # default
-		if self.month is not None:
-			month = self.extractSpecificDateComponent(self.month, date)
-			if month is None:
-				return 'Trouble converting month'
-		day = 1  # default
-		if self.day is not None:
-			day = self.extractSpecificDateComponent(self.day, date)
-			if day is None:
-				return 'Trouble converting day'
-		hour = 12  # default
-		if self.hour is not None:
-			hour = self.extractSpecificDateComponent(self.hour, date)
-			if hour is None:
-				return 'Trouble converting hour'
-		minute = 0
-		if self.minute is not None:
-			minute = self.extractSpecificDateComponent(self.minute, date)
-			if minute is None:
-				return 'Trouble converting minute'
-		second = 0
-		if self.second is not None:
-			second = self.extractSpecificDateComponent(self.second, date)
-			if second is None:
-				return 'Trouble converting second'
-		try:
-			date = datetime(year, month, day, hour, minute, second)
-		except ValueError:
-			return 'Trouble converting date'
-		if convertToDateTime:  # convert to datetime so don't worry about continuing to convert to hrs
-			return date
-		if self.zeroCanBeConverted:
-			self.zeroDate = self.convertZeroDateToTime()
-			if type(self.zeroDate) == str:
-				QMessageBox.information(self.iface.mainWindow(), 'Error', 'Zero Hour Date: {0}'.format(self.zeroDate))
-				return 0
-			else:
-				deltatime = date - self.zeroDate
-				return float(deltatime.days * 24) + float(deltatime.seconds / 60 / 60)
-		elif self.firstDataLine:
-			self.zeroDate = date
-			return 0.0
-		else:
-			deltatime = date - self.zeroDate
-			return float(deltatime.days * 24) + float(deltatime.seconds / 60 / 60)
-	
+
 	def updateLabelRow(self):
 		self.sbLabelRow.setMaximum(self.sbLines2Discard.value())
 		if self.sbLines2Discard.value() == 0:
@@ -3354,6 +3216,9 @@ class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
 								self.mcbYColumn.addItems(headers)
 	
 	def updatePreview(self):
+		self.addDateConversionError(clear=True)
+		if not self.cbManualZeroTime.isChecked():
+			self.zeroDate = None
 		self.previewTable.clear()
 		self.previewTable.setRowCount(0)
 		self.previewTable.setColumnCount(0)
@@ -3380,15 +3245,16 @@ class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
 										yHeaderInds.append(headers.index(yHeader))
 									except ValueError:
 										yHeaderInds.append(headers.index('{0}\n'.format(yHeader)))
-								if not self.dateCanBeConverted:
-									self.previewTable.setColumnCount(len(yHeaders) + 1)
-								else:
+								#if not self.dateCanBeConverted:
+								if self.gbUseDates.isChecked():
 									self.previewTable.setColumnCount(len(yHeaders) + 2)
+								else:
+									self.previewTable.setColumnCount(len(yHeaders) + 1)
 								if self.cbHeadersAsLabels.isChecked():
-									if not self.dateCanBeConverted:
-										tableColumnNames = [xHeader] + yHeaders
-									else:
+									if self.gbUseDates.isChecked():
 										tableColumnNames = [xHeader, 'Time (hr)'] + yHeaders
+									else:
+										tableColumnNames = [xHeader] + yHeaders
 								else:
 									if not self.dateCanBeConverted:
 										tableColumnNames = ['X'] + ['Y{0}'.format(x) for x in range(1, len(yHeaders) + 1)]
@@ -3402,28 +3268,39 @@ class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
 								self.previewTable.setVerticalHeaderLabels(['{0}'.format(x) for x in range(1, i - header_line + 1)])
 								delim = self.getDelim()
 								values = line.split(delim)
-								if '{0}'.format(values[xHeaderInd]) == self.nullValue.text() or \
-										'{0}'.format(values[xHeaderInd]) == '':
+								skip = False
+								if '{0}'.format(values[xHeaderInd]).strip() == self.nullValue.text() or \
+										'{0}'.format(values[xHeaderInd]).strip() == '':
 									noIgnored += 1
-									continue
+									skip = True
 								for yHeaderInd in yHeaderInds:
-									if '{0}'.format(values[yHeaderInd]) == self.nullValue.text() or \
-										'{0}'.format(values[xHeaderInd]) == '':
+									if '{0}'.format(values[yHeaderInd]).strip() == self.nullValue.text() or \
+										'{0}'.format(values[yHeaderInd]).strip() == '':
 										noIgnored += 1
-										continue
+										skip = True
+										break
+								if skip:
+									continue
 								item = QTableWidgetItem(0)
 								item.setText('{0}'.format(values[xHeaderInd]))
 								self.previewTable.setItem((i - header_line - noIgnored), 0, item)
 								k = 0
-								if self.dateCanBeConverted:
-									item = QTableWidgetItem(0)
-									timeHr = self.convertDateToTime(values[xHeaderInd])
-									if type(timeHr) is str:
-										QMessageBox.information(self.iface.mainWindow(), 'Error', 'Line {0} - {1}'.format(i, timeHr))
-										return
-									item.setText('{0}'.format(timeHr))
-									self.previewTable.setItem((i - header_line - noIgnored), 1, item)
-									k = 1
+								if self.gbUseDates.isChecked():
+									try:
+										if self.cbUSDateFormat.isChecked():
+											dateTime = dateutil.parser.parse(values[xHeaderInd])
+										else:
+											dateTime = dateutil.parser.parse(values[xHeaderInd], dayfirst=True)
+										if self.zeroDate is None:
+											self.zeroDate = dateTime
+										item = QTableWidgetItem(0)
+										hours = (dateTime - self.zeroDate).total_seconds() / 3600.
+										item.setText('{0:.2f}'.format(hours))
+										self.previewTable.setItem((i - header_line - noIgnored), 1, item)
+										k = 1
+									except ValueError:
+										if not self.convertDateError:
+											self.addDateConversionError('Line [{0}]: Error converting date "{1}"'.format(i - noIgnored + 1, values[xHeaderInd]))
 								for j, yHeaderInd in enumerate(yHeaderInds):
 									item = QTableWidgetItem(0)
 									item.setText('{0}'.format(values[yHeaderInd]))
@@ -3439,13 +3316,11 @@ class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
 			QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data', 'Invalid Delimiter or Input File is Empty')
 		elif not self.mcbYColumn.checkedItems():
 			QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data', 'No Y Column Values Selected')
-		if self.checkDateFormatLetters():
-				QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data',
-				                        '{0}'.format(self.checkDateFormatLetters()))
 		else:  # prelim checks out :)
 			self.run()
 		
 	def run(self):
+
 		self.names = []  # str data series names
 		self.data = []  # tuple -> list x data, y data -> float
 		x = []  # assumed all data share x axis
@@ -3481,23 +3356,38 @@ class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
 				elif i > header_line:
 					delim = self.getDelim()
 					values = line.split(delim)
-					if '{0}'.format(values[xHeaderInd]) == self.nullValue.text() or \
-							'{0}'.format(values[xHeaderInd]) == '':
-						continue
+					skip = False
+					if '{0}'.format(values[xHeaderInd]).strip() == self.nullValue.text() or \
+							'{0}'.format(values[xHeaderInd]).strip() == '':
+						skip = True
 					for yHeaderInd in yHeaderInds:
-						if '{0}'.format(values[yHeaderInd]) == self.nullValue.text() or \
-								'{0}'.format(values[xHeaderInd]) == '':
-							continue
-					if self.dateCanBeConverted:
-						timeHr = self.convertDateToTime(values[xHeaderInd])
+						if '{0}'.format(values[yHeaderInd]).strip() == self.nullValue.text() or \
+								'{0}'.format(values[yHeaderInd]).strip() == '':
+							skip = True
+							break
+					if skip:
+						continue
+
 					for j, yHeaderInd in enumerate(yHeaderInds):
-						if self.dateCanBeConverted:
-							timeHr = self.convertDateToTime(values[xHeaderInd])
-							self.dates[j].append(self.convertDateToTime(values[xHeaderInd], convert_to_datetime=True))
+						if self.gbUseDates.isChecked():
+							try:
+								if self.cbUSDateFormat.isChecked():
+									dateTime = dateutil.parser.parse(values[xHeaderInd])
+								else:
+									dateTime = dateutil.parser.parse(values[xHeaderInd], dayfirst=True)
+								if self.zeroDate is None:
+									self.zeroDate = dateTime
+								timeHr = (dateTime - self.zeroDate).total_seconds() / 3600.
+							except ValueError:
+								self.message = 'ERROR line {0}: Could not convert value to date format "{1}"'.format(i+1, values[xHeaderInd])
+								QMessageBox.critical(self, 'Import Error', self.message)
+								return
 						else:
 							timeHr = values[xHeaderInd]
 						try:
 							x[j].append(float(timeHr))
+							if self.gbUseDates.isChecked():
+								self.dates[j].append(dateTime)
 						except ValueError:
 							x[j].append('')
 						try:
@@ -3520,11 +3410,13 @@ from ui_UserPlotDataManagerDialog import *
 
 
 class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
+	
 	def __init__(self, iface, TuUserPlotDataManager):
 		QDialog.__init__(self)
 		self.setupUi(self)
 		self.tuUserPlotDataManager = TuUserPlotDataManager
 		self.iface = iface
+		self.setTableProperties()
 		self.loadedData = {}  # { name: [ combobox, checkbox ] }
 		self.loadData()
 		
@@ -3545,19 +3437,15 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 			item.setText(name)
 			item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 			item.setCheckState(status)
-			combobox = QComboBox()
-			combobox.setEditable(True)
-			combobox.setMaximumHeight(30)
-			combobox.setMaximumWidth(175)
-			combobox.addItem('Time Series Plot')
-			combobox.addItem('Cross Section / Long Plot')
+			item2 = QTableWidgetItem(0)
 			if plotType == 'long plot':
-				combobox.setCurrentIndex(1)
+				item2.setText('Cross Section / Long Plot')
+			else:
+				item2.setText('Time Series Plot')
 			self.UserPlotDataTable.setItem(self.UserPlotDataTable.rowCount() - 1, 0, item)
-			self.UserPlotDataTable.setCellWidget(self.UserPlotDataTable.rowCount() - 1, 1, combobox)
-			self.loadedData[name] = [combobox, item]
+			self.UserPlotDataTable.setItem(self.UserPlotDataTable.rowCount() - 1, 1, item2)
+			self.loadedData[name] = [item2, item]
 			
-			combobox.currentIndexChanged.connect(lambda: self.editData(combobox=combobox))
 			self.UserPlotDataTable.itemClicked.connect(lambda: self.editData(item=item))
 			self.UserPlotDataTable.itemChanged.connect(lambda item: self.editData(item=item))
 		
@@ -3579,19 +3467,22 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 					item.setText(name)
 					item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 					item.setCheckState(Qt.Checked)
-					combobox = QComboBox()
-					combobox.setEditable(True)
-					combobox.setMaximumHeight(30)
-					combobox.setMaximumWidth(175)
-					combobox.addItem('Time Series Plot')
-					combobox.addItem('Cross Section / Long Plot')
+					#combobox = QComboBox()
+					#combobox.setEditable(True)
+					#combobox.setMaximumHeight(30)
+					#combobox.setMaximumWidth(175)
+					#combobox.addItem('Time Series Plot')
+					#combobox.addItem('Cross Section / Long Plot')
+					item2 = QTableWidgetItem(0)
+					item2.setText(self.UserPlotDataTable.itemDelegateForColumn(1).default)
 					self.UserPlotDataTable.setItem(self.UserPlotDataTable.rowCount() - 1, 0, item)
-					self.UserPlotDataTable.setCellWidget(self.UserPlotDataTable.rowCount() - 1, 1, combobox)
-					self.loadedData[name] = [combobox, item]
+					self.UserPlotDataTable.setItem(self.UserPlotDataTable.rowCount() - 1, 1, item2)
+					#self.UserPlotDataTable.setCellWidget(self.UserPlotDataTable.rowCount() - 1, 1, combobox)
+					self.loadedData[name] = [item2, item]
 					
-					combobox.currentIndexChanged.connect(lambda: self.editData(combobox=combobox))
-					self.UserPlotDataTable.itemClicked.connect(lambda item: self.editData(item=item))
-					self.UserPlotDataTable.itemChanged.connect(lambda item: self.editData(item=item))
+					#combobox.currentIndexChanged.connect(lambda: self.editData(combobox=combobox))
+					#self.UserPlotDataTable.itemClicked.connect(lambda item: self.editData(item=item))
+					#self.UserPlotDataTable.itemChanged.connect(lambda item: self.editData(item=item))
 				else:
 					QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data', self.tuUserPlotDataManager.datasets[name].error)
 					
@@ -3632,10 +3523,15 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 		for item in selectedItems:
 			name = item.text()
 			self.tuUserPlotDataManager.removeDataSet(name)
-			self.UserPlotDataTable.itemClicked.disconnect()
-			self.UserPlotDataTable.itemChanged.disconnect()
+			#self.UserPlotDataTable.itemClicked.disconnect()
+			#self.UserPlotDataTable.itemChanged.disconnect()
 		self.UserPlotDataTable.setRowCount(0)
 		self.loadData()
+		
+	def setTableProperties(self):
+		
+		plotTypes = ['Time Series Plot', 'Cross Section / Long Plot']
+		self.UserPlotDataTable.itemDelegateForColumn(1).setItems(items=plotTypes, default='Time Series Plot')
 		
 		
 # ----------------------------------------------------------
@@ -3793,6 +3689,15 @@ class FilterSortLayersDialog(QDialog, Ui_FilterAndSortLayers):
 			else:
 				comp = tuflowLayer.split('_')
 				ltype = '_'.join(comp[:2]).lower()
+				
+				# special case for 2d_sa as this could be 2d_sa_tr or 2d_sa_rf
+				specialCases = ['2d_sa_rf', '2d_sa_tr']
+				if len(comp) >= 3:
+					for sc in specialCases:
+						tempName = ltype + '_' + comp[2]
+						if sc.lower() == tempName.lower():
+							ltype = tempName
+				
 				filterProp[tuflowLayer] = filterKey[self.type2buttonGroup[ltype].checkedId()]
 		
 		# check layers
@@ -4205,7 +4110,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 					if self.rbAscConv.isChecked():
 						function = 'conv'
 				error, message = ascToAsc(self.leAsc2Asc.text().strip('"').strip("'"), function, workdir, grids,
-				                          out=self.leOutputName.text())
+				                          out=self.leOutputName.text(), saveFile=self.cbSaveBatComm.isChecked())
 				
 			# tuflow_to_gis
 			elif self.cboCommonUtility.currentIndex() == 1:
@@ -4216,7 +4121,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 				else:
 					function = 'vectors'
 				error, message = tuflowToGis(self.leTUFLOW2GIS.text().strip('"').strip("'"), function, workdir, self.leMeshToGis.text(),
-				                             self.cboToGisMeshDataset.currentText(), self.cboTimestep.currentText())
+				                             self.cboToGisMeshDataset.currentText(), self.cboTimestep.currentText(), saveFile=self.cbSaveBatComm.isChecked())
 				
 			# res_to_res
 			elif self.cboCommonUtility.currentIndex() == 2:
@@ -4245,7 +4150,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 			               6: self.leXSGenerator.text().strip('"').strip("'")}
 			error, message = tuflowUtility(cbo2utility[self.cboAdvancedUtility.currentIndex()],
 			                               self.leAdvWorkingDir.text().strip('"').strip("'"),
-			                               self.teCommands.toPlainText())
+			                               self.teCommands.toPlainText(), self.cbSaveBatAdv.isChecked())
 		
 		self.setDefaults()
 		self.saveProjectSettings()
@@ -4464,8 +4369,8 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 		                                                            "XMDF format(*.xmdf *.XMDF);;"
 		                                                            "DAT format (*.dat *.DAT)", self.leMeshMulti))
 		
-		
-# ----------------------------------------------------------
+
+#-----------------------------------------------------------
 #    XMDF info
 # ----------------------------------------------------------
 from XMDF_info import *
@@ -4476,6 +4381,19 @@ class XmdfInfoDialog(QDialog, Ui_XmdfInfoDialog):
 		QDialog.__init__(self)
 		self.setupUi(self)
 		self.teXmdfInfo.setPlainText(text)
+
+
+# ----------------------------------------------------------
+#    Stack Trace
+# ----------------------------------------------------------
+from StackTrace import *
+
+
+class StackTraceDialog(QDialog, Ui_StackTraceDialog):
+	def __init__(self, text):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.teStackTrace.setPlainText(text)
 		
 		
 # ----------------------------------------------------------

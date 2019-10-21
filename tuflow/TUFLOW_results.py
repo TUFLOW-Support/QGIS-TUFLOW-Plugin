@@ -102,6 +102,8 @@ class PlotObjects():
 	Hold the plot objects data
 	"""
 	def __init__(self,fullpath): #read the file
+		error = False
+		message = ''
 		try:
 			with open(fullpath, 'r') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
@@ -119,8 +121,12 @@ class PlotObjects():
 			self.nPoints = self.geom.count('P') #2017-08-AA
 			self.nLines = self.geom.count('L') #2017-08-AA
 			self.nRegions = self.geom.count('R') #2017-08-AA
+		except IOError:
+			error = True
+			message = 'Cannot find the following file: \n{0}'.format(fullpath)
 		except:
-			print('ERROR - Error reading data from: '+fullpath)
+			error = True
+			message = 'ERROR - Error reading data from: '+fullpath
 
 	def find_data(self,ID, domain, geom, dat_type):
 		# see if the data exists in the file
@@ -207,6 +213,10 @@ class Timeseries():
 			self.nVals = len(self.Values[:,2])
 			self.nLocs = len(self.Header)-2
 			self.loaded = True
+		except IOError:
+			message = 'Cannot find the following file: \n{0}'.format(fullpath)
+			error = True
+			return error, message
 		except:
 			message = 'ERROR - Error reading data from file. Check file, there may not be any data: {0}'.format(fullpath)
 			error = True
@@ -275,6 +285,10 @@ class Node_Max():
 			#close file
 			csvfile.close()
 
+		except IOError:
+			message = 'Cannot find the following file: \n{0}'.format(fullpath)
+			error = True
+			return error, message
 		except:
 			message = 'ERROR - Error reading data from: '+fullpath
 			error = True
@@ -359,6 +373,10 @@ class Chan_Max():
 
 			# close file
 			csvfile.close()
+		except IOError:
+			message = 'Cannot find the following file: \n{0}'.format(fullpath)
+			error = True
+			return error, message
 		except:
 			message = 'ERROR - Error reading header from: '+fullpath
 			error = True
@@ -413,6 +431,10 @@ class RL_P_Max():
 					except:
 						self.Q.append(float('Nan'))
 			#csvfile.close()
+		except IOError:
+			message = 'Cannot find the following file: \n{0}'.format(fullpath)
+			error = True
+			return error, message
 		except:
 			message = 'ERROR - Error reading header from: '+fullpath
 			error = True
@@ -484,6 +506,10 @@ class RL_L_Max():
 					except:
 						self.H.append(float('Nan'))
 			#csvfile.close()
+		except IOError:
+			message = 'Cannot find the following file: \n{0}'.format(fullpath)
+			error = True
+			return error, message
 		except:
 			message = 'ERROR - Error reading header from: '+fullpath
 			error = True
@@ -559,6 +585,10 @@ class RL_R_Max():
 					except:
 						self.H.append(float('Nan'))
 			#csvfile.close()
+		except IOError:
+			message = 'Cannot find the following file: \n{0}'.format(fullpath)
+			error = True
+			return error, message
 		except:
 			message = 'ERROR - Error reading header from: '+fullpath
 			error = True
@@ -601,22 +631,31 @@ class NodeInfo():
 		self.node_top = []
 		self.node_nChan = []
 		self.node_channels = []
-		with open(fullpath, 'r') as csvfile:
-			reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-			header = next(reader)
-			for (counter, row) in enumerate(reader):
-				self.node_num.append(int(row[0]))
-				self.node_name.append(row[1])
-				self.node_bed.append(float(row[2]))
-				self.node_top.append(float(row[3]))
-				self.node_nChan.append(int(row[4]))
-				chan_list = row[5:]
-				if len(chan_list) != int(row[4]):
-					if int(row[4]) != 0:
-						print('ERROR - Number of channels connected to ID doesnt match. ID: ' + str(row[1]))
-				else:
-					self.node_channels.append(chan_list)
-		csvfile.close()
+		message = ''
+		error = False
+		try:
+			with open(fullpath, 'r') as csvfile:
+				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+				header = next(reader)
+				for (counter, row) in enumerate(reader):
+					self.node_num.append(int(row[0]))
+					self.node_name.append(row[1])
+					self.node_bed.append(float(row[2]))
+					self.node_top.append(float(row[3]))
+					self.node_nChan.append(int(row[4]))
+					chan_list = row[5:]
+					if len(chan_list) != int(row[4]):
+						if int(row[4]) != 0:
+							print('ERROR - Number of channels connected to ID doesnt match. ID: ' + str(row[1]))
+					else:
+						self.node_channels.append(chan_list)
+			csvfile.close()
+		except IOError:
+			message = 'Cannot find the following file: \n{0}'.format(fullpath)
+			error = True
+		except:
+			message = 'ERROR reading file: \n{0}'.format(fullpath)
+			error = True
 
 class ChanInfo():
 	"""
@@ -642,34 +681,43 @@ class ChanInfo():
 		self.chan_RBDS_Obv = []
 		self.chan_Blockage = []
 
-		with open(fullpath, 'r') as csvfile:
-			reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-			header = next(reader)
-			for (counter, row) in enumerate(reader):
-				self.chan_num.append(int(row[0]))
-				self.chan_name.append(row[1])
-				self.chan_US_Node.append(row[2])
-				self.chan_DS_Node.append(row[3])
-				self.chan_US_Chan.append(row[4])
-				self.chan_DS_Chan.append(row[5])
-				self.chan_Flags.append(row[6])
-				self.chan_Length.append(float(row[7]))
-				self.chan_FormLoss.append(float(row[8]))
-				self.chan_n.append(float(row[9]))
-				try:
-					self.chan_slope.append(float(row[10]))
-				except ValueError:
-					# caused when tuflow outputs ****** for steep slopes
-					self.chan_slope.append(0)
-				self.chan_US_Inv.append(float(row[11]))
-				self.chan_DS_Inv.append(float(row[12]))
-				self.chan_LBUS_Obv.append(float(row[13]))
-				self.chan_RBUS_Obv.append(float(row[14]))
-				self.chan_LBDS_Obv.append(float(row[15]))
-				self.chan_RBDS_Obv.append(float(row[16]))
-				self.chan_Blockage.append(float(row[17]))
-		self.nChan = counter+1
-		csvfile.close()
+		message = ''
+		error = False
+		try:
+			with open(fullpath, 'r') as csvfile:
+				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+				header = next(reader)
+				for (counter, row) in enumerate(reader):
+					self.chan_num.append(int(row[0]))
+					self.chan_name.append(row[1])
+					self.chan_US_Node.append(row[2])
+					self.chan_DS_Node.append(row[3])
+					self.chan_US_Chan.append(row[4])
+					self.chan_DS_Chan.append(row[5])
+					self.chan_Flags.append(row[6])
+					self.chan_Length.append(float(row[7]))
+					self.chan_FormLoss.append(float(row[8]))
+					self.chan_n.append(float(row[9]))
+					try:
+						self.chan_slope.append(float(row[10]))
+					except ValueError:
+						# caused when tuflow outputs ****** for steep slopes
+						self.chan_slope.append(0)
+					self.chan_US_Inv.append(float(row[11]))
+					self.chan_DS_Inv.append(float(row[12]))
+					self.chan_LBUS_Obv.append(float(row[13]))
+					self.chan_RBUS_Obv.append(float(row[14]))
+					self.chan_LBDS_Obv.append(float(row[15]))
+					self.chan_RBDS_Obv.append(float(row[16]))
+					self.chan_Blockage.append(float(row[17]))
+			self.nChan = counter+1
+			csvfile.close()
+		except IOError:
+			message = 'Cannot find the following file: \n{0}'.format(fullpath)
+			error = True
+		except:
+			message = 'ERROR reading file: \n{0}'.format(fullpath)
+			error = True
 
 # results class
 class ResData():
@@ -1487,6 +1535,10 @@ class ResData():
 		self.fpath = os.path.dirname(fname)
 		try:
 			data = numpy.genfromtxt(fname, dtype=str, delimiter="==")
+		except IOError:
+			message = 'Cannot find the following file: \n{0}'.format(self.fpath)
+			error = True
+			return error, message
 		except:
 			error = True
 			message = 'ERROR - Unable to load data, check file exists.'
@@ -1985,7 +2037,9 @@ class ResData():
 		types = []
 		
 		for type in self.Types:
-			if 'WATER LEVEL' in type.upper():
+			if 'STRUCTURE LEVELS' in type.upper():
+				types.append('Structure Levels')
+			elif 'WATER LEVEL' in type.upper():
 				types.append('Level')
 			elif 'ENERGY LEVELS' in type.upper():
 				types.append('Energy Level')
@@ -2022,8 +2076,6 @@ class ResData():
 				types.append('DS Levels')
 			elif 'LINE STRUCTURE FLOW' in type.upper():
 				types.append('Structure Flows')
-			elif 'STRUCTURE LEVELS' in type.upper():
-				types.append('Structure Levels')
 			elif '1D Flow Area' in type:
 				types.append('Flow Area')
 			elif 'FLOW' in type.upper():

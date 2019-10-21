@@ -23,8 +23,9 @@ class Ui_UserPlotDataManagerDialog(object):
         self.gridLayout.setObjectName("gridLayout")
         self.verticalLayout = QtWidgets.QVBoxLayout()
         self.verticalLayout.setObjectName("verticalLayout")
-        self.UserPlotDataTable = QtWidgets.QTableWidget(UserPlotDataManagerDialog)
-        self.UserPlotDataTable.setShowGrid(False)
+        self.UserPlotDataTable = PlotManagerTable(UserPlotDataManagerDialog)
+        self.UserPlotDataTable.setEditTriggers(QtWidgets.QAbstractItemView.AllEditTriggers)
+        self.UserPlotDataTable.setShowGrid(True)
         self.UserPlotDataTable.setObjectName("UserPlotDataTable")
         self.UserPlotDataTable.setColumnCount(2)
         self.UserPlotDataTable.setRowCount(0)
@@ -34,7 +35,10 @@ class Ui_UserPlotDataManagerDialog(object):
         self.UserPlotDataTable.setHorizontalHeaderItem(1, item)
         self.UserPlotDataTable.horizontalHeader().setVisible(False)
         self.UserPlotDataTable.horizontalHeader().setDefaultSectionSize(150)
+        self.UserPlotDataTable.horizontalHeader().setStretchLastSection(True)
         self.UserPlotDataTable.verticalHeader().setVisible(True)
+        self.UserPlotDataTable.verticalHeader().setDefaultSectionSize(20)
+        self.UserPlotDataTable.verticalHeader().setMinimumSectionSize(20)
         self.verticalLayout.addWidget(self.UserPlotDataTable)
         self.gridLayout.addLayout(self.verticalLayout, 0, 0, 1, 1)
         self.verticalLayout_2 = QtWidgets.QVBoxLayout()
@@ -72,3 +76,4 @@ class Ui_UserPlotDataManagerDialog(object):
         self.pbViewTable.setText(_translate("UserPlotDataManagerDialog", "View Data"))
         self.pbViewPlot.setText(_translate("UserPlotDataManagerDialog", "Plot Data"))
 
+from tuflow.DataTable import PlotManagerTable

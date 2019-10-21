@@ -914,7 +914,7 @@ class TuProject():
 			for i in range(len(a)):
 				x = float(a[i])
 				y = float(b[i])
-				point = QgsPoint(x, y)
+				point = QgsPointXY(x, y)
 				points.append(point)
 				marker = QgsVertexMarker(self.tuView.canvas)
 				marker.setColor(Qt.red)

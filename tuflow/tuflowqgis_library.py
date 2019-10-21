@@ -104,7 +104,7 @@ def findAllRasterLyrs():
 	
 	rasterLyrs = []
 	for name, search_layer in QgsProject.instance().mapLayers().items():
-		if search_layer.type() == 1:
+		if search_layer.type() == QgsMapLayer.RasterLayer:
 			rasterLyrs.append(search_layer.name())
 	
 	return rasterLyrs
@@ -119,12 +119,27 @@ def findAllMeshLyrs():
 	
 	meshLyrs = []
 	for name, search_layer in QgsProject.instance().mapLayers().items():
-		if search_layer.type() == 3:
+		if isinstance(search_layer, QgsMeshLayer):
 			meshLyrs.append(search_layer.name())
 	
 	return meshLyrs
 
-	
+
+def findAllVectorLyrs():
+	"""
+	Finds all open vector layers
+
+	:return: list -> str layer name
+	"""
+
+	vectorLyrs = []
+	for name, search_layer in QgsProject.instance().mapLayers().items():
+		if search_layer.type() == QgsMapLayer.VectorLayer:
+			vectorLyrs.append(search_layer.name())
+
+	return vectorLyrs
+
+
 def tuflowqgis_duplicate_file(qgis, layer, savename, keepform):
 	if (layer == None) and (layer.type() != QgsMapLayer.VectorLayer):
 		return "Invalid Vector Layer " + layer.name()
@@ -165,7 +180,7 @@ def tuflowqgis_duplicate_file(qgis, layer, savename, keepform):
 	
 	return None
 
-def tuflowqgis_create_tf_dir(qgis, crs, basepath, engine, tutorial):
+def tuflowqgis_create_tf_dir(dialog, crs, basepath, engine, tutorial):
 	if crs is None:
 		return "No CRS specified"
 
@@ -199,21 +214,33 @@ def tuflowqgis_create_tf_dir(qgis, crs, basepath, engine, tutorial):
 
 			
 	# Write Projection.prj Create a file ('w' for write, creates if doesnt exit)
-	prjname = os.path.join(basepath, parent_folder_name, "model", "gis", "Projection.shp")
+	prjname = os.path.join(basepath, parent_folder_name, "model", "gis", "projection.shp")
 	if len(prjname) <= 0:
 		return "Error creating projection filename"
 
 	if QFile(prjname).exists():
-		return "Projection file already exists: "+prjname
+		#return "Projection file already exists: "+prjname
+		reply = QMessageBox.question(dialog, "Create TUFLOW Empty Files", "Projection File Already Exists\n"
+																		  "Do You Want To Overwrite The Existing File?",
+									 QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+		if reply == QMessageBox.Cancel:
+			return ""
+		elif reply == QMessageBox.Yes:
+			fields = QgsFields()
+			fields.append( QgsField( "notes", QVariant.String ) )
+			outfile = QgsVectorFileWriter(prjname, "System", fields, 1, crs, "ESRI Shapefile")
 
-	fields = QgsFields()
-	fields.append( QgsField( "notes", QVariant.String ) )
-	outfile = QgsVectorFileWriter(prjname, "System", fields, 1, crs, "ESRI Shapefile")
-	
-	if outfile.hasError() != QgsVectorFileWriter.NoError:
-		return "Failure creating output shapefile: " + outfile.errorMessage()
+			if outfile.hasError() != QgsVectorFileWriter.NoError:
+				return "Failure creating output shapefile: " + outfile.errorMessage()
+	else:
+		fields = QgsFields()
+		fields.append( QgsField( "notes", QVariant.String ) )
+		outfile = QgsVectorFileWriter(prjname, "System", fields, 1, crs, "ESRI Shapefile")
 
-	del outfile
+		if outfile.hasError() != QgsVectorFileWriter.NoError:
+			return "Failure creating output shapefile: " + outfile.errorMessage()
+
+	#del outfile
 
 	# Write .tcf file
 	ext = '.fvc' if engine == 'flexible mesh' else '.tcf'
@@ -229,7 +256,7 @@ def tuflowqgis_create_tf_dir(qgis, crs, basepath, engine, tutorial):
 	#QMessageBox.information(qgis.mainWindow(),"Information", "{0} folder successfully created: {1}".format(parent_folder_name, basepath))
 	return None
 
-def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines, regions):
+def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines, regions, dialog):
 	if (len(empty_types) == 0):
 		return "No Empty File T specified"
 
@@ -254,7 +281,7 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 				empty_folder = d
 				break
 		break
-	gis_folder = basepath.replace('/', os.sep).replace('{0}{1}'.format(os.sep, empty_folder), '')
+	gis_folder = basepath.replace('/', os.sep).replace('{0}{1}'.format(os.sep, d), '')
 	# Create folders, ignore top level (e.g. model, as these are create when the subfolders are created)
 	for type in empty_types:
 		for geom in geom_type:
@@ -265,7 +292,13 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 				name = '{0}_{1}{2}.shp'.format(type, runID, geom)
 				savename = os.path.join(gis_folder, name)
 				if QFile(savename).exists():
-					QMessageBox.critical(qgis.mainWindow(),"Info", ("File Exists: "+savename))
+					overwriteExisting = QMessageBox.question(dialog, "Import Empty",
+					                                         'Output file already exists\nOverwrite existing file?',
+					                                         QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+					if overwriteExisting != QMessageBox.Yes:
+						# QMessageBox.critical(qgis.mainWindow(),"Info", ("File Exists: {0}".format(savename)))
+						#message = 'Unable to complete utility because file already exists'
+						return 1
 				#outfile = QgsVectorFileWriter(QString(savename), QString("System"), 
 				outfile = QgsVectorFileWriter(vectorFileName=savename, fileEncoding="System", 
 					fields=layer.dataProvider().fields(), geometryType=layer.wkbType(), srs=layer.dataProvider().sourceCrs(), driverName="ESRI Shapefile")
@@ -768,7 +801,8 @@ def tuflowqgis_increment_fname(infname):
 
 	return outfname
 
-def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, lenFields):
+def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, lenFields, dialog):
+
 	message = None
 	
 	if inputLayer.geometryType() == 0:
@@ -785,7 +819,7 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
 				empty_folder = d
 				break
 		break
-	gis_folder = basedir.replace(os.sep, '/').replace('{0}{1}'.format(os.sep, empty_folder), '')
+	gis_folder = basedir.replace('/', os.sep).replace('{0}{1}'.format(os.sep, d), '')
 	
 	# Create new vector file from template with appended attribute fields
 	if template == '1d_nwk':
@@ -801,9 +835,13 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
 		name = '{0}_{1}{2}.shp'.format(template, runID, geomType)
 		savename = os.path.join(gis_folder, name)
 		if QFile(savename).exists():
-			QMessageBox.critical(qgis.mainWindow(),"Info", ("File Exists: {0}".format(savename)))
-			message = 'Unable to complete utility because file already exists'
-			return message
+			overwriteExisting = QMessageBox.question(dialog, "Import Empty",
+			                                         'Output file already exists\nOverwrite existing file?',
+			                                         QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+			if overwriteExisting != QMessageBox.Yes:
+			#QMessageBox.critical(qgis.mainWindow(),"Info", ("File Exists: {0}".format(savename)))
+				message = 'Unable to complete utility because file already exists'
+				return 1
 		outfile = QgsVectorFileWriter(vectorFileName=savename, fileEncoding="System", 
 		                              fields=layer.dataProvider().fields(), geometryType=layer.wkbType(), 
 		                              srs=layer.dataProvider().sourceCrs(), driverName="ESRI Shapefile",)
@@ -812,7 +850,7 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
 			QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: {0}".format(savename)))
 			message = 'Error writing output file. Check output location and output file.'
 			return message
-		outfile = QgsVectorLayer(savename, "tmp", "ogr")
+		outfile = QgsVectorLayer(savename, name[:-4], "ogr")
 		outfile.dataProvider().addAttributes(inputLayer.dataProvider().fields())
 		
 		# Get attribute names of input layers
@@ -823,8 +861,8 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
 		row_list = []
 		for feature in inputLayer.getFeatures():
 			row = [''] * len(layer_attributes)
-			for name in inputLayer_attributes:
-				row.append(feature[name])
+			for attr in inputLayer_attributes:
+				row.append(feature[attr])
 			row_list.append(row)
 			outfile.dataProvider().addFeatures([feature])
 		
@@ -834,7 +872,7 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
 			for j in range(len(row_list[0])):
 				row_dict[j] = row_list[i][j]
 			outfile.dataProvider().changeAttributeValues({i: row_dict})
-		
+
 		qgis.addVectorLayer(savename, name[:-4], "ogr")
 	
 	return message
@@ -1028,104 +1066,499 @@ def get_1d_nwk_labelName(layer, type):
 	return field_name
 
 
-def tuflowqgis_apply_autoLabel_clayer(qgis):
-	#QMessageBox.information(qgis.mainWindow(),"Info", ("{0}".format(enabled)))
+def stripComments(text: str) -> str:
+	"""
+	Strips comments as per TUFLOW convention from text.
 	
+	:param text: str input text
+	:return: str output text
+	"""
+
+	new_text = text
+	char = ['!', '#']
+	for c in char:
+		new_text = new_text.split(c)[0].strip()
+
+	return new_text
+
+
+def stripCommand(text: str) -> (str, str):
+	"""
+	Strips command from text.
+
+	:param text: str
+	:return: str, str
+	"""
+
+	comm, val = '', ''
+
+	new_text = stripComments(text)
+	comp = new_text.split('==')
+	if len(comp) == 2:
+		comm, val = comp
+		comm = comm.strip()
+		val = val.strip()
+	elif len(comp) == 1:
+		comm = comp[0]
+		comm = comm.strip()
+
+	return comm, val
+
+
+def getTuflowLayerType(layerName: str) -> (str, str):
+	"""
+	Gets the layer TUFLOW type from the layer name.
+	Returns TUFLOW type and geometry type e.g. "1d_nwk". "L"
+
+	:param layerName: str layer name or source
+	:return: str TUFLOW layer type, str geometry type
+	"""
+
+	tuflowLayerType = ''
+	geomType = ''
+
+	# get name - separate extension and file path if needed
+	name = os.path.splitext(os.path.basename(layerName))[0]
+
+	# first see if it is a check layer
+	pattern = r'_check(_[PLR])?$'  # will match '_check' or '_check_P' (P or L or R) only if it is at the end of the string
+	check = re.search(pattern, name, flags=re.IGNORECASE)
+	if check is not None:
+		tuflowLayerType = 'check'
+	else:  # not a check file so maybe an input or result layer
+		# find 0d_ or 1d_ or 2d_ part of layer name
+		pattern = r'^[0-2]d_'
+		for i, match in enumerate(re.finditer(pattern, name, flags=re.IGNORECASE)):
+			if i == 0:  # just use the first matched instance
+				tuflowLayerType = match[0]  # 0d_ or 1d_ or 2d_
+				reSplit = re.split(pattern, layerName, flags=re.IGNORECASE)
+				nSplit = reSplit[1].split('_')
+				ltype = nSplit[0]  # e.g. nwk
+				tuflowLayerType += ltype  # e.g. 1d_nwk
+
+				# special case for 2d_sa as this could be 2d_sa_tr or 2d_sa_rf
+				specialCases = ['2d_sa_rf', '2d_sa_tr']
+				if len(nSplit) >= 2:
+					for sc in specialCases:
+						tempName = tuflowLayerType + '_' + nSplit[1]
+						if sc.lower() == tempName.lower():
+							tuflowLayerType = tempName
+
+				break  # just use the first matched instance
+
+	# get geometry type
+	if tuflowLayerType:
+		layer = tuflowqgis_find_layer(layerName)
+		if layer is not None:
+			if isinstance(layer, QgsVectorLayer):
+				if layer.geometryType() == QgsWkbTypes.PointGeometry:
+					geomType = 'P'
+				elif layer.geometryType() == QgsWkbTypes.LineGeometry:
+					geomType = 'L'
+				elif layer.geometryType() == QgsWkbTypes.PolygonGeometry:
+					geomType = 'R'
+
+	return tuflowLayerType, geomType
+
+
+def findLabelPropertyMatch(files: list, layerType: str, geomType: str, layerName: str) -> (str, str):
+	"""
+	Returns matching file if found.
+
+	:param files: list [ str filepath ]
+	:param layerType: str e.g. '1d_nwk'
+	:param geomType: str e.g. 'P'
+	:param layerName: str layer name or source
+	:return: str file path
+	"""
+
+	# get name - separate extension and file path if needed
+	name = os.path.splitext(os.path.basename(layerName))[0]
+
+	# initialise match variable
+	match = ''
+
+	# if layer is a check layer or not a tuflow layer loop through file and just find first name match
+	if layerType == 'check' or '':
+		for labelProperty in files:
+			if os.path.splitext(os.path.basename(labelProperty))[0].lower() in name.lower():
+				match = labelProperty
+	else:  # is a tuflow layer (input or result) so do a few additional checks (mainly to handle specific geometry types)
+		# first check if there is geom specific match e.g. 1d_nwk_P
+		searchString = '{0}_{1}'.format(layerType, geomType)
+		for labelProperty in files:
+			if os.path.splitext(os.path.basename(labelProperty))[0].lower() == searchString.lower():
+				match = labelProperty
+				break
+		# if no match then search for the type without geometry e.g. 1d_nwk
+		if not match:
+			searchString = layerType
+			for labelProperty in files:
+				if os.path.splitext(os.path.basename(labelProperty))[0].lower() == searchString.lower():
+					match = labelProperty
+					break
+	# if still no match use default.txt if available
+	if not match:
+		for labelProperty in files:
+			if os.path.splitext(os.path.basename(labelProperty))[0].lower() == 'default':
+				match = labelProperty
+				break
+	# finally check if there is an override.txt
+	override = ''
+	for labelProperty in files:
+		if os.path.splitext(os.path.basename(labelProperty))[0].lower() == 'override':
+			override = labelProperty
+			break
+
+	return match, override
+
+
+def assignLabelProperty(property: dict, command: str, value: str) -> bool:
+	"""
+	Assign label property based on command and value
+
+	:param property: dict of label properties
+	:param command: str
+	:param value: str
+	:return: bool was a valid command
+	"""
+
+	if command.lower() == 'buffer':
+		property['buffer'] = True if value.lower() == 'on' else False
+	elif command.lower() == 'box':
+		property['box'] = True if value.lower() == 'on' else False
+	elif command.lower() == 'attribute name':
+		property['use_attribute_name'] = True if value.lower() == 'on' else False
+	elif command.lower() == 'label attributes':
+		try:
+			property['label_attributes'] = [int(x.strip()) for x in value.split('|')]
+		except ValueError:
+			pass
+	elif command.lower() == 'point placement':
+		property['point_placement'] = value.lower()
+	elif command.lower() == 'line placement':
+		property['line_placement'] = value.lower()
+	elif command.lower() == 'region placement':
+		property['region_placement'] = value.lower()
+	elif command.lower() == 'offset x,y' or command.lower() == 'offset x, y' or command.lower() == 'offsetx,y':
+		try:
+			property['offsetXY'] = [float(x.strip()) for x in value.split(',')]
+			if len(property['offsetXY']) == 1:
+				property['offsetXY'] = (property['offsetXY'][0], property['offsetXY'][0])
+			elif not property['offsetXY']:
+				property['offsetXY'] = (2, 2)  # back to default
+		except ValueError:
+			pass
+	elif command.lower() == 'rule':
+		property['rule_strictness'] = value.lower()
+	else:
+		return False
+
+	return True
+
+def parseLabelProperties(fpath: str, override: str='', rule_based: bool=False,
+                         rule: str='', isOverride: bool=False, **kwargs) -> dict:
+	"""
+	reads layer properties from txt file and returns a dict object
+
+	:param fpath: str full path to text file
+	:param rule_based: bool whether this is a rule based subset
+	:param rule: str rule name e.g. 2 | C
+	:return: dict of properties
+	"""
+
+	d = kwargs['d'] if 'd' in kwargs else None
+
+	# hardcoded defaults
+	if d is None:
+		d = {
+			'rule_based': {},
+			'rule_strictness': 'loose',
+			'buffer': True,
+			'box': False,
+			'use_attribute_name': True,
+			'label_attributes': [1],
+			'point_placement': 'cartographic',
+			'line_placement': 'parallel',
+			'region_placement': 'centroid',
+			'offsetXY': (2,2),
+			'only_rule_based': False,
+		}
+
+	isOnlyRuleBased = False
+	if os.path.exists(fpath):
+		if not rule_based:  # not looking for a specific labelling rule
+			# first sweep pick up rule-based labelling names
+			with open(fpath, 'r') as fo:
+				rule_names = []
+				for line in fo:
+					comm, val = stripCommand(line)
+					if comm.lower() == 'attribute':
+						if len(val.split('|')) >= 2:
+							try:
+								int(val.split('|')[0])
+							except ValueError:
+								continue
+							if val not in rule_names:
+								rule_names.append(val)
+								isOnlyRuleBased = True  # there is a rule so switch this to false for now
+			# collect rule based properties into dictionary and add to dictionary
+			for rule_name in rule_names:
+				if rule_name in d['rule_based']:
+					d_rule = parseLabelProperties(fpath, rule_based=True, rule=rule_name, d=d['rule_based'][rule_name])
+				else:
+					d_rule = parseLabelProperties(fpath, rule_based=True, rule=rule_name)
+					d['rule_based'][rule_name] = d_rule
+			# pick up non rule based labels
+			with open(fpath, 'r') as fo:
+				read = True
+				for line in fo:
+					comm, val = stripCommand(line)
+					if comm.lower() == 'attribute':
+						read = False
+					elif comm.lower() == 'end attribute':
+						read = True
+					else:
+						if read:
+							if assignLabelProperty(d, comm, val):
+								isOnlyRuleBased = False  # switch this back to false since there are some defaults
+							if isOverride:
+								for rule_name, d_rule in d['rule_based'].items():
+									if rule_name not in rule_names:
+										assignLabelProperty(d_rule, comm, val)
+		else:  # only pick up properties for specific rule
+			with open(fpath, 'r') as fo:
+				read = False
+				for line in fo:
+					comm, val = stripCommand(line)
+					if comm.lower() == 'attribute':
+						if val.lower() == rule.lower():
+							read = True
+					elif comm.lower() == 'end attribute':
+						read = False
+					else:
+						if read:
+							assignLabelProperty(d, comm, val)
+		# check if there is only rule based or if there are also default values i.e. an 'else' rule
+		if not isOnlyRuleBased and d['rule_based']:
+			# copy defaults into a rule called 'else'
+			rule = {
+				'rule_based': {},
+				'rule_strictness': d['rule_strictness'],
+				'buffer': d['buffer'],
+				'box': d['box'],
+				'use_attribute_name': d['use_attribute_name'],
+				'label_attributes': d['label_attributes'][:],
+				'point_placement': d['point_placement'],
+				'line_placement': d['line_placement'],
+				'region_placement': d['region_placement'],
+				'offsetXY': d['offsetXY'][:],
+				'only_rule_based': d['only_rule_based'],
+			}
+			d['rule_based']['else'] = rule
+
+	# pick up values from override
+	if override:
+		parseLabelProperties(override, d=d, isOverride=True)
+
+	return d
+
+
+def findCustomLabelProperties(layerName: str) -> dict:
+	"""
+	Finds custom label properties from "layer_labelling" folder if available
+	and collect properties into dictionary.
+	If not found sets default properties based on default settings or hardcoded
+	defaults.
+	If override.txt exists, properties in this will override other settings
+
+	:param layerName: str layer name or source
+	:return: dict labelling properties
+	"""
+
+	properties = {}
+
+	layerType, geomType = getTuflowLayerType(layerName)
+
+	dir = os.path.join(os.path.dirname(__file__), "layer_labelling")
+	if os.path.exists(dir):
+		labelPropertyFiles = glob.glob(os.path.join(dir, "*.txt"))
+		matchingFile, override = findLabelPropertyMatch(labelPropertyFiles, layerType, geomType, layerName)
+		properties = parseLabelProperties(matchingFile, override)
+
+	return properties
+
+def setupLabelFormat(isExpression: bool=True, isBuffer: bool=True) -> QgsPalLayerSettings:
+	label = QgsPalLayerSettings()
+	format = QgsTextFormat()
+	buffer = QgsTextBufferSettings()
+	buffer.setEnabled(isBuffer)
+	format.setBuffer(buffer)
+	label.setFormat(format)
+	label.isExpression = isExpression
+	label.multilineAlign = 0
+	label.drawLabels = True
+
+	return label
+
+
+def getLabelFieldName(layer: QgsVectorLayer, properties: dict) -> str:
+	"""
+	Returns field name expression for labelling
+
+	:param layer: QgsVectorLayer
+	:param properties: dict
+	:return: str field name expression
+	"""
+
+	fields = layer.fields()
+	a = []
+	for i in properties['label_attributes']:
+		if fields.size() >= i:
+			if properties['use_attribute_name']:
+				a.append("'{0}: ' + if ( \"{0}\" IS NULL, \"{0}\", to_string( \"{0}\" ) )".format(fields.field(i-1).name()))
+			else:
+				a.append("if ( \"{0}\" IS NULL, \"{0}\", to_string( \"{0}\" ) )".format(fields.field(i-1).name()))
+
+	fieldName = r" + '\n' + ".join(a)
+
+	return fieldName
+
+
+def setupLabelFilterExpression(layer: QgsVectorLayer, rule_name: str, strictness: str) -> str:
+	"""
+	Sets up label filter expression based on the rule name and the vector layer
+
+	:param layer: QgsVectorLayer
+	:param rule_name: str
+	:return: str expression
+	"""
+
+	expression = ''
+	try:
+		attNo = rule_name.split('|')[0].strip()
+		attVal = '|'.join(rule_name.split('|')[1:]).strip()  # incase the name itself has '|' in it e.g. in 2d_SA
+		attVals = [x.strip() for x in attVal.split(';')]
+		attNo = int(attNo)
+	except IndexError:
+		# rule_name isn't properly setup with a vertical bar
+		if rule_name.lower() != 'else':
+			return expression
+	except ValueError:
+		# rule_name isn't properly setup using an integer as first value then attribute value e.g. 2 | C
+		if rule_name.lower() != 'else':
+			return expression
+
+	if rule_name.lower() == 'else':
+		expression = 'ELSE'
+	else:
+		fields = layer.fields()
+		if fields.size() >= attNo:  # indexing starts at 1 for labelling properties
+			field_name = fields.field(attNo-1).name()
+			cond = 'ILIKE'
+			cond_helper = '' if strictness.lower() == 'strict' else '%'
+			exp = []
+			for a in attVals:
+				e = "\"{0}\" {2} '{3}{1}{3}'".format(field_name, a.lower(), cond, cond_helper)
+				exp.append(e)
+			expression = ' OR '.join(exp)
+
+	return expression
+
+
+def setLabelProperties(label: QgsPalLayerSettings, properties: dict, layer: QgsVectorLayer) -> None:
+	"""
+	Sets the label settings object to the user defined settings.
+
+	:param label: QgsPalLayerSettings
+	:param properties: dict user settings / properties
+	:param layer: QgsVectorLayer
+	:return: None
+	"""
+
+	format = QgsTextFormat()
+
+	# buffer
+	buffer = QgsTextBufferSettings()
+	buffer.setEnabled(properties['buffer'])
+	format.setBuffer(buffer)
+
+	# background
+	background = QgsTextBackgroundSettings()
+	background.setEnabled(properties['box'])
+	background.setSizeType(QgsTextBackgroundSettings.SizeBuffer)
+	background.setSize(QSizeF(0.5, 0.5))
+	background.setStrokeColor(QColor(Qt.black))
+	background.setStrokeWidth(0.1)
+	format.setBackground(background)
+
+	# placement
+	if layer.geometryType() == QgsWkbTypes.PointGeometry:
+		p = QgsPalLayerSettings.OrderedPositionsAroundPoint
+		d = properties['offsetXY'][0]
+		offsetX = 0
+		offsetY = 0
+	elif layer.geometryType() == QgsWkbTypes.LineGeometry:
+		p = QgsPalLayerSettings.Horizontal if properties['line_placement'].lower() == 'horizontal' else QgsPalLayerSettings.Line
+		d = properties['offsetXY'][0]
+		offsetX = 0
+		offsetY = 0
+	elif layer.geometryType() == QgsWkbTypes.PolygonGeometry:
+		p = QgsPalLayerSettings.OverPoint
+		d = d = properties['offsetXY'][0]
+		offsetX = properties['offsetXY'][0]
+		offsetY = properties['offsetXY'][1]
+	else:
+		p = 0  # shouldn't occur
+
+	# field name
+	fieldName = getLabelFieldName(layer, properties)
+
+	# apply
+	label.fieldName = fieldName
+	label.setFormat(format)
+	label.isExpression = True
+	label.placement = p
+	label.dist = d
+	label.xOffset = properties['offsetXY'][0]
+	label.yOffset = properties['offsetXY'][1]
+	label.multilineAlign = 0
+	label.drawLabels = True
+
+
+def tuflowqgis_apply_autoLabel_clayer(qgis: QgisInterface):
+
 	error = False
 	message = None
 	canvas = qgis.mapCanvas()
-	#canvas.mapRenderer().setLabelingEngine(QgsPalLabeling())
-	
 	cLayer = canvas.currentLayer()
-	fsource = cLayer.source() #includes full filepath and extension
-	fname = os.path.split(fsource)[1][:-4] #without extension
-	
-	if cLayer.labelsEnabled() == False:
-		# demonstration of rule based labeling
-		if '1d_nwk' in fname:
-			field_name_1 = cLayer.fields().field(1).name()
-			# setup blank rule object
-			label = QgsPalLayerSettings()
-			rule = QgsRuleBasedLabeling.Rule(label)
-			# setup label rule 1
-			labelName1 = get_1d_nwk_labelName(cLayer, 'C')
-			label1 = QgsPalLayerSettings()
-			label1.isExpression = True
-			label1.multilineAlign = 0
-			label1.bufferDraw = True
-			label1.drawLabels = True
-			label1.fieldName = labelName1
-			if cLayer.geometryType() == 0:
-				label1.placement = 0
-			elif cLayer.geometryType() == 1:
-				label1.placement = 2
-			elif cLayer.geometryType() == 2:
-				label1.placement = 1
-			rule1 = QgsRuleBasedLabeling.Rule(label1)
-			rule1.setFilterExpression("\"{0}\" LIKE '%C%' OR \"{0}\" LIKE '%W%'".format(field_name_1))
-			# setup label rule 2
-			label2 = QgsPalLayerSettings()
-			label2.isExpression = True
-			label2.multilineAlign = 0
-			label2.bufferDraw = True
-			label2.drawLabels = True
-			if cLayer.geometryType() == 0:
-				label2.placement = 0
-			elif cLayer.geometryType() == 1:
-				label2.placement = 2
-			elif cLayer.geometryType() == 2:
-				label2.placement = 1
-			labelName2 = get_1d_nwk_labelName(cLayer, 'R')
-			label2.fieldName = labelName2
-			rule2 = QgsRuleBasedLabeling.Rule(label2)
-			rule2.setFilterExpression("\"{0}\" LIKE '%R%'".format(field_name_1))
-			# setup label rule 3
-			label3 = QgsPalLayerSettings()
-			label3.isExpression = True
-			label3.multilineAlign = 0
-			label3.bufferDraw = True
-			label3.drawLabels = True
-			if cLayer.geometryType() == 0:
-				label3.placement = 0
-			elif cLayer.geometryType() == 1:
-				label3.placement = 2
-			elif cLayer.geometryType() == 2:
-				label3.placement = 1
-			labelName3 = get_1d_nwk_labelName(cLayer, 'other')
-			label3.fieldName = labelName3
-			rule3 = QgsRuleBasedLabeling.Rule(label3)
-			rule3.setFilterExpression("\"{0}\" LIKE '%S%' OR \"{0}\" LIKE '%B%' OR \"{0}\" LIKE '%I%' OR \"{0}\"" \
-			                          "LIKE '%P%' OR \"{0}\" LIKE '%G%' OR \"{0}\" LIKE '%M%' OR \"{0}\" LIKE '%Q%'" \
-			                          "OR \"{0}\" LIKE '%X%'".format(field_name_1))
-			# append rule 1, 2, 3 to blank rule object
-			rule.appendChild(rule1)
-			rule.appendChild(rule2)
-			rule.appendChild(rule3)
-		else:
-			# simple labeling (no rules)
-			labelName = get_tuflow_labelName(cLayer)
-			label = QgsPalLayerSettings()
-			label.isExpression = True
-			label.multilineAlign = 0
-			label.bufferDraw = True
-			label.drawLabels = True
-			label.fieldName = labelName
-			if cLayer.geometryType() == 0:
-				label.placement = 0
-			elif cLayer.geometryType() == 1:
-				label.placement = 2
-			elif cLayer.geometryType() == 2:
-				label.placement = 1
-		if '1d_nwk' in fname:
-			labeling = QgsRuleBasedLabeling(rule)
-		else:
-			labeling = QgsVectorLayerSimpleLabeling(label)
-		cLayer.setLabeling(labeling)
-		cLayer.setLabelsEnabled(True)
-	else:
-		cLayer.setLabelsEnabled(False)
 
-	canvas.refresh()
+	if isinstance(cLayer, QgsVectorLayer):
+		if not cLayer.labelsEnabled():
+			labelProperties = findCustomLabelProperties(cLayer.name())
+			if labelProperties['rule_based']:  # use QgsRuleBasedLabeling class
+				labelAll = QgsPalLayerSettings()
+				ruleAll = QgsRuleBasedLabeling.Rule(labelAll)
+				for rule_name, prop in labelProperties['rule_based'].items():
+					label = QgsPalLayerSettings()
+					rule = QgsRuleBasedLabeling.Rule(label)
+					expression = setupLabelFilterExpression(cLayer, rule_name, prop['rule_strictness'])
+					rule.setFilterExpression(expression)
+					setLabelProperties(label, prop, cLayer)
+					ruleAll.appendChild(rule)
+				labeling = QgsRuleBasedLabeling(ruleAll)
+			else:  # use QgsVectorLayerSimpleLabeling class
+				label = QgsPalLayerSettings()
+				setLabelProperties(label, labelProperties, cLayer)
+				labeling = QgsVectorLayerSimpleLabeling(label)
+
+			cLayer.setLabeling(labeling)
+			cLayer.setLabelsEnabled(True)
+			cLayer.triggerRepaint()
+		else:
+			cLayer.setLabelsEnabled(False)
+
+		canvas.refresh()
 
 	return error, message
 
@@ -1452,116 +1885,133 @@ def getOutputFolderFromTCF(tcf, **kwargs):
 	outputFolder2D = []
 	
 	read = True
-	with open(tcf, 'r') as fo:
-		for f in fo:
-			if 'if scenario' in f.lower():
-				ind = f.lower().find('if scenario')
-				if '!' not in f[:ind]:
-					command, scenario = f.split('==')
-					command = command.strip()
-					scenario = scenario.split('!')[0]
-					scenario = scenario.strip()
-					scenarios_ = scenario.split('|')
-					found = False
-					if scenarios == 'all':
-						found = True
-					else:
-						for scenario in scenarios_:
-							scenario = scenario.strip()
-							if scenario in scenarios:
-								found = True
-					if found:
-						read = True
-					else:
-						read = False
-			if 'end if' in f.lower():
-				ind = f.lower().find('end if')
-				if '!' not in f[:ind]:
-					read = True
-			if not read:
-				continue
-			
-			# check for 1D domain heading
-			if 'start 1d domain' in f.lower():
-				ind = f.lower().find('start 1d domain')  # get index in string of command
-				if '!' not in f[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
-					subread = True
-					for subline in fo:
-						if 'end 1d domain' in subline.lower():
-							ind = subline.lower().find('end 1d domain')  # get index in string of command
-							if '!' not in subline[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
-								break
-						if 'if scenario' in f.lower():
-							ind = f.lower().find('if scenario')
-							if '!' not in f[:ind]:
-								command, scenario = f.split('==')
-								command = command.strip()
-								scenario = scenario.split('!')[0]
+	try:
+		with open(tcf, 'r') as fo:
+			for f in fo:
+				if 'if scenario' in f.lower():
+					ind = f.lower().find('if scenario')
+					if '!' not in f[:ind]:
+						command, scenario = f.split('==')
+						command = command.strip()
+						scenario = scenario.split('!')[0]
+						scenario = scenario.strip()
+						scenarios_ = scenario.split('|')
+						found = False
+						if scenarios == 'all':
+							found = True
+						else:
+							for scenario in scenarios_:
 								scenario = scenario.strip()
-								scenarios_ = scenario.split('|')
-								found = False
-								if scenarios == 'all':
+								if scenario in scenarios:
 									found = True
-								else:
-									for scenario in scenarios_:
-										scenario = scenario.strip()
-										if scenario in scenarios:
-											found = True
-								if found:
+						if found:
+							read = True
+						else:
+							read = False
+				if 'end if' in f.lower():
+					ind = f.lower().find('end if')
+					if '!' not in f[:ind]:
+						read = True
+				if not read:
+					continue
+
+				# check for 1D domain heading
+				if 'start 1d domain' in f.lower():
+					ind = f.lower().find('start 1d domain')  # get index in string of command
+					if '!' not in f[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
+						subread = True
+						for subline in fo:
+							if 'end 1d domain' in subline.lower():
+								ind = subline.lower().find('end 1d domain')  # get index in string of command
+								if '!' not in subline[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
+									break
+							if 'if scenario' in f.lower():
+								ind = f.lower().find('if scenario')
+								if '!' not in f[:ind]:
+									command, scenario = f.split('==')
+									command = command.strip()
+									scenario = scenario.split('!')[0]
+									scenario = scenario.strip()
+									scenarios_ = scenario.split('|')
+									found = False
+									if scenarios == 'all':
+										found = True
+									else:
+										for scenario in scenarios_:
+											scenario = scenario.strip()
+											if scenario in scenarios:
+												found = True
+									if found:
+										subread = True
+									else:
+										subread = False
+							if 'end if' in f.lower():
+								ind = f.lower().find('end if')
+								if '!' not in f[:ind]:
 									subread = True
-								else:
-									subread = False
-						if 'end if' in f.lower():
-							ind = f.lower().find('end if')
-							if '!' not in f[:ind]:
-								subread = True
-						if not subread:
-							continue
-						if 'output folder' in subline.lower():  # check if there is an 'if scenario' command
-							ind = subline.lower().find('output folder')  # get index in string of command
-							if '!' not in subline[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
-								command, folder = subline.split('==')  # split at == to get command and value
-								command = command.strip()  # strip blank spaces and new lines \n
-								folder = folder.split('!')[0]  # split string by ! and take first entry i.e. remove any comments after command
-								folder = folder.strip()  # strip blank spaces and new lines \n
-								folders = getAllFolders(os.path.dirname(tcf), folder, variables,
-								                        scenarios, events, outputDrive)
-								outputFolder1D += folders
-			
-			# normal output folder
-			if 'output folder' in f.lower():  # check if there is an 'if scenario' command
-				ind = f.lower().find('output folder')  # get index in string of command
-				if '!' not in f[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
-					command, folder = f.split('==')  # split at == to get command and value
-					command = command.strip()  # strip blank spaces and new lines \n
-					folder = folder.split('!')[0]  # split string by ! and take first entry i.e. remove any comments after command
-					folder = folder.strip()  # strip blank spaces and new lines \n
-					folders = getAllFolders(os.path.dirname(tcf), folder, variables, scenarios, events, outputDrive)
-					if '1D' in command:
-						#folder = getPathFromRel(os.path.dirname(tcf), folder, output_drive=outputDrive)
-						outputFolder1D += folders
-					else:
-						#folder = getPathFromRel(os.path.dirname(tcf), folder, output_drive=outputDrive)
-						outputFolder2D += folders
-			
-			# check for output folder in ECF
-			if 'estry control file' in f.lower():
-				ind = f.lower().find('estry control file')
-				if '!' not in f[:ind]:
-					if 'estry control file auto' in f.lower():
-						path = '{0}.ecf'.format(os.path.splitext(tcf)[0])
-					command, relPath = f.split('==')
-					command = command.strip()
-					relPath = relPath.split('!')[0]
-					relPath = relPath.strip()
-					files = getAllFolders(os.path.dirname(tcf), relPath, variables, scenarios, events, outputDrive)
-					#path = getPathFromRel(os.path.dirname(tcf), relPath, output_drive=outputDrive)
-					for file in files:
-						outputFolder1D += getOutputFolderFromTCF(file)
-	
-	if outputFolder2D is not None:
-		if outputFolder1D is None:
-			outputFolder1D = outputFolder2D[:]
+							if not subread:
+								continue
+							if 'output folder' in subline.lower():  # check if there is an 'if scenario' command
+								ind = subline.lower().find('output folder')  # get index in string of command
+								if '!' not in subline[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
+									command, folder = subline.split('==')  # split at == to get command and value
+									command = command.strip()  # strip blank spaces and new lines \n
+									folder = folder.split('!')[0]  # split string by ! and take first entry i.e. remove any comments after command
+									folder = folder.strip()  # strip blank spaces and new lines \n
+									folders = getAllFolders(os.path.dirname(tcf), folder, variables,
+									                        scenarios, events, outputDrive)
+									outputFolder1D += folders
+
+				# normal output folder
+				if 'output folder' in f.lower():  # check if there is an 'if scenario' command
+					ind = f.lower().find('output folder')  # get index in string of command
+					if '!' not in f[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
+						command, folder = f.split('==')  # split at == to get command and value
+						command = command.strip()  # strip blank spaces and new lines \n
+						folder = folder.split('!')[0]  # split string by ! and take first entry i.e. remove any comments after command
+						folder = folder.strip()  # strip blank spaces and new lines \n
+						folders = getAllFolders(os.path.dirname(tcf), folder, variables, scenarios, events, outputDrive)
+						if '1D' in command:
+							#folder = getPathFromRel(os.path.dirname(tcf), folder, output_drive=outputDrive)
+							outputFolder1D += folders
+						else:
+							#folder = getPathFromRel(os.path.dirname(tcf), folder, output_drive=outputDrive)
+							outputFolder2D += folders
+
+				# check for output folder in ECF
+				if 'estry control file' in f.lower():
+					ind = f.lower().find('estry control file')
+					if '!' not in f[:ind]:
+						if 'estry control file auto' in f.lower():
+							path = '{0}.ecf'.format(os.path.splitext(tcf)[0])
+						command, relPath = f.split('==')
+						command = command.strip()
+						relPath = relPath.split('!')[0]
+						relPath = relPath.strip()
+						files = getAllFolders(os.path.dirname(tcf), relPath, variables, scenarios, events, outputDrive)
+						#path = getPathFromRel(os.path.dirname(tcf), relPath, output_drive=outputDrive)
+						for file in files:
+							outputFolder1D += getOutputFolderFromTCF(file)
+
+				# check for output folder in TRD
+				if 'read file' in f.lower():
+					ind = f.lower().find('read file')
+					if '!' not in f[:ind]:
+						command, relPath = f.split('==')
+						command = command.strip()
+						relPath = relPath.split('!')[0]
+						relPath = relPath.strip()
+						files = getAllFolders(os.path.dirname(tcf), relPath, variables, scenarios, events, outputDrive)
+						for file in files:
+							res1D, res2D = getOutputFolderFromTCF(file, scenarios=scenarios, events=events, variables=variables, output_drive=outputDrive)
+							outputFolder1D += res1D
+							outputFolder2D += res2D
+
+		if outputFolder2D is not None:
+			if outputFolder1D is None:
+				outputFolder1D = outputFolder2D[:]
+	except Exception as e:
+		pass
 	
 	return [outputFolder1D, outputFolder2D]
 	
@@ -1755,24 +2205,33 @@ def getScenariosFromControlFile(controlFile, processedScenarios):
 	:param processedScenarios: list - list of already processed scenarios
 	:return: list - processed and added scenarios
 	"""
-	
-	with open(controlFile, 'r') as fo:
-		for f in fo:
-			if 'if scenario' in f.lower():  # check if there is an 'if scenario' command
-				ind = f.lower().find('if scenario')  # get index in string of command
-				if '!' not in f[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
-					command, scenario = f.split('==')  # split at == to get command and value
-					command = command.strip()  # strip blank spaces and new lines \n
-					scenario = scenario.split('!')[
-						0]  # split string by ! and take first entry i.e. remove any comments after command
-					scenario = scenario.strip()  # strip blank spaces and new lines \n
-					scenarios = scenario.split('|')  # split scenarios by | in case there is more than one specified
-					for scenario in scenarios:  # loop through scenarios and add to list if not already there
-						scenario = scenario.strip()
-						if scenario not in processedScenarios:
-							processedScenarios.append(scenario)
 
-	return processedScenarios
+	message = ''
+
+	try:
+		with open(controlFile, 'r') as fo:
+			for f in fo:
+				if 'if scenario' in f.lower():  # check if there is an 'if scenario' command
+					ind = f.lower().find('if scenario')  # get index in string of command
+					if '!' not in f[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
+						command, scenario = f.split('==')  # split at == to get command and value
+						command = command.strip()  # strip blank spaces and new lines \n
+						scenario = scenario.split('!')[
+							0]  # split string by ! and take first entry i.e. remove any comments after command
+						scenario = scenario.strip()  # strip blank spaces and new lines \n
+						scenarios = scenario.split('|')  # split scenarios by | in case there is more than one specified
+						for scenario in scenarios:  # loop through scenarios and add to list if not already there
+							scenario = scenario.strip()
+							if scenario not in processedScenarios:
+								processedScenarios.append(scenario)
+	except FileNotFoundError:
+		return "File not found: {0}".format(controlFile), processedScenarios
+	except IOError:
+		return "Could not open file: {0}".format(controlFile), processedScenarios
+	except Exception:
+		return "Unexpected error when reading file: {0}".format(controlFile), processedScenarios
+
+	return "", processedScenarios
 
 
 def getScenariosFromTcf(tcf):
@@ -1785,12 +2244,15 @@ def getScenariosFromTcf(tcf):
 	:return: list scenarios
 	"""
 	
-	message = 'Could not find the following files:\n'
+	messages = []
 	error = False
 	variables = getVariableNamesFromTCF(tcf, 'all')
 	dir = os.path.dirname(tcf)
 	scenarios = []
-	scenarios = getScenariosFromControlFile(tcf, scenarios)
+	msg, scenarios = getScenariosFromControlFile(tcf, scenarios)
+	if msg:
+		error = True
+		messages.append(msg)
 	with open(tcf, 'r') as fo:
 		for f in fo:
 			if 'estry control file' in f.lower():
@@ -1799,10 +2261,13 @@ def getScenariosFromTcf(tcf):
 					if 'estry control file auto' in f.lower():
 						path = '{0}.ecf'.format(os.path.splitext(tcf)[0])
 						if os.path.exists(path):
-							scenarios = getScenariosFromControlFile(path, scenarios)
+							msg, scenarios = getScenariosFromControlFile(path, scenarios)
+							if msg:
+								error = True
+								messages.append(msg)
 						else:
 							error = True
-							message += '{0}\n'.format(path)
+							messages.append("File not found: {0}".format(path))
 					else:
 						command, relPath = f.split('==')
 						command = command.strip()
@@ -1810,7 +2275,10 @@ def getScenariosFromTcf(tcf):
 						relPath = relPath.strip()
 						paths = getAllFolders(dir, relPath, variables, scenarios, [])
 						for path in paths:
-							scenarios = getScenariosFromControlFile(path, scenarios)
+							msg, scenarios = getScenariosFromControlFile(path, scenarios)
+							if msg:
+								error = True
+								messages.append(msg)
 			if 'geometry control file' in f.lower():
 				ind = f.lower().find('geometry control file')
 				if '!' not in f[:ind]:
@@ -1820,7 +2288,10 @@ def getScenariosFromTcf(tcf):
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						scenarios = getScenariosFromControlFile(path, scenarios)
+						msg, scenarios = getScenariosFromControlFile(path, scenarios)
+						if msg:
+							error = True
+							messages.append(msg)
 			if 'bc control file' in f.lower():
 				ind = f.lower().find('bc control file')
 				if '!' not in f[:ind]:
@@ -1830,7 +2301,7 @@ def getScenariosFromTcf(tcf):
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						scenarios = getScenariosFromControlFile(path, scenarios)
+						msg, scenarios = getScenariosFromControlFile(path, scenarios)
 			if 'event control file' in f.lower():
 				ind = f.lower().find('event control file')
 				if '!' not in f[:ind]:
@@ -1840,7 +2311,10 @@ def getScenariosFromTcf(tcf):
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						scenarios = getScenariosFromControlFile(path, scenarios)
+						msg, scenarios = getScenariosFromControlFile(path, scenarios)
+						if msg:
+							error = True
+							messages.append(msg)
 			if 'read file' in f.lower():
 				ind = f.lower().find('read file')
 				if '!' not in f[:ind]:
@@ -1850,7 +2324,10 @@ def getScenariosFromTcf(tcf):
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						scenarios = getScenariosFromControlFile(path, scenarios)
+						msg, scenarios = getScenariosFromControlFile(path, scenarios)
+						if msg:
+							error = True
+							messages.append(msg)
 			if 'read operating controls file' in f.lower():
 				ind = f.lower().find('read operating controls file')
 				if '!' not in f[:ind]:
@@ -1860,8 +2337,11 @@ def getScenariosFromTcf(tcf):
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						scenarios = getScenariosFromControlFile(path, scenarios)
-
+						msg, scenarios = getScenariosFromControlFile(path, scenarios)
+						if msg:
+							error = True
+							messages.append(msg)
+	message = '\n'.join(messages)
 	return error, message, scenarios
 
 
@@ -2508,10 +2988,10 @@ def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers
 		for f in fo:
 			if 'if scenario' in f.lower():
 				ind = f.lower().find('if scenario')
-				if '!' not in f[:ind]:
+				if '!' not in f[:ind] and '#' not in f[:ind]:
 					command, scenario = f.split('==')
 					command = command.strip()
-					scenario = scenario.split('!')[0]
+					scenario = scenario.split('!')[0].split('#')[0]
 					scenario = scenario.strip()
 					scenarios_ = scenario.split('|')
 					found = False
@@ -2523,19 +3003,30 @@ def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers
 						read = True
 					else:
 						read = False
+			if 'else' in f.lower():
+				ind = f.lower().find('else')
+				if '!' not in f[:ind] and '#' not in f[:ind]:
+					if '==' in f.lower():
+						command, scenario = f.split('==')
+					else:
+						command = f.lower()
+					command = command.strip()
+					command = command.split('!')[0].split('#')[0]
+					if 'if scenario' not in command.lower():
+						read = True
 			if 'end if' in f.lower():
 				ind = f.lower().find('end if')
-				if '!' not in f[:ind]:
+				if '!' not in f[:ind] and '#' not in f[:ind]:
 					read = True
 			if not read:
 				continue
 			if 'read' in f.lower():
 				ind = f.lower().find('read')
-				if '!' not in f[:ind]:
+				if '!' not in f[:ind] and '#' not in f[:ind]:
 					if 'read materials file' not in f.lower() and 'read file' not in f.lower() and 'read operating controls file' not in f.lower():
 						command, relPath = f.split('==')
 						command = command.strip()
-						relPath = relPath.split('!')[0]
+						relPath = relPath.split('!')[0].split('#')[0]
 						relPath = relPath.strip()
 						relPaths = relPath.split("|")
 						for relPath in relPaths:
@@ -2547,7 +3038,7 @@ def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers
 										loadGisFile(iface, path, group, processed_paths, processed_layers, error, log)
 							
 	lyrs = [c.layer() for c in group.children()]
-	lyrs_sorted = sorted(lyrs, key=lambda x: x.name())
+	lyrs_sorted = sorted(lyrs, key=lambda x: x.name().lower())
 	for i, lyr in enumerate(lyrs_sorted):
 		treeLyr = group.insertLayer(i, lyr)
 	group.removeChildren(len(lyrs), len(lyrs))
@@ -2584,10 +3075,10 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 		for f in fo:
 			if 'if scenario' in f.lower():
 				ind = f.lower().find('if scenario')
-				if '!' not in f[:ind]:
+				if '!' not in f[:ind] and '#' not in f[:ind]:
 					command, scenario = f.split('==')
 					command = command.strip()
-					scenario = scenario.split('!')[0]
+					scenario = scenario.split('!')[0].split('#')[0]
 					scenario = scenario.strip()
 					scenarios_ = scenario.split('|')
 					found = False
@@ -2599,15 +3090,26 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 						read = True
 					else:
 						read = False
+			if 'else' in f.lower():
+				ind = f.lower().find('else')
+				if '!' not in f[:ind] and '#' not in f[:ind]:
+					if '==' in f.lower():
+						command, scenario = f.split('==')
+					else:
+						command = f.lower()
+					command = command.strip()
+					command = command.split('!')[0].split('#')[0]
+					if 'if scenario' not in command.lower():
+						read = True
 			if 'end if' in f.lower():
 				ind = f.lower().find('end if')
-				if '!' not in f[:ind]:
+				if '!' not in f[:ind] and '#' not in f[:ind]:
 					read = True
 			if not read:
 				continue
 			if 'estry control file' in f.lower():
 				ind = f.lower().find('estry control file')
-				if '!' not in f[:ind]:
+				if '!' not in f[:ind] and '#' not in f[:ind]:
 					if 'estry control file auto' in f.lower():
 						path = '{0}.ecf'.format(os.path.splitext(tcf)[0])
 						error, log, pPaths, pLayers = loadGisFromControlFile(path, iface, processed_paths,
@@ -2621,7 +3123,7 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 					else:
 						command, relPath = f.split('==')
 						command = command.strip()
-						relPath = relPath.split('!')[0]
+						relPath = relPath.split('!')[0].split('#')[0]
 						relPath = relPath.strip()
 						paths = getAllFolders(dir, relPath, variables, scenarios, [])
 						for path in paths:
@@ -2635,10 +3137,10 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 								message += log
 			if 'geometry control file' in f.lower():
 				ind = f.lower().find('geometry control file')
-				if '!' not in f[:ind]:
+				if '!' not in f[:ind] and '#' not in f[:ind]:
 					command, relPath = f.split('==')
 					command = command.strip()
-					relPath = relPath.split('!')[0]
+					relPath = relPath.split('!')[0].split('#')[0]
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
@@ -2651,10 +3153,10 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 							message += log
 			if 'bc control file' in f.lower():
 				ind = f.lower().find('bc control file')
-				if '!' not in f[:ind]:
+				if '!' not in f[:ind] and '#' not in f[:ind]:
 					command, relPath = f.split('==')
 					command = command.strip()
-					relPath = relPath.split('!')[0]
+					relPath = relPath.split('!')[0].split('#')[0]
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
@@ -2668,10 +3170,10 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 							message += log
 			if 'event control file' in f.lower():
 				ind = f.lower().find('event control file')
-				if '!' not in f[:ind]:
+				if '!' not in f[:ind] and '#' not in f[:ind]:
 					command, relPath = f.split('==')
 					command = command.strip()
-					relPath = relPath.split('!')[0]
+					relPath = relPath.split('!')[0].split('#')[0]
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
@@ -2685,10 +3187,10 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 							message += log
 			if 'read file' in f.lower():
 				ind = f.lower().find('read file')
-				if '!' not in f[:ind]:
+				if '!' not in f[:ind] and '#' not in f[:ind]:
 					command, relPath = f.split('==')
 					command = command.strip()
-					relPath = relPath.split('!')[0]
+					relPath = relPath.split('!')[0].split('#')[0]
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
@@ -2702,10 +3204,10 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 							message += log
 			if 'read operating controls file' in f.lower():
 				ind = f.lower().find('read operating controls file')
-				if '!' not in f[:ind]:
+				if '!' not in f[:ind] and '#' not in f[:ind]:
 					command, relPath = f.split('==')
 					command = command.strip()
-					relPath = relPath.split('!')[0]
+					relPath = relPath.split('!')[0].split('#')[0]
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
@@ -2831,9 +3333,11 @@ def getUnit(resultType, canvas, **kwargs):
 	}
 	
 	# determine units i.e. metric, imperial, or unknown / blank
-	if canvas.mapUnits() == 0 or canvas.mapUnits() == 1 or canvas.mapUnits() == 7 or canvas.mapUnits() == 8:  # metric
+	if canvas.mapUnits() == QgsUnitTypes.DistanceMeters or canvas.mapUnits() == QgsUnitTypes.DistanceKilometers or \
+			canvas.mapUnits() == QgsUnitTypes.DistanceCentimeters or canvas.mapUnits() == QgsUnitTypes.DistanceMillimeters:  # metric
 		u, m = 0, 'm'
-	elif canvas.mapUnits() == 2 or canvas.mapUnits() == 3 or canvas.mapUnits() == 4 or canvas.mapUnits() == 5:  # imperial
+	elif canvas.mapUnits() == QgsUnitTypes.DistanceFeet  or canvas.mapUnits() == QgsUnitTypes.DistanceNauticalMiles or \
+			canvas.mapUnits() == QgsUnitTypes.DistanceYards or canvas.mapUnits() == QgsUnitTypes.DistanceMiles:  # imperial
 		u, m = 1, 'ft'
 	else:  # use blank
 		u, m = -1, ''
@@ -3396,18 +3900,33 @@ def getOpenTUFLOWLayers(layer_type='input_types'):
 	tuflowLayers = []
 	for name, layer in QgsProject.instance().mapLayers().items():
 		if layer.type() == 0:  # vector layer
-			if '1d_check' in layer.name().lower() or '2d_check' in layer.name().lower():
+			pattern = r'_check(_[PLR])?$'  # will match '_check' or '_check_P' (P or L or R) only if it is at the end of the string
+			name = os.path.splitext(layer.name())[0]  # make sure there is no file path extension
+			search = re.search(pattern, name, flags=re.IGNORECASE)
+			if search is not None:
 				if layer_type == 'check_all':
 					tuflowLayers.append(layer.name())
-			elif layer.name().lower()[:3] == '1d_' or layer.name().lower()[:3] == '2d_' \
-					or layer.name().lower()[:3] == '0d_':
-				if layer_type == 'input_all':
-					tuflowLayers.append(layer.name())
-				elif layer_type == 'input_types':
-					components = layer.name().split('_')
-					tuflow_type = '_'.join(components[:2]).lower()
-					if tuflow_type not in tuflowLayers:
-						tuflowLayers.append(tuflow_type)
+			else:  # not a check file
+				# find 0d_ or 1d_ or 2d_ part of layer name
+				pattern = r'^[0-2]d_'
+				search = re.search(pattern, name, flags=re.IGNORECASE)
+				if search is not None:
+					if layer_type == 'input_all':
+						tuflowLayers.append(layer.name())
+					elif layer_type == 'input_types':
+						components = layer.name().split('_')
+						tuflow_type = '_'.join(components[:2]).lower()
+
+						# special case for 2d_sa as this could be 2d_sa_tr or 2d_sa_rf
+						specialCases = ['2d_sa_rf', '2d_sa_tr']
+						if len(components) >= 3:
+							for sc in specialCases:
+								tempName = tuflow_type + '_' + components[2]
+								if sc.lower() == tempName.lower():
+									tuflow_type = tempName
+
+						if tuflow_type not in tuflowLayers:
+							tuflowLayers.append(tuflow_type)
 	
 	return sorted(tuflowLayers)
 
@@ -3478,7 +3997,7 @@ def sortNodesInGroup(nodes, parent):
 	"""
 	
 	# first sort nodes alphabetically by name
-	nodes_sorted = sorted(nodes, key=lambda x: x.name())
+	nodes_sorted = sorted(nodes, key=lambda x: x.name().lower())
 	
 	# then move rasters and mesh layers to end
 	rasters = []
@@ -3487,9 +4006,9 @@ def sortNodesInGroup(nodes, parent):
 	for node in nodes_sorted:
 		layer = tuflowqgis_find_layer(node.name())
 		if layer is not None:
-			if layer.type() == 1:  # raster
+			if isinstance(layer, QgsRasterLayer):  # raster
 				rasters.append(node)
-			elif layer.type() == 3:  # mesh
+			elif isinstance(layer, QgsMeshLayer):  # mesh
 				meshes.append(node)
 		else:
 			empty.append(node)
@@ -3501,13 +4020,27 @@ def sortNodesInGroup(nodes, parent):
 		nodes_sorted.append(raster)
 		
 	# finally order layers in panel based on sorted list
+	unique = {}
 	for i, node in enumerate(nodes_sorted):
 		if node not in empty:
 			layer = tuflowqgis_find_layer(node.name())
-			node_new = QgsLayerTreeLayer(layer)
-			node_new.setItemVisibilityChecked(node.itemVisibilityChecked())
-			parent.insertChildNode(i, node_new)
-			node.parent().removeChildNode(node)
+			repeated = False
+			if layer.source() in unique:
+				if unique[layer.source()][0] == layer.type():
+					if layer.type() == QgsMapLayer.VectorLayer:
+						if unique[layer.source()][1] == layer.geometryType():
+							repeated = True
+			if not repeated:
+				node_new = QgsLayerTreeLayer(layer)
+				node_new.setItemVisibilityChecked(node.itemVisibilityChecked())
+				parent.insertChildNode(i, node_new)
+				node.parent().removeChildNode(node)
+				if layer.type() == QgsMapLayer.VectorLayer:
+					unique[layer.source()] = (layer.type(), layer.geometryType())
+				else:
+					unique[layer.source()] = (layer.type(), -1)
+			else:
+				node.parent().removeChildNode(node)
 		else:
 			# if node is empty, remove from map
 			node.parent().removeChildNode(node)
@@ -3767,6 +4300,12 @@ def ascToAsc(exe, function, workdir , grids, **kwargs):
 	else:
 		proc = subprocess.Popen(args)
 	proc.wait()
+	
+	if 'saveFile' in kwargs:
+		if kwargs['saveFile']:
+			message = saveBatchFile(args, workdir)
+			QMessageBox.information(None, "TUFLOW Utility", message)
+	
 	return False, ''
 	#out = ''
 	#for line in iter(proc.stdout.readline, ""):
@@ -3824,6 +4363,12 @@ def tuflowToGis(exe, function, workdir, mesh, dataType, timestep, **kwargs):
 	else:
 		proc = subprocess.Popen(args)
 	proc.wait()
+	
+	if 'saveFile' in kwargs:
+		if kwargs['saveFile']:
+			message = saveBatchFile(args, workdir)
+			QMessageBox.information(None, "TUFLOW Utility", message)
+	
 	return False, ''
 	#out = ''
 	#for line in iter(proc.stdout.readline, ""):
@@ -3912,10 +4457,15 @@ def resToRes(exe, function, workdir, meshes, dataType, **kwargs):
 		shutil.rmtree(tmpdir)
 		return False, info  # return info instead of process log
 	else:
+		if 'saveFile' in kwargs:
+			if kwargs['saveFile']:
+				message = saveBatchFile(args, workdir)
+				QMessageBox.information(None, "TUFLOW Utility", message)
+		
 		return False, ''
 		#return False, out.decode('utf-8')
 	
-def tuflowUtility(exe, workdir, flags):
+def tuflowUtility(exe, workdir, flags, saveFile):
 	"""
 	
 	:param exe: str full path to executable
@@ -3939,6 +4489,11 @@ def tuflowUtility(exe, workdir, flags):
 	else:
 		proc = subprocess.Popen(args)
 	proc.wait()
+	
+	if saveFile:
+		message = saveBatchFile(args, workdir)
+		QMessageBox.information(None, "TUFLOW Utility", message)
+	
 	return False, ''
 	#out = ''
 	#for line in iter(proc.stdout.readline, ""):
@@ -3953,6 +4508,58 @@ def tuflowUtility(exe, workdir, flags):
 	#	return True, out.decode('utf-8')
 	#else:
 	#	return False, out.decode('utf-8')
+
+
+def saveBatchFile(flags, workdir):
+	
+	# choose a directory to save file into
+	# use working directory if available
+	# otherwise scan batch file for the first applicable file and save in same location
+	dir = None
+	if workdir:
+		dir = workdir
+	else:
+		for i, arg in enumerate(flags):
+			if i > 0:
+				if arg:
+					if arg[0] != '-':
+						if os.path.exists(arg):
+							dir = os.path.dirname(arg)
+							break
+	
+	if dir is None:
+		return 'Error saving batch file'
+	
+	fname = os.path.splitext(os.path.basename(flags[0]))[0]
+	outfile = '{0}.bat'.format(os.path.join(dir, fname))
+	i = 0
+	while os.path.exists(outfile):
+		i += 1
+		outfile = '{0}_[{1}].bat'.format(os.path.join(dir, fname), i)
+		
+	with open(outfile, 'w') as fo:
+		for i, arg in enumerate(flags):
+			argWritten = False
+			if i == 0:
+				if type(arg) is str:
+					if arg:
+						if arg[0] != '-':
+							if arg[0] != '"' or arg[0] != "'":
+								fo.write('"{0}"'.format(arg))
+								argWritten = True
+				if not argWritten:
+					fo.write('{0}'.format(arg))
+			else:
+				if type(arg) is str:
+					if arg:
+						if arg[0] != '-':
+							if arg[0] != '"' or arg[0] != "'":
+								fo.write(' "{0}"'.format(arg))
+								argWritten = True
+				if not argWritten:
+					fo.write(' {0}'.format(arg))
+				
+	return 'Successfully Saved Batch File: {0}'.format(outfile)
 
 
 def downloadBinPackage(packageUrl, destinationFileName):
@@ -3978,13 +4585,13 @@ def downloadBinPackage(packageUrl, destinationFileName):
 
 
 def downloadUtility(utility, parent_widget=None):
-	latestUtilities = {'asc_to_asc': 'asc_to_asc.2018-03-AA.zip', 'tuflow_to_gis': 'TUFLOW_to_GIS.2018-05-AA.zip',
+	latestUtilities = {'asc_to_asc': 'asc_to_asc.2019-05-AA.zip', 'tuflow_to_gis': 'TUFLOW_to_GIS.2018-05-AA.zip',
 	                   'res_to_res': '2016-10-AA.zip', '12da_to_from_gis': '12da_to_from_gis.zip',
 	                   'convert_to_ts1': 'convert_to_ts1.2018-05-AA.zip', 'tin_to_tin': 'tin_to_tin.zip',
 	                   'xsgenerator': 'xsGenerator.zip'}
 	exe = latestUtilities[utility.lower()]
 	name = os.path.splitext(exe)[0]
-	utilityNames = {'asc_to_asc': '{0}/asc_to_asc_w64.exe'.format(name),
+	utilityNames = {'asc_to_asc': 'asc_to_asc_w64.exe'.format(name),
 	                'tuflow_to_gis': '{0}/TUFLOW_to_GIS_w64.exe'.format(name),
 	                'res_to_res': '{0}/res_to_res_w64.exe'.format(name), '12da_to_from_gis': '12da_to_from_gis.exe',
 	                'convert_to_ts1': 'convert_to_ts1.exe', 'tin_to_tin': 'tin_to_tin.exe',
@@ -4030,8 +4637,15 @@ def convertTimeToFormattedTime(time, hour_padding=2, unit='h'):
 	h = int(d.total_seconds() / 3600)
 	m = int((d.total_seconds() % 3600) / 60)
 	s = float(d.total_seconds() % 60)
+	if '{0:05.02f}'.format(s) == '60.00':
+		m += 1
+		s = 0.
+		if m == 60:
+			h += 1
+			m = 0
 	
 	if hour_padding == 2:
+		format = '{0:%H}:{0:%M}:{0:%S.%f}'
 		t = '{0:02d}:{1:02d}:{2:05.02f}'.format(h, m, s)
 	elif hour_padding == 3:
 		t = '{0:03d}:{1:02d}:{2:05.02f}'.format(h, m, s)
@@ -4052,16 +4666,34 @@ def convertFormattedTimeToTime(formatted_time, hour_padding=2, unit='h'):
 	"""
 
 	t = formatted_time.split(':')
-	h = int(t[0])
-	m = int(t[1])
-	s = float(t[2])
-	
+	h = int(t[0]) if t[0] != '' else 0
+	m = int(t[1]) if t[1] != '' else 0
+	s = float(t[2]) if t[2] != '' else 0
+
 	d = timedelta(hours=h, minutes=m, seconds=s)
-	
+
 	if unit == 's':
 		return d.total_seconds()
 	else:
 		return d.total_seconds() / 3600
+
+
+def convertFormattedTimeToFromattedTime(formatted_time: str, return_format: str = '{0:02d}:{1:02d}:{2:02.0f}') -> str:
+	"""
+	Converts formatted time hh:mm:ss.ms to another formatted time string. Benefit is that it can
+	take non digit characters e.g. '_'
+
+	:param formatted_time: str
+	:param return_format: str format of the return time string
+	:return: str
+	"""
+
+	t = formatted_time.split(':')
+	h = int(t[0]) if t[0] != '' else 0
+	m = int(t[1]) if t[1] != '' else 0
+	s = float(t[2]) if t[2] != '' else 0
+
+	return return_format.format(h, m, s)
 
 
 def findToolTip(text, engine="classic"):
@@ -4159,12 +4791,511 @@ def createNewPoint(p1, p2, length, new_length, mapUnits):
 		pointBackConveted = to_latlon(x, y, p1Converted[2], p1Converted[3])
 		return QgsPoint(pointBackConveted[1], pointBackConveted[0])
 
-if __name__ == '__main__':
-	a = r"C:\Users\Ellis.Symons\Desktop\Tuview_Debugging\190305\runs\Oakey_PFAS_L_~s1~_~e1~_~e2~_~s2~_18-PW.tcf"
-	b = ['AD']
-	c = ['100y', '60m']
-	res1D, res2D, messages = getResultPathsFromTCF(a, scenarios=b, events=c)
-	print("res1D: {0}".format(res1D))
-	print("res2D: {0}".format(res2D))
-	print("messages: {0}".format(messages))
+
+def is1dNetwork(layer):
+	"""
+	Checks if a layer is a 1d_nwk
+
+	:param layer: QgsMapLayer
+	:return: bool
+	"""
+
+	correct1dNetworkType = [QVariant.String, QVariant.String, QVariant.String, QVariant.String, QVariant.Double,
+	                        QVariant.Double, QVariant.Double, QVariant.Double, QVariant.Double, QVariant.Double,
+	                        QVariant.String, QVariant.String, QVariant.Int, QVariant.Double, QVariant.Double,
+	                        QVariant.Int, QVariant.Double, QVariant.Double, QVariant.Double, QVariant.Double]
+	correct1dNetworkType2 = [QVariant.String, QVariant.String, QVariant.String, QVariant.String, QVariant.Double,
+	                         QVariant.Double, QVariant.Double, QVariant.Double, QVariant.Double, QVariant.Double,
+	                         QVariant.String, QVariant.String, QVariant.LongLong, QVariant.Double, QVariant.Double,
+	                         QVariant.LongLong, QVariant.Double, QVariant.Double, QVariant.Double, QVariant.Double]
+
+	fieldTypes = []
+	for i, f in enumerate(layer.getFeatures()):
+		if i > 0:
+			break
+		fields = f.fields()
+		for j in range(fields.count()):
+			if j > 19:
+				break
+			field = fields.field(j)
+			fieldType = field.type()
+			fieldTypes.append(fieldType)
+
+	if fieldTypes == correct1dNetworkType or fieldTypes == correct1dNetworkType2:
+		return True
+	else:
+		return False
+
+
+def is1dTable(layer):
+	"""
+	Checks if a layer is a 1d_ta type
+
+	:param layer: QgsVectorLayer
+	:return: bool
+	"""
+
+	correct1dTableType = [QVariant.String, QVariant.String, QVariant.String, QVariant.String, QVariant.String,
+	                      QVariant.String, QVariant.String, QVariant.String, QVariant.String]
+
+	fieldTypes = []
+	for i, f in enumerate(layer.getFeatures()):
+		if i > 0:
+			break
+		fields = f.fields()
+		for j in range(0, 9):
+			field = fields.field(j)
+			fieldType = field.type()
+			fieldTypes.append(fieldType)
+
+	if fieldTypes == correct1dTableType:
+		return True
+	else:
+		return False
+
+
+def getRasterValue(point, raster):
+	"""
+	Gets the elevation value from a raster at a given location. Assumes raster has only one band or that the first
+	band is elevation.
+
+	:param point: QgsPoint
+	:param raster: QgsRasterLayer
+	:return: float elevation value
+	"""
+
+	return raster.dataProvider().identify(QgsPointXY(point), QgsRaster.IdentifyFormatValue).results()[1]
+
+
+def readInvFromCsv(source, typ):
+	"""
+	Reads Table CSV file and returns the invert
+
+	:param source: string - csv source file
+	:param typ: string - table type
+	:return: float - invert
+	"""
+
+	header = False
+	firstCol = []
+	secondCol = []
+	with open(source, 'r') as fo:
+		for f in fo:
+			line = f.split(',')
+			if not header:
+				try:
+					float(line[0].strip('\n').strip())
+					header = True
+				except:
+					pass
+			if header:
+				firstCol.append(float(line[0].strip('\n').strip()))
+				secondCol.append(float(line[1].strip('\n').strip()))
+	if typ.lower() == 'xz' or typ.lower()[0] == 'w':
+		if secondCol:
+			return min(secondCol)
+		else:
+			return None
+	else:
+		if firstCol:
+			return min(firstCol)
+		else:
+			return None
+
+
+def getNetworkMidLocation(feature):
+	"""
+	Returns the location of the mid point along a polyline
+
+	:param usVertex: QgsPoint
+	:param dsVetex: QgsPoint
+	:return: QgsPoint
+	"""
+
+	from math import sin, cos, asin
+
+	length = feature.geometry().length()
+	desiredLength = length / 2.
+	points, chainages, directions = lineToPoints(feature, 99999, QgsUnitTypes.DistanceMeters)
+	chPrev = 0
+	for i, ch in enumerate(chainages):
+		if ch > desiredLength and chPrev < desiredLength:
+			break
+		else:
+			chPrev = ch
+	usVertex = points[i - 1]
+	dsVertex = points[i]
+	length = ((dsVertex[1] - usVertex[1]) ** 2. + (dsVertex[0] - usVertex[0]) ** 2.) ** 0.5
+	newLength = desiredLength - chPrev
+	angle = asin((dsVertex[1] - usVertex[1]) / length)
+	x = usVertex[0] + (newLength * cos(angle)) if dsVertex[0] - usVertex[0] >= 0 else usVertex[0] - (newLength * cos(
+		angle))
+	y = usVertex[1] + (newLength * sin(angle))
+	return QgsPoint(x, y)
+
+
+def interpolateObvert(usInv, dsInv, size, xValues):
+	"""
+	Creates a list of obvert elevations for chainages along a pipe
+
+	:param usInv: float - upstream invert
+	:param dsInv: float - downstream invert
+	:param xValues: list - chainage values to map obvert elevations to
+	:param size: float - pipe height
+	:return: list - obvert elevations
+	"""
+
+	usObv = usInv + size
+	dsObv = dsInv + size
+	xStart = xValues[0]
+	xEnd = xValues[-1]
+	obvert = []
+	for i, x in enumerate(xValues):
+		if i == 0:
+			obvert.append(usObv)
+		elif i == len(xValues) - 1:
+			obvert.append(dsObv)
+		else:
+			interpolate = (dsObv - usObv) / (xEnd - xStart) * (x - xStart) + usObv
+			obvert.append(interpolate)
+	return obvert
+
+
+def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
+           dialogName: str = "TUFLOW", fileType: str = "ALL (*)",
+           lineEdit = None, icon: QIcon = None, action=None) -> None:
+	"""
+	Browse folder directory
+
+	:param parent: QWidget Parent widget
+	:param type: str browse type 'folder' or 'file'
+	:param key: str settings key
+	:param dialogName: str dialog box label
+	:param fileType: str file extension e.g. "AVI files (*.avi)"
+	:param lineEdit: QLineEdit to be updated by browsing
+	:param icon: QIcon dialog window icon
+	:param action: lambda function
+	:return: None
+	"""
 	
+	settings = QSettings()
+	lastFolder = settings.value(key)
+	
+	startDir = os.getcwd()
+	if lineEdit is not None:
+		if type(lineEdit) is QLineEdit:
+			startDir = lineEdit.text()
+		elif type(lineEdit) is QComboBox:
+			startDir = lineEdit.currentText()
+	
+	if lastFolder:  # if outFolder no longer exists, work backwards in directory until find one that does
+		while lastFolder:
+			if os.path.exists(lastFolder):
+				startDir = lastFolder
+				break
+			else:
+				lastFolder = os.path.dirname(lastFolder)
+	dialog = QFileDialog(parent, dialogName, startDir, fileType)
+	f = []
+	if icon is not None:
+		dialog.setWindowIcon(icon)
+	if browseType == 'existing folder':
+		dialog.setAcceptMode(QFileDialog.AcceptOpen)
+		dialog.setFileMode(QFileDialog.Directory)
+		dialog.setOption(QFileDialog.ShowDirsOnly)
+		dialog.setViewMode(QFileDialog.Detail)
+	# f = QFileDialog.getExistingDirectory(parent, dialogName, startDir)
+	elif browseType == 'existing file':
+		dialog.setAcceptMode(QFileDialog.AcceptOpen)
+		dialog.setFileMode(QFileDialog.ExistingFile)
+		dialog.setViewMode(QFileDialog.Detail)
+	# f = QFileDialog.getOpenFileName(parent, dialogName, startDir, fileType)[0]
+	elif browseType == 'existing files':
+		dialog.setAcceptMode(QFileDialog.AcceptOpen)
+		dialog.setFileMode(QFileDialog.ExistingFiles)
+		dialog.setViewMode(QFileDialog.Detail)
+	# f = QFileDialog.getOpenFileNames(parent, dialogName, startDir, fileType)[0]
+	elif browseType == 'output file':
+		dialog.setAcceptMode(QFileDialog.AcceptSave)
+		dialog.setFileMode(QFileDialog.AnyFile)
+		dialog.setViewMode(QFileDialog.Detail)
+	# f = QFileDialog.getSaveFileName(parent, dialogName, startDir, fileType)[0]
+	else:
+		return
+	if dialog.exec():
+		f = dialog.selectedFiles()
+	if f:
+		if type(f) is list:
+			fs = ''
+			for i, a in enumerate(f):
+				if i == 0:
+					value = a
+					fs += a
+				else:
+					fs += ';;' + a
+			f = fs
+		else:
+			value = f
+		if lineEdit is not None:
+			if type(lineEdit) is QLineEdit:
+				lineEdit.setText(f)
+			elif type(lineEdit) is QComboBox:
+				lineEdit.setCurrentText(f)
+			elif type(lineEdit) is QTableWidgetItem:
+				lineEdit.setText(f)
+			elif type(lineEdit) is QModelIndex:
+				lineEdit.model().setData(lineEdit, f, Qt.EditRole)
+		settings.setValue(key, value)
+
+		if action is not None:
+			action()
+		
+def getResultPathsFromTLF(fpath: str) -> (list, list, list):
+	"""
+	Gets result paths from TLF file
+	
+	:param fpath: str full path to .tlf
+	:return: list res1D, list res2D, list messages
+	"""
+	
+	if not os.path.exists(fpath):
+		return [], [], ['File Does Not Exist: {0}'.format(fpath)]
+	
+	secondaryExt = os.path.splitext(os.path.splitext(fpath)[0])[1]
+	if secondaryExt != '':
+		return [], [], ['Please Make Sure Selecting .tlf Not {0}.tlf'.format(secondaryExt)]
+	
+	res1D = []
+	res2D = []
+	try:
+		with open(fpath, 'r') as fo:
+			for line in fo:
+				if '.xmdf' in line.lower():
+					if line.count('"') >= 2:
+						res = line.split('"')[1]
+						if res not in res2D:
+							if os.path.exists(res):
+								res2D.append(res)
+				elif 'opening gis layer:' in line.lower() and '_PLOT' in line:
+					if len(line) > 20:
+						path = line[19:].strip()
+						basename = os.path.splitext(os.path.basename(path))[0][:-5]
+						dir = os.path.dirname(os.path.dirname(path))
+						res = '{0}.tpc'.format(os.path.join(dir, basename))
+						if res not in res1D:
+							if os.path.exists(res):
+								res1D.append(res)
+	except IOError:
+		return [], [], ['Unexpected Error Opening File: {0}'.format(fpath)]
+	except:
+		return [], [], ['Unexpected Error']
+	
+	return res1D, res2D, []
+
+
+def isBlockStart(text: str) -> bool:
+	"""
+	Only call if it is a start or end block header (not an ordinary line)
+
+	:param text: str
+	:return: bool
+	"""
+
+	line = text.strip()
+	if len(line) > 1:
+		if line[1] == '/':
+			return False
+
+	return True
+
+
+def blockName(text: str) -> str:
+	"""
+
+	:param text: str
+	:return: str
+	"""
+
+	line = text.strip()
+	if line:
+		if line[0] == '<' and line[-1] == '>':
+			return line.strip('</>')
+
+	return ''
+
+
+def removeGlobalSetting(text: str) -> None:
+	"""
+
+
+	:param text: str
+	:return: None
+	"""
+
+	line = text.strip()
+	if line:
+		QSettings().remove(line)
+
+
+def removeProjectSetting(text: str, enum: bool = False) -> None:
+	"""
+
+
+	:param text: str
+	:param enum: bool True to enumerate until False
+	:return: None
+	"""
+
+	line = text.strip()
+	if line:
+		try:
+			scope, key = line.split(',')
+		except ValueError:
+			return
+		if not enum:
+			QgsProject.instance().removeEntry(scope, key)
+		else:
+			i = 0
+			newKey = key.replace('{0}', i)
+			while QgsProject.instance().removeEntry(scope, newKey):
+				i += 1
+				newKey = key.replace('{0}', i)
+
+
+def resetQgisSettings(e: QEvent=False, scope: str='Global', **kwargs) -> None:
+	"""
+	Can choose to skip certain parameters as specified. Or you can
+	choose to only reset one
+
+	:param scope: str 'global' or 'project'
+	:param kwargs: dict of specifics to either leave out (=False) or only (=True) e.g. tuviewer=True will only delete tuviewer related settings, tuviewer=False skips deleting tuviewer settings
+	:return: None
+	"""
+
+	varFile = os.path.join(os.path.dirname(__file__), "__settings_variables__.txt")
+	if not os.path.exists(varFile):
+		return
+
+	# deal with kwargs
+	deleteAll = False
+	varToDelete = []
+	varToSkip = []
+	for kw, arg in kwargs.items():
+		if type(arg) is bool:
+			if arg:
+				if kw not in varToDelete:
+					varToDelete.append(kw)
+			else:
+				if kw not in varToSkip:
+					varToSkip.append(kw)
+	if not varToDelete:
+		deleteAll = True
+	if len(varToDelete) > 1:
+		# can only do one of these at the moment
+		varToDelete = varToDelete[0:1]
+	#varToDelete.append(scope.lower())
+
+	enumerate = False
+	toEnumerate = []
+
+	# main loop
+	with open(varFile, 'r') as fo:
+		inScope = False
+		read = False if varToDelete else True
+		toFalse = 'start'  # should just be a dummy value because variable read starts as True
+		toTrue = 'start'
+		for line in fo:
+			bname = blockName(line)
+			if bname:
+				if isBlockStart(line):
+					if bname == scope.lower():
+						inScope = True
+					elif bname == 'enumerate_until_false':
+						enumerate = True
+					else:
+						if inScope:
+							if varToDelete:
+								if bname in varToDelete:
+									read = True
+									toTrue = bname
+							else:
+								if read:
+									if bname in varToSkip:
+										read = False
+										toFalse = bname
+
+				else:
+					if bname == scope.lower():
+						inScope = False
+					elif bname == 'enumerate_until_false':
+						for enumLine in toEnumerate:
+							removeProjectSetting(line, enum=True)
+						enumerate = False
+						toEnumerate.clear()
+					else:
+						if inScope:
+							if varToDelete:
+								if bname == toTrue:
+									read = False
+							else:
+								if not read:
+									if bname == toFalse:
+										read = True
+			else:
+				if read:
+					if enumerate:
+						toEnumerate.append(line)
+					else:
+						if scope == 'Global':
+							removeGlobalSetting(line)
+						else:
+							removeProjectSetting(line)
+
+	if 'feedback' in kwargs:
+		if not kwargs['feedback']:
+			return
+	QMessageBox.information(None, "TUFLOW Clear Settings", "Successfully Cleared {0} Settings".format(scope))
+
+
+def makeDir(path: str) -> bool:
+	"""
+	Makes directory - will brute force make a directory
+
+	:param path: str full path to dir
+	:return: bool
+	"""
+
+	# make sure separators are in
+	# operating system format
+	ospath = path.replace("/", os.sep)
+	path_comp = ospath.split(os.sep)
+
+	# work out where directories
+	# need to be made
+	i = 0
+	j = len(path_comp) + 1
+	testpath = os.sep.join(path_comp)
+	while not os.path.exists(testpath):
+		i += 1
+		testpath = os.sep.join(path_comp[:j - i])
+		if not testpath:
+			return False
+
+	# now work in reverse and create all
+	# required directories
+	for k in range(i - 1):
+		i -= 1
+		try:
+			os.mkdir(os.sep.join(path_comp[:j - i]))
+		except FileNotFoundError:
+			return False
+		except OSError:
+			return False
+
+	return True
+
+
+if __name__ == '__main__':
+	a = r"C:\Users\Ellis.Symons\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\tuflow\layer_labelling"
+	labelProperties = glob.glob(os.path.join(a, "*.txt"))
+	print(labelProperties)

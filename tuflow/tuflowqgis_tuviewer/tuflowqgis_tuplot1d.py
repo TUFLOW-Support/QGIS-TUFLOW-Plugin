@@ -59,7 +59,9 @@ class TuPlot1D():
 		
 		# iterate through all selected results
 		for result in self.tuView.OpenResults.selectedItems():
+		#for result in self.tuView.tuResults.tuResults2D.activeMeshLayers:
 			result = result.text()
+			#result = result.name()
 			
 			if result in tuResults1D.results1d.keys():
 				res = tuResults1D.results1d[result]
@@ -85,7 +87,9 @@ class TuPlot1D():
 									typename = 'HU'
 								elif type.upper().find('STRUCTURE LEVELS') >= 0 and source == 'HD':
 									typename = 'HD'
-							found, ydata, message = res.getTSData(id, dom, type, 'Geom')
+								else:
+									typename = type
+							found, ydata, message = res.getTSData(id, dom, typename, 'Geom')
 							xdata = res.times
 							if len(xdata) != len(ydata):
 								xAll.append([])
@@ -161,6 +165,11 @@ class TuPlot1D():
 							if timestep is None:
 								timestep = self.tuView.tuResults.activeTime
 							if timestep not in self.tuView.tuResults.timekey2time.keys():
+								xAll.append([])
+								yAll.append([])
+								labels.append('')
+								plotAsPatch.append(False)
+								plotAsPoints.append(False)
 								continue
 							time = self.tuView.tuResults.timekey2time[timestep]
 

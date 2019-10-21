@@ -42,6 +42,7 @@ class Ui_textPropertiesDialog(object):
         self.label.setObjectName("label")
         self.gridLayout.addWidget(self.label, 0, 0, 1, 1)
         self.cbFrame = QtWidgets.QCheckBox(textPropertiesDialog)
+        self.cbFrame.setChecked(True)
         self.cbFrame.setObjectName("cbFrame")
         self.gridLayout.addWidget(self.cbFrame, 2, 0, 1, 3)
         self.frameColor = QgsColorButton(textPropertiesDialog)

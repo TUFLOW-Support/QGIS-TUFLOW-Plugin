@@ -58,6 +58,7 @@ class TuResults1D():
 				res = TuflowResults.ResData()
 				error, message = res.Load(filePath)
 				if error:
+					QMessageBox.critical(self.tuView, "TUFLOW Viewer", message)
 					return False
 				
 			else:
@@ -162,6 +163,9 @@ class TuResults1D():
 		results = self.tuView.tuResults.results  # dict
 		timekey2time = self.tuView.tuResults.timekey2time  # dict
 		timekey2date = self.tuView.tuResults.timekey2date  # dict
+		time2date = self.tuView.tuResults.time2date  # dict
+		date2timekey = self.tuView.tuResults.date2timekey
+		date2time = self.tuView.tuResults.date2time
 		zeroTime = self.tuView.tuOptions.zeroTime  # datetime
 		
 		if result.displayname not in results.keys():
@@ -171,6 +175,9 @@ class TuResults1D():
 		for t in timesteps:
 			timekey2time['{0:.6f}'.format(t)] = t
 			timekey2date['{0:.6f}'.format(t)] = zeroTime + timedelta(hours=t)
+			time2date[t] = zeroTime + timedelta(hours=t)
+			date2timekey[zeroTime + timedelta(hours=t)] = '{0:.6f}'.format(t)
+			date2time[zeroTime + timedelta(hours=t)] = t
 		
 		if 'point_ts' not in results[result.displayname].keys():
 			resultTypes = result.pointResultTypesTS()

@@ -1,0 +1,59 @@
+! rule based labelling - attribute 2 = 'C'
+Attribute == 2 | C  ! attribute field index | attribute values seperated by ; (attribute indexing starts at 1)
+    Rule == Loose  ! Loose or Strict - determines how strictly the label adheres to the rule e.g. Loose means R will work for RU as well, Strict means it will not work for RU and must match exactly (still case insensitive)
+    Buffer == ON
+    Box == OFF
+    Attribute Name == ON
+    Label Attributes == 1 | 2 | 14 | 16
+    Point Placement == Cartographic  ! only available option at the moment
+    Line Placement == Parallel  ! Parallel or Horizontal
+    Region Placement == Centroid  ! only available option at the moment
+    Offset X,Y == 2,2  ! only works for regions and points (points only uses the first value)
+End Attribute
+
+! rule based labelling - attribute 2 = 'R' 
+Attribute == 2 | R  ! attribute field index | attribute values seperated by ; (attribute indexing starts at 1)
+    Rule == Loose  ! Loose or Strict - determines how strictly the label adheres to the rule e.g. Loose means R will work for RU as well, Strict means it will not work for RU and must match exactly (still case insensitive)
+    Buffer == ON
+    Box == OFF
+    Attribute Name == ON
+    Label Attributes == 1 | 2 | 14 | 15 | 16
+    Point Placement == Cartographic  ! only available option at the moment
+    Line Placement == Parallel  ! Parallel or Horizontal
+    Region Placement == Centroid  ! only available option at the moment
+    Offset X,Y == 2,2  ! only works for regions and points (points only uses the first value)
+End Attribute
+
+Attribute == 2 | W;WB;WD;WO;WR;WT;WV;WW  ! attribute field index | attribute values seperated by ; (attribute indexing starts at 1)
+    Rule == Strict  ! Loose or Strict - determines how strictly the label adheres to the rule e.g. Loose means R will work for RU as well, Strict means it will not work for RU and must match exactly (still case insensitive)
+    Buffer == ON
+    Box == OFF
+    Attribute Name == ON
+    Label Attributes == 1 | 2 | 7 | 8
+    Point Placement == Cartographic  ! only available option at the moment
+    Line Placement == Parallel  ! Parallel or Horizontal
+    Region Placement == Centroid  ! only available option at the moment
+    Offset X,Y == 2,2  ! only works for regions and points (points only uses the first value)
+End Attribute
+
+Attribute == 2 | VW  ! attribute field index | attribute values seperated by ; (attribute indexing starts at 1)
+    Rule == Strict  ! Loose or Strict - determines how strictly the label adheres to the rule e.g. Loose means R will work for RU as well, Strict means it will not work for RU and must match exactly (still case insensitive)
+    Buffer == ON
+    Box == OFF
+    Attribute Name == ON
+    Label Attributes == 1 | 2 | 11 | 17
+    Point Placement == Cartographic  ! only available option at the moment
+    Line Placement == Parallel  ! Parallel or Horizontal
+    Region Placement == Centroid  ! only available option at the moment
+    Offset X,Y == 2,2  ! only works for regions and points (points only uses the first value)
+End Attribute
+
+! all else - don't need this but everything that isn't captured by the rules above won't be labelled then
+Buffer == ON
+Box == OFF
+Attribute Name == ON
+Label Attributes == 1 | 2  ! attribute indexing starts at 1
+Point Placement == Cartographic  ! only available option at the moment
+Line Placement == Parallel  ! Parallel or Horizontal
+Region Placement == Centroid  ! only available option at the moment
+Offset X,Y == 2,2  ! only works for regions and points (points only uses the first value)

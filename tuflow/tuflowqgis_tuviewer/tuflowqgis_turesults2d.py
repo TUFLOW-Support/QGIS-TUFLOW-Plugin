@@ -41,7 +41,12 @@ class TuResults2D():
 		"""
 
 		# disconnect incoming signals for load step
-		self.tuView.project.layersAdded.disconnect(self.tuView.layersAdded)
+		skipConnect = False
+		try:
+			self.tuView.project.layersAdded.disconnect(self.tuView.layersAdded)
+		except:
+			skipConnect = True
+			pass
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml)
@@ -59,7 +64,8 @@ class TuResults2D():
 			else:
 				mLayer, name, preExisting = self.loadMeshLayer(f)
 			if mLayer is None or name is None:
-				self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
+				if not skipConnect:
+					self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
 				return False
 			
 			# Load Results
@@ -88,7 +94,8 @@ class TuResults2D():
 			ext = os.path.splitext(f)[-1]  # added because .dat scalar and vector need to be combined
 			index = self.getResultMetaData(name, mLayer, ext)
 			if not index:
-				self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
+				if not skipConnect:
+					self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
 				return False
 			
 			# add to result list widget
@@ -102,12 +109,14 @@ class TuResults2D():
 			k.setSelected(True)
 			updated = self.updateActiveMeshLayers()  # update list of active mesh layers
 			if not updated:
-				self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
+				if not skipConnect:
+					self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
 				return False
 			self.tuView.resultChangeSignalCount = 0  # reset signal count back to 0
 		
 		# connect load signals
-		self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
+		if not skipConnect:
+			self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml)
@@ -281,13 +290,14 @@ class TuResults2D():
 			else:
 				type = 2
 
-			if '/maximums' in mdGroup.name().lower() or \
-					('max_' in mdGroup.name() and 'time' not in mdGroup.name()):
+			if self.tuView.tuResults.isMaximumResultType(mdGroup.name(), dp, i):
 				# get result group name
 				rt = mdGroup.name().split('/')[0]
 				if 'max_' in rt:
 					rt = rt.split('max_')[1]
 					mdGroupName = '{0}/Maximums'.format(rt)  # FV
+				elif 'minimum dt' in rt.lower():
+					mdGroupName = '{0}/Final'.format(rt)  # special treatment for Minimum dt
 				else:
 					mdGroupName = mdGroup.name()
 				
@@ -383,21 +393,23 @@ class TuResults2D():
 
 				for j in range(dp.datasetCount(i)):
 					md = dp.datasetMetadata(QgsMeshDatasetIndex(i, j))  # metadata for individual timestep
-					if md.time() == 900001.0:  # time of peak h
+					if md.time() == 900001.0 and self.tuView.tuOptions.timeUnits == 'h':  # time of peak h
 						if mdGroupName in results[name]:
 							del results[name][mdGroupName]
 						results[name]['Time of Peak h'] = {'0.000000': (0, type, QgsMeshDatasetIndex(i, j))}
-					elif md.time() == 900002.0:  # time of peak V
+					elif md.time() == 900002.0 and self.tuView.tuOptions.timeUnits == 'h':  # time of peak V
 						if mdGroupName in results[name]:
 							del results[name][mdGroupName]
 						results[name]['Time of Peak V'] = {'0.000000': (0, type, QgsMeshDatasetIndex(i, j))}
 						
-					elif md.time() > 100000 and md.time() < 200000 and not md.time() == 111111.0:
+					elif md.time() > 100000 and md.time() < 200000 and not md.time() == 111111.0 \
+							and self.tuView.tuOptions.timeUnits == 'h':
 						if mdGroupName in results[name]:
 							del results[name][mdGroupName]
 						value = md.time() - 100000.0
 						results[name]['Time of Cutoff {0}'.format(value)] = {'0.000000': (0, type, QgsMeshDatasetIndex(i, j))}
-					elif md.time() > 200000 and md.time() < 300000 and not md.time() == 222222.0:
+					elif md.time() > 200000 and md.time() < 300000 and not md.time() == 222222.0 \
+							and self.tuView.tuOptions.timeUnits == 'h':
 						if mdGroupName in results[name]:
 							del results[name][mdGroupName]
 						value = md.time() - 200000.0
@@ -458,7 +470,7 @@ class TuResults2D():
 			# find selected layer
 			layer = tuflowqgis_find_layer(item.text())
 			if layer is not None:
-				if layer.type() == 3:
+				if isinstance(layer, QgsMeshLayer):
 					if item.isSelected():
 						self.activeMeshLayers.append(layer)
 					else:
@@ -653,7 +665,7 @@ class TuResults2D():
 				return False
 		else:
 			return False
-			
+
 		rs.setScalarSettings(datasetGroupIndex, rsScalar)
 		layer.setRendererSettings(rs)
 		

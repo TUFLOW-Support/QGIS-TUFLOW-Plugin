@@ -16,13 +16,13 @@ import tuflowqgis_tumenubar
 import tuflowqgis_tuoptions
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumenucontext import TuContextMenu
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuproject import TuProject
-from tuflow.tuflowqgis_library import tuflowqgis_find_layer
+from tuflow.tuflowqgis_library import tuflowqgis_find_layer, findAllMeshLyrs
 from tuflow.tuflowqgis_dialog import tuflowqgis_meshSelection_dialog
 
 
 class TuView(QDockWidget, Ui_Tuplot):
 	
-	def __init__(self, iface):
+	def __init__(self, iface, **kwargs):
 		
 		# initialise the dock and ui
 		QDockWidget.__init__(self)
@@ -39,6 +39,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.btn2dLock.setIcon(lock2DIcon)
 		self.lock2DTimesteps = True
 		self.resultChangeSignalCount = 0
+		self.progressBar.setVisible(False)
 
 		# results class
 		self.tuResults = tuflowqgis_turesults.TuResults(self)
@@ -47,7 +48,9 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.tuPlot = tuflowqgis_tuplot.TuPlot(self)
 		
 		# main menu bar
-		self.tuMenuBar = tuflowqgis_tumenubar.TuMenuBar(self)
+		removeTuview = kwargs['removeTuview'] if 'removeTuview' else None
+		reloadTuview = kwargs['reloadTuview'] if 'reloadTuview' else None
+		self.tuMenuBar = tuflowqgis_tumenubar.TuMenuBar(self, removeTuview=removeTuview, reloadTuview=reloadTuview)
 		self.tuMenuBar.loadFileMenu()
 		self.tuMenuBar.loadViewMenu(0)
 		self.tuMenuBar.loadSettingsMenu(0)
@@ -121,18 +124,18 @@ class TuView(QDockWidget, Ui_Tuplot):
 					if ' PLOT ' in self.currentLayer.name() or '_PLOT_' in self.currentLayer.name():
 						if self.tabWidget.currentIndex() == 0:
 							if self.currentLayer.geometryType() == 0:
-								self.OpenResultTypes.model().setEnabled(4)
+								self.OpenResultTypes.model().setEnabled(4, 5, 6, 7)
 								self.tuResults.tuResults1D.activeType = 0
 							elif self.currentLayer.geometryType() == 1:
-								self.OpenResultTypes.model().setEnabled(4, 5)
+								self.OpenResultTypes.model().setEnabled(4, 5, 6, 7)
 								self.tuResults.tuResults1D.activeType = 1
 							elif self.currentLayer.geometryType() == 2:
-								self.OpenResultTypes.model().setEnabled(6)
+								self.OpenResultTypes.model().setEnabled(4, 5, 6, 7)
 								self.tuResults.tuResults1D.activeType = 2
 							self.tuResults.updateActiveResultTypes(None, geomType=self.currentLayer.geometryType())
 						elif self.tabWidget.currentIndex() == 1:
 							if self.currentLayer.geometryType() == 1:
-								self.OpenResultTypes.model().setEnabled(7)
+								self.OpenResultTypes.model().setEnabled(4, 5, 6, 7)
 								self.tuResults.tuResults1D.activeType = 1
 							else:
 								self.OpenResultTypes.model().setEnabled(0)  # i.e. none
@@ -196,7 +199,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		"""
 
 		for layer in addedLayers:
-			if layer.type() == 3:
+			if isinstance(layer, QgsMeshLayer):
 				self.tuResults.tuResults2D.loadOpenMeshLayers(layer=layer.name())
 				
 		return True
@@ -212,7 +215,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		for rlayer in removedLayers:
 			layer = tuflowqgis_find_layer(rlayer, search_type='layerId')
-			if layer is not None and layer.type() == 3:
+			if layer is not None and isinstance(layer, QgsMeshLayer):
 				for i in reversed(range(self.OpenResults.count())):
 					item = self.OpenResults.item(i)
 					itemName = item.text()
@@ -404,55 +407,138 @@ class TuView(QDockWidget, Ui_Tuplot):
 			
 			self.connected = True
 	
-	def qgisDisconnect(self):
+	def qgisDisconnect(self, completely_remove=False):
 		"""
 		Disconnect signals
+
 
 		:return:
 		"""
 		
-		if self.connected:
+		if self.connected or completely_remove:
 			
 			# time
-			self.cboTime.currentIndexChanged.disconnect()
-			self.sliderTime.valueChanged.disconnect()
-			self.btnFirst.clicked.disconnect()
-			self.btnPrev.clicked.disconnect()
-			self.btnNext.clicked.disconnect()
-			self.btnLast.clicked.disconnect()
-			self.btnTimePlay.clicked.disconnect()
-			self.btn2dLock.clicked.disconnect()
+			try:
+				self.cboTime.currentIndexChanged.disconnect()
+			except:
+				pass
+			try:
+				self.sliderTime.valueChanged.disconnect()
+			except:
+				pass
+			try:
+				self.btnFirst.clicked.disconnect()
+			except:
+				pass
+			try:
+				self.btnPrev.clicked.disconnect()
+			except:
+				pass
+			try:
+				self.btnNext.clicked.disconnect()
+			except:
+				pass
+			try:
+				self.btnLast.clicked.disconnect()
+			except:
+				pass
+			try:
+				self.btnTimePlay.clicked.disconnect()
+			except:
+				pass
+			try:
+				self.btn2dLock.clicked.disconnect()
+			except:
+				pass
 			
 			# results
-			self.OpenResults.itemSelectionChanged.disconnect()
-			self.OpenResults.itemClicked.disconnect()
+			try:
+				self.OpenResults.itemSelectionChanged.disconnect()
+			except:
+				pass
+			try:
+				self.OpenResults.itemClicked.disconnect()
+			except:
+				pass
 			
 			# result types
-			self.OpenResultTypes.secondAxisClicked.disconnect()
-			self.OpenResultTypes.maxClicked.disconnect()
-			self.OpenResultTypes.doubleClicked.disconnect()
-			self.OpenResultTypes.leftClicked.disconnect()
+			try:
+				self.OpenResultTypes.secondAxisClicked.disconnect()
+			except:
+				pass
+			try:
+				self.OpenResultTypes.maxClicked.disconnect()
+			except:
+				pass
+			try:
+				self.OpenResultTypes.doubleClicked.disconnect()
+			except:
+				pass
+			try:
+				self.OpenResultTypes.leftClicked.disconnect()
+			except:
+				pass
 			
 			# Plotting buttons
-			self.cbShowCurrentTime.clicked.disconnect()
-			self.tuPlot.tuPlotToolbar.fluxSecAxisButton.released.disconnect()
+			try:
+				self.cbShowCurrentTime.clicked.disconnect()
+			except:
+				pass
+			try:
+				self.tuPlot.tuPlotToolbar.fluxSecAxisButton.released.disconnect()
+			except:
+				pass
 			
 			# switching between plots
-			self.tabWidget.currentChanged.disconnect()
+			try:
+				self.tabWidget.currentChanged.disconnect()
+			except:
+				pass
 			
 			# interface
-			self.iface.currentLayerChanged.disconnect(self.currentLayerChanged)
+			try:
+				self.iface.currentLayerChanged.disconnect(self.currentLayerChanged)
+			except:
+				pass
 			
 			# project
-			self.project.layersAdded.disconnect(self.layersAdded)
-			#self.project.layersWillBeRemoved.disconnect(self.layersRemoved)
-			#self.project.projectSaved.disconnect(self.projectSaved)
-			self.project.cleared.disconnect(self.projectCleared)
+			try:
+				self.project.layersAdded.disconnect(self.layersAdded)
+			except:
+				pass
+			if completely_remove:
+				try:
+					self.project.layersWillBeRemoved.disconnect(self.layersRemoved)
+				except:
+					pass
+				try:
+					self.project.projectSaved.disconnect(self.projectSaved)
+				except:
+					pass
+			try:
+				self.project.cleared.disconnect(self.projectCleared)
+			except:
+				pass
 			
 			# layer
-			if self.selectionChangeConnected:
-				self.currentLayer.selectionChanged.disconnect(self.selectionChanged)
-				self.selectionChangeConnected = False
+			if self.selectionChangeConnected or completely_remove:
+				try:
+					self.currentLayer.selectionChanged.disconnect(self.selectionChanged)
+				except:
+					pass
+				try:
+					self.selectionChangeConnected = False
+				except:
+					pass
+			
+			if completely_remove:
+				meshLayers = findAllMeshLyrs()
+				for ml in meshLayers:
+					layer = tuflowqgis_find_layer(ml)
+					try:
+						layer.dataProvider().datasetGroupsAdded.disconnect(self.datasetGroupsAdded)
+					except:
+						pass
 			
 			self.connected = False
 	
@@ -474,7 +560,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		:return:
 		"""
-		
+
 		self.tuResults.tuResults2D.renderMap()
 		
 	def repaintRequested(self, layer):
@@ -562,7 +648,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:return:
 		"""
 		
-		self.doubleClickEvent = True
+		#self.doubleClickEvent = True
 		
 		# what happens if there is more than one active mesh layer
 		if len(self.tuResults.tuResults2D.activeMeshLayers) > 1:

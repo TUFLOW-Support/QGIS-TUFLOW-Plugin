@@ -1,18 +1,22 @@
 import os, sys
 import tempfile
+import shutil
 from datetime import datetime
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtXml import QDomDocument
-
 from qgis.core import *
 from qgis.gui import *
 from ui_map_dialog import Ui_MapDialog
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuanimation import ImagePropertiesDialog, PlotProperties, TextPropertiesDialog
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuanimation import prepare_composition, prepare_composition_from_template, createText
-from tuflow.tuflowqgis_library import tuflowqgis_find_layer
+from MapExportImportDialog import Ui_MapExportImportDialog
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuanimation import (ImagePropertiesDialog, PlotProperties,
+                                                               TextPropertiesDialog, prepare_composition,
+                                                               prepare_composition_from_template, createText)
+from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, convertTimeToFormattedTime, convertFormattedTimeToTime,
+                                       browse)
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+
 
 
 def getResultTypes(results, layer):
@@ -42,7 +46,7 @@ def getResultTypes(results, layer):
 	return scalarTypes, vectorTypes
 
 
-def getTimes(results, layer, stype, vtype):
+def getTimes(results, layer, stype, vtype, units='h', xAxisDates=False, tuResults=None):
 	"""
 	get available times
 	
@@ -72,7 +76,14 @@ def getTimes(results, layer, stype, vtype):
 							if 'Max' not in times:
 								times.insert(0, 'Max')
 						else:
-							time = '{0:02d}:{1:02.0f}:{2:05.2f}'.format(int(x), (x - int(x)) * 60, (x - int(x) - (x - int(x))) * 3600)
+							#time = '{0:02d}:{1:02.0f}:{2:05.2f}'.format(int(x), (x - int(x)) * 60, (x - int(x) - (x - int(x))) * 3600)
+							if xAxisDates:
+								if tuResults is not None:
+									if x in tuResults.time2date:
+										time = tuResults.time2date[x]
+										time = tuResults._dateFormat.format(time)
+							else:
+								time = convertTimeToFormattedTime(x, unit=units)
 							if time not in times:
 								times.append(time)
 						
@@ -110,9 +121,9 @@ def makeMap(cfg, iface, progress_fn=None, dialog=None, preview=False, iteration=
 	asd = cfg['scalar index']
 	if asd:
 		rs.setActiveScalarDataset(asd)
-		if iteration == 0 or 'scalar settings' not in cfg:
-			cfg['scalar settings'] = rs.scalarSettings(asd.group())
-		rs.setScalarSettings(asd.group(), cfg['scalar settings'])
+		#if iteration == 0 or 'scalar settings' not in cfg:
+		#	cfg['scalar settings'] = rs.scalarSettings(asd.group())
+		rs.setScalarSettings(asd.group(), cfg['rendering'][cfg['active scalar']])
 	avd = cfg['vector index']
 	if avd:
 		rs.setActiveVectorDataset(avd)
@@ -120,6 +131,14 @@ def makeMap(cfg, iface, progress_fn=None, dialog=None, preview=False, iteration=
 			cfg['vector settings'] = rs.vectorSettings(avd.group())
 		rs.setVectorSettings(avd.group(), cfg['vector settings'])
 	l.setRendererSettings(rs)
+	
+	timetext = convertTimeToFormattedTime(time, unit=dialog.tuView.tuOptions.timeUnits)
+	if dialog is not None:
+		if dialog.tuView.tuOptions.xAxisDates:
+			if time in dialog.tuView.tuResults.time2date:
+				timetext = dialog.tuView.tuResults.time2date[time]
+				timetext = dialog.tuView.tuResults._dateFormat.format(timetext)
+	cfg['time text'] = timetext
 	
 	# Prepare layout
 	layout = QgsPrintLayout(QgsProject.instance())
@@ -147,18 +166,19 @@ def makeMap(cfg, iface, progress_fn=None, dialog=None, preview=False, iteration=
 	svg_export_settings.dpi = dpi
 	svg_export_settings.imageSize = QSize(w, h)
 	ext = os.path.splitext(imgfile)[1]
-	if ext.lower() == '.pdf':
-		res = layout_exporter.exportToPdf(imgfile, pdf_export_settings)
-	elif ext.lower() == '.svg':
-		res = layout_exporter.exportToSvg(imgfile, svg_export_settings)
-	else:
-		res = layout_exporter.exportToImage(imgfile, image_export_settings)
+	if not preview:
+		if ext.lower() == '.pdf':
+			res = layout_exporter.exportToPdf(imgfile, pdf_export_settings)
+		elif ext.lower() == '.svg':
+			res = layout_exporter.exportToSvg(imgfile, svg_export_settings)
+		else:
+			res = layout_exporter.exportToImage(imgfile, image_export_settings)
 		
 	# delete plot images
-	if 'plots' in layoutcfg:
-		for plot in layoutcfg['plots']:
-			source = layoutcfg['plots'][plot]['source']
-			os.remove(source)
+	#if 'plots' in layoutcfg:
+	#	for plot in layoutcfg['plots']:
+	#		source = layoutcfg['plots'][plot]['source']
+	#		os.remove(source)
 		
 	# restore original settings
 	#l.setRendererSettings(original_rs)
@@ -172,6 +192,9 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 	
 	"""
 	
+	INSERT_BEFORE = 0
+	INSERT_AFTER = 1
+	
 	def __init__(self, TuView):
 		QDialog.__init__(self)
 		self.setupUi(self)
@@ -184,9 +207,57 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		self.pbDialogsImage = {}
 		self.rowNo2fntDialog = {}
 		self.label2graphic = {}
+		self.mapTableRows = []
+		self.mapTableRowItems = []
+		self.plotTableRows = []
+		self.plotTableRowItems = []
+		self.imageTableRows = []
 		
 		self.populateLayoutTab()
 		self.populateExportMapsTab()
+
+		self.tableMaps.horizontalHeader().setStretchLastSection(True)
+		self.tablePlots.horizontalHeader().setStretchLastSection(True)
+		self.tableGraphics.horizontalHeader().setStretchLastSection(True)
+		self.tableImages.horizontalHeader().setStretchLastSection(True)
+		self.tableMaps.horizontalHeader().setCascadingSectionResizes(True)
+		self.tablePlots.horizontalHeader().setCascadingSectionResizes(True)
+		self.tableGraphics.horizontalHeader().setCascadingSectionResizes(True)
+		self.tableImages.horizontalHeader().setCascadingSectionResizes(True)
+		self.tableImages.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+		self.tablePlots.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+		
+		total_width = self.tablePlots.verticalHeader().width() + self.tablePlots.horizontalHeader().length() + self.tablePlots.frameWidth() * 2
+		primarywidth = 175.
+		subwidth = (total_width - primarywidth) / (self.tablePlots.columnCount() - 1)
+		self.tablePlots.setColumnWidth(0, subwidth)
+		self.tablePlots.setColumnWidth(1, primarywidth)
+		self.tablePlots.setColumnWidth(2, subwidth)
+		self.tablePlots.setColumnWidth(3, subwidth)
+		
+		total_width = self.tableGraphics.verticalHeader().width() + self.tableGraphics.horizontalHeader().length() + self.tableGraphics.frameWidth() * 2
+		primarywidth = 175.
+		subwidth = (total_width - primarywidth) / (self.tableGraphics.columnCount() - 1)
+		self.tableGraphics.setColumnWidth(0, subwidth)
+		self.tableGraphics.setColumnWidth(1, primarywidth)
+		self.tableGraphics.setColumnWidth(2, subwidth)
+		self.tableGraphics.setColumnWidth(3, subwidth)
+		
+		total_width = self.tableImages.verticalHeader().width() + self.tableImages.horizontalHeader().length() + self.tableImages.frameWidth() * 2
+		primarywidth = 250.
+		subwidth = (total_width - primarywidth) / (self.tableImages.columnCount() - 1)
+		self.tableImages.setColumnWidth(0, primarywidth)
+		self.tableImages.setColumnWidth(1, subwidth)
+		self.tableImages.setColumnWidth(2, subwidth)
+
+		self.setPlotTableProperties()
+		self.setImageTableProperties()
+		self.setMapTableSignalProperties()
+		self.tableMaps.itemChanged.connect(self.updateMapRow)
+		self.tablePlots.itemChanged.connect(self.plotTypeChanged)
+		self.contextMenuMapTable()
+		self.contextMenuPlotTable()
+		self.contextMenuImageTable()
 		
 		self.cboPageSize.currentIndexChanged.connect(self.setPageSize)
 		self.cboUnits.currentIndexChanged.connect(self.setPageSize)
@@ -199,22 +270,64 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		self.pbMapNo.clicked.connect(lambda: self.insertAutoText(auto_text='map number'))
 		self.pbDate.clicked.connect(lambda: self.insertAutoText(auto_text='date'))
 		self.btnAddPlot.clicked.connect(self.addPlot)
-		self.btnRemovePlot.clicked.connect(self.removePlot)
+		self.btnRemovePlot.clicked.connect(self.removePlots)
 		self.btnPlotUp.clicked.connect(lambda event: self.movePlot(event, 'up'))
 		self.btnPlotDown.clicked.connect(lambda event: self.movePlot(event, 'down'))
 		self.btnAddImage.clicked.connect(self.addImage)
-		self.btnRemoveImage.clicked.connect(self.removeImage)
+		self.btnRemoveImage.clicked.connect(self.removeImages)
 		self.btnImageUp.clicked.connect(lambda event: self.moveImage(event, 'up'))
 		self.btnImageDown.clicked.connect(lambda event: self.moveImage(event, 'down'))
-		self.btnBrowseTemplate.clicked.connect(lambda: self.browse('load', "TUFLOW/animation_template", "QGIS Print Layout (*.qpt)", self.editTemplate))
-		self.btnBrowseTemplateOut.clicked.connect(lambda: self.browse('location', 'TUFLOW/map_template_export', "", self.leTemplateOut))
+		self.btnBrowseTemplate.clicked.connect(lambda: browse(self, 'existing file', "TUFLOW/animation_template", "QGIS Print Template", "QGIS Print Layout (*.qpt)", self.editTemplate))
 		self.btnAddMap.clicked.connect(self.addMap)
 		self.btnRemoveMap.clicked.connect(self.removeMaps)
 		self.btnMapUp.clicked.connect(lambda event: self.moveMap(event, 'up'))
 		self.btnMapDown.clicked.connect(lambda event: self.moveMap(event, 'down'))
 		self.buttonBox.accepted.connect(self.check)
+		self.buttonBox.rejected.connect(self.reject)
 		self.pbPreview.clicked.connect(lambda: self.check(preview=True))
 		
+		self.importMapTable = MapExportImportDialog(self.iface)
+		self.pbImport.clicked.connect(self.importMapTableData)
+
+	def importMapTableData(self):
+		"""imports data from external file and populates map table"""
+		
+		self.importMapTable.exec_()
+		
+		if self.importMapTable.imported:
+			for i in range(len(self.importMapTable.col1)):
+				j = self.tableMaps.rowCount()
+				self.tableMaps.setRowCount(j + 1)
+				
+				item1 = QTableWidgetItem(0)
+				item1.setText(self.importMapTable.col1[i])
+				self.tableMaps.setItem(j, 0, item1)
+				
+				item2 = QTableWidgetItem(0)
+				item2.setText(self.importMapTable.col2[i])
+				self.tableMaps.setItem(j, 1, item2)
+				
+				item3 = QTableWidgetItem(0)
+				item3.setText(self.importMapTable.col3[i])
+				self.tableMaps.setItem(j, 2, item3)
+				
+				item4 = QTableWidgetItem(0)
+				item4.setText(self.importMapTable.col4[i])
+				self.tableMaps.setItem(j, 3, item4)
+				
+				item5 = QTableWidgetItem(0)
+				item5.setText(self.importMapTable.col5[i])
+				self.tableMaps.setItem(j, 4, item5)
+				
+				mapTableRow = [item1, item2, item3, item4, item5]
+				mapTableRowItems = [[], [], [], [], []]
+				self.mapTableRows.append(mapTableRow)
+				self.mapTableRowItems.append(mapTableRowItems)
+				
+				if j == 0:
+					self.tableMaps.setColumnWidth(3, self.tableMaps.columnWidth(3)
+					                              - self.tableMaps.verticalHeader().sizeHint().width())
+	
 	def populateLayoutTab(self):
 		"""Sets up Layout tab"""
 		
@@ -254,51 +367,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		self.btnRemoveMap.setIcon(removeIcon)
 		self.btnMapUp.setIcon(upIcon)
 		self.btnMapDown.setIcon(downIcon)
-		self.btnBrowseTemplateOut.setIcon(folderIcon)
-	
-	def browse(self, dialogType, key, fileType, lineEdit):
-		"""
-		Browse folder directory
 
-		:param type: str browse type 'folder' or 'file'
-		:param key: str settings key
-		:param fileType: str file extension e.g. "AVI files (*.avi)"
-		:param lineEdit: QLineEdit to be updated by browsing
-		:return: void
-		"""
-		
-		settings = QSettings()
-		lastFolder = settings.value(key)
-		startDir = None
-		if lastFolder:  # if outFolder no longer exists, work backwards in directory until find one that does
-			while lastFolder:
-				if os.path.exists(lastFolder):
-					startDir = lastFolder
-					break
-				else:
-					lastFolder = os.path.dirname(lastFolder)
-		if dialogType == 'save':
-			f = QFileDialog.getSaveFileName(self, 'Ouput', startDir, fileType)[0]
-		elif dialogType == 'load':
-			f = QFileDialog.getOpenFileName(self, 'Import Template', startDir, fileType)[0]
-		elif dialogType == 'image':
-			f = QFileDialog.getOpenFileName(self, 'Image File', startDir, fileType)[0]
-		elif dialogType == 'ffmpeg':
-			f = QFileDialog.getOpenFileName(self, 'FFmpeg Location', startDir, fileType)[0]
-		elif dialogType == 'location':
-			f = QFileDialog.getExistingDirectory(self, 'Template Folder', startDir)
-		elif dialogType == 'mesh':
-			f = QFileDialog.getOpenFileName(self, 'Input File', startDir, fileType)[0]
-		else:
-			return
-		if f:
-			if type(lineEdit) is QLineEdit:
-				lineEdit.setText(f)
-			elif type(lineEdit) is QComboBox:
-				lineEdit.addItem(f)
-				lineEdit.setCurrentIndex(lineEdit.findText(f, Qt.MatchExactly))
-			settings.setValue(key, f)
-	
 	def populateGraphics(self):
 		"""
 		Populates the graphics table with available TS Point, CS Line, or Flow Line objects that can be included in the
@@ -340,42 +409,37 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		:return: void
 		"""
 		
-		item = QTableWidgetItem(0)
-		item.setText(label)
-		item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+		item1 = QTableWidgetItem(0)
+		item1.setText(label)
+		item1.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 		if status:
-			item.setCheckState(Qt.Checked)
+			item1.setCheckState(Qt.Checked)
 		else:
-			item.setCheckState(Qt.Unchecked)
+			item1.setCheckState(Qt.Unchecked)
+		self.tableGraphics.setItem(rowNo, 0, item1)
 		
-		lineEdit = QLineEdit()
-		lineEdit.setText(userLabel) if userLabel is not None else lineEdit.setText(label)
-		lineEdit.setMaximumHeight(20)
+		item2 = QTableWidgetItem(0)
+		item2.setText(userLabel) if userLabel is not None else item2.setText(label)
+		self.tableGraphics.setItem(rowNo, 1, item2)
 		
-		cbo = QComboBox()
-		cbo.setMaximumHeight(20)
-		cbo.setEditable(True)
-		cbo.addItem('Left')
-		cbo.addItem('Right')
+		item3 = QTableWidgetItem(0)
+		item3.setText('Left')
+		self.tableGraphics.setItem(rowNo, 2, item3)
+		items = ['Left', 'Right']
 		if 'TS' in label:
-			cbo.addItem('Above')
-			cbo.addItem('Below')
-			cbo.addItem('Above-Left')
-			cbo.addItem('Below-Left')
-			cbo.addItem('Above-Right')
-			cbo.addItem('Below-Right')
+			items += ['Above', 'Below', 'Above-Left', 'Below-Left', 'Above-Right', 'Below-Right']
+		self.tableGraphics.itemDelegateForColumn(2).itemsInRows[rowNo] = items
 		
 		pb = QPushButton()
 		pb.setText('Text Properties')
 		dialog = TextPropertiesDialog()
 		self.rowNo2fntDialog[rowNo] = dialog
 		pb.clicked.connect(lambda: dialog.exec_())
-		
-		self.tableGraphics.setItem(rowNo, 0, item)
-		self.tableGraphics.setCellWidget(rowNo, 1, lineEdit)
-		self.tableGraphics.setCellWidget(rowNo, 2, cbo)
 		self.tableGraphics.setCellWidget(rowNo, 3, pb)
-			
+		
+		if rowNo == 0:
+			self.tableGraphics.setColumnWidth(2, self.tableGraphics.columnWidth(2) - self.tableGraphics.verticalHeader().sizeHint().width())
+
 	def insertAutoText(self, event=None, auto_text=None):
 		"""inserts text for auto text"""
 		
@@ -406,7 +470,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		elif ptype == 'CS / LP':
 			plotNo = 1
 		else:
-			return [], []
+			return [], [], []
 		
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.tuView.tuPlot.plotEnumerator(plotNo)
@@ -436,474 +500,751 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		else:
 			return uniqLines, uniqLabs, uniqAxis
 	
-	def addPlot(self, event=None, plotTypeTemplate=None, mcboPlotItemTemplate=None, cboPosTemplate=None,
-	            pbTemplate=None):
+	def addPlot(self, e=False, item1=None, item2=None, item3=None, dialog=None):
+		"""
+		Add plot to QTableWidget
+
+		:return: void
+		"""
+
+		## add to table
+		n = self.tablePlots.rowCount()
+		self.tablePlots.setRowCount(n + 1)
+		if item1 is None:
+			item1 = QTableWidgetItem(0)
+			item1.setText(self.tablePlots.itemDelegateForColumn(0).default)
+		if item2 is None:
+			item2 = QTableWidgetItem(0)
+		else:
+			self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[n] = self.plotTableRowItems[n][1]
+		if item3 is None:
+			item3 = QTableWidgetItem(0)
+			item3.setText(self.tablePlots.itemDelegateForColumn(2).default)
+		
+		self.tablePlots.setItem(n, 0, item1)
+		self.tablePlots.setItem(n, 1, item2)
+		self.tablePlots.setItem(n, 2, item3)
+
+		pb = QPushButton(self.tablePlots)
+		pb.setText('Properties')
+		if dialog is None:
+			dialog = PlotProperties(self, item1, item2, self.tuView.tuOptions.xAxisDates)
+		self.pbDialogs[pb] = dialog
+		self.dialog2Plot[dialog] = [item1, item2, item3]
+		pb.clicked.connect(lambda: dialog.setDefaults(self, item1, item2, static=True))
+		pb.clicked.connect(lambda: dialog.exec_())
+		self.tablePlots.setCellWidget(n, 3, pb)
+		if n == 0:
+			self.tablePlots.setColumnWidth(2, self.tablePlots.columnWidth(2) - self.tablePlots.verticalHeader().sizeHint().width())
+
+		plotTableRow = [item1, item2, item3, dialog]
+		plotTableRowItems = [[], [], [], [], []]
+		self.plotTableRows.append(plotTableRow)
+		self.plotTableRowItems.append(plotTableRowItems)
+	
+	def insertPlotRow(self, index=None, loc=INSERT_BEFORE):
+		"""
+		Insert a row into the map table.
+		Can be inserted before or after clicked row.
+
+		:param index: int
+		:param loc: Table
+		:return: void
+		"""
+
+		if index is not None:
+			for i, plotTableRow in enumerate(self.plotTableRows):
+				item1 = QTableWidgetItem(0)
+				item1.setText(plotTableRow[0].text())
+				item1Items = []
+				item2 = QTableWidgetItem(0)
+				item2.setText(plotTableRow[1].text())
+				if i in self.tablePlots.itemDelegateForColumn(1).currentCheckedItems:
+					item2Items = self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[i]
+					del self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[i]
+				else:
+					item2Items = []
+				item3 = QTableWidgetItem(0)
+				item3.setText(plotTableRow[2].text())
+				item3Items = []
+				pb = self.tablePlots.cellWidget(i, 3)
+				pb.clicked.disconnect()
+				item4 = self.pbDialogs[pb]
+				del pb
+				item4Items = []
+				plotTableRow = [item1, item2, item3, item4]
+				plotTableRowItems = [item1Items, item2Items, item3Items, item4Items]
+				self.plotTableRows[i] = plotTableRow
+				self.plotTableRowItems[i] = plotTableRowItems
+			
+			self.pbDialogs.clear()
+			
+			if loc == TuMapDialog.INSERT_BEFORE:
+				j = index
+			else:
+				j = index + 1
+			
+			## add to table
+			item1 = QTableWidgetItem(0)
+			item1.setText(self.tablePlots.itemDelegateForColumn(0).default)
+			item2 = QTableWidgetItem(0)
+			item3 = QTableWidgetItem(0)
+			item3.setText(self.tablePlots.itemDelegateForColumn(2).default)
+			item4 = PlotProperties(self, item1, item2, self.tuView.tuOptions.xAxisDates)
+			
+			plotTableRow = [item1, item2, item3, item4]
+			plotTableRowItems = [[], [], [], []]
+			self.plotTableRows.insert(j, plotTableRow)
+			self.plotTableRowItems.insert(j, plotTableRowItems)
+			
+			self.reAddPlots()
+	
+	def removePlots(self, index=None):
+		"""Remove plot from table."""
+
+		selectionRange = self.tablePlots.selectedRanges()
+		selectionRange = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRange]
+		selectionRange = sum(selectionRange, [])
+		if index:
+			if index not in selectionRange:
+				selectionRange = [index]
+		
+		if selectionRange:
+			for i, plotTableRow in enumerate(self.plotTableRows):
+				item1 = QTableWidgetItem(0)
+				item1.setText(plotTableRow[0].text())
+				item1Items = []
+				item2 = QTableWidgetItem(0)
+				item2.setText(plotTableRow[1].text())
+				if i in self.tablePlots.itemDelegateForColumn(1).currentCheckedItems:
+					item2Items = self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[i]
+					del self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[i]
+				else:
+					item2Items = []
+				item3 = QTableWidgetItem(0)
+				item3.setText(plotTableRow[2].text())
+				item3Items = []
+				pb = self.tablePlots.cellWidget(i, 3)
+				pb.clicked.disconnect()
+				item4 = self.pbDialogs[pb]
+				del pb
+				item4Items = []
+				plotTableRow = [item1, item2, item3, item4]
+				plotTableRowItems = [item1Items, item2Items, item3Items, item4Items]
+				self.plotTableRows[i] = plotTableRow
+				self.plotTableRowItems[i] = plotTableRowItems
+			for i in reversed(selectionRange):
+				self.plotTableRows.pop(i)
+				self.plotTableRowItems.pop(i)
+			self.pbDialogs.clear()
+			self.reAddPlots()
+		else:
+			if self.tablePlots.rowCount():
+				if self.tablePlots.rowCount() == 1:
+					self.tablePlots.setColumnWidth(2, self.tablePlots.columnWidth(2) +
+					                               self.tablePlots.verticalHeader().sizeHint().width())
+				pb = self.tablePlots.cellWidget(self.tablePlots.rowCount() - 1, 3)
+				del self.pbDialogs[pb]
+				self.tablePlots.setRowCount(self.tablePlots.rowCount() - 1)
+				self.plotTableRows.pop()
+				self.plotTableRowItems.pop()
+				if self.tablePlots.rowCount() in self.tablePlots.itemDelegateForColumn(1).currentCheckedItems:
+					del self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[self.tablePlots.rowCount()]
+	
+	def reAddPlots(self):
+		
+		self.tablePlots.setColumnWidth(2, self.tablePlots.columnWidth(2) +
+		                               self.tablePlots.verticalHeader().sizeHint().width())
+		self.tablePlots.setRowCount(0)
+		
+		plotTableRows = self.plotTableRows[:]
+		self.plotTableRows.clear()
+
+		for i, plotTableRow in enumerate(plotTableRows):
+			item1 = plotTableRow[0]
+			item2 = plotTableRow[1]
+			item3 = plotTableRow[2]
+			item4 = plotTableRow[3]
+			self.addPlot(item1=item1, item2=item2, item3=item3, dialog=item4)
+	
+	def movePlot(self, event=None, action='up'):
+		"""Move position of selected map in table. Options 'up' or 'down'."""
+		
+		selectionRanges = self.tablePlots.selectedRanges()
+		selectionRangeIndexes = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRanges]
+		selectionRangeIndexes = sum(selectionRangeIndexes, [])
+		
+		if selectionRangeIndexes:
+			for i, plotTableRow in enumerate(self.plotTableRows):
+				item1 = QTableWidgetItem(0)
+				item1.setText(plotTableRow[0].text())
+				item1Items = []
+				item2 = QTableWidgetItem(0)
+				item2.setText(plotTableRow[1].text())
+				if i in self.tablePlots.itemDelegateForColumn(1).currentCheckedItems:
+					item2Items = self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[i]
+					del self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[i]
+				else:
+					item2Items = []
+				item3 = QTableWidgetItem(0)
+				item3.setText(plotTableRow[2].text())
+				item3Items = []
+				pb = self.tablePlots.cellWidget(i, 3)
+				pb.clicked.disconnect()
+				item4 = self.pbDialogs[pb]
+				del pb
+				item4Items = []
+				plotTableRow = [item1, item2, item3, item4]
+				plotTableRowItems = [item1Items, item2Items, item3Items, item4Items]
+				self.plotTableRows[i] = plotTableRow
+				self.plotTableRowItems[i] = plotTableRowItems
+			if action == 'up':
+				for i in selectionRangeIndexes:
+					if i > 0:
+						row = self.plotTableRows.pop(i)
+						self.plotTableRows.insert(i - 1, row)
+						row = self.plotTableRowItems.pop(i)
+						self.plotTableRowItems.insert(i - 1, row)
+			else:
+				for i in reversed(selectionRangeIndexes):
+					if i < self.tablePlots.rowCount() - 1:
+						row = self.plotTableRows.pop(i)
+						self.plotTableRows.insert(i + 1, row)
+						row = self.plotTableRowItems.pop(i)
+						self.plotTableRowItems.insert(i + 1, row)
+			self.reAddPlots()
+			
+			for sr in selectionRanges:
+				if action == 'up':
+					top = sr.topRow() - 1 if sr.topRow() > 0 else sr.topRow()
+					bottom = sr.bottomRow() - 1 if sr.bottomRow() > sr.rowCount() - 1 else sr.bottomRow()
+					left = sr.leftColumn()
+					right = sr.rightColumn()
+					newSelectionRange = QTableWidgetSelectionRange(top, left, bottom, right)
+				else:
+					top = sr.topRow() + 1 if sr.topRow() < self.tablePlots.rowCount() - sr.rowCount() else sr.topRow()
+					bottom = sr.bottomRow() + 1 if sr.bottomRow() < self.tablePlots.rowCount() - 1 else sr.bottomRow()
+					left = sr.leftColumn()
+					right = sr.rightColumn()
+					newSelectionRange = QTableWidgetSelectionRange(top, left, bottom, right)
+				self.tablePlots.setRangeSelected(newSelectionRange, True)
+	
+	def plotTypeChanged(self, item=None):
+		"""Updates row in map table if one of the combo boxes is changed."""
+		
+		if item is not None:
+			if item.column() == 0:
+				lines, labs, axis = self.plotItems(self.tablePlots.item(item.row(), item.column()).text())
+				if labs:
+					availablePlots = ['Active Dataset', 'Active Dataset [Water Level for Depth]'] + labs
+					self.tablePlots.itemDelegateForColumn(1).setItems(item.row(), availablePlots)
+
+	def addImage(self, e=False, item1=None, item2=None, dialog=None):
 		"""
 		Add plot to QTableWidget
 
 		:return: void
 		"""
 		
-		self.tablePlots.setRowCount(self.tablePlots.rowCount() + 1)
+		## add to table
+		n = self.tableImages.rowCount()
+		self.tableImages.setRowCount(n + 1)
+		if item1 is None:
+			item1 = QTableWidgetItem(0)
+		if item2 is None:
+			item2 = QTableWidgetItem(0)
+			item2.setText(self.tableImages.itemDelegateForColumn(1).default)
 		
-		cboPlotType = QComboBox(self.tablePlots)
-		cboPlotType.setEditable(True)
-		cboPlotType.setMaximumHeight(20)
-		cboPlotType.setMaximumWidth(175)
-		cboPlotType.addItem('Time Series')
-		cboPlotType.addItem('CS / LP')
-		if plotTypeTemplate is None:
-			cboPlotType.setCurrentIndex(self.tuView.tabWidget.currentIndex())
-		else:
-			cboPlotType.setCurrentIndex(plotTypeTemplate.currentIndex())
+		self.tableImages.setItem(n, 0, item1)
+		self.tableImages.setItem(n, 1, item2)
 		
-		mcboPlotItems = QgsCheckableComboBox(self.tablePlots)
-		mcboPlotItems.setMaximumHeight(20)
-		mcboPlotItems.setMaximumWidth(175)
-		lines, labs, axis = self.plotItems(cboPlotType.currentText())
-		mcboPlotItems.addItems(labs)
-		if mcboPlotItemTemplate is not None:
-			mcboPlotItems.setCheckedItems(mcboPlotItemTemplate.checkedItems())
-		
-		cboPos = QComboBox(self.tablePlots)
-		cboPos.setEditable(True)
-		cboPos.setMaximumHeight(20)
-		cboPos.setMaximumWidth(175)
-		cboPos.addItem('Top-Left')
-		cboPos.addItem('Top-Right')
-		cboPos.addItem('Bottom-Left')
-		cboPos.addItem('Bottom-Right')
-		if cboPosTemplate is not None:
-			cboPos.setCurrentIndex(cboPosTemplate.currentIndex())
-		
-		pb = QPushButton(self.tablePlots)
+		pb = QPushButton()
 		pb.setText('Properties')
-		dialog = PlotProperties(self, cboPlotType, mcboPlotItems)
-		if pbTemplate is not None:
-			dialog.applyPrevious(pbTemplate)
-		self.pbDialogs[pb] = dialog
-		self.dialog2Plot[dialog] = [cboPlotType, mcboPlotItems, cboPos]
-		pb.clicked.connect(lambda: dialog.setDefaults(self, cboPlotType.currentText(), mcboPlotItems.checkedItems(), static=True))
-		pb.clicked.connect(lambda: dialog.exec_())
-		
-		self.tablePlots.setCellWidget(self.tablePlots.rowCount() - 1, 0, cboPlotType)
-		self.tablePlots.setCellWidget(self.tablePlots.rowCount() - 1, 1, mcboPlotItems)
-		self.tablePlots.setCellWidget(self.tablePlots.rowCount() - 1, 2, cboPos)
-		self.tablePlots.setCellWidget(self.tablePlots.rowCount() - 1, 3, pb)
-		
-		cboPlotType.currentTextChanged.connect(lambda text: self.plotTypeChanged(text, mcboPlotItems))
-	
-	def removePlot(self):
-		"""
-		Remove plot item from QTableWidget
-
-		:return: void
-		"""
-		
-		selectionRange = self.tablePlots.selectedRanges()
-		selectionRange = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRange]
-		selectionRange = sum(selectionRange, [])
-		col1 = []
-		col2 = []
-		col3 = []
-		col4 = []
-		if selectionRange:
-			for i in range(self.tablePlots.rowCount()):
-				self.tablePlots.cellWidget(i, 0).currentTextChanged.disconnect()
-				self.tablePlots.cellWidget(i, 3).clicked.disconnect()
-				pb = self.tablePlots.cellWidget(i, 3)
-				if i not in selectionRange:
-					col1.append(self.tablePlots.cellWidget(i, 0))
-					col2.append(self.tablePlots.cellWidget(i, 1))
-					col3.append(self.tablePlots.cellWidget(i, 2))
-					dialog = self.pbDialogs[pb]
-					col4.append(dialog)
-				del self.pbDialogs[pb]
-			self.tablePlots.setRowCount(0)
-			for i in range(len(col1)):  # adding widgets directly back from the list caused QGIS to crash :(
-				self.addPlot(plotTypeTemplate=col1[i], mcboPlotItemTemplate=col2[i], cboPosTemplate=col3[i],
-				             pbTemplate=col4[i])
-		else:
-			pb = self.tablePlots.cellWidget(self.tablePlots.rowCount() - 1, 3)
-			del self.pbDialogs[pb]
-			self.tablePlots.setRowCount(self.tablePlots.rowCount() - 1)
-	
-	def movePlot(self, event=None, action='up'):
-		""" Move plot item up or down in table. If multiple selected, only move first selection."""
-		
-		selectionRange = self.tablePlots.selectedRanges()
-		selectionRange = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRange]
-		selectionRange = sum(selectionRange, [])
-		selection = selectionRange[0] if selectionRange else None
-		col1 = []
-		col2 = []
-		col3 = []
-		col4 = []
-		if selection is not None:
-			if selection == 0 and action == 'up':  # first entry so can't move up
-				return
-			elif selection == self.tablePlots.rowCount() - 1 and action == 'down':  # last entry so can't move down
-				return
-			elif action == 'down':
-				newPos = selection + 1
-			else:
-				newPos = selection - 1
-			for i in range(self.tablePlots.rowCount()):
-				self.tablePlots.cellWidget(i, 0).currentTextChanged.disconnect()
-				self.tablePlots.cellWidget(i, 3).clicked.disconnect()
-				pb = self.tablePlots.cellWidget(i, 3)
-				col1.append(self.tablePlots.cellWidget(i, 0))
-				col2.append(self.tablePlots.cellWidget(i, 1))
-				col3.append(self.tablePlots.cellWidget(i, 2))
-				dialog = self.pbDialogs[pb]
-				col4.append(dialog)
-				del self.pbDialogs[pb]
-			c1 = col1.pop(selection)
-			c2 = col2.pop(selection)
-			c3 = col3.pop(selection)
-			c4 = col4.pop(selection)
-			col1.insert(newPos, c1)
-			col2.insert(newPos, c2)
-			col3.insert(newPos, c3)
-			col4.insert(newPos, c4)
-			self.tablePlots.setRowCount(0)
-			for i in range(len(col1)):
-				self.addPlot(plotTypeTemplate=col1[i], mcboPlotItemTemplate=col2[i], cboPosTemplate=col3[i],
-				             pbTemplate=col4[i])
-			self.tablePlots.setCurrentCell(newPos, 0, QItemSelectionModel.Select)
-			self.tablePlots.setCurrentCell(newPos, 1, QItemSelectionModel.Select)
-			self.tablePlots.setCurrentCell(newPos, 2, QItemSelectionModel.Select)
-			self.tablePlots.setCurrentCell(newPos, 3, QItemSelectionModel.Select)
-	
-	def plotTypeChanged(self, text, mcbo):
-		"""
-		Action when plot type is changed between Time Series and CS/ LP
-
-		:return: void
-		"""
-		
-		mcbo.clear()
-		lines, labs, axis = self.plotItems(text)
-		mcbo.addItems(labs)
-	
-	def addImage(self, event=None, widgetImageTemplate=None, cboPosTemplate=None, pbTemplate=None):
-		"""
-		Add image to image table.
-
-		:return: void
-		"""
-
-		self.tableImages.setRowCount(self.tableImages.rowCount() + 1)
-		
-		folderIcon = QgsApplication.getThemeIcon('/mActionFileOpen.svg')
-		btnBrowse = QToolButton(self.tableImages)
-		btnBrowse.setIcon(folderIcon)
-		btnBrowse.setToolTip('Image Location')
-		
-		leImage = QLineEdit(self.tableImages)
-		leImage.setMaximumHeight(20)
-		if widgetImageTemplate is not None:
-			leImage.setText(widgetImageTemplate.layout().itemAt(1).widget().text())
-		
-		widget = QWidget(self.tableImages)
-		hbox = QHBoxLayout()
-		hbox.addWidget(btnBrowse)
-		hbox.addWidget(leImage)
-		hbox.setContentsMargins(0, 0, 0, 0)
-		widget.setLayout(hbox)
-		widget.setMaximumHeight(20)
-		
-		cboPos = QComboBox(self.tableImages)
-		cboPos.setEditable(True)
-		cboPos.setMaximumHeight(20)
-		cboPos.setMaximumWidth(190)
-		cboPos.addItem('Top-Left')
-		cboPos.addItem('Top-Right')
-		cboPos.addItem('Bottom-Left')
-		cboPos.addItem('Bottom-Right')
-		if cboPosTemplate is not None:
-			cboPos.setCurrentIndex(cboPosTemplate.currentIndex())
-		
-		pb = QPushButton(self.tableImages)
-		pb.setText('Properties')
-		dialog = ImagePropertiesDialog()
-		if pbTemplate is not None:
-			dialog.applyPrevious(pbTemplate)
+		if dialog is None:
+			dialog = ImagePropertiesDialog()
 		self.pbDialogsImage[pb] = dialog
 		pb.clicked.connect(lambda: dialog.exec_())
+		self.tableImages.setCellWidget(n, 2, pb)
+		if n == 0:
+			self.tableImages.setColumnWidth(1, self.tableImages.columnWidth(
+				1) - self.tableImages.verticalHeader().sizeHint().width())
 		
-		self.tableImages.setCellWidget(self.tableImages.rowCount() - 1, 0, widget)
-		self.tableImages.setCellWidget(self.tableImages.rowCount() - 1, 1, cboPos)
-		self.tableImages.setCellWidget(self.tableImages.rowCount() - 1, 2, pb)
-		
-		btnBrowse.clicked.connect(lambda: self.browse('image', 'TUFLOW/map_image', "All Files(*)", leImage))
+		imageTableRow = [item1, item2, dialog]
+		self.imageTableRows.append(imageTableRow)
 	
-	def removeImage(self):
+	def insertImageRow(self, index=None, loc=INSERT_BEFORE):
 		"""
-		Remove image from image table.
+		Insert a row into the map table.
+		Can be inserted before or after clicked row.
 
+		:param index: int
+		:param loc: Table
 		:return: void
 		"""
 		
+		if index is not None:
+			for i, imageTableRow in enumerate(self.imageTableRows):
+				item1 = QTableWidgetItem(0)
+				item1.setText(imageTableRow[0].text())
+				item2 = QTableWidgetItem(0)
+				item2.setText(imageTableRow[1].text())
+				pb = self.tableImages.cellWidget(i, 2)
+				pb.clicked.disconnect()
+				item3 = self.pbDialogsImage[pb]
+				del pb
+				imageTableRow = [item1, item2, item3]
+				self.imageTableRows[i] = imageTableRow
+			
+			self.pbDialogsImage.clear()
+			
+			if loc == TuMapDialog.INSERT_BEFORE:
+				j = index
+			else:
+				j = index + 1
+			
+			## add to table
+			item1 = QTableWidgetItem(0)
+			item2 = QTableWidgetItem(0)
+			item2.setText(self.tableImages.itemDelegateForColumn(1).default)
+			item3 = ImagePropertiesDialog()
+			
+			imageTableRow = [item1, item2, item3]
+			self.imageTableRows.insert(j, imageTableRow)
+			
+			self.reAddImages()
+	
+	def removeImages(self, index=None):
+		"""Remove plot from table."""
+		
 		selectionRange = self.tableImages.selectedRanges()
 		selectionRange = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRange]
 		selectionRange = sum(selectionRange, [])
-		col1 = []
-		col2 = []
-		col3 = []
+		if index:
+			if index not in selectionRange:
+				selectionRange = [index]
+		
 		if selectionRange:
-			for i in range(self.tableImages.rowCount()):
-				self.tableImages.cellWidget(i, 0).layout().itemAt(0).widget().clicked.disconnect()
+			for i, imageTableRow in enumerate(self.imageTableRows):
+				item1 = QTableWidgetItem(0)
+				item1.setText(imageTableRow[0].text())
+				item2 = QTableWidgetItem(0)
+				item2.setText(imageTableRow[1].text())
 				pb = self.tableImages.cellWidget(i, 2)
-				if i not in selectionRange:
-					col1.append(self.tableImages.cellWidget(i, 0))
-					col2.append(self.tableImages.cellWidget(i, 1))
-					dialog = self.pbDialogsImage[pb]
-					col3.append(dialog)
-				del self.pbDialogsImage[pb]
-			self.tableImages.setRowCount(0)
-			for i in range(len(col1)):  # adding widgets directly back from the list caused QGIS to crash :(
-				self.addImage(widgetImageTemplate=col1[i], cboPosTemplate=col2[i], pbTemplate=col3[i])
+				pb.clicked.disconnect()
+				item3 = self.pbDialogsImage[pb]
+				del pb
+				imageTableRow = [item1, item2, item3]
+				self.imageTableRows[i] = imageTableRow
+			for i in reversed(selectionRange):
+				self.imageTableRows.pop(i)
+			self.pbDialogsImage.clear()
+			self.reAddImages()
 		else:
-			pb = self.tableImages.cellWidget(self.tableImages.rowCount() - 1, 2)
-			del self.pbDialogsImage[pb]
-			self.tableImages.setRowCount(self.tableImages.rowCount() - 1)
+			if self.tableImages.rowCount():
+				if self.tableImages.rowCount() == 1:
+					self.tableImages.setColumnWidth(1, self.tableImages.columnWidth(1) +
+					                                self.tableImages.verticalHeader().sizeHint().width())
+				pb = self.tableImages.cellWidget(self.tableImages.rowCount() - 1, 2)
+				del self.pbDialogsImage[pb]
+				self.tableImages.setRowCount(self.tableImages.rowCount() - 1)
+				self.imageTableRows.pop()
+	
+	def reAddImages(self):
+		
+		self.tableImages.setColumnWidth(1, self.tableImages.columnWidth(1) +
+		                                self.tableImages.verticalHeader().sizeHint().width())
+		self.tableImages.setRowCount(0)
+		
+		imageTableRows = self.imageTableRows[:]
+		self.imageTableRows.clear()
+		
+		for i, imageTableRow in enumerate(imageTableRows):
+			item1 = imageTableRow[0]
+			item2 = imageTableRow[1]
+			item3 = imageTableRow[2]
+			self.addImage(item1=item1, item2=item2, dialog=item3)
 	
 	def moveImage(self, event=None, action='up'):
-		"""Move Image up or down in table."""
+		"""Move position of selected map in table. Options 'up' or 'down'."""
 		
-		selectionRange = self.tableImages.selectedRanges()
-		selectionRange = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRange]
-		selectionRange = sum(selectionRange, [])
-		selection = selectionRange[0] if selectionRange else None
-		col1 = []
-		col2 = []
-		col3 = []
-		col4 = []
-		if selection is not None:
-			if selection == 0 and action == 'up':  # first entry so can't move up
-				return
-			elif selection == self.tableImages.rowCount() - 1 and action == 'down':  # last entry so can't move down
-				return
-			elif action == 'down':
-				newPos = selection + 1
-			else:
-				newPos = selection - 1
-			for i in range(self.tableImages.rowCount()):
-				self.tableImages.cellWidget(i, 0).layout().itemAt(0).widget().clicked.disconnect()
+		selectionRanges = self.tableImages.selectedRanges()
+		selectionRangeIndexes = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRanges]
+		selectionRangeIndexes = sum(selectionRangeIndexes, [])
+		
+		if selectionRangeIndexes:
+			for i, imageTableRow in enumerate(self.imageTableRows):
+				item1 = QTableWidgetItem(0)
+				item1.setText(imageTableRow[0].text())
+				item2 = QTableWidgetItem(0)
+				item2.setText(imageTableRow[1].text())
 				pb = self.tableImages.cellWidget(i, 2)
-				col1.append(self.tableImages.cellWidget(i, 0))
-				col2.append(self.tableImages.cellWidget(i, 1))
-				dialog = self.pbDialogsImage[pb]
-				col3.append(dialog)
-				del self.pbDialogsImage[pb]
-			c1 = col1.pop(selection)
-			c2 = col2.pop(selection)
-			c3 = col3.pop(selection)
-			col1.insert(newPos, c1)
-			col2.insert(newPos, c2)
-			col3.insert(newPos, c3)
-			self.tableImages.setRowCount(0)
-			for i in range(len(col1)):
-				self.addImage(widgetImageTemplate=col1[i], cboPosTemplate=col2[i], pbTemplate=col3[i])
-			self.tableImages.setCurrentCell(newPos, 0, QItemSelectionModel.Select)
-			self.tableImages.setCurrentCell(newPos, 1, QItemSelectionModel.Select)
-			self.tableImages.setCurrentCell(newPos, 2, QItemSelectionModel.Select)
+				pb.clicked.disconnect()
+				item3 = self.pbDialogsImage[pb]
+				del pb
+				imageTableRow = [item1, item2, item3]
+				self.imageTableRows[i] = imageTableRow
+			if action == 'up':
+				for i in selectionRangeIndexes:
+					if i > 0:
+						row = self.imageTableRows.pop(i)
+						self.imageTableRows.insert(i - 1, row)
+			else:
+				for i in reversed(selectionRangeIndexes):
+					if i < self.tableImages.rowCount() - 1:
+						row = self.imageTableRows.pop(i)
+						self.imageTableRows.insert(i + 1, row)
+			self.reAddImages()
 			
-	def addMap(self, event=None, inputResultTemplate=None, cboScalarTemplate=None, cboVectorTemplate=None,
-	           cboTimeTemplate=None, outputWidgetTemplate=None):
-		"""Add map to export list"""
+			for sr in selectionRanges:
+				if action == 'up':
+					top = sr.topRow() - 1 if sr.topRow() > 0 else sr.topRow()
+					bottom = sr.bottomRow() - 1 if sr.bottomRow() > sr.rowCount() - 1 else sr.bottomRow()
+					left = sr.leftColumn()
+					right = sr.rightColumn()
+					newSelectionRange = QTableWidgetSelectionRange(top, left, bottom, right)
+				else:
+					top = sr.topRow() + 1 if sr.topRow() < self.tableImages.rowCount() - sr.rowCount() else sr.topRow()
+					bottom = sr.bottomRow() + 1 if sr.bottomRow() < self.tableImages.rowCount() - 1 else sr.bottomRow()
+					left = sr.leftColumn()
+					right = sr.rightColumn()
+					newSelectionRange = QTableWidgetSelectionRange(top, left, bottom, right)
+				self.tableImages.setRangeSelected(newSelectionRange, True)
+
+	def setPlotTableProperties(self):
 		
-		folderIcon = QgsApplication.getThemeIcon('/mActionFileOpen.svg')
+		plotTypes = ['Time Series', 'CS / LP']
+		positions = ['Top-Left', 'Top-Right', 'Bottom-Left', 'Bottom-Right']
 		
-		# Available Results - user can choose a location through file explorer
-		btnBrowseInput = QToolButton(self.tableMaps)
-		btnBrowseInput.setIcon(folderIcon)
-		btnBrowseInput.setToolTip('Input Result File')
-		cboResult = QComboBox(self.tableMaps)
-		cboResult.setEditable(True)
-		for i in range(self.tuView.OpenResults.count()):
-			item = self.tuView.OpenResults.item(i)
-			cboResult.addItem(item.text())
-		if inputResultTemplate is not None:
-			cboResult.setCurrentText(inputResultTemplate.layout().itemAt(1).widget().currentText())
-		inputWidget = QWidget(self.tableMaps)
-		hbox = QHBoxLayout()
-		hbox.addWidget(btnBrowseInput)
-		hbox.addWidget(cboResult)
-		hbox.setContentsMargins(0, 0, 0, 0)
-		inputWidget.setLayout(hbox)
-		inputWidget.setMaximumHeight(20)
-		btnBrowseInput.clicked.connect(lambda: self.browse('mesh', 'TUFLOW/map_input', 'Mesh Layer (*.xmdf *.dat *.sup *.2dm)', cboResult))
+		self.tablePlots.itemDelegateForColumn(0).setItems(items=plotTypes, default='Time Series')
+		self.tablePlots.itemDelegateForColumn(2).setItems(items=positions, default='Top-Left')
+	
+	def setImageTableProperties(self):
 		
-		# Available result types
-		scalarTypes, vectorTypes = getResultTypes(self.tuView.tuResults.results, cboResult.currentText())
-		cboScalar = QComboBox(self.tableMaps)
-		cboScalar.setEditable(True)
-		cboScalar.addItem('-None-')
-		cboScalar.addItems(scalarTypes)
-		if cboScalarTemplate is not None:
-			cboScalar.setCurrentText(cboScalarTemplate.currentText())
-		cboVector = QComboBox(self.tableMaps)
-		cboVector.setEditable(True)
-		cboVector.addItem('-None-')
-		cboVector.addItems(vectorTypes)
-		if cboVectorTemplate is not None:
-			cboVector.setCurrentText(cboVectorTemplate.currentText())
+		imageTypes = "All Files(*)"
+		positions = ['Top-Left', 'Top-Right', 'Bottom-Left', 'Bottom-Right']
+		btnSignal = {'parent': self, 'browse type': 'existing file', 'key': 'TUFLOW/map_image',
+		            'title': "Image", 'file types': imageTypes}
 		
-		# Available times (including max)
-		times = getTimes(self.tuView.tuResults.results, cboResult.currentText(), cboScalar.currentText(), cboVector.currentText())
-		cboTime = QComboBox(self.tableMaps)
-		cboTime.setEditable(True)
-		cboTime.addItems(times)
-		if cboTimeTemplate is not None:
-			cboTime.setCurrentText(cboTimeTemplate.currentText())
+		self.tableImages.itemDelegateForColumn(0).setSignalProperties(btnSignal)
+		self.tableImages.itemDelegateForColumn(1).setItems(items=positions, default='Top-Left')
+	
+	def setMapTableSignalProperties(self):
+		"""Sets up the signal settings for the QStyledItemDelegate"""
 		
-		cboResult.currentIndexChanged.connect(lambda: self.updateMapRow(cboResult, cboScalar, cboVector, cboTime, cboResult))
-		cboScalar.currentIndexChanged.connect(lambda: self.updateMapRow(cboResult, cboScalar, cboVector, cboTime, cboScalar))
-		cboVector.currentIndexChanged.connect(lambda: self.updateMapRow(cboResult, cboScalar, cboVector, cboTime, cboVector))
-		
-		# output
-		btnBrowseOutput = QToolButton(self.tableMaps)
-		btnBrowseOutput.setIcon(folderIcon)
-		btnBrowseOutput.setToolTip('Output Map')
-		leOutput = QLineEdit(self.tableMaps)
-		leOutput.setMaximumHeight(20)
-		if outputWidgetTemplate is not None:
-			leOutput.setText(outputWidgetTemplate.layout().itemAt(1).widget().text())
-		outputWidget = QWidget(self.tableMaps)
-		hbox = QHBoxLayout()
-		hbox.addWidget(btnBrowseOutput)
-		hbox.addWidget(leOutput)
-		hbox.setContentsMargins(0, 0, 0, 0)
-		outputWidget.setLayout(hbox)
-		outputWidget.setMaximumHeight(20)
+		resultTypes = 'Mesh Layer (*.xmdf *.dat *.sup *.2dm)'
 		exportTypes = "PDF (*.pdf *.PDF);;BMP format (*.bmp *.BMP);;CUR format (*.cur *.CUR);;ICNS format (*.icns *.ICNS);;" \
 		              "ICO format (*.ico *.ICO);;JPEG format (*.jpeg *.JPEG);;JPG format (*.jpg *.JPG);;PBM format (*.pbm *,PBM);;" \
 		              "PGM format (*.pgm *.PGM);;PNG format (*.png *.PNG);;PPM format (*.ppm *.PPM);;SVG format (*.svg *.SVG);;" \
 		              "TIF format (*.tif *.TIF);;TIFF format (*.tiff *.TIFF);;WBMP format (*.wbmp *.WBMP);;WEBP (*.webp *.WEBP);;" \
 		              "XBM format (*.xbm *.XBM);;XPM format (*.xpm *.XPM)"
-		btnBrowseOutput.clicked.connect(lambda: self.browse('save', 'TUFLOW/map_output', exportTypes, leOutput))
 		
-		# add to table
-		n = self.tableMaps.rowCount()
-		self.tableMaps.setRowCount(n + 1)
-		self.tableMaps.setCellWidget(n, 0, inputWidget)
-		self.tableMaps.setCellWidget(n, 1, cboScalar)
-		self.tableMaps.setCellWidget(n, 2, cboVector)
-		self.tableMaps.setCellWidget(n, 3, cboTime)
-		self.tableMaps.setCellWidget(n, 4, outputWidget)
+		btnSignalResult = {'parent': self, 'browse type': 'existing file', 'key': 'TUFLOW/map_input',
+		                   'title': "Result Layer", 'file types': resultTypes}
+		btnSignalOutput = {'parent': self, 'browse type': 'output file', 'key': 'TUFLOW/map_output',
+		                   'title': "Output Map", 'file types': exportTypes}
 		
-	def updateMapRow(self, cboResult, cboScalar, cboVector, cboTime, changed):
+
+		items = []
+		for i in range(self.tuView.OpenResults.count()):
+			item = self.tuView.OpenResults.item(i).text()
+			items.append(item)
+		self.tableMaps.itemDelegateForColumn(0).setItems(items)
+		self.tableMaps.itemDelegateForColumn(0).setSignalProperties(btnSignalResult)
+		self.tableMaps.itemDelegateForColumn(4).setSignalProperties(btnSignalOutput)
+	
+	def updateMapRow(self, item=None):
 		"""Updates row in map table if one of the combo boxes is changed."""
 		
-		if changed == cboResult:
-			prevScalar = cboScalar.currentText()
-			prevVector = cboVector.currentText()
-			scalarTypes, vectorTypes = getResultTypes(self.tuView.tuResults.results, cboResult.currentText())
-			cboScalar.clear()
-			cboVector.clear()
-			cboScalar.addItem('-None-')
-			cboVector.addItem('-None-')
-			cboScalar.addItems(scalarTypes)
-			cboVector.addItems(vectorTypes)
-			for i in range(cboScalar.count()):
-				if cboScalar.itemText(i) == prevScalar:
-					cboScalar.setCurrentIndex(i)
-			for i in range(cboVector.count()):
-				if cboVector.itemText(i) == prevVector:
-					cboVector.setCurrentIndex(i)
+		if item is not None:
+			if item.column() == 0:
+				self.updateMapResultTypes(item.text(), item.row())
+				self.updateMapTimes(item.text(), item.row())
+			elif item.column() == 1 or item.column() == 2:
+				self.updateMapTimes(self.tableMaps.item(item.row(), 0).text(), item.row())
+	
+	def updateMapResultTypes(self, result, row):
+		"""Update scalar and vector result types in table"""
+		
+		prevScalar = None
+		prevVector = None
+		if self.tableMaps.item(row, 1) is not None:
+			prevScalar = self.tableMaps.item(row, 1).text()
+		if self.tableMaps.item(row, 2) is not None:
+			prevVector = self.tableMaps.item(row, 2).text()
+		scalarTypes, vectorTypes = getResultTypes(self.tuView.tuResults.results, result)
+		scalars = ['-None-'] + scalarTypes
+		vectors = ['-None-'] + vectorTypes
+		self.tableMaps.itemDelegateForColumn(1).setItems(row, scalars)
+		self.tableMaps.itemDelegateForColumn(2).setItems(row, vectors)
+		if prevScalar in scalars:
+			self.tableMaps.item(row, 1).setText(prevScalar)
+		if prevVector in vectors:
+			self.tableMaps.item(row, 2).setText(prevVector)
+	
+	def updateMapTimes(self, result, row):
+		"""Update available times in table"""
+		prevTime = None
+		if self.tableMaps.item(row, 3) is not None:
+			prevTime = self.tableMaps.item(row, 3).text()
+		scalar = None
+		vector = None
+		if self.tableMaps.item(row, 1) is not None:
+			scalar = self.tableMaps.item(row, 1).text()
+		if self.tableMaps.item(row, 2) is not None:
+			vector = self.tableMaps.item(row, 2).text()
+		times = getTimes(self.tuView.tuResults.results, result, scalar,
+		                 vector, self.tuView.tuOptions.timeUnits, self.tuView.tuOptions.xAxisDates,
+		                 self.tuView.tuResults)
+		self.tableMaps.itemDelegateForColumn(3).setItems(row, times)
+		if prevTime in times:
+			self.tableMaps.item(row, 3).setText(prevTime)
+	
+	def addMap(self):
+		"""Add map to export list"""
+
+		## add to table
+		n = self.tableMaps.rowCount()
+		self.tableMaps.setRowCount(n + 1)
+		item1 = QTableWidgetItem(0)
+		item2 = QTableWidgetItem(0)
+		item3 = QTableWidgetItem(0)
+		item4 = QTableWidgetItem(0)
+		item5 = QTableWidgetItem(0)
+
+		self.tableMaps.setItem(n, 0, item1)
+		self.tableMaps.setItem(n, 1, item2)
+		self.tableMaps.setItem(n, 2, item3)
+		self.tableMaps.setItem(n, 3, item4)
+		self.tableMaps.setItem(n, 4, item5)
+		
+		mapTableRow = [item1, item2, item3, item4, item5]
+		mapTableRowItems = [[], [], [], [], []]
+		self.mapTableRows.append(mapTableRow)
+		self.mapTableRowItems.append(mapTableRowItems)
+		
+		if n == 0:
+			self.tableMaps.setColumnWidth(3, self.tableMaps.columnWidth(3)
+			                              - self.tableMaps.verticalHeader().sizeHint().width())
+	
+	def insertMapRow(self, index=None, loc=INSERT_BEFORE):
+		"""
+		Insert a row into the map table.
+		Can be inserted before or after clicked row.
+
+		:param index: int
+		:param loc: Table
+		:return: void
+		"""
+		
+		if index is not None:
+			for i, mapTableRow in enumerate(self.mapTableRows):
+				item1 = QTableWidgetItem(0)
+				item1.setText(mapTableRow[0].text())
+				item1Items = []
+				item2 = QTableWidgetItem(0)
+				item2.setText(mapTableRow[1].text())
+				if i in self.tableMaps.itemDelegateForColumn(1).itemsInRows:
+					item2Items = self.tableMaps.itemDelegateForColumn(1).itemsInRows[i]
+					del self.tableMaps.itemDelegateForColumn(1).itemsInRows[i]
+				else:
+					item2Items = []
+				item3 = QTableWidgetItem(0)
+				item3.setText(mapTableRow[2].text())
+				if i in self.tableMaps.itemDelegateForColumn(2).itemsInRows:
+					item3Items = self.tableMaps.itemDelegateForColumn(2).itemsInRows[i]
+					del self.tableMaps.itemDelegateForColumn(2).itemsInRows[i]
+				else:
+					item3Items = []
+				item4 = QTableWidgetItem(0)
+				item4.setText(mapTableRow[3].text())
+				if i in self.tableMaps.itemDelegateForColumn(3).itemsInRows:
+					item4Items = self.tableMaps.itemDelegateForColumn(3).itemsInRows[i]
+					del self.tableMaps.itemDelegateForColumn(3).itemsInRows[i]
+				else:
+					item4Items = []
+				item5 = QTableWidgetItem(0)
+				item5.setText(mapTableRow[4].text())
+				item5Items = []
+				mapTableRow = [item1, item2, item3, item4, item5]
+				mapTableRowItems = [item1Items, item2Items, item3Items, item4Items, item5Items]
+				self.mapTableRows[i] = mapTableRow
+				self.mapTableRowItems[i] = mapTableRowItems
 			
-		if changed == cboResult or changed == cboScalar or changed == cboVector:
-			prevTime = cboTime.currentText()
-			times = getTimes(self.tuView.tuResults.results, cboResult.currentText(), cboScalar.currentText(), cboVector.currentText())
-			cboTime.clear()
-			cboTime.addItems(times)
-			for i in range(cboTime.count()):
-				if cboTime.itemText(i) == prevTime:
-					cboTime.setCurrentIndex(i)
-					
-	def removeMaps(self):
+			if loc == TuMapDialog.INSERT_BEFORE:
+				j = index
+			else:
+				j = index + 1
+				
+			# Available results e.g. Mo4_5m_001
+			items = []
+			for i in range(self.tuView.OpenResults.count()):
+				item = self.tuView.OpenResults.item(i).text()
+				items.append(item)
+			
+			## add to table
+			item1 = QTableWidgetItem(0)
+			item2 = QTableWidgetItem(0)
+			item3 = QTableWidgetItem(0)
+			item4 = QTableWidgetItem(0)
+			item5 = QTableWidgetItem(0)
+
+			mapTableRow = [item1, item2, item3, item4, item5]
+			mapTableRowItems = [[], [], [], [], []]
+			self.mapTableRows.insert(j, mapTableRow)
+			self.mapTableRowItems.insert(j, mapTableRowItems)
+			
+			self.reAddMaps()
+
+	def removeMaps(self, index=None):
 		"""Remove map from table."""
 
 		selectionRange = self.tableMaps.selectedRanges()
 		selectionRange = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRange]
 		selectionRange = sum(selectionRange, [])
-		col1 = []
-		col2 = []
-		col3 = []
-		col4 = []
-		col5 = []
+		if index:
+			if index not in selectionRange:
+				selectionRange = [index]
+		
 		if selectionRange:
-			for i in range(self.tableMaps.rowCount()):
-				self.tableMaps.cellWidget(i, 0).layout().itemAt(0).widget().clicked.disconnect()
-				self.tableMaps.cellWidget(i, 0).layout().itemAt(1).widget().currentIndexChanged.disconnect()
-				self.tableMaps.cellWidget(i, 1).currentIndexChanged.disconnect()
-				self.tableMaps.cellWidget(i, 2).currentIndexChanged.disconnect()
-				self.tableMaps.cellWidget(i, 4).layout().itemAt(0).widget().clicked.disconnect()
-				if i not in selectionRange:
-					col1.append(self.tableMaps.cellWidget(i, 0))
-					col2.append(self.tableMaps.cellWidget(i, 1))
-					col3.append(self.tableMaps.cellWidget(i, 2))
-					col4.append(self.tableMaps.cellWidget(i, 3))
-					col5.append(self.tableMaps.cellWidget(i, 4))
-			self.tableMaps.setRowCount(0)
-			for i in range(len(col1)):  # adding widgets directly back from the list caused QGIS to crash :(
-				self.addMap(inputResultTemplate=col1[i], cboScalarTemplate=col2[i], cboVectorTemplate=col3[i], cboTimeTemplate=col4[i], outputWidgetTemplate=col5[i])
+			for i, mapTableRow in enumerate(self.mapTableRows):
+				item1 = QTableWidgetItem(0)
+				item1.setText(mapTableRow[0].text())
+				item1Items = []
+				item2 = QTableWidgetItem(0)
+				item2.setText(mapTableRow[1].text())
+				if i in self.tableMaps.itemDelegateForColumn(1).itemsInRows:
+					item2Items = self.tableMaps.itemDelegateForColumn(1).itemsInRows[i]
+					del self.tableMaps.itemDelegateForColumn(1).itemsInRows[i]
+				else:
+					item2Items = []
+				item3 = QTableWidgetItem(0)
+				item3.setText(mapTableRow[2].text())
+				if i in self.tableMaps.itemDelegateForColumn(2).itemsInRows:
+					item3Items = self.tableMaps.itemDelegateForColumn(2).itemsInRows[i]
+					del self.tableMaps.itemDelegateForColumn(2).itemsInRows[i]
+				else:
+					item3Items = []
+				item4 = QTableWidgetItem(0)
+				item4.setText(mapTableRow[3].text())
+				if i in self.tableMaps.itemDelegateForColumn(3).itemsInRows:
+					item4Items = self.tableMaps.itemDelegateForColumn(3).itemsInRows[i]
+					del self.tableMaps.itemDelegateForColumn(3).itemsInRows[i]
+				else:
+					item4Items = []
+				item5 = QTableWidgetItem(0)
+				item5.setText(mapTableRow[4].text())
+				item5Items = []
+				mapTableRow = [item1, item2, item3, item4, item5]
+				mapTableRowItems = [item1Items, item2Items, item3Items, item4Items, item5Items]
+				self.mapTableRows[i] = mapTableRow
+				self.mapTableRowItems[i] = mapTableRowItems
+			for i in reversed(selectionRange):
+				self.mapTableRows.pop(i)
+				self.mapTableRowItems.pop(i)
+			self.reAddMaps()
 		else:
-			self.tableMaps.setRowCount(self.tableMaps.rowCount() - 1)
+			if self.tableMaps.rowCount():
+				if self.tableMaps.rowCount() == 1:
+					self.tableMaps.setColumnWidth(3, self.tableMaps.columnWidth(3)
+					                              + self.tableMaps.verticalHeader().sizeHint().width())
+				self.tableMaps.setRowCount(self.tableMaps.rowCount() - 1)
+				self.mapTableRows.pop()
+				self.mapTableRowItems.pop()
+		
 			
 	def moveMap(self, event=None, action='up'):
 		"""Move position of selected map in table. Options 'up' or 'down'."""
 		
-		selectionRange = self.tableMaps.selectedRanges()
-		selectionRange = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRange]
-		selectionRange = sum(selectionRange, [])
-		selection = selectionRange[0] if selectionRange else None
-		col1 = []
-		col2 = []
-		col3 = []
-		col4 = []
-		col5 = []
-		if selectionRange:
-			if selection == 0 and action == 'up':  # first entry so can't move up
-				return
-			elif selection == self.tableMaps.rowCount() - 1 and action == 'down':  # last entry so can't move down
-				return
-			elif action == 'down':
-				newPos = selection + 1
+		selectionRanges = self.tableMaps.selectedRanges()
+		selectionRangeIndexes = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRanges]
+		selectionRangeIndexes = sum(selectionRangeIndexes, [])
+		
+		if selectionRangeIndexes:
+			for i, mapTableRow in enumerate(self.mapTableRows):
+				item1 = QTableWidgetItem(0)
+				item1.setText(mapTableRow[0].text())
+				item1Items = []
+				item2 = QTableWidgetItem(0)
+				item2.setText(mapTableRow[1].text())
+				if i in self.tableMaps.itemDelegateForColumn(1).itemsInRows:
+					item2Items = self.tableMaps.itemDelegateForColumn(1).itemsInRows[i]
+					del self.tableMaps.itemDelegateForColumn(1).itemsInRows[i]
+				else:
+					item2Items = []
+				item3 = QTableWidgetItem(0)
+				item3.setText(mapTableRow[2].text())
+				if i in self.tableMaps.itemDelegateForColumn(2).itemsInRows:
+					item3Items = self.tableMaps.itemDelegateForColumn(2).itemsInRows[i]
+					del self.tableMaps.itemDelegateForColumn(2).itemsInRows[i]
+				else:
+					item3Items = []
+				item4 = QTableWidgetItem(0)
+				item4.setText(mapTableRow[3].text())
+				if i in self.tableMaps.itemDelegateForColumn(3).itemsInRows:
+					item4Items = self.tableMaps.itemDelegateForColumn(3).itemsInRows[i]
+					del self.tableMaps.itemDelegateForColumn(3).itemsInRows[i]
+				else:
+					item4Items = []
+				item5 = QTableWidgetItem(0)
+				item5.setText(mapTableRow[4].text())
+				item5Items = []
+				mapTableRow = [item1, item2, item3, item4, item5]
+				mapTableRowItems = [item1Items, item2Items, item3Items, item4Items, item5Items]
+				self.mapTableRows[i] = mapTableRow
+				self.mapTableRowItems[i] = mapTableRowItems
+			if action == 'up':
+				for i in selectionRangeIndexes:
+					if i > 0:
+						row = self.mapTableRows.pop(i)
+						self.mapTableRows.insert(i-1, row)
+						row = self.mapTableRowItems.pop(i)
+						self.mapTableRowItems.insert(i - 1, row)
 			else:
-				newPos = selection - 1
-			for i in range(self.tableMaps.rowCount()):
-				self.tableMaps.cellWidget(i, 0).layout().itemAt(0).widget().clicked.disconnect()
-				self.tableMaps.cellWidget(i, 0).layout().itemAt(1).widget().currentIndexChanged.disconnect()
-				self.tableMaps.cellWidget(i, 1).currentIndexChanged.disconnect()
-				self.tableMaps.cellWidget(i, 2).currentIndexChanged.disconnect()
-				self.tableMaps.cellWidget(i, 4).layout().itemAt(0).widget().clicked.disconnect()
-				col1.append(self.tableMaps.cellWidget(i, 0))
-				col2.append(self.tableMaps.cellWidget(i, 1))
-				col3.append(self.tableMaps.cellWidget(i, 2))
-				col4.append(self.tableMaps.cellWidget(i, 3))
-				col5.append(self.tableMaps.cellWidget(i, 4))
-			c1 = col1.pop(selection)
-			c2 = col2.pop(selection)
-			c3 = col3.pop(selection)
-			c4 = col4.pop(selection)
-			c5 = col5.pop(selection)
-			col1.insert(newPos, c1)
-			col2.insert(newPos, c2)
-			col3.insert(newPos, c3)
-			col4.insert(newPos, c4)
-			col5.insert(newPos, c5)
-			self.tableMaps.setRowCount(0)
-			for i in range(len(col1)):
-				self.addMap(inputResultTemplate=col1[i], cboScalarTemplate=col2[i], cboVectorTemplate=col3[i],
-				            cboTimeTemplate=col4[i], outputWidgetTemplate=col5[i])
-			self.tableMaps.setCurrentCell(newPos, 0, QItemSelectionModel.Select)
-			self.tableMaps.setCurrentCell(newPos, 1, QItemSelectionModel.Select)
-			self.tableMaps.setCurrentCell(newPos, 2, QItemSelectionModel.Select)
-			self.tableMaps.setCurrentCell(newPos, 4, QItemSelectionModel.Select)
-			self.tableMaps.setCurrentCell(newPos, 4, QItemSelectionModel.Select)
+				for i in reversed(selectionRangeIndexes):
+					if i < self.tableMaps.rowCount() - 1:
+						row = self.mapTableRows.pop(i)
+						self.mapTableRows.insert(i+1, row)
+						row = self.mapTableRowItems.pop(i)
+						self.mapTableRowItems.insert(i + 1, row)
+			self.reAddMaps()
+			
+			for sr in selectionRanges:
+				if action == 'up':
+					top = sr.topRow() - 1 if sr.topRow() > 0 else sr.topRow()
+					bottom = sr.bottomRow() - 1 if sr.bottomRow() > sr.rowCount() - 1 else sr.bottomRow()
+					left = sr.leftColumn()
+					right = sr.rightColumn()
+					newSelectionRange = QTableWidgetSelectionRange(top, left, bottom, right)
+				else:
+					top = sr.topRow() + 1 if sr.topRow() < self.tableMaps.rowCount() - sr.rowCount() else sr.topRow()
+					bottom = sr.bottomRow() + 1 if sr.bottomRow() < self.tableMaps.rowCount() - 1 else sr.bottomRow()
+					left = sr.leftColumn()
+					right = sr.rightColumn()
+					newSelectionRange = QTableWidgetSelectionRange(top, left, bottom, right)
+				self.tableMaps.setRangeSelected(newSelectionRange, True)
+
+			
+	def reAddMaps(self):
+		
+		self.tableMaps.setColumnWidth(3, self.tableMaps.columnWidth(3)
+		                              + self.tableMaps.verticalHeader().sizeHint().width())
+		self.tableMaps.setRowCount(0)
+		
+		for i, mapTableRow in enumerate(self.mapTableRows):
+			rowNo = i
+			rowCount = i + 1
+			
+			self.tableMaps.setRowCount(rowCount)
+			
+			self.tableMaps.setItem(rowNo, 0, mapTableRow[0])
+			self.tableMaps.setItem(rowNo, 1, mapTableRow[1])
+			self.tableMaps.setItem(rowNo, 2, mapTableRow[2])
+			self.tableMaps.setItem(rowNo, 3, mapTableRow[3])
+			self.tableMaps.setItem(rowNo, 4, mapTableRow[4])
+			
+			self.tableMaps.itemDelegateForColumn(1).itemsInRows[i] = self.mapTableRowItems[i][1]
+			self.tableMaps.itemDelegateForColumn(2).itemsInRows[i] = self.mapTableRowItems[i][2]
+			self.tableMaps.itemDelegateForColumn(3).itemsInRows[i] = self.mapTableRowItems[i][3]
 			
 	def updateProgress(self, i, cnt):
 		""" callback from routine """
@@ -911,20 +1252,135 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		self.progress.setValue(i)
 		qApp.processEvents()
 	
+	def contextMenuMapTable(self):
+		"""
+		Context menu for map table - right click on row number
+		gives option to delete, insert before, insert after.
+
+		:return: None
+		"""
+		
+		self.tableMaps.verticalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+		self.tableMaps.verticalHeader().customContextMenuRequested.connect(self.mapTableMenu)
+	
+	def mapTableMenu(self, pos):
+		"""
+		Prepare the context menu for the map table.
+
+		:param pos: QPoint
+		:return: None
+		"""
+		
+		self.mapTableMenu = QMenu()
+		self.mapTableInsertRowBefore = QAction("Insert Above", self.mapTableMenu)
+		self.mapTableInsertRowAfter = QAction("Insert Below", self.mapTableMenu)
+		self.mapTableDeleteRow = QAction("Delete", self.mapTableMenu)
+		
+		index = self.tableMaps.rowAt(pos.y())
+		self.mapTableInsertRowBefore.triggered.connect(lambda: self.insertMapRow(index, TuMapDialog.INSERT_BEFORE))
+		self.mapTableInsertRowAfter.triggered.connect(lambda: self.insertMapRow(index, TuMapDialog.INSERT_AFTER))
+		self.mapTableDeleteRow.triggered.connect(lambda: self.removeMaps(index))
+		
+		self.mapTableMenu.addAction(self.mapTableInsertRowBefore)
+		self.mapTableMenu.addAction(self.mapTableInsertRowAfter)
+		self.mapTableMenu.addSeparator()
+		self.mapTableMenu.addAction(self.mapTableDeleteRow)
+		
+		posH = self.tableMaps.mapToGlobal(pos).x()
+		posV = self.tableMaps.mapToGlobal(pos).y() + \
+		       self.mapTableMenu.actionGeometry(self.mapTableInsertRowBefore).height()
+		newPos = QPoint(posH, int(posV))
+		self.mapTableMenu.popup(newPos, self.mapTableInsertRowBefore)
+	
+	def contextMenuPlotTable(self):
+		"""
+		Context menu for map table - right click on row number
+		gives option to delete, insert before, insert after.
+
+		:return: None
+		"""
+		
+		self.tablePlots.verticalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+		self.tablePlots.verticalHeader().customContextMenuRequested.connect(self.plotTableMenu)
+	
+	def plotTableMenu(self, pos):
+		"""
+		Prepare the context menu for the map table.
+
+		:param pos: QPoint
+		:return: None
+		"""
+		
+		self.plotTableMenu = QMenu()
+		self.plotTableInsertRowBefore = QAction("Insert Above", self.plotTableMenu)
+		self.plotTableInsertRowAfter = QAction("Insert Below", self.plotTableMenu)
+		self.plotTableDeleteRow = QAction("Delete", self.plotTableMenu)
+		
+		index = self.tablePlots.rowAt(pos.y())
+		self.plotTableInsertRowBefore.triggered.connect(lambda: self.insertPlotRow(index, TuMapDialog.INSERT_BEFORE))
+		self.plotTableInsertRowAfter.triggered.connect(lambda: self.insertPlotRow(index, TuMapDialog.INSERT_AFTER))
+		self.plotTableDeleteRow.triggered.connect(lambda: self.removePlots(index))
+		
+		self.plotTableMenu.addAction(self.plotTableInsertRowBefore)
+		self.plotTableMenu.addAction(self.plotTableInsertRowAfter)
+		self.plotTableMenu.addSeparator()
+		self.plotTableMenu.addAction(self.plotTableDeleteRow)
+		
+		posH = self.tablePlots.mapToGlobal(pos).x()
+		posV = self.tablePlots.mapToGlobal(pos).y() + \
+		       self.plotTableMenu.actionGeometry(self.plotTableInsertRowBefore).height()
+		newPos = QPoint(posH, int(posV))
+		self.plotTableMenu.popup(newPos, self.plotTableInsertRowBefore)
+	
+	def contextMenuImageTable(self):
+		"""
+		Context menu for map table - right click on row number
+		gives option to delete, insert before, insert after.
+
+		:return: None
+		"""
+		
+		self.tableImages.verticalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+		self.tableImages.verticalHeader().customContextMenuRequested.connect(self.imageTableMenu)
+	
+	def imageTableMenu(self, pos):
+		"""
+		Prepare the context menu for the map table.
+
+		:param pos: QPoint
+		:return: None
+		"""
+		
+		self.imageTableMenu = QMenu()
+		self.imageTableInsertRowBefore = QAction("Insert Above", self.imageTableMenu)
+		self.imageTableInsertRowAfter = QAction("Insert Below", self.imageTableMenu)
+		self.imageTableDeleteRow = QAction("Delete", self.imageTableMenu)
+		
+		index = self.tableImages.rowAt(pos.y())
+		self.imageTableInsertRowBefore.triggered.connect(lambda: self.insertImageRow(index, TuMapDialog.INSERT_BEFORE))
+		self.imageTableInsertRowAfter.triggered.connect(lambda: self.insertImageRow(index, TuMapDialog.INSERT_AFTER))
+		self.imageTableDeleteRow.triggered.connect(lambda: self.removeImages(index))
+		
+		self.imageTableMenu.addAction(self.imageTableInsertRowBefore)
+		self.imageTableMenu.addAction(self.imageTableInsertRowAfter)
+		self.imageTableMenu.addSeparator()
+		self.imageTableMenu.addAction(self.imageTableDeleteRow)
+		
+		posH = self.tableImages.mapToGlobal(pos).x()
+		posV = self.tableImages.mapToGlobal(pos).y() + \
+		       self.imageTableMenu.actionGeometry(self.imageTableInsertRowBefore).height()
+		newPos = QPoint(posH, int(posV))
+		self.imageTableMenu.popup(newPos, self.imageTableInsertRowBefore)
+	
 	def check(self, preview=False):
 		"""Pre run checks."""
 		
 		# check image locations exist
 		for i in range(self.tableImages.rowCount()):
-			path = self.tableImages.cellWidget(i, 0).layout().itemAt(1).widget().text()
+			#path = self.tableImages.cellWidget(i, 0).layout().itemAt(1).widget().text()
+			path = self.tableImages.item(i, 0).text()
 			if not os.path.exists(path):
 				QMessageBox.information(self, 'Input Error', 'Cannot find file: {0}'.format(path))
-				return
-				
-		# check if save templates is ticked, file location has been specified
-		if self.cbSaveTemplates.isChecked():
-			if not self.leTemplateOut.text():
-				QMessageBox.information(self, 'Input Error', 'Must specify template outfolder if saving templates')
 				return
 				
 		# check all the result and type selections make sense
@@ -932,7 +1388,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 			QMessageBox.information(self, 'Input Error', 'No Maps Added')
 			return
 		for i in range(self.tableMaps.rowCount()):
-			result = self.tableMaps.cellWidget(i, 0).layout().itemAt(1).widget().currentText()
+			result = self.tableMaps.item(i, 0).text()
 			if not result:
 				QMessageBox.information(self, 'Input Error', 'Row {0} - Must specify input result'.format(i + 1))
 				return
@@ -941,17 +1397,17 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 					QMessageBox.information(self, 'Input Error',
 					                        'Row {0} - cannot find result: {1}'.format(i + 1, result))
 					return
-			scalar = self.tableMaps.cellWidget(i, 1).currentText()
-			vector = self.tableMaps.cellWidget(i, 2).currentText()
-			if scalar == '-None-' and vector == '-None-':
+			scalar = self.tableMaps.item(i, 1).text()
+			vector = self.tableMaps.item(i, 2).text()
+			if (scalar == '-None-' or scalar == '') and (vector == '-None-' or vector == ''):
 				QMessageBox.information(self, 'Input Error',
 				                        'Row {0} - must choose at least one scalar or vector result'.format(i + 1))
 				return
-			time = self.tableMaps.cellWidget(i, 3).currentText()
+			time = self.tableMaps.item(i, 3).text()
 			if not time:
 				QMessageBox.information(self, 'Input Error', 'Row {0} - must specify a timestep'.format(i + 1))
 				return
-			output = self.tableMaps.cellWidget(i, 4).layout().itemAt(1).widget().text()
+			output = self.tableMaps.item(i, 4).text()
 			if not output:
 				QMessageBox.information(self, 'Input Error', 'Row {0} - Must specify an output path'.format(i + 1))
 				return
@@ -960,7 +1416,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		
 	def run(self, preview):
 		"""run tool"""
-		
+
 		self.tuView.qgisDisconnect()
 		
 		if not preview:
@@ -1041,9 +1497,9 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 			plotCount = 0
 			for i in range(self.tablePlots.rowCount()):
 				plotDict = {}
-				plotDict['labels'] = self.tablePlots.cellWidget(i, 1).checkedItems()
-				plotDict['type'] = self.tablePlots.cellWidget(i, 0).currentText()
-				plotDict['position'] = self.tablePlots.cellWidget(i, 2).currentIndex()
+				plotDict['type'] = self.tablePlots.item(i, 0).text()
+				plotDict['labels'] = self.tablePlots.item(i, 1).text().split(';;')
+				plotDict['position'] = self.tablePlots.item(i, 2).text()
 				plotDict['properties'] = self.pbDialogs[self.tablePlots.cellWidget(i, 3)]
 				plot[plotCount] = plotDict
 				plotCount += 1
@@ -1056,9 +1512,10 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 					graphicDict = {}
 					label = self.tableGraphics.item(i, 0)
 					graphic = self.label2graphic[label.text()]
-					userLabel = self.tableGraphics.cellWidget(i, 1).text()
-					position = self.tableGraphics.cellWidget(i, 2).currentText()
+					userLabel = self.tableGraphics.item(i, 1).text()
+					position = self.tableGraphics.item(i, 2).text()
 					font = self.rowNo2fntDialog[i]
+					graphicDict['id'] = label.text()
 					graphicDict['user label'] = userLabel
 					graphicDict['position'] = position
 					graphicDict['font'] = font.fntButton.currentFont()
@@ -1083,8 +1540,8 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 			imageCount = 0
 			for i in range(self.tableImages.rowCount()):
 				imageDict = {
-					'source': self.tableImages.cellWidget(i, 0).layout().itemAt(1).widget().text(),
-					'position': self.tableImages.cellWidget(i, 1).currentIndex(),
+					'source': self.tableImages.item(i, 0).text(),
+					'position': self.tableImages.item(i, 1).text(),
 					'properties': self.pbDialogsImage[self.tableImages.cellWidget(i, 2)]
 				}
 				image[imageCount] = imageDict
@@ -1104,102 +1561,131 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		     'frame': self.cbPageFrame.isChecked(),
 		     'frame color': self.colorPageFrame.color(),
 		     'frame thickness': self.sbPageFrameThickness.value(),
-		     'page margin': pageMargin
+		     'page margin': pageMargin,
+		     'datetime': self.tuView.tuOptions.xAxisDates,
+		     'dateformat': self.tuView.tuOptions.dateFormat,
+		     'dynamic axis update': self.cbDynamicAxisLimits.isChecked()
 		     }
+		tmpdir = tempfile.mkdtemp(suffix='tflw_maps')
+		d['tmpdir'] = tmpdir
 		
 		count = self.tableMaps.rowCount()
+		
+		# loop once through types to get rendering settings
+		rendering = {}
+		for i in range(count):
+			scalar = self.tableMaps.item(i, 1).text()
+			if scalar not in rendering:
+				time = self.tableMaps.item(i, 3).text()
+				# result layer
+				layer = self.tableMaps.item(i, 0).text()
+				d['rendered'] = False
+				if layer not in self.tuView.tuResults.results and \
+						os.path.splitext(os.path.basename(layer))[0] not in self.tuView.tuResults.results:
+					imported = self.tuView.tuMenuBar.tuMenuFunctions.load2dResults(result_2D=[[layer]])
+					if not imported:
+						continue
+					layer = tuflowqgis_find_layer(self.tuView.OpenResults.item(self.tuView.OpenResults.count() - 1).text())
+				else:
+					if layer in self.tuView.tuResults.results:
+						layer = tuflowqgis_find_layer(layer)
+					else:
+						layer = tuflowqgis_find_layer(os.path.splitext(os.path.basename(layer))[0])
+				# active scalar and vector index
+				if time.lower() != 'max':
+					if self.tuView.tuOptions.xAxisDates:
+						time = self.tuView.tuPlot.convertDateToTime(time, unit=self.tuView.tuOptions.timeUnits)
+					else:
+						time = convertFormattedTimeToTime(time, unit=self.tuView.tuOptions.timeUnits)
+					d['time'] = time
+				else:
+					d['time'] = -99999
+					scalar += '/Maximums'
+					time = 0.0
+				scalarInd = -1
+				for j in range(layer.dataProvider().datasetGroupCount()):
+					if str(layer.dataProvider().datasetGroupMetadata(j).name()).lower() == scalar.lower():
+						scalarInd = j
+				rs = layer.rendererSettings()
+				rendering[self.tableMaps.item(i, 1).text()] = rs.scalarSettings(scalarInd)
+				
+		d['rendering'] = rendering
+		
+		# main loop
 		for i in range(count):
 			d['map number'] = i
 			prog(i, count)
 			
 			# outfile
-			path = self.tableMaps.cellWidget(i, 4).layout().itemAt(1).widget().text()
+			path = self.tableMaps.item(i, 4).text()
 			d['imgfile'] = path
 			
 			# result layer
-			layer = self.tableMaps.cellWidget(i, 0).layout().itemAt(1).widget().currentText()
-			if layer not in self.tuView.tuResults.results:
+			layer = self.tableMaps.item(i, 0).text()
+			d['rendered'] = False
+			if layer not in self.tuView.tuResults.results and \
+					os.path.splitext(os.path.basename(layer))[0] not in self.tuView.tuResults.results:
 				imported = self.tuView.tuMenuBar.tuMenuFunctions.load2dResults(result_2D=[[layer]])
 				if not imported:
 					continue
 				layer = tuflowqgis_find_layer(self.tuView.OpenResults.item(self.tuView.OpenResults.count() - 1).text())
-				d['rendered'] = False
 			else:
-				layer = tuflowqgis_find_layer(layer)
-				d['rendered'] = True
+				if layer in self.tuView.tuResults.results:
+					layer = tuflowqgis_find_layer(layer)
+				else:
+					layer = tuflowqgis_find_layer(os.path.splitext(os.path.basename(layer))[0])
+
 			self.tuView.tuResults.tuResults2D.activeMeshLayers = []
 			self.tuView.tuResults.tuResults2D.activeMeshLayers.append(layer)
 			d['layer'] = layer
 			
-			# get maplayers - only include the one mesh layer
-			layerOrder = self.canvas.layers()
-			layers = []
-			for name, mapLayer in QgsProject.instance().mapLayers().items():
-				if mapLayer.type() == 3:
-					if mapLayer == layer:
-						layers.append(mapLayer)
-				else:
-					layers.append(mapLayer)
-			layersOrdered = []
-			for l in layerOrder:
-				if l in layers:
-					layersOrdered.append(l)
-			for l in layers:
-				if l not in layersOrdered:
-					layersOrdered.insert(0, l)
-			d['layers'] = layersOrdered
-			
-			# uncheck unwanted mesh layers in layers panel
+			# iterate through layers and turn off any mesh layers not needed
+			layersToTurnOff = []
+			for mapLayer in self.canvas.layers():
+				if isinstance(mapLayer, QgsMeshLayer):
+					if mapLayer != layer:
+						layersToTurnOff.append(mapLayer)
+			layers = [layer]
 			legint = self.tuView.project.layerTreeRoot()
-			# grab all nodes that are QgsMapLayers - get to node bed rock i.e. not a group
-			nodes = []
-			for item in legint.children():
-				items = [item]
-				while items:
-					it = items[0]
-					if it.children():
-						items += it.children()
-					else:
-						nodes.append(it)
-					items = items[1:]
-			# now turn off all nodes that are mesh layers that are not the one we are interested in
+			nodes = legint.findLayers()
 			for node in nodes:
-				# turn on node visibility for all items
-				# so we can get the corresponding map layer
-				# but record visibility status and turn off
-				# again if it's not the mesh layer we're interested it
-				if node.checkedLayers():
-					visible = True
-				else:
-					visible = False
-					node.setItemVisibilityChecked(True)
-				ml = node.checkedLayers()[0] if node.checkedLayers() else False
-				if ml:
-					if ml.type() == 3:  # is a mesh layer
-						if ml == layer:  # is the layer we're interested in
-							node.setItemVisibilityChecked(True)
-						else:  # is NOT the mesh layer we're interested in
-							node.setItemVisibilityChecked(False)
+				mapLayer = node.layer()
+				if isinstance(mapLayer, QgsMeshLayer):
+					if mapLayer == layer:
+						node.setItemVisibilityChecked(True)
 					else:
-						node.setItemVisibilityChecked(visible)
+						node.setItemVisibilityChecked(False)
+			mapLayers = self.canvas.layers()
+			for mapLayer in mapLayers[:]:
+				if isinstance(mapLayer, QgsMeshLayer):
+					if mapLayer != layer:
+						if mapLayer in layers:
+							layers.remove(mapLayer)
+					else:
+						if mapLayer not in layers:
+							layers.append(mapLayer)
+				else:
+					if mapLayer not in layers:
+						layers.append(mapLayer)
+			d['layers'] = layers
 			
 			# label text
 			text = self.labelInput.toPlainText()
 			result = layer.name()
-			scalar = self.tableMaps.cellWidget(i, 1).currentText()
-			vector = self.tableMaps.cellWidget(i, 2).currentText()
-			time = self.tableMaps.cellWidget(i, 3).currentText()
-			template = ''
-			if self.cbSaveTemplates.isChecked():
-				template = self.leTemplateOut.text()
-			label = createText(text, result, scalar, vector, time, path, template, self.project, i + 1)
+			scalar = self.tableMaps.item(i, 1).text()
+			vector = self.tableMaps.item(i, 2).text()
+			time = self.tableMaps.item(i, 3).text()
+			label = createText(text, result, scalar, vector, time, path, self.project, i + 1)
 			if self.groupLabel.isChecked():
 				d['layout']['title']['label'] = label
-				
+			d['active scalar'] = scalar
+
 			# active scalar and vector index
 			if time.lower() != 'max':
-				time = time.split(':')
-				time = float(time[0]) + float(time[1]) / 60 + float(time[2]) / 3600
+				if self.tuView.tuOptions.xAxisDates:
+					time = self.tuView.tuPlot.convertDateToTime(time, unit=self.tuView.tuOptions.timeUnits)
+				else:
+					time = convertFormattedTimeToTime(time, unit=self.tuView.tuOptions.timeUnits)
 				d['time'] = time
 			else:
 				d['time'] = -99999
@@ -1208,45 +1694,46 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 				time = 0.0
 			scalarInd = -1
 			vectorInd = -1
-			for i in range(layer.dataProvider().datasetGroupCount()):
-				if str(layer.dataProvider().datasetGroupMetadata(i).name()).lower() == scalar.lower():
-					scalarInd = i
-				if str(layer.dataProvider().datasetGroupMetadata(i).name()).lower() == vector.lower():
-					vectorInd = i
+			for j in range(layer.dataProvider().datasetGroupCount()):
+				if str(layer.dataProvider().datasetGroupMetadata(j).name()).lower() == scalar.lower():
+					scalarInd = j
+				if str(layer.dataProvider().datasetGroupMetadata(j).name()).lower() == vector.lower():
+					vectorInd = j
 			asd = QgsMeshDatasetIndex(-1, 0)
-			for i in range(layer.dataProvider().datasetCount(scalarInd)):
-				ind = QgsMeshDatasetIndex(scalarInd, i)
-				if layer.dataProvider().datasetMetadata(ind).time() == time:
+			for j in range(layer.dataProvider().datasetCount(scalarInd)):
+				ind = QgsMeshDatasetIndex(scalarInd, j)
+				if '{0:.2f}'.format(layer.dataProvider().datasetMetadata(ind).time()) == '{0:.2f}'.format(time):
 					asd = ind
 			avd = QgsMeshDatasetIndex(-1, 0)
-			for i in range(layer.dataProvider().datasetCount(vectorInd)):
-				ind = QgsMeshDatasetIndex(vectorInd, i)
-				if layer.dataProvider().datasetMetadata(ind).time() == time:
+			for j in range(layer.dataProvider().datasetCount(vectorInd)):
+				ind = QgsMeshDatasetIndex(vectorInd, j)
+				if '{0:.2f}'.format(layer.dataProvider().datasetMetadata(ind).time()) == '{0:.2f}'.format(time):
 					avd = ind
 			d['scalar index'] = asd
 			d['vector index'] = avd
 			
 			for pb, dialog in self.pbDialogs.items():
-				dialog.setDefaults(self, self.dialog2Plot[dialog][0].currentText(),
-				                   self.dialog2Plot[dialog][1].checkedItems(), static=True)
-			
+				if self.cbDynamicAxisLimits.isChecked():
+					dialog.yUseMatplotLibDefault = True
+					dialog.dynamicYAxis = True
+					
+				dialog.setDefaults(self, self.dialog2Plot[dialog][0].text(),
+				                   self.dialog2Plot[dialog][1].text().split(';;'), static=True,
+				                   activeScalar=d['active scalar'], xAxisDates=self.tuView.tuOptions.xAxisDates)
+
 			self.layout = makeMap(d, self.iface, prog, self, preview, i)
 			
 			if preview:
 				self.iface.openLayoutDesigner(layout=self.layout)
 				self.tuView.qgisConnect()
 				return
-			
-			if self.cbSaveTemplates.isChecked():
-				folder = self.leTemplateOut.text()
-				name = os.path.splitext(os.path.basename(path))[0] + '.qpt'
-				templateFile = os.path.join(folder, name)
-				
-			
+
 		self.tuView.qgisConnect()
 		QApplication.restoreOverrideCursor()
 		self.updateProgress(0, 1)
 		self.buttonBox.setEnabled(True)
+		shutil.rmtree(tmpdir)
+		QMessageBox.information(self, "Export", "Map export was successfully!")
 		self.accept()
 	
 	def setPageSize(self):
@@ -1298,3 +1785,311 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		
 			self.sbWidth.setValue(x / conv)
 			self.sbHeight.setValue(y / conv)
+
+
+class MapExportImportDialog(QDialog, Ui_MapExportImportDialog):
+	
+	def __init__(self, iface):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.iface = iface
+		folderIcon = QgsApplication.getThemeIcon('/mActionFileOpen.svg')
+		self.btnBrowse.setIcon(folderIcon)
+		
+		# import data to these members
+		# data type depends on importType (i.e. channel, arch bridge etc)
+		self.col1 = []
+		self.col2 = []
+		self.col3 = []
+		self.col4 = []
+		self.col5 = []
+		self.imported = False
+		self.message = []
+		self.error = False
+		
+		self.btnBrowse.clicked.connect(lambda: browse(self, 'existing file', 'TUFLOW/map_export_import_data',
+		                                              'Import: Map Export Data', "ALL (*)", self.inFile))
+		self.inFile.textChanged.connect(self.populateDataColumns)
+		self.inFile.textChanged.connect(self.updatePreview)
+		self.sbLines2Discard.valueChanged.connect(self.populateDataColumns)
+		self.sbLines2Discard.valueChanged.connect(self.updatePreview)
+		self.cboCol1.currentIndexChanged.connect(self.updatePreview)
+		self.cboCol2.currentIndexChanged.connect(self.updatePreview)
+		self.cboCol3.currentIndexChanged.connect(self.updatePreview)
+		self.cboCol4.currentIndexChanged.connect(self.updatePreview)
+		self.cboCol5.currentIndexChanged.connect(self.updatePreview)
+		self.rbCSV.clicked.connect(self.populateDataColumns)
+		self.rbSpace.clicked.connect(self.populateDataColumns)
+		self.rbTab.clicked.connect(self.populateDataColumns)
+		self.rbOther.clicked.connect(self.populateDataColumns)
+		self.delimiter.textChanged.connect(self.populateDataColumns)
+		self.pbOk.clicked.connect(self.check)
+		self.pbCancel.clicked.connect(self.reject)
+	
+	def getDelim(self):
+		if self.rbCSV.isChecked():
+			return ','
+		elif self.rbSpace.isChecked():
+			return ' '
+		elif self.rbTab.isChecked():
+			return '\t'
+		elif self.rbOther.isChecked():
+			return self.delimiter.text()
+	
+	def checkConsecutive(self, letter):
+		f = self.dateFormat.text()
+		for i in range(f.count(letter)):
+			if i == 0:
+				indPrev = f.find(letter)
+			else:
+				ind = f[indPrev + 1:].find(letter)
+				if ind != 0:
+					return False
+				indPrev += 1
+		
+		return True
+	
+	def populateDataColumns(self):
+		self.cboCol1.clear()
+		self.cboCol2.clear()
+		self.cboCol3.clear()
+		self.cboCol4.clear()
+		self.cboCol5.clear()
+		headers = []
+		if self.inFile.text():
+			if os.path.exists(self.inFile.text()):
+				header_line = self.sbLines2Discard.value() - 1
+				if header_line >= 0:
+					with open(self.inFile.text(), 'r') as fo:
+						for i, line in enumerate(fo):
+							if i == header_line:
+								delim = self.getDelim()
+								if delim != '':
+									headers = line.split(delim)
+									headers[-1] = headers[-1].strip('\n')
+									for j, header in enumerate(headers):
+										headers[j] = header.strip('"').strip("'")
+							elif i > header_line:
+								break
+				else:
+					with open(self.inFile.text(), 'r') as fo:
+						for i, line in enumerate(fo):
+							if i == 0:
+								delim = self.getDelim()
+								if delim != '':
+									n = len(line.split(delim))
+									headers = ['Column {0}'.format(x + 1) for x in range(n)]
+							else:
+								break
+				self.cboCol1.addItems(headers)
+				self.cboCol2.addItems(headers)
+				self.cboCol3.addItems(headers)
+				self.cboCol4.addItems(headers)
+				self.cboCol5.addItems(headers)
+		
+		self.cboCol1.addItem('-None-')
+		self.cboCol2.addItem('-None-')
+		self.cboCol3.addItem('-None-')
+		self.cboCol4.addItem('-None-')
+		self.cboCol5.addItem('-None-')
+		self.cboCol1.setCurrentIndex(-1)
+		self.cboCol2.setCurrentIndex(-1)
+		self.cboCol3.setCurrentIndex(-1)
+		self.cboCol4.setCurrentIndex(-1)
+		self.cboCol5.setCurrentIndex(-1)
+		# try and autopopulate comboboxes if possible
+		for i, h in enumerate(headers):
+			if h.lower() == 'result':
+				self.cboCol1.setCurrentIndex(i)
+			if 'scalar' in h.lower():
+				self.cboCol2.setCurrentIndex(i)
+			if 'vector' in h.lower():
+				self.cboCol3.setCurrentIndex(i)
+			if h.lower() == 'time':
+				self.cboCol4.setCurrentIndex(i)
+			if h.lower() == 'output':
+				self.cboCol5.setCurrentIndex(i)
+	
+	def updatePreview(self):
+		columnNames = ['Result', 'Scalar Type', "Vector Type", 'Time', 'Output']
+		iCol1 = -1
+		iCol2 = -1
+		iCol3 = -1
+		iCol4 = -1
+		iCol5 = -1
+		
+		self.previewTable.clear()
+		self.previewTable.setRowCount(0)
+		self.previewTable.setColumnCount(0)
+		if self.inFile.text():
+			if os.path.exists(self.inFile.text()):
+				# sort out number of columns and column names
+				self.previewTable.setColumnCount(len(columnNames))
+				self.previewTable.setHorizontalHeaderLabels(columnNames)
+				if self.cboCol1.currentIndex() > -1 and self.cboCol1.currentText() != '-None-':
+					iCol1 = self.cboCol1.currentIndex()
+				if self.cboCol2.currentIndex() > -1 and self.cboCol2.currentText() != '-None-':
+					iCol2 = self.cboCol2.currentIndex()
+				if self.cboCol3.currentIndex() > -1 and self.cboCol3.currentText() != '-None-':
+					iCol3 = self.cboCol3.currentIndex()
+				if self.cboCol4.currentIndex() > -1 and self.cboCol4.currentText() != '-None-':
+					iCol4 = self.cboCol4.currentIndex()
+				if self.cboCol5.currentIndex() > -1 and self.cboCol5.currentText() != '-None-':
+					iCol5 = self.cboCol5.currentIndex()
+				
+				if self.previewTable.columnCount():
+					# read in first 10 rows of data for preview
+					with open(self.inFile.text(), 'r') as fo:
+						header_line = self.sbLines2Discard.value() - 1
+						data_entries = 0
+						for i, line in enumerate(fo):
+							if i > header_line:
+								if data_entries > 9:
+									break
+								delim = self.getDelim()
+								values = line.split(delim)
+								
+								self.previewTable.setRowCount(self.previewTable.rowCount() + 1)
+								
+								# first column
+								value = ''
+								if iCol1 > -1:
+									if len(values) > iCol1:
+										value = values[iCol1].strip()
+								item = QTableWidgetItem(0)
+								item.setText(value)
+								self.previewTable.setItem(data_entries, 0, item)
+								
+								# second column
+								value = ''
+								if iCol2 > -1:
+									if len(values) > iCol2:
+										value = values[iCol2].strip()
+								item = QTableWidgetItem(0)
+								item.setText(value)
+								self.previewTable.setItem(data_entries, 1, item)
+								
+								# third column
+								value = ''
+								if iCol3 > -1:
+									if len(values) > iCol3:
+										value = values[iCol3].strip()
+								item = QTableWidgetItem(0)
+								item.setText(value)
+								self.previewTable.setItem(data_entries, 2, item)
+								
+								# forth column
+								value = ''
+								if iCol4 > -1:
+									if len(values) > iCol4:
+										value = values[iCol4].strip()
+								item = QTableWidgetItem(0)
+								item.setText(value)
+								self.previewTable.setItem(data_entries, 3, item)
+								
+								# fifth column
+								value = ''
+								if iCol5 > -1:
+									if len(values) > iCol5:
+										value = values[iCol5].strip()
+								item = QTableWidgetItem(0)
+								item.setText(value)
+								self.previewTable.setItem(data_entries, 4, item)
+								
+								data_entries += 1
+
+	def check(self):
+		if not self.inFile.text():
+			QMessageBox.critical(self, 'Import Data', 'No Input File Specified')
+			return
+		if not os.path.exists(self.inFile.text()):
+			QMessageBox.critical(self, 'Import Data', 'Invalid Input File')
+			return
+
+		# prelim checks out :)
+		self.run()
+	
+	def run(self):
+		# make sure entries are reset and blank
+		self.col1 = []
+		self.col2 = []
+		self.col3 = []
+		self.col4 = []
+		self.col5 = []
+		self.imported = False
+		self.message = []
+		self.error = False
+		
+		# columns to import
+		iCol1 = -1
+		iCol2 = -1
+		iCol3 = -1
+		iCol4 = -1
+		iCol5 = -1
+		if self.cboCol1.currentIndex() > -1 and self.cboCol1.currentText() != '-None-':
+			iCol1 = self.cboCol1.currentIndex()
+		if self.cboCol2.currentIndex() > -1 and self.cboCol2.currentText() != '-None-':
+			iCol2 = self.cboCol2.currentIndex()
+		if self.cboCol3.currentIndex() > -1 and self.cboCol3.currentText() != '-None-':
+			iCol3 = self.cboCol3.currentIndex()
+		if self.cboCol4.currentIndex() > -1 and self.cboCol4.currentText() != '-None-':
+			iCol4 = self.cboCol4.currentIndex()
+		if self.cboCol5.currentIndex() > -1 and self.cboCol5.currentText() != '-None-':
+			iCol5 = self.cboCol5.currentIndex()
+		
+		with open(self.inFile.text(), 'r') as fo:
+			header_line = self.sbLines2Discard.value() - 1
+			for i, line in enumerate(fo):
+				if i > header_line:
+					delim = self.getDelim()
+					values = line.split(delim)
+
+					# first column
+					value = ''
+					if iCol1 > -1:
+						if len(values) > iCol1:
+							value = values[iCol1].strip()
+					self.col1.append(value)
+					
+					# second column
+					value = ''
+					if iCol2 > -1:
+						if len(values) > iCol2:
+							value = values[iCol2].strip()
+					self.col2.append(value)
+
+					# third column
+					value = ''
+					if iCol3 > -1:
+						if len(values) > iCol3:
+							value = values[iCol3].strip()
+					self.col3.append(value)
+					
+					# fourth column
+					value = ''
+					if iCol4 > -1:
+						if len(values) > iCol4:
+							value = values[iCol4].strip()
+					self.col4.append(value)
+					
+					# fifth column
+					value = ''
+					if iCol5 > -1:
+						if len(values) > iCol5:
+							value = values[iCol5].strip()
+					self.col5.append(value)
+		
+		if self.col1 or self.col2 or self.col3 or self.col4 or self.col5:
+			if len(self.col1) == len(self.col2) == len(self.col3) == len(self.col4) == len(self.col5):
+				pass
+			else:
+				QMessageBox.critical(self, "Import Data", "Error Importing Data: Data Set Lengths Do Not Match")
+				return
+		else:
+			QMessageBox.critical(self, "Import Data", "Empty Data Set. Check Input File Contains Useable Data")
+			return
+		
+		# finally destroy dialog box
+		self.imported = True
+		QMessageBox.information(self, "Import Data", "Import Successful")
+		self.accept()

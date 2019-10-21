@@ -21,6 +21,7 @@ from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 from matplotlib.patches import Polygon
 import matplotlib.dates as mdates
+import matplotlib.ticker
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplottoolbar import TuPlotToolbar
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplotselection import TuPlotSelection
@@ -422,6 +423,8 @@ class TuPlot():
 		for limit in yAxisLimits:
 			limit.clear()
 		subplot.cla()
+		#fmt = matplotlib.ticker.ScalarFormatter()
+		#subplot.xaxis.set_major_formatter(fmt)
 		if isSecondaryAxis[0]:
 			subplot2 = self.getSecondaryAxis(plotNo)
 			if subplot2 is not None:
@@ -630,17 +633,23 @@ class TuPlot():
 		if self.tuView.cbShowCurrentTime.isChecked() or showCurrentTime:
 
 			# get current Time
-			try:
-				x = [float(self.tuView.tuResults.activeTime)] * 2
-				if self.tuView.tuOptions.xAxisDates and plotNo == 0:
-					x = self.convertTimeToDate(x)
-			except TypeError:  # probably no times available
-				return False
-			
 			if time is not None:  # use input time not current time
 				x = [time] * 2
-				if self.tuView.tuOptions.xAxisDates and plotNo == 0:
-					x = self.convertTimeToDate('{0:.4f}'.format(x))
+			else:
+				try:
+					x = [float(self.tuView.tuResults.activeTime)] * 2
+				except TypeError:  # probably no times available
+					return False
+
+			# check time units
+			if self.tuView.tuOptions.timeUnits == 's':
+				if x:
+					for i in range(len(x)):
+						x[i] = x[i] / 60. / 60.
+			
+			# convert to date if needed
+			if self.tuView.tuOptions.xAxisDates:
+				x = self.convertTimeToDate(x)
 			
 			# get current Y-Axis limits
 			if not self.tuView.tuMenuBar.freezeAxisYLimits_action.isChecked():
@@ -813,11 +822,13 @@ class TuPlot():
 			else:
 				yAxisLabelNewSecond = ''
 			return xAxisLabel, yAxisLabelNewFirst, yAxisLabelNewSecond
-		
+
 		# determine units i.e. metric, imperial, or unknown / blank
-		if self.canvas.mapUnits() == 0 or self.canvas.mapUnits() == 1 or self.canvas.mapUnits() == 7 or self.canvas.mapUnits() == 8:  # metric
+		if self.canvas.mapUnits() == QgsUnitTypes.DistanceMeters or self.canvas.mapUnits() == QgsUnitTypes.DistanceKilometers or \
+				self.canvas.mapUnits() == QgsUnitTypes.DistanceCentimeters or self.canvas.mapUnits() == QgsUnitTypes.DistanceMillimeters:  # metric
 			u, m = 0, 'm'
-		elif self.canvas.mapUnits() == 2 or self.canvas.mapUnits() == 3 or self.canvas.mapUnits() == 4 or self.canvas.mapUnits() == 5:  # imperial
+		elif self.canvas.mapUnits() == QgsUnitTypes.DistanceFeet or self.canvas.mapUnits() == QgsUnitTypes.DistanceNauticalMiles or \
+				self.canvas.mapUnits() == QgsUnitTypes.DistanceYards or self.canvas.mapUnits() == QgsUnitTypes.DistanceMiles:  # imperial
 			u, m = 1, 'ft'
 		else:  # use blank
 			u, m = -1, ''
@@ -973,7 +984,6 @@ class TuPlot():
 		:param label: list - str
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.plotEnumerator(plotNo)
 		isSecondaryAxisLocal = False  # local version because time series and map outputs are treated separately
@@ -996,8 +1006,8 @@ class TuPlot():
 		if isSecondaryAxis[0]:
 			subplot2 = self.getSecondaryAxis(plotNo)
 			yLimits2 = subplot2.get_ylim()
-			if export:  # override axis object for exporting
-				subplot2 = subplot.twinx()
+			#if export:  # override axis object for exporting
+			#	subplot2 = subplot.twinx()
 		
 		# get labels
 		if data:
@@ -1117,7 +1127,18 @@ class TuPlot():
 					#if not isSecondaryAxisLocal:
 					#	subplot2 = self.getSecondaryAxis(plotNo)
 					subplot2.set_ylabel(yAxisLabelSecond)
-		if self.tuView.tuOptions.xAxisDates and plotNo == 0:
+		
+		# check if there is user plot data
+		userPlotData = False
+		for status in [v.status for k, v in sorted(self.userPlotData.datasets.items(), key=lambda x: x[-1].number)]:
+			if status:
+				userPlotData = True
+				break
+		isData = False
+		if data or userPlotData:
+			isData = True
+
+		if isData and self.tuView.tuOptions.xAxisDates and plotNo == 0:
 			fmt = mdates.DateFormatter(self.tuView.tuOptions.dateFormat)
 			subplot.xaxis.set_major_formatter(fmt)
 			for tick in subplot.get_xticklabels():
@@ -1144,10 +1165,16 @@ class TuPlot():
 			subplot.set_ybound(yLimits)
 			if isSecondaryAxis[0]:
 				subplot2.set_ybound(yLimits2)
-		figure.tight_layout()
+		try:
+			figure.tight_layout()
+		except ValueError:  # something has gone wrong and trying to plot time (hrs) on a date formatted x axis
+			pass
+			
 		if export:
 			figure.suptitle(os.path.splitext(os.path.basename(export))[0])
 			figure.savefig(export)
+			if subplot2 is not None:
+				subplot2.cla()
 		else:
 			if draw:
 				plotWidget.draw()
@@ -1181,6 +1208,7 @@ class TuPlot():
 		showCurrentTime = kwargs['show_current_time'] if 'show_current_time' in kwargs.keys() else False
 		retainFlow = kwargs['retain_flow'] if 'retain_flow' in kwargs.keys() else False
 		meshRendered = kwargs['mesh_rendered'] if 'mesh_rendered' in kwargs.keys() else True
+		plotActiveScalar = kwargs['plot_active_scalar'] if 'plot_active_scalar' in kwargs else False
 		
 		if not plot:
 			if update == '1d only':
@@ -1200,12 +1228,21 @@ class TuPlot():
 			for i, point in enumerate(self.tuRubberBand.markerPoints):
 				self.tuPlot2D.plotTimeSeriesFromMap(None, QgsPointXY(point), bypass=multi, plot='2D Only',
 				                                    draw=draw, time=time, show_current_time=showCurrentTime,
-				                                    retain_flow=retainFlow, mesh_rendered=meshRendered)
+				                                    retain_flow=retainFlow, mesh_rendered=meshRendered,
+				                                    plot_active_scalar=plotActiveScalar)
 			
 			for f in self.tuPlot2D.plotSelectionPointFeat:
+				# get feature name from attribute
+				iFeatName = self.tuView.tuOptions.iLabelField
+				if len(f.attributes()) > iFeatName:
+					featName = f.attributes()[iFeatName]
+				else:
+					featName = None
+
 				self.tuPlot2D.plotTimeSeriesFromMap(None, f.geometry().asPoint(), bypass=multi, plot='2D Only',
 				                                    draw=draw, time=time, show_current_time=showCurrentTime,
-				                                    retain_flow=retainFlow, mesh_rendered=meshRendered)
+				                                    retain_flow=retainFlow, mesh_rendered=meshRendered,
+				                                    plot_active_scalar=plotActiveScalar, featName=featName)
 				
 			if self.tuPlot2D.multiPointSelectCount > 1:
 				self.tuPlot2D.reduceMultiPointCount(1)
@@ -1221,11 +1258,15 @@ class TuPlot():
 				
 				for i, line in enumerate(self.tuFlowLine.rubberBands):
 					if line.asGeometry() is not None:
-						geom = line.asGeometry().asPolyline()
-						feat = QgsFeature()
-						feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
-						self.tuPlot2D.plotFlowFromMap(None, feat, bypass=multiFlow, plot='flow only', draw=draw, time=time,
-						                              show_current_time=showCurrentTime, mesh_rendered=meshRendered)
+						if not line.asGeometry().isNull():
+							geom = line.asGeometry().asPolyline()
+							feat = QgsFeature()
+							try:
+								feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
+							except:
+								feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in geom]))
+							self.tuPlot2D.plotFlowFromMap(None, feat, bypass=multiFlow, plot='flow only', draw=draw, time=time,
+							                              show_current_time=showCurrentTime, mesh_rendered=meshRendered)
 					
 				for feat in self.tuPlot2D.plotSelectionFlowFeat:
 					self.tuPlot2D.plotFlowFromMap(None, feat, bypass=multiFlow, plot='flow only', draw=draw, time=time,
@@ -1263,6 +1304,7 @@ class TuPlot():
 		draw = kwargs['draw'] if 'draw' in kwargs.keys() else True
 		time = kwargs['time'] if 'time' in kwargs.keys() else None
 		meshRendered = kwargs['mesh_rendered'] if 'mesh_rendered' in kwargs.keys() else True
+		plotActiveScalar = kwargs['plot_active_scalar'] if 'plot_active_scalar' in kwargs else False
 		
 		if time is not None:
 			if time != 'Maximum' and time != 99999:
@@ -1283,19 +1325,33 @@ class TuPlot():
 			
 			for i, rubberBand in enumerate(self.tuRubberBand.rubberBands):
 				if rubberBand.asGeometry() is not None:
-					geom = rubberBand.asGeometry().asPolyline()
-					feat = QgsFeature()
-					feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
-					if i == 0:
-						self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=multi, plot='2D Only', draw=draw,
-						                                      time=time, mesh_rendered=meshRendered)
-					else:
-						self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=True, plot='2D Only', draw=draw,
-						                                      time=time, mesh_rendered=meshRendered)
+					if not rubberBand.asGeometry().isNull():
+						geom = rubberBand.asGeometry().asPolyline()
+						feat = QgsFeature()
+						try:
+							feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
+						except:
+							feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in geom]))
+						if i == 0:
+							self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=multi, plot='2D Only', draw=draw,
+							                                      time=time, mesh_rendered=meshRendered,
+							                                      plot_active_scalar=plotActiveScalar)
+						else:
+							self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=True, plot='2D Only', draw=draw,
+							                                      time=time, mesh_rendered=meshRendered,
+							                                      plot_active_scalar=plotActiveScalar)
 			
 			for feat in self.tuPlot2D.plotSelectionLineFeat:
+				# get feature name from attribute
+				iFeatName = self.tuView.tuOptions.iLabelField
+				if len(feat.attributes()) > iFeatName:
+					featName = feat.attributes()[iFeatName]
+				else:
+					featName = None
+
 				self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=multi, plot='2D Only', draw=draw,
-				                                      time=time, mesh_rendered=meshRendered)
+				                                      time=time, mesh_rendered=meshRendered,
+				                                      plot_active_scalar=plotActiveScalar, featName=featName)
 				
 			if self.tuPlot2D.multiLineSelectCount > 1:
 				self.tuPlot2D.reduceMultiLineCount(1)
@@ -1305,7 +1361,7 @@ class TuPlot():
 			
 		if not self.artistsLongPlotFirst and not self.artistsLongPlotSecond:
 			if self.userPlotData.datasets:
-				self.drawPlot(0, [], None, None, draw=draw, time=time)
+				self.drawPlot(1, [], None, None, draw=draw, time=time)
 			
 		return True
 	
@@ -1325,21 +1381,26 @@ class TuPlot():
 		showCurrentTime = kwargs['show_current_time'] if 'show_current_time' in kwargs.keys() else False
 		retainFlow = kwargs['retain_flow'] if 'retain_flow' in kwargs.keys() else False
 		meshRendered = kwargs['mesh_rendered'] if 'mesh_rendered' in kwargs.keys() else True
+		plotActiveScalar = kwargs['plot_active_scalar'] if 'plot_active_scalar' in kwargs else False
 
 		if plotNo is None:
 			plotNo = self.tuView.tabWidget.currentIndex()
 		
 		if plotNo == 0:
-			return self.updateTimeSeriesPlot(update=update, retain_flow=retainFlow, draw=draw, time=time,
-			                                 show_current_time=showCurrentTime, mesh_rendered=meshRendered)
+			success = self.updateTimeSeriesPlot(update=update, retain_flow=retainFlow, draw=draw, time=time,
+			                                    show_current_time=showCurrentTime, mesh_rendered=meshRendered,
+			                                    plot_active_scalar=plotActiveScalar)
 		elif plotNo == 1:
-			return self.updateCrossSectionPlot(draw=draw, time=time, mesh_rendered=meshRendered)
+			success = self.updateCrossSectionPlot(draw=draw, time=time, mesh_rendered=meshRendered,
+			                                      plot_active_scalar=plotActiveScalar)
 		
 		# disconnect map canvas refresh if it is connected - used for rendering after loading from project
 		try:
 			self.tuView.canvas.mapCanvasRefreshed.disconnect(self.updateCurrentPlot)
 		except:
 			pass
+		
+		return success
 	
 	def updateAllPlots(self):
 		"""
@@ -1437,7 +1498,7 @@ class TuPlot():
 										 2: cross section plot
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.plotEnumerator(plotNo)
 		
@@ -1504,13 +1565,13 @@ class TuPlot():
 		if isSecondaryAxis[0]:
 			if plotNo == 0:
 				if yAxisLabels[1]:
-					self.frozenTSAxisLabels[yAxisLabels[1][0]] = yLabel
+					self.frozenTSAxisLabels[yAxisLabels[1][0]] = yLabel2
 			elif plotNo == 1:
 				if yAxisLabels[1]:
-					self.frozenLPAxisLabels[yAxisLabels[1][0]] = yLabel
+					self.frozenLPAxisLabels[yAxisLabels[1][0]] = yLabel2
 			elif plotNo == 2:
 				if yAxisLabels[1]:
-					self.frozenCSAxisLabels[yAxisLabels[1][0]] = yLabel
+					self.frozenCSAxisLabels[yAxisLabels[1][0]] = yLabel2
 				
 		# check if axis limits have changed - if yes then auto lock axis limits
 		if xLimits != xAxisLimits[0][0]:
@@ -1689,7 +1750,10 @@ class TuPlot():
 					if labelOriginal not in labels[0]:
 						x = data.x[:]
 						if self.tuView.tuOptions.xAxisDates and plotNo == 0:
-							x = self.convertTimeToDate(x)
+							if data.dates is None:
+								x = self.convertTimeToDate(x)
+							else:
+								x = data.dates[:]
 						y = data.y[:]
 						a, = subplot.plot(x, y, label=label[0])
 						applyMatplotLibArtist(a, artistTemplates[0])
@@ -1716,3 +1780,17 @@ class TuPlot():
 			x.append(time)
 			
 		return x
+	
+	def convertDateToTime(self, data: str, unit: str='h') -> float:
+		"""
+		Converts date to time
+		
+		:param data: str
+		:return: float time
+		"""
+
+		date = datetime.strptime(data, self.tuView.tuResults.dateFormat)
+		if date in self.tuView.tuResults.date2time:
+			return self.tuView.tuResults.date2time[date]
+		else:
+			return -99999.

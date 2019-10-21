@@ -126,15 +126,31 @@ def findLayoutItem(layout, id):
 	return None
 
 
+def findLayoutGraphic(layout, id):
+	for i in layout.items():
+		if isinstance(i, QgsLayoutItemPolyline) and i.id() == id:
+			return i
+	
+	return None
+
+
+def findLayoutLabel(layout, id):
+	for i in layout.items():
+		if isinstance(i, QgsLayoutItemLabel) and i.id() == id:
+			return i
+	
+	return None
+
+
 def composition_set_time(c, time):
 	for i in c.items():
 		if isinstance(i, QgsLayoutItemLabel) and i.id() == "time":
 			#txt = time_to_string(time)
-			if time < 100:
-				txt = convertTimeToFormattedTime(time)
-			else:
-				txt = convertTimeToFormattedTime(time, hour_padding=3)
-			i.setText(txt)
+			#if time < 100:
+			#	txt = convertTimeToFormattedTime(time)
+			#else:
+			#	txt = convertTimeToFormattedTime(time, hour_padding=3)
+			i.setText(time)
 			
 			
 def composition_set_title(c, label):
@@ -142,9 +158,13 @@ def composition_set_title(c, label):
 		if isinstance(i, QgsLayoutItemLabel) and i.id() == "title":
 			#txt = time_to_string(time)
 			i.setText(label)
+			return i
+		
+	return None
 
 
-def setPlotProperties(fig, ax, prop, ax2, layout_type, layout_item):
+def setPlotProperties(fig, ax, prop, ax2, layout_type, layout_item, dateTime=False, dateformat=''):
+
 	if layout_type == 'default':
 		fig.set_size_inches(prop.sbFigSizeX.value() / 25.4, prop.sbFigSizeY.value() / 25.4)
 	elif layout_type == 'template':
@@ -160,8 +180,46 @@ def setPlotProperties(fig, ax, prop, ax2, layout_type, layout_item):
 	if ax2:
 		ax2.set_ylabel(prop.leY2Label.text())
 		ax2.set_ylim((prop.sbY2Min.value(), prop.sbY2Max.value()))
-	if not prop.xUseMatplotLibDefault:
-		ax.set_xlim((prop.sbXmin.value(), prop.sbXMax.value()))
+	if dateTime:  # display x axis as dates
+		fmt = mdates.DateFormatter(dateformat)
+		ax.xaxis.set_major_formatter(fmt)
+		for tick in ax.get_xticklabels():
+			tick.set_rotation(prop.sbXAxisRotation.value())
+			if prop.sbXAxisRotation.value() > 0 and prop.sbXAxisRotation.value() < 90:
+				tick.set_horizontalalignment('right')
+			elif prop.sbXAxisRotation.value() > 90 and prop.sbXAxisRotation.value() < 180:
+				tick.set_horizontalalignment('left')
+			elif prop.sbXAxisRotation.value() > 180 and prop.sbXAxisRotation.value() < 270:
+				tick.set_horizontalalignment('right')
+			elif prop.sbXAxisRotation.value() > 270 and prop.sbXAxisRotation.value() < 360:
+				tick.set_horizontalalignment('left')
+			elif prop.sbXAxisRotation.value() > -90 and prop.sbXAxisRotation.value() < 0:
+				tick.set_horizontalalignment('left')
+			elif prop.sbXAxisRotation.value() > -180 and prop.sbXAxisRotation.value() < -90:
+				tick.set_horizontalalignment('right')
+			elif prop.sbXAxisRotation.value() > -270 and prop.sbXAxisRotation.value() < -180:
+				tick.set_horizontalalignment('left')
+			elif prop.sbXAxisRotation.value() > -360 and prop.sbXAxisRotation.value() < -270:
+				tick.set_horizontalalignment('right')
+		if not prop.xUseMatplotLibDefault:
+			xmin = datetime(prop.dteXmin.dateTime().date().year(),
+			                prop.dteXmin.dateTime().date().month(),
+			                prop.dteXmin.dateTime().date().day(),
+			                prop.dteXmin.dateTime().time().hour(),
+			                prop.dteXmin.dateTime().time().minute(),
+			                prop.dteXmin.dateTime().time().second(),
+			                prop.dteXmin.dateTime().time().msec())
+			xmax = datetime(prop.dteXMax.dateTime().date().year(),
+			                prop.dteXMax.dateTime().date().month(),
+			                prop.dteXMax.dateTime().date().day(),
+			                prop.dteXMax.dateTime().time().hour(),
+			                prop.dteXMax.dateTime().time().minute(),
+			                prop.dteXMax.dateTime().time().second(),
+			                prop.dteXMax.dateTime().time().msec())
+			ax.set_xlim((xmin, xmax))
+	else:  # display x axis as time (hr)
+		if not prop.xUseMatplotLibDefault:
+			ax.set_xlim((prop.sbXmin.value(), prop.sbXMax.value()))
 	if not prop.yUseMatplotLibDefault:
 		ax.set_ylim((prop.sbYMin.value(), prop.sbYMax.value()))
 	if prop.cbGridY.isChecked() and prop.cbGridX.isChecked():
@@ -211,7 +269,7 @@ def isSecondaryNeeded(neededLabels, allLabels, allAxis):
 	return False
 
 
-def createText(text, result, scalar, vector, time, outfile, template, project, number):
+def createText(text, result, scalar, vector, time, outfile, project, number):
 	"""
 	Update dynamic text to actual text
 
@@ -221,7 +279,6 @@ def createText(text, result, scalar, vector, time, outfile, template, project, n
 	:param vector: str vector name
 	:param time: str timestep
 	:param outfile: str output file
-	:param template: str full path to template folder
 	:param project: QgsProject
 	:param number: int
 	:return: str new text after update
@@ -235,6 +292,8 @@ def createText(text, result, scalar, vector, time, outfile, template, project, n
 	newText = newText.replace('<<result_name>>', result)
 	# result type
 	result_type = scalar if scalar != '-None-' else ''
+	if not vector:
+		vector = '-None-'
 	result_type = '{0}, {1}'.format(result_type, vector) if vector != '-None-' else result_type
 	newText = newText.replace('<<result_type>>', result_type)
 	# time
@@ -242,12 +301,7 @@ def createText(text, result, scalar, vector, time, outfile, template, project, n
 	# date
 	date = '{0:%d}/{0:%m}/{0:%Y}'.format(datetime.now())
 	newText = newText.replace('<<date>>', date)
-	# workspace location
-	if template:
-		name = os.path.splitext(os.path.basename(outfile))[0] + '.qpt'
-		loc = os.path.join(template, name)
-	else:
-		loc = project.absoluteFilePath()
+	loc = project.absoluteFilePath()
 	newText = newText.replace('<<workspace>>', loc)
 	
 	return newText
@@ -284,23 +338,55 @@ def transformMapCoordToLayout(layout, extent, point, margin):
 	
 			
 def composition_set_plots(dialog, cfg, time, layout, dir, layout_type, showCurrentTime, retainFlow):
+
 	layoutcfg = cfg['layout']
 	l = cfg['layer']
 	margin = cfg['page margin'] if 'page margin' in cfg else None
-	
+
 	# update tuplot with new time and if time series, show current time - but don't draw
 	rendered = cfg['rendered'] if 'rendered' in cfg else True
 	dialog.tuView.tuPlot.updateCurrentPlot(0, retain_flow=retainFlow, draw=False, time=time,
-	                                       show_current_time=showCurrentTime, mesh_rendered=rendered)
-	dialog.tuView.tuPlot.updateCurrentPlot(1, draw=False, time=time, mesh_rendered=rendered)
+	                                       show_current_time=showCurrentTime, mesh_rendered=rendered,
+	                                       plot_active_scalar=cfg['active scalar'])
+	dialog.tuView.tuPlot.updateCurrentPlot(1, draw=False, time=time, mesh_rendered=rendered,
+	                                       plot_active_scalar=cfg['active scalar'])
 	
 	# split out lines into specified plots
 	for plot in sorted(layoutcfg['plots']):
 		ptype = layoutcfg['plots'][plot]['type']
 		position = layoutcfg['plots'][plot]['position']
-		labels = layoutcfg['plots'][plot]['labels']
+		positionDict = {'Top-Left': CFItemPosition.TOP_LEFT, 'Top-Right': CFItemPosition.TOP_RIGHT,
+		                'Bottom-Left': CFItemPosition.BOTTOM_LEFT, 'Bottom-Right': CFItemPosition.BOTTOM_RIGHT}
+		if type(position) is str:
+			positionConverted = positionDict[position]
+		else:
+			positionConverted = position
 		properties = layoutcfg['plots'][plot]['properties']
+		isdatetime = dialog.tuView.tuOptions.xAxisDates
+		dateformat = dialog.tuView.tuOptions.dateFormat
+		labels = layoutcfg['plots'][plot]['labels'][:]
 		
+		# deal with active scalar stuff
+		if 'active scalar' in cfg:
+			i = None
+			label = None
+			if 'Active Dataset' in labels :
+				i = labels.index('Active Dataset')
+				label = cfg['active scalar']
+			if 'Active Dataset [Water Level for Depth]' in labels:
+				i = labels.index('Active Dataset [Water Level for Depth]')
+				if cfg['active scalar'] == 'Depth':
+					label = 'Water Level'
+				elif cfg['active scalar'] == 'D':
+					label = 'H'
+				else:
+					label = cfg['active scalar']
+			if i is not None:
+				if label not in labels:
+					labels[i] = label
+				else:
+					labels.pop(i)
+
 		if layout_type == 'default':
 			cPlot = QgsLayoutItemPicture(layout)
 			cPlot.setId('plot_{0}'.format(plot))
@@ -317,7 +403,7 @@ def composition_set_plots(dialog, cfg, time, layout, dir, layout_type, showCurre
 		y2 = isSecondaryNeeded(labels, labs, axis)
 		if y2:
 			ax2 = ax.twinx()
-		setPlotProperties(fig, ax, properties, ax2, layout_type, cPlot)
+		setPlotProperties(fig, ax, properties, ax2, layout_type, cPlot, isdatetime, dateformat)
 		for i, line in enumerate(lines):
 			if labs[i] in labels or labs[i] == 'Current Time':
 				if y2 and axis[i] == 'axis 2':
@@ -327,17 +413,19 @@ def composition_set_plots(dialog, cfg, time, layout, dir, layout_type, showCurre
 		if properties.cbLegend.isChecked():
 			legend(ax, properties.cboLegendPos.currentIndex())
 		fig.tight_layout()
-		fname = os.path.join('{0}'.format(dir), '{0}-{1}-{2}.svg'.format(l.name(), plot, time))
+		datetimestr = '{0}'.format(datetime.now()).replace(':', '-')
+		fname = os.path.join('{0}'.format(cfg['tmpdir']), '{0}-{1}-{2}-{3}.svg'.format(l.name(), plot, time, datetimestr))
 		fig.savefig(fname)
 		layoutcfg['plots'][plot]['source'] = fname
 		
 		if cPlot:
 			cPlot.setPicturePath(fname)
 			if layout_type == 'default':
-				set_item_pos(cPlot, position, layout, margin)
+				set_item_pos(cPlot, positionConverted, layout, margin, buffer=2)
 
 
 def prepare_composition_from_template(layout, cfg, time, dialog, dir, showCurrentTime, retainFlow, layers=None):
+
 	layoutcfg = cfg['layout']
 	template_path = layoutcfg['file']
 	document = QDomDocument()
@@ -347,12 +435,152 @@ def prepare_composition_from_template(layout, cfg, time, dialog, dir, showCurren
 	context.setPathResolver(QgsProject.instance().pathResolver())
 	context.setProjectTranslator(QgsProject.instance())
 	layout.readLayoutXml(document.documentElement(), document, context)
+	layout_map = layout.referenceMap()
 	if layers is not None:
-		layout_map = layout.referenceMap()
 		layout_map.setLayers(layers)
-	composition_set_time(layout, time)
-	composition_set_plots(dialog, cfg, time, layout, dir, 'template', showCurrentTime, retainFlow)
-	composition_set_dynamic_text(dialog, cfg, layout)
+	
+	composition_set_time(layout, cfg['time text'])
+	if 'plots' in layoutcfg:
+		composition_set_plots(dialog, cfg, time, layout, dir, 'template', showCurrentTime, retainFlow)
+	if 'graphics' in layoutcfg:
+		margin = cfg['page margin'] if 'page margin' in cfg else None
+		composition_set_graphics_from_template(layout, layoutcfg, layout_map, margin)
+	cText = composition_set_dynamic_text(dialog, cfg, layout)
+	if cText is not None:
+		fix_label_box_size(layout, cText, layoutcfg)
+	#fix_legend(dialog, cfg, layout)
+	
+	
+def composition_set_graphics_from_template(layout, layoutcfg, layout_map, margin):
+	for graphic in layoutcfg['graphics']:
+		id = layoutcfg['graphics'][graphic]['id']
+		label = layoutcfg['graphics'][graphic]['user label']
+		position = layoutcfg['graphics'][graphic]['position']
+		gtype = layoutcfg['graphics'][graphic]['type']
+		
+		# graphic
+		if gtype == 'rubberband profile' or gtype == 'rubberband flow':
+			geom = graphic.asGeometry().asPolyline()
+			layoutGeom = [transformMapCoordToLayout(layout_map.rectWithFrame(), layout_map.extent(), x, margin) for x in
+			              geom]
+		else:
+			layoutGeom = [transformMapCoordToLayout(layout_map.rectWithFrame(), layout_map.extent(),
+			                                        QgsPointXY(graphic), margin)] * 2
+		
+		oldItem = findLayoutGraphic(layout, id)
+		if oldItem is not None:
+			symbol = oldItem.symbol().clone()
+			layout.removeItem(oldItem)
+			qpolygonf = QPolygonF(layoutGeom)
+			polylineGraphic = QgsLayoutItemPolyline(qpolygonf, layout)
+			polylineGraphic.setId(id)
+			polylineGraphic.setSymbol(symbol)
+			layout.addItem(polylineGraphic)
+			
+			# label
+			if label:
+				if position.lower() == 'right':
+					layoutPosX = max([x.x() for x in layoutGeom])
+					ind = [x.x() for x in layoutGeom].index(layoutPosX)
+					layoutPosY = layoutGeom[ind].y()
+					offset = 3
+					pos = (layoutPosX + offset, layoutPosY)
+					anchor = QgsLayoutItem.MiddleLeft
+				elif position.lower() == 'left':
+					layoutPosX = min([x.x() for x in layoutGeom])
+					ind = [x.x() for x in layoutGeom].index(layoutPosX)
+					layoutPosY = layoutGeom[ind].y()
+					offset = 3
+					pos = (layoutPosX - offset, layoutPosY)
+					anchor = QgsLayoutItem.MiddleRight
+				elif position.lower() == 'above':  # only available for points at the moment
+					layoutPosX = layoutGeom[0].x()
+					layoutPosY = layoutGeom[0].y()
+					offset = 3
+					pos = (layoutPosX, layoutPosY - offset)
+					anchor = QgsLayoutItem.LowerMiddle
+				elif position.lower() == 'below':  # only available for points at the moment
+					layoutPosX = layoutGeom[0].x()
+					layoutPosY = layoutGeom[0].y()
+					offset = 3
+					pos = (layoutPosX, layoutPosY + offset)
+					anchor = QgsLayoutItem.UpperMiddle
+				elif position.lower() == 'above-left':  # only available for points at the moment
+					layoutPosX = layoutGeom[0].x()
+					layoutPosY = layoutGeom[0].y()
+					offset = 1.5
+					pos = (layoutPosX - offset, layoutPosY - offset)
+					anchor = QgsLayoutItem.LowerRight
+				elif position.lower() == 'above-right':  # only available for points at the moment
+					layoutPosX = layoutGeom[0].x()
+					layoutPosY = layoutGeom[0].y()
+					offset = 1.5
+					pos = (layoutPosX + offset, layoutPosY - offset)
+					anchor = QgsLayoutItem.LowerLeft
+				elif position.lower() == 'below-left':  # only available for points at the moment
+					layoutPosX = layoutGeom[0].x()
+					layoutPosY = layoutGeom[0].y()
+					offset = 1.5
+					pos = (layoutPosX - offset, layoutPosY + offset)
+					anchor = QgsLayoutItem.UpperRight
+				elif position.lower() == 'below-right':  # only available for points at the moment
+					layoutPosX = layoutGeom[0].x()
+					layoutPosY = layoutGeom[0].y()
+					offset = 1.5
+					pos = (layoutPosX + offset, layoutPosY + offset)
+					anchor = QgsLayoutItem.UpperLeft
+				else:
+					return
+				
+				graphicLabel = findLayoutLabel(layout, id)
+				if graphicLabel is not None:
+					graphicLabel.attemptMove(QgsLayoutPoint(pos[0], pos[1]))
+
+
+def fix_legend(dialog, cfg, layout):
+
+	layoutcfg = cfg['layout']
+	legend = None
+	for i in layout.items():
+		if isinstance(i, QgsLayoutItemLegend) and i.id() == "legend":
+			legend = i
+			break
+	if legend is not None:
+		model = legend.model()
+		if cfg['map number'] == 0:
+			if not legend.autoUpdateModel():
+				for i in range(model.rowCount()):
+					layers = model.index2node(model.index(i, 0)).checkedLayers()
+					if len(layers) == 1:
+						layer = layers[0]
+						if type(layer) is QgsMeshLayer:
+							if 'legend' not in layoutcfg:
+								layoutcfg['legend'] = {}
+							layoutcfg['legend']['name'] = model.index2node(model.index(i, 0)).name()
+							layoutcfg['legend']['subname'] = model.layerOriginalLegendNodes(model.index2node(model.index(0, 0)))[0].data(Qt.DisplayRole)
+							layoutcfg['legend']['different name'] = layer.name() != layoutcfg['legend']['name']
+							layoutcfg['legend']['needs to be updated'] = True
+							nodes = []
+							for node in model.layerOriginalLegendNodes(model.index2node(model.index(0, 0))):
+								node.setUserLabel('hello world')
+							model.index2node(model.index(i, 0)).setName('hello world')
+							legend.refresh()
+
+		else:
+			if 'legend' in layoutcfg:
+				if 'needs to be updated' in layoutcfg['legend']:
+					legend.setAutoUpdateModel(True)
+					fix_legend_box_size(cfg, legend)
+					for i in range(model.rowCount()):
+						layers = model.index2node(model.index(i, 0)).checkedLayers()
+						if len(layers) == 1:
+							layer = layers[0]
+							if type(layer) is QgsMeshLayer:
+								if layoutcfg['legend']['different name']:
+									model.index2node(model.index(i, 0)).setName(layoutcfg['legend']['name'])
+								if model.layerOriginalLegendNodes(model.index2node(model.index(0, 0))):
+									model.layerOriginalLegendNodes(model.index2node(model.index(0, 0)))[0].setData(layoutcfg['legend']['subname'], Qt.DisplayRole)
+			
 	
 	
 def composition_set_dynamic_text(dialog, cfg, layout):
@@ -364,14 +592,13 @@ def composition_set_dynamic_text(dialog, cfg, layout):
 			path = cfg['imgfile']
 			text = dialog.labelInput.toPlainText()
 			result = layer.name()
-			scalar = dialog.tableMaps.cellWidget(i, 1).currentText()
-			vector = dialog.tableMaps.cellWidget(i, 2).currentText()
-			time = dialog.tableMaps.cellWidget(i, 3).currentText()
-			template = ''
-			if dialog.cbSaveTemplates.isChecked():
-				template = dialog.leTemplateOut.text()
-			label = createText(text, result, scalar, vector, time, path, template, dialog.project, i + 1)
-			composition_set_title(layout, label)
+			scalar = dialog.tableMaps.item(i, 1).text()
+			vector = dialog.tableMaps.item(i, 2).text()
+			time = dialog.tableMaps.item(i, 3).text()
+			label = createText(text, result, scalar, vector, time, path, dialog.project, i + 1)
+			cText = composition_set_title(layout, label)
+			return cText
+	return None
 
 	
 def _page_size(layout, margin):
@@ -414,6 +641,13 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 		time = l.dataProvider().datasetMetadata(QgsMeshDatasetIndex(dataset_group_index, i)).time()
 		if time < time_from or time > time_to:
 			continue
+		timetext = convertTimeToFormattedTime(time, unit=dialog.tuView.tuOptions.timeUnits)
+		if dialog is not None:
+			if dialog.tuView.tuOptions.xAxisDates:
+				if time in dialog.tuView.tuResults.time2date:
+					timetext = dialog.tuView.tuResults.time2date[time]
+					timetext = dialog.tuView.tuResults._dateFormat.format(timetext)
+		cfg['time text'] = timetext
 
 		# Set to render next timesteps
 		rs = l.rendererSettings()
@@ -635,7 +869,7 @@ def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, 
 		layout.addLayoutItem(cTime)
 
 		set_composer_item_label(cTime, layoutcfg['time'])
-		composition_set_time(layout, time)
+		composition_set_time(layout, cfg['time text'])
 		cTime.adjustSizeToText()
 		set_item_pos(cTime, layoutcfg['time']['position'], layout, margin)
 
@@ -668,6 +902,7 @@ def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, 
 			
 	if 'graphics' in layoutcfg:
 		for graphic in layoutcfg['graphics']:
+			id = layoutcfg['graphics'][graphic]['id']
 			label = layoutcfg['graphics'][graphic]['user label']
 			position = layoutcfg['graphics'][graphic]['position']
 			gtype = layoutcfg['graphics'][graphic]['type']
@@ -680,6 +915,7 @@ def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, 
 				layoutGeom = [transformMapCoordToLayout(layout_map.rectWithFrame(), layout_map.extent(), QgsPointXY(graphic), margin)] * 2
 			qpolygonf = QPolygonF(layoutGeom)
 			polylineGraphic = QgsLayoutItemPolyline(qpolygonf, layout)
+			polylineGraphic.setId(id)
 			symbol = createDefaultSymbol(gtype)
 			polylineGraphic.setSymbol(symbol)
 			layout.addItem(polylineGraphic)
@@ -740,7 +976,7 @@ def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, 
 					return
 				
 				graphicLabel = QgsLayoutItemLabel(layout)
-				graphicLabel.setId(label)
+				graphicLabel.setId(id)
 				layout.addLayoutItem(graphicLabel)
 				
 				graphicLabel.setText(label)
@@ -754,8 +990,14 @@ def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, 
 	if 'images' in layoutcfg:
 		for i, image in enumerate(layoutcfg['images']):
 			source = layoutcfg['images'][image]['source']
-			position = layoutcfg['images'][image]['position']
 			properties = layoutcfg['images'][image]['properties']
+			position = layoutcfg['images'][image]['position']
+			positionDict = {'Top-Left': CFItemPosition.TOP_LEFT, 'Top-Right': CFItemPosition.TOP_RIGHT,
+			                'Bottom-Left': CFItemPosition.BOTTOM_LEFT, 'Bottom-Right': CFItemPosition.BOTTOM_RIGHT}
+			if type(position) is str:
+				positionConverted = positionDict[position]
+			else:
+				positionConverted = position
 			
 			cImage = QgsLayoutItemPicture(layout)
 			if properties.rbUseOriginalSize.isChecked():
@@ -769,8 +1011,8 @@ def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, 
 			layout.addItem(cImage)
 			cImage.attemptResize(QgsLayoutSize(properties.sbSizeX.value(), properties.sbSizeY.value()))
 			cImage.setPicturePath(source)
-			set_item_pos(cImage, position, layout, margin)
-			
+			set_item_pos(cImage, positionConverted, layout, margin, buffer=2)
+
 	if 'scale bar' in layoutcfg:
 		itemcfg = layoutcfg['scale bar']
 		cScaleBar = QgsLayoutItemScaleBar(layout)
@@ -787,7 +1029,7 @@ def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, 
 		cScaleBar.setFrameStrokeColor(itemcfg['frame color'])
 		cScaleBar.setId('scale bar')
 		layout.addItem(cScaleBar)
-		set_item_pos(cScaleBar, itemcfg['position'], layout, margin)
+		set_item_pos(cScaleBar, itemcfg['position'], layout, margin, buffer=2)
 		
 	if 'north arrow' in layoutcfg:
 		itemcfg = layoutcfg['north arrow']
@@ -834,6 +1076,10 @@ def images_to_video(tmp_img_dir="/tmp/vid/%03d.png", output_file="/tmp/vid/test.
 
 
 class TuAnimationDialog(QDialog, Ui_AnimationDialog):
+	
+	INSERT_BEFORE = 0
+	INSERT_AFTER = 1
+	
 	def __init__(self, TuView):
 		QDialog.__init__(self)
 		self.setupUi(self)
@@ -846,7 +1092,49 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		self.dialog2Plot = {}
 		self.rowNo2fntDialog = {}
 		self.label2graphic = {}
+		self.mapTableRows = []
+		self.mapTableRowItems = []
+		self.plotTableRows = []
+		self.plotTableRowItems = []
+		self.imageTableRows = []
+
+		self.tablePlots.horizontalHeader().setStretchLastSection(True)
+		self.tableGraphics.horizontalHeader().setStretchLastSection(True)
+		self.tableImages.horizontalHeader().setStretchLastSection(True)
+		self.tablePlots.horizontalHeader().setCascadingSectionResizes(True)
+		self.tableGraphics.horizontalHeader().setCascadingSectionResizes(True)
+		self.tableImages.horizontalHeader().setCascadingSectionResizes(True)
+		self.tableImages.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+		self.tablePlots.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
 		
+		total_width = 0
+		for i in range(self.tablePlots.columnCount()):
+			total_width += self.tablePlots.columnWidth(i)
+		self.tablePlots.setColumnWidth(0, (total_width - 175) / 3.)
+		self.tablePlots.setColumnWidth(1, 175)
+		self.tablePlots.setColumnWidth(2, (total_width - 175) / 3.)
+		self.tablePlots.setColumnWidth(3, (total_width - 175) / 3.)
+		
+		total_width = 0
+		for i in range(self.tableGraphics.columnCount()):
+			total_width += self.tableGraphics.columnWidth(i)
+		self.tableGraphics.setColumnWidth(0, (total_width - 175) / 3.)
+		self.tableGraphics.setColumnWidth(1, 175)
+		self.tableGraphics.setColumnWidth(2, (total_width - 175) / 3.)
+		self.tableGraphics.setColumnWidth(3, (total_width - 175) / 3.)
+		
+		total_width = 0
+		for i in range(self.tableImages.columnCount()):
+			total_width += self.tableImages.columnWidth(i)
+		self.tableImages.setColumnWidth(0, 250)
+		self.tableImages.setColumnWidth(1, (total_width - 250.) / 2.)
+		self.tableImages.setColumnWidth(2, (total_width - 250.) / 2.)
+		
+		self.setPlotTableProperties()
+		self.setImageTableProperties()
+		self.tablePlots.itemChanged.connect(self.plotTypeChanged)
+		self.contextMenuPlotTable()
+		self.contextMenuImageTable()
 		self.populateGeneralTab()
 		self.populateLayoutTab()
 		self.populateVideoTab()
@@ -856,11 +1144,11 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		self.btnBrowseTemplate.clicked.connect(lambda: self.browse('load', "TUFLOW/animation_template", "QGIS Print Layout (*.qpt)", self.editTemplate))
 		self.btnBrowseFfmpegPath.clicked.connect(lambda: self.browse('ffmpeg', 'TUFLOW/animation_ffmpeg', "FFmpeg (ffmpeg ffmpeg.exe avconv avconv.exe)", self.editFfmpegPath))
 		self.btnAddPlot.clicked.connect(self.addPlot)
-		self.btnRemovePlot.clicked.connect(self.removePlot)
+		self.btnRemovePlot.clicked.connect(self.removePlots)
 		self.btnPlotUp.clicked.connect(lambda event: self.movePlot(event, 'up'))
 		self.btnPlotDown.clicked.connect(lambda event: self.movePlot(event, 'down'))
 		self.btnAddImage.clicked.connect(self.addImage)
-		self.btnRemoveImage.clicked.connect(self.removeImage)
+		self.btnRemoveImage.clicked.connect(self.removeImages)
 		self.btnImageUp.clicked.connect(lambda event: self.moveImage(event, 'up'))
 		self.btnImageDown.clicked.connect(lambda event: self.moveImage(event, 'down'))
 		self.pbPreview.clicked.connect(lambda: self.check(preview=True))
@@ -965,7 +1253,11 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		color = QColor()
 		color.setNamedColor(self.project.readEntry("TUFLOW", 'title_background_color', '#ffffff')[0])
 		self.colorTitleBackground.setColor(color)
-		self.cboPosTitle.setCurrentIndex(self.project.readNumEntry("TUFLOW", 'title_background_position', 0)[0])
+		self.cboPosTitle.setCurrentIndex(self.project.readNumEntry("TUFLOW", 'title_background_position', 4)[0])
+		self.cbTitleFrame.setChecked(self.project.readBoolEntry("TUFLOW", 'title_border_cb', False)[0])
+		color = QColor()
+		color.setNamedColor(self.project.readEntry("TUFLOW", 'title_border_color', '#000000')[0])
+		self.colorTitleFrame.setColor(color)
 		
 		# Time
 		self.groupTime.setChecked(self.project.readBoolEntry("TUFLOW", 'time_cb')[0])
@@ -985,7 +1277,11 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		color = QColor()
 		color.setNamedColor(self.project.readEntry("TUFLOW", 'time_background_color', '#ffffff')[0])
 		self.colorTimeBackground.setColor(color)
-		self.cboPosTime.setCurrentIndex(self.project.readNumEntry("TUFLOW", 'time_background_position', 0)[0])
+		self.cboPosTime.setCurrentIndex(self.project.readNumEntry("TUFLOW", 'time_background_position', 1)[0])
+		self.cbTimeFrame.setChecked(self.project.readBoolEntry("TUFLOW", 'time_border_cb', False)[0])
+		color = QColor()
+		color.setNamedColor(self.project.readEntry("TUFLOW", 'time_border_color', '#000000')[0])
+		self.colorTimeFrame.setColor(color)
 		
 		# Legend
 		self.groupLegend.setChecked(self.project.readBoolEntry("TUFLOW", 'legend_cb')[0])
@@ -1005,7 +1301,11 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		color = QColor()
 		color.setNamedColor(self.project.readEntry("TUFLOW", 'legend_background_color', '#ffffff')[0])
 		self.colorLegendBackground.setColor(color)
-		self.cboPosLegend.setCurrentIndex(self.project.readNumEntry("TUFLOW", 'legend_background_position', 0)[0])
+		self.cboPosLegend.setCurrentIndex(self.project.readNumEntry("TUFLOW", 'legend_background_position', 3)[0])
+		self.cbLegendFrame.setChecked(self.project.readBoolEntry("TUFLOW", 'legend_border_cb', False)[0])
+		color = QColor()
+		color.setNamedColor(self.project.readEntry("TUFLOW", 'legend_border_color', '#000000')[0])
+		self.colorLegendFrame.setColor(color)
 		
 		# layout type
 		layout_type = self.project.readEntry("TUFLOW", 'layout_type', 'default')[0]
@@ -1020,12 +1320,11 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		nPlots = self.project.readNumEntry("TUFLOW", 'number_of_plots')[0]
 		for i in range(nPlots):
 			self.addPlot()
-			self.tablePlots.cellWidget(i, 0).setCurrentIndex(self.project.readNumEntry("TUFLOW", 'plot_{0}_type'.format(i))[0])
+			self.tablePlots.item(i, 0).setText(self.project.readEntry("TUFLOW", 'plot_{0}_type'.format(i))[0])
 			items = self.project.readListEntry("TUFLOW", 'plot_{0}_items'.format(i))[0]
-			for j in range(self.tablePlots.cellWidget(i, 1).count()):
-				if self.tablePlots.cellWidget(i, 1).itemText(j) in items:
-					self.tablePlots.cellWidget(i, 1).setItemCheckState(j, Qt.Checked)
-			self.tablePlots.cellWidget(i, 2).setCurrentIndex(self.project.readNumEntry("TUFLOW", 'plot_{0}_position'.format(i))[0])
+			self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[i] = items
+			self.tablePlots.item(i, 1).setText(';;'.join(items))
+			self.tablePlots.item(i, 2).setText(self.project.readEntry("TUFLOW", 'plot_{0}_position'.format(i))[0])
 			p = self.pbDialogs[self.tablePlots.cellWidget(i, 3)]
 			p.leTitle.setText(self.project.readEntry("TUFLOW", 'plot_{0}_title'.format(i))[0])
 			p.leXLabel.setText(self.project.readEntry("TUFLOW", 'plot_{0}_xlabel'.format(i))[0])
@@ -1033,6 +1332,29 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			p.leY2Label.setText(self.project.readEntry("TUFLOW", 'plot_{0}_y2label'.format(i))[0])
 			p.sbXmin.setValue(self.project.readDoubleEntry("TUFLOW", 'plot_{0}_xmin'.format(i))[0])
 			p.sbXMax.setValue(self.project.readDoubleEntry("TUFLOW", 'plot_{0}_xmax'.format(i))[0])
+			year = self.project.readNumEntry("TUFLOW", 'plot_{0}_xdatemin_year'.format(i), 1990)[0]
+			month = self.project.readNumEntry("TUFLOW", 'plot_{0}_xdatemin_month'.format(i), 1)[0]
+			day = self.project.readNumEntry("TUFLOW", 'plot_{0}_xdatemin_day'.format(i), 1)[0]
+			hour = self.project.readNumEntry("TUFLOW", 'plot_{0}_xdatemin_hour'.format(i), 0)[0]
+			minute = self.project.readNumEntry("TUFLOW", 'plot_{0}_xdatemin_minute'.format(i), 0)[0]
+			second = self.project.readNumEntry("TUFLOW", 'plot_{0}_xdatemin_second'.format(i), 0)[0]
+			msecond = self.project.readNumEntry("TUFLOW", 'plot_{0}_xdatemin_msecond'.format(i), 0)[0]
+			date = QDate(year, month, day)
+			time = QTime(hour, minute, second, msecond)
+			dateTime = QDateTime(date, time)
+			p.dteXmin.setDateTime(dateTime)
+			year = self.project.readNumEntry("TUFLOW", 'plot_{0}_xdatemax_year'.format(i), 1990)[0]
+			month = self.project.readNumEntry("TUFLOW", 'plot_{0}_xdatemax_month'.format(i), 1)[0]
+			day = self.project.readNumEntry("TUFLOW", 'plot_{0}_xdatemax_day'.format(i), 1)[0]
+			hour = self.project.readNumEntry("TUFLOW", 'plot_{0}_xdatemax_hour'.format(i), 1)[0]
+			minute = self.project.readNumEntry("TUFLOW", 'plot_{0}_xdatemax_minute'.format(i), 0)[0]
+			second = self.project.readNumEntry("TUFLOW", 'plot_{0}_xdatemax_second'.format(i), 0)[0]
+			msecond = self.project.readNumEntry("TUFLOW", 'plot_{0}_xdatemax_msecond'.format(i), 0)[0]
+			date = QDate(year, month, day)
+			time = QTime(hour, minute, second, msecond)
+			dateTime = QDateTime(date, time)
+			p.dteXMax.setDateTime(dateTime)
+			p.sbXAxisRotation.setValue(self.project.readNumEntry("TUFLOW", 'plot_{0}_xaxis_rotation'.format(i), 0)[0])
 			p.sbYMin.setValue(self.project.readDoubleEntry("TUFLOW", 'plot_{0}_ymin'.format(i))[0])
 			p.sbYMax.setValue(self.project.readDoubleEntry("TUFLOW", 'plot_{0}_ymax'.format(i))[0])
 			p.sbY2Min.setValue(self.project.readDoubleEntry("TUFLOW", 'plot_{0}_y2min'.format(i))[0])
@@ -1043,14 +1365,15 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			p.cbGridX.setChecked(self.project.readBoolEntry("TUFLOW", 'plot_{0}_xgrid'.format(i))[0])
 			p.sbFigSizeX.setValue(self.project.readDoubleEntry("TUFLOW", 'plot_{0}_xsize'.format(i))[0])
 			p.sbFigSizeY.setValue(self.project.readDoubleEntry("TUFLOW", 'plot_{0}_ysize'.format(i))[0])
+			p.userSet = True
 			
 		# graphics
 		for i in range(self.tableGraphics.rowCount()):
 			self.tableGraphics.item(i, 0).setCheckState(self.project.readNumEntry("TUFLOW", "graphic_{0}_cb".format(i), 2)[0])
 			userLabel = self.project.readEntry("TUFLOW", "graphic_{0}_user_label".format(i))[0]
 			if userLabel:
-				self.tableGraphics.cellWidget(i, 1).setText(userLabel)
-			self.tableGraphics.cellWidget(i, 2).setCurrentIndex(self.project.readNumEntry("TUFLOW", "graphic_{0}_position".format(i))[0])
+				self.tableGraphics.item(i, 1).setText(userLabel)
+			self.tableGraphics.item(i, 2).setText(self.project.readEntry("TUFLOW", "graphic_{0}_position".format(i), 'Left')[0])
 			p = self.rowNo2fntDialog[i]
 			font = QFont()
 			font.setFamily(self.project.readEntry("TUFLOW", 'graphic_{0}_font_name'.format(i), 'MS Shell Dlg 2')[0])
@@ -1063,7 +1386,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			color = QColor()
 			color.setNamedColor(self.project.readEntry("TUFLOW", 'graphic_{0}_font_color'.format(i), '#000000')[0])
 			p.fntColor.setColor(color)
-			p.cbBackground.setChecked(self.project.readBoolEntry("TUFLOW", 'graphic_{0}_background_cb'.format(i))[0])
+			p.cbBackground.setChecked(self.project.readBoolEntry("TUFLOW", 'graphic_{0}_background_cb'.format(i), True)[0])
 			color = QColor()
 			color.setNamedColor(self.project.readEntry("TUFLOW", 'graphic_{0}_background_color'.format(i), '#ffffff')[0])
 			
@@ -1072,8 +1395,8 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		nImages = self.project.readNumEntry("TUFLOW", 'number_of_images')[0]
 		for i in range(nImages):
 			self.addImage()
-			self.tableImages.cellWidget(i, 0).layout().itemAt(1).widget().setText(self.project.readEntry("TUFLOW", 'image_{0}_source'.format(i))[0])
-			self.tableImages.cellWidget(i, 1).setCurrentIndex(self.project.readNumEntry("TUFLOW", 'image_{0}_position'.format(i))[0])
+			self.tableImages.item(i, 0).setText(self.project.readEntry("TUFLOW", 'image_{0}_source'.format(i))[0])
+			self.tableImages.item(i, 1).setText(self.project.readEntry("TUFLOW", 'image_{0}_position'.format(i))[0])
 			p = self.pbDialogsImage[self.tableImages.cellWidget(i, 2)]
 			p.rbUseOriginalSize.setChecked(self.project.readBoolEntry("TUFLOW", 'image_{0}_use_original_size'.format(i), True)[0])
 			p.rbResizeImage.setChecked(self.project.readBoolEntry("TUFLOW", 'image_{0}_resize_image'.format(i))[0])
@@ -1259,277 +1582,6 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		else:
 			return uniqLines, uniqLabs, uniqAxis
 	
-	def addPlot(self, event=None, plotTypeTemplate=None, mcboPlotItemTemplate=None, cboPosTemplate=None, pbTemplate=None):
-		"""
-		Add plot to QTableWidget
-		
-		:return: void
-		"""
-		
-		self.tablePlots.setRowCount(self.tablePlots.rowCount() + 1)
-		
-		cboPlotType = QComboBox(self.tablePlots)
-		cboPlotType.setEditable(True)
-		cboPlotType.setMaximumHeight(20)
-		cboPlotType.setMaximumWidth(175)
-		cboPlotType.addItem('Time Series')
-		cboPlotType.addItem('CS / LP')
-		if plotTypeTemplate is None:
-			cboPlotType.setCurrentIndex(self.tuView.tabWidget.currentIndex())
-		else:
-			cboPlotType.setCurrentIndex(plotTypeTemplate.currentIndex())
-		
-		mcboPlotItems = QgsCheckableComboBox(self.tablePlots)
-		mcboPlotItems.setMaximumHeight(20)
-		mcboPlotItems.setMaximumWidth(175)
-		lines, labs, axis = self.plotItems(cboPlotType.currentText())
-		mcboPlotItems.addItems(labs)
-		if mcboPlotItemTemplate is not None:
-			mcboPlotItems.setCheckedItems(mcboPlotItemTemplate.checkedItems())
-		
-		cboPos = QComboBox(self.tablePlots)
-		cboPos.setEditable(True)
-		cboPos.setMaximumHeight(20)
-		cboPos.setMaximumWidth(175)
-		cboPos.addItem('Top-Left')
-		cboPos.addItem('Top-Right')
-		cboPos.addItem('Bottom-Left')
-		cboPos.addItem('Bottom-Right')
-		if cboPosTemplate is not None:
-			cboPos.setCurrentIndex(cboPosTemplate.currentIndex())
-		
-		pb = QPushButton(self.tablePlots)
-		pb.setText('Properties')
-		dialog = PlotProperties(self, cboPlotType, mcboPlotItems)
-		if pbTemplate is not None:
-			dialog.applyPrevious(pbTemplate)
-		self.pbDialogs[pb] = dialog
-		self.dialog2Plot[dialog] = [cboPlotType, mcboPlotItems, cboPos]
-		pb.clicked.connect(lambda: dialog.setDefaults(self, cboPlotType.currentText(), mcboPlotItems.checkedItems()))
-		pb.clicked.connect(lambda: dialog.exec_())
-		
-		self.tablePlots.setCellWidget(self.tablePlots.rowCount() - 1, 0, cboPlotType)
-		self.tablePlots.setCellWidget(self.tablePlots.rowCount() - 1, 1, mcboPlotItems)
-		self.tablePlots.setCellWidget(self.tablePlots.rowCount() - 1, 2, cboPos)
-		self.tablePlots.setCellWidget(self.tablePlots.rowCount() - 1, 3, pb)
-		
-		cboPlotType.currentTextChanged.connect(lambda text: self.plotTypeChanged(text, mcboPlotItems))
-		
-	def removePlot(self):
-		"""
-		Remove plot item from QTableWidget
-		
-		:return: void
-		"""
-
-		selectionRange = self.tablePlots.selectedRanges()
-		selectionRange = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRange]
-		selectionRange = sum(selectionRange, [])
-		col1 = []
-		col2 = []
-		col3 = []
-		col4 = []
-		if selectionRange:
-			for i in range(self.tablePlots.rowCount()):
-				self.tablePlots.cellWidget(i, 0).currentTextChanged.disconnect()
-				self.tablePlots.cellWidget(i, 3).clicked.disconnect()
-				pb = self.tablePlots.cellWidget(i, 3)
-				if i not in selectionRange:
-					col1.append(self.tablePlots.cellWidget(i, 0))
-					col2.append(self.tablePlots.cellWidget(i, 1))
-					col3.append(self.tablePlots.cellWidget(i, 2))
-					dialog = self.pbDialogs[pb]
-					col4.append(dialog)
-				del self.pbDialogs[pb]
-			self.tablePlots.setRowCount(0)
-			for i in range(len(col1)):  # adding widgets directly back from the list caused QGIS to crash :(
-				self.addPlot(plotTypeTemplate=col1[i], mcboPlotItemTemplate=col2[i], cboPosTemplate=col3[i], pbTemplate=col4[i])
-		else:
-			pb = self.tablePlots.cellWidget(self.tablePlots.rowCount() - 1, 3)
-			del self.pbDialogs[pb]
-			self.tablePlots.setRowCount(self.tablePlots.rowCount() - 1)
-			
-	def movePlot(self, event=None, action='up'):
-		""" Move plot item up or down in table. If multiple selected, only move first selection."""
-		
-		selectionRange = self.tablePlots.selectedRanges()
-		selectionRange = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRange]
-		selectionRange = sum(selectionRange, [])
-		selection = selectionRange[0] if selectionRange else None
-		col1 = []
-		col2 = []
-		col3 = []
-		col4 = []
-		if selection is not None:
-			if selection == 0 and action == 'up':  # first entry so can't move up
-				return
-			elif selection == self.tablePlots.rowCount() - 1 and action == 'down':  # last entry so can't move down
-				return
-			elif action == 'down':
-				newPos = selection + 1
-			else:
-				newPos = selection - 1
-			for i in range(self.tablePlots.rowCount()):
-				self.tablePlots.cellWidget(i, 0).currentTextChanged.disconnect()
-				self.tablePlots.cellWidget(i, 3).clicked.disconnect()
-				pb = self.tablePlots.cellWidget(i, 3)
-				col1.append(self.tablePlots.cellWidget(i, 0))
-				col2.append(self.tablePlots.cellWidget(i, 1))
-				col3.append(self.tablePlots.cellWidget(i, 2))
-				dialog = self.pbDialogs[pb]
-				col4.append(dialog)
-				del self.pbDialogs[pb]
-			c1 = col1.pop(selection)
-			c2 = col2.pop(selection)
-			c3 = col3.pop(selection)
-			c4 = col4.pop(selection)
-			col1.insert(newPos, c1)
-			col2.insert(newPos, c2)
-			col3.insert(newPos, c3)
-			col4.insert(newPos, c4)
-			self.tablePlots.setRowCount(0)
-			for i in range(len(col1)):
-				self.addPlot(plotTypeTemplate=col1[i], mcboPlotItemTemplate=col2[i], cboPosTemplate=col3[i], pbTemplate=col4[i])
-			self.tablePlots.setCurrentCell(newPos, 0, QItemSelectionModel.Select)
-			self.tablePlots.setCurrentCell(newPos, 1, QItemSelectionModel.Select)
-			self.tablePlots.setCurrentCell(newPos, 2, QItemSelectionModel.Select)
-			self.tablePlots.setCurrentCell(newPos, 3, QItemSelectionModel.Select)
-		
-	def plotTypeChanged(self, text, mcbo):
-		"""
-		Action when plot type is changed between Time Series and CS/ LP
-		
-		:return: void
-		"""
-		
-		mcbo.clear()
-		lines, labs, axis = self.plotItems(text)
-		mcbo.addItems(labs)
-		
-	def addImage(self, event=None, widgetImageTemplate=None, cboPosTemplate=None, pbTemplate=None):
-		"""
-		Add image to image table.
-		
-		:return: void
-		"""
-		
-		self.tableImages.setRowCount(self.tableImages.rowCount() + 1)
-		
-		folderIcon = QgsApplication.getThemeIcon('/mActionFileOpen.svg')
-		btnBrowse = QToolButton(self.tableImages)
-		btnBrowse.setIcon(folderIcon)
-		btnBrowse.setToolTip('Image Location')
-		#btnBrowse.setMaximumHeight(21)
-		
-		leImage = QLineEdit(self.tableImages)
-		leImage.setMaximumHeight(20)
-		if widgetImageTemplate is not None:
-			leImage.setText(widgetImageTemplate.layout().itemAt(1).widget().text())
-		
-		widget = QWidget(self.tableImages)
-		hbox = QHBoxLayout()
-		hbox.addWidget(btnBrowse)
-		hbox.addWidget(leImage)
-		hbox.setContentsMargins(0, 0, 0, 0)
-		widget.setLayout(hbox)
-		widget.setMaximumHeight(20)
-		
-		cboPos = QComboBox(self.tableImages)
-		cboPos.setEditable(True)
-		cboPos.setMaximumHeight(20)
-		cboPos.setMaximumWidth(190)
-		cboPos.addItem('Top-Left')
-		cboPos.addItem('Top-Right')
-		cboPos.addItem('Bottom-Left')
-		cboPos.addItem('Bottom-Right')
-		if cboPosTemplate is not None:
-			cboPos.setCurrentIndex(cboPosTemplate.currentIndex())
-		
-		pb = QPushButton(self.tableImages)
-		pb.setText('Properties')
-		dialog = ImagePropertiesDialog()
-		if pbTemplate is not None:
-			dialog.applyPrevious(pbTemplate)
-		self.pbDialogsImage[pb] = dialog
-		pb.clicked.connect(lambda: dialog.exec_())
-		
-		self.tableImages.setCellWidget(self.tableImages.rowCount() - 1, 0, widget)
-		self.tableImages.setCellWidget(self.tableImages.rowCount() - 1, 1, cboPos)
-		self.tableImages.setCellWidget(self.tableImages.rowCount() - 1, 2, pb)
-		
-		btnBrowse.clicked.connect(lambda: self.browse('image', 'TUFLOW/animation_image', "All Files(*)", leImage))
-		
-	def removeImage(self):
-		"""
-		Remove image from image table.
-		
-		:return: void
-		"""
-		
-		selectionRange = self.tableImages.selectedRanges()
-		selectionRange = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRange]
-		selectionRange = sum(selectionRange, [])
-		col1 = []
-		col2 = []
-		col3 = []
-		if selectionRange:
-			for i in range(self.tableImages.rowCount()):
-				self.tableImages.cellWidget(i, 0).layout().itemAt(0).widget().clicked.disconnect()
-				pb = self.tableImages.cellWidget(i, 2)
-				if i not in selectionRange:
-					col1.append(self.tableImages.cellWidget(i, 0))
-					col2.append(self.tableImages.cellWidget(i, 1))
-					dialog = self.pbDialogsImage[pb]
-					col3.append(dialog)
-			del self.pbDialogsImage[pb]
-			self.tableImages.setRowCount(0)
-			for i in range(len(col1)):  # adding widgets directly back from the list caused QGIS to crash :(
-				self.addImage(widgetImageTemplate=col1[i], cboPosTemplate=col2[i], pbTemplate=col3[i])
-		else:
-			pb = self.tableImages.cellWidget(self.tableImages.rowCount() - 1, 2)
-			del self.pbDialogsImage[pb]
-			self.tableImages.setRowCount(self.tableImages.rowCount() - 1)
-			
-	def moveImage(self, event=None, action='up'):
-		"""Move Image up or down in table."""
-		selectionRange = self.tableImages.selectedRanges()
-		selectionRange = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRange]
-		selectionRange = sum(selectionRange, [])
-		selection = selectionRange[0] if selectionRange else None
-		col1 = []
-		col2 = []
-		col3 = []
-		col4 = []
-		if selection is not None:
-			if selection == 0 and action == 'up':  # first entry so can't move up
-				return
-			elif selection == self.tableImages.rowCount() - 1 and action == 'down':  # last entry so can't move down
-				return
-			elif action == 'down':
-				newPos = selection + 1
-			else:
-				newPos = selection - 1
-			for i in range(self.tableImages.rowCount()):
-				self.tableImages.cellWidget(i, 0).layout().itemAt(0).widget().clicked.disconnect()
-				pb = self.tableImages.cellWidget(i, 2)
-				col1.append(self.tableImages.cellWidget(i, 0))
-				col2.append(self.tableImages.cellWidget(i, 1))
-				dialog = self.pbDialogsImage[pb]
-				col3.append(dialog)
-				del self.pbDialogsImage[pb]
-			c1 = col1.pop(selection)
-			c2 = col2.pop(selection)
-			c3 = col3.pop(selection)
-			col1.insert(newPos, c1)
-			col2.insert(newPos, c2)
-			col3.insert(newPos, c3)
-			self.tableImages.setRowCount(0)
-			for i in range(len(col1)):
-				self.addImage(widgetImageTemplate=col1[i], cboPosTemplate=col2[i], pbTemplate=col3[i])
-			self.tableImages.setCurrentCell(newPos, 0, QItemSelectionModel.Select)
-			self.tableImages.setCurrentCell(newPos, 1, QItemSelectionModel.Select)
-			self.tableImages.setCurrentCell(newPos, 2, QItemSelectionModel.Select)
-	
 	def populateGraphics(self):
 		"""
 		Populates the graphics table with available TS Point, CS Line, or Flow Line objects that can be included in the
@@ -1571,42 +1623,545 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		:param userLabel: str defaults to label if None
 		:return: void
 		"""
-
-		item = QTableWidgetItem(0)
-		item.setText(label)
-		item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+		
+		item1 = QTableWidgetItem(0)
+		item1.setText(label)
+		item1.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 		if status:
-			item.setCheckState(Qt.Checked)
+			item1.setCheckState(Qt.Checked)
 		else:
-			item.setCheckState(Qt.Unchecked)
+			item1.setCheckState(Qt.Unchecked)
+		self.tableGraphics.setItem(rowNo, 0, item1)
 		
-		lineEdit = QLineEdit()
-		lineEdit.setText(userLabel) if userLabel is not None else lineEdit.setText(label)
-		lineEdit.setMaximumHeight(20)
+		item2 = QTableWidgetItem(0)
+		item2.setText(userLabel) if userLabel is not None else item2.setText(label)
+		self.tableGraphics.setItem(rowNo, 1, item2)
 		
-		cbo = QComboBox()
-		cbo.setMaximumHeight(20)
-		cbo.setEditable(True)
-		cbo.addItem('Left')
-		cbo.addItem('Right')
+		item3 = QTableWidgetItem(0)
+		item3.setText('Left')
+		self.tableGraphics.setItem(rowNo, 2, item3)
+		items = ['Left', 'Right']
 		if 'TS' in label:
-			cbo.addItem('Above')
-			cbo.addItem('Below')
-			cbo.addItem('Above-Left')
-			cbo.addItem('Below-Left')
-			cbo.addItem('Above-Right')
-			cbo.addItem('Below-Right')
-			
+			items += ['Above', 'Below', 'Above-Left', 'Below-Left', 'Above-Right', 'Below-Right']
+		self.tableGraphics.itemDelegateForColumn(2).itemsInRows[rowNo] = items
+		
 		pb = QPushButton()
 		pb.setText('Text Properties')
 		dialog = TextPropertiesDialog()
 		self.rowNo2fntDialog[rowNo] = dialog
 		pb.clicked.connect(lambda: dialog.exec_())
-		
-		self.tableGraphics.setItem(rowNo, 0, item)
-		self.tableGraphics.setCellWidget(rowNo, 1, lineEdit)
-		self.tableGraphics.setCellWidget(rowNo, 2, cbo)
 		self.tableGraphics.setCellWidget(rowNo, 3, pb)
+		
+		if rowNo == 0:
+			self.tableGraphics.setColumnWidth(2, self.tableGraphics.columnWidth(
+				2) - self.tableGraphics.verticalHeader().sizeHint().width())
+	
+	def addPlot(self, e=False, item1=None, item2=None, item3=None, dialog=None):
+		"""
+		Add plot to QTableWidget
+
+		:return: void
+		"""
+		
+		## add to table
+		n = self.tablePlots.rowCount()
+		self.tablePlots.setRowCount(n + 1)
+		if item1 is None:
+			item1 = QTableWidgetItem(0)
+			item1.setText(self.tablePlots.itemDelegateForColumn(0).default)
+		if item2 is None:
+			item2 = QTableWidgetItem(0)
+		else:
+			self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[n] = self.plotTableRowItems[n][1]
+		if item3 is None:
+			item3 = QTableWidgetItem(0)
+			item3.setText(self.tablePlots.itemDelegateForColumn(2).default)
+		
+		self.tablePlots.setItem(n, 0, item1)
+		self.tablePlots.setItem(n, 1, item2)
+		self.tablePlots.setItem(n, 2, item3)
+		
+		pb = QPushButton(self.tablePlots)
+		pb.setText('Properties')
+		if dialog is None:
+			dialog = PlotProperties(self, item1, item2, self.tuView.tuOptions.xAxisDates)
+		self.pbDialogs[pb] = dialog
+		self.dialog2Plot[dialog] = [item1, item2, item3]
+		pb.clicked.connect(lambda: dialog.setDefaults(self, item1, item2, static=True))
+		pb.clicked.connect(lambda: dialog.exec_())
+		self.tablePlots.setCellWidget(n, 3, pb)
+		if n == 0:
+			self.tablePlots.setColumnWidth(2, self.tablePlots.columnWidth(
+				2) - self.tablePlots.verticalHeader().sizeHint().width())
+		
+		plotTableRow = [item1, item2, item3, dialog]
+		plotTableRowItems = [[], [], [], [], []]
+		self.plotTableRows.append(plotTableRow)
+		self.plotTableRowItems.append(plotTableRowItems)
+	
+	def insertPlotRow(self, index=None, loc=INSERT_BEFORE):
+		"""
+		Insert a row into the map table.
+		Can be inserted before or after clicked row.
+
+		:param index: int
+		:param loc: Table
+		:return: void
+		"""
+		
+		if index is not None:
+			for i, plotTableRow in enumerate(self.plotTableRows):
+				item1 = QTableWidgetItem(0)
+				item1.setText(plotTableRow[0].text())
+				item1Items = []
+				item2 = QTableWidgetItem(0)
+				item2.setText(plotTableRow[1].text())
+				if i in self.tablePlots.itemDelegateForColumn(1).currentCheckedItems:
+					item2Items = self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[i]
+					del self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[i]
+				else:
+					item2Items = []
+				item3 = QTableWidgetItem(0)
+				item3.setText(plotTableRow[2].text())
+				item3Items = []
+				pb = self.tablePlots.cellWidget(i, 3)
+				pb.clicked.disconnect()
+				item4 = self.pbDialogs[pb]
+				del pb
+				item4Items = []
+				plotTableRow = [item1, item2, item3, item4]
+				plotTableRowItems = [item1Items, item2Items, item3Items, item4Items]
+				self.plotTableRows[i] = plotTableRow
+				self.plotTableRowItems[i] = plotTableRowItems
+			
+			self.pbDialogs.clear()
+			
+			if loc == TuAnimationDialog.INSERT_BEFORE:
+				j = index
+			else:
+				j = index + 1
+			
+			## add to table
+			item1 = QTableWidgetItem(0)
+			item1.setText(self.tablePlots.itemDelegateForColumn(0).default)
+			item2 = QTableWidgetItem(0)
+			item3 = QTableWidgetItem(0)
+			item3.setText(self.tablePlots.itemDelegateForColumn(2).default)
+			item4 = PlotProperties(self, item1, item2, self.tuView.tuOptions.xAxisDates)
+			
+			plotTableRow = [item1, item2, item3, item4]
+			plotTableRowItems = [[], [], [], []]
+			self.plotTableRows.insert(j, plotTableRow)
+			self.plotTableRowItems.insert(j, plotTableRowItems)
+			
+			self.reAddPlots()
+	
+	def removePlots(self, index=None):
+		"""Remove plot from table."""
+		
+		selectionRange = self.tablePlots.selectedRanges()
+		selectionRange = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRange]
+		selectionRange = sum(selectionRange, [])
+		if index:
+			if index not in selectionRange:
+				selectionRange = [index]
+		
+		if selectionRange:
+			for i, plotTableRow in enumerate(self.plotTableRows):
+				item1 = QTableWidgetItem(0)
+				item1.setText(plotTableRow[0].text())
+				item1Items = []
+				item2 = QTableWidgetItem(0)
+				item2.setText(plotTableRow[1].text())
+				if i in self.tablePlots.itemDelegateForColumn(1).currentCheckedItems:
+					item2Items = self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[i]
+					del self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[i]
+				else:
+					item2Items = []
+				item3 = QTableWidgetItem(0)
+				item3.setText(plotTableRow[2].text())
+				item3Items = []
+				pb = self.tablePlots.cellWidget(i, 3)
+				pb.clicked.disconnect()
+				item4 = self.pbDialogs[pb]
+				del pb
+				item4Items = []
+				plotTableRow = [item1, item2, item3, item4]
+				plotTableRowItems = [item1Items, item2Items, item3Items, item4Items]
+				self.plotTableRows[i] = plotTableRow
+				self.plotTableRowItems[i] = plotTableRowItems
+			for i in reversed(selectionRange):
+				self.plotTableRows.pop(i)
+				self.plotTableRowItems.pop(i)
+			self.pbDialogs.clear()
+			self.reAddPlots()
+		else:
+			if self.tablePlots.rowCount():
+				if self.tablePlots.rowCount() == 1:
+					self.tablePlots.setColumnWidth(2, self.tablePlots.columnWidth(2) +
+					                               self.tablePlots.verticalHeader().sizeHint().width())
+				pb = self.tablePlots.cellWidget(self.tablePlots.rowCount() - 1, 3)
+				del self.pbDialogs[pb]
+				self.tablePlots.setRowCount(self.tablePlots.rowCount() - 1)
+				self.plotTableRows.pop()
+				self.plotTableRowItems.pop()
+				if self.tablePlots.rowCount() in self.tablePlots.itemDelegateForColumn(1).currentCheckedItems:
+					del self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[self.tablePlots.rowCount()]
+	
+	def reAddPlots(self):
+		
+		self.tablePlots.setColumnWidth(2, self.tablePlots.columnWidth(2) +
+		                               self.tablePlots.verticalHeader().sizeHint().width())
+		self.tablePlots.setRowCount(0)
+		
+		plotTableRows = self.plotTableRows[:]
+		self.plotTableRows.clear()
+		
+		for i, plotTableRow in enumerate(plotTableRows):
+			item1 = plotTableRow[0]
+			item2 = plotTableRow[1]
+			item3 = plotTableRow[2]
+			item4 = plotTableRow[3]
+			self.addPlot(item1=item1, item2=item2, item3=item3, dialog=item4)
+	
+	def movePlot(self, event=None, action='up'):
+		"""Move position of selected map in table. Options 'up' or 'down'."""
+		
+		selectionRanges = self.tablePlots.selectedRanges()
+		selectionRangeIndexes = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRanges]
+		selectionRangeIndexes = sum(selectionRangeIndexes, [])
+		
+		if selectionRangeIndexes:
+			for i, plotTableRow in enumerate(self.plotTableRows):
+				item1 = QTableWidgetItem(0)
+				item1.setText(plotTableRow[0].text())
+				item1Items = []
+				item2 = QTableWidgetItem(0)
+				item2.setText(plotTableRow[1].text())
+				if i in self.tablePlots.itemDelegateForColumn(1).currentCheckedItems:
+					item2Items = self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[i]
+					del self.tablePlots.itemDelegateForColumn(1).currentCheckedItems[i]
+				else:
+					item2Items = []
+				item3 = QTableWidgetItem(0)
+				item3.setText(plotTableRow[2].text())
+				item3Items = []
+				pb = self.tablePlots.cellWidget(i, 3)
+				pb.clicked.disconnect()
+				item4 = self.pbDialogs[pb]
+				del pb
+				item4Items = []
+				plotTableRow = [item1, item2, item3, item4]
+				plotTableRowItems = [item1Items, item2Items, item3Items, item4Items]
+				self.plotTableRows[i] = plotTableRow
+				self.plotTableRowItems[i] = plotTableRowItems
+			if action == 'up':
+				for i in selectionRangeIndexes:
+					if i > 0:
+						row = self.plotTableRows.pop(i)
+						self.plotTableRows.insert(i - 1, row)
+						row = self.plotTableRowItems.pop(i)
+						self.plotTableRowItems.insert(i - 1, row)
+			else:
+				for i in reversed(selectionRangeIndexes):
+					if i < self.tablePlots.rowCount() - 1:
+						row = self.plotTableRows.pop(i)
+						self.plotTableRows.insert(i + 1, row)
+						row = self.plotTableRowItems.pop(i)
+						self.plotTableRowItems.insert(i + 1, row)
+			self.reAddPlots()
+			
+			for sr in selectionRanges:
+				if action == 'up':
+					top = sr.topRow() - 1 if sr.topRow() > 0 else sr.topRow()
+					bottom = sr.bottomRow() - 1 if sr.bottomRow() > sr.rowCount() - 1 else sr.bottomRow()
+					left = sr.leftColumn()
+					right = sr.rightColumn()
+					newSelectionRange = QTableWidgetSelectionRange(top, left, bottom, right)
+				else:
+					top = sr.topRow() + 1 if sr.topRow() < self.tablePlots.rowCount() - sr.rowCount() else sr.topRow()
+					bottom = sr.bottomRow() + 1 if sr.bottomRow() < self.tablePlots.rowCount() - 1 else sr.bottomRow()
+					left = sr.leftColumn()
+					right = sr.rightColumn()
+					newSelectionRange = QTableWidgetSelectionRange(top, left, bottom, right)
+				self.tablePlots.setRangeSelected(newSelectionRange, True)
+	
+	def plotTypeChanged(self, item=None):
+		"""Updates row in map table if one of the combo boxes is changed."""
+		
+		if item is not None:
+			if item.column() == 0:
+				lines, labs, axis = self.plotItems(self.tablePlots.item(item.row(), item.column()).text())
+				self.tablePlots.itemDelegateForColumn(1).setItems(item.row(), labs)
+	
+	def addImage(self, e=False, item1=None, item2=None, dialog=None):
+		"""
+		Add plot to QTableWidget
+
+		:return: void
+		"""
+		
+		## add to table
+		n = self.tableImages.rowCount()
+		self.tableImages.setRowCount(n + 1)
+		if item1 is None:
+			item1 = QTableWidgetItem(0)
+		if item2 is None:
+			item2 = QTableWidgetItem(0)
+			item2.setText(self.tableImages.itemDelegateForColumn(1).default)
+		
+		self.tableImages.setItem(n, 0, item1)
+		self.tableImages.setItem(n, 1, item2)
+		
+		pb = QPushButton()
+		pb.setText('Properties')
+		if dialog is None:
+			dialog = ImagePropertiesDialog()
+		self.pbDialogsImage[pb] = dialog
+		pb.clicked.connect(lambda: dialog.exec_())
+		self.tableImages.setCellWidget(n, 2, pb)
+		if n == 0:
+			self.tableImages.setColumnWidth(1, self.tableImages.columnWidth(
+				1) - self.tableImages.verticalHeader().sizeHint().width())
+		
+		imageTableRow = [item1, item2, dialog]
+		self.imageTableRows.append(imageTableRow)
+	
+	def insertImageRow(self, index=None, loc=INSERT_BEFORE):
+		"""
+		Insert a row into the map table.
+		Can be inserted before or after clicked row.
+
+		:param index: int
+		:param loc: Table
+		:return: void
+		"""
+		
+		if index is not None:
+			for i, imageTableRow in enumerate(self.imageTableRows):
+				item1 = QTableWidgetItem(0)
+				item1.setText(imageTableRow[0].text())
+				item2 = QTableWidgetItem(0)
+				item2.setText(imageTableRow[1].text())
+				pb = self.tableImages.cellWidget(i, 2)
+				pb.clicked.disconnect()
+				item3 = self.pbDialogsImage[pb]
+				del pb
+				imageTableRow = [item1, item2, item3]
+				self.imageTableRows[i] = imageTableRow
+			
+			self.pbDialogsImage.clear()
+			
+			if loc == TuAnimationDialog.INSERT_BEFORE:
+				j = index
+			else:
+				j = index + 1
+			
+			## add to table
+			item1 = QTableWidgetItem(0)
+			item2 = QTableWidgetItem(0)
+			item2.setText(self.tableImages.itemDelegateForColumn(1).default)
+			item3 = ImagePropertiesDialog()
+			
+			imageTableRow = [item1, item2, item3]
+			self.imageTableRows.insert(j, imageTableRow)
+			
+			self.reAddImages()
+	
+	def removeImages(self, index=None):
+		"""Remove plot from table."""
+		
+		selectionRange = self.tableImages.selectedRanges()
+		selectionRange = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRange]
+		selectionRange = sum(selectionRange, [])
+		if index:
+			if index not in selectionRange:
+				selectionRange = [index]
+		
+		if selectionRange:
+			for i, imageTableRow in enumerate(self.imageTableRows):
+				item1 = QTableWidgetItem(0)
+				item1.setText(imageTableRow[0].text())
+				item2 = QTableWidgetItem(0)
+				item2.setText(imageTableRow[1].text())
+				pb = self.tableImages.cellWidget(i, 2)
+				pb.clicked.disconnect()
+				item3 = self.pbDialogsImage[pb]
+				del pb
+				imageTableRow = [item1, item2, item3]
+				self.imageTableRows[i] = imageTableRow
+			for i in reversed(selectionRange):
+				self.imageTableRows.pop(i)
+			self.pbDialogsImage.clear()
+			self.reAddImages()
+		else:
+			if self.tableImages.rowCount():
+				if self.tableImages.rowCount() == 1:
+					self.tableImages.setColumnWidth(1, self.tableImages.columnWidth(1) +
+					                                self.tableImages.verticalHeader().sizeHint().width())
+				pb = self.tableImages.cellWidget(self.tableImages.rowCount() - 1, 2)
+				del self.pbDialogsImage[pb]
+				self.tableImages.setRowCount(self.tableImages.rowCount() - 1)
+				self.imageTableRows.pop()
+	
+	def reAddImages(self):
+		
+		self.tableImages.setColumnWidth(1, self.tableImages.columnWidth(1) +
+		                                self.tableImages.verticalHeader().sizeHint().width())
+		self.tableImages.setRowCount(0)
+		
+		imageTableRows = self.imageTableRows[:]
+		self.imageTableRows.clear()
+		
+		for i, imageTableRow in enumerate(imageTableRows):
+			item1 = imageTableRow[0]
+			item2 = imageTableRow[1]
+			item3 = imageTableRow[2]
+			self.addImage(item1=item1, item2=item2, dialog=item3)
+	
+	def moveImage(self, event=None, action='up'):
+		"""Move position of selected map in table. Options 'up' or 'down'."""
+		
+		selectionRanges = self.tableImages.selectedRanges()
+		selectionRangeIndexes = [[y for y in range(x.topRow(), x.bottomRow() + 1)] for x in selectionRanges]
+		selectionRangeIndexes = sum(selectionRangeIndexes, [])
+		
+		if selectionRangeIndexes:
+			for i, imageTableRow in enumerate(self.imageTableRows):
+				item1 = QTableWidgetItem(0)
+				item1.setText(imageTableRow[0].text())
+				item2 = QTableWidgetItem(0)
+				item2.setText(imageTableRow[1].text())
+				pb = self.tableImages.cellWidget(i, 2)
+				pb.clicked.disconnect()
+				item3 = self.pbDialogsImage[pb]
+				del pb
+				imageTableRow = [item1, item2, item3]
+				self.imageTableRows[i] = imageTableRow
+			if action == 'up':
+				for i in selectionRangeIndexes:
+					if i > 0:
+						row = self.imageTableRows.pop(i)
+						self.imageTableRows.insert(i - 1, row)
+			else:
+				for i in reversed(selectionRangeIndexes):
+					if i < self.tableImages.rowCount() - 1:
+						row = self.imageTableRows.pop(i)
+						self.imageTableRows.insert(i + 1, row)
+			self.reAddImages()
+			
+			for sr in selectionRanges:
+				if action == 'up':
+					top = sr.topRow() - 1 if sr.topRow() > 0 else sr.topRow()
+					bottom = sr.bottomRow() - 1 if sr.bottomRow() > sr.rowCount() - 1 else sr.bottomRow()
+					left = sr.leftColumn()
+					right = sr.rightColumn()
+					newSelectionRange = QTableWidgetSelectionRange(top, left, bottom, right)
+				else:
+					top = sr.topRow() + 1 if sr.topRow() < self.tableImages.rowCount() - sr.rowCount() else sr.topRow()
+					bottom = sr.bottomRow() + 1 if sr.bottomRow() < self.tableImages.rowCount() - 1 else sr.bottomRow()
+					left = sr.leftColumn()
+					right = sr.rightColumn()
+					newSelectionRange = QTableWidgetSelectionRange(top, left, bottom, right)
+				self.tableImages.setRangeSelected(newSelectionRange, True)
+	
+	def setPlotTableProperties(self):
+		
+		plotTypes = ['Time Series', 'CS / LP']
+		positions = ['Top-Left', 'Top-Right', 'Bottom-Left', 'Bottom-Right']
+		
+		self.tablePlots.itemDelegateForColumn(0).setItems(items=plotTypes, default='Time Series')
+		self.tablePlots.itemDelegateForColumn(2).setItems(items=positions, default='Top-Left')
+	
+	def setImageTableProperties(self):
+		
+		imageTypes = "All Files(*)"
+		positions = ['Top-Left', 'Top-Right', 'Bottom-Left', 'Bottom-Right']
+		btnSignal = {'parent': self, 'browse type': 'existing file', 'key': 'TUFLOW/map_image',
+		             'title': "Image", 'file types': imageTypes}
+		
+		self.tableImages.itemDelegateForColumn(0).setSignalProperties(btnSignal)
+		self.tableImages.itemDelegateForColumn(1).setItems(items=positions, default='Top-Left')
+	
+	def contextMenuPlotTable(self):
+		"""
+		Context menu for map table - right click on row number
+		gives option to delete, insert before, insert after.
+
+		:return: None
+		"""
+		
+		self.tablePlots.verticalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+		self.tablePlots.verticalHeader().customContextMenuRequested.connect(self.plotTableMenu)
+	
+	def plotTableMenu(self, pos):
+		"""
+		Prepare the context menu for the map table.
+
+		:param pos: QPoint
+		:return: None
+		"""
+		
+		self.plotTableMenu = QMenu()
+		self.plotTableInsertRowBefore = QAction("Insert Above", self.plotTableMenu)
+		self.plotTableInsertRowAfter = QAction("Insert Below", self.plotTableMenu)
+		self.plotTableDeleteRow = QAction("Delete", self.plotTableMenu)
+		
+		index = self.tablePlots.rowAt(pos.y())
+		self.plotTableInsertRowBefore.triggered.connect(lambda: self.insertPlotRow(index, TuAnimationDialog.INSERT_BEFORE))
+		self.plotTableInsertRowAfter.triggered.connect(lambda: self.insertPlotRow(index, TuAnimationDialog.INSERT_AFTER))
+		self.plotTableDeleteRow.triggered.connect(lambda: self.removePlots(index))
+		
+		self.plotTableMenu.addAction(self.plotTableInsertRowBefore)
+		self.plotTableMenu.addAction(self.plotTableInsertRowAfter)
+		self.plotTableMenu.addSeparator()
+		self.plotTableMenu.addAction(self.plotTableDeleteRow)
+		
+		posH = self.tablePlots.mapToGlobal(pos).x()
+		posV = self.tablePlots.mapToGlobal(pos).y() + \
+		       self.plotTableMenu.actionGeometry(self.plotTableInsertRowBefore).height()
+		newPos = QPoint(posH, int(posV))
+		self.plotTableMenu.popup(newPos, self.plotTableInsertRowBefore)
+	
+	def contextMenuImageTable(self):
+		"""
+		Context menu for map table - right click on row number
+		gives option to delete, insert before, insert after.
+
+		:return: None
+		"""
+		
+		self.tableImages.verticalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+		self.tableImages.verticalHeader().customContextMenuRequested.connect(self.imageTableMenu)
+	
+	def imageTableMenu(self, pos):
+		"""
+		Prepare the context menu for the map table.
+
+		:param pos: QPoint
+		:return: None
+		"""
+		
+		self.imageTableMenu = QMenu()
+		self.imageTableInsertRowBefore = QAction("Insert Above", self.imageTableMenu)
+		self.imageTableInsertRowAfter = QAction("Insert Below", self.imageTableMenu)
+		self.imageTableDeleteRow = QAction("Delete", self.imageTableMenu)
+		
+		index = self.tableImages.rowAt(pos.y())
+		self.imageTableInsertRowBefore.triggered.connect(lambda: self.insertImageRow(index, TuAnimationDialog.INSERT_BEFORE))
+		self.imageTableInsertRowAfter.triggered.connect(lambda: self.insertImageRow(index, TuAnimationDialog.INSERT_AFTER))
+		self.imageTableDeleteRow.triggered.connect(lambda: self.removeImages(index))
+		
+		self.imageTableMenu.addAction(self.imageTableInsertRowBefore)
+		self.imageTableMenu.addAction(self.imageTableInsertRowAfter)
+		self.imageTableMenu.addSeparator()
+		self.imageTableMenu.addAction(self.imageTableDeleteRow)
+		
+		posH = self.tableImages.mapToGlobal(pos).x()
+		posV = self.tableImages.mapToGlobal(pos).y() + \
+		       self.imageTableMenu.actionGeometry(self.imageTableInsertRowBefore).height()
+		newPos = QPoint(posH, int(posV))
+		self.imageTableMenu.popup(newPos, self.imageTableInsertRowBefore)
 		
 	def check(self, event=None, preview=False):
 		"""
@@ -1622,10 +2177,23 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		if self.cboScalar.currentText() == '-None-' and self.cboVector.currentText() == '-None-':
 			QMessageBox.information(self, 'Input Error', 'Must Choose at Least One Scalar or Vector Result Type')
 			return
-		startTimeConverted = self.cboStart.currentText().split(':')
-		startTimeConverted = float(startTimeConverted[0]) + float(startTimeConverted[1]) / 60 + float(startTimeConverted[2]) / 3600
-		endTimeConverted = self.cboEnd.currentText().split(':')
-		endTimeConverted = float(endTimeConverted[0]) + float(endTimeConverted[1]) / 60 + float(endTimeConverted[2]) / 3600
+		if self.tuView.tuOptions.xAxisDates:
+			startTimeConverted = self.tuView.tuPlot.convertDateToTime(self.cboStart.currentText(),
+			                                                          unit=self.tuView.tuOptions.timeUnits)
+			if startTimeConverted == -99999.:
+				QMessageBox.information(self, 'Input Error', 'Error converting input start date')
+				return
+			endTimeConverted = self.tuView.tuPlot.convertDateToTime(self.cboEnd.currentText(),
+			                                                        unit=self.tuView.tuOptions.timeUnits)
+			if endTimeConverted == -99999.:
+				QMessageBox.information(self, 'Input Error', 'Error converting input end date')
+				return
+		else:
+			startTimeConverted = convertFormattedTimeToTime(self.cboStart.currentText(),
+			                                                unit=self.tuView.tuOptions.timeUnits)
+			endTimeConverted = convertFormattedTimeToTime(self.cboEnd.currentText(),
+			                                              unit=self.tuView.tuOptions.timeUnits)
+
 		if startTimeConverted >= endTimeConverted:
 			QMessageBox.information(self, 'Input Error', 'End Time Must Be Later Than Start Time')
 			return
@@ -1645,7 +2213,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			
 		# Layout Tab
 		for i in range(self.tableImages.rowCount()):
-			if not os.path.exists(self.tableImages.cellWidget(i, 0).layout().itemAt(1).widget().text()):
+			if not os.path.exists(self.tableImages.item(i, 0).text()):
 				QMessageBox.information(
 					self, 'Input Error', 'Cannot Find Image:\n{0}'.format(
 						self.tableImages.cellWidget(i, 0).layout().itemAt(1).widget().text()))
@@ -1818,12 +2386,22 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 					avd = self.tuView.tuResults.results[self.layer.name()][resultType][time][-1].group()
 		
 		# Get start and end time
-		tStart = self.cboStart.currentText().split(':')
-		tStart = float(tStart[0]) + float(tStart[1]) / 60 + float(tStart[2]) / 3600
-		tStartKey = '{0:.4f}'.format(tStart)
-		tEnd = self.cboEnd.currentText().split(':')
-		tEnd = float(tEnd[0]) + float(tEnd[1]) / 60 + float(tEnd[2]) / 3600
-		tEndKey = '{0:.4f}'.format(tEnd)
+		if self.tuView.tuOptions.xAxisDates:
+			tStart = self.tuView.tuPlot.convertDateToTime(self.cboStart.currentText(),
+			                                              unit=self.tuView.tuOptions.timeUnits)
+			tEnd = self.tuView.tuPlot.convertDateToTime(self.cboEnd.currentText(),
+			                                            unit=self.tuView.tuOptions.timeUnits)
+		else:
+			tStart = convertFormattedTimeToTime(self.cboStart.currentText(),
+			                                    unit=self.tuView.tuOptions.timeUnits)
+			tEnd = convertFormattedTimeToTime(self.cboEnd.currentText(),
+			                                  unit=self.tuView.tuOptions.timeUnits)
+		#tStart = self.cboStart.currentText().split(':')
+		#tStart = float(tStart[0]) + float(tStart[1]) / 60 + float(tStart[2]) / 3600
+		#tStartKey = '{0:.4f}'.format(tStart)
+		#tEnd = self.cboEnd.currentText().split(':')
+		#tEnd = float(tEnd[0]) + float(tEnd[1]) / 60 + float(tEnd[2]) / 3600
+		#tEndKey = '{0:.4f}'.format(tEnd)
 		
 		# Get video settings
 		w = self.spinWidth.value()  # width
@@ -1890,9 +2468,9 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			plotCount = 0
 			for i in range(self.tablePlots.rowCount()):
 				plotDict = {}
-				plotDict['labels'] = self.tablePlots.cellWidget(i, 1).checkedItems()
-				plotDict['type'] = self.tablePlots.cellWidget(i, 0).currentText()
-				plotDict['position'] = self.tablePlots.cellWidget(i, 2).currentIndex()
+				plotDict['labels'] = self.tablePlots.item(i, 1).text().split(';;')
+				plotDict['type'] = self.tablePlots.item(i, 0).text()
+				plotDict['position'] = self.tablePlots.item(i, 2).text()
 				plotDict['properties'] = self.pbDialogs[self.tablePlots.cellWidget(i, 3)]
 				plot[plotCount] = plotDict
 				plotCount += 1
@@ -1905,9 +2483,10 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 					graphicDict = {}
 					label = self.tableGraphics.item(i, 0)
 					graphic = self.label2graphic[label.text()]
-					userLabel = self.tableGraphics.cellWidget(i, 1).text()
-					position = self.tableGraphics.cellWidget(i, 2).currentText()
+					userLabel = self.tableGraphics.item(i, 1).text()
+					position = self.tableGraphics.item(i, 2).text()
 					font = self.rowNo2fntDialog[i]
+					graphicDict['id'] = label.text()
 					graphicDict['user label'] = userLabel
 					graphicDict['position'] = position
 					graphicDict['font'] = font.fntButton.currentFont()
@@ -1932,8 +2511,8 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			imageCount = 0
 			for i in range(self.tableImages.rowCount()):
 				imageDict = {
-					'source': self.tableImages.cellWidget(i, 0).layout().itemAt(1).widget().text(),
-					'position': self.tableImages.cellWidget(i, 1).currentIndex(),
+					'source': self.tableImages.item(i, 0).text(),
+					'position': self.tableImages.item(i, 1).text(),
 					'properties': self.pbDialogsImage[self.tableImages.cellWidget(i, 2)]
 				}
 				image[imageCount] = imageDict
@@ -1952,11 +2531,14 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			 'crs': self.canvas.mapSettings().destinationCrs(),
 			 'layout': layout,
 		     'scalar index': asd,
-		     'vector index': avd
+		     'vector index': avd,
+		     'active scalar': self.cboScalar.currentText(),
+		     'tmpdir': os.path.dirname(img_output_tpl)
 			 }
 		
 		for pb, dialog in self.pbDialogs.items():
-			dialog.setDefaults(self, self.dialog2Plot[dialog][0].currentText(), self.dialog2Plot[dialog][1].checkedItems())
+			dialog.setDefaults(self, self.dialog2Plot[dialog][0].text(), self.dialog2Plot[dialog][1].text().split(';;'),
+			                   xAxisDates=self.tuView.tuOptions.xAxisDates)
 		self.layout = animation(d, self.iface, prog, self, preview)
 		self.tuView.tuPlot.updateCurrentPlot(0, retain_flow=True)
 		self.tuView.tuPlot.updateCurrentPlot(1)
@@ -2023,6 +2605,8 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		self.project.writeEntry("TUFLOW", 'title_background_cb', self.cbTitleBackground.isChecked())
 		self.project.writeEntry("TUFLOW", 'title_background_color', self.colorTitleBackground.color().name())
 		self.project.writeEntry("TUFLOW", 'title_background_position', self.cboPosTitle.currentIndex())
+		self.project.writeEntry("TUFLOW", 'title_border_cb', self.cbTitleFrame.isChecked())
+		self.project.writeEntry("TUFLOW", 'title_border_color', self.colorTitleFrame.color().name())
 		
 		# time
 		self.project.writeEntry("TUFLOW", 'time_cb', self.groupTime.isChecked())
@@ -2037,6 +2621,8 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		self.project.writeEntry("TUFLOW", 'time_background_cb', self.cbTimeBackground.isChecked())
 		self.project.writeEntry("TUFLOW", 'time_background_color', self.colorTimeBackground.color().name())
 		self.project.writeEntry("TUFLOW", 'time_background_position', self.cboPosTime.currentIndex())
+		self.project.writeEntry("TUFLOW", 'time_border_cb', self.cbTimeFrame.isChecked())
+		self.project.writeEntry("TUFLOW", 'time_border_color', self.colorTimeFrame.color().name())
 		
 		# legend
 		self.project.writeEntry("TUFLOW", 'legend_cb', self.groupLegend.isChecked())
@@ -2051,14 +2637,16 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		self.project.writeEntry("TUFLOW", 'legend_background_cb', self.cbLegendBackground.isChecked())
 		self.project.writeEntry("TUFLOW", 'legend_background_color', self.colorLegendBackground.color().name())
 		self.project.writeEntry("TUFLOW", 'legend_background_position', self.cboPosLegend.currentIndex())
+		self.project.writeEntry("TUFLOW", 'legend_border_cb', self.cbLegendFrame.isChecked())
+		self.project.writeEntry("TUFLOW", 'legend_border_color', self.colorLegendFrame.color().name())
 		
 		# Plots
 		self.project.writeEntry("TUFLOW", 'plots_cb', self.groupPlot.isChecked())
 		self.project.writeEntry("TUFLOW", 'number_of_plots', self.tablePlots.rowCount())
 		for i in range(self.tablePlots.rowCount()):
-			self.project.writeEntry("TUFLOW", 'plot_{0}_type'.format(i), self.tablePlots.cellWidget(i, 0).currentIndex())
-			self.project.writeEntry("TUFLOW", 'plot_{0}_items'.format(i), self.tablePlots.cellWidget(i, 1).checkedItems())
-			self.project.writeEntry("TUFLOW", 'plot_{0}_position'.format(i), self.tablePlots.cellWidget(i, 2).currentIndex())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_type'.format(i), self.tablePlots.item(i, 0).text())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_items'.format(i), self.tablePlots.item(i, 1).text().split(';;'))
+			self.project.writeEntry("TUFLOW", 'plot_{0}_position'.format(i), self.tablePlots.item(i, 2).text())
 			p = self.pbDialogs[self.tablePlots.cellWidget(i, 3)]
 			self.project.writeEntry("TUFLOW", 'plot_{0}_title'.format(i), p.leTitle.text())
 			self.project.writeEntry("TUFLOW", 'plot_{0}_xlabel'.format(i), p.leXLabel.text())
@@ -2066,6 +2654,21 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			self.project.writeEntry("TUFLOW", 'plot_{0}_y2label'.format(i), p.leY2Label.text())
 			self.project.writeEntry("TUFLOW", 'plot_{0}_xmin'.format(i), p.sbXmin.value())
 			self.project.writeEntry("TUFLOW", 'plot_{0}_xmax'.format(i), p.sbXMax.value())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemin_year'.format(i), p.dteXmin.dateTime().date().year())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemin_month'.format(i), p.dteXmin.dateTime().date().month())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemin_day'.format(i), p.dteXmin.dateTime().date().day())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemin_hour'.format(i), p.dteXmin.dateTime().time().hour())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemin_minute'.format(i), p.dteXmin.dateTime().time().minute())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemin_second'.format(i), p.dteXmin.dateTime().time().second())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemin_msecond'.format(i), p.dteXmin.dateTime().time().msec())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemax_year'.format(i), p.dteXMax.dateTime().date().year())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemax_month'.format(i), p.dteXMax.dateTime().date().month())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemax_day'.format(i), p.dteXMax.dateTime().date().day())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemax_hour'.format(i), p.dteXMax.dateTime().time().hour())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemax_minute'.format(i), p.dteXMax.dateTime().time().minute())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemax_second'.format(i), p.dteXMax.dateTime().time().second())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemax_msecond'.format(i), p.dteXMax.dateTime().time().msec())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xaxis_rotation'.format(i), p.sbXAxisRotation.value())
 			self.project.writeEntry("TUFLOW", 'plot_{0}_ymin'.format(i), p.sbYMin.value())
 			self.project.writeEntry("TUFLOW", 'plot_{0}_ymax'.format(i), p.sbYMax.value())
 			self.project.writeEntry("TUFLOW", 'plot_{0}_y2min'.format(i), p.sbY2Min.value())
@@ -2078,10 +2681,11 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			self.project.writeEntry("TUFLOW", 'plot_{0}_ysize'.format(i), p.sbFigSizeY.value())
 			
 		# Graphics
+		self.project.writeEntry("TUFLOW", "number_of_graphics", self.tableGraphics.rowCount())
 		for i in range(self.tableGraphics.rowCount()):
 			self.project.writeEntry("TUFLOW", "graphic_{0}_cb".format(i), self.tableGraphics.item(i, 0).checkState())
-			self.project.writeEntry("TUFLOW", "graphic_{0}_user_label".format(i), self.tableGraphics.cellWidget(i, 1).text())
-			self.project.writeEntry("TUFLOW", "graphic_{0}_position".format(i), self.tableGraphics.cellWidget(i, 2).currentIndex())
+			self.project.writeEntry("TUFLOW", "graphic_{0}_user_label".format(i), self.tableGraphics.item(i, 1).text())
+			self.project.writeEntry("TUFLOW", "graphic_{0}_position".format(i), self.tableGraphics.item(i, 2).text())
 			p = self.rowNo2fntDialog[i]
 			self.project.writeEntry("TUFLOW", 'graphic_{0}_font_name'.format(i), p.fntButton.currentFont().family())
 			self.project.writeEntry("TUFLOW", 'graphic_{0}_font_size'.format(i), p.fntButton.currentFont().pointSize())
@@ -2097,8 +2701,8 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		self.project.writeEntry("TUFLOW", 'images_cb', self.groupImages.isChecked())
 		self.project.writeEntry("TUFLOW", 'number_of_images', self.tableImages.rowCount())
 		for i in range(self.tableImages.rowCount()):
-			self.project.writeEntry("TUFLOW", 'image_{0}_source'.format(i), self.tableImages.cellWidget(i, 0).layout().itemAt(1).widget().text())
-			self.project.writeEntry("TUFLOW", 'image_{0}_position'.format(i), self.tableImages.cellWidget(i, 1).currentIndex())
+			self.project.writeEntry("TUFLOW", 'image_{0}_source'.format(i), self.tableImages.item(i, 0).text())
+			self.project.writeEntry("TUFLOW", 'image_{0}_position'.format(i), self.tableImages.item(i, 1).text())
 			p = self.pbDialogsImage[self.tableImages.cellWidget(i, 2)]
 			self.project.writeEntry("TUFLOW", 'image_{0}_use_original_size'.format(i), p.rbUseOriginalSize.isChecked())
 			self.project.writeEntry("TUFLOW", 'image_{0}_resize_image'.format(i), p.rbResizeImage.isChecked())
@@ -2120,22 +2724,45 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 	
 class PlotProperties(QDialog, Ui_PlotProperties):
 	
-	def __init__(self, animationDialog, cboPlotType, mcboPlotItems):
+	def __init__(self, animationDialog, cboPlotType, mcboPlotItems, datetime=False):
 		QDialog.__init__(self)
 		self.setupUi(self)
 		self.userSet = False  # once user has entered properties and left once, don't update anymore
+		self.dynamicYAxis = False
 		self.xUseMatplotLibDefault = False
 		self.yUseMatplotLibDefault = False
 		self.animationDialog = animationDialog
 		self.cboPlotType = cboPlotType
 		self.mcboPlotItems = mcboPlotItems
 		
+		self.datetime = datetime
+		if datetime:
+			self.dteXmin.setVisible(True)
+			self.dteXMax.setVisible(True)
+			self.sbXmin.setVisible(False)
+			self.sbXMax.setVisible(False)
+			self.sbXAxisRotation.setVisible(True)
+			self.label_17.setVisible(True)
+			self.horizontalWidget.setVisible(True)
+			self.sbXAxisRotation.setValue(animationDialog.tuView.tuOptions.xAxisLabelRotation)
+		else:
+			self.dteXmin.setVisible(False)
+			self.dteXMax.setVisible(False)
+			self.sbXmin.setVisible(True)
+			self.sbXMax.setVisible(True)
+			self.sbXAxisRotation.setVisible(False)
+			self.label_17.setVisible(False)
+			self.horizontalWidget.setVisible(False)
+		self.resize(self.minimumSizeHint())
+		
 		self.pbAutoCalcXLim.clicked.connect(lambda event: self.setDefaults(self.animationDialog, self.cboPlotType, self.mcboPlotItems, 'x limits'))
 		self.pbAutoCalcYLim.clicked.connect(lambda event: self.setDefaults(self.animationDialog, self.cboPlotType, self.mcboPlotItems, 'y limits'))
 		self.pbAutoCalcY2Lim.clicked.connect(lambda event: self.setDefaults(self.animationDialog, self.cboPlotType, self.mcboPlotItems, 'y2 limits'))
 		self.buttonBox.accepted.connect(self.userSetTrue)
 		
-	def userSetTrue(self): self.userSet = True
+	def userSetTrue(self):
+		self.xUseMatplotLibDefault = False
+		self.userSet = True
 		
 	def applyPrevious(self, prop=None):
 		
@@ -2157,16 +2784,37 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 			self.sbFigSizeX.setValue(prop.sbFigSizeX.value())
 			self.sbFigSizeY.setValue(prop.sbFigSizeY.value())
 	
-	def setDefaults(self, animation, plotType, items, recalculate='', static=False):
-		
+	def setDefaults(self, animation, plotType, items, recalculate='', static=False, activeScalar=None, xAxisDates=False):
+
 		if type(plotType) is not str:
-			plotType = plotType.currentText()
+			if type(plotType) is QTableWidgetItem:
+				plotType = plotType.text()
+			else:
+				plotType = plotType.currentText()
 		if type(items) is not list:
-			items = items.checkedItems()
+			if type(items) is QTableWidgetItem:
+				items = items.text().split(';;')
+			else:
+				items = items.checkedItems()
 		
 		li, la, ax = animation.plotItems(plotType)
 		lines, labels, axis = [], [], []
 		for item in items:
+			if item == 'Active Dataset':
+				self.leYLabel.setText(activeScalar)
+				self.dynamicYAxis = True
+				self.xUseMatplotLibDefault = True
+				self.yUseMatplotLibDefault = True
+			if item == 'Active Dataset [Water Level for Depth]':
+				if activeScalar == 'Depth':
+					self.leYLabel.setText('Water Level')
+				elif activeScalar == 'D':
+					self.leYLabel.setText('H')
+				else:
+					self.leYLabel.setText(activeScalar)
+				self.dynamicYAxis = True
+				self.xUseMatplotLibDefault = True
+				self.yUseMatplotLibDefault = True
 			i = la.index(item) if la.count(item) else -1
 			if i > -1:
 				lines.append(li[i])
@@ -2176,11 +2824,14 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 		# X Axis Label
 		if plotType == 'Time Series':
 			if self.leXLabel.text() == 'Chainage' or not self.userSet:  # sitting on default or user hasn't made changes
-				self.leXLabel.setText('Time')
+				if xAxisDates:
+					self.leXLabel.setText('Date')
+				else:
+					self.leXLabel.setText('Time')
 		elif plotType == 'CS / LP':
 			if self.leXLabel.text() == 'Time' or not self.userSet:  # sitting on default or user hasn't made changes
 				self.leXLabel.setText('Chainage')
-				
+
 		# X Axis Limits
 		if not self.userSet or recalculate == 'x limits':
 			xmin = 99999
@@ -2193,8 +2844,12 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 						margin = (max(x) - min(x)) * 0.05
 						xmin = np.nanmin(x) - margin
 						xmax = np.nanmax(x) + margin
-						self.sbXmin.setValue(xmin)
-						self.sbXMax.setValue(xmax)
+						if not self.datetime:
+							self.sbXmin.setValue(xmin)
+							self.sbXMax.setValue(xmax)
+						else:
+							self.dteXmin.setDateTime(xmin)
+							self.dteXMax.setDateTime(xmax)
 						break
 					self.sbXmin.setValue(0)
 					self.sbXMax.setValue(1)
@@ -2202,7 +2857,7 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 				self.xUseMatplotLibDefault = True
 				
 		# Y Axis Label
-		if not self.userSet:
+		if not self.userSet and not self.dynamicYAxis:
 			if items:
 				if 'axis 1' in axis and 'axis 2' in axis:
 					for item in items:
@@ -2219,7 +2874,7 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 		#if 'axis 1' in axis and 'axis 2' in axis:
 		#	if self.sbY2Min.value() == 0 and self.sbY2Max.value() == 0:
 		#		userSetY2 = False
-		if not self.userSet or not userSetY2:
+		if (not self.userSet or not userSetY2) and not self.dynamicYAxis:
 			if items:
 				if 'axis 1' in axis and 'axis 2' in axis:
 					for item in items:
@@ -2230,10 +2885,11 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 								break
 					
 		# Y and Y2 Axis limits
-		if (not self.userSet or not userSetY2) or recalculate == 'y limits' or recalculate == 'y2 limits':
+		if ((not self.userSet or not userSetY2) or recalculate == 'y limits' or recalculate == 'y2 limits') and not self.dynamicYAxis:
 			# set up progress bar since extracting from long sections can take some time
 			maxProgress = 0
 			maxProgress = animation.tuView.cboTime.count() * len(items)
+			complete = 0
 			if maxProgress:
 				animation.iface.messageBar().clearWidgets()
 				progressWidget = animation.iface.messageBar().createMessage("Tuview",
@@ -2269,10 +2925,11 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 										ymin2 = min(ymin2, np.nanmin(y))
 										ymax2 = max(ymax2, np.nanmax(y))
 							complete += 1 * animation.tuView.cboTime.count()
-							pComplete = complete / maxProgress * 100
-							progress.setValue(pComplete)
-						margin = (ymax - ymin) * 0.05
-						margin2 = (ymax2 - ymin2) * 0.05
+							if maxProgress:
+								pComplete = complete / maxProgress * 100
+								progress.setValue(pComplete)
+						margin = (ymax - ymin) * 0.15
+						margin2 = (ymax2 - ymin2) * 0.15
 						if not self.userSet or recalculate == 'y limits':
 							self.sbYMin.setValue(ymin - margin)
 							self.sbYMax.setValue(ymax + margin)
@@ -2288,8 +2945,9 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 									ymin = min(ymin, np.nanmin(y))
 									ymax = max(ymax, np.nanmax(y))
 							complete += 1 * animation.tuView.cboTime.count()
-							pComplete = complete / maxProgress * 100
-							progress.setValue(pComplete)
+							if maxProgress:
+								pComplete = complete / maxProgress * 100
+								progress.setValue(pComplete)
 						margin = (ymax - ymin) * 0.05
 						self.sbYMin.setValue(ymin - margin)
 						self.sbYMax.setValue(ymax + margin)
@@ -2327,8 +2985,9 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 										ymin2 = min(ymin2, np.nanmin(y))
 										ymax2 = max(ymax2, np.nanmax(y))
 								complete += 1
-								pComplete = complete / maxProgress * 100
-								progress.setValue(pComplete)
+								if maxProgress:
+									pComplete = complete / maxProgress * 100
+									progress.setValue(pComplete)
 						elif not self.userSet or recalculate == 'y limits':
 							for item in items:
 								if item != 'Current Time':
@@ -2342,8 +3001,9 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 										ymin = min(ymin, np.nanmin(y))
 										ymax = max(ymax, np.nanmax(y))
 								complete += 1
-								pComplete = complete / maxProgress * 100
-								progress.setValue(pComplete)
+								if maxProgress:
+									pComplete = complete / maxProgress * 100
+									progress.setValue(pComplete)
 					margin = (ymax - ymin) * 0.05
 					if not self.userSet or recalculate == 'y limits':
 						self.sbYMin.setValue(ymin - margin)
@@ -2366,8 +3026,10 @@ class TextPropertiesDialog(QDialog, Ui_textPropertiesDialog):
 	def __init__(self):
 		QDialog.__init__(self)
 		self.setupUi(self)
-		
+		self.cbBackground.setChecked(True)
+		self.cbFrame.setChecked(True)
 		self.buttonBox.accepted.connect(self.accept)
+		
 		
 		
 class ImagePropertiesDialog(QDialog, Ui_ImageProperties):

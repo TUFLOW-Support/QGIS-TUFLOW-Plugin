@@ -6,10 +6,11 @@ class TuOptions():
 	
 	def __init__(self):
 		settings = QSettings()
-		self.liveMapTracking = True
+		self.liveMapTracking = False
 		self.meanEventSelection = 'next higher'
 		self.playDelay = 1.0
 		self.resolution = 1.0
+		self.iLabelField = 0
 		self.showGrid = False
 		self.showTriangles = False
 		self.xAxisDates = False
@@ -19,7 +20,7 @@ class TuOptions():
 		if zeroTime:
 			self.zeroTime = zeroTime
 		else:
-			self.zeroTime = datetime(2000, 1, 1, 12, 0, 0)
+			self.zeroTime = datetime(1990, 1, 1, 0, 0, 0)
 		dateFormat = settings.value('TUFLOW/tuview_dateFormat')
 		if dateFormat:
 			self.dateFormat = dateFormat
@@ -39,6 +40,8 @@ class TuOptions():
 		project.writeEntry("TUVIEW", "playdelay", str(self.playDelay))
 		
 		project.writeEntry("TUVIEW", "resolution", str(self.resolution))
+
+		project.writeEntry("TUVIEW", "ilabelfield", str(self.iLabelField))
 		
 		project.writeEntry("TUVIEW", "showgrid", str(self.showGrid))
 		
@@ -65,7 +68,9 @@ class TuOptions():
 		self.playDelay = float(project.readEntry("TUVIEW", "playdelay")[0])
 		
 		self.resolution = float(project.readEntry("TUVIEW", "resolution")[0])
-		
+
+		self.iLabelField = float(project.readEntry("TUVIEW", "ilabelfield")[0])
+
 		showGrid = project.readEntry("TUVIEW", "showgrid")[0]
 		self.showGrid = True if showGrid == 'True' else False
 		
