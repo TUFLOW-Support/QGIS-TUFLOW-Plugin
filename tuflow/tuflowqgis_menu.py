@@ -35,12 +35,19 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 # Import the code for the 1D results viewer
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuview import TuView
 
+from tuflow.ReFH2.refh2 import Refh2Dock
+
+# import for integrity tool
+from tuflow.integrity_tool.IntegrityTool import IntegrityToolDock
+
 #par
-from .tuflowqgis_library import tuflowqgis_apply_check_tf
+from .tuflowqgis_library import tuflowqgis_apply_check_tf, resetQgisSettings
 
 # remote debugging
-sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1\debug-eggs')
-sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\debug-eggs')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\debug-eggs')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\helpers\pydev')
 
 class tuflowqgis_menu:
 
@@ -51,7 +58,9 @@ class tuflowqgis_menu:
 		self.intFile = ''
 		self.cLayer = None
 		self.tpExternal = None
+		self.refh2DockOpen = False
 		self.defaultPath = 'C:\\'
+		self.integrityToolOpened = False
 
 	def initGui(self):
 		dir = os.path.dirname(__file__)
@@ -136,6 +145,22 @@ class tuflowqgis_menu:
 		self.run_tuflow_action.triggered.connect(self.run_tuflow)
 		self.run_menu.addAction(self.run_tuflow_action)
 		
+		# CLEAR Submenu
+		self.clear_menu = QMenu(QCoreApplication.translate("TUFLOW", "&Clear"))
+		self.iface.addPluginToMenu("&TUFLOW", self.clear_menu.menuAction())
+		self.clearGlobalSettingsAction = QAction("Clear TUFLOW Global Settings", self.iface.mainWindow())
+		self.clearProjectSettingsAction = QAction("Clear TUFLOW Project Settings", self.iface.mainWindow())
+		self.removeTuviewAction = QAction("Close TUFLOW Viewer Completely", self.iface.mainWindow())
+		self.reloadTuviewAction = QAction("Reload TUFLOW Viewer", self.iface.mainWindow())
+		self.clear_menu.addAction(self.clearGlobalSettingsAction)
+		self.clear_menu.addAction(self.clearProjectSettingsAction)
+		self.clear_menu.addAction(self.removeTuviewAction)
+		self.clear_menu.addAction(self.reloadTuviewAction)
+		self.clearGlobalSettingsAction.triggered.connect(lambda: resetQgisSettings(scope='Global'))
+		self.clearProjectSettingsAction.triggered.connect(lambda: resetQgisSettings(scope='Project'))
+		self.removeTuviewAction.triggered.connect(self.removeTuview)
+		self.reloadTuviewAction.triggered.connect(self.reloadTuview)
+		
 		#top level in menu
 		
 		# Reload Data Added ES 16/07/18
@@ -152,6 +177,13 @@ class tuflowqgis_menu:
 		self.iface.addToolBarIcon(self.view_results_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.view_results_action)
 		
+		# Integrity Tool
+		icon = QIcon(os.path.join(dir, "icons", "IntegrityTool.png"))
+		self.integrity_tool_action = QAction(icon, "1D Integrity Tool", self.iface.mainWindow())
+		self.integrity_tool_action.triggered.connect(self.integrityToolWindow)
+		self.iface.addToolBarIcon(self.integrity_tool_action)
+		self.iface.addPluginToMenu("&TUFLOW", self.integrity_tool_action)
+
 		# TuPLOT External Added ES 2017/11
 		#icon = QIcon(os.path.dirname(__file__) + "/icons/TuPLOT_External.PNG")
 		#self.open_tuplot_external_action = QAction(icon, "TuPlot_Ext", self.iface.mainWindow())
@@ -228,13 +260,20 @@ class tuflowqgis_menu:
 		
 		#ES 2018/01 ARR2016 Beta
 		icon = QIcon(os.path.join(dir, "icons", "arr2016.PNG"))
-		self.extract_arr2016_action = QAction(icon, "Extract ARR2016 for TUFLOW (beta)", self.iface.mainWindow())
+		self.extract_arr2016_action = QAction(icon, "Extract ARR2019 for TUFLOW", self.iface.mainWindow())
 		#QObject.connect(self.extract_arr2016_action, SIGNAL("triggered()"), self.extract_arr2016)
 		self.extract_arr2016_action.triggered.connect(self.extract_arr2016)
 		self.iface.addPluginToMenu("&TUFLOW", self.extract_arr2016_action)
 		self.iface.addToolBarIcon(self.extract_arr2016_action)
-		
-		# ES 2019/01 TUFLOW Utilities
+
+		# ReFH2
+		icon = QIcon(os.path.join(dir, "icons", "ReFH2icon.png"))
+		self.extractRefh2Action = QAction(icon, "Extract ReFH 2 for TUFLOW (beta)", self.iface.mainWindow())
+		self.extractRefh2Action.triggered.connect(self.extractRefh2)
+		self.iface.addPluginToMenu("&TUFLOW", self.extractRefh2Action)
+		self.iface.addToolBarIcon(self.extractRefh2Action)
+
+# ES 2019/01 TUFLOW Utilities
 		icon = QgsApplication.getThemeIcon('mActionTerminal.svg')
 		self.tuflowUtilitiesAction = QAction(icon, "TUFLOW Utilities", self.iface.mainWindow())
 		self.tuflowUtilitiesAction.triggered.connect(self.tuflowUtilities)
@@ -306,12 +345,41 @@ class tuflowqgis_menu:
 	
 	def openResultsPlottingWindow(self):
 		if self.resultsPlottingDockOpened:
-			self.resultsPlottingDock.show()
-			self.resultsPlottingDock.qgisConnect()
+			if not self.resultsPlottingDock.isVisible():
+				self.resultsPlottingDock.show()
+				self.resultsPlottingDock.qgisConnect()
+			else:
+				bRedock = QMessageBox.question(self.iface.mainWindow(), "TUFLOW Viewer",
+				                               "Would you like to redock TUFLOW Viewer?",
+				                               QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+				if bRedock == QMessageBox.Yes:
+					self.resultsPlottingDock.setFloating(False)
 		else:
-			self.resultsPlottingDock = TuView(self.iface)
+			self.resultsPlottingDock = TuView(self.iface, removeTuview=self.removeTuviewAction,
+			                                  reloadTuview=self.reloadTuviewAction)
 			self.iface.addDockWidget(Qt.BottomDockWidgetArea, self.resultsPlottingDock)
 			self.resultsPlottingDockOpened = True
+			
+	def removeTuview(self, **kwargs):
+		resetQgisSettings(scope='Project', tuviewer=True, feedback=False)
+		try:
+			self.resultsPlottingDock.qgisDisconnect(completely_remove=True)
+			self.resultsPlottingDock.close()
+			del self.resultsPlottingDock
+			self.resultsPlottingDockOpened = False
+			if 'feedback' in kwargs:
+				if not kwargs['feedback']:
+					return
+			QMessageBox.information(self.iface.mainWindow(), "TUFLOW", "Completely Closed TUFLOW Viewer")
+		except:
+			if 'feedback' in kwargs:
+				if not kwargs['feedback']:
+					return
+			QMessageBox.information(self.iface.mainWindow(), "TUFLOW", "TUFLOW Viewer Not Open")
+		
+	def reloadTuview(self):
+		self.removeTuview(feedback=False)
+		self.openResultsPlottingWindow()
 		
 	#def open_tuplot_ext(self):
 	#	"""TuPLOT external function."""
@@ -477,3 +545,29 @@ class tuflowqgis_menu:
 	def tuflowUtilities(self):
 		self.tuflowUtilitiesDialog = TuflowUtilitiesDialog(self.iface)
 		self.tuflowUtilitiesDialog.exec_()
+
+	def integrityToolWindow(self):
+		if self.integrityToolOpened:
+			self.integrityTool.show()
+		else:
+			self.integrityTool = IntegrityToolDock(self.iface)
+			self.iface.addDockWidget(Qt.RightDockWidgetArea, self.integrityTool)
+			self.integrityToolOpened = True
+
+	def extractRefh2(self):
+		if self.refh2DockOpen:
+			self.refh2Dock.show()
+		else:
+			# test if checksum.pyd can be imported
+			try:
+				from .checksum import checkSum
+			except ImportError:
+				QMessageBox.critical(self.iface.mainWindow(), "ReFH2",
+				                     "Could not import checksum from checksum.pyd. This is often caused by an "
+				                     "organisation's 'Group Policy' as part of IT security. "
+				                     "Please contact your system administrator.")
+				return
+
+			self.refh2Dock = Refh2Dock(self.iface)
+			self.iface.addDockWidget(Qt.RightDockWidgetArea, self.refh2Dock)
+			self.refh2DockOpen = True

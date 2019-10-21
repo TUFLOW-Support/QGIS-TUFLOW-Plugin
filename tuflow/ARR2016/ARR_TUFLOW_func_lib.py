@@ -15,7 +15,11 @@ def get_args(argv):
     error = False
     message = ''
     arguments = {}
+    loop_limit = 100
+    loop_count = 0
     while argv:
+        loop_count += 1
+        assert loop_count < loop_limit, "Get Argument Loop Limit Reached: {0}".format(loop_limit)
         try:
             if argv[0][0] == '-':  # argument is flag
                 try:
@@ -34,9 +38,10 @@ def get_args(argv):
                         arguments[argv[0][1:].lower()] = argv[1:end_index]
                     except:
                         error = True
-                        message = "{0}Argument ({1}) not recognised.\n".format(message, argv[0])
+                        message = '{0}Unable to Read Arg: "{1}" Value: "{2}"\n'.format(message, argv[0], arg)
+                        return error, message, arguments
         except:
-            continue
+            pass
         argv = argv[1:]  # remove processed argument
     return error, message, arguments
 
@@ -176,13 +181,15 @@ def extend_array_dur(common_dur_index, common_aep, input_array, dur):
     return extended_array
 
 
-def extend_array_aep(common_aep, complete_aep, input_array):
+def extend_array_aep(common_aep, complete_aep, input_array, interpolate_missing=True, extrapolate_missing=False):
     """
     Takes an array and extends the aep (columns) with nan values.
     
     :param common_aep: list -> str common aep names
     :param complete_aep: list -> str all aep names
     :param input_array: ndarray -> current complete initial loss array
+    :param interpolate_missing: bool interpolate unknown values
+    :param extrapolate_missing: bool extrapolate unknown values
     :return: ndarray
     """
     
@@ -202,7 +209,30 @@ def extend_array_aep(common_aep, complete_aep, input_array):
             j = common_aep_indexes.index(i)  # index of column in original input array
             values = input_array[:,j]
             extended_array[:,i] = values
-    
+
+    # interpolate 0.2EY and 0.5EY if needed and settings in turned on
+    if interpolate_missing:
+        if '0.2EY' in complete_aep:
+            print('Interpolating initial loss values for 0.2EY...')
+            i = complete_aep.index('0.2EY')
+            lower_i = complete_aep.index('20%')
+            upper_i = complete_aep.index('10%')
+            lower_array = np.reshape(extended_array[:,lower_i], (1, extended_array.shape[0]))
+            upper_array = np.reshape(extended_array[:,upper_i], (1, extended_array.shape[0]))
+            inter_array = interpolate(5, 4.48, 10, lower_array, upper_array)
+            extended_array = np.delete(extended_array, i, axis=1)
+            extended_array = np.insert(extended_array, i, inter_array, axis=1)
+        if '0.5EY' in complete_aep:
+            print('Interrpolating initial loss values for 0.5EY...')
+            i = complete_aep.index('0.5EY')
+            lower_i = complete_aep.index('50%')
+            upper_i = complete_aep.index('20%')
+            lower_array = np.reshape(extended_array[:,lower_i], (1, extended_array.shape[0]))
+            upper_array = np.reshape(extended_array[:,upper_i], (1, extended_array.shape[0]))
+            inter_array = interpolate(2, 1.44, 4.48, lower_array, upper_array)
+            extended_array = np.delete(extended_array, i, axis=1)
+            extended_array = np.insert(extended_array, i, inter_array, axis=1)
+
     return extended_array
             
 

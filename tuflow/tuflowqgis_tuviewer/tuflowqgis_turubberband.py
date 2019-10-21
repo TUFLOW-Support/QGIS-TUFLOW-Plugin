@@ -30,6 +30,7 @@ class TuRubberBand():
 		self.linePoints = []  # list of QgsVertexMarkers for line vertices
 		self.line = None  # line for cross section
 		self.cursorTrackingConnected = False
+		self.prevMapTool = None
 		
 	def startRubberBand(self, plotNo):
 		"""
@@ -84,6 +85,7 @@ class TuRubberBand():
 				
 				# setup maptool and set
 				self.point = canvasEvent(self.iface, self.canvas)
+				self.prevMapTool = self.canvas.mapTool()
 				self.canvas.setMapTool(self.point)
 				self.mouseTrackConnect()  # start the tuflowqgis_bridge_rubberband
 			
@@ -126,6 +128,7 @@ class TuRubberBand():
 				
 				# setup maptool and set
 				self.line = canvasEvent(self.iface, self.canvas)
+				self.prevMapTool = self.canvas.mapTool()
 				self.canvas.setMapTool(self.line)
 				self.mouseTrackConnect()  # start the tuflowqgis_bridge_rubberband
 			
@@ -171,6 +174,8 @@ class TuRubberBand():
 			self.cursorTrackingConnected = False
 			for i in range(self.cursorPrev):
 				QApplication.restoreOverrideCursor()  # have to call for everytime it is overwritten to get back to default
+			if self.prevMapTool is not None:
+				self.canvas.setMapTool(self.prevMapTool)
 			
 			if self.tuView.tabWidget.currentIndex() == 0:  # time series i.e. single point
 				self.point.moved.disconnect()
@@ -362,7 +367,10 @@ class TuRubberBand():
 			except:  # QGIS 3
 				rubberBand.reset(QgsWkbTypes.LineGeometry)
 			# draw up to locked in points
-			rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]), None)
+			try:
+				rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]), None)
+			except:
+				rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in self.points]), None)
 			points = self.points[:]  # for live cursor tracking
 			# add cursor position
 			rubberBand.addPoint(point)
@@ -415,7 +423,10 @@ class TuRubberBand():
 		rubberBand = self.rubberBands[-1]
 		
 		# draw line up to last locked in point and disconnect
-		rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]), None)
+		try:
+			rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]), None)
+		except:
+			rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in self.points]), None)
 		self.mouseTrackDisconnect()
 		
 		# unpress time series button
@@ -444,7 +455,10 @@ class TuRubberBand():
 		self.canvas.scene().removeItem(self.linePoints[-1])
 		
 		# draw line up to last locked in point and disconnect
-		rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]), None)
+		try:
+			rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]), None)
+		except:
+			rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in self.points]), None)
 		self.mouseTrackDisconnect()
 		
 		# unpress time series button
@@ -498,9 +512,15 @@ class TuRubberBand():
 		feat = QgsFeature()
 		if tracking:
 			if points:
-				feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in points]))
+				try:
+					feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in points]))
+				except:
+					feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in self.points]))
 		else:
-			feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]))
+			try:
+				feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]))
+			except:
+				feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in self.points]))
 		
 		# plot
 		if self.tuPlot.holdLongProfilePlot:

@@ -7,6 +7,7 @@ from qgis.core import *
 from PyQt5.QtWidgets  import *
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
 from tuflow.tuflowqgis_library import lineToPoints, getDirection
+from datetime import datetime, timedelta
 
 
 class TuPlot2D():
@@ -15,21 +16,23 @@ class TuPlot2D():
 	
 	"""
 	
-	def __init__(self, TuPlot):
-		self.tuPlot = TuPlot
-		self.tuView = TuPlot.tuView
-		self.tuResults = self.tuView.tuResults
-		self.iface = self.tuView.iface
-		self.canvas = self.tuView.canvas
-		self.multiPointSelectCount = 1
-		self.multiLineSelectCount = 1
-		self.multiFlowLineSelectCount = 1
-		self.clearedLongPlot = False
-		self.plotSelectionPointFeat = []  # store feat for ts plotting so can update outside of active layer
-		self.plotSelectionLineFeat = []  # store feat for cross section plotting so can update outside of active layer
-		self.plotSelectionFlowFeat = []  # store feat for flow plotting so can update outside of active layer
-		self.flowProgressBar = None
-		self.progress = QProgressBar()
+	def __init__(self, TuPlot=None):
+		if TuPlot is not None:
+			self.tuPlot = TuPlot
+			self.tuView = TuPlot.tuView
+			self.tuResults = self.tuView.tuResults
+			self.iface = self.tuView.iface
+			self.canvas = self.tuView.canvas
+			self.multiPointSelectCount = 1
+			self.multiLineSelectCount = 1
+			self.multiFlowLineSelectCount = 1
+			self.clearedLongPlot = False
+			self.plotSelectionPointFeat = []  # store feat for ts plotting so can update outside of active layer
+			self.plotSelectionLineFeat = []  # store feat for cross section plotting so can update outside of active layer
+			self.plotSelectionFlowFeat = []  # store feat for flow plotting so can update outside of active layer
+			self.flowProgressBar = None
+			self.progress = QProgressBar()
+			self.faceIndexes = []
 	
 	def plotTimeSeriesFromMap(self, vLayer, point, **kwargs):
 		"""
@@ -64,6 +67,8 @@ class TuPlot2D():
 		showCurrentTime = kwargs['show_current_time'] if 'show_current_time' in kwargs.keys() else False
 		retainFlow = kwargs['retain_flow'] if 'retain_flow' in kwargs.keys() else False
 		meshRendered = kwargs['mesh_rendered'] if 'mesh_rendered' in kwargs.keys() else True
+		plotActiveScalar = kwargs['plot_active_scalar'] if 'plot_active_scalar' in kwargs else False
+		featName = kwargs['featName'] if 'featName' in kwargs else None
 		
 		# clear the plot based on kwargs
 		if bypass:
@@ -90,19 +95,37 @@ class TuPlot2D():
 				dp = layer.dataProvider()
 				mesh = QgsMesh()
 				dp.populateMesh(mesh)
+				si = QgsMeshSpatialIndex(mesh)
 			
 			# get plotting for all checked result types
 			if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
 				resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(0)
-			for i, rtype in enumerate(resultTypes):
-				types.append(rtype)
 				
+				# deal with active scalar plotting
+				if plotActiveScalar:
+					if plotActiveScalar == 'active scalar':
+						if self.tuView.tuResults.tuResults2D.activeScalar not in resultTypes:
+							resultTypes += [self.tuView.tuResults.tuResults2D.activeScalar]
+					else:  # do both active scalar and [depth for water level] - tumap specific
+						if plotActiveScalar not in resultTypes:
+							resultTypes.append(plotActiveScalar)
+						if plotActiveScalar == 'Depth' or plotActiveScalar == 'D':
+							if 'Water Level' in self.tuResults.results[layer.name()]:
+								if 'Water Level' not in resultTypes:
+									resultTypes.append('Water Level')
+							elif 'H' in self.tuResults.results[layer.name()]:
+								if 'H' not in resultTypes:
+									resultTypes.append('H')
+			
+			for i, rtype in enumerate(resultTypes):
 				# get result data for open mesh results and selected scalar dataset
 				tuResultsIndex = TuResultsIndex(layer.name(), rtype, None, False)
 				r = self.tuView.tuResults.getResult(tuResultsIndex)  # r = dict - { str time: [ float time, QgsMeshDatasetIndex ] }
 				if not r:
-					return
-				
+					continue
+
+				types.append(rtype)
+
 				# iterate through result timesteps to get time series
 				x = []
 				y = []
@@ -121,7 +144,7 @@ class TuPlot2D():
 							# first round - go get mesh faces that
 							# point fall in. If graphing for more than
 							# one result - don't need to do this step again
-							success = self.getFaceIndexes(mesh, layer, [point])
+							success = self.getFaceIndexes2(si, dp, [point], mesh)
 							if not success:
 								return False
 							if len(self.faceIndexes) != 1:
@@ -144,15 +167,24 @@ class TuPlot2D():
 				
 				# legend label for multi points
 				if export:
-					label = '{0}'.format(rtype) if len(resultMesh) == 1 else '{1}: {0}'.format(rtype, layer.name())
-				elif bypass or self.tuView.cboSelectType.currentText() == 'From Map Multi':
-					label = '{0} - point {1}'.format(rtype, self.multiPointSelectCount) if len(
-						activeMeshLayers) < 2 else '{0} - {1} - point {2}'.format(layer.name(), rtype,
-					                                                              self.multiPointSelectCount)
-				# normal single point click
+					if featName is None:
+						label = '{0}'.format(rtype) if len(resultMesh) == 1 else '{1}: {0}'.format(rtype, layer.name())
+					else:
+						label = '{0} - {1}'.format(rtype, featName) if len(resultMesh) == 1 else \
+							'{1}: {0} - {2}'.format(rtype, layer.name(), featName)
 				else:
-					label = '{0}'.format(rtype) if len(activeMeshLayers) < 2 else '{0} - {1}'.format(layer.name(),
+					if featName is None:
+						if bypass or self.tuView.cboSelectType.currentText() == 'From Map Multi':
+							label = '{0} - point {1}'.format(rtype, self.multiPointSelectCount) if len(
+								activeMeshLayers) < 2 else '{0} - {1} - point {2}'.format(layer.name(), rtype,
+							                                                              self.multiPointSelectCount)
+						# normal single point click
+						else:
+							label = '{0}'.format(rtype) if len(activeMeshLayers) < 2 else '{0} - {1}'.format(layer.name(),
 					                                                                                rtype)
+					else:
+						label = label = '{0} - {1}'.format(rtype, featName) if len(activeMeshLayers) < 2 else \
+							'{0} - {1} - {2}'.format(layer.name(), rtype, featName)
 				if label is not None:
 					labels.append(label)
 		
@@ -210,6 +242,8 @@ class TuPlot2D():
 		name = kwargs['name'] if 'name' in kwargs.keys() else None
 		draw = kwargs['draw'] if 'draw' in kwargs.keys() else True
 		meshRendered = kwargs['mesh_rendered'] if 'mesh_rendered' in kwargs.keys() else True
+		plotActiveScalar = kwargs['plot_active_scalar'] if 'plot_active_scalar' in kwargs else False
+		featName = kwargs['featName'] if 'featName' in kwargs else None
 		
 		# clear the plot based on kwargs
 		if bypass:
@@ -236,7 +270,7 @@ class TuPlot2D():
 		yAll = []
 		labels = []
 		types = []
-		
+
 		# iterate through all selected results
 		if not resultMesh:  # specified result meshes can be passed through kwargs (used for batch export not normal plotting)
 			resultMesh = activeMeshLayers
@@ -245,16 +279,32 @@ class TuPlot2D():
 				dp = layer.dataProvider()
 				mesh = QgsMesh()
 				dp.populateMesh(mesh)
+				si = QgsMeshSpatialIndex(mesh)
 			
 			# get plotting for all checked result types
 			if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
 				resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(1)
-			for j, rtype in enumerate(resultTypes):
-				types.append(rtype)
 				
+				# deal with active scalar plotting
+				if plotActiveScalar:
+					if plotActiveScalar == 'active scalar':
+						if self.tuView.tuResults.tuResults2D.activeScalar not in resultTypes:
+							resultTypes += [self.tuView.tuResults.tuResults2D.activeScalar]
+					else:  # do both active scalar and [depth for water level] - tumap specific
+						if plotActiveScalar not in resultTypes:
+							resultTypes.append(plotActiveScalar)
+						if plotActiveScalar == 'Depth' or plotActiveScalar == 'D':
+							if 'Water Level' in self.tuResults.results[layer.name()]:
+								if 'Water Level' not in resultTypes:
+									resultTypes.append('Water Level')
+							elif 'H' in self.tuResults.results[layer.name()]:
+								if 'H' not in resultTypes:
+									resultTypes.append('H')
+				
+			for j, rtype in enumerate(resultTypes):
 				if not timestep:
 					timestep = self.tuView.tuResults.activeTime
-				if timestep == 'Maximum' or timestep == -99999 or timestep == '-99999.0000':
+				if timestep == 'Maximum' or timestep == -99999 or timestep == '-99999.000000':
 					isMax = True
 				else:
 					isMax = self.tuView.tuResults.isMax(rtype)
@@ -264,9 +314,13 @@ class TuPlot2D():
 					continue
 				elif type(self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower')) is dict:
 					continue
+				types.append(rtype)
 				meshDatasetIndex = self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower')[-1]
 				if self.tuView.tuResults.isMax(rtype):
-					rtype = '{0}/Maximums'.format(rtype)  # for label entry
+					if rtype.lower() == 'minimum dt':
+						rtype = '{0}/Final'.format(rtype)
+					else:
+						rtype = '{0}/Maximums'.format(rtype)
 				
 				# iterate through points and extract data
 				x = []
@@ -283,7 +337,7 @@ class TuPlot2D():
 							# first round - go get mesh faces that
 							# points fall in. If graphing for more than
 							# one result - don't need to do this step again
-							success = self.getFaceIndexes(mesh, layer, points)
+							success = self.getFaceIndexes2(si, dp, points, mesh)
 							if not success:
 								return False
 							if len(self.faceIndexes) != len(points):
@@ -296,15 +350,24 @@ class TuPlot2D():
 				yAll.append(y)
 				# legend label for multi lines
 				if export:
-					label = '{0} [{1}]'.format(
-						rtype, timestepFormatted) if len(resultMesh) == 1 else '{2}: {0} [{1}]'.format(rtype, timestepFormatted, layer.name())
-				elif bypass or self.tuView.cboSelectType.currentText() == 'From Map Multi':
-					label = '{0} - line {1}'.format(rtype, self.multiLineSelectCount) if len(
-						activeMeshLayers) < 2 else '{0} - {1} - line {2}'.format(layer.name(), rtype,
-					                                                             self.multiLineSelectCount)
+					if featName is None:
+						label = '{0} [{1}]'.format(rtype, timestepFormatted) if len(resultMesh) == 1 else \
+							'{2}: {0} [{1}]'.format(rtype, timestepFormatted, layer.name())
+					else:
+						label = '{0} - {2} [{1}]'.format(rtype, timestepFormatted, featName) if len(resultMesh) == 1 else \
+							'{2}: {0} - {3} [{1}]'.format(rtype, timestepFormatted, layer.name(), featName)
 				else:
-					label = '{0}'.format(rtype) if len(activeMeshLayers) < 2 else '{0} - {1}'.format(layer.name(),
-					                                                                                rtype)
+					if featName is None:
+						if bypass or self.tuView.cboSelectType.currentText() == 'From Map Multi':
+							label = '{0} - line {1}'.format(rtype, self.multiLineSelectCount) if len(
+								activeMeshLayers) < 2 else '{0} - {1} - line {2}'.format(layer.name(), rtype,
+							                                                             self.multiLineSelectCount)
+						else:
+							label = '{0}'.format(rtype) if len(activeMeshLayers) < 2 else '{0} - {1}'.format(layer.name(),
+							                                                                                rtype)
+					else:
+						label = '{0} - {1}'.format(rtype, featName) if len(activeMeshLayers) < 2 else \
+							'{0} - {1} - {2}'.format(layer.name(), rtype, featName)
 				
 				labels.append(label)
 		
@@ -355,7 +418,10 @@ class TuPlot2D():
 		draw = kwargs['draw'] if 'draw' in kwargs.keys() else True
 		time = kwargs['time'] if 'time' in kwargs.keys() else None
 		showCurrentTime = kwargs['show_current_time'] if 'show_current_time' in kwargs.keys() else False
-		meshRendered = kwargs['mesh_rendered'] if 'mesh_rendered' in kwargs.keys() else True
+		#meshRendered = kwargs['mesh_rendered'] if 'mesh_rendered' in kwargs.keys() else True
+		meshRendered = False  # finding values manually is a little quicker
+		resolution = kwargs['resolution'] if 'resolution' in kwargs.keys() else self.tuView.tuOptions.resolution
+		featName = kwargs['featName'] if 'featName' in kwargs else None
 		
 		# clear the plot based on kwargs
 		if bypass:
@@ -365,10 +431,9 @@ class TuPlot2D():
 				self.tuPlot.clearPlot(1)
 			else:
 				self.tuPlot.clearPlot(1, retain_1d=True, retain_2d=True)
-				
-		# get extraction points
-		resolution = self.tuView.tuOptions.resolution
+
 		points, chainages, directions = lineToPoints(feat, resolution, self.iface.mapCanvas().mapUnits())
+
 		if points is None or chainages is None or directions is None:
 			QMessageBox.critical(self.tuView, "TUFLOW Viewer", "Error Converting Cross Section From Long \ Lat\n"
 			                                                   "Double Check the Projection of the Workspace and Input"
@@ -379,7 +444,7 @@ class TuPlot2D():
 		xAll = []
 		yAll = []
 		labels = []
-		types = ['2D Flow']
+		types = []
 		
 		# initialise progress bar
 		noFeatures = 1
@@ -398,20 +463,11 @@ class TuPlot2D():
 						break
 		maxProgress = 0
 		for ts in noTimesteps:
-			maxProgress += noFeatures * noResults * noPoints * ts
+			maxProgress += noFeatures * noPoints * ts
 		if maxProgress:
-			#self.iface.messageBar().clearWidgets()
-			#progressWidget = self.iface.messageBar().createMessage("TUFLOW Viewer",
-			#                                               " Extracting Flow . . .")
-			#messageBar = self.iface.messageBar()
-			#self.progress = QProgressBar()
-			self.progress.setValue(0)
-			self.progress.setMaximum(100)
-			#progressWidget.layout().addWidget(self.progress)
-			#messageBar.pushWidget(progressWidget, duration=1)
-			#self.iface.mainWindow().statusBar().showMessage("Extracting Flow . . .", 1)
-			self.iface.mainWindow().statusBar().addWidget(self.progress)
-			self.iface.mainWindow().repaint()
+			self.tuView.progressBar.setVisible(True)
+			self.tuView.progressBar.setRange(0, 100)
+			self.tuView.progressBar.setValue(0)
 			pComplete = 0
 			complete = 0
 		else:
@@ -423,12 +479,14 @@ class TuPlot2D():
 				dp = layer.dataProvider()
 				mesh = QgsMesh()
 				dp.populateMesh(mesh)
-			
+				si = QgsMeshSpatialIndex(mesh)
+
 			# get velocity and either depth or water level
 			depth = None
 			velocity = None
 			waterLevel = None
 			bedElevation = None
+
 			for resultType in results[layer.name()]:
 				if '_ts' not in resultType and '_lp' not in resultType and 'Maximum' not in resultType:
 					if 'vel' in resultType.lower() and 'time' not in resultType.lower() and 'dur' not in resultType.lower():  # make sure it's vector dataset
@@ -470,7 +528,7 @@ class TuPlot2D():
 				wlRes = self.tuView.tuResults.getResult(wlTRI)
 				bedTRI = TuResultsIndex(layer.name(), bedElevation, None, False)
 				bedRes = self.tuView.tuResults.getResult(bedTRI)
-				
+
 			# iterate through result timesteps to get time series
 			x = []
 			y = []
@@ -491,34 +549,21 @@ class TuPlot2D():
 							# first round - go get mesh faces that
 							# points fall in. If graphing for more than
 							# one result - don't need to do this step again
-							success = self.getFaceIndexes(mesh, layer, points)
+							success = self.getFaceIndexes2(si, dp, points, mesh)
 							if not success:
 								return False
 							if len(self.faceIndexes) != len(points):
 								return False
-					
+
 					chainage = chainages[i]
 					direction = directions[i]
+					qpoint = QgsPointXY(point)
 
-					# get velocity mag, x value, y value
-					if meshRendered:
-						velMag = layer.datasetValue(velItem[-1], QgsPointXY(point)).scalar()
-					else:
-						velMag = self.preRenderDatasetValue(mesh, layer, velItem[-1], self.faceIndexes[i], point)
-					if qIsNaN(velMag):
-						velMag = 0
-					if meshRendered:
-						velX = layer.datasetValue(velItem[-1], QgsPointXY(point)).x()
-						velY = layer.datasetValue(velItem[-1], QgsPointXY(point)).y()
-					else:
-						velX = self.preRenderDatasetValue(mesh, layer, velItem[-1], self.faceIndexes[i], point, value='x')
-						velY = self.preRenderDatasetValue(mesh, layer, velItem[-1], self.faceIndexes[i], point, value='y')
-					
 					# get depth - either directly or through water level and bed elevation
 					if depth is not None:
 						if meshRendered:
 							depthMag = layer.datasetValue(results[layer.name()][depth][key][-1],
-							                              QgsPointXY(point)).scalar()
+							                              qpoint).scalar()
 						else:
 							depthMag = self.preRenderDatasetValue(mesh, layer, results[layer.name()][depth][key][-1],
 							                                      self.faceIndexes[i], point)
@@ -536,7 +581,36 @@ class TuPlot2D():
 						depthMag = wlMag - bedMag
 					if qIsNaN(depthMag):
 						depthMag = 0
-					
+						
+					if depthMag > 0:
+						# get velocity mag, x value, y value
+						if meshRendered:
+							velDataValue = layer.datasetValue(velItem[-1], qpoint)
+							
+							# velMag = layer.datasetValue(velItem[-1], qpoint).scalar()
+							velMag = velDataValue.scalar()
+
+							# velX = layer.datasetValue(velItem[-1], qpoint).x()
+							velX = velDataValue.x()
+
+							# velY = layer.datasetValue(velItem[-1], qpoint).y()
+							velY = velDataValue.y()
+						else:
+							velDataValue = self.preRenderDatasetValue(mesh, layer, velItem[-1], self.faceIndexes[i], point, value='vector')
+							
+							#velMag = self.preRenderDatasetValue(mesh, layer, velItem[-1], self.faceIndexes[i], point)
+							velMag = velDataValue[0]
+
+							velX = velDataValue[1]
+
+							velY = velDataValue[2]
+						if qIsNaN(velMag):
+							velMag = 0
+					else:
+						velMag = 0
+						velX = 0
+						velY = 0
+
 					# calculate flux across line segment
 					if i == 0:  # can't get flux at first point since there's no flow area
 						prevChainage = chainage
@@ -553,7 +627,7 @@ class TuPlot2D():
 						directionOpposite = direction + 180.0
 						if directionOpposite > 360.0:
 							directionOpposite -= 360.0
-						
+
 						# get average values from current and previous values
 						avVelMag = (velMag + prevVelMag) / 2
 						if qIsNaN(prevVelX):
@@ -569,7 +643,7 @@ class TuPlot2D():
 						else:
 							avVelY = (velY + prevVelY) / 2
 						avDepthMag = (depthMag + prevDepthMag) / 2
-						
+
 						flowDirection = getDirection(None, None, x=avVelX, y=avVelY)
 						if flowDirection is None:
 							flowDirection = prevFlowDirection
@@ -584,6 +658,7 @@ class TuPlot2D():
 								pComplete = complete / maxProgress * 100
 								self.progress.setValue(pComplete)
 								continue
+
 						if flowDirection == direction or flowDirection == directionOpposite:
 							flow = 0  # zero flow if flow is running parallel to line
 						else:
@@ -609,7 +684,7 @@ class TuPlot2D():
 									sumFlow += flow
 								else:  # negative
 									sumFlow -= flow
-						
+
 						prevChainage = chainage
 						prevVelMag = velMag
 						prevVelX = velX
@@ -618,27 +693,68 @@ class TuPlot2D():
 						prevFlowDirection = flowDirection
 						complete += 1
 						pComplete = complete / maxProgress * 100
-						self.progress.setValue(pComplete)
-						
+						self.tuView.progressBar.setValue(pComplete)
+						QgsApplication.processEvents()
+
 				# summed all flow, can append to timestep
 				y.append(sumFlow)
-			
+
 			# add to overall data list
 			xAll.append(x)
 			yAll.append(y)
-			
-			if bypass or self.tuView.cboSelectType.currentText() == 'From Map Multi':
-				label = '2D Map Flow - Location {0}'.format(self.multiFlowLineSelectCount) if len(activeMeshLayers) < 2 \
-					else '{0} - 2D Map Flow - location {1}'.format(layer.name(), self.multiFlowLineSelectCount)
-				self.multiFlowLineSelectCount += 1
-			else:
-				label = '2D Map Flow' if len(activeMeshLayers) < 2 else '{0} - 2D Map Flow'.format(layer.name())
+
+			if featName is None:  # rubberband layer
+				if bypass or self.tuView.cboSelectType.currentText() == 'From Map Multi':
+					label = '2D Map Flow - Location {0}'.format(self.multiFlowLineSelectCount) if len(activeMeshLayers) < 2 \
+						else '{0} - 2D Map Flow - location {1}'.format(layer.name(), self.multiFlowLineSelectCount)
+					self.multiFlowLineSelectCount += 1
+				else:
+					label = '2D Map Flow' if len(activeMeshLayers) < 2 else '{0} - 2D Map Flow'.format(layer.name())
+			else:  # use attribute from selected feature
+				label = '2D Map Flow - {0}'.format(featName) if len(activeMeshLayers) < 2 else \
+					'{0} - 2D Map Flow - {1}'.format(layer.name(), featName)
 			labels.append(label)
+			types.append('2D Flow')
+		
+		self.tuView.progressBar.setVisible(False)
 		
 		data = list(zip(xAll, yAll))
 		self.tuPlot.drawPlot(0, data, labels, types, draw=draw, time=time, show_current_time=showCurrentTime)
 
 		return True
+	
+	def getFaceIndexes2(self, si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider, points: list, mesh: QgsMesh) -> bool:
+		"""
+		
+		
+		:param si:
+		:param dp:
+		:param points:
+		:return:
+		"""
+		
+		if not points:
+			return False
+		points = [QgsPointXY(x) for x in points]
+		
+		self.faceIndexes.clear()
+		for p in points:
+			indexes = si.nearestNeighbor(p, 1)
+			if indexes:
+				if len(indexes) == 1:
+					self.faceIndexes.append(indexes[0])
+				else:
+					for ind in indexes:
+						f = self.meshToPolygon(mesh, mesh.face(ind))
+						if f.geometry().contains(p):
+							self.faceIndexes.append(ind)
+							break
+			
+		if len(self.faceIndexes) == len(points):
+			return True
+		else:
+			return False
+	
 	
 	def getFaceIndexes(self, mesh, layer, points):
 		"""
@@ -852,23 +968,23 @@ class TuPlot2D():
 		:param point: QgsPointXY or QgsPoint
 		:return: float value
 		"""
-		
+
 		# convert point to QgsPointXY
 		point = QgsPointXY(point)
-		
+
 		# manually populate pre-rendered mesh
 		dp = layer.dataProvider()
-		
+
 		# get face
 		face = mesh.face(faceIndex)
 		if not dp.isFaceActive(result, faceIndex):
 			return np.nan
-		
+
 		# double check point falls in mesh (it should!)
 		f = self.meshToPolygon(mesh, face)
 		if not f.geometry().contains(point):
 			return np.nan
-		
+
 		# use Barycentric Coordinates and triangles to get interpolated value
 		# https://codeplea.com/triangular-interpolation
 		# so first get triangle
@@ -878,7 +994,8 @@ class TuPlot2D():
 			triangle1 = face[:3]
 			ftri1 = self.meshToPolygon(mesh, triangle1)
 			if ftri1.geometry().contains(point):
-				tri = triangle1
+				#tri = triangle1
+				tri = face[1::-1] + face[2:3]  # reorder so first 2 vertexes are one after the other e.g. [10, 11, x]
 			else:
 				triangle2 = face[2:] + face[0:1]
 				ftri2 = self.meshToPolygon(mesh, triangle2)
@@ -887,25 +1004,57 @@ class TuPlot2D():
 				else:
 					return np.nan
 		elif len(face) == 3:
-			tri = face
+			if face[1] + 1 == face[0]:
+				tri = face[1::-1] + face[2:3]  # reorder so first 2 vertexes are one after the other e.g. [10, 11, x]
+			else:
+				tri = face
 		else:
 			return np.nan
+
 		# get traingle vertex weightings
 		try:
 			w = self.triangleVertexWeighting(mesh, tri, point)
 		except AssertionError:
 			return np.nan
+
 		# apply weightings
 		z = 0
-		for i, v in enumerate(tri):
-			if value == 'scalar':
-				z += dp.datasetValue(result, v).scalar() * w[i]
-			elif value == 'x':
-				z += dp.datasetValue(result, v).x() * w[i]
-			elif value == 'y':
-				z += dp.datasetValue(result, v).y() * w[i]
-			
-		return z
+		x = 0
+		y = 0
+		#for i, v in enumerate(tri):
+		# re-did below func to call sequential vertexes in datasetValue(s) call so the number of times datasetValue is
+		# called is reduced as this seems to be the time conuming part
+		i = 0
+		for j in range(2):
+			v = tri[i]
+			if j == 0:
+				db = dp.datasetValues(result, v, 2)
+				for k in range(2):
+					if value == 'scalar':
+						z += db.value(k).scalar() * w[i]
+					elif value == 'vector':
+						res = db.value(k)
+						z += res.scalar() * w[i]
+						x += res.x() * w[i]
+						y += res.y() * w[i]
+					i += 1
+			else:
+				if value == 'scalar':
+					z += dp.datasetValue(result, v).scalar() * w[i]
+				elif value == 'x':
+					z += dp.datasetValue(result, v).x() * w[i]
+				elif value == 'y':
+					z += dp.datasetValue(result, v).y() * w[i]
+				elif value == 'vector':
+					res = dp.datasetValue(result, v)
+					z += res.scalar() * w[i]
+					x += res.x() * w[i]
+					y += res.y() * w[i]
+
+		if value == 'scalar':
+			return z
+		elif value == 'vector':
+			return (z, x, y)
 		
 	def triangleVertexWeighting(self, mesh, triangle, point):
 		"""

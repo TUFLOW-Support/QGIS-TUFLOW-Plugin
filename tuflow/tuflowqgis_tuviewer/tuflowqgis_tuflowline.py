@@ -23,6 +23,7 @@ class TuFlowLine():
 		self.linePoints = []  # list -> QgsVertexMarker vertex for temp polyline
 		self.points = []  # list -> QgsPoint line geometry
 		self.cursorTrackingConnected = False
+		self.prevMapTool = None
 		
 	def checkIsPossible(self):
 		"""
@@ -75,6 +76,7 @@ class TuFlowLine():
 
 		# check for velocity and one of depth or water level - to see if it is possible to get flow
 		if not self.checkIsPossible():
+			QMessageBox.information(self.tuView, "Flux Calculation", "Flux Calculation Requires Depth and Velocity Results.")
 			return False
 		
 		# determine if multi select
@@ -93,9 +95,9 @@ class TuFlowLine():
 				self.tuPlot.timeSeriesPlotFirst = False
 			else:
 				# multi select so only clear plot if plotting for the first time
-				if self.tuPlot.profilePlotFirst:  # first plot so need to remove test line
-					self.tuPlot.clearPlot(1)
-					self.tuPlot.profilePlotFirst = False
+				if self.tuPlot.timeSeriesPlotFirst:  # first plot so need to remove test line
+					self.tuPlot.clearPlot(0)
+					self.tuPlot.timeSeriesPlotFirst = False
 				
 			# remove line vertex points regardless
 			for linePoint in self.linePoints:
@@ -112,6 +114,7 @@ class TuFlowLine():
 			
 			# setup maptool and set
 			self.line = canvasEvent(self.iface, self.canvas)
+			self.prevMapTool = self.canvas.mapTool()
 			self.canvas.setMapTool(self.line)
 			self.mouseTrackConnect()  # start the tuflowqgis_bridge_rubberband
 		
@@ -149,6 +152,8 @@ class TuFlowLine():
 			self.cursorTrackingConnected = False
 			for i in range(self.cursorPrev):
 				QApplication.restoreOverrideCursor()  # have to call for everytime it is overwritten to get back to default
+			if self.prevMapTool is not None:
+				self.canvas.setMapTool(self.prevMapTool)
 			
 			self.line.moved.disconnect()
 			self.line.rightClicked.disconnect()
@@ -187,7 +192,10 @@ class TuFlowLine():
 			except:  # QGIS 3
 				rubberBand.reset(QgsWkbTypes.LineGeometry)
 			# draw up to locked in points
-			rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]), None)
+			try:
+				rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]), None)
+			except:
+				rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in self.points]), None)
 			# add cursor position
 			rubberBand.addPoint(point)
 			
@@ -233,7 +241,10 @@ class TuFlowLine():
 		rubberBand = self.rubberBands[-1]
 		
 		# draw line up to last locked in point and disconnect
-		rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]), None)
+		try:
+			rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]), None)
+		except:
+			rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in self.points]), None)
 		self.mouseTrackDisconnect()
 		
 		# unpress button
@@ -262,7 +273,10 @@ class TuFlowLine():
 		self.canvas.scene().removeItem(self.linePoints[-1])
 		
 		# draw line up to last locked in point and disconnect
-		rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]), None)
+		try:
+			rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]), None)
+		except:
+			rubberBand.setToGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in self.points]), None)
 		self.mouseTrackDisconnect()
 		
 		# unpress button
@@ -309,7 +323,10 @@ class TuFlowLine():
 		
 		# create feature layer
 		feat = QgsFeature()
-		feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]))
+		try:
+			feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in self.points]))
+		except:
+			feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in self.points]))
 		worked = self.tuPlot.tuPlot2D.plotFlowFromMap(None, feat)
 		if not worked:
 			self.escape(QKeyEvent(QEvent.KeyPress, Qt.Key_Escape, Qt.NoModifier))

@@ -13,6 +13,7 @@ import sys
 import re
 import numpy
 import math
+import logging
 from ARR_TUFLOW_func_lib import *
 
 
@@ -39,6 +40,7 @@ class ArrRivReg:
         self.RivRegNum = None
         self.River_Region = None
         self.Meta = ArrMeta()
+        self.logger = logging.getLogger('ARR2019')
 
     def load(self, fi):
         for line in fi:
@@ -61,7 +63,8 @@ class ArrRivReg:
                     break
         fi.seek(0)  # rewind file
         self.loaded = True
-        print('Finished reading file.')
+        #print('Finished reading file.')
+        self.logger.info('Finished reading file')
 
 
 # noinspection PyBroadException
@@ -72,6 +75,7 @@ class ArrInput:
         self.message = None
         self.Latitude = None
         self.Longitude = None
+        self.logger = logging.getLogger('ARR2019')
 
     def load(self, fi):
         for line in fi:
@@ -100,7 +104,8 @@ class ArrInput:
                     break
         fi.seek(0)  # rewind file
         self.loaded = True
-        print('Finished reading file.')
+        #print('Finished reading file.')
+        self.logger.info('Finished reading file.')
 
 
 class ArrArf:
@@ -109,6 +114,7 @@ class ArrArf:
         self.error = False
         self.message = None
         self.param = {}
+        self.logger = logging.getLogger('ARR2019')
 
     def load(self, fi):
         for line in fi:
@@ -128,7 +134,8 @@ class ArrArf:
             self.message = 'Error processing ARF.'
         fi.seek(0)
         self.loaded = True
-        print('Finished reading file.')
+        #print('Finished reading file.')
+        self.logger.info('Finished reading file.')
 
 
 class ArrLosses:
@@ -142,6 +149,7 @@ class ArrLosses:
         self.cls_datahub = None
         self.ils_user = None
         self.cls_user = None
+        self.logger = logging.getLogger('ARR2019')
 
     def load(self, fi):
         for line in fi:
@@ -167,22 +175,25 @@ class ArrLosses:
             self.cls = 0
         fi.seek(0)  # rewind file
         self.loaded = True
-        print('Finished reading file.')
-        
+        #print('Finished reading file.')
+        self.logger.info('Finished reading file.')
+
     def applyUserInitialLoss(self, loss):
         """apply user specified (storm) initial loss to calculations instead of datahub loss"""
         
         self.ils = loss
         self.ils_user = loss
-        print("Using user specified intial loss: {0}".format(loss))
-        
+        #print("Using user specified intial loss: {0}".format(loss))
+        self.logger.info("Using user specified intial loss: {0}".format(loss))
+
     def applyUserContinuingLoss(self, loss):
         """apply user specified continuing loss to calculations instead of datahub loss"""
     
         self.cls = loss
         self.cls_user = loss
-        print("Using user specified continuing loss: {0}".format(loss))
-        
+        #print("Using user specified continuing loss: {0}".format(loss))
+        self.logger.info("Using user specified continuing loss: {0}".format(loss))
+
 
 # noinspection PyBroadException,PyBroadException
 class ArrPreburst:
@@ -203,8 +214,10 @@ class ArrPreburst:
         self.Ratios75 = []
         self.Depths90 = []
         self.Ratios90 = []
+        self.logger = logging.getLogger('ARR2019')
 
     def load(self, fi):
+
         for line in fi:
             if line.find('[PREBURST]') >= 0:
                 finished = False
@@ -223,6 +236,7 @@ class ArrPreburst:
                                 self.AEP_names.append('{0:.0f}%'.format(val))
                             except:
                                 read_header = False
+                        read_header = False
                     else:
                         try:
                             dur = int(data[0][:data[0].index('(')])
@@ -375,7 +389,8 @@ class ArrPreburst:
             self.message = 'Error in preburst depth data.'
         fi.seek(0)  # rewind file
         self.loaded = True
-        print('Finished reading file.')
+        #print('Finished reading file.')
+        self.logger.info('Finished reading file.')
 
 
 # noinspection Annotator,PyBroadException
@@ -389,6 +404,7 @@ class ArrCCF:
         self.RCP6 = []
         self.RCP8p5 = []
         self.Meta = ArrMeta()
+        self.logger = logging.getLogger('ARR2019')
 
     def load(self, fi):
         for line in fi:
@@ -418,7 +434,8 @@ class ArrCCF:
                     break
         fi.seek(0)  # rewind file
         self.loaded = True
-        print('Finished reading file.')
+        #print('Finished reading file.')
+        self.logger.info('Finished reading file.')
 
 
 class ArrTemporal:
@@ -449,25 +466,32 @@ class ArrTemporal:
         self.AEP_Band = []
         self.increments = []  # list of rainfall increments, length varies depending on duration
         self.tpRegion = ''  # extracted before patterns start
+
+        self.logger = logging.getLogger('ARR2019')
     
     def load(self, fname, fi, tpRegion, point_tp_csv, areal_tp_csv):
         """Load ARR data"""
         
         if point_tp_csv is None:
-            print("Loading point temporal patterns from download: {0}".format(fname))
+            #print("Loading point temporal patterns from download: {0}".format(fname))
+            self.logger.info("Loading point temporal patterns from download: {0}".format(fname))
             self.loadPointTpFromDownload(fi, tpRegion)
         else:
-            print("Loading point temporal patterns from user input: {0}".format(point_tp_csv))
+            #print("Loading point temporal patterns from user input: {0}".format(point_tp_csv))
+            self.logger.info("Loading point temporal patterns from user input: {0}".format(point_tp_csv))
             self.loadPointTpFromCSV(point_tp_csv)
         if self.error:
-            print("ERROR loading point temporal patterns: {0}".format(self.message))
+            #print("ERROR loading point temporal patterns: {0}".format(self.message))
+            self.logger.error("ERROR loading point temporal patterns: {0}".format(self.message))
             raise SystemExit("Error loading point temporal patterns")
             
         if areal_tp_csv is not None:
-            print("Loading areal temporal patterns from user input: {0}".format(areal_tp_csv))
+            #print("Loading areal temporal patterns from user input: {0}".format(areal_tp_csv))
+            self.logger.info("Loading areal temporal patterns from user input: {0}".format(areal_tp_csv))
             self.loadArealTpFromCSV(areal_tp_csv)
             if self.error:
-                print("ERROR loading areal temporal patterns: {0}".format(self.message))
+                #print("ERROR loading areal temporal patterns: {0}".format(self.message))
+                self.logger.error("ERROR loading areal temporal patterns: {0}".format(self.message))
                 raise SystemExit("Error loading areal temporal patterns")
     
     def loadPointTpFromDownload(self, fi, tpRegion):
@@ -514,7 +538,8 @@ class ArrTemporal:
             self.error = True
             self.message = 'No temporal patterns found. Please check "ARR_web_data" to see if temporal patterns are present.'
         self.loaded = True
-        print('Finished reading file.')
+        #print('Finished reading file.')
+        self.logger.info('Finished reading file.')
 
     def append(self, fi):
         for line in fi:
@@ -556,8 +581,9 @@ class ArrTemporal:
                     break
         fi.seek(0)  # rewind file
         self.loaded = True
-        print('Finished reading file.')
-        
+        #print('Finished reading file.')
+        self.logger.info('Finished reading file.')
+
     def loadPointTpFromCSV(self, tp):
         """
         Load point temporal patterns from csv (i.e. "_Increments.csv")
@@ -598,10 +624,12 @@ class ArrTemporal:
                                     self.message = 'Error processing from line {0}'.format(line)
                                     break
             except IOError:
-                print("Could not open {0}".format(tp))
+                #print("Could not open {0}".format(tp))
+                self.logger.error("Could not open {0}".format(tp))
                 raise ("Could not open point temporal pattern csv")
         else:
-            print("Could not find {0}".format(tp))
+            #print("Could not find {0}".format(tp))
+            self.logger.error("Could not find {0}".format(tp))
             raise ("Could not find point temporal pattern csv")
 
     def loadArealTpFromCSV(self, tp):
@@ -657,10 +685,12 @@ class ArrTemporal:
                                     self.message = 'Error processing from line {0}'.format(line)
                                     break
             except IOError:
-                print("Could not open {0}".format(tp))
+                #print("Could not open {0}".format(tp))
+                self.logger.error("Could not open {0}".format(tp))
                 raise ("Could not open areal temporal pattern csv")
         else:
-            print("Could not find {0}".format(tp))
+            #print("Could not find {0}".format(tp))
+            self.logger.error("Could not find {0}".format(tp))
             raise ("Could not find areal temporal pattern csv")
         
     def combineArealTp(self, area):
@@ -725,7 +755,8 @@ class ArrTemporal:
                         else:
                             message = "WARNING: {0} min duration does not have an areal temporal pattern... using point temporal pattern".format(dur)
                             if message not in printed_messages:
-                                print(message)
+                                #print(message)
+                                self.logger.warning(message)
                                 printed_messages.append(message)
         
         self.getTPCount()
@@ -804,6 +835,7 @@ class Arr:
         self.PreBurst = ArrPreburst()
         self.Losses = ArrLosses()
         self.Arf = ArrArf()
+        self.logger = logging.getLogger('ARR2019')
 
     def load(self, fname, area, **kwargs):
         
@@ -814,7 +846,8 @@ class Arr:
         user_initial_loss = kwargs['user_initial_loss'] if 'user_initial_loss' in kwargs else None
         user_continuing_loss = kwargs['user_continuing_loss'] if 'user_continuing_loss' in kwargs else None
 
-        print('Loading ARR website output .txt file')
+        #print('Loading ARR website output .txt file')
+        self.logger.info('Loading ARR website output .txt file')
         if not os.path.isfile(fname):
             self.error = True
             self.message = 'File does not exist {0}'.format(fname)
@@ -822,39 +855,52 @@ class Arr:
         try:
             fi = open(fname, 'r')
         except IOError:
-            print('Unexpected error opening file {0}'.format(fname))
+            #print('Unexpected error opening file {0}'.format(fname))
+            self.logger.error('Unexpected error opening file {0}'.format(fname))
             raise SystemExit('Unexpected error opening file {0}'.format(fname))
 
         # INPUT DATA
-        print('Loading Input Data Block')
+        #print('Loading Input Data Block')
+        self.logger.info('Loading Input Data Block')
         self.Input.load(fi)
         if self.Input.error:
-            print('An error was encountered, when reading Input Data Information.')
-            print('Return message = {0}'.format(self.Input.message))
+            #print('An error was encountered, when reading Input Data Information.')
+            self.logger.error('An error was encountered, when reading Input Data Information.')
+            #print('Return message = {0}'.format(self.Input.message))
+            self.logger.error('Return message = {0}'.format(self.Input.message))
             raise SystemExit("ERROR: {0}".format(self.Input.message))
 
         # RIVER REGION
-        print('Loading River Region Block')
+        #print('Loading River Region Block')
+        self.logger.info('Loading River Region Block')
         self.RivReg.load(fi)
         if self.RivReg.error:
-            print('An error was encountered, when reading River Region Information.')
-            print('Return message = {0}'.format(self.RivReg.message))
+            #print('An error was encountered, when reading River Region Information.')
+            self.logger.error('An error was encountered, when reading River Region Information.')
+            #print('Return message = {0}'.format(self.RivReg.message))
+            self.logger.error('Return message = {0}'.format(self.RivReg.message))
             raise SystemExit("ERROR: {0}".format(self.RivReg.message))
 
         # ARF
-        print('Loading ARF block')
+        #print('Loading ARF block')
+        self.logger.info('Loading ARF block')
         self.Arf.load(fi)
         if self.Arf.error:
-            print('An error was encountered, when reading ARF information.')
-            print('Return message = {0}'.format(self.Arf.message))
+            #print('An error was encountered, when reading ARF information.')
+            self.logger.error('An error was encountered, when reading ARF information.')
+            #print('Return message = {0}'.format(self.Arf.message))
+            self.logger.error('Return message = {0}'.format(self.Arf.message))
             raise SystemExit("ERROR: {0}".format(self.Arf.message))
 
         # STORM LOSSES
-        print('Loading Storm Losses Block')
+        #print('Loading Storm Losses Block')
+        self.logger.info('Loading Storm Losses Block')
         self.Losses.load(fi)
         if self.Losses.error:
-            print('An error was encountered, when reading Storm Losses Information.')
-            print('Return message = {0}'.format(self.Losses.message))
+            #print('An error was encountered, when reading Storm Losses Information.')
+            self.logger.error('An error was encountered, when reading Storm Losses Information.')
+            #print('Return message = {0}'.format(self.Losses.message))
+            self.logger.error('Return message = {0}'.format(self.Losses.message))
         if user_initial_loss is not None:
             self.Losses.applyUserInitialLoss(user_initial_loss)
         if user_continuing_loss is not None:
@@ -862,20 +908,26 @@ class Arr:
             
 
         # INTERIM CLIMATE CHANGE FACTOR
-        print('Loading Interim Climate Change Factors Block')
+        #print('Loading Interim Climate Change Factors Block')
+        self.logger.info('Loading Interim Climate Change Factors Block')
         self.CCF.load(fi)
         if self.CCF.error:
-            print('An error was encountered, when reading Interim Climate Change Factors Information.')
-            print('Return message = {0}'.format(self.CCF.message))
+            #print('An error was encountered, when reading Interim Climate Change Factors Information.')
+            self.logger.error('An error was encountered, when reading Interim Climate Change Factors Information.')
+            #print('Return message = {0}'.format(self.CCF.message))
+            self.logger.error('Return message = {0}'.format(self.CCF.message))
             raise SystemExit("ERROR: {0}".format(self.CCF.message))
 
         # TEMPORAL PATTERNS
-        print('Loading Temporal Patterns')
+        #print('Loading Temporal Patterns')
+        self.logger.info('Loading Temporal Patterns')
         tpRegion = self.temporalPatternRegion(fi)
         self.Temporal.load(fname, fi, tpRegion, point_tp_csv, areal_tp_csv)
         if self.Temporal.error:
-            print('An error was encountered, when reading temporal patterns.')
-            print('Return message = {0}'.format(self.Temporal.message))
+            #print('An error was encountered, when reading temporal patterns.')
+            self.logger.error('An error was encountered, when reading temporal patterns.')
+            #print('Return message = {0}'.format(self.Temporal.message))
+            self.logger.error('Return message = {0}'.format(self.Temporal.message))
             raise SystemExit("ERROR: {0}".format(self.Temporal.message))
         if add_tp != False:
             if len(add_tp) > 0:
@@ -885,25 +937,31 @@ class Arr:
                     self.Temporal.append(fadd_tp)
                     fadd_tp.close()
                     if self.Temporal.error:
-                        print('An error was encountered, when reading temporal pattern: {0}'.format(tp))
-                        print('Return message = {0}'.format(self.Temporal.message))
+                        #print('An error was encountered, when reading temporal pattern: {0}'.format(tp))
+                        self.logger.error('An error was encountered, when reading temporal pattern: {0}'.format(tp))
+                        #print('Return message = {0}'.format(self.Temporal.message))
+                        self.logger.error('Return message = {0}'.format(self.Temporal.message))
                         raise SystemExit("ERROR: {0}".format(self.Temporal.message))
 
         self.Temporal.combineArealTp(area)
 
 
         # PREBURST DEPTH
-        print('Loading median preburst data')
+        #print('Loading median preburst data')
+        self.logger.info('Loading median preburst data')
         self.PreBurst.load(fi)
         if self.PreBurst.error:
-            print('An error was encountered, when reading median preburst data.')
-            print('Return message = {0}'.format(self.PreBurst.message))
+            #print('An error was encountered, when reading median preburst data.')
+            self.logger.error('An error was encountered, when reading median preburst data.')
+            #print('Return message = {0}'.format(self.PreBurst.message))
+            self.logger.error('Return message = {0}'.format(self.PreBurst.message))
 
-        print('Data Loaded')
+        #print('Data Loaded')
+        self.logger.info('Data Loaded')
 
     def export(self, fpath, aep, dur, **kwargs):
         """Process and export ARR2016 data"""
-        
+
         # deal with kwargs
         out_form = kwargs['format'] if 'format' in kwargs else 'csv'
         site_name = kwargs['name'] if 'name' in kwargs else 'name'
@@ -924,6 +982,8 @@ class Arr:
         staticLoss = kwargs['staticloss'] if 'staticloss' in kwargs else 0
         add_tp = kwargs['add_tp'] if 'add_tp' else []
         tuflow_loss_method = kwargs['tuflow_loss_method'] if 'tuflow_loss_method' in kwargs else 'infiltration'
+        urban_initial_loss = kwargs['urban_initial_loss'] if 'urban_initial_loss' in kwargs else None
+        urban_continuing_loss = kwargs['urban_continuing_loss'] if 'urban_continuing_loss' in kwargs else None
         
         # convert input RCP if 'all' is specified
         if str(cc_RCP).lower() == 'all':
@@ -1025,15 +1085,23 @@ class Arr:
             for i in range(len(bom.duration)):
                 arf_file_open.write(
                     '{0}, {1}\n'.format(bom.duration[i], ",".join(map(str, arf_array[i].tolist()))))
-            arf_file_open.write('\n\n**WARNING: Minimum ARF value has been set at 0.2')
+            arf_file_open.write('\n\n**WARNING: Minimum ARF value has been set at {0}'.format(min_ARF))
             arf_file_open.flush()
             arf_file_open.close()
             neg_arf = float((arf_array < 0).sum())  # total number of negative entries
+            if ARF_frequent:
+                if '63.2%' in aep_list or frequent_events:
+                    #print('WARNING: ARF being applied to frequent events is outside recommended '
+                    #      'bounds (50% - 0.05%)')
+                    self.logger.warning('WARNING: ARF being applied to frequent events is outside recommended '
+                                        'bounds (50% - 0.05%)')
             if neg_arf > 0:
-                print('WARNING: {0:.0f} ARF entries have a negative value. ' \
-                      'Check "Rainfall_ARF_Factors.csv" output.'.format(neg_arf))
+                #print('WARNING: {0:.0f} ARF entries have a negative value. ' \
+                #      'Check "Rainfall_ARF_Factors.csv" output.'.format(neg_arf))
+                self.logger.warning('WARNING: {0:.0f} ARF entries have a negative value. ' \
+                                    'Check "Rainfall_ARF_Factors.csv" output.'.format(neg_arf))
             # Save Figure
-            fig_name = os.path.join(os.path.splitext(fpath)[0], 'data', '{0}_ARF_Factors.png'.format(site_name))
+            fig_name = os.path.join(fpath, 'data', '{0}_ARF_Factors.png'.format(site_name))
             make_figure(fig_name, bom.duration, arf_array, 1, 10000, 0, 1.2, 'Duration (mins)', 'ARF',
                         'ARF Factors: {0}'.format(site_name), bom.aep_names, xlog=True)
 
@@ -1068,32 +1136,38 @@ class Arr:
                 fo_arf_depths.write(line)
             if neg_depths > 0:
                 fo_arf_depths.write('\n**WARNING: negative depths have been set to zero.')
-                print('WARNING: {0} negative rainfall depths have occured, caused by negative ARF values. ' \
-                      'Negative depth values have been set to zero.'.format(neg_depths))
+                #print('WARNING: {0} negative rainfall depths have occured, caused by negative ARF values. ' \
+                #      'Negative depth values have been set to zero.'.format(neg_depths))
+                self.logger.warning('WARNING: {0} negative rainfall depths have occured, caused by negative ARF values. ' \
+                                    'Negative depth values have been set to zero.'.format(neg_depths))
             fo_arf_depths.flush()
             fo_arf_depths.close
 
             # Save figure
-            fig_name = os.path.join(os.path.splitext(fpath)[0], 'data', 'BOM_Rainfall_Depths_{0}.png'.format(site_name))
+            fig_name = os.path.join(fpath, 'data', 'BOM_Rainfall_Depths_{0}.png'.format(site_name))
             ymax = 10 ** math.ceil(math.log10(numpy.nanmax(bom.depths)))
             ymin = 10 ** math.floor(math.log10(numpy.nanmin(bom.depths))) if numpy.nanmin(bom.depths) > 0. else 0.001
             make_figure(fig_name, bom.duration, bom.depths, 1, 10000, ymin, ymax, 'Duration (mins)', 'Depth (mm)',
                         'Design Rainfall Depths: {0}'.format(site_name), bom.aep_names, loglog=True)
         else:
-            print('Catchment area less than 1 km2, ignoring ARF factors.')
+            #print('Catchment area less than 1 km2, ignoring ARF factors.')
+            self.logger.info('Catchment area less than 1 km2, ignoring ARF factors.')
 
         # write out climate change data
         if cc:
             if len(cc_years) < 1:
-                print('No year(s) specified when considering climate change.')
+                #print('No year(s) specified when considering climate change.')
+                self.logger.error('No year(s) specified when considering climate change.')
                 raise SystemExit('ERROR: no year(s) specified in Climate Change consideration')
             if len(cc_RCP) < 1:
-                print('No RCP(s) specified when considering climate change.')
+                #print('No RCP(s) specified when considering climate change.')
+                self.logger.error('No RCP(s) specified when considering climate change.')
                 raise SystemExit('ERROR: no RCP(s) specified in Climate Change consideration.')
             for year, k in cc_years_dict.items():
                 # j is year index of year in self.CCF.Year so multiplier can be extracted
                 if year not in self.CCF.Year:
-                    print('Climate change year ({0}) not recognised, or not a valid year.'.format(year))
+                    #print('Climate change year ({0}) not recognised, or not a valid year.'.format(year))
+                    self.logger.error('Climate change year ({0}) not recognised, or not a valid year.'.format(year))
                     raise SystemExit('ERROR: Climate change year ({0}) not recognised, or not a valid year.'.format(year))
                 for rcp in cc_RCP:
                     if rcp == 'RCP4.5':
@@ -1103,7 +1177,8 @@ class Arr:
                     elif rcp == 'RCP8.5':
                         cc_multip = (self.CCF.RCP8p5[k] / 100) + 1
                     else:
-                        print('Climate change RCP ({0}) not recognised, or valid.'.format(rcp))
+                        #print('Climate change RCP ({0}) not recognised, or valid.'.format(rcp))
+                        self.logger.error('Climate change RCP ({0}) not recognised, or valid.'.format(rcp))
                         raise SystemExit("ERROR: Climate change RCP ({0}) not recognised, or valid".format(rcp))
 
                     # start by writing out climate change rainfall depths
@@ -1129,7 +1204,7 @@ class Arr:
                     cc_file_open.close()
 
                     # Save Figure
-                    fig_name = os.path.join(os.path.splitext(fpath)[0], 'data',
+                    fig_name = os.path.join(fpath, 'data',
                                             'BOM_Rainfall_Depths_{0}_{1}_{2}.png'.format(site_name, year, rcp))
                     ymax = 10 ** math.ceil(math.log10(numpy.nanmax(cc_depths)))
                     ymin = 10 ** math.floor(math.log10(numpy.nanmin(cc_depths))) if numpy.nanmin(cc_depths) > 0. else 0.001
@@ -1265,15 +1340,21 @@ class Arr:
                 exported_aep.append(aep)
                 if out_notation == 'ari':
                     if aep == '50%':
-                        print('WARNING: 50% AEP does not correspond to 2y ARI. Rather it is equivalent to'
-                              ' the 1.44y ARI. For 2y ARI please use 0.5EY.')
+                        #print('WARNING: 50% AEP does not correspond to 2y ARI. Rather it is equivalent to'
+                        #      ' the 1.44y ARI. For 2y ARI please use 0.5EY.')
+                        self.logger.warning('WARNING: 50% AEP does not correspond to 2y ARI. Rather it is equivalent to'
+                                            ' the 1.44y ARI. For 2y ARI please use 0.5EY.')
                     if aep == '20%':
-                        print('WARNING: 20% AEP does not correspond to 5y ARI. Rather it is equivalent to'
-                              ' the 4.48y ARI. For 5y ARI please use 0.2EY.')
+                        #print('WARNING: 20% AEP does not correspond to 5y ARI. Rather it is equivalent to'
+                        #      ' the 4.48y ARI. For 5y ARI please use 0.2EY.')
+                        self.logger.warning('WARNING: 20% AEP does not correspond to 5y ARI. Rather it is equivalent to'
+                                            ' the 4.48y ARI. For 5y ARI please use 0.2EY.')
             if aep[-2:] != 'EY' and aep[:4] != '1 in':
                 if float(aep[:-1]) < 1:
-                    print("WARNING: {0}% AEP event is considered 'Very Rare'. Temporal patterns for 'Very Rare' "
-                          "events are not yet provided... using 'Rare' temporal patterns.".format(aep[:-1]))
+                    #print("WARNING: {0}% AEP event is considered 'Very Rare'. Temporal patterns for 'Very Rare' "
+                    #      "events are not yet provided... using 'Rare' temporal patterns.".format(aep[:-1]))
+                    self.logger.warning("WARNING: {0}% AEP event is considered 'Very Rare'. Temporal patterns for 'Very Rare' "
+                                        "events are not yet provided... using 'Rare' temporal patterns.".format(aep[:-1]))
                     aep_band = 'rare'
                 elif float(aep[:-1]) <= 3.2:
                     aep_band = 'rare'
@@ -1284,8 +1365,10 @@ class Arr:
             elif aep[-2:] == 'EY':
                 aep_band = 'frequent'
             else:
-                print("WARNING: 1 in {0} yr event is considered 'Very Rare'. Temporal patterns for 'Very Rare' "
-                      "events are not yet provided... using 'Rare' temporal patterns.".format(aep[4:]))
+                #print("WARNING: 1 in {0} yr event is considered 'Very Rare'. Temporal patterns for 'Very Rare' "
+                #      "events are not yet provided... using 'Rare' temporal patterns.".format(aep[4:]))
+                self.logger.warning("WARNING: 1 in {0} yr event is considered 'Very Rare'. Temporal patterns for 'Very Rare' "
+                                    "events are not yet provided... using 'Rare' temporal patterns.".format(aep[4:]))
                 aep_band = 'rare'
             process_aep = True
             try:
@@ -1296,7 +1379,8 @@ class Arr:
                 else:
                     aep_ind = bom.aep_names.index(aep)
             except:
-                print('WARNING: Unable to find BOM data for AEP: {0} - skipping'.format(aep))
+                #print('WARNING: Unable to find BOM data for AEP: {0} - skipping'.format(aep))
+                self.logger.warning('WARNING: Unable to find BOM data for AEP: {0} - skipping'.format(aep))
                 continue
             if process_aep:  # AEP data exists
                 if all_duration:
@@ -1310,7 +1394,8 @@ class Arr:
                     try:
                         dur_ind = bom.duration.index(duration)
                     except:
-                        print('WARNING: Unable to find BOM data for duration: {0:.0f}min - skipping'.format(duration))
+                        #print('WARNING: Unable to find BOM data for duration: {0:.0f}min - skipping'.format(duration))
+                        self.logger.warning('WARNING: Unable to find BOM data for duration: {0:.0f}min - skipping'.format(duration))
                         continue
                     if process_dur:
                         if duration not in exported_dur:
@@ -1319,7 +1404,8 @@ class Arr:
                         depth_available = True
                         if numpy.isnan(depth):
                             if float(aep[:-1]) < 1:
-                                print("WARNING: Depths for very rare events (< 1% AEP) are not yet provided.")
+                                #print("WARNING: Depths for very rare events (< 1% AEP) are not yet provided.")
+                                self.logger.warning("WARNING: Depths for very rare events (< 1% AEP) are not yet provided.")
                                 depth_available = False
                         ids, increments, dts = self.Temporal.get_dur_aep(duration, aep_band)
                         nid = len(ids)
@@ -1386,10 +1472,12 @@ class Arr:
                         try:
                             fo = open(outfname, 'w')
                         except IOError:
-                            print('Unexpected error opening file {0}'.format(outfname))
+                            #print('Unexpected error opening file {0}'.format(outfname))
+                            self.logger.error('Unexpected error opening file {0}'.format(outfname))
                             raise SystemExit('Unexpected error opening file {0}'.format(outfname))
                         except PermissionError:
-                            print("File is locked for editing {0}".format(outfname))
+                            #print("File is locked for editing {0}".format(outfname))
+                            self.logger.error("File is locked for editing {0}".format(outfname))
                             raise SystemExit("File is locked for editing {0}".format(outfname))
                         # ts1
                         fo.write('! Written by TUFLOW ARR Python Script based on {0} temporal pattern\n'.format
@@ -1470,15 +1558,19 @@ class Arr:
 
         # calculate the maximum preburst depths
         pb_rto_d_com = numpy.multiply(b_dep_com, pb_rto_com)  # convert preburst ratios to depths
-        pb_dep_final = numpy.maximum(pb_dep_com, pb_rto_d_com)  # take the max of preburst ratios and depths
+        #pb_dep_final = numpy.maximum(pb_dep_com, pb_rto_d_com)  # take the max of preburst ratios and depths
+        pb_dep_final = pb_dep_com
 
         # calculate burst intial loss (storm il minus preburst depth)
         if float(self.Losses.ils) == 0 and float(self.Losses.cls) == 0:
-            print('WARNING: No rainfall losses found.')
+            #print('WARNING: No rainfall losses found.')
+            self.logger.warning('WARNING: No rainfall losses found.')
         if float(self.Losses.ils) < 0:
-            print('WARNING: initial loss value is {0}'.format(self.Losses.ils))
+            #print('WARNING: initial loss value is {0}'.format(self.Losses.ils))
+            self.logger.warning('WARNING: initial loss value is {0}'.format(self.Losses.ils))
         if float(self.Losses.cls) < 0:
-            print('WARNING: continuing loss value is {0}'.format(self.Losses.cls))
+            #print('WARNING: continuing loss value is {0}'.format(self.Losses.cls))
+            self.logger.warning('WARNING: continuing loss value is {0}'.format(self.Losses.cls))
         shape_com = pb_dep_final.shape  # array dimensions of preburst depths
         ils = numpy.zeros(shape_com) + float(self.Losses.ils)  # storm initial loss array
         ilb = numpy.add(ils, -pb_dep_final)  # burst initial loss (storm initial loss subtract preburst)
@@ -1501,10 +1593,12 @@ class Arr:
         try:
             flosses = open(fname_losses_out, 'w')
         except PermissionError:
-            print("File is locked for editing {0}".format(fname_losses_out))
+            #print("File is locked for editing {0}".format(fname_losses_out))
+            self.logger.error("File is locked for editing {0}".format(fname_losses_out))
             raise SystemExit("ERROR: File is locked for editing {0}".format(fname_losses_out))
         except IOError:
-            print('Unexpected error opening file {0}'.format(fname_losses_out))
+            #print('Unexpected error opening file {0}'.format(fname_losses_out))
+            self.logger.error('Unexpected error opening file {0}'.format(fname_losses_out))
             raise SystemExit('ERROR: Unexpected error opening file {0}'.format(fname_losses_out))
         flosses.write('This File has been generated using ARR_to_TUFLOW. The Burst losses have been calculated by '
                       'subtracting the maximum preburst (Depth or Ratios) from the storm initial loss.\n')
@@ -1525,18 +1619,21 @@ class Arr:
         flosses.close()
 
         # Save Figure
-        fig_name = os.path.join(os.path.splitext(fpath)[0], 'data', '{0}_Burst_Initial_Losses.png'.format(site_name))
+        fig_name = os.path.join(fpath, 'data', '{0}_Burst_Initial_Losses.png'.format(site_name))
         ymax = math.ceil(float(self.Losses.ils) / 10.0) * 10
         xmax = 10 ** math.ceil(math.log10(max(b_com_dur)))
         ymin = math.floor(numpy.nanmin(ilb_complete) / 10.0) * 10
+
         make_figure(fig_name, bom.duration, ilb_complete, 1, xmax, ymin, ymax, 'Duration (mins)', 'Depth (mm)',
-                    'Design Initial Losses: {0}'.format(site_name), b_com_aep, xlog=True)
+                    'Design Initial Losses: {0}'.format(site_name), bom.aep_names, xlog=True)
 
         # complete neg entry calculation and write out warning
         perc_neg = (neg_entries / total_entries) * 100  # percentage of negative entries
         if neg_entries > 0:
-            print('WARNING: {0} preburst rainfall depths exceeded storm initial loss ({1:.1f}% of entries)'.
-                  format(neg_entries, perc_neg))
+            #print('WARNING: {0} preburst rainfall depths exceeded storm initial loss ({1:.1f}% of entries)'.
+            #      format(neg_entries, perc_neg))
+            self.logger.warning('WARNING: {0} preburst rainfall depths exceeded storm initial loss ({1:.1f}% of entries)'.
+                                format(neg_entries, perc_neg))
 
         # write common bc_dbase
         bc_fname = os.path.join(fpath, 'bc_dbase.csv')
@@ -1544,10 +1641,12 @@ class Arr:
             try:
                 bcdb = open(bc_fname, 'w')
             except PermissionError:
-                print("File is locked for editing: {0}".format(bc_fname))
+                #print("File is locked for editing: {0}".format(bc_fname))
+                self.logger.error("File is locked for editing: {0}".format(bc_fname))
                 raise SystemExit("ERROR: File is locked for editing: {0}".format(bc_fname))
             except IOError:
-                print('Unexpected error opening file {0}'.format(bc_fname))
+                #print('Unexpected error opening file {0}'.format(bc_fname))
+                self.logger.error('Unexpected error opening file {0}'.format(bc_fname))
                 raise SystemExit('ERROR: Unexpected error opening file {0}'.format(bc_fname))
             bcdb.write('Name,Source,Column 1, Column 2\n')
             if out_form == 'ts1':
@@ -1564,10 +1663,12 @@ class Arr:
             try:
                 bcdb = open(bc_fname, 'a')
             except PermissionError:
-                print("File is locked for editing: {0}".format(bc_fname))
+                #print("File is locked for editing: {0}".format(bc_fname))
+                self.logger.error("File is locked for editing: {0}".format(bc_fname))
                 raise SystemExit("ERROR: File is locked for editing: {0}".format(bc_fname))
             except IOError:
-                print('Unexpected error opening file {0}'.format(bc_fname))
+                #print('Unexpected error opening file {0}'.format(bc_fname))
+                self.logger.error('Unexpected error opening file {0}'.format(bc_fname))
                 raise SystemExit('ERROR: Unexpected error opening file {0}'.format(bc_fname))
             if out_form == 'ts1':
                 bcdb.write('{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~\n'.format(site_name,
@@ -1587,10 +1688,12 @@ class Arr:
                 try:
                     bcdb_cc = open(bc_fname_cc, 'w')
                 except PermissionError:
-                    print("File is locked for editing: {0}".format(bc_fname_cc))
+                    #print("File is locked for editing: {0}".format(bc_fname_cc))
+                    self.logger.error("File is locked for editing: {0}".format(bc_fname_cc))
                     raise SystemExit("ERROR: File is locked for editing: {0}".format(bc_fname_cc))
                 except IOError:
-                    print('Unexpected error opening file {0}'.format(bc_fname_cc))
+                    #print('Unexpected error opening file {0}'.format(bc_fname_cc))
+                    self.logger.error('Unexpected error opening file {0}'.format(bc_fname_cc))
                     raise SystemExit('ERROR: Unexpected error opening file {0}'.format(bc_fname_cc))
                 bcdb_cc.write('Name,Source,Column 1, Column 2\n')
                 if out_form == 'ts1':
@@ -1606,10 +1709,12 @@ class Arr:
                 try:
                     bcdb_cc = open(bc_fname_cc, 'a')
                 except PermissionError:
-                    print("File is locked for editing: {0}".format(bc_fname_cc))
+                    #print("File is locked for editing: {0}".format(bc_fname_cc))
+                    self.logger.error("File is locked for editing: {0}".format(bc_fname_cc))
                     raise SystemExit("ERROR: File is locked for editing: {0}".format(bc_fname_cc))
                 except IOError:
-                    print('Unexpected error opening file {0}'.format(bc_fname_cc))
+                    #print('Unexpected error opening file {0}'.format(bc_fname_cc))
+                    self.logger.error('Unexpected error opening file {0}'.format(bc_fname_cc))
                     raise SystemExit('ERROR: Unexpected error opening file {0}'.format(bc_fname_cc))
                 if out_form == 'ts1':
                     bcdb_cc.write('{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~_~CC~\n'.
@@ -1625,10 +1730,12 @@ class Arr:
         try:
             tef = open(tef_fname, 'w')
         except PermissionError:
-            print("File is locked for editing: {0}".format(tef_fname))
+            #print("File is locked for editing: {0}".format(tef_fname))
+            self.logger.error("File is locked for editing: {0}".format(tef_fname))
             raise SystemExit("ERROR: File is locked for editing: {0}".format(tef_fname))
         except IOError:
-            print('Unexpected error opening file {0}'.format(tef_fname))
+            #print('Unexpected error opening file {0}'.format(tef_fname))
+            self.logger.error('Unexpected error opening file {0}'.format(tef_fname))
             raise SystemExit('ERROR: Unexpected error opening file {0}'.format(tef_fname))
         tef.write('!EVENT MAGNITUDES\n')
         for a, aep in enumerate(exported_aep):
@@ -1698,14 +1805,22 @@ class Arr:
                 else:
                     tsoilf_open = open(tsoilf, 'a')
             except PermissionError:
-                print("File is locked for editing: {0}".format(tsoilf))
+                #print("File is locked for editing: {0}".format(tsoilf))
+                self.logger.error("File is locked for editing: {0}".format(tsoilf))
                 raise SystemExit("ERROR: File is locked for editing: {0}".format(tsoilf))
             except IOError:
-                print('Unexpected error opening file {0}'.format(tsoilf))
+                #print('Unexpected error opening file {0}'.format(tsoilf))
+                self.logger.error('Unexpected error opening file {0}'.format(tsoilf))
                 raise SystemExit('ERROR: Unexpected error opening file {0}'.format(tsoilf))
             if catch_no == 0:
                 tsoilf_open.write('! Soil ID, Method, IL, CL\n')
-            tsoilf_open.write('{1:.0f}, ILCL, <<IL_{0}>>, <<CL_{0}>>  ! Design ARR2016 Losses for catchment {0}\n'.format(site_name, catch_no + 1))
+            increment = 1
+            if urban_initial_loss is not None and urban_continuing_loss is not None:
+                increment = 2
+                if catch_no == 0:
+                    tsoilf_open.write('1, ILCL, {0}, {1},  ! Impervious Area Rainfall Losses\n'.format(urban_initial_loss, urban_continuing_loss))
+            tsoilf_open.write('{1:.0f}, ILCL, <<IL_{0}>>, <<CL_{0}>>  ! Design ARR2016 Losses For Catchment {0}\n'.format(site_name, catch_no + increment))
+            
             tsoilf_open.close()
         else:
             materials = os.path.join(fpath, 'materials.csv')
@@ -1715,11 +1830,17 @@ class Arr:
                 else:
                     materials_open = open(materials, 'a')
             except IOError:
-                print('Unexpected error opening file {0}'.format(materials))
+                #print('Unexpected error opening file {0}'.format(materials))
+                self.logger.error('Unexpected error opening file {0}'.format(materials))
                 raise ('Unexpected error opening file')
             if catch_no == 0:
                 materials_open.write("Material ID, Manning's n, Rainfall Loss Parameters, Land Use Hazard ID, ! Description\n")
-            materials_open.write('{1:.0f},,"<<IL_{0}>>, <<CL_{0}>>",,! Design ARR2016 Losses for catchment {0}\n'.format(site_name, catch_no + 1))
+            increment = 1
+            if urban_initial_loss is not None and urban_continuing_loss is not None:
+                increment = 2
+                if catch_no == 0:
+                    materials_open.write('1,,"{0}, {1}",,! Impervious Area Rainfall Losses\n'.format(urban_initial_loss, urban_continuing_loss))
+            materials_open.write('{1:.0f},,"<<IL_{0}>>, <<CL_{0}>>",,! Design ARR2016 Losses for catchment {0}\n'.format(site_name, catch_no + increment))
             materials_open.close()
         
         rareMag2Name = {'0.5%': '1 in 200', '0.2%': '1 in 500', '0.1%': '1 in 1000',
@@ -1730,10 +1851,12 @@ class Arr:
             try:
                 trd_open = open(trd, 'w')
             except PermissionError:
-                print("File is locked for editing: {0}".format(trd))
+                #print("File is locked for editing: {0}".format(trd))
+                self.logger.error("File is locked for editing: {0}".format(trd))
                 raise SystemExit("ERROR: File is locked for editing: {0}".format(trd))
             except IOError:
-                print('Unexpected error opening file {0}'.format(trd))
+                #print('Unexpected error opening file {0}'.format(trd))
+                self.logger.error('Unexpected error opening file {0}'.format(trd))
                 raise SystemExit('ERROR: Unexpected error opening file {0}'.format(trd))
             trd_open.write("! TUFLOW READ FILE - SET RAINFALL LOSS VARIABLES\n")
             for i, aep in enumerate(aep_list_formatted):
@@ -1810,10 +1933,12 @@ class Arr:
                                     if 'End If' in subline:
                                         break
             except PermissionError:
-                print("File is locked for editing: {0}".format(trd))
+                #print("File is locked for editing: {0}".format(trd))
+                self.logger.error("File is locked for editing: {0}".format(trd))
                 raise SystemExit("ERROR: File is locked for editing: {0}".format(trd))
             except IOError:
-                print('Unexpected error opening file {0}'.format(trd))
+                #print('Unexpected error opening file {0}'.format(trd))
+                self.logger.error('Unexpected error opening file {0}'.format(trd))
                 raise SystemExit('ERROR: Unexpected error opening file {0}'.format(trd))
             
             if trd_text:
@@ -1830,10 +1955,12 @@ class Arr:
                     trd_open.write(text)
                     trd_open.close()
                 except PermissionError:
-                    print("File is locked for editing: {0}".format(trd))
+                    #print("File is locked for editing: {0}".format(trd))
+                    self.logger.error("File is locked for editing: {0}".format(trd))
                     raise SystemExit("ERROR: File is locked for editing: {0}".format(trd))
                 except IOError:
-                    print('Unexpected error opening file {0}'.format(trd))
+                    #print('Unexpected error opening file {0}'.format(trd))
+                    self.logger.error('Unexpected error opening file {0}'.format(trd))
                     raise SystemExit('ERROR: Unexpected error opening file {0}'.format(trd))
 
     def temporalPatternRegion(self, fi):

@@ -115,7 +115,7 @@ class TuPlotToolbar():
 		self.fluxSecAxisButton.setToolTip('Flux Plot Secondary Axis')
 		self.cursorTrackingButton = QToolButton(self.mapOutputPlotToolbar)
 		self.cursorTrackingButton.setCheckable(True)
-		self.cursorTrackingButton.setChecked(True)
+		self.cursorTrackingButton.setChecked(False)
 		self.cursorTrackingButton.setIcon(cursorTrackingIcon)
 		self.cursorTrackingButton.setToolTip('Live Map Tracking')
 		self.meshGridButton = QToolButton(self.mapOutputPlotToolbar)
@@ -221,7 +221,7 @@ class TuPlotToolbar():
 		return True
 	
 	def mapOutputPlottingButtonClicked(self, plotNo):
-	
+
 		# unpress buttons if already pressed
 		if plotNo == 0:
 			if self.plotTSMenu.menuAction().isChecked():

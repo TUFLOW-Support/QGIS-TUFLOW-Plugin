@@ -11,8 +11,8 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.0.3
-author=Phillip Ryan, Ellis Symons
+version=3.0.4
+author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
 # end of mandatory metadata
@@ -20,17 +20,60 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=ARR2016 to TUFLOW tool updated to be compatible with updated ARR datahub
-          Fixed NULL geometry bug when drawing cross sections and flux lines
-          Fixed bug when water level PO points were not being displayed as result type
-          Fixed bug when adding cross section plots to animations
-          Better error checking when results are not in correct CRS and drawing graphic layers
-          Using a template for animations will now work even if number of plots does not match
-          Fixed bug in ARR2016 to TUFLOW dialog when clicking 'User Area' for ARF
-          Fixed bug when loading a Project with more than 1 open mesh layer - result types used to be duplicated
-          Fixed bug when loading in map outputs after loading in time series results
-          Fixed bug where tuflow viewer would not recognise map output result types if there was no temporal results but there was maximum results
-          Fixed bug with time series result types not showing for all types e.g. 2D flow area
+changelog=Added 1D Integrity Tool
+          Added REFH2 Tool
+          TUFLOW Viewer now supports user enabled resizing of some of the internal widgets
+          Loading results from .tlf now supported - currently only works for .xmdf map outputs
+          Map tool prior drawing map plot lines or points is now restored on completion of map plotting
+          Flux plotting calculation speed has been increased
+          Flux plotting progress bar is now more robust for large calculations and has been moved to TUFLOW Viewer widget
+          TUFLOW Viewer can now be reloaded - useful if you get a python error and need to reset the viewer without restarting QGIS
+          ARR2016 has been renamed ARR2019
+          ARR2019 to TUFLOW tool now supports ARF for Events less than 50% AEP
+          ARR2019 to TUFLOW tool now supports impervious rainfall losses for auto output
+          ARR2019 to TUFLOW tool now supports user applied area directly in the dialog
+          ARR2019 to TUFLOW tool will now linearly interpolate initial losses for 0.5EY and 0.2EY events
+          ARR2019 fixed bug when reading in a blank argument e.g. blank name field - this could occur if input gis wasn't a shape file
+          Fixed bug in ARR2019 to TUFLOW tool where output graph for IL legend did not match plotted lines
+          Fixed bug in ARR2019 when saving static / Hill et all value to qsettings
+          ARR2019 to TUFLOW now reprojects layer to long/lat and writes to memory and no longer leaves any _reproject.shp in output folder
+          Fixed bug in ARR2019 tool where changing GIS layer while using manual area selection would cause python error
+          Fixed issue when show current time was selected when viewing FV results
+          Animations for FV results now supported
+          Animations using datetime on the X-axis now supported
+          FV results working in export map tool
+          Datetime supported in map export tool
+          Non-loaded results now supported in export map tool
+          Fixed bugs for plots in map export tool
+          Datetime supported when displaying 'time' for animations
+          Fixed bug when rounding timesteps would result in formatted times that didn't make sense
+          Hashtag now supported as comment character in load from TCF tool
+          Fixed bug in load from TCF tool where it would skip 'else' blocks
+          Filtering and sorting layers tool is now case insensitive when it sorts
+          Filtering and sorting layers now removes duplicate layers when possible
+          Fixed bug with map plotting after saving project - it would refresh everytime the map window was refreshed
+          Fixed bug when selecting 'max' or 'secondary axis' after clicking draw cross section would cause NULL geometry error
+          Increased animation plot limits to a more appropriate value
+          Fixed bug when reading in TUFLOW FV results where the viewer would interpret as 'special times' due to the units
+          Batch export map tool now supports using active dataset on plot i.e. plot can change based on mapped surface
+          Export to csv and copy data to clipboard now removes duplicate time and chainage columns
+          User can now import map table from a external file for batch export map tool
+          Final Minimum dt now treated as 'maximum' and no longer duplicates results in widget e.g. no longer "Minimum dt [1]"
+          Result will noe update if user updates zero date
+          Fixed bug in Batch Export Plot tool where 2 secondary axes were being exported if secondary axis was being used
+          Fixed bug in secondary axis labelling that would label with same as primary axis sometimes
+          Fixed bug that would only display map flow from one result even if more than one mesh layer was open
+          Fixed bug in import user plot data that was not skipping blank or null value rows
+          Animations now supports 1D long plots and 1D time series on same animation
+          Fixed bug when plotting long plots in animations and 1D output does not match 2D output timesteps
+          Import Empty now prompts user to overwrite if file exists already
+          Insert TUFLOW attributes now same as above
+          Fixed bug in Insert TUFLOW attributes that would have the wrong display name in QGIS
+          Fixed bug when no data was being plotted but the x axis was in dates that would sometimes cause a python error
+          Fixed bug when plotting user data that have dates attached - previously tuflow viewer would only use hours to display
+          Tuflow viewer can now be forced to redock - useful for when dock sometimes disappear (tends to happen after being stacked with other dock widgets then removed)
+          Map plotting selected features now uses feature attribute in labelling
+          Structure flows and structure levels now display properly in TS results
 
 # tags are comma separated with spaces allowed
 tags=TUFLOW, simulation, flood, hydraulic modelling, MDAL, mesh, xmdf, dat, 2dm, Australian Rainfall & Runoff, ARR

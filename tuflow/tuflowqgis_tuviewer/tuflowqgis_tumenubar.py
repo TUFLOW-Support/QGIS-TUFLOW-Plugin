@@ -16,7 +16,7 @@ class TuMenuBar():
 	
 	"""
 	
-	def __init__(self, TuView):
+	def __init__(self, TuView, **kwargs):
 		self.tuView = TuView
 		self.iface = TuView.iface
 		self.connected = False
@@ -31,6 +31,9 @@ class TuMenuBar():
 		
 		# menu function class
 		self.tuMenuFunctions = tuflowqgis_tumenufunctions.TuMenuFunctions(TuView)
+		
+		self.removeTuview = kwargs['removeTuview'] if 'removeTuview' else None
+		self.reloadTuview = kwargs['reloadTuview'] if 'reloadTuview' else None
 		
 	def __del__(self):
 		self.disconnectMenu()
@@ -59,6 +62,11 @@ class TuMenuBar():
 		self.fileMenu.addAction(self.remove1d2dResults_action)
 		self.fileMenu.addAction(self.remove2dResults_action)
 		self.fileMenu.addAction(self.remove1dResults_action)
+		self.fileMenu.addSeparator()
+		if self.removeTuview is not None:
+			self.fileMenu.addAction(self.removeTuview)
+		if self.reloadTuview is not None:
+			self.fileMenu.addAction(self.reloadTuview)
 		
 		self.load2dResults_action.triggered.connect(self.tuMenuFunctions.load2dResults)
 		self.load1dResults_action.triggered.connect(self.tuMenuFunctions.load1dResults)
@@ -252,8 +260,8 @@ class TuMenuBar():
 		self.exportMenu.addAction(self.exportTempPoint_action)
 		self.exportMenu.addSeparator()
 		self.exportMenu.addAction(self.exportAnimation_action)
-		#self.exportMenu.addSeparator()
-		#self.exportMenu.addAction(self.exportMaps_action)
+		self.exportMenu.addSeparator()
+		self.exportMenu.addAction(self.exportMaps_action)
 		
 		self.exportAsCSV_action.triggered.connect(self.tuMenuFunctions.exportCSV)
 		self.autoPlotExport_action.triggered.connect(self.tuMenuFunctions.batchPlotExportInitialise)

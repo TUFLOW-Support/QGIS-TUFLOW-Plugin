@@ -18,6 +18,7 @@
 
 import os
 import glob
+from qgis.core import QgsWkbTypes
 
 class TF_Styles:
 
@@ -83,11 +84,11 @@ class TF_Styles:
 		if layer_name[-2:] == '_P' or layer_name[-2:] == '_L' or layer_name[-2:] == '_R':
 			next
 		else:
-			if cLayer.geometryType() == 0:
+			if cLayer.geometryType() == QgsWkbTypes.PointGeometry:
 				layer_name = layer_name + '_P'
-			elif cLayer.geometryType() == 1:
+			elif cLayer.geometryType() == QgsWkbTypes.LineGeometry:
 				layer_name = layer_name + '_L'
-			elif cLayer.geometryType() == 2:
+			elif cLayer.geometryType() == QgsWkbTypes.PolygonGeometry:
 				layer_name = layer_name + '_R'
 		
 		try:

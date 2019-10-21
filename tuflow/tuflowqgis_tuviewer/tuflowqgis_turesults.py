@@ -8,7 +8,7 @@ import tuflowqgis_turesults1d
 import tuflowqgis_turesults2d
 from tuflow.dataset_view import DataSetModel
 from tuflow.tuflowqgis_library import tuflowqgis_find_layer, convertFormattedTimeToTime, convertTimeToFormattedTime, \
-	findAllMeshLyrs
+	findAllMeshLyrs, roundSeconds
 
 
 class TuResults():
@@ -17,14 +17,14 @@ class TuResults():
 	
 	"""
 	
-	def __init__(self, TuView):
+	def __init__(self, TuView=None):
 		if TuView is not None:
 			self.tuView = TuView
 			self.iface = TuView.iface
-			self.results = {}  # dict - e.g. { M01_5m_001: { depth: { '0.0000': ( timestep, type, QgsMeshDatasetIndex )}, point_ts: ( types, timesteps ) } }
+			self.results = {}  # dict - e.g. { M01_5m_001: { depth: { '0.000000': ( timestep, type, QgsMeshDatasetIndex )}, point_ts: ( types, timesteps ) } }
 			self.cboTime2timekey = {}
-			self.timekey2time = {}  # e.g. {'1.8333': 1.8333333}
-			self.timekey2date = {}  # e.g. {'1.8333': '01/01/2000 09:00:00'}
+			self.timekey2time = {}  # e.g. {'1.833333': 1.8333333}
+			self.timekey2date = {}  # e.g. {'1.833333': '01/01/2000 09:00:00'}
 			self.time2date = {}
 			self.date2timekey = {}
 			self.date2time = {}
@@ -305,7 +305,14 @@ class TuResults():
 		else:
 			if cboTime.count():
 				#self.activeTime = '{0:.6f}'.format(convertFormattedTimeToTime(cboTime.currentText()))
-				self.activeTime = self.cboTime2timekey[cboTime.currentText()]
+				if cboTime.currentText() in self.cboTime2timekey:
+					self.activeTime = self.cboTime2timekey[cboTime.currentText()]
+				else:
+					# if self.cboTime2timekey is empty reset active time to none
+					if not self.cboTime2timekey:
+						self.activeTime = None
+					else:  # set it to the first value
+						self.activeTime = self.cboTime2timekey[[x for x in sorted(self.cboTime2timekey)][0]]
 		
 		changed = self.updateActiveResultTypes(None)
 		if not changed:
@@ -454,11 +461,11 @@ class TuResults():
 		
 		# if geomtype then change the TS result options
 		if geomType is not None:
-			if geomType == 0:
+			if geomType == QgsWkbTypes.PointGeometry:
 				self.tuResults1D.typesTS = self.tuResults1D.pointTS[:]
-			elif geomType == 1:
+			elif geomType == QgsWkbTypes.LineGeometry:
 				self.tuResults1D.typesTS = self.tuResults1D.lineTS[:] + self.tuResults1D.pointTS[:]
-			elif geomType == 2:
+			elif geomType == QgsWkbTypes.PolygonGeometry:
 				self.tuResults1D.typesTS = self.tuResults1D.regionTS[:]
 			else:
 				self.tuResults1D.typesTS = []
@@ -488,26 +495,29 @@ class TuResults():
 					self.tuResults2D.activeVector = item.ds_name
 				elif item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6 or item.ds_type == 7:  # 1d result
 					self.tuResults1D.items1d.append(item)
-					if item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6:  # time series
-						if item.ds_type == 4:  # point
-							if item.ds_name not in self.tuResults1D.pointTS:
-								self.tuResults1D.pointTS.append(item.ds_name)
-						elif item.ds_type == 5:  # line
-							if item.ds_name not in self.tuResults1D.lineTS:
-								self.tuResults1D.lineTS.append(item.ds_name)
-						else:
-							if item.ds_name not in self.tuResults1D.regionTS:
-								self.tuResults1D.regionTS.append(item.ds_name)
-						if self.tuResults1D.activeType == 0:
-							self.tuResults1D.typesTS = self.tuResults1D.pointTS[:]
-						elif self.tuResults1D.activeType == 1:
-							self.tuResults1D.typesTS = self.tuResults1D.lineTS[:] + self.tuResults1D.pointTS[:]
-						elif self.tuResults1D.activeType == 2:
-							self.tuResults1D.typesTS = self.tuResults1D.regionTS[:]
-						else:
-							self.tuResults1D.typesTS = []
+					#if item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6:  # time series
+					if item.ds_type == 4:  # point
+						if item.ds_name not in self.tuResults1D.pointTS:
+							self.tuResults1D.pointTS.append(item.ds_name)
+					elif item.ds_type == 5:  # line
+						if item.ds_name not in self.tuResults1D.lineTS:
+							self.tuResults1D.lineTS.append(item.ds_name)
+					elif item.ds_type == 6:
+						if item.ds_name not in self.tuResults1D.regionTS:
+							self.tuResults1D.regionTS.append(item.ds_name)
 					elif item.ds_type == 7:  # long plot
-						self.tuResults1D.typesLP.append(item.ds_name)
+						if item.ds_name not in self.tuResults1D.typesLP:
+							self.tuResults1D.typesLP.append(item.ds_name)
+					if self.tuResults1D.activeType == 0:
+						self.tuResults1D.typesTS = self.tuResults1D.pointTS[:]
+					elif self.tuResults1D.activeType == 1:
+						self.tuResults1D.typesTS = self.tuResults1D.lineTS[:] + self.tuResults1D.pointTS[:]
+					elif self.tuResults1D.activeType == 2:
+						self.tuResults1D.typesTS = self.tuResults1D.regionTS[:]
+					#else:
+					#	self.tuResults1D.typesTS = []
+					#elif item.ds_type == 7:  # long plot
+					#	self.tuResults1D.typesLP.append(item.ds_name)
 				# if result type is vector or scalar, need to remove previous vector or scalar results
 				if item.ds_type == 1 or item.ds_type == 2:
 					for i, result in enumerate(self.activeResults):
@@ -781,6 +791,10 @@ class TuResults():
 		return True
 
 	def updateTimeUnits(self):
+		# turn off x axis freezing on time series plot
+		self.tuView.tuPlot.tuPlotToolbar.viewToolbarTimeSeries.freezeXAxisAction.setChecked(False)
+		self.tuView.tuPlot.tuPlotToolbar.viewToolbarTimeSeries.freezeXYAxisAction.setChecked(False)
+
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml)
@@ -867,22 +881,80 @@ class TuResults():
 		"""
 		
 		rtype = resultType.split('/')[0]
-		if 'max_' in rtype:
-			rt = rtype.split('max_')[1]
+		if 'max_' in rtype and 'time' not in rtype:
+			rtype = rtype.split('max_')[1]
 			
 		return rtype
 	
-	def isMaximumResultType(self, resultType: str) -> bool:
+	def isMaximumResultType(self, resultType: str,
+	                        dp: QgsMeshDataProvider = QgsMeshLayer().dataProvider(),
+	                        groupIndex: int = -1) -> bool:
 		"""
 		Determines if the result type is a maximum or not.
 		
 		e.g. Depth/Maximums will return True
 		
 		:param resultType: str
+		:param dp: QgsMeshDataProvider
+		:param groupIndex: int
 		:return: bool
 		"""
 		
 		if '/Maximums' in resultType or ('max_' in resultType and 'time' not in resultType):
 			return True
 		
+		if '/Final' in resultType:
+			return True
+		
+		# special case for 'Minimum dt'
+		# this is recorded as 'Final/Minimum dt' in xmdf - MDAL does not retain folder name
+		# will treat this as 'max'
+		# if only only one timestep, then this is the final / max value
+		if 'minimum dt' in resultType.lower():
+			if dp is not None:
+				if dp.isValid():
+					if dp.datasetCount(groupIndex) == 1:
+						return True
+		
 		return False
+	
+	def updateDateTimes(self):
+		"""
+		Updates date2time dictionary and time2date dictionary
+		
+		:return: None
+		"""
+
+		self.date2timekey.clear()
+		self.date2time.clear()
+		self.timekey2date.clear()
+		
+		zeroDate = self.tuView.tuOptions.zeroTime
+		for t in self.time2date:
+			if t == '-99999' or t == -99999:
+				self.time2date[t] = -99999
+				self.timekey2date[t] = -99999
+				self.date2time[-99999] = t
+				self.date2timekey[-99999] = t
+			else:
+				if self.tuView.tuOptions.timeUnits == 's':
+					date = zeroDate + timedelta(seconds=t)
+				else:
+					date = zeroDate + timedelta(hours=t)
+				
+				# format date to 2 decimal places i.e. dd/mm/yyyy hh:mm:ss.ms
+				date = roundSeconds(date)
+				
+				self.time2date[t] = date
+				self.timekey2date['{0:.6f}'.format(t)] = date
+				self.date2time[date] = t
+				self.date2timekey[date] = '{0:.6f}'.format(t)
+			
+		self.tuView.cboTime.clear()
+		timeCopy = [x for x in self.time2date.keys()]
+		if '-99999' in timeCopy:
+			timeCopy.remove('-99999')
+		if -99999 in timeCopy:
+			timeCopy.remove(-99999)
+
+		self.tuView.cboTime.addItems([self._dateFormat.format(self.time2date[x]) for x in timeCopy])
