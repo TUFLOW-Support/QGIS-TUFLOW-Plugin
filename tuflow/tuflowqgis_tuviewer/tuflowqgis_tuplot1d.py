@@ -89,6 +89,8 @@ class TuPlot1D():
 									typename = 'HD'
 								else:
 									typename = type
+							else:
+								typename = type
 							found, ydata, message = res.getTSData(id, dom, typename, 'Geom')
 							xdata = res.times
 							if len(xdata) != len(ydata):
