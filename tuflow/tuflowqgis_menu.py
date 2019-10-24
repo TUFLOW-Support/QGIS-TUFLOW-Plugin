@@ -355,8 +355,11 @@ class tuflowqgis_menu:
 				if bRedock == QMessageBox.Yes:
 					self.resultsPlottingDock.setFloating(False)
 		else:
-			self.resultsPlottingDock = TuView(self.iface, removeTuview=self.removeTuviewAction,
-			                                  reloadTuview=self.reloadTuviewAction)
+			try:
+				self.resultsPlottingDock = TuView(self.iface, removeTuview=self.removeTuviewAction,
+				                                  reloadTuview=self.reloadTuviewAction)
+			except:
+				pass
 			self.iface.addDockWidget(Qt.BottomDockWidgetArea, self.resultsPlottingDock)
 			self.resultsPlottingDockOpened = True
 			
@@ -560,10 +563,10 @@ class tuflowqgis_menu:
 		else:
 			# test if checksum.pyd can be imported
 			try:
-				from .checksum import checkSum
+				from tuflow.ReFH2.checksum import checkSum
 			except ImportError:
 				QMessageBox.critical(self.iface.mainWindow(), "ReFH2",
-				                     "Could not import checksum from checksum.pyd. This is often caused by an "
+				                     "Could not import checksum from checksum.pyd. This can be caused by an "
 				                     "organisation's 'Group Policy' as part of IT security. "
 				                     "Please contact your system administrator.")
 				return
