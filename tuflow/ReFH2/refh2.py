@@ -1,6 +1,5 @@
 import os, sys
 import re
-import winreg
 from qgis.core import (QgsApplication, QgsMapLayer, QgsVectorLayer,
                        QgsProject, QgsWkbTypes, QgsUnitTypes)
 import processing

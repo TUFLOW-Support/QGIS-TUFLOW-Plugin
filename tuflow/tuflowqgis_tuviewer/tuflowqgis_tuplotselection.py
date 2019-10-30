@@ -27,7 +27,7 @@ class TuPlotSelection():
 			multi = True
 		for i, f in enumerate(sel):
 			# get feature name from attribute
-			iFeatName = self.tuPlot.tuView.tuOptions.iLabelField
+			iFeatName = int(self.tuPlot.tuView.tuOptions.iLabelField)
 			if len(f.attributes()) > iFeatName:
 				featName = f.attributes()[iFeatName]
 			else:

@@ -558,6 +558,10 @@ class tuflowqgis_menu:
 			self.integrityToolOpened = True
 
 	def extractRefh2(self):
+		if sys.platform != 'win32':
+			QMessageBox.critical(self.iface.mainWindow(), "ReFH2", "ReFH2 tool is only available in Windows")
+			return
+
 		if self.refh2DockOpen:
 			self.refh2Dock.show()
 		else:
