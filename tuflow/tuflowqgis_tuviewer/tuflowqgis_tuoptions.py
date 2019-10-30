@@ -69,7 +69,7 @@ class TuOptions():
 		
 		self.resolution = float(project.readEntry("TUVIEW", "resolution")[0])
 
-		self.iLabelField = float(project.readEntry("TUVIEW", "ilabelfield")[0])
+		self.iLabelField = int(project.readEntry("TUVIEW", "ilabelfield")[0])
 
 		showGrid = project.readEntry("TUVIEW", "showgrid")[0]
 		self.showGrid = True if showGrid == 'True' else False
