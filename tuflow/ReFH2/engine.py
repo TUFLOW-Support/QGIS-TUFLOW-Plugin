@@ -1,4 +1,8 @@
-import os, subprocess, winreg, re
+try:
+    import winreg
+except:
+    pass
+import os, subprocess, re
 from PyQt5.QtCore import QObject, pyqtSignal, QVariant
 from PyQt5.QtWidgets import QMessageBox
 from qgis.core import QgsVectorFileWriter, QgsFields, QgsField, QgsWkbTypes, QgsFeature, NULL
