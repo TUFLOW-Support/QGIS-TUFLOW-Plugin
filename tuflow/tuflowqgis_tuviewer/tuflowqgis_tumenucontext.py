@@ -77,7 +77,7 @@ class TuContextMenu():
 		copyMenu.addAction(self.tuView.tuMenuBar.exportDataToClipboard_action)
 		copyMenu.addAction(self.tuView.tuMenuBar.exportImageToClipboard_action)
 		exportMenu = self.plotMenu.addMenu('&Export')
-		exportMenu.addAction(self.tuView.tuPlot.tuPlotToolbar.lstActionsTimeSeries[9])
+		exportMenu.addAction(toolbar[9])
 		exportMenu.addAction(self.exportAsCSV_action)
 		
 		#self.userPlotDataManager_action.triggered.connect(self.tuMenuFunctions.openUserPlotDataManager)

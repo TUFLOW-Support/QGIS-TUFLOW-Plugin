@@ -36,6 +36,7 @@ class DataCollector(QObject):
         # custom initialisations
         # start with QgsInterface
         self.iface = iface
+        self.errMessage = None
 
         # list of all input files
         self.geomType = GEOM_TYPE.Null
@@ -135,7 +136,11 @@ class DataCollector(QObject):
             
         # iterate through all features in layer
         # connectivity tool only works if X connectors are assessed first
-        self.getFeaturesToAssess(inputs, startLocs, flowTrace, lines, lineDataCollector)
+        err = self.getFeaturesToAssess(inputs, startLocs, flowTrace, lines, lineDataCollector)
+        if err:
+            self.errMessage = err
+            self.finished.emit(self)
+
         #key = lambda x: 0 if x.attribute(1).lower() == 'x' else 1
         #for f in sorted(layer.getFeatures(), key=key):
         for i, f in enumerate(self.featuresToAssess):
@@ -785,12 +790,15 @@ class DataCollector(QObject):
         key = lambda x: 0 if x.attribute(1).lower() == 'x' else 1
         for layer in inputs:
             if is1dNetwork(layer):
-                for f in sorted(layer.getFeatures(), key=key):
-                    if f.attribute(1).lower() == 'x':
-                        self.featuresToAssess.append(f)
-                        self.layersToAssess.append(layer)
-                    else:
-                        break  # stop after all x connectors
+                try:
+                    for f in sorted(layer.getFeatures(), key=key):
+                        if f.attribute(1).lower() == 'x':
+                            self.featuresToAssess.append(f)
+                            self.layersToAssess.append(layer)
+                        else:
+                            break  # stop after all x connectors
+                except AttributeError:
+                    return "ERROR: Check all 1d_nwk features have 'Type' specified"
                     
         # if flowTrace is true then add start locations
         # else if not flowTrace then assess whole network

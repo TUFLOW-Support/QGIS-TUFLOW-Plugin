@@ -366,6 +366,7 @@ class tuflowqgis_menu:
 	def removeTuview(self, **kwargs):
 		resetQgisSettings(scope='Project', tuviewer=True, feedback=False)
 		try:
+			self.resultsPlottingDock.tuPlot.clearAllPlots()
 			self.resultsPlottingDock.qgisDisconnect(completely_remove=True)
 			self.resultsPlottingDock.close()
 			del self.resultsPlottingDock

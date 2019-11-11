@@ -528,9 +528,15 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         self.progressBar.setValue(100)
         self.runStatus.setText(text)
         if e == self.dataCollectorLines:
+            if e.errMessage is not None:
+                QMessageBox.critical(self, "Integrity Tool", e.errMessage)
+                self.runStatus.setText(e.errMessage)
             self.dataCollectorLines.updated.disconnect()
             self.dataCollectorLines.finished.disconnect()
         elif e == self.dataCollectorPoints:
+            if e.errMessage is not None:
+                QMessageBox.critical(self, "Integrity Tool", e.errMessage)
+                self.runStatus.setText(e.errMessage)
             self.dataCollectorPoints.updated.disconnect()
             self.dataCollectorPoints.finished.disconnect()
         elif e == self.dataCollectorTables:
