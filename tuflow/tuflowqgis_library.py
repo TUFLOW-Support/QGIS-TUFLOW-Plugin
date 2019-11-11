@@ -1301,7 +1301,7 @@ def parseLabelProperties(fpath: str, override: str='', rule_based: bool=False,
 								continue
 							if val not in rule_names:
 								rule_names.append(val)
-								isOnlyRuleBased = True  # there is a rule so switch this to false for now
+								isOnlyRuleBased = True  # there is a rule so switch this to true for now
 			# collect rule based properties into dictionary and add to dictionary
 			for rule_name in rule_names:
 				if rule_name in d['rule_based']:

@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.0.4.2
+version=3.0.4.5
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -22,6 +22,8 @@ email=support@tuflow.com
 # Uncomment the following line and add your changelog entries:
 changelog=Disabled ReFH2 tool on linux which was causing plugin to not load
           Fixed bug when labelling on legend user selection map plotting
+          Close tuflow viewer completely will now clear all plot and graphic layers
+          Fixed bug when saving image from context menu from cross section tab
 
 # tags are comma separated with spaces allowed
 tags=TUFLOW, simulation, flood, hydraulic modelling, MDAL, mesh, xmdf, dat, 2dm, Australian Rainfall & Runoff, ARR
