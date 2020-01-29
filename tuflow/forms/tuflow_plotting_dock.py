@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_Tuplot(object):
     def setupUi(self, Tuplot):
         Tuplot.setObjectName("Tuplot")
-        Tuplot.resize(1067, 536)
+        Tuplot.resize(1067, 572)
         self.dockWidgetContents = QtWidgets.QWidget()
         self.dockWidgetContents.setObjectName("dockWidgetContents")
         self.verticalLayout_9 = QtWidgets.QVBoxLayout(self.dockWidgetContents)
@@ -151,6 +151,12 @@ class Ui_Tuplot(object):
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.MapOutputPlotFrame)
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.verticalLayout.addWidget(self.MapOutputPlotFrame)
+        self.mesh3DToolbar = QtWidgets.QFrame(self.MapPlottingLayout)
+        self.mesh3DToolbar.setMinimumSize(QtCore.QSize(100, 30))
+        self.mesh3DToolbar.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.mesh3DToolbar.setFrameShadow(QtWidgets.QFrame.Raised)
+        self.mesh3DToolbar.setObjectName("mesh3DToolbar")
+        self.verticalLayout.addWidget(self.mesh3DToolbar)
         self.progressBar = QtWidgets.QProgressBar(self.MapPlottingLayout)
         self.progressBar.setProperty("value", 24)
         self.progressBar.setObjectName("progressBar")

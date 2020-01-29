@@ -25,7 +25,7 @@ class PipeDirectionTool():
         else:
             if self.iface is not None:
                 crs = QgsProject.instance().crs()
-                uri = "point?crs{0}".format(crs.authid())
+                uri = "point?crs={0}".format(crs.authid().lower())
             else:
                 uri = "point"
             self.outputLyr = QgsVectorLayer(uri, "output", "memory")
@@ -61,7 +61,7 @@ class PipeDirectionTool():
                             for g in geom:
                                 reversedGeom = g[::-1]
                                 for i in range(len(g)):
-                                    layer.moveVertexV2(QgsPoint(reversedGeom[i]), f.id(), i)
+                                    layer.moveVertex(reversedGeom[i].x(), reversedGeom[i].y(), f.id(), i)
                                 layer.changeAttributeValue(f.id(), 6, fData.invertDs, fData.invertUs)
                                 layer.changeAttributeValue(f.id(), 7, fData.invertUs, fData.invertDs)
                             layer.commitChanges()
@@ -117,7 +117,7 @@ class PipeDirectionTool():
                         for g in geom:
                             reversedGeom = g[::-1]
                             for i in range(len(g)):
-                                layer.moveVertexV2(QgsPoint(reversedGeom[i]), f.id(), i)
+                                layer.moveVertex(reversedGeom[i].x(), reversedGeom[i].y(), f.id(), i)
                         layer.commitChanges()
     
                         # log change
@@ -147,11 +147,12 @@ class PipeDirectionTool():
         :param name:
         :return:
         """
-    
+
+        epsg = copylyr.crs().authid().lower()
         if copylyr.geometryType() == QgsWkbTypes.LineGeometry:
-            uri = 'linestring'
+            uri = 'linestring?crs={0}'.format(epsg)
         else:
-            uri = 'point'
+            uri = 'point?crs={0}'.format(epsg)
         lyr = QgsVectorLayer(uri, name, "memory")
         dp = lyr.dataProvider()
     

@@ -115,7 +115,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		if self.currentLayer is not None:
 		
 			# Change the enabled/disabled status based on selected layer
-			if self.currentLayer.type() == 0:  # vector layer
+			if self.currentLayer.type() == QgsMapLayer.VectorLayer:  # vector layer
 				resVersion = []
 				for result in self.OpenResults.selectedItems():
 					if result.text() in self.tuResults.tuResults1D.results1d.keys():
@@ -184,8 +184,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:return:
 		"""
 		
-		mapOutputs = [("None", 3, False)]
-		timeSeries = [("None", 3, False)]
+		mapOutputs = [("None", 3, False, False)]
+		timeSeries = [("None", 3, False, False)]
 		self.OpenResultTypes.setModel(DataSetModel(mapOutputs, timeSeries))
 		self.OpenResultTypes.expandAll()
 		
@@ -243,10 +243,10 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:param event: dict -> { 'parent': DataSetTreeNode, 'index': DataSetTreeNode }
 		:return:
 		"""
-		
+
 		# update list of types with max activated
-		self.tuResults.updateMaxTypes(event)
-		
+		self.tuResults.updateMinMaxTypes(event, 'max')
+
 		# force selected result types in widget to be active types
 		self.OpenResultTypes.selectionModel().clear()
 		selection = QItemSelection()
@@ -254,11 +254,34 @@ class TuView(QDockWidget, Ui_Tuplot):
 		for index in self.tuResults.activeResultsIndexes:
 			selection.select(index, index)
 			self.OpenResultTypes.selectionModel().select(selection, flags)
-		
+
 		# redraw plot and re-render map
 		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
 		self.renderMap()
-		
+
+	def minResultTypesChanged(self, event):
+		"""
+		Toggles the minimum result for selected type.
+
+		:param event: dict -> { 'parent': DataSetTreeNode, 'index': DataSetTreeNode }
+		:return:
+		"""
+
+		# update list of types with max activated
+		self.tuResults.updateMinMaxTypes(event, 'min')
+
+		# force selected result types in widget to be active types
+		self.OpenResultTypes.selectionModel().clear()
+		selection = QItemSelection()
+		flags = QItemSelectionModel.Select
+		for index in self.tuResults.activeResultsIndexes:
+			selection.select(index, index)
+			self.OpenResultTypes.selectionModel().select(selection, flags)
+
+		# redraw plot and re-render map
+		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
+		self.renderMap()
+
 	def nextTimestep(self):
 		"""
 		Sets the current timestep to the next timestep.
@@ -381,6 +404,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			# result types
 			self.OpenResultTypes.secondAxisClicked.connect(self.secondaryAxisResultTypesChanged)
 			self.OpenResultTypes.maxClicked.connect(self.maxResultTypesChanged)
+			self.OpenResultTypes.minClicked.connect(self.minResultTypesChanged)
 			self.OpenResultTypes.doubleClicked.connect(self.resultTypeDoubleClicked)
 			self.OpenResultTypes.leftClicked.connect(self.resultTypesChanged)
 			

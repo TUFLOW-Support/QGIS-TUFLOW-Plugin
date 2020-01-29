@@ -26,7 +26,7 @@ class SnappingTool():
         if outputLyr is None or not outputLyr.isValid():
             if self.iface is not None:
                 crs = QgsProject.instance().crs()
-                uri = "point?crs{0}".format(crs.authid())
+                uri = "point?crs={0}".format(crs.authid().lower())
             else:
                 uri = "point"
             self.outputLyr = QgsVectorLayer(uri, "output", "memory")
@@ -126,12 +126,12 @@ class SnappingTool():
                                 vpos = len(vertexes) - 1
                             
                             # move vertex
-                            moved = lyr.moveVertexV2(QgsPoint(moveTo), v.tmpFid, vpos)
+                            moved = lyr.moveVertex(moveTo.x(), moveTo.y(), v.tmpFid, vpos)
                             if moved:
                                 # set vertex properties to snapped
                                 v.snapped = True
                                 v.closestVertex.snapped = True
-                                
+
                                 # edit start / end point locations of moved object
                                 fDataMovedObject = self.dataCollector.features[v.id]
                                 if v.vertex == VERTEX.First:
@@ -176,11 +176,12 @@ class SnappingTool():
         :param name:
         :return:
         """
-        
+
+        epsg = copylyr.crs().authid().lower()
         if copylyr.geometryType() == QgsWkbTypes.LineGeometry:
-            uri = 'linestring'
+            uri = 'linestring?crs={0}'.format(epsg)
         else:
-            uri = 'point'
+            uri = 'point?crs={0}'.format(epsg)
         lyr = QgsVectorLayer(uri, name, "memory")
         dp = lyr.dataProvider()
         

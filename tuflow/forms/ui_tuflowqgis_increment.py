@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\Ellis.Symons\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\tuflow\forms\ui_tuflowqgis_increment.ui'
+# Form implementation generated from reading ui file 'C:\Users\pavlina.monhartova\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\tuflow\forms\ui_tuflowqgis_increment.ui'
 #
 # Created by: PyQt5 UI code generator 5.11.3
 #
@@ -39,6 +39,7 @@ class Ui_tuflowqgis_increment(object):
         self.outfilename.setObjectName("outfilename")
         self.gridLayout.addWidget(self.outfilename, 0, 0, 1, 1)
         self.browseoutfile = QtWidgets.QPushButton(tuflowqgis_increment)
+        self.browseoutfile.setAutoDefault(False)
         self.browseoutfile.setObjectName("browseoutfile")
         self.gridLayout.addWidget(self.browseoutfile, 0, 1, 1, 1)
         self.verticalLayout.addLayout(self.gridLayout)

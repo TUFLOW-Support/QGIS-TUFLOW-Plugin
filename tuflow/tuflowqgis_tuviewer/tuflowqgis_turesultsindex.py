@@ -6,7 +6,7 @@ class TuResultsIndex():
 	
 	"""
 	
-	def __init__(self, result, resultType, timestep, max):
+	def __init__(self, result, resultType, timestep, max, min=False):
 		if resultType == 'Bed Elevation' or resultType == 'Time of Peak h' or resultType == 'Time of Peak V':
 			self.result = result
 			self.resultType = resultType
@@ -18,3 +18,4 @@ class TuResultsIndex():
 			else:
 				self.resultType = '{0}/Maximums'.format(resultType) if max else resultType
 			self.timestep = '-99999' if max else timestep
+			self.timestep = '99999' if min else timestep

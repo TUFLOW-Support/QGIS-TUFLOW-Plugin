@@ -748,7 +748,7 @@ class ResData():
         message = ''
     
         if 'water level' in type.lower():
-            if time == -99999:
+            if time == 99999:
                 return (self.LP.dist_chan_inverts, self.LP.Hmax)
             else:
                 error, message = self.LP_getData('Water Level', time, 0.01)

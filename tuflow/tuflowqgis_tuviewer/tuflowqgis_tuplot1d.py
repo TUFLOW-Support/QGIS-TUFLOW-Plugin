@@ -56,6 +56,8 @@ class TuPlot1D():
 		types = []
 		xAll = []
 		yAll = []
+		plotAsPoints = []  # 2019 for flow regime
+		flowRegime = []  # 2019
 		
 		# iterate through all selected results
 		for result in self.tuView.OpenResults.selectedItems():
@@ -67,11 +69,26 @@ class TuPlot1D():
 				res = tuResults1D.results1d[result]
 				
 				# get result types for all selected types
-				for type in tuResults1D.typesTS:
+				for rtype in tuResults1D.typesTS:
 					
 					# get result for each selected element
 					for i, id in enumerate(tuResults1D.ids):
-						types.append('{0}_1d'.format(type))
+						#types.append('{0}_1d'.format(rtype))
+						if rtype.lower() == "flow regime":
+							plotAsPoints.append(True)
+							flowRegime.append(True)
+							types.append('{0}_1d'.format(rtype))
+						elif rtype.lower() == "losses":
+							iun = res.Data_1D.CL.uID.index(id)  # index unique name
+							nCol = res.Data_1D.CL.nCols[iun]  # number of columns associated with element losses
+							for j in range(nCol):
+								plotAsPoints.append(False)
+								flowRegime.append(False)
+								types.append('{0}_1d'.format(rtype))
+						else:
+							plotAsPoints.append(False)
+							flowRegime.append(False)
+							types.append('{0}_1d'.format(rtype))
 						
 						# get data
 						if res.formatVersion == 1:  # 2013
@@ -81,34 +98,56 @@ class TuPlot1D():
 							dom = tuResults1D.domains[i]
 							source = tuResults1D.sources[i].upper()
 							if dom == '2D':
-								if type.upper().find('STRUCTURE FLOWS') >= 0 and source == 'QS':
+								if rtype.upper().find('STRUCTURE FLOWS') >= 0 and source == 'QS':
 									typename = 'QS'
-								elif type.upper().find('STRUCTURE LEVELS') >= 0 and source == 'HU':
+								elif rtype.upper().find('STRUCTURE LEVELS') >= 0 and source == 'HU':
 									typename = 'HU'
-								elif type.upper().find('STRUCTURE LEVELS') >= 0 and source == 'HD':
+								elif rtype.upper().find('STRUCTURE LEVELS') >= 0 and source == 'HD':
 									typename = 'HD'
 								else:
-									typename = type
+									typename = rtype
 							else:
-								typename = type
+								typename = rtype
 							found, ydata, message = res.getTSData(id, dom, typename, 'Geom')
 							xdata = res.times
-							if len(xdata) != len(ydata):
-								xAll.append([])
-								yAll.append([])
-								labels.append('')
-								continue
+							if type(ydata) is list:
+								if len(xdata) != len(ydata):
+									xAll.append([])
+									yAll.append([])
+									labels.append('')
+									continue
+							else:  # ndarray
+								if len(xdata) != ydata.shape[0]:
+									xAll.append([])
+									yAll.append([])
+									labels.append('')
+									continue
 						else:
 							continue
-						label = '{0} - {1}'.format(id, type) if len(self.tuView.OpenResults.selectedItems()) < 2 \
-							else '{0} - {1} - {2}'.format(result, id, type)
-						xAll.append(xdata)
-						yAll.append(ydata)
-						labels.append(label)
+						if rtype != "Losses":
+							label = '{0} - {1}'.format(id, rtype) if len(self.tuView.OpenResults.selectedItems()) < 2 \
+								else '{0} - {1} - {2}'.format(result, id, rtype)
+							xAll.append(xdata)
+							yAll.append(ydata)
+							labels.append(label)
+						else:
+							for i in range(ydata.shape[1]):
+								xAll.append(xdata)
+								yAll.append(ydata[:,i])
+								j = res.Data_1D.CL.ID.index(id)
+								lossName = res.Data_1D.CL.lossNames[j+i].strip()
+								label = '{0} - {1} LC'.format(id, lossName) if len(self.tuView.OpenResults.selectedItems()) < 2 \
+									else "{0} - {1} - {2} LC".format(result, id, lossName)
+								labels.append(label)
+								#if i > 0:
+								#	types.append('{0}_1d'.format(rtype))
+								#	plotAsPoints.append(False)
+								#	flowRegime.append(False)
 		
 		data = list(zip(xAll, yAll))
 		if data:
-			self.tuPlot.drawPlot(0, data, labels, types, draw=draw, time=time, show_current_time=showCurrentTime)
+			self.tuPlot.drawPlot(0, data, labels, types, draw=draw, time=time, show_current_time=showCurrentTime,
+			                     plot_as_points=plotAsPoints, flow_regime=flowRegime)
 		
 		return True
 	
@@ -153,7 +192,7 @@ class TuPlot1D():
 				res = tuResults1D.results1d[result]
 				error = tuResults1D.getLongPlotConnectivity(res)
 				if not error:
-					
+
 					# get result types for all selected types
 					for type in tuResults1D.typesLP:
 						types.append('{0}_1d'.format(type))
