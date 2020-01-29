@@ -51,12 +51,14 @@ class DataSetTreeNode(object):
     
     """
     
-    def __init__(self, ds_index, ds_name, ds_type, max, parentItem):
+    def __init__(self, ds_index, ds_name, ds_type, max, min, parentItem):
         self.ds_index = ds_index
         self.ds_name = ds_name
         self.ds_type = ds_type  # see above multi line comment
         self.hasMax = max
+        self.hasMin = min
         self.isMax = False
+        self.isMin = False
         self.parentItem = parentItem
         self.childItems = []
         self.secondaryActive = False
@@ -71,17 +73,18 @@ class DataSetTreeNode(object):
     def row(self):  return self.parentItem.childItems.index(self) if self.parentItem else 0
     def toggleSecondaryActive(self): self.secondaryActive = True if not self.secondaryActive else False
     def toggleMaxActive(self): self.isMax = True if not self.isMax else False
+    def toggleMinActive(self): self.isMin = True if not self.isMin else False
 
 
 class DataSetModel(QAbstractItemModel):
     def __init__(self, meshDatasets, timeSeriesDatasets, ds_user_names=None, parent=None, **kwargs) :
         QAbstractItemModel.__init__(self, parent)
-        self.rootItem = DataSetTreeNode(None, None, None, None, None)
+        self.rootItem = DataSetTreeNode(None, None, None, None, None, None)
         #self.setMesh(datasets)
         self.ds_user_names = ds_user_names if ds_user_names is not None else {} # key = ds_index,  value = user_name
-        self.mapOutputsItem = DataSetTreeNode(0, 'Map Outputs', 3, False, self.rootItem)
+        self.mapOutputsItem = DataSetTreeNode(0, 'Map Outputs', 3, False, False, self.rootItem)
         self.rootItem.appendChild(self.mapOutputsItem)
-        self.timeSeriesItem = DataSetTreeNode(0, 'Time Series', 3, False, self.rootItem)
+        self.timeSeriesItem = DataSetTreeNode(0, 'Time Series', 3, False, False, self.rootItem)
         self.rootItem.appendChild(self.timeSeriesItem)
 		
         self.setMesh(meshDatasets)
@@ -96,8 +99,12 @@ class DataSetModel(QAbstractItemModel):
         self.dsindex2item = {}
         
         for i, dataset in enumerate(datasets):
-            ds_name, ds_type, max = dataset
-            item = DataSetTreeNode(i, ds_name, ds_type, max, self.mapOutputsItem)
+            if len(dataset) == 4:
+                ds_name, ds_type, max, min = dataset
+            else:
+                ds_name, ds_type, max = dataset
+                min = False
+            item = DataSetTreeNode(i, ds_name, ds_type, max, min, self.mapOutputsItem)
             self.mapOutputsItem.appendChild(item)
             self.dsindex2item[i] = item
             self.name2item[ds_name] = item
@@ -133,8 +140,12 @@ class DataSetModel(QAbstractItemModel):
         self.name2item_ts = {}
         
         for i, dataset in enumerate(datasets):
-            ds_name, ds_type, max = dataset
-            item = DataSetTreeNode(i, ds_name, ds_type, max, self.timeSeriesItem)
+            if len(dataset) == 4:
+                ds_name, ds_type, max, min = dataset
+            else:
+                ds_name, ds_type, max = dataset
+                min = False
+            item = DataSetTreeNode(i, ds_name, ds_type, max, min, self.timeSeriesItem)
             self.timeSeriesItem.appendChild(item)
             self.dsindex2item_ts[i] = item
             self.name2item_ts[ds_name] = item
@@ -199,9 +210,18 @@ class DataSetModel(QAbstractItemModel):
                 item.toggleSecondaryActive()
             elif name == 'max':
                 item.toggleMaxActive()
+                if item.isMin:
+                    item.toggleMinActive()
+            elif name == 'min':
+                item.toggleMinActive()
+                if item.isMax:
+                    item.toggleMaxActive()
     
     def setActiveMax(self, parent, index):
         self.setActive('max', parent, index)
+
+    def setActiveMin(self, parent, index):
+        self.setActive('min', parent, index)
     
     def isActive(self, index):
         item = index.internalPointer()
@@ -325,12 +345,14 @@ class DataSetModel(QAbstractItemModel):
         return True
 
 
-POS_V, POS_C, POS_2, POS_TS, POS_LP, POS_MAX = 1, 1, 1, 1, 1, 2   # identifiers of positions of icons in the delegate
+POS_V, POS_C, POS_2, POS_TS, POS_LP, POS_MAX, POS_MIN = 1, 1, 1, 1, 1, 2, 3   # identifiers of positions of icons in the delegate
 
 class DataSetItemDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         QStyledItemDelegate.__init__(self, parent)
         dir = os.path.dirname(__file__)
+        transformer = QTransform()
+        transformer.rotate(180)
         self.pix_c  = QPixmap(os.path.join(dir, "icons", "icon_contours.png"))
         self.pix_c0 = QIcon(self.pix_c).pixmap(self.pix_c.width(),self.pix_c.height(), QIcon.Disabled)
         self.pix_v = QPixmap(os.path.join(dir, "icons", "icon_vectors.png"))
@@ -345,6 +367,8 @@ class DataSetItemDelegate(QStyledItemDelegate):
         self.pix_lp0 = QIcon(self.pix_lp).pixmap(self.pix_lp.width(), self.pix_lp.height(), QIcon.Disabled)
         self.pix_max =  QPixmap(os.path.join(dir, "icons", "max.png"))
         self.pix_max0 = QPixmap(os.path.join(dir, "icons", "max_inactive.png"))
+        self.pix_min = QPixmap(os.path.join(dir, "icons", "max.png")).transformed(transformer)
+        self.pix_min0 = QPixmap(os.path.join(dir, "icons", "max_inactive.png")).transformed(transformer)
         #self.pix_max0 = QIcon(self.pix_max).pixmap(self.pix_max.width(), self.pix_max.height(), QIcon.Disabled)
         #self.pix_v0 = QIcon(self.pix_v).pixmap(self.pix_v.width(),self.pix_v.height(), QIcon.Disabled)
 
@@ -381,6 +405,11 @@ class DataSetItemDelegate(QStyledItemDelegate):
                 painter.drawPixmap(self.iconRect(option.rect, option.rect.right(), POS_MAX), self.pix_max)
             else:
                 painter.drawPixmap(self.iconRect(option.rect, option.rect.right(), POS_MAX), self.pix_max0)
+        if item.hasMin:
+            if item.enabled and item.isMin:
+                painter.drawPixmap(self.iconRect(option.rect, option.rect.right(), POS_MIN), self.pix_min)
+            else:
+                painter.drawPixmap(self.iconRect(option.rect, option.rect.right(), POS_MIN), self.pix_min0)
 
     def iconRect(self, rect, pos, i):
         """ icon rect for given item rect. i is either POS_C or POS_V """
@@ -402,6 +431,7 @@ class DataSetView(QTreeView):
     vectorClicked = pyqtSignal(int)
     secondAxisClicked = pyqtSignal(dict)
     maxClicked = pyqtSignal(dict)
+    minClicked = pyqtSignal(dict)
     rightClicked = pyqtSignal(dict)
     doubleClicked = pyqtSignal(dict)
     leftClicked = pyqtSignal(dict)
@@ -452,14 +482,22 @@ class DataSetView(QTreeView):
                 if self.model().index2item(idx).enabled:
                     self.secondAxisClicked.emit({'parent': self.model().index2item(idx).parentItem,
                                                  'index': self.model().index2item(idx).ds_index})
-                # self.secondAxisClicked.emit(1)
-                processed = True
+                    # self.secondAxisClicked.emit(1)
+                    processed = True
     
             if self.itemDelegate().iconRect(vr, vr.right(), POS_MAX).contains(event.pos()):
                 if self.model().index2item(idx).enabled:
-                    self.maxClicked.emit({'parent': self.model().index2item(idx).parentItem,
-                                          'index': self.model().index2item(idx).ds_index})
-                processed = True
+                    if self.model().index2item(idx).hasMax:
+                        self.maxClicked.emit({'parent': self.model().index2item(idx).parentItem,
+                                              'index': self.model().index2item(idx).ds_index})
+                        processed = True
+
+            if self.itemDelegate().iconRect(vr, vr.right(), POS_MIN).contains(event.pos()):
+                if self.model().index2item(idx).enabled:
+                    if self.model().index2item(idx).hasMin:
+                        self.minClicked.emit({'parent': self.model().index2item(idx).parentItem,
+                                              'index': self.model().index2item(idx).ds_index})
+                        processed = True
         
         # only if the user did not click one of the icons do usual handling
         if not processed:
@@ -516,7 +554,7 @@ class DataSetView(QTreeView):
         #m.exec_(self.mapToGlobal(event.pos()))
         
     def viewportEvent(self, event):
-        if event.type() == 110:
+        if event.type() == QEvent.ToolTip:
             idx = self.indexAt(event.pos())
             if idx.isValid():
                 vr = self.visualRect(idx)

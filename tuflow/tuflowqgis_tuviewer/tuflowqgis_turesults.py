@@ -30,6 +30,7 @@ class TuResults():
 			self.date2time = {}
 			self.secondaryAxisTypes = []
 			self.maxResultTypes = []
+			self.minResultTypes = []
 			self.activeTime = None  # active time for rendering
 			self.activeResults = []  # str result type names
 			self.activeResultsTypes = []  # int result types (e.g. 1 - scalar, 2 - vector...)
@@ -124,7 +125,7 @@ class TuResults():
 		:return: list -> tuple -> ( str type, int type, bool hasMax ) line long plot type  e.g. ( 'water level', 7, True )
 		"""
 
-		timesteps, maxResultTypes, temporalResultTypes, pTypeTS, lTypeTS, rTypeTS, lTypeLP = [], [], [], [], [], [], []
+		timesteps, minResultTypes, maxResultTypes, temporalResultTypes, pTypeTS, lTypeTS, rTypeTS, lTypeLP = [], [], [], [], [], [], [], []
 		timestepsTS = []
 		timestepsLP = []
 
@@ -135,12 +136,18 @@ class TuResults():
 				if type not in maxResultTypes:
 					rt = self.stripMaximumName(type)
 					maxResultTypes.append(rt)
+			elif self.isMinimumResultType(type):
+				if type not in minResultTypes:
+					rt = self.stripMinimumName(type)
+					minResultTypes.append(rt)
 			elif '_ts' in type:
 				timestepsTS = t[-1]
 				if type == 'point_ts':
 					pTypeTS = [(x, 4, False) for x in t[0]]
 				elif type == 'line_ts':
 					lTypeTS = [(x, 5, False) for x in t[0]]
+					if ('Flow Regime', 5, False) in lTypeTS:
+						lTypeTS.remove(('Flow Regime', 5, False))
 				elif type == 'region_ts':
 					rTypeTS = [(x, 6, False) for x in t[0]]
 			elif '_lp' in type:
@@ -160,7 +167,7 @@ class TuResults():
 		if not self.tuView.lock2DTimesteps:
 			timesteps = self.joinResultTypes(timesteps, timestepsTS, timestepsLP, type='time')
 		
-		return timesteps, maxResultTypes, temporalResultTypes, pTypeTS, lTypeTS, rTypeTS, lTypeLP
+		return timesteps, minResultTypes, maxResultTypes, temporalResultTypes, pTypeTS, lTypeTS, rTypeTS, lTypeLP
 	
 	def joinResultTypes(self, *args, **kwargs):
 		"""
@@ -343,15 +350,16 @@ class TuResults():
 		reset = self.resetResultTypes()  # reset result types
 		if not reset:
 			return False
-		timesteps, maxResultTypes, temporalResultTypes = [], [], []
+		timesteps, minResultTypes, maxResultTypes, temporalResultTypes = [], [], [], []
 		pointTypesTS, lineTypesTS, regionTypesTS, lineTypesLP = [], [], [], []
 		for result in openResults.selectedItems():
 			# Populate metadata lists
-			ts, mResTypes, tResTypes, pTypesTS, lTypesTS, rTypesTS, lTypesLP = self.getDataFromResultsDict(result.text())
+			ts, minResTypes, maxResTypes, tResTypes, pTypesTS, lTypesTS, rTypesTS, lTypesLP = self.getDataFromResultsDict(result.text())
 
 			# Join already open result types with new types
 			timesteps = self.joinResultTypes(timesteps, ts, type='time')
-			maxResultTypes = self.joinResultTypes(maxResultTypes, mResTypes)
+			minResultTypes = self.joinResultTypes(minResultTypes, minResTypes)
+			maxResultTypes = self.joinResultTypes(maxResultTypes, maxResTypes)
 			temporalResultTypes = self.joinResultTypes(temporalResultTypes, tResTypes)
 			pointTypesTS = self.joinResultTypes(pointTypesTS, pTypesTS)
 			lineTypesTS = self.joinResultTypes(lineTypesTS, lTypesTS)
@@ -371,10 +379,7 @@ class TuResults():
 				t = self.results[result.text()][rtype]
 				for i, (time, values) in enumerate(t.items()):
 					if i == 0:  # get the data type from the first timestep i.e. scalar or vector
-						if rtype in maxResultTypes:
-							info = (rtype, values[1], True)
-						else:
-							info = (rtype, values[1], False)
+						info = (rtype, values[1], rtype in maxResultTypes, rtype in minResultTypes)
 						mapOutputs.append(info)
 					else:
 						break
@@ -395,7 +400,7 @@ class TuResults():
 					t = self.results[result.text()][mrtype]
 					for i, (time, values) in enumerate(t.items()):
 						if i == 0:  # get the data type from the first timestep i.e. scalar or vector
-							info = (rtype, values[1], True)
+							info = (rtype, values[1], True, False)
 							mapOutputs.append(info)
 						else:
 							break
@@ -405,7 +410,7 @@ class TuResults():
 		timeSeries = []
 		timeSeries = timeSeries + pointTypesTS + lineTypesTS + regionTypesTS + lineTypesLP
 		if not timeSeries:
-			timeSeries = [("None", 3, False)]
+			timeSeries = [("None", 3, False, False)]
 		openResultTypes.setModel(DataSetModel(mapOutputs, timeSeries))
 		openResultTypes.expandAll()
 		
@@ -560,7 +565,7 @@ class TuResults():
 					self.tuResults1D.pointTS.remove(item.ds_name)
 				elif item.ds_name in self.tuResults1D.lineTS:
 					self.tuResults1D.lineTS.remove(item.ds_name)
-				elif item in self.tuResults1D.regionTS:
+				elif item.ds_name in self.tuResults1D.regionTS:
 					self.tuResults1D.regionTS.remove(item.ds_name)
 		
 		# force selected result types in widget to be active types
@@ -585,7 +590,13 @@ class TuResults():
 				self.tuView.renderMap()
 		else:
 			# redraw plot
-			self.tuView.tuPlot.updateCurrentPlot(self.tuView.tabWidget.currentIndex(), update='1d only')
+			if item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6:
+				self.tuView.tuPlot.updateCurrentPlot(0, update='1d only')
+			elif item.ds_type == 7:
+				self.tuView.tuPlot.updateCurrentPlot(1, update='1d only')
+			else:
+				self.tuView.tuPlot.updateCurrentPlot(self.tuView.tabWidget.currentIndex(), update='1d only')
+
 				
 		return True
 	
@@ -619,7 +630,7 @@ class TuResults():
 					
 		return True
 		
-	def updateMaxTypes(self, clickedItem):
+	def updateMinMaxTypes(self, clickedItem, mtype):
 		"""
 		Updates the list of result types that should plot max.
 		
@@ -630,21 +641,31 @@ class TuResults():
 		openResultTypes = self.tuView.OpenResultTypes
 		
 		if clickedItem is not None:
-			openResultTypes.model().setActiveMax(clickedItem['parent'], clickedItem['index'])
+			if mtype == 'max':
+				openResultTypes.model().setActiveMax(clickedItem['parent'], clickedItem['index'])
+			elif  mtype == 'min':
+				openResultTypes.model().setActiveMin(clickedItem['parent'], clickedItem['index'])
 		
 		self.maxResultTypes = []
 		for item in openResultTypes.model().mapOutputsItem.children():
 			if item.enabled:
 				if item.isMax:
 					self.maxResultTypes.append(item.ds_name)
+		self.minResultTypes = []
+		for item in openResultTypes.model().mapOutputsItem.children():
+			if item.enabled:
+				if item.isMin:
+					self.minResultTypes.append(item.ds_name)
 		
 		for item in openResultTypes.model().timeSeriesItem.children():
 			if item.enabled:
 				if item.isMax:
 					self.maxResultTypes.append('{0}_1d'.format(item.ds_name))
+				if item.isMin:
+					self.minResultTypes.append('{0}_1d'.format(item.ds_name))
 					
 		return True
-	
+
 	def getResult(self, index, **kwargs):
 		"""
 		Gets data from the indexed results.
@@ -712,7 +733,7 @@ class TuResults():
 		# return time prev if higher is never found
 		return timePrev
 	
-	def isMax(self, type):
+	def isMax(self, typ):
 		"""
 		Returns whether the result type is max or not. Can put 'scalar' or 'vector' to auto get active scalar or vector.
 
@@ -722,12 +743,29 @@ class TuResults():
 		
 		maxResultTypes = self.tuView.tuResults.maxResultTypes  # list -> str
 		
-		if type == 'scalar':
+		if typ == 'scalar':
 			return True if self.tuResults2D.activeScalar in maxResultTypes else False
-		elif type == 'vector':
+		elif typ == 'vector':
 			return True if self.tuResults2D.activeVector in maxResultTypes else False
 		else:
-			return True if type in maxResultTypes else False
+			return True if typ in maxResultTypes else False
+
+	def isMin(self, typ):
+		"""
+		Returns whether the result type is max or not. Can put 'scalar' or 'vector' to auto get active scalar or vector.
+
+		:param type: str
+		:return: bool -> True for max, False for not max
+		"""
+
+		minResultTypes = self.tuView.tuResults.minResultTypes  # list -> str
+
+		if typ == 'scalar':
+			return True if self.tuResults2D.activeScalar in minResultTypes else False
+		elif typ == 'vector':
+			return True if self.tuResults2D.activeVector in minResultTypes else False
+		else:
+			return True if typ in minResultTypes else False
 	
 	def removeResults(self, resList):
 		"""
@@ -873,17 +911,33 @@ class TuResults():
 	def stripMaximumName(self, resultType: str) -> str:
 		"""
 		Strips the maximum identifier from the name.
-		
+
 		e.g. 'depth/Maximum' will return 'depth'
-		
+
 		:param resultType: str
 		:return: str
 		"""
-		
+
 		rtype = resultType.split('/')[0]
 		if 'max_' in rtype and 'time' not in rtype:
 			rtype = rtype.split('max_')[1]
-			
+
+		return rtype
+
+	def stripMinimumName(self, resultType: str) -> str:
+		"""
+		Strips the minimum identifier from the name.
+
+		e.g. 'depth/Maximum' will return 'depth'
+
+		:param resultType: str
+		:return: str
+		"""
+
+		rtype = resultType.split('/')[0]
+		if 'min_' in rtype and 'time' not in rtype:
+			rtype = rtype.split('min_')[1]
+
 		return rtype
 	
 	def isMaximumResultType(self, resultType: str,
@@ -916,6 +970,25 @@ class TuResults():
 					if dp.datasetCount(groupIndex) == 1:
 						return True
 		
+		return False
+
+	def isMinimumResultType(self, resultType: str,
+	                        dp: QgsMeshDataProvider = QgsMeshLayer().dataProvider(),
+	                        groupIndex: int = -1) -> bool:
+		"""
+		Determines if the result type is a minimum or not.
+
+		e.g. Depth/Minimums will return True
+
+		:param resultType: str
+		:param dp: QgsMeshDataProvider
+		:param groupIndex: int
+		:return: bool
+		"""
+
+		if '/Minimums' in resultType or ('min_' in resultType and 'time' not in resultType):
+			return True
+
 		return False
 	
 	def updateDateTimes(self):

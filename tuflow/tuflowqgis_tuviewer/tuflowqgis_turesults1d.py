@@ -178,7 +178,7 @@ class TuResults1D():
 			time2date[t] = zeroTime + timedelta(hours=t)
 			date2timekey[zeroTime + timedelta(hours=t)] = '{0:.6f}'.format(t)
 			date2time[zeroTime + timedelta(hours=t)] = t
-		
+
 		if 'point_ts' not in results[result.displayname].keys():
 			resultTypes = result.pointResultTypesTS()
 			metadata1d = (resultTypes, timesteps)

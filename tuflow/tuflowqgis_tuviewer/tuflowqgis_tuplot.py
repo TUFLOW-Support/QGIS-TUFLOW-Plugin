@@ -572,6 +572,7 @@ class TuPlot():
 			subplot.set_ybound(yLimits)
 			if isSecondaryAxis[0]:
 				subplot2.set_ybound(yLimits2)
+
 		figure.tight_layout()
 		plotWidget.draw()
 		
@@ -775,6 +776,7 @@ class TuPlot():
 			'depth to groundwater': ('m', 'ft', ''),
 			'water level': ('m RL', 'ft RL', ''),
 			'infiltration rate': ('mm/hr', 'in/hr', ''),
+			'mb': ('%', '%', ''),
 			'mb1': ('%', '%', ''),
 			'mb2': ('%', '%', ''),
 			'unit flow': ('m%^2$/s', 'ft$^2$/s', ''),
@@ -802,6 +804,7 @@ class TuPlot():
 			'us levels': 'h',
 			'ds levels': 'h',
 			'infiltration rate': 'IR',
+			'mb': 'MB',
 			'mb1': 'MB1',
 			'mb2': 'MB2',
 			'unit flow': 'q',
@@ -810,7 +813,9 @@ class TuPlot():
 			'rainfall rate': 'RR',
 			'stream power': 'SP',
 			'flow area': 'QA',
-			'time of max h': 't'
+			'time of max h': 't',
+			'losses': 'LC',
+			'flow regime': 'F'
 		}
 		
 		if self.tuView.tuMenuBar.freezeAxisLabels_action.isChecked():
@@ -933,7 +938,7 @@ class TuPlot():
 			elif plotNo == 1:
 				return self.axis2LongPlot
 			
-	def reorderByAxis(self, types, data, label, plotAsPoints, plotAsPatch):
+	def reorderByAxis(self, types, data, label, plotAsPoints, plotAsPatch, flowRegime):
 		"""
 		Reorders the data for plotting so that it is ordered by axis - axis 1 then axis 2. This is so that is
 		consistent with how the legend is going to be plotted when freezing the plotting style.
@@ -949,6 +954,7 @@ class TuPlot():
 		label1, label2, labelOrdered = [], [], []
 		plotAsPoints1, plotAsPoints2, plotAsPointsOrdered = [], [], []
 		plotAsPatch1, plotAsPatch2, plotAsPatchOrdered = [], [], []
+		flowRegime1, flowRegime2, flowRegimeOrdered = [], [], []
 
 		for i, rtype in enumerate(types):
 			if len(data[i][0]) > 0:
@@ -958,20 +964,23 @@ class TuPlot():
 					label2.append(label[i])
 					plotAsPoints2.append(plotAsPoints[i])
 					plotAsPatch2.append(plotAsPatch[i])
+					flowRegime2.append(flowRegime[i])
 				else:
 					types1.append(rtype)
 					data1.append(data[i])
 					label1.append(label[i])
 					plotAsPoints1.append(plotAsPoints[i])
 					plotAsPatch1.append(plotAsPatch[i])
+					flowRegime1.append(flowRegime[i])
 		
 		typesOrdered = types1 + types2
 		dataOrdered = data1 + data2
 		labelOrdered = label1 + label2
 		plotAsPointsOrdered = plotAsPoints1 + plotAsPoints2
 		plotAsPatchOrdered = plotAsPatch1 + plotAsPatch2
+		flowRegimeOrdered = flowRegime1 + flowRegime2
 		
-		return typesOrdered, dataOrdered, labelOrdered, plotAsPointsOrdered, plotAsPatchOrdered
+		return typesOrdered, dataOrdered, labelOrdered, plotAsPointsOrdered, plotAsPatchOrdered, flowRegimeOrdered
 	
 	def drawPlot(self, plotNo, data, label, types, **kwargs):
 		"""
@@ -984,6 +993,8 @@ class TuPlot():
 		:param label: list - str
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+		#import pydevd_pycharm
+		#pydevd_pycharm.settrace('localhost', port=53100, stdoutToServer=True, stderrToServer=True)
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.plotEnumerator(plotNo)
 		isSecondaryAxisLocal = False  # local version because time series and map outputs are treated separately
@@ -996,6 +1007,7 @@ class TuPlot():
 		draw = kwargs['draw'] if 'draw' in kwargs.keys() else True
 		time = kwargs['time'] if 'time' in kwargs.keys() else None
 		showCurrentTime = kwargs['show_current_time'] if 'show_current_time' in kwargs.keys() else False
+		flowRegime = kwargs['flow_regime'] if 'flow_regime' in kwargs.keys() else [False] * len(data)
 		
 		# get axis limits
 		xLimits = subplot.get_xlim()
@@ -1011,8 +1023,9 @@ class TuPlot():
 		
 		# get labels
 		if data:
-			types, data, label, plotAsPoints, plotAsPatch = self.reorderByAxis(types, data, label,
-			                                                                   plotAsPoints, plotAsPatch)  # orders the data by axis (axis 1 then axis 2)
+			types, data, label, plotAsPoints, plotAsPatch, flowRegime = self.reorderByAxis(types, data, label,
+			                                                                               plotAsPoints, plotAsPatch,
+			                                                                               flowRegime)  # orders the data by axis (axis 1 then axis 2)
 			labelsOriginal = label[:]  # save a copy as original labels so it can be referenced later
 			label, artistTemplates = self.getNewPlotProperties(plotNo, label, rtype='lines')  # check if there are any new names and styling
 		
@@ -1055,7 +1068,8 @@ class TuPlot():
 							a, = subplot.plot(x, y, label=label[i])
 							applyMatplotLibArtist(a, artistTemplates[i])
 						else:  # plot as points only
-							a, = subplot.plot(x, y, marker='o', linestyle='None', color='r', label=label[i])
+							if flowRegime[i]: y = self.convertFlowRegimeToInt(y)
+							a, = subplot.plot(x, y, marker='o', linestyle='None', label=label[i])
 							applyMatplotLibArtist(a, artistTemplates[i])
 						if not export:
 							artists[0].append(a)
@@ -1072,7 +1086,8 @@ class TuPlot():
 							a, = subplot2.plot(x, y, marker='x', label=label[i])
 							applyMatplotLibArtist(a, artistTemplates[i])
 						else:
-							a, = subplot2.plot(x, y, marker='o', linestyle='None', color='r', label=label[i])
+							if flowRegime[i]: y = self.convertFlowRegimeToInt(y)
+							a, = subplot2.plot(x, y, marker='o', linestyle='None', label=label[i])
 							applyMatplotLibArtist(a, artistTemplates[i])
 						if not export:
 							artists[1].append(a)
@@ -1165,6 +1180,17 @@ class TuPlot():
 			subplot.set_ybound(yLimits)
 			if isSecondaryAxis[0]:
 				subplot2.set_ybound(yLimits2)
+		if 'Flow Regime_1d' in types:
+			if 'Flow Regime_1d' in self.tuView.tuResults.secondaryAxisTypes:
+				subplot2.set_ybound((-4, 6))
+				subplot2.set_yticks(np.arange(-4, 7, 1))
+				subplot2.set_yticks([], minor=True)
+				subplot2.set_yticklabels(['A', 'B', 'K', 'L', 'G', 'C', 'D', 'E', 'F', 'H', 'J'])
+			else:
+				subplot.set_ybound((-4, 6))
+				subplot.set_yticks(np.arange(-4, 7, 1))
+				subplot.set_yticks([], minor=True)
+				subplot.set_yticklabels(['A', 'B', 'K', 'L', 'G', 'C', 'D', 'E', 'F', 'H', 'J'])
 		try:
 			figure.tight_layout()
 		except ValueError:  # something has gone wrong and trying to plot time (hrs) on a date formatted x axis
@@ -1794,3 +1820,38 @@ class TuPlot():
 			return self.tuView.tuResults.date2time[date]
 		else:
 			return -99999.
+
+	def convertFlowRegimeToInt(self, data: list) -> list:
+		"""
+		Converts flow regime letter to an integer value
+
+		"""
+
+		fr2int = {
+			# inlet control below x axis
+			'A': -1,
+			'B': -2,
+			'K': -3,
+			'L': -4,
+			# outlet control above x axis
+			'C': 1,
+			'D': 2,
+			'E': 3,
+			'F': 4,
+			'H': 5,
+			"J": 6,
+			# no flow or flap gate closed = 0
+			'G': 0,
+			' ': 0,
+			'  ': 0,
+		}
+
+		dataInt = []
+		for d in data:
+			if d:
+				dataInt.append(fr2int[d[0].upper()])
+			else:
+				dataInt.append(0)
+
+		return dataInt
+

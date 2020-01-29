@@ -69,12 +69,13 @@ class TuResults2D():
 				return False
 			
 			# Load Results
-			if type(inFileNames) is dict:  # being loaded in from a sup file
-				datasets = inFileNames[f]['datasets']
-				for d in datasets:
-					l = self.loadDataGroup(d, mLayer, preExisting)
-			else:
-				loaded = self.loadDataGroup(f, mLayer, preExisting)
+			if os.path.splitext(f)[1].lower() != '.nc':
+				if type(inFileNames) is dict:  # being loaded in from a sup file
+					datasets = inFileNames[f]['datasets']
+					for d in datasets:
+						l = self.loadDataGroup(d, mLayer, preExisting)
+				else:
+					loaded = self.loadDataGroup(f, mLayer, preExisting)
 			#res = {'path': f}
 			#self.results2d[mLayer.name()] = res
 			
@@ -154,44 +155,52 @@ class TuResults2D():
 		
 		if fext.lower() == '.xmdf' or fext.lower() == '.dat' or fext.lower() == '.2dm':
 			mesh = '{0}.2dm'.format(basepath)
-			basename_copy = basename
-			while not os.path.exists(mesh):  # put in for res_to_res results e.g. M01_5m_002_V_va.xmdf (velocity angle)
-				components = basename_copy.split('_')
-				components.pop()
-				if not components:
-					break
-				basename_copy = '_'.join(components)
-				mesh = '{0}.2dm'.format(os.path.join(dirname, basename_copy))
-			if not os.path.exists(mesh):
-				# ask user for location
-				inFileNames = QFileDialog.getOpenFileNames(self.tuView.iface.mainWindow(), 'Mesh file location', fpath,
-				                                           "TUFLOW Mesh File (*.2dm)")
-				if not inFileNames[0]:  # empty list
-					return None, None, False
-				else:
-					if os.path.exists(inFileNames[0][0]):
-						mesh = inFileNames[0][0]
-					else:
-						QMessageBox.information(self.iface, "TUFLOW Viewer", "Could not find mesh file")
-						return None, None, False
+		elif fext.lower() == '.nc':
+			mesh = fpath
 		else:
-			QMessageBox.information(self.iface.mainWindow(), "TUFLOW Viewer", "Must select a .xmdf .dat .sup or .2dm file type")
+			QMessageBox.information(self.iface.mainWindow(), "TUFLOW Viewer",
+			                        "Must select a .xmdf .dat .sup .nc or .2dm file type")
 			return None, None, False
+
+		basename_copy = basename
+		while not os.path.exists(mesh):  # put in for res_to_res results e.g. M01_5m_002_V_va.xmdf (velocity angle)
+			components = basename_copy.split('_')
+			components.pop()
+			if not components:
+				break
+			basename_copy = '_'.join(components)
+			mesh = '{0}.2dm'.format(os.path.join(dirname, basename_copy))
+		if not os.path.exists(mesh):
+			# ask user for location
+			inFileNames = QFileDialog.getOpenFileNames(self.tuView.iface.mainWindow(), 'Mesh file location', fpath,
+			                                           "TUFLOW Mesh File (*.2dm)")
+			if not inFileNames[0]:  # empty list
+				return None, None, False
+			else:
+				if os.path.exists(inFileNames[0][0]):
+					mesh = inFileNames[0][0]
+				else:
+					QMessageBox.information(self.iface, "TUFLOW Viewer", "Could not find mesh file")
+					return None, None, False
+
 			
 		# Load mesh if layer does not exist already
 		name = basename if name is None else name
 		layer = QgsMeshLayer(mesh, name, 'mdal')
 		if layer.isValid():
-			prop = {}
-			cellSize, wllVerticalOffset, origin, orientation, gridSize = getPropertiesFrom2dm(mesh)
-			prop['cell size'] = cellSize
-			prop['wll vertical offset'] = wllVerticalOffset
-			prop['origin'] = origin
-			prop['orientation'] = orientation
-			prop['grid size'] = gridSize
-			self.meshProperties[name] = prop
-			self.tuView.tuOptions.resolution = cellSize
-			return layer, name, False
+			if fext.lower() == '.nc':
+				return layer, name, False
+			else:
+				prop = {}
+				cellSize, wllVerticalOffset, origin, orientation, gridSize = getPropertiesFrom2dm(mesh)
+				prop['cell size'] = cellSize
+				prop['wll vertical offset'] = wllVerticalOffset
+				prop['origin'] = origin
+				prop['orientation'] = orientation
+				prop['grid size'] = gridSize
+				self.meshProperties[name] = prop
+				self.tuView.tuOptions.resolution = cellSize
+				return layer, name, False
 		
 		QMessageBox.information(self.iface.mainWindow(), "TUFLOW Viewer", "Could not load mesh file")
 		return None, None, False
@@ -278,7 +287,7 @@ class TuResults2D():
 		if name not in results.keys():  # add results to dict
 			results[name] = {}
 		
-		timesteps, maxResultTypes, temporalResultTypes = [], [], []
+		timesteps, minResultTypes, maxResultTypes, temporalResultTypes = [], [], [], []
 		dp = layer.dataProvider()  # QgsMeshDataProvider
 		
 		for i in range(dp.datasetGroupCount()):
@@ -350,12 +359,65 @@ class TuResults2D():
 					if vectorProperties:
 						self.applyVectorRenderSettings(layer, i, vectorProperties)
 						
+			elif self.tuView.tuResults.isMinimumResultType(mdGroup.name(), dp, i):
+				# get result group name
+				rt = mdGroup.name().split('/')[0]
+				if 'min_' in rt:
+					rt = rt.split('min_')[1]
+					mdGroupName = '{0}/Minimums'.format(rt)  # FV
+				#elif 'minimum dt' in rt.lower():
+				#	mdGroupName = '{0}/Final'.format(rt)  # special treatment for Minimum dt
+				else:
+					mdGroupName = mdGroup.name()
+
+				# check for duplicates - if there are duplicates add [1] or [2] ... [n] to name
+				if mdGroupName in minResultTypes:
+					counter = 1
+					mdGroupName = '{0} [{1}]'.format(mdGroupName, counter)
+					while mdGroupName in minResultTypes:
+						mdGroupName = mdGroupName.replace('[{0}]'.format(counter), '[{0}]'.format(counter + 1))
+						counter += 1
+
+				# add to min result type list
+				minResultTypes.append(mdGroupName)
+
+				# initiate in results dict
+				results[name][mdGroupName] = {}  # add result type to results dictionary
+
+				# add min result as time 99999
+				results[name][mdGroupName]['99999'] = (9999, type, QgsMeshDatasetIndex(i, 0))
+				timekey2time['99999'] = 99999
+				timekey2date['99999'] = 99999
+				time2date['99999'] = 99999
+				date2timekey[99999] = '99999'
+				date2time[99999] = '99999'
+
+				# apply any default rendering styles to datagroup
+				if mdGroup.isScalar() or ext.upper() == '.DAT':
+					resultType = mdGroup.name().split('/')[0]
+					if 'min_' in resultType:
+						resultType = resultType.split('min_')[1]
+					# try finding if style has been saved as a ramp first
+					key = 'TUFLOW_scalarRenderer/{0}_ramp'.format(resultType)
+					file = QSettings().value(key)
+					if file:
+						self.applyScalarRenderSettings(layer, i, file, type='ramp')
+					# else try map
+					key = 'TUFLOW_scalarRenderer/{0}_map'.format(resultType)
+					file = QSettings().value(key)
+					if file:
+						self.applyScalarRenderSettings(layer, i, file, type='map')
+				if mdGroup.isVector():
+					vectorProperties = QSettings().value('TUFLOW_vectorRenderer/vector')
+					if vectorProperties:
+						self.applyVectorRenderSettings(layer, i, vectorProperties)
+
 			else:
 				mdGroupName = mdGroup.name()
 				if mdGroupName in temporalResultTypes:
 					counter = 1
 					mdGroupName = '{0} [{1}]'.format(mdGroupName, counter)
-					while mdGroupName in maxResultTypes:
+					while mdGroupName in temporalResultTypes:
 						mdGroupName = mdGroupName.replace('[{0}]'.format(counter), '[{0}]'.format(counter + 1))
 						counter += 1
 					
@@ -499,9 +561,11 @@ class TuResults2D():
 			
 			# Get result index
 			activeScalarIndex = TuResultsIndex(layer.name(), self.activeScalar,
-			                                   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('scalar'))
+			                                   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('scalar'),
+			                                   self.tuView.tuResults.isMin('scalar'))
 			activeVectorIndex = TuResultsIndex(layer.name(), self.activeVector,
-			                                   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('vector'))
+			                                   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('vector'),
+			                                   self.tuView.tuResults.isMin('vector'))
 			
 			# Get QgsMeshLayerIndex from result index
 			activeScalarMeshIndex = self.tuView.tuResults.getResult(activeScalarIndex, force_get_time='next lower')

@@ -134,14 +134,14 @@ def findAllVectorLyrs():
 
 	vectorLyrs = []
 	for name, search_layer in QgsProject.instance().mapLayers().items():
-		if search_layer.type() == QgsMapLayer.VectorLayer:
+		if search_layer.type() == QgsMapLayerType.VectorLayer:
 			vectorLyrs.append(search_layer.name())
 
 	return vectorLyrs
 
 
 def tuflowqgis_duplicate_file(qgis, layer, savename, keepform):
-	if (layer == None) and (layer.type() != QgsMapLayer.VectorLayer):
+	if (layer == None) and (layer.type() != QgsMapLayerType.VectorLayer):
 		return "Invalid Vector Layer " + layer.name()
 		
 	# Create output file
@@ -312,7 +312,7 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 def tuflowqgis_get_selected_IDs(qgis,layer):
 	QMessageBox.information(qgis.mainWindow(),"Info", "Entering tuflowqgis_get_selected_IDs")
 	IDs = []
-	if (layer == None) and (layer.type() != QgsMapLayer.VectorLayer):
+	if (layer == None) and (layer.type() != QgsMapLayerType.VectorLayer):
 		return None, "Invalid Vector Layer " + layer.name()
 
 	dataprovider = layer.dataProvider()
@@ -616,16 +616,16 @@ def region_renderer(layer):
 		layer_style['outline'] = '#000000'
 		symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
 		if '2d_bc' in fname:
-			if layer.geometryType() == 1:
+			if layer.geometryType() == QgsWkbTypes.LineGeometry:
 				#QMessageBox.information(qgis.mainWindow(), "DEBUG", 'line 446')
 				symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
 				symbol_layer.setWidth(1)
-			elif layer.geometryType() == 0:
+			elif layer.geometryType() == QgsWkbTypes.PointGeometry:
 				symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
 				symbol_layer.setSize(2)
 				symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
 		elif '1d_nwk' in fname or '1d_nwkb' in fname or '1d_nwke' in fname or '1d_pit' in fname or '1d_nd' in fname:
-			if layer.geometryType() == 1:
+			if layer.geometryType() == QgsWkbTypes.LineGeometry:
 				#QMessageBox.information(qgis.mainWindow(), "DEBUG", 'line 446')
 				symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
 				symbol_layer.setWidth(1)
@@ -644,7 +644,7 @@ def region_renderer(layer):
 				#subSymbol.deleteSymbolLayer(0)
 				#triangle = registry.symbolLayerMetadata("SimpleMarker").createSymbolLayer({'name': 'filled_arrowhead', 'color': color, 'color_border': color, 'offset': '0,0', 'size': '4', 'angle': '0'})
 				#subSymbol.appendSymbolLayer(triangle)
-			elif layer.geometryType() == 0:
+			elif layer.geometryType() == QgsWkbTypes.PointGeometry:
 				symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
 				symbol_layer.setSize(1.5)
 				if unique_value == 'NODE':
@@ -658,7 +658,7 @@ def region_renderer(layer):
 			symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
 			layer.setOpacity(0.25)
 		elif '1d_bc' in fname:
-			if layer.geometryType() == 0:
+			if layer.geometryType() == QgsWkbTypes.PointGeometry:
 				symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
 				symbol_layer.setSize(1.5)
 				symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
@@ -697,7 +697,7 @@ def tuflowqgis_apply_check_tf(qgis):
 		return error, message
 		
 	for layer_name, layer in QgsProject.instance().mapLayers().items():
-		if layer.type() == QgsMapLayer.VectorLayer:
+		if layer.type() == QgsMapLayerType.VectorLayer:
 			layer_fname = os.path.split(layer.source())[1][:-4]
 			#QMessageBox.information(qgis.mainWindow(), "DEBUG", "shp layer name = "+layer.name())
 			renderer = region_renderer(layer)
@@ -740,7 +740,7 @@ def tuflowqgis_apply_check_tf_clayer(qgis, **kwargs):
 		return error, message
 		
 
-	if cLayer.type() == QgsMapLayer.VectorLayer:
+	if cLayer.type() == QgsMapLayerType.VectorLayer:
 		layer_fname = os.path.split(cLayer.source())[1][:-4]
 		renderer = region_renderer(cLayer)
 		if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
@@ -805,9 +805,9 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
 
 	message = None
 	
-	if inputLayer.geometryType() == 0:
+	if inputLayer.geometryType() == QgsWkbTypes.PointGeometry:
 		geomType = '_P'
-	elif inputLayer.geometryType() == 2:
+	elif inputLayer.geometryType() == QgsWkbTypes.PolygonGeometry:
 		geomType = '_R'
 	else:
 		geomType = '_L'
@@ -989,15 +989,15 @@ def get_tuflow_labelName(layer):
 		                                                                                             field_name4, 
 		                                                                                             field_name5)
 	elif '2d_zsh' in fname:
-		if layer.geometryType() == 0:
+		if layer.geometryType() == QgsWkbTypes.PointGeometry:
 			field_name1 = layer.fields().field(0).name()
 			field_name = "'{0}: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\")".format(field_name1)
-		elif layer.geometryType() == 1:
+		elif layer.geometryType() == QgsWkbTypes.LineGeometry:
 			field_name1 = layer.fields().field(0).name()
 			field_name2 = layer.fields().field(2).name()
 			field_name = "'Z: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'Shape Width: ' + " \
 			             "if(\"{1}\">-1000000, to_string(\"{1}\"), \"{1}\")".format(field_name1, field_name2)
-		elif layer.geometryType() == 2:
+		elif layer.geometryType() == QgsWkbTypes.PolygonGeometry:
 			field_name1 = layer.fields().field(0).name()
 			field_name2 = layer.fields().field(3).name()
 			field_name = "'Z: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'Shape Options: ' + " \
@@ -4808,6 +4808,14 @@ def is1dNetwork(layer):
 	                         QVariant.Double, QVariant.Double, QVariant.Double, QVariant.Double, QVariant.Double,
 	                         QVariant.String, QVariant.String, QVariant.LongLong, QVariant.Double, QVariant.Double,
 	                         QVariant.LongLong, QVariant.Double, QVariant.Double, QVariant.Double, QVariant.Double]
+	correct1dNetworkType3 = [QVariant.String, QVariant.String, QVariant.String, QVariant.String, QVariant.Double,
+	                        QVariant.Double, QVariant.Double, QVariant.Double, QVariant.Double, QVariant.String,
+	                        QVariant.String, QVariant.String, QVariant.Int, QVariant.Double, QVariant.Double,
+	                        QVariant.Int, QVariant.Double, QVariant.Double, QVariant.Double, QVariant.Double]
+	correct1dNetworkType4 = [QVariant.String, QVariant.String, QVariant.String, QVariant.String, QVariant.Double,
+	                         QVariant.Double, QVariant.Double, QVariant.Double, QVariant.Double, QVariant.String,
+	                         QVariant.String, QVariant.String, QVariant.LongLong, QVariant.Double, QVariant.Double,
+	                         QVariant.LongLong, QVariant.Double, QVariant.Double, QVariant.Double, QVariant.Double]
 
 	fieldTypes = []
 	for i, f in enumerate(layer.getFeatures()):
@@ -4821,7 +4829,10 @@ def is1dNetwork(layer):
 			fieldType = field.type()
 			fieldTypes.append(fieldType)
 
-	if fieldTypes == correct1dNetworkType or fieldTypes == correct1dNetworkType2:
+	if len(fieldTypes) < 20:
+		return False
+	if fieldTypes[:20] == correct1dNetworkType or fieldTypes[:20] == correct1dNetworkType2 or \
+		fieldTypes[:20] == correct1dNetworkType3 or fieldTypes[:20] == correct1dNetworkType4:
 		return True
 	else:
 		return False

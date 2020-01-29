@@ -46,7 +46,7 @@ class TuMenuFunctions():
 			# User get 2D result file
 			inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW 2D results file',
 			                                           fpath,
-			                                           "TUFLOW 2D Results (*.dat *.xmdf *.sup *.2dm)")
+			                                           "TUFLOW 2D Results (*.dat *.xmdf *.sup *.2dm *.nc)")
 			if not inFileNames[0]:  # empty list
 				return False
 			
@@ -959,14 +959,31 @@ class TuMenuFunctions():
 	def toggleResultTypeToMax(self):
 		"""
 		Toggles the result type to max or temporal through context menu.
-		
+
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		self.tuView.tuContextMenu.resultTypeContextItem.toggleMaxActive()
-		
+		if self.tuView.tuContextMenu.resultTypeContextItem.isMin:
+			self.tuView.tuContextMenu.resultTypeContextItem.toggleMinActive()
+
 		self.tuView.maxResultTypesChanged(None)
-		
+
+		return True
+
+	def toggleResultTypeToMin(self):
+		"""
+		Toggles the result type to min or temporal through context menu.
+
+		:return: bool -> True for successful, False for unsuccessful
+		"""
+
+		self.tuView.tuContextMenu.resultTypeContextItem.toggleMinActive()
+		if self.tuView.tuContextMenu.resultTypeContextItem.isMax:
+			self.tuView.tuContextMenu.resultTypeContextItem.toggleMaxActive()
+
+		self.tuView.minResultTypesChanged(None)
+
 		return True
 	
 	def toggleResultTypeToSecondaryAxis(self):

@@ -1,7 +1,7 @@
 Buffer == ON
 Box == OFF
-Attribute Name == ON
-Label Attributes == 3 | 4 ! attribute indexing starts at 1
+Attribute Name == OFF
+Label Attributes == 4 ! attribute indexing starts at 1
 Point Placement == Cartographic  ! only available option at the moment
 Line Placement == Parallel  ! Parallel or Horizontal
 Region Placement == Centroid  ! only available option at the moment

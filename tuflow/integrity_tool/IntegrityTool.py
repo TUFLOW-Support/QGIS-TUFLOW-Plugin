@@ -118,12 +118,12 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                 if inputType == 'lines' or inputType == 'points':
                     if not is1dNetwork(layer):
                         QMessageBox.critical(self, "Integrity Tool",
-                                             "Layer Is Not a 1d_nwk Type: {0}".format(input))
+                                             "Layer Is Not a 1d_nwk Type: {0}".format(layer.name()))
                         return
                 else:  # tables
                     if not is1dTable(layer):
                         QMessageBox.critical(self, "Integrity Tool",
-                                             "Layer Is Not a 1d_ta Type: {0}".format(input))
+                                             "Layer Is Not a 1d_ta Type: {0}".format(layer.name()))
                         return
 
         self.run()

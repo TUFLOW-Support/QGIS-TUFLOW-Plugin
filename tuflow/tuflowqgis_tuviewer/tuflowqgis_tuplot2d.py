@@ -47,7 +47,7 @@ class TuPlot2D():
 		
 		# Check that layer is points
 		if vLayer is not None:  # if none then memory layer
-			if vLayer.geometryType() != 0:
+			if vLayer.geometryType() != QgsWkbTypes.PointGeometry:
 				return
 			
 		if type(point) is QgsFeature:
@@ -226,7 +226,7 @@ class TuPlot2D():
 		
 		# Check that line is a polyline
 		if vLayer is not None:  # if none then memory layer
-			if vLayer.geometryType() != 1:
+			if vLayer.geometryType() != QgsWkbTypes.LineGeometry:
 				return False
 		
 		# deal with the kwargs
@@ -308,6 +308,10 @@ class TuPlot2D():
 					isMax = True
 				else:
 					isMax = self.tuView.tuResults.isMax(rtype)
+				if timestep == 'Minimum' or timestep == 99999 or timestep == '99999.000000':
+					isMin = True
+				else:
+					isMin = self.tuView.tuResults.isMin(rtype)
 				# get result data for open mesh results, selected scalar datasets, and active time
 				tuResultsIndex = TuResultsIndex(layer.name(), rtype, timestep, isMax)
 				if not self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower'):
@@ -409,7 +413,7 @@ class TuPlot2D():
 		
 		# Check that line is a polyline
 		if vLayer is not None:  # if none then memory layer
-			if vLayer.geometryType() != 1:
+			if vLayer.geometryType() != QgsWkbTypes.LineGeometry:
 				return
 				
 		# deal with the kwargs

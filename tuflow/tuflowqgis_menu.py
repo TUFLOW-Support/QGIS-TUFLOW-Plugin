@@ -45,7 +45,7 @@ from .tuflowqgis_library import tuflowqgis_apply_check_tf, resetQgisSettings
 
 # remote debugging
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\debug-eggs')
-sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\plugins\python\helpers\pydev')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\helpers\pydev')
 
@@ -355,11 +355,11 @@ class tuflowqgis_menu:
 				if bRedock == QMessageBox.Yes:
 					self.resultsPlottingDock.setFloating(False)
 		else:
-			try:
-				self.resultsPlottingDock = TuView(self.iface, removeTuview=self.removeTuviewAction,
+			#try:
+			self.resultsPlottingDock = TuView(self.iface, removeTuview=self.removeTuviewAction,
 				                                  reloadTuview=self.reloadTuviewAction)
-			except:
-				pass
+			#except:
+			#	pass
 			self.iface.addDockWidget(Qt.BottomDockWidgetArea, self.resultsPlottingDock)
 			self.resultsPlottingDockOpened = True
 			

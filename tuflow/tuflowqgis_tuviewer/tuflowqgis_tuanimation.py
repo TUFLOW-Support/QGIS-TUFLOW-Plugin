@@ -2204,7 +2204,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		if self.layer is None:
 			QMessageBox.information(self, 'Input Error',
 									'Cannot Find Result File in QGIS: {0}'.format(self.cboResult.currentText()))
-		if self.layer.type() != 3:
+		if self.layer.type() != QgsMapLayerType.MeshLayer:
 			QMessageBox.information(self, 'Input Error',
 									'Error finding Result Mesh Layer: {0}'.format(self.cboResult.currentText()))
 		if not os.path.exists(os.path.dirname(self.editOutput.text())) and not preview:

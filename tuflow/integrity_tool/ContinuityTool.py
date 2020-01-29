@@ -55,7 +55,7 @@ class ContinuityTool(QObject):
         else:
             if self.iface is not None:
                 crs = QgsProject.instance().crs()
-                uri = "point?crs{0}".format(crs.authid())
+                uri = "point?crs={0}".format(crs.authid().lower())
             else:
                 uri = "point"
             self.outputLyr = QgsVectorLayer(uri, "output", "memory")

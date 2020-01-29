@@ -170,6 +170,8 @@ class TuContextMenu():
 		
 		self.setToMaximumResult_action = QAction('Maximum', self.resultTypesMenu)
 		self.setToMaximumResult_action.setCheckable(True)
+		self.setToMinimumResult_action = QAction('Minimum', self.resultTypesMenu)
+		self.setToMinimumResult_action.setCheckable(True)
 		self.setToSecondaryAxis_action = QAction('Secondary Axis', self.resultTypesMenu)
 		self.setToSecondaryAxis_action.setCheckable(True)
 		self.saveDefaultStyleRamp_action = QAction('Colour Ramp', self.resultTypesMenu)
@@ -180,6 +182,7 @@ class TuContextMenu():
 		self.propertiesDialog_action = QAction('Properties', self.resultTypesMenu)
 		
 		self.resultTypesMenu.addAction(self.setToMaximumResult_action)
+		self.resultTypesMenu.addAction(self.setToMinimumResult_action)
 		self.resultTypesMenu.addAction(self.setToSecondaryAxis_action)
 		self.resultTypesMenu.addSeparator()
 		self.saveStyleMenu = self.resultTypesMenu.addMenu('Save Style as Default')
@@ -192,6 +195,7 @@ class TuContextMenu():
 		self.resultTypesMenu.addAction(self.propertiesDialog_action)
 		
 		self.setToMaximumResult_action.triggered.connect(self.tuMenuFunctions.toggleResultTypeToMax)
+		self.setToMinimumResult_action.triggered.connect(self.tuMenuFunctions.toggleResultTypeToMin)
 		self.setToSecondaryAxis_action.triggered.connect(self.tuMenuFunctions.toggleResultTypeToSecondaryAxis)
 		self.saveDefaultStyleRamp_action.triggered.connect(lambda: self.tuMenuFunctions.saveDefaultStyleScalar('color ramp', use_clicked=True))
 		self.saveDefaultStyleMap_action.triggered.connect(lambda: self.tuMenuFunctions.saveDefaultStyleScalar('color map', use_clicked=True))
@@ -242,6 +246,15 @@ class TuContextMenu():
 						self.setToMaximumResult_action.setChecked(False)
 				else:
 					self.setToMaximumResult_action.setEnabled(False)
+				# minimum
+				if item.hasMin:
+					self.setToMinimumResult_action.setEnabled(True)
+					if item.isMin:
+						self.setToMinimumResult_action.setChecked(True)
+					else:
+						self.setToMinimumResult_action.setChecked(False)
+				else:
+					self.setToMinimumResult_action.setEnabled(False)
 				# save and load styling
 				if item.ds_type == 1:  # scalar
 					self.saveStyleMenu.menuAction().setVisible(True)
