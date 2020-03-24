@@ -222,8 +222,8 @@ class TuPlot():
 		# plot colours
 		self.colours = generateRandomMatplotColours(100)
 
-		self.cax = None
-		self.qk = None
+		self.cax = None  # axes object for colourbar
+		self.qk = None  # artist object for vector arrow legend
 
 	def plot2D(self):
 		"""
