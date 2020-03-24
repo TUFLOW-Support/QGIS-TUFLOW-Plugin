@@ -1266,7 +1266,72 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		                                                          "HTML format (*.html *.HTML)", self.leBOMFile))
 		self.pbOk.clicked.connect(self.check)
 		self.pbCancel.clicked.connect(self.reject)
+
+		self.preburstTPMethodChanged()
+		self.preburstUnitsChanged()
+		self.cboDurTP.setCurrentIndex(1)
+		self.cboDurTPChanged()
+		self.cboPreburstTPMethod.currentIndexChanged.connect(self.preburstTPMethodChanged)
+		self.cboPreburstDurUnits.currentIndexChanged.connect(self.preburstUnitsChanged)
+		self.cboDurTP.currentIndexChanged.connect(self.cboDurTPChanged)
+
+	def cboDurTPChanged(self, e=None):
+		"""
+		What happens when preburst temporal pattern duration combobox is changed.
+
+		:param e: QEvent
+		:return: None
+		"""
+
+		if self.cboDurTP.currentIndex() == 0:
+			self.cboDurTP.resize(self.cboDurTP.sizeHint())
+			self.wProportion.setVisible(True)
+		else:
+			self.cboDurTP.resize(self.cboDurTP.sizeHint())
+			self.wProportion.setVisible(False)
+
+
+	def preburstUnitsChanged(self, e=None):
+		"""
+		What happens when preburst constant rate unit combobox is changed.
+		Change the suffix in spinbox.
+
+		:param e: QEvent
+		:return: None
+		"""
+
+		if self.cboPreburstDurUnits.currentIndex() == 0:
+			self.cboPreburstDurUnits.resize(self.cboPreburstDurUnits.sizeHint())
+			self.sbPreBurstDur.setSuffix(" min")
+			self.sbPreBurstDur.setDecimals(0)
+			self.sbPreBurstDur.setMinimum(1)
+		elif self.cboPreburstDurUnits.currentIndex() == 1:
+			self.cboPreburstDurUnits.resize(self.cboPreburstDurUnits.sizeHint())
+			self.sbPreBurstDur.setSuffix(" hr")
+			self.sbPreBurstDur.setDecimals(2)
+			self.sbPreBurstDur.setMinimum(0.01)
+		elif self.cboPreburstDurUnits.currentIndex() == 2:
+			self.cboPreburstDurUnits.resize(self.cboPreburstDurUnits.sizeHint())
+			self.sbPreBurstDur.setSuffix("")
+			self.sbPreBurstDur.setDecimals(2)
+			self.sbPreBurstDur.setMinimum(0.01)
 	
+	def preburstTPMethodChanged(self, e=None):
+		"""
+		What happens when preburst TP method is changed.
+		Make the different method widgets visible / not visible
+
+		:param e: QEvent
+		:return: None
+		"""
+
+		if self.cboPreburstTPMethod.currentIndex() == 0:
+			self.wPreburstConstant.setVisible(True)
+			self.wPreburstTP.setVisible(False)
+		elif self.cboPreburstTPMethod.currentIndex() == 1:
+			self.wPreburstConstant.setVisible(False)
+			self.wPreburstTP.setVisible(True)
+
 	def catchmentLayer_changed(self):
 		layerName = self.comboBox_inputCatchment.currentText()
 		layer = tuflowqgis_find_layer(layerName)
@@ -1755,6 +1820,35 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			offlineMode = 'false'
 			arrFile = 'none'
 			bomFile = 'none'
+
+		# probability neutral burst initial loss
+		pnil = 'true' if self.cbPNIL.isChecked() else 'false'
+
+		# preburst tp
+		complete_storm = 'true' if self.cbCompleteStorm.isChecked() else 'false'
+		preburst_proportional = 'false'
+		preburst_pattern = 'none'
+		preburst_pattern_dur = 'none'
+		preburst_pattern_tp = 'none'
+		if self.cbCompleteStorm.isChecked():
+			if self.cboPreburstTPMethod.currentIndex() == 0:
+				preburst_pattern = 'constant'
+				if self.cboPreburstDurUnits.currentIndex() == 0:
+					preburst_pattern_dur = f'{self.sbPreBurstDur.value()/60.:.4f}'
+				elif self.cboPreburstDurUnits.currentIndex() == 1:
+					preburst_pattern_dur = f'{self.sbPreBurstDur.value():.2f}'
+				elif self.cboPreburstDurUnits.currentIndex() == 2:
+					preburst_proportional = 'true'
+					preburst_pattern_dur = f'{self.sbPreBurstDur.value():.2f}'
+			elif self.cboPreburstTPMethod.currentIndex() == 1:
+				preburst_pattern = 'tp'
+				preburst_pattern_tp = self.cboTP.currentText()
+				if self.cboDurTP.currentIndex() == 0:
+					preburst_proportional = 'true'
+					preburst_pattern_dur = f'{self.sbProportion.value():.2f}'
+				else:
+					preburst_pattern_dur = self.cboDurTP.currentText()
+
 		
 		# get system arguments and call ARR2016 tool
 		# use QThread so that progress bar works properly
@@ -1775,7 +1869,11 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			            '-offline_mode', offlineMode, '-arr_file', arrFile, '-bom_file', bomFile,
 			            '-user_initial_loss', userInitialLoss, '-user_continuing_loss', userContinuingLoss,
 			            '-arffreq', arfFrequent, '-urban_initial_loss', urbanInitialLoss,
-			            '-urban_continuing_loss', urbanContinuingLoss]
+			            '-urban_continuing_loss', urbanContinuingLoss,
+			            '-probability_neutral_losses', pnil,
+			            '-complete_storm', complete_storm, '-preburst_pattern_method', preburst_pattern,
+			            '-preburst_pattern_dur', preburst_pattern_dur, '-preburst_pattern_tp', preburst_pattern_tp,
+			            '-preburst_dur_proportional', preburst_proportional]
 			self.arr2016.append(sys_args, name_list[i])
 			
 		self.arr2016.moveToThread(self.thread)
@@ -2573,12 +2671,23 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 			self.rbARRNextHigher.setChecked(True)
 		else:
 			self.rbARRClosest.setChecked(True)
+
+		# default layout
+		if self.tuOptions.defaultLayout == "plot":
+			self.rbDefaultLayoutPlotView.setChecked(True)
+		else:
+			self.rbDeafultLayoutNarrowView.setChecked(True)
 		
 		# Signals
 		self.leDateFormat.textChanged.connect(self.updatePreview)
+		self.rbDefaultLayoutPlotView.clicked.connect(lambda: self.saveDefaultLayout("plot"))
+		self.rbDeafultLayoutNarrowView.clicked.connect(lambda: self.saveDefaultLayout("narrow"))
 		self.buttonBox.rejected.connect(self.cancel)
 		self.buttonBox.accepted.connect(self.run)
 		
+	def saveDefaultLayout(self, layoutType):
+		QSettings().setValue("TUFLOW/tuview_defaultlayout", layoutType)
+
 	def updatePreview(self):
 		self.tuOptions.dateFormat, self.tuOptions._dateFormat = convertTuviewftimToStrftim(self.leDateFormat.text())
 		self.datePreview.setText(self.tuOptions._dateFormat.format(self.date))
@@ -2660,6 +2769,12 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 			self.tuOptions.meanEventSelection = 'next higher'
 		else:
 			self.tuOptions.meanEventSelection = 'closest'
+
+		# default layout
+		if self.rbDefaultLayoutPlotView.isChecked():
+			self.tuOptions.defaultLayout = "plot"
+		else:
+			self.tuOptions.defaultLayout = "narrow"
 			
 
 # ----------------------------------------------------------
@@ -3099,6 +3214,7 @@ class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
 		self.ok = False
 		self.message = ''
 		self._dateFormat = '{0:%d}/{0:%m}/{0:%Y} {0:%H}:{0:%M}:{0:%S}'
+		self.dteZeroTime.setDisplayFormat('d/M/yyyy h:mm AP')
 		
 		self.btnBrowse.clicked.connect(lambda: browse(self, 'existing file', 'TUFLOW/import_user_data',
 		                                              'Import Delimited File', lineEdit=self.inFile))
@@ -3124,6 +3240,15 @@ class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
 		self.dteZeroTime.dateTimeChanged.connect(self.updatePreview)
 		self.pbOk.clicked.connect(self.check)
 		self.pbCancel.clicked.connect(self.reject)
+		self.cbUSDateFormat.toggled.connect(self.dateFormatChanged)
+
+	def dateFormatChanged(self,):
+		if self.cbUSDateFormat.isChecked():
+			self.dteZeroTime.setDisplayFormat('M/d/yyyy h:mm AP')
+		else:
+			self.dteZeroTime.setDisplayFormat('d/M/yyyy h:mm AP')
+
+		self.updatePreview()
 
 	def addDateConversionError(self, txt='', clear=False):
 		"""
@@ -3746,6 +3871,8 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 		self.buttonGroup = QButtonGroup()
 		self.buttonGroup.addButton(self.rbCommonFunctions)
 		self.buttonGroup.addButton(self.rbAdvanced)
+		self.rbCommonFunctions.setVisible(False)
+		self.rbAdvanced.setVisible(False)
 		self.rbCommonFunctions.setChecked(True)
 		self.loadProjectSettings()
 		
@@ -3758,6 +3885,31 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 		self.pbDownloadExecutables.clicked.connect(self.downloadExecutables)
 		self.pbOK.clicked.connect(self.check)
 		self.pbCancel.clicked.connect(self.reject)
+		self.tabWidget.currentChanged.connect(self.currentTabChanged)
+		self.btnFindFile.clicked.connect(self.findFile)
+
+	def findFile(self):
+		files = QFileDialog.getOpenFileNames(self, "Select File(s)", self.leAdvWorkingDir.text(), "ALL (*)")[0]
+		text = [self.teCommands.toPlainText()]
+		for f in files:
+			name = os.path.basename(f)
+			if not text[0]:
+				t = "{0}".format(name)
+			elif text[0][-1] == " ":
+				t = "{0}".format(name)
+			else:
+				t = " {0}".format(name)
+			text.append(t)
+		self.teCommands.setPlainText(''.join(text))
+
+	def currentTabChanged(self):
+		self.pbOK.setEnabled(True)
+		if self.tabWidget.currentIndex() == 0:
+			self.rbCommonFunctions.setChecked(True)
+		elif self.tabWidget.currentIndex() == 1:
+			self.rbAdvanced.setChecked(True)
+		else:
+			self.pbOK.setEnabled(False)
 		
 	def downloadExecutables(self):
 		# check if windows

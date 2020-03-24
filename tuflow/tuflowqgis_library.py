@@ -41,6 +41,8 @@ import matplotlib
 import glob # MJS 11/02
 from tuflow.utm.utm import from_latlon, to_latlon
 from tuflow.__version__ import version
+import ctypes
+from typing import Tuple, List
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tuflowqgis_styles
@@ -50,6 +52,63 @@ import tuflowqgis_styles
 # --------------------------------------------------------
 #build_vers = build_vers
 #build_type = 'release' #release / developmental
+
+class NC_Error:
+	NC_NOERR = 0
+	NC_EBADID = -33
+	NC_ENOTVAR = -49
+	NC_EBADDIM = -46
+	NC_EPERM = -37
+	NC_ENFILE = -34
+	NC_ENOMEM = -61
+	NC_EHDFERR = -101
+	NC_EDIMMETA = -106
+
+	@staticmethod
+	def message(error):
+		error2message = {
+			NC_Error.NC_NOERR: "No error",
+			NC_Error.NC_EBADID: "Invalid ncid",
+			NC_Error.NC_ENOTVAR: "Invalid Variable ID",
+			NC_Error.NC_EBADDIM: "Invalid Dimension ID",
+			NC_Error.NC_EPERM: "Attempting to create a netCDF file in a directory where you do not have permission to open files",
+			NC_Error.NC_ENFILE: "Too many files open",
+			NC_Error.NC_ENOMEM: "Out of memory",
+			NC_Error.NC_EHDFERR: "HDF5 error. (NetCDF-4 files only.)",
+			NC_Error.NC_EDIMMETA: "Error in netCDF-4 dimension metadata. (NetCDF-4 files only.)"
+		}
+
+		if error in error2message:
+			return error2message[error]
+		else:
+			return "code {0}".format(error)
+
+
+class NcDim():
+
+	def __init__(self):
+		self.id = -1
+		self.name = ""
+		self.len = 0
+
+	def print_(self):
+		return 'id: {0}, name: {1}, len: {2}'.format(self.id, self.name, self.len)
+
+
+class NcVar():
+
+	def __init__(self):
+		self.id = -1
+		self.name = ""
+		self.type = -1
+		self.nDims = 0
+		self.dimIds = ()
+		self.dimNames = ()
+		self.dimLens = ()
+
+	def print_(self):
+		return 'id: {0}, name: {1}, type: {2}, nDim: {3}, dims: ({4})'.format(self.id, self.name, self.type, self.nDims, ', '.join(self.dimNames))
+
 
 def about(window):
 	build_type, build_vers = version()
@@ -1285,7 +1344,7 @@ def parseLabelProperties(fpath: str, override: str='', rule_based: bool=False,
 			'only_rule_based': False,
 		}
 
-	isOnlyRuleBased = False
+	isOnlyRuleBased = False if not isOverride else d['only_rule_based']
 	if os.path.exists(fpath):
 		if not rule_based:  # not looking for a specific labelling rule
 			# first sweep pick up rule-based labelling names
@@ -1340,6 +1399,7 @@ def parseLabelProperties(fpath: str, override: str='', rule_based: bool=False,
 						if read:
 							assignLabelProperty(d, comm, val)
 		# check if there is only rule based or if there are also default values i.e. an 'else' rule
+		d['only_rule_based'] = isOnlyRuleBased
 		if not isOnlyRuleBased and d['rule_based']:
 			# copy defaults into a rule called 'else'
 			rule = {
@@ -2035,7 +2095,9 @@ def getResultPathsFromTCF(fpath, **kwargs):
 	outputDrive = checkForOutputDrive(fpath, scenarios)
 	
 	# check for variables
-	variables = getVariableNamesFromTCF(fpath, scenarios)
+	variables, error = getVariableNamesFromTCF(fpath, scenarios)
+	if error:
+		return results1D, results2D, messages
 	
 	# get output folders
 	outputFolder1D, outputFolder2D = getOutputFolderFromTCF(fpath, variables=variables, output_drive=outputDrive,
@@ -2246,9 +2308,12 @@ def getScenariosFromTcf(tcf):
 	
 	messages = []
 	error = False
-	variables = getVariableNamesFromTCF(tcf, 'all')
-	dir = os.path.dirname(tcf)
 	scenarios = []
+	variables, error = getVariableNamesFromTCF(tcf, 'all')
+	if error:
+		message = '\n'.join(messages)
+		return True, message, scenarios
+	dir = os.path.dirname(tcf)
 	msg, scenarios = getScenariosFromControlFile(tcf, scenarios)
 	if msg:
 		error = True
@@ -2747,46 +2812,55 @@ def getVariableNamesFromControlFile(controlFile, variables, scenarios=()):
 	
 	read = True
 	with open(controlFile, 'r') as fo:
-		for f in fo:
-			if 'if scenario' in f.lower():
-				ind = f.lower().find('if scenario')
-				if '!' not in f[:ind]:
-					command, scenario = f.split('==')
-					command = command.strip()
-					scenario = scenario.split('!')[0]
-					scenario = scenario.strip()
-					scenarios_ = scenario.split('|')
-					found = False
-					if scenarios == 'all':
-						found = True
-					else:
-						for scenario in scenarios_:
-							scenario = scenario.strip()
-							if scenario in scenarios:
-								found = True
-					if found:
+		try:
+			for f in fo:
+				if 'if scenario' in f.lower():
+					ind = f.lower().find('if scenario')
+					if '!' not in f[:ind]:
+						command, scenario = f.split('==')
+						command = command.strip()
+						scenario = scenario.split('!')[0]
+						scenario = scenario.strip()
+						scenarios_ = scenario.split('|')
+						found = False
+						if scenarios == 'all':
+							found = True
+						else:
+							for scenario in scenarios_:
+								scenario = scenario.strip()
+								if scenario in scenarios:
+									found = True
+						if found:
+							read = True
+						else:
+							read = False
+				elif 'end if' in f.lower():
+					ind = f.lower().find('end if')
+					if '!' not in f[:ind]:
 						read = True
-					else:
-						read = False
-			elif 'end if' in f.lower():
-				ind = f.lower().find('end if')
-				if '!' not in f[:ind]:
-					read = True
-			elif not read:
-				continue
-			elif 'set variable' in f.lower():
-				ind = f.lower().find('set variable')
-				if '!' not in f[:ind]:
-					command, value = f.split('==')
-					command = command.strip()
-					variable = command[12:].strip()
-					value = value.split('!')[0]
-					value = value.strip()
-					if variable.lower() not in variables:
-						variables[variable.lower()] = []
-					variables[variable.lower()].append(value)
+				elif not read:
+					continue
+				elif 'set variable' in f.lower():
+					ind = f.lower().find('set variable')
+					if '!' not in f[:ind]:
+						command, value = f.split('==')
+						command = command.strip()
+						variable = command[12:].strip()
+						value = value.split('!')[0]
+						value = value.strip()
+						if variable.lower() not in variables:
+							variables[variable.lower()] = []
+						variables[variable.lower()].append(value)
+		except UnicodeDecodeError:
+			msgBox = QMessageBox()
+			msgBox.setIcon(QMessageBox.Critical)
+			msgBox.setWindowTitle("Load Results")
+			msgBox.setTextFormat(Qt.RichText)
+			msgBox.setText("Encoding error:<br>{0}<br><a href='https://wiki.tuflow.com/index.php?title=TUFLOW_Viewer#Loading_Results'>wiki.tuflow.com/index.php?title=TUFLOW_Viewer#Loading_Results</a>".format(controlFile))
+			msgBox.exec()
+			return {}, True
 	
-	return variables
+	return variables, False
 				
 
 def getVariableNamesFromTCF(tcf, scenarios=()):
@@ -2801,102 +2875,125 @@ def getVariableNamesFromTCF(tcf, scenarios=()):
 	dir = os.path.dirname(tcf)
 	variables = {}
 	# first look for variables in tcf
-	variables = getVariableNamesFromControlFile(tcf, variables, scenarios)
+	variables, error = getVariableNamesFromControlFile(tcf, variables, scenarios)
+	if error:
+		return {}, True
 	# then look for variables in other control files
 	read = True
 	with open(tcf, 'r') as fo:
-		for f in fo:
-			if 'if scenario' in f.lower():
-				ind = f.lower().find('if scenario')
-				if '!' not in f[:ind]:
-					command, scenario = f.split('==')
-					command = command.strip()
-					scenario = scenario.split('!')[0]
-					scenario = scenario.strip()
-					scenarios_ = scenario.split('|')
-					found = False
-					if scenarios == 'all':
-						found = True
-					else:
-						for scenario in scenarios_:
-							scenario = scenario.strip()
-							if scenario in scenarios:
-								found = True
-					if found:
+		try:
+			for f in fo:
+				if 'if scenario' in f.lower():
+					ind = f.lower().find('if scenario')
+					if '!' not in f[:ind]:
+						command, scenario = f.split('==')
+						command = command.strip()
+						scenario = scenario.split('!')[0]
+						scenario = scenario.strip()
+						scenarios_ = scenario.split('|')
+						found = False
+						if scenarios == 'all':
+							found = True
+						else:
+							for scenario in scenarios_:
+								scenario = scenario.strip()
+								if scenario in scenarios:
+									found = True
+						if found:
+							read = True
+						else:
+							read = False
+				if 'end if' in f.lower():
+					ind = f.lower().find('end if')
+					if '!' not in f[:ind]:
 						read = True
-					else:
-						read = False
-			if 'end if' in f.lower():
-				ind = f.lower().find('end if')
-				if '!' not in f[:ind]:
-					read = True
-			if not read:
-				continue
-			if 'estry control file' in f.lower():
-				ind = f.lower().find('estry control file')
-				if '!' not in f[:ind]:
-					if 'estry control file auto' in f.lower():
-						path = '{0}.ecf'.format(os.path.splitext(tcf)[0])
-					else:
+				if not read:
+					continue
+				if 'estry control file' in f.lower():
+					ind = f.lower().find('estry control file')
+					if '!' not in f[:ind]:
+						if 'estry control file auto' in f.lower():
+							path = '{0}.ecf'.format(os.path.splitext(tcf)[0])
+						else:
+							command, relPath = f.split('==')
+							command = command.strip()
+							relPath = relPath.split('!')[0]
+							relPath = relPath.strip()
+							path = getPathFromRel(dir, relPath)
+							if os.path.exists(path):
+								variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
+								if error:
+									return {}, True
+				if 'geometry control file' in f.lower():
+					ind = f.lower().find('geometry control file')
+					if '!' not in f[:ind]:
 						command, relPath = f.split('==')
 						command = command.strip()
 						relPath = relPath.split('!')[0]
 						relPath = relPath.strip()
 						path = getPathFromRel(dir, relPath)
 						if os.path.exists(path):
-							variables = getVariableNamesFromControlFile(path, variables, scenarios)
-			if 'geometry control file' in f.lower():
-				ind = f.lower().find('geometry control file')
-				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
-					command = command.strip()
-					relPath = relPath.split('!')[0]
-					relPath = relPath.strip()
-					path = getPathFromRel(dir, relPath)
-					if os.path.exists(path):
-						variables = getVariableNamesFromControlFile(path, variables, scenarios)
-			if 'bc control file' in f.lower():
-				ind = f.lower().find('bc control file')
-				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
-					command = command.strip()
-					relPath = relPath.split('!')[0]
-					relPath = relPath.strip()
-					path = getPathFromRel(dir, relPath)
-					if os.path.exists(path):
-						variables = getVariableNamesFromControlFile(path, variables, scenarios)
-			if 'event control file' in f.lower():
-				ind = f.lower().find('event control file')
-				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
-					command = command.strip()
-					relPath = relPath.split('!')[0]
-					relPath = relPath.strip()
-					path = getPathFromRel(dir, relPath)
-					if os.path.exists(path):
-						variables = getVariableNamesFromControlFile(path, variables, scenarios)
-			if 'read file' in f.lower():
-				ind = f.lower().find('read file')
-				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
-					command = command.strip()
-					relPath = relPath.split('!')[0]
-					relPath = relPath.strip()
-					path = getPathFromRel(dir, relPath)
-					if os.path.exists(path):
-						variables = getVariableNamesFromControlFile(path, variables, scenarios)
-			if 'read operating controls file' in f.lower():
-				ind = f.lower().find('read operating controls file')
-				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
-					command = command.strip()
-					relPath = relPath.split('!')[0]
-					relPath = relPath.strip()
-					path = getPathFromRel(dir, relPath)
-					if os.path.exists(path):
-						variables = getVariableNamesFromControlFile(path, variables, scenarios)
+							variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
+							if error:
+								return {}, True
+				if 'bc control file' in f.lower():
+					ind = f.lower().find('bc control file')
+					if '!' not in f[:ind]:
+						command, relPath = f.split('==')
+						command = command.strip()
+						relPath = relPath.split('!')[0]
+						relPath = relPath.strip()
+						path = getPathFromRel(dir, relPath)
+						if os.path.exists(path):
+							variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
+							if error:
+								return {}, True
+				if 'event control file' in f.lower():
+					ind = f.lower().find('event control file')
+					if '!' not in f[:ind]:
+						command, relPath = f.split('==')
+						command = command.strip()
+						relPath = relPath.split('!')[0]
+						relPath = relPath.strip()
+						path = getPathFromRel(dir, relPath)
+						if os.path.exists(path):
+							variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
+							if error:
+								return {}, True
+				if 'read file' in f.lower():
+					ind = f.lower().find('read file')
+					if '!' not in f[:ind]:
+						command, relPath = f.split('==')
+						command = command.strip()
+						relPath = relPath.split('!')[0]
+						relPath = relPath.strip()
+						path = getPathFromRel(dir, relPath)
+						if os.path.exists(path):
+							variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
+							if error:
+								return {}, True
+				if 'read operating controls file' in f.lower():
+					ind = f.lower().find('read operating controls file')
+					if '!' not in f[:ind]:
+						command, relPath = f.split('==')
+						command = command.strip()
+						relPath = relPath.split('!')[0]
+						relPath = relPath.strip()
+						path = getPathFromRel(dir, relPath)
+						if os.path.exists(path):
+							variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
+							if error:
+								return {}, True
+		except UnicodeDecodeError:
+			msgBox = QMessageBox()
+			msgBox.setIcon(QMessageBox.Critical)
+			msgBox.setWindowTitle("Load Results")
+			msgBox.setTextFormat(Qt.RichText)
+			msgBox.setText("Encoding error:<br>{0}<br><a href='https://wiki.tuflow.com/index.php?title=TUFLOW_Viewer#Loading_Results'>wiki.tuflow.com/index.php?title=TUFLOW_Viewer#Loading_Results</a>".format(controlFile))
+			msgBox.exec()
+			return {}, True
 						
-	return variables
+	return variables, False
 
 
 def loadGisFile(iface, path, group, processed_paths, processed_layers, error, log):
@@ -3057,7 +3154,9 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 	dir = os.path.dirname(tcf)
 	
 	# get variable names and corresponding values
-	variables = getVariableNamesFromTCF(tcf, scenarios)
+	variables, error = getVariableNamesFromTCF(tcf, scenarios)
+	if error:
+		return
 	
 	processed_paths = []
 	processed_layers = []
@@ -4678,7 +4777,7 @@ def convertFormattedTimeToTime(formatted_time, hour_padding=2, unit='h'):
 		return d.total_seconds() / 3600
 
 
-def convertFormattedTimeToFromattedTime(formatted_time: str, return_format: str = '{0:02d}:{1:02d}:{2:02.0f}') -> str:
+def convertFormattedTimeToFormattedTime(formatted_time: str, return_format: str = '{0:02d}:{1:02d}:{2:02.0f}') -> str:
 	"""
 	Converts formatted time hh:mm:ss.ms to another formatted time string. Benefit is that it can
 	take non digit characters e.g. '_'
@@ -5091,6 +5190,8 @@ def getResultPathsFromTLF(fpath: str) -> (list, list, list):
 					if len(line) > 20:
 						path = line[19:].strip()
 						basename = os.path.splitext(os.path.basename(path))[0][:-5]
+						if re.findall(r"_[PLR]$", basename, flags=re.IGNORECASE):
+							basename = basename[:-2]
 						dir = os.path.dirname(os.path.dirname(path))
 						res = '{0}.tpc'.format(os.path.join(dir, basename))
 						if res not in res1D:
@@ -5304,6 +5405,448 @@ def makeDir(path: str) -> bool:
 			return False
 
 	return True
+
+
+def convert_datetime_to_float(dt_time):
+	"""
+	How Matplotlib interprets dates: days since 0001-01-01 00:00:00 UTC + 1 day
+	https://matplotlib.org/gallery/text_labels_and_annotations/date.html
+
+	:param dt_time: datetime.datetime
+	:return: float
+	"""
+
+	t0 = datetime(1, 1, 1, 0, 0, 0)
+	dt = dt_time - t0
+	return (dt.total_seconds() / 60 / 60 / 24) + 1
+
+
+def getNetCDFLibrary():
+	try:
+		from netCDF4 import Dataset
+		return "python", None
+	except ImportError:
+		pass
+
+	try:
+		from qgis.core import QgsApplication
+		netcdf_dll_path = os.path.dirname(os.path.join(os.path.dirname(os.path.dirname(QgsApplication.pkgDataPath()))))
+		netcdf_dll_path = os.path.join(netcdf_dll_path, "bin", "netcdf.dll")
+		if os.path.exists(netcdf_dll_path):
+			return "c_netcdf.dll", netcdf_dll_path
+	except ImportError:
+		pass
+
+	return None, None
+
+
+DimReturn = Tuple[str, List[NcDim]]
+def ncReadDimCDLL(ncdll: ctypes.cdll, ncid: ctypes.c_long, n: int) -> DimReturn:
+	"""
+	Read all dimensions from netcdf file.
+
+	ncdll - loaded netcdf dll
+	ncid - open netcdf file
+	n - number of dimensions
+	"""
+
+	dims = []
+	cstr_array = (ctypes.c_char * 256)()
+	cint_p = ctypes.pointer(ctypes.c_int())
+	for i in range(n):
+		dim = NcDim()
+		dims.append(dim)
+
+		# gets dimension name and length
+		err = ncdll.nc_inq_dim(ncid, ctypes.c_int(i), ctypes.byref(cstr_array), cint_p)
+		if err:
+			if ncid.value > 0:
+				ncdll.nc_close(ncid)
+			return "ERROR: error getting netcdf dimensions. Error: {0}".format(NC_Error.message(err)), dims
+
+		dim.id = i
+		dim.name = cstr_array.value.decode('utf-8')
+		dim.len = cint_p.contents.value
+
+	return "", dims
+
+VarReturn = Tuple[str, List[NcVar]]
+ncDimArg = List[NcDim]
+def ncReadVarCDLL(ncdll: ctypes.cdll, ncid: ctypes.c_long, n: int, ncDims: ncDimArg) -> VarReturn:
+	"""
+	Read all dimensions from netcdf file.
+
+	ncdll - loaded netcdf dll
+	ncid - open netcdf file
+	n - number of variables
+	ncDims - list of NcDim class
+	"""
+
+	# get info on variables
+	cstr_array = (ctypes.c_char * 256)()
+	cint_p = ctypes.pointer(ctypes.c_int())
+	ncVars = []
+	for i in range(n):
+		var = NcVar()
+		ncVars.append(var)
+
+		# id
+		var.id = i
+
+		# variable name
+		err = ncdll.nc_inq_varname(ncid, ctypes.c_int(i), ctypes.byref(cstr_array))
+		if err:
+			if ncid.value > 0:
+				ncdll.nc_close(ncid)
+			return "ERROR: error getting netcdf variable names. Error: {0}".format(NC_Error.message(err)), ncVars
+		var.name = cstr_array.value.decode('utf-8')
+
+		# variable data type
+		err = ncdll.nc_inq_vartype(ncid, ctypes.c_int(i), cint_p)
+		if err:
+			if ncid.value > 0:
+				ncdll.nc_close(ncid)
+			return "ERROR: error getting netcdf variable types. Error: {0}".format(NC_Error.message(err)), ncVars
+		var.type = cint_p.contents.value
+
+		# number of dimensions
+		err = ncdll.nc_inq_varndims(ncid, ctypes.c_int(i), cint_p)
+		if err:
+			if ncid.value > 0:
+				ncdll.nc_close(ncid)
+			return "ERROR: error getting netcdf variable dimensions. Error: {0}".format(NC_Error.message(err)), ncVars
+		var.nDims = cint_p.contents.value
+
+		# dimension information
+		cint_array = (ctypes.c_int * var.nDims)()
+		err = ncdll.nc_inq_vardimid(ncid, ctypes.c_int(i), ctypes.byref(cint_array))
+		if err:
+			if ncid.value > 0:
+				ncdll.nc_close(ncid)
+			return "ERROR: error getting netcdf variable dimensions. Error: {0}".format(NC_Error.message(err)), ncVars
+		var.dimIds = tuple(cint_array[x] for x in range(var.nDims))
+		var.dimNames = tuple(ncDims[x].name for x in var.dimIds)
+		var.dimLens = tuple(ncDims[x].len for x in var.dimIds)
+
+	return "", ncVars
+
+def lineIntersectsPoly(p1, p2, poly):
+	"""
+
+	"""
+
+	pLine = QgsGeometry.fromPolyline([QgsPoint(p1.x(), p1.y()), QgsPoint(p2.x(), p2.y())])
+	return pLine.intersects(poly.geometry())
+
+def doLinesIntersect(a1, a2, b1, b2):
+	"""
+	Does line a intersect line b
+
+	"""
+
+	pLine1 = QgsGeometry.fromPolyline([QgsPoint(a1.x(), a1.y()), QgsPoint(a2.x(), a2.y())])
+	pLine2 = QgsGeometry.fromPolyline([QgsPoint(b1.x(), b1.y()), QgsPoint(b2.x(), b2.y())])
+
+	return pLine1.intersects(pLine2)
+
+
+def intersectionPoint(a1, a2, b1, b2):
+	"""
+
+	"""
+
+	pLine1 = QgsGeometry.fromPolyline([QgsPoint(a1.x(), a1.y()), QgsPoint(a2.x(), a2.y())])
+	pLine2 = QgsGeometry.fromPolyline([QgsPoint(b1.x(), b1.y()), QgsPoint(b2.x(), b2.y())])
+
+	return pLine1.intersection(pLine2).asPoint()
+
+
+def generateRandomMatplotColours(n):
+	import random
+	colours = []
+	while len(colours) < n:
+		colour = [random.randint(0, 100) / 100 for x in range(3)]
+		if colour != [1.0, 1.0, 1.0]:  # don't include white
+			colours.append(colour)
+
+	return colours
+
+def meshToPolygon(mesh: QgsMesh, face: int) -> QgsFeature:
+	"""
+	converts a mesh to QgsFeature polygon
+
+	"""
+
+	# convert mesh face into polygon
+	w = 'POLYGON (('
+	for i, v in enumerate(face):
+		if i == 0:
+			w = '{0}{1} {2}'.format(w, mesh.vertex(v).x(), mesh.vertex(v).y())
+		else:
+			w = '{0}, {1} {2}'.format(w, mesh.vertex(v).x(), mesh.vertex(v).y())
+	w += '))'
+	f = QgsFeature()
+	f.setGeometry(QgsGeometry.fromWkt(w))
+
+	return f
+
+
+PointList = List[QgsPointXY]
+FaceIndexList = List[int]
+def getFaceIndexes3(si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider, points: PointList, mesh: QgsMesh) -> FaceIndexList:
+	"""
+
+	"""
+
+	if not points:
+		return []
+	points = [QgsPointXY(x) for x in points]
+
+	faceIndexes = []
+	for p in points:
+		indexes = si.nearestNeighbor(p, 1)
+		if indexes:
+			if len(indexes) == 1:
+				if indexes[0] not in faceIndexes:
+					faceIndexes.append(indexes[0])
+			else:
+				for ind in indexes:
+					f = meshToPolygon(mesh, mesh.face(ind))
+					if f.geometry().contains(p):
+						if ind not in faceIndexes:
+							faceIndexes.append(ind)
+						break
+
+	return faceIndexes
+
+
+def findMeshFaceIntersects(p1: QgsPointXY, p2: QgsPointXY, si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider,
+                           mesh: QgsMesh, mapUnits: QgsUnitTypes):
+	"""
+
+	"""
+
+	# profiling
+#	pf_total = timedelta(hours=0)
+#	pf_l2p = timedelta(hours=0)
+#	pf_gfi3 = timedelta(hours=0)
+#	pf_other = timedelta(hours=0)
+#	pf_total_st = datetime.now()
+#
+#	feat = QgsFeature()
+#	feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(p1.x(), p1.y()), QgsPoint(p2.x(), p2.y())]))
+#	pf = datetime.now()  # profiling
+#	points, chainages, directions = lineToPoints(feat, 1, mapUnits)
+#	pf_l2p += datetime.now() - pf  # profiling
+#	pf = datetime.now()  # profiling
+#	fi = getFaceIndexes3(si, dp, points, mesh)
+#	pf_gfi3 += datetime.now() - pf  # profiling
+#
+#	pf_total += datetime.now() - pf_total_st
+#	pf_other = pf_total - pf_l2p - pf_gfi3
+#	pf_str = f"{'lineToPoints:':20s}{pf_l2p.total_seconds():02.2f}s - {pf_l2p.total_seconds() / pf_total.total_seconds() * 100:02.2f}%\n" \
+#	         f"{'getFaceIndexes3:':20s}{pf_gfi3.total_seconds():02.2f}s - {pf_gfi3.total_seconds() / pf_total.total_seconds() * 100:02.2f}%\n" \
+#	         f"{'Other:':20s}{pf_other.total_seconds():02.2f}s - {pf_other.total_seconds() / pf_total.total_seconds() * 100:02.2f}%\n\n" \
+#	         f"{'Total:':20s}{pf_total.total_seconds():02.2f}"
+#	# QMessageBox.information(None, "Speed Profiling", pf_str)
+
+	rect = QgsRectangle(p1, p2)
+	return si.intersects(rect)
+
+
+FaceList = List[int]
+def findMeshSideIntersects(p1: QgsPointXY, p2: QgsPointXY, faces: FaceList, mesh: QgsMesh, allFaces, pf_dli, pf_np, pf_mv) -> PointList:
+	"""
+
+	"""
+
+	v_used = []
+	m_used = []
+	p_intersects = [p1]
+	for f in faces:
+		vs = mesh.face(f)
+		for i, v in enumerate(vs):
+			if i == 0:
+				f1 = v
+			else:
+				pf = datetime.now()  # profiling
+				p3 = mesh.vertex(vs[i-1])
+				p4 = mesh.vertex(v)
+				pf_mv += datetime.now() - pf  # profiling
+				pf = datetime.now()  # profiling
+				b = doLinesIntersect(p1, p2, p3, p4)
+				pf_dli += datetime.now() - pf  # profiling
+				if b:
+					if sorted([vs[i-1], v]) not in v_used:
+						pf = datetime.now()  # profiling
+						newPoint = intersectionPoint(p1, p2, p3, p4)
+						pf_np += datetime.now() - pf  # profiling
+						p_intersects.append(newPoint)
+						v_used.append(sorted([vs[i-1], v]))
+					if f not in m_used and f not in allFaces:
+						m_used.append(f)
+				elif i + 1 == len(vs):
+					pf = datetime.now()  # profiling
+					p3 = mesh.vertex(v)
+					p4 = mesh.vertex(f1)
+					pf_mv += datetime.now() - pf  # profiling
+					pf = datetime.now()  # profiling
+					b = doLinesIntersect(p1, p2, p3, p4)
+					pf_dli += datetime.now() - pf  # profiling
+					if b:
+						if sorted([f1, v]) not in v_used:
+							pf = datetime.now()  # profiling
+							newPoint = intersectionPoint(p1, p2, p3, p4)
+							pf_np += datetime.now() - pf  # profiling
+							p_intersects.append(newPoint)
+							v_used.append(sorted([f1, v]))
+						if f not in m_used and f not in allFaces:
+							m_used.append(f)
+
+	return p_intersects, m_used, pf_dli, pf_np, pf_mv
+
+
+def findMeshIntersects(si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider, mesh: QgsMesh,
+                       feat: QgsFeature, mapUnits: QgsUnitTypes, project: QgsProject = None):
+	"""
+
+	"""
+
+	# profiling
+	pf_total = timedelta(hours=0)  # total
+	pf_geom = timedelta(hours=0)  # geometry
+	pf_mfi = timedelta(hours=0)  # mesh face intersects
+	pf_msi = timedelta(hours=0)  # mesh side intersects
+	pf_ch = timedelta(hours=0)  # chainage
+	pf_other = timedelta(hours=0)  # everything else
+	pf_dli = timedelta(hours=0)  # doLinesIntersect
+	pf_np = timedelta(hours=0)  # newPoint
+	pf_mv = timedelta(hours=0)  # mesh.vertex
+	pf_other2 = timedelta(hours=0)
+
+
+	pf_total_st = datetime.now()
+	# geometry
+	pf = datetime.now()  # profiling
+	if feat.geometry().wkbType() == QgsWkbTypes.LineString:
+		geom = feat.geometry().asPolyline()
+	elif feat.geometry().wkbType() == QgsWkbTypes.MultiLineString:
+		mGeom = feat.geometry().asMultiPolyline()
+		geom = []
+		for g in mGeom:
+			for p in g:
+				geom.append(p)
+	else:
+		return
+	pf_geom += datetime.now() - pf  # profiling
+
+	# get mesh intersects and face (side) intersects
+	points = []
+	chainages = []
+	allFaces = []
+	for i, p in enumerate(geom):
+		if i > 0:
+			pf = datetime.now()  # profiling
+			faces = findMeshFaceIntersects(geom[i-1], p, si, dp, mesh, mapUnits)
+			pf_mfi += datetime.now() - pf  # profiling
+			pf = datetime.now()  # profiling
+			inters, minter, pf_dli, pf_np, pf_mv = findMeshSideIntersects(geom[i-1], p, faces, mesh, [], pf_dli, pf_np, pf_mv)
+			pf_msi += datetime.now() - pf
+			if inters:
+				points += orderPointsByDistanceFromFirst(inters)
+				allFaces += minter
+		if i + 1 == len(geom):
+			points.append(p)
+	pf_other2 = pf_msi - pf_dli - pf_np - pf_mv
+
+	# calculate chainage
+	chainage = 0
+	chainages.append(chainage)
+	for i, p in enumerate(points):
+		if i > 0:
+			pf = datetime.now()  # profiling
+			chainage += calculateLength2(p, points[i-1])
+			pf_ch += datetime.now() - pf  # profiling
+			chainages.append(chainage)
+
+	# profiling
+	pf_total += datetime.now() - pf_total_st
+	pf_other = pf_total - pf_geom - pf_mfi - pf_msi - pf_ch
+	# pf_str = f"{'Geometry:':20s}{pf_geom.total_seconds():02.2f}s - {pf_geom.total_seconds()/pf_total.total_seconds()*100:02.2f}%\n" \
+	#          f"{'Mesh Face Int:':20s}{pf_mfi.total_seconds():02.2f}s - {pf_mfi.total_seconds()/pf_total.total_seconds()*100:02.2f}%\n" \
+	#          f"{'Mesh Side Int:':20s}{pf_msi.total_seconds():02.2f}s - {pf_msi.total_seconds()/pf_total.total_seconds()*100:02.2f}%\n" \
+	#          f"{'Chainage:':20s}{pf_ch.total_seconds():02.2f}s - {pf_ch.total_seconds()/pf_total.total_seconds()*100:02.2f}%\n" \
+	#          f"{'Other:':20s}{pf_other.total_seconds():02.2f}s - {pf_other.total_seconds()/pf_total.total_seconds()*100:02.2f}%\n\n" \
+	#          f"{'Total:':20s}{pf_total.total_seconds():02.2f}"
+	# pf_str = f"{'doLinesIntersect:':20s}{pf_dli.total_seconds():02.2f}s - {pf_dli.total_seconds() / pf_msi.total_seconds() * 100:02.2f}%\n" \
+	#          f"{'newPoint:':20s}{pf_np.total_seconds():02.2f}s - {pf_np.total_seconds() / pf_msi.total_seconds() * 100:02.2f}%\n" \
+	#          f"{'mesh.vertex:':20s}{pf_mv.total_seconds():02.2f}s - {pf_mv.total_seconds() / pf_msi.total_seconds() * 100:02.2f}%\n" \
+	#          f"{'Other:':20s}{pf_other2.total_seconds():02.2f}s - {pf_other2.total_seconds() / pf_msi.total_seconds() * 100:02.2f}%\n\n" \
+	#          f"{'Total:':20s}{pf_msi.total_seconds():02.2f}"
+	#QMessageBox.information(None, "Speed Profiling", pf_str)
+
+	# switch on/off to get check mesh faces and intercepts
+	if 0:
+		# debug - write a temporary polygon layer and import into QGIS to check
+		crs = project.crs()
+		uri = "polygon?crs={0}".format(crs.authid().lower())
+		lyr = QgsVectorLayer(uri, "check_mesh_intercepts", "memory")
+		dp = lyr.dataProvider()
+		dp.addAttributes([QgsField('Id', QVariant.Int)])
+		lyr.updateFields()
+		feats = []
+		for i, f in enumerate(allFaces):
+			feat = meshToPolygon(mesh, mesh.face(f))
+			feat.setAttributes([i])
+			feats.append(feat)
+		dp.addFeatures(feats)
+		lyr.updateExtents()
+		project.addMapLayer(lyr)
+
+		# debug - write a temporary point layer and import into QGIS to check
+		crs = project.crs()
+		uri = "point?crs={0}".format(crs.authid().lower())
+		lyr = QgsVectorLayer(uri, "check_face_intercepts", "memory")
+		dp = lyr.dataProvider()
+		dp.addAttributes([QgsField('Ch', QVariant.Double)])
+		lyr.updateFields()
+		feats = []
+		for i, point in enumerate(points):
+			feat = QgsFeature()
+			feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
+			feat.setAttributes([chainages[i]])
+			feats.append(feat)
+		dp.addFeatures(feats)
+		lyr.updateExtents()
+		project.addMapLayer(lyr)
+
+	return points, chainages, allFaces
+
+
+def calculateLength2(p1, p2, crs=None):
+	"""
+
+	"""
+
+	da = QgsDistanceArea()
+	return da.convertLengthMeasurement(da.measureLine(p1, p2), QgsUnitTypes.DistanceMeters)
+
+
+def orderPointsByDistanceFromFirst(points):
+	"""
+
+	"""
+
+	pointsOrdered = []
+	pointsCopied = [QgsPoint(x.x(), x.y()) for x in points]
+	p = QgsPoint(points[0].x(), points[0].y())
+	while len(pointsOrdered) < len(points):
+		pointsOrdered.append(QgsPointXY(p))
+		pointsCopied.remove(p)
+		geom = QgsLineString(pointsCopied)
+		p, i = QgsGeometryUtils.closestVertex(geom, p)
+
+	return pointsOrdered
 
 
 if __name__ == '__main__':

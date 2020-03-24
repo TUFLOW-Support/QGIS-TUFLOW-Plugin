@@ -180,7 +180,8 @@ class TuMenuFunctions():
 				# get scenarios from TCF and prompt user to select desired scenarios
 				error, message, scenarios = getScenariosFromTcf(file)
 				if error:
-					QMessageBox.critical(self.tuView, "Load From TCF", message)
+					if message:
+						QMessageBox.critical(self.tuView, "Load From TCF", message)
 				if scenarios:
 					self.scenarioDialog = tuflowqgis_scenarioSelection_dialog(self.iface, file, scenarios)
 					self.scenarioDialog.exec_()
@@ -358,7 +359,8 @@ class TuMenuFunctions():
 
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-
+		import pydevd_pycharm
+		pydevd_pycharm.settrace('localhost', port=53100, stdoutToServer=True, stderrToServer=True)
 		plotNo = self.tuView.tabWidget.currentIndex()
 		
 		dataHeader, data = self.getPlotData(plotNo)
@@ -831,7 +833,7 @@ class TuMenuFunctions():
 		dp.addAttributes([QgsField('Name', QVariant.String)])
 		shpLayer.updateFields()
 		feats = []  # list of QgsFeature objects
-		for i, rubberBand in enumerate(self.tuView.tuPlot.tuRubberBand.rubberBands):
+		for i, rubberBand in enumerate(self.tuView.tuPlot.tuCrossSection.rubberBands):
 			geom = rubberBand.asGeometry().asPolyline()
 			feat = QgsFeature()
 			try:
@@ -889,7 +891,7 @@ class TuMenuFunctions():
 		dp.addAttributes([QgsField('Name', QVariant.String)])
 		shpLayer.updateFields()
 		feats = []  # list of QgsFeature objects
-		for i, point in enumerate(self.tuView.tuPlot.tuRubberBand.markerPoints):
+		for i, point in enumerate(self.tuView.tuPlot.tuTSPoint.points):
 			feat = QgsFeature()
 			feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
 			feat.setAttributes(['Point {0}'.format(i + 1)])
@@ -1170,22 +1172,41 @@ class TuMenuFunctions():
 					return ''
 		activeVectorType = dp.datasetGroupMetadata(activeVectorGroupIndex).name()
 		activeVectorType = TuResults.stripMaximumName(TuResults(None), activeVectorType)
+
+		qv = Qgis.QGIS_VERSION_INT
 		rsVector = rs.vectorSettings(activeVectorGroupIndex)
+		if qv >= 31100:
+			rsVectorArrow = rsVector.arrowSettings()
 		
 		# get vector properties
-		properties = {
-			'arrow head length ratio': rsVector.arrowHeadLengthRatio(),
-			'arrow head width ratio': rsVector.arrowHeadWidthRatio(),
-			'color': rsVector.color(),
-			'filter max': rsVector.filterMax(),
-			'filter min': rsVector.filterMin(),
-			'fixed shaft length': rsVector.fixedShaftLength(),
-			'line width': rsVector.lineWidth(),
-			'max shaft length': rsVector.maxShaftLength(),
-			'min shaft length': rsVector.minShaftLength(),
-			'scale factor': rsVector.scaleFactor(),
-			'shaft length method': rsVector.shaftLengthMethod()
-		}
+		if qv < 31100:
+			properties = {
+				'arrow head length ratio': rsVector.arrowHeadLengthRatio(),
+				'arrow head width ratio': rsVector.arrowHeadWidthRatio(),
+				'color': rsVector.color(),
+				'filter max': rsVector.filterMax(),
+				'filter min': rsVector.filterMin(),
+				'fixed shaft length': rsVector.fixedShaftLength(),
+				'line width': rsVector.lineWidth(),
+				'max shaft length': rsVector.maxShaftLength(),
+				'min shaft length': rsVector.minShaftLength(),
+				'scale factor': rsVector.scaleFactor(),
+				'shaft length method': rsVector.shaftLengthMethod()
+			}
+		else:
+			properties = {
+				'arrow head length ratio': rsVectorArrow.arrowHeadLengthRatio(),
+				'arrow head width ratio': rsVectorArrow.arrowHeadWidthRatio(),
+				'color': rsVector.color(),
+				'filter max': rsVector.filterMax(),
+				'filter min': rsVector.filterMin(),
+				'fixed shaft length': rsVectorArrow.fixedShaftLength(),
+				'line width': rsVector.lineWidth(),
+				'max shaft length': rsVectorArrow.maxShaftLength(),
+				'min shaft length': rsVectorArrow.minShaftLength(),
+				'scale factor': rsVectorArrow.scaleFactor(),
+				'shaft length method': rsVectorArrow.shaftLengthMethod()
+			}
 		
 		if saveType == 'default':
 			# save as default for that result type
@@ -1431,11 +1452,14 @@ class TuMenuFunctions():
 		
 		:return:
 		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 		
 		self.userPlotDataDialog = TuUserPlotDataManagerDialog(self.iface, self.tuView.tuPlot.userPlotData)
 		self.userPlotDataDialog.exec_()
-		self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), retain_1d=True, retain_2d=True, retain_flow=True)
-		
+		# self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), retain_1d=True, retain_2d=True, retain_flow=True)
+		self.tuView.tuPlot.clearPlot2(self.tuView.tabWidget.currentIndex(), TuPlot.DataUserData)
+
 		return True
 
 	def toggleMeshRender(self):
@@ -1525,3 +1549,10 @@ class TuMenuFunctions():
 			results[name] = result
 			
 		return results, engine, build
+
+	def flowRegimeToggled(self):
+
+		self.tuView.tuContextMenu.resultTypeContextItem.toggleFlowRegime()
+
+		# redraw plot
+		self.tuView.tuPlot.updateCurrentPlot(0, update='1d only')

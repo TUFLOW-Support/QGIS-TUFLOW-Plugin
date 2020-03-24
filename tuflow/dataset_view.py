@@ -57,8 +57,21 @@ class DataSetTreeNode(object):
         self.ds_type = ds_type  # see above multi line comment
         self.hasMax = max
         self.hasMin = min
+        self.hasFlowRegime = False
+        if ds_type == 4 or ds_type == 5:
+            if 'flow regime' in ds_name.lower():
+                pass
+            elif 'flow' in ds_name.lower():
+                self.hasFlowRegime = True
+            elif 'velocity' in ds_name.lower():
+                self.hasFlowRegime = True
+            elif 'level' in ds_name.lower():
+                self.hasFlowRegime = True
+            elif 'energy' in ds_name.lower():
+                self.hasFlowRegime = True
         self.isMax = False
         self.isMin = False
+        self.isFlowRegime = False
         self.parentItem = parentItem
         self.childItems = []
         self.secondaryActive = False
@@ -74,6 +87,7 @@ class DataSetTreeNode(object):
     def toggleSecondaryActive(self): self.secondaryActive = True if not self.secondaryActive else False
     def toggleMaxActive(self): self.isMax = True if not self.isMax else False
     def toggleMinActive(self): self.isMin = True if not self.isMin else False
+    def toggleFlowRegime(self): self.isFlowRegime = True if not self.isFlowRegime else False
 
 
 class DataSetModel(QAbstractItemModel):

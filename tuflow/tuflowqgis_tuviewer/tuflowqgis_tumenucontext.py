@@ -85,8 +85,10 @@ class TuContextMenu():
 		self.freezeAxisXLimits_action.triggered.connect(viewToolbar.freezeXAxis)
 		self.freezeAxisYLimits_action.triggered.connect(viewToolbar.freezeYAxis)
 		self.refreshCurrentPlotWindow_action.triggered.connect(self.tuView.refreshCurrentPlot)
+		# self.clearPlotWindow_action.triggered.connect(
+		# 	lambda: self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), clear_rubberband=True, clear_selection=True))
 		self.clearPlotWindow_action.triggered.connect(
-			lambda: self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), clear_rubberband=True, clear_selection=True))
+			lambda: self.tuView.tuPlot.clearPlot2(self.tuView.tabWidget.currentIndex()))
 		self.exportAsCSV_action.triggered.connect(self.tuMenuFunctions.exportCSV)
 		
 		return True
@@ -180,10 +182,13 @@ class TuContextMenu():
 		self.loadDefaultStyle_action = QAction('Load Default Style', self.resultTypesMenu)
 		self.loadDefaultVectorStyle_action = QAction('Load Default Vector Style', self.resultTypesMenu)
 		self.propertiesDialog_action = QAction('Properties', self.resultTypesMenu)
+		self.includeFlowRegime_action = QAction('Flow Regime', self.resultTypesMenu)
+		self.includeFlowRegime_action.setCheckable(True)
 		
 		self.resultTypesMenu.addAction(self.setToMaximumResult_action)
 		self.resultTypesMenu.addAction(self.setToMinimumResult_action)
 		self.resultTypesMenu.addAction(self.setToSecondaryAxis_action)
+		self.resultTypesMenu.addAction(self.includeFlowRegime_action)
 		self.resultTypesMenu.addSeparator()
 		self.saveStyleMenu = self.resultTypesMenu.addMenu('Save Style as Default')
 		self.saveStyleMenu.addAction(self.saveDefaultStyleRamp_action)
@@ -203,6 +208,7 @@ class TuContextMenu():
 		self.loadDefaultStyle_action.triggered.connect(lambda: self.tuMenuFunctions.loadDefaultStyleScalar(use_clicked=True))
 		self.loadDefaultVectorStyle_action.triggered.connect(lambda: self.tuMenuFunctions.loadDefaultStyleVector(use_clicked=True))
 		self.propertiesDialog_action.triggered.connect(lambda: self.tuView.resultTypeDoubleClicked(None))
+		self.includeFlowRegime_action.triggered.connect(self.tuMenuFunctions.flowRegimeToggled)
 		
 		return True
 	
@@ -213,7 +219,9 @@ class TuContextMenu():
 		:param pos: QPoint
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
+		flowRegimeExists = 'flow regime' in [x.ds_name.lower() for x in self.tuView.OpenResultTypes.model().timeSeriesItem.children()]
+
 		modelIndex = self.tuView.OpenResultTypes.indexAt(pos)
 		if modelIndex.isValid():
 			item = self.tuView.OpenResultTypes.model().index2item(modelIndex)
@@ -255,6 +263,16 @@ class TuContextMenu():
 						self.setToMinimumResult_action.setChecked(False)
 				else:
 					self.setToMinimumResult_action.setEnabled(False)
+				# flow regime
+				if item.hasFlowRegime:
+					self.includeFlowRegime_action.setEnabled(True)
+					if item.isFlowRegime:
+						self.includeFlowRegime_action.setChecked(True)
+					else:
+						self.includeFlowRegime_action.setChecked(False)
+				else:
+					self.includeFlowRegime_action.setEnabled(False)
+
 				# save and load styling
 				if item.ds_type == 1:  # scalar
 					self.saveStyleMenu.menuAction().setVisible(True)
@@ -262,19 +280,31 @@ class TuContextMenu():
 					self.saveDefaultVectorStyle_action.setVisible(False)
 					self.loadDefaultVectorStyle_action.setVisible(False)
 					self.propertiesDialog_action.setVisible(True)
+					self.includeFlowRegime_action.setVisible(False)
 				elif item.ds_type == 2:  # vector
 					self.saveStyleMenu.menuAction().setVisible(False)
 					self.loadDefaultStyle_action.setVisible(False)
 					self.saveDefaultVectorStyle_action.setVisible(True)
 					self.loadDefaultVectorStyle_action.setVisible(True)
 					self.propertiesDialog_action.setVisible(True)
-				else:  # time series or long plot
+					self.includeFlowRegime_action.setVisible(False)
+				elif item.ds_type == 4 or item.ds_type == 5:  # time series plot
 					self.saveStyleMenu.menuAction().setVisible(False)
 					self.loadDefaultStyle_action.setVisible(False)
 					self.saveDefaultVectorStyle_action.setVisible(False)
 					self.loadDefaultVectorStyle_action.setVisible(False)
 					self.propertiesDialog_action.setVisible(False)
+					self.includeFlowRegime_action.setVisible(True)
+				else:  # long plot
+					self.saveStyleMenu.menuAction().setVisible(False)
+					self.loadDefaultStyle_action.setVisible(False)
+					self.saveDefaultVectorStyle_action.setVisible(False)
+					self.loadDefaultVectorStyle_action.setVisible(False)
+					self.propertiesDialog_action.setVisible(False)
+					self.includeFlowRegime_action.setVisible(False)
 		
+		if not flowRegimeExists:
+			self.includeFlowRegime_action.setVisible(False)
 		self.resultTypeContextItem = item
 		self.resultTypesMenu.popup(self.tuView.OpenResultTypes.mapToGlobal(pos))
 		

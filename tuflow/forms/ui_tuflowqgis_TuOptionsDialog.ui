@@ -416,6 +416,51 @@
     </widget>
    </item>
    <item>
+    <widget class="QGroupBox" name="groupBox_6">
+     <property name="title">
+      <string>Default Layout</string>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
+      <item>
+       <widget class="QRadioButton" name="rbDefaultLayoutPlotView">
+        <property name="text">
+         <string>Plot View</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+        <attribute name="buttonGroup">
+         <string notr="true">DefaultLayout</string>
+        </attribute>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="rbDeafultLayoutNarrowView">
+        <property name="text">
+         <string>Narrow View</string>
+        </property>
+        <attribute name="buttonGroup">
+         <string notr="true">DefaultLayout</string>
+        </attribute>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_8">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -463,8 +508,9 @@
   </connection>
  </connections>
  <buttongroups>
+  <buttongroup name="MeanSelection"/>
   <buttongroup name="buttonGroup"/>
   <buttongroup name="LiveCursorTracking"/>
-  <buttongroup name="MeanSelection"/>
+  <buttongroup name="DefaultLayout"/>
  </buttongroups>
 </ui>

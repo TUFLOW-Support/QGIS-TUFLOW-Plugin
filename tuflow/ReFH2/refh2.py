@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (QDockWidget, QLineEdit, QFileDialog,
 from tuflow.forms.refh2_dock import Ui_refh2
 from .engine import Refh2
 from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, browse, convertFormattedTimeToTime,
-                                       makeDir, convertFormattedTimeToFromattedTime)
+                                       makeDir, convertFormattedTimeToFormattedTime)
 
 
 
@@ -37,6 +37,23 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         self.cboInputGIS.currentIndexChanged.connect(self.checkAreaInput)
         self.leDuration.editingFinished.connect(self.durationChanged)
         self.leTimestep.editingFinished.connect(self.durationChanged)
+        self.gbOutRainfall.toggled.connect(self.rainfallOutputChanged)
+        self.rbGrossRainfall.toggled.connect(self.rainfallOutputChanged)
+        self.rbNetRainfall.toggled.connect(self.rainfallOutputChanged)
+        self.gbOutHydrograph.toggled.connect(self.hydrographOutputChanged)
+        self.rbDirectRunoff.toggled.connect(self.hydrographOutputChanged)
+        self.rbBaseFlow.toggled.connect(self.hydrographOutputChanged)
+        self.rbTotalRunoff.toggled.connect(self.hydrographOutputChanged)
+        self.gbRainToGis.toggled.connect(self.outputToTuflowGisToggled_Rainfall)
+        self.cboInputGIS.currentIndexChanged.connect(self.outputToTuflowGisToggled_Rainfall)
+        self.gbOutRainfall.toggled.connect(self.outputToTuflowGisToggled_Rainfall)
+        self.rb2dRf.toggled.connect(self.outputToTuflowGisToggled_Rainfall)
+        self.gbHydToGis.toggled.connect(self.outputToTuflowGisToggled_Runoff)
+        self.cboInputGIS.currentIndexChanged.connect(self.outputToTuflowGisToggled_Runoff)
+        self.gbOutHydrograph.toggled.connect(self.outputToTuflowGisToggled_Runoff)
+        self.rb2dSa.toggled.connect(self.outputToTuflowGisToggled_Runoff)
+        self.rb1dBc.toggled.connect(self.outputToTuflowGisToggled_Runoff)
+        self.rb2dBc.toggled.connect(self.outputToTuflowGisToggled_Runoff)
 
         QgsProject.instance().layersAdded.connect(self.addGIS)
         QgsProject.instance().layersRemoved.connect(self.addGIS)
@@ -46,10 +63,12 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         self.cbSelectAll.clicked.connect(self.toggleSelectAll)
         self.btnAddRP.clicked.connect(self.addReturnPeriod)
         self.btnRemoveRP.clicked.connect(self.removeReturnPeriods)
-        self.rbRural.clicked.connect(lambda e: self.radioButtonClones(button=self.rbRural))
-        self.rbUrban.clicked.connect(lambda e: self.radioButtonClones(button=self.rbUrban))
-        self.rbRuralClone.clicked.connect(lambda e: self.radioButtonClones(button=self.rbRuralClone))
-        self.rbUrbanClone.clicked.connect(lambda e: self.radioButtonClones(button=self.rbUrbanClone))
+        self.btnAddDur.clicked.connect(self.addDurTimestep)
+        self.btnRemDur.clicked.connect(self.removeDurTimestep)
+        # self.rbRural.clicked.connect(lambda e: self.radioButtonClones(button=self.rbRural))
+        # self.rbUrban.clicked.connect(lambda e: self.radioButtonClones(button=self.rbUrban))
+        # self.rbRuralClone.clicked.connect(lambda e: self.radioButtonClones(button=self.rbRuralClone))
+        # self.rbUrbanClone.clicked.connect(lambda e: self.radioButtonClones(button=self.rbUrbanClone))
         self.pbRun.clicked.connect(self.check)
 
         dir = os.path.dirname(os.path.dirname(__file__))
@@ -58,8 +77,8 @@ class Refh2Dock(QDockWidget, Ui_refh2):
                                                         "Catchment Descriptor Input", "XML (*.xml *.XML)",
                                                         self.leInputXML, rf2Icon, lambda: self.inputCatchmentChanged()))
         self.btnOutfile.clicked.connect(lambda: browse(self, "output file", "TUFLOW/refh2_outfile",
-                                                         "ReFH2 Output CSV File", "CSV (*.csv *.CSV)",
-                                                         self.leOutfile, rf2Icon))
+                                                       "ReFH2 Output CSV File", "CSV (*.csv *.CSV)",
+                                                       self.leOutfile, rf2Icon))
     
     def run(self) -> None:
         """
@@ -76,16 +95,16 @@ class Refh2Dock(QDockWidget, Ui_refh2):
             'location': Refh2.England if self.rbEngland.isChecked() else Refh2.Scotland,
             'area': 0,
             'return periods': [],
-            'duration': None,
-            'timestep': None,
+            'durations': [],
+            'timesteps': [],
             'season': Refh2.Winter if self.rbWinter.isChecked() else Refh2.Summer,
             'do output rainfall': True if self.gbOutRainfall.isChecked() else False,
             'do output hydrograph': True if self.gbOutHydrograph.isChecked() else False,
             'output data': [],
-            'output hydrograph type': Refh2.Urban if self.rbUrban.isChecked() else Refh2.Rural,
+            'output hydrograph type': {},
             'output gis': None,
-            'output file': self.leOutfile.text() if self.leOutfile.text() else \
-                '{0}.csv'.format(os.path.splitext(self.leInputXML.text())[0]),
+            'output file': os.path.splitext(self.leOutfile.text())[0] if self.leOutfile.text() else \
+                os.path.splitext(self.leInputXML.text())[0],
             'catchment name': None,
             'inflow name': 'Inflow',
             'rainfall name': 'Rainfall',
@@ -99,6 +118,10 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         # populate rest with real values
         # inflow / rainfall names
         layer = tuflowqgis_find_layer(self.cboInputGIS.currentText())
+        layerUnits = None
+        feat = None
+        fid = None
+        area = 0
         if self.cboInputGIS.currentText() and layer is not None:
             #layer = tuflowqgis_find_layer(self.cboInputGIS.currentText())
             #if layer is not None:
@@ -130,7 +153,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         # area
         if self.rbUserArea.isChecked():
             area = self.sbArea.value()
-        else:
+        elif layerUnits is not None and feat is not None and fid is not None:
             area = feat.geometry().area()
             if layerUnits == QgsUnitTypes.DistanceMeters:
                 area = area / 1000 / 1000
@@ -159,6 +182,15 @@ class Refh2Dock(QDockWidget, Ui_refh2):
                 area = feat_reproject.geometry().area() / 1000 / 1000
             else:  # assume meters
                 area = area / 1000 / 1000
+        else:
+            # should not be here
+            QMessageBox.critical(self, "ReFH2 to TUFLOW",
+                                 f"Unexpected ERROR: Variable(s) should not be None\n"
+                                 f"layerUnits: {layerUnits}\n"
+                                 f"feat: {feat}\n"
+                                 f"fid: {fid}\n"
+                                 "Please contact support@tuflow.com")
+            return
         if area <= 0:
             area = 0.001
         inputs['area'] = area
@@ -174,29 +206,35 @@ class Refh2Dock(QDockWidget, Ui_refh2):
             rps.append(int(self.lwRP.item(i).text().strip('year').strip()))
         inputs['return periods'] = rps
 
-        # duration
-        durText = self.leDuration.text()
-        if durText != '::':
-            inputs['duration'] = convertFormattedTimeToFromattedTime(durText)
-            
-        # timestep
-        tsText = self.leTimestep.text()
-        if tsText != '::':
-            inputs['timestep'] = convertFormattedTimeToFromattedTime(tsText)
+        # duration(s)
+        if self.lwDuration.count():
+            for t in [self.lwDuration.item(x).text() for x in range(self.lwDuration.count())]:
+                durText, tsText = t.split(" - ")
+                inputs['durations'].append(convertFormattedTimeToFormattedTime(durText))
+                inputs['timesteps'].append(convertFormattedTimeToFormattedTime(tsText))
+        else:
+            durText = self.leDuration.text()
+            if durText != '::':
+                inputs['durations'].append(convertFormattedTimeToFormattedTime(durText))
+
+            # timestep(s)
+            tsText = self.leTimestep.text()
+            if tsText != '::':
+                inputs['timesteps'].append(convertFormattedTimeToFormattedTime(tsText))
         
         # output data
         outdata = []
         if self.gbOutRainfall.isChecked():
             if self.rbGrossRainfall.isChecked():
                 outdata.append(Refh2.GrossRainfall)
-            else:
+            if self.rbNetRainfall.isChecked():
                 outdata.append(Refh2.NetRainfall)
         if self.gbOutHydrograph.isChecked():
             if self.rbDirectRunoff.isChecked():
                 outdata.append(Refh2.DirectRunoff)
-            elif self.rbBaseFlow.isChecked():
+            if self.rbBaseFlow.isChecked():
                 outdata.append(Refh2.BaseFlow)
-            else:
+            if self.rbTotalRunoff.isChecked():
                 outdata.append(Refh2.TotalRunoff)
         inputs['output data'] = outdata
         
@@ -218,6 +256,12 @@ class Refh2Dock(QDockWidget, Ui_refh2):
                 outGIS.append(Refh2.BC_1d)
         if outGIS:
             inputs['output gis'] = outGIS
+
+        # rural and/or urban
+        if self.gbOutRainfall.isChecked():
+            inputs["output hydrograph type"]['rainfall'] = Refh2.Rural if self.rbRuralClone.isChecked() else Refh2.Urban
+        if self.gbOutHydrograph.isChecked():
+            inputs["output hydrograph type"]['hydrograph'] = Refh2.Rural if self.rbRural.isChecked() else Refh2.Urban
 
         # output zero padding
         if self.rbNoPad.isChecked():
@@ -302,8 +346,12 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         self.progressBar.setRange(0, 100)
         self.progressBar.setValue(100)
         if message:
-            self.progressBarLabel.setText("Finished.. Errors Occured")
-            QMessageBox.critical(self, "ReFH2 to TUFLOW", message)
+            if message[:7] == "WARNING":
+                self.progressBarLabel.setText("Finished Successfully")
+                QMessageBox.information(self, "ReFH2 to TUFLOW", message)
+            else:
+                self.progressBarLabel.setText("Finished.. Errors Occured")
+                QMessageBox.critical(self, "ReFH2 to TUFLOW", message)
         else:
             self.progressBarLabel.setText("Finished Successfully")
         self.thread.terminate()
@@ -342,6 +390,42 @@ class Refh2Dock(QDockWidget, Ui_refh2):
                     self.lwRP.takeItem(i)
         else:
             self.lwRP.takeItem(self.lwRP.count() - 1)
+
+    def addDurTimestep(self) -> None:
+        """
+        Add Duration - Timestep to list widget
+        """
+
+        self.durationChanged()
+        for flag in self.flags[:]:
+            if flag[0] is self.horizontalLayout_8 or flag[0] is self.horizontalLayout_7 or \
+                    flag[0] is self.verticalLayout_10:  # input flag
+                return
+
+        durText = self.leDuration.text()
+        dur = convertFormattedTimeToFormattedTime(durText)
+        tsText = self.leTimestep.text()
+        ts = convertFormattedTimeToFormattedTime(tsText)
+
+        t = f"{dur} - {ts}"
+        if t not in [self.lwDuration.item(x).text() for x in range(self.lwDuration.count())]:
+            self.lwDuration.addItem(t)
+
+    def removeDurTimestep(self) -> None:
+        """
+        Remove Duration - Timestep from list widget.
+        Will remove selected return periods, or last entry
+        if none selected.
+        """
+
+        sel = self.lwDuration.selectedItems()
+
+        if sel:
+            for i in reversed(range(self.lwDuration.count())):
+                if self.lwDuration.item(i) in sel:
+                    self.lwDuration.takeItem(i)
+        else:
+            self.lwDuration.takeItem(self.lwDuration.count() - 1)
     
     def setupTimeLineEdits(self) -> None:
         """
@@ -433,8 +517,8 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         rf2Icon = QIcon(os.path.join(dir, 'icons', "ReFH2icon.png"))
         
         btnBrs = [self.btnInputXML, self.btnOutfile]
-        btnAdd = [self.btnAddRP]
-        btnRem = [self.btnRemoveRP]
+        btnAdd = [self.btnAddRP, self.btnAddDur]
+        btnRem = [self.btnRemoveRP, self.btnRemDur]
         
         self.setWindowIcon(rf2Icon)
         for btn in btnBrs:
@@ -473,7 +557,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         elif 0 <= x <= 6:
             return 'epsg:32631'
         else:
-            return  None
+            return None
 
     def radioButtonClones(self, e = None, button = None):
         """
@@ -720,6 +804,140 @@ class Refh2Dock(QDockWidget, Ui_refh2):
                     self.verticalLayout_10.insertWidget(self.verticalLayout_10.count() - 2, label)
                     self.flags.append((self.verticalLayout_10, label, msg))
 
+    def rainfallOutputChanged(self, e=None) -> None:
+        """
+        Rainfall output changed - error checking
+
+        :param e: QEvent
+        :return: None
+        """
+
+        # remove previous flags
+        for flag in self.flags[:]:
+            if flag[0] is self.verticalLayout_21:
+                layout = flag[0]
+                widget = flag[1]
+                msg = flag[2]
+                self.removeWidget(layout, widget, msg)
+
+        # check for new flags
+        if self.gbOutHydrograph.isChecked():
+            if not self.rbGrossRainfall.isChecked() and not self.rbNetRainfall.isChecked():
+                msg = "Must Specify at least one Rainfall Output Type"
+                label = self.createLabel(msg, True)
+                self.verticalLayout_21.insertWidget(self.verticalLayout_21.count() - 3, label)
+                self.flags.append((self.verticalLayout_21, label, msg))
+
+    def hydrographOutputChanged(self, e=None) -> None:
+        """
+        Rainfall output changed - error checking
+
+        :param e: QEvent
+        :return: None
+        """
+
+        # remove previous flags
+        for flag in self.flags[:]:
+            if flag[0] is self.verticalLayout_13:
+                layout = flag[0]
+                widget = flag[1]
+                msg = flag[2]
+                self.removeWidget(layout, widget, msg)
+
+        # check for new flags
+        if self.gbOutHydrograph.isChecked():
+            if not self.rbDirectRunoff.isChecked() and not self.rbBaseFlow.isChecked() \
+                    and not self.rbTotalRunoff.isChecked():
+                msg = "Must Specify at least one Runoff Output Type"
+                label = self.createLabel(msg, True)
+                self.verticalLayout_13.insertWidget(self.verticalLayout_13.count() - 3, label)
+                self.flags.append((self.verticalLayout_13, label, msg))
+
+    def outputToTuflowGisToggled_Rainfall(self, e=None) -> None:
+        """
+        Output to TUFLOW GIS changed - error checking
+
+        :param e: QEvent
+        :return: None
+        """
+
+        # remove previous flags
+        for flag in self.flags[:]:
+            if flag[0] is self.verticalLayout_29:
+                layout = flag[0]
+                widget = flag[1]
+                msg = flag[2]
+                self.removeWidget(layout, widget, msg)
+
+        # check for new flags
+        if self.gbOutRainfall.isChecked() and self.gbRainToGis.isChecked():
+            if self.cboInputGIS.currentText() == '-None-':
+                msg = "Must Specify Input GIS (Catchment) Layer to Output To TUFLOW GIS"
+                label = self.createLabel(msg, True)
+                self.verticalLayout_29.insertWidget(self.verticalLayout_29.count(), label)
+                self.flags.append((self.verticalLayout_29, label, msg))
+                return
+            if self.rb2dRf.isChecked() and \
+                    tuflowqgis_find_layer(self.cboInputGIS.currentText()).geometryType() != QgsWkbTypes.PolygonGeometry:
+                msg = "Input GIS (Catchment) Layer Must be a Polygon for 2d_rf output"
+                label = self.createLabel(msg, True)
+                self.verticalLayout_29.insertWidget(self.verticalLayout_29.count(), label)
+                self.flags.append((self.verticalLayout_29, label, msg))
+                return
+            if self.rb2dSaRf.isChecked() and \
+                    tuflowqgis_find_layer(self.cboInputGIS.currentText()).geometryType() != QgsWkbTypes.PolygonGeometry:
+                msg = "Input GIS (Catchment) Layer Must be a Polygon for 2d_sa_rf output"
+                label = self.createLabel(msg, True)
+                self.verticalLayout_29.insertWidget(self.verticalLayout_29.count(), label)
+                self.flags.append((self.verticalLayout_29, label, msg))
+                return
+
+    def outputToTuflowGisToggled_Runoff(self, e=None) -> None:
+        """
+        Output to TUFLOW GIS changed - error checking
+
+        :param e: QEvent
+        :return: None
+        """
+
+        # remove previous flags
+        for flag in self.flags[:]:
+            if flag[0] is self.verticalLayout_30:
+                layout = flag[0]
+                widget = flag[1]
+                msg = flag[2]
+                self.removeWidget(layout, widget, msg)
+
+        # check for new flags
+        if self.gbOutHydrograph.isChecked() and self.gbHydToGis.isChecked():
+            if self.cboInputGIS.currentText() == '-None-':
+                msg = "Must Specify Input GIS (Catchment) Layer to Output To TUFLOW GIS"
+                label = self.createLabel(msg, True)
+                self.verticalLayout_30.insertWidget(self.verticalLayout_30.count(), label)
+                self.flags.append((self.verticalLayout_30, label, msg))
+                return
+            if self.rb2dSa.isChecked() and \
+                    tuflowqgis_find_layer(self.cboInputGIS.currentText()).geometryType() != QgsWkbTypes.PolygonGeometry:
+                msg = "Input GIS (Catchment) Layer Must be a Polygon for 2d_sa output"
+                label = self.createLabel(msg, True)
+                self.verticalLayout_30.insertWidget(self.verticalLayout_30.count(), label)
+                self.flags.append((self.verticalLayout_30, label, msg))
+                return
+            if self.rb2dBc.isChecked() and \
+                    tuflowqgis_find_layer(self.cboInputGIS.currentText()).geometryType() != QgsWkbTypes.LineGeometry:
+                msg = "Input GIS (Catchment) Layer Must be a Line / Polyline for 2d_bc output"
+                label = self.createLabel(msg, True)
+                self.verticalLayout_30.insertWidget(self.verticalLayout_30.count(), label)
+                self.flags.append((self.verticalLayout_30, label, msg))
+                return
+            if self.rb1dBc.isChecked() and \
+                    tuflowqgis_find_layer(self.cboInputGIS.currentText()).geometryType() == QgsWkbTypes.LineGeometry:
+                msg = "Input GIS (Catchment) Layer Cannot be a Line / Polyline for 1d_bc output"
+                label = self.createLabel(msg, True)
+                self.verticalLayout_30.insertWidget(self.verticalLayout_30.count(), label)
+                self.flags.append((self.verticalLayout_30, label, msg))
+                return
+
     def check(self) -> None:
         """
         Checks input for silly mistakes or omissions as best as can
@@ -763,36 +981,36 @@ class Refh2Dock(QDockWidget, Ui_refh2):
             return
 
         # output
-        if self.gbOutRainfall.isChecked() and self.gbRainToGis.isChecked():
-            if not self.cboInputGIS.currentText() or not self.cboFields.currentText() \
-                    or not self.cboFeatures.currentText():
-                QMessageBox.critical(self, "ReFH2 to TUFLOW", "Must Specify Input GIS Layer to Output To TUFLOW GIS")
-                return
-            if self.rb2dRf.isChecked() and \
-                    tuflowqgis_find_layer(self.cboInputGIS.currentText()).geometryType() != QgsWkbTypes.PolygonGeometry:
-                QMessageBox.critical(self, "ReFH2 to TUFLOW", "Must Use Region GIS Layer to Output 2d_rf")
-                return
-            if self.rb2dSaRf.isChecked() and \
-                    tuflowqgis_find_layer(self.cboInputGIS.currentText()).geometryType() != QgsWkbTypes.PolygonGeometry:
-                QMessageBox.critical(self, "ReFH2 to TUFLOW", "Must Use Region GIS Layer to Output 2d_sa_rf")
-                return
-        if self.gbOutHydrograph.isChecked() and self.gbHydToGis.isChecked():
-            if not self.cboInputGIS.currentText() or not self.cboFields.currentText() \
-                    or not self.cboFeatures.currentText():
-                QMessageBox.critical(self, "ReFH2 to TUFLOW", "Must Specify Input GIS Layer to Output To TUFLOW GIS")
-                return
-            if self.rb2dSa.isChecked() and \
-                    tuflowqgis_find_layer(self.cboInputGIS.currentText()).geometryType() != QgsWkbTypes.PolygonGeometry:
-                QMessageBox.critical(self, "ReFH2 to TUFLOW", "Must Use Region GIS Layer to Output 2d_sa")
-                return
-            if self.rb2dBc.isChecked() and \
-                    tuflowqgis_find_layer(self.cboInputGIS.currentText()).geometryType() != QgsWkbTypes.LineGeometry:
-                QMessageBox.critical(self, "ReFH2 to TUFLOW", "Must Use Line GIS Layer to Output 2d_bc")
-                return
-            if self.rb1dBc.isChecked() and \
-                    tuflowqgis_find_layer(self.cboInputGIS.currentText()).geometryType() == QgsWkbTypes.LineGeometry:
-                QMessageBox.critical(self, "ReFH2 to TUFLOW", "Cannot Use Line GIS Layer to Output 1d_bc")
-                return
+        #if self.gbOutRainfall.isChecked() and self.gbRainToGis.isChecked():
+        #    if not self.cboInputGIS.currentText() or not self.cboFields.currentText() \
+        #            or not self.cboFeatures.currentText():
+        #        QMessageBox.critical(self, "ReFH2 to TUFLOW", "Must Specify Input GIS Layer to Output To TUFLOW GIS")
+        #        return
+        #    if self.rb2dRf.isChecked() and \
+        #            tuflowqgis_find_layer(self.cboInputGIS.currentText()).geometryType() != QgsWkbTypes.PolygonGeometry:
+        #        QMessageBox.critical(self, "ReFH2 to TUFLOW", "Must Use Region GIS Layer to Output 2d_rf")
+        #        return
+        #    if self.rb2dSaRf.isChecked() and \
+        #            tuflowqgis_find_layer(self.cboInputGIS.currentText()).geometryType() != QgsWkbTypes.PolygonGeometry:
+        #        QMessageBox.critical(self, "ReFH2 to TUFLOW", "Must Use Region GIS Layer to Output 2d_sa_rf")
+        #        return
+        #if self.gbOutHydrograph.isChecked() and self.gbHydToGis.isChecked():
+        #    #if not self.cboInputGIS.currentText() or not self.cboFields.currentText() \
+        #    #        or not self.cboFeatures.currentText():
+        #    #    QMessageBox.critical(self, "ReFH2 to TUFLOW", "Must Specify Input GIS Layer to Output To TUFLOW GIS")
+        #    #    return
+        #    if self.rb2dSa.isChecked() and \
+        #            tuflowqgis_find_layer(self.cboInputGIS.currentText()).geometryType() != QgsWkbTypes.PolygonGeometry:
+        #        QMessageBox.critical(self, "ReFH2 to TUFLOW", "Must Use Region GIS Layer to Output 2d_sa")
+        #        return
+        #    if self.rb2dBc.isChecked() and \
+        #            tuflowqgis_find_layer(self.cboInputGIS.currentText()).geometryType() != QgsWkbTypes.LineGeometry:
+        #        QMessageBox.critical(self, "ReFH2 to TUFLOW", "Must Use Line GIS Layer to Output 2d_bc")
+        #        return
+        #    if self.rb1dBc.isChecked() and \
+        #            tuflowqgis_find_layer(self.cboInputGIS.currentText()).geometryType() == QgsWkbTypes.LineGeometry:
+        #        QMessageBox.critical(self, "ReFH2 to TUFLOW", "Cannot Use Line GIS Layer to Output 1d_bc")
+        #        return
         if self.rbQgisArea.isChecked():
             # if using spherical coords, check it can be converted to cartesian
             layer = tuflowqgis_find_layer(self.cboInputGIS.currentText())

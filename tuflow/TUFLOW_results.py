@@ -3,60 +3,10 @@ import numpy
 import csv
 import ctypes
 import re
-from tuflow.tuflowqgis_library import getOSIndependentFilePath
+from tuflow.tuflowqgis_library import (getOSIndependentFilePath, NC_Error,
+									   NcDim, NcVar, getNetCDFLibrary)
 version = '2018-03-AA' #added reporting location regions
 
-
-
-class NC_Error:
-	NC_NOERR = 0
-	NC_EBADID = -33
-	NC_ENOTVAR = -49
-	NC_EBADDIM = -46
-	NC_EPERM = -37
-	NC_ENFILE = -34
-	NC_ENOMEM = -61
-	NC_EHDFERR = -101
-	NC_EDIMMETA = -106
-
-	@staticmethod
-	def message(error):
-		error2message = {
-			NC_Error.NC_NOERR: "No error",
-			NC_Error.NC_EBADID: "Invalid ncid",
-			NC_Error.NC_ENOTVAR: "Invalid Variable ID",
-			NC_Error.NC_EBADDIM: "Invalid Dimension ID",
-			NC_Error.NC_EPERM: "Attempting to create a netCDF file in a directory where you do not have permission to open files",
-			NC_Error.NC_ENFILE: "Too many files open",
-			NC_Error.NC_ENOMEM: "Out of memory",
-			NC_Error.NC_EHDFERR: "HDF5 error. (NetCDF-4 files only.)",
-			NC_Error.NC_EDIMMETA: "Error in netCDF-4 dimension metadata. (NetCDF-4 files only.)"
-		}
-
-		if error in error2message:
-			return error2message[error]
-		else:
-			return "code {0}".format(error)
-
-
-class NcDim():
-
-	def __init__(self):
-		self.id = -1
-		self.name = ""
-		self.len = 0
-
-
-class NcVar():
-
-	def __init__(self):
-		self.id = -1
-		self.name = ""
-		self.type = -1
-		self.nDims = 0
-		self.dimIds = ()
-		self.dimNames = ()
-		self.dimLens = ()
 
 
 class LP():
@@ -259,19 +209,23 @@ class Timeseries():
 		self.ID.clear()
 		i = 1
 		nCol = 1
+		rSimID = simID.replace("+", r"\+")  # simID with special re characters returned
 		for col in header[2:]:
 			i += 1
 			a = col[len(prefix)+1:]
 			# strip simulation name - highly unlikely more than one match
-			a = "".join(re.split(r"\[?{0}]?".format(simID), col, re.IGNORECASE)).strip()
+			a = "".join(re.split(r"\[{0}]".format(rSimID), col, re.IGNORECASE)).strip()
 			# strip prefix - only take the first occurrence just in case there's more than one match
 			rx = re.search(r"{0}\s".format(prefix), a, re.IGNORECASE)
 			if rx is None:
 				message = "ERROR - Error reading header data in: {0}".format(fullpath)
 				error = True
 				return error, message
-			if rx.span()[0]:
-				self.lossNames.append(a[:rx.span()[0]])
+			if prefix == "LC":
+				if rx.span()[0]:
+					self.lossNames.append(a[:rx.span()[0]])
+				else:
+					self.lossNames.append(prefix)
 			a = a[rx.span()[1]:]
 			self.ID.append(a)
 			header[i] = a
@@ -1514,6 +1468,114 @@ class ResData():
 			message = 'ERROR - Expecting model domain to be 1D or 2D.'
 			return False, [0.0], message
 
+	def getMAXData(self, id, dom, res):
+		message = None
+		if (dom.upper() == "1D"):
+			if(res.upper() in ("H", "H_", "LEVEL","LEVELS")):
+				if self.Data_1D.Node_Max.loaded:
+					try:
+						ind = self.Data_1D.Node_Max.ID.index(id)
+						y = self.Data_1D.Node_Max.HMax[ind]
+						x = self.Data_1D.Node_Max.tHmax[ind]
+						return True, [x, y], message
+					except:
+						message = 'Data not found for maximum 1D H with ID: '+id
+						return False, [0.0], message
+				else:
+					message = 'No maximum 1D Water Level Data loaded for: '+self.displayname
+					return False, [0.0], message
+			elif (res.upper() in ("E", "E_", "ENERGY LEVEL", "ENERGY LEVELS")):
+				if self.Data_1D.Node_Max.loaded:
+					try:
+						ind = self.Data_1D.Node_Max.ID.index(id)
+						y = self.Data_1D.Node_Max.EMax[ind]
+						x = self.Data_1D.Node_Max.tHmax[ind]
+						return True, [x, y], message
+					except:
+						message = 'Data not found for maximum 1D E with ID: ' + id
+						return False, [0.0], message
+				else:
+					message = 'No maximum 1D Energy Level Data loaded for: ' + self.displayname
+					return False, [0.0], message
+			elif(res.upper() in ("Q","Q_","FLOW","FLOWS")):
+				if self.Data_1D.Chan_Max.loaded:
+					try:
+						ind = self.Data_1D.Chan_Max.ID.index(id)
+						y = self.Data_1D.Chan_Max.QMax[ind]
+						x = self.Data_1D.Chan_Max.tQmax[ind]
+						return True, [x, y], message
+					except:
+						message = 'Data not found for maximum 1D Q with ID: '+id
+						return False, [0.0], message
+				else:
+					message = 'No maximum 1D Flow Data loaded for: '+self.displayname
+					return False, [0.0], message
+			elif(res.upper() in ("V","V_","VELOCITY","VELOCITIES")):
+				if self.Data_1D.Chan_Max.loaded:
+					try:
+						ind = self.Data_1D.Chan_Max.ID.index(id)
+						y = self.Data_1D.Chan_Max.VMax[ind]
+						x = self.Data_1D.Chan_Max.tVmax[ind]
+						return True, [x, y], message
+					except:
+						message = 'Data not found for maximum 1D V with ID: '+id
+						return False, [0.0], message
+				else:
+					message = 'No maximum 1D Velocity Data loaded for: '+self.displayname
+					return False, [0.0], message
+			elif(res.upper() in ("US_H", "US LEVELS")):
+				chan_list = tuple(self.Channels.chan_name)
+				ind = chan_list.index(str(id))
+				a = str(self.Channels.chan_US_Node[ind])
+				try:
+					ind = self.Data_1D.Node_Max.ID.index(a)
+				except:
+					message = 'Unable to find US node: ',+a+' for channel '+ id
+					return False, [0.0], message
+				try:
+					y = self.Data_1D.Node_Max.HMax[ind]
+					x = self.Data_1D.Node_Max.tHmax[ind]
+					return True, [x, y], message
+				except:
+					message = 'Data not found for maximum 1D H with ID: '+a
+					return False, [0.0], message
+			elif(res.upper() in ("DS_H","DS LEVELS")):
+				chan_list = tuple(self.Channels.chan_name)
+				ind = chan_list.index(str(id))
+				a = str(self.Channels.chan_DS_Node[ind])
+				try:
+					ind = self.Data_1D.Node_Max.ID.index(a)
+				except:
+					message = 'Unable to find DS node: ',+a+' for channel '+ id
+					return False, [0.0], message
+				try:
+					y = self.Data_1D.Node_Max.HMax[ind]
+					x = self.Data_1D.Node_Max.tHmax[ind]
+					return True, [x, y], message
+				except:
+					message = 'Data not found for maximum 1D H with ID: '+a
+					return False, [0.0], message
+			elif (res.upper() in ("A", "A_", "FLOW AREA", "FLOW AREAS")):
+				if self.Data_1D.Chan_Max.loaded:
+					try:
+						ind = self.Data_1D.Chan_Max.ID.index(id)
+						y = self.Data_1D.Chan_Max.HMax[ind]
+						x = self.Data_1D.Chan_Max.tHmax[ind]
+						return True, [x, y], message
+					except:
+						message = 'Data not found for maximum 1D A with ID: ' + id
+						return False, [0.0], message
+				else:
+					message = 'No maximum 1D Flow Area Data loaded for: ' + self.displayname
+					return False, [0.0], message
+			else:
+				message = 'Warning - Expecting unexpected data type for 1D: '+res
+				return False, [0.0], message
+
+		else:
+			message = 'ERROR - Expecting model domain to be 1D.'
+			return False, [0.0], message
+
 	def LP_getConnectivity(self,id1,id2):
 		#print('determining LP connectivity')
 		message = None
@@ -1988,24 +2050,6 @@ class ResData():
 
 		return "CSV"
 
-	def getNetCDFLibrary(self):
-		try:
-			from netCDF4 import Dataset
-			return "python", None
-		except ImportError:
-			pass
-
-		try:
-			from qgis.core import QgsApplication
-			netcdf_dll_path = os.path.dirname(os.path.join(os.path.dirname(os.path.dirname(QgsApplication.pkgDataPath()))))
-			netcdf_dll_path = os.path.join(netcdf_dll_path, "bin", "netcdf.dll")
-			if os.path.exists(netcdf_dll_path):
-				return "c_netcdf.dll", netcdf_dll_path
-		except ImportError:
-			pass
-
-		return None, None
-
 	def Load(self, fname):
 		error = False
 		message = None
@@ -2032,7 +2076,7 @@ class ResData():
 		error = False
 		message = None
 		if self.netCDFLibPath is None:
-			self.netCDFLib, self.netCDFLibPath = self.getNetCDFLibrary()
+			self.netCDFLib, self.netCDFLibPath = getNetCDFLibrary()
 		else:
 			if os.path.exists(self.netCDFLibPath):
 				self.netCDFLib = "c_netcdf.dll"
@@ -3329,7 +3373,9 @@ class ResData():
 		types = []
 		
 		for type in self.Types:
-			if 'LINE FLOW AREA' in type.upper():
+			if 'VELOCITIES' in type.upper():
+				types.append('Velocity')
+			elif 'LINE FLOW AREA' in type.upper():
 				types.append('Flow Area')
 			elif 'LINE INTEGRAL FLOW' in type.upper():
 				types.append('Flow Integral')
@@ -3354,7 +3400,7 @@ class ResData():
 				types.append('Losses')
 			elif 'FLOW' in type.upper():
 				types.append('Flow')
-		
+
 		if self.nodes is not None:
 			point_types = self.pointResultTypesTS()
 			if 'Level' in point_types:

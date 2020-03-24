@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Bed_Elevation>
-<colorrampshader clip="0" colorRampType="INTERPOLATED" classificationMode="1">
+<colorrampshader colorRampType="INTERPOLATED" classificationMode="1" clip="0">
  <colorramp type="gradient" name="[source]">
-  <prop k="color1" v="43,131,186,255"/>
-  <prop k="color2" v="215,25,28,255"/>
-  <prop k="discrete" v="0"/>
-  <prop k="rampType" v="gradient"/>
-  <prop k="stops" v="0.25;171,221,164,255:0.5;255,255,191,255:0.75;253,174,97,255"/>
+  <prop v="43,131,186,255" k="color1"/>
+  <prop v="215,25,28,255" k="color2"/>
+  <prop v="0" k="discrete"/>
+  <prop v="gradient" k="rampType"/>
+  <prop v="0.25;171,221,164,255:0.5;255,255,191,255:0.75;253,174,97,255" k="stops"/>
  </colorramp>
- <item value="36.001" label="36" alpha="255" color="#2b83ba"/>
- <item value="40.87925" label="40.9" alpha="255" color="#abdda4"/>
- <item value="45.7575" label="45.8" alpha="255" color="#ffffbf"/>
- <item value="50.63575" label="50.6" alpha="255" color="#fdae61"/>
- <item value="55.514" label="55.5" alpha="255" color="#d7191c"/>
+ <item value="36.001" color="#2b83ba" alpha="255" label="36.001"/>
+ <item value="40.87925" color="#abdda4" alpha="255" label="40.87925"/>
+ <item value="45.7575" color="#ffffbf" alpha="255" label="45.7575"/>
+ <item value="50.63575" color="#fdae61" alpha="255" label="50.63575"/>
+ <item value="55.514" color="#d7191c" alpha="255" label="55.514"/>
 </colorrampshader>

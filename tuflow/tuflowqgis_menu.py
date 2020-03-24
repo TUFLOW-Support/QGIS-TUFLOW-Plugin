@@ -253,10 +253,22 @@ class tuflowqgis_menu:
 		
 		#Auto label generator ES 8/03/2018
 		icon = QIcon(os.path.join(dir, "icons", "Label_icon.PNG"))
-		self.apply_auto_label_action = QAction(icon, "Apply Label to Current Layer", self.iface.mainWindow())
-		self.apply_auto_label_action.triggered.connect(self.apply_label_cLayer)
-		self.iface.addToolBarIcon(self.apply_auto_label_action)
-		self.iface.addPluginToMenu("&TUFLOW", self.apply_auto_label_action)
+		#self.apply_auto_label_action = QAction(icon, "Apply Label to Current Layer", self.iface.mainWindow())
+		#self.apply_auto_label_action.triggered.connect(self.apply_label_cLayer)
+		#self.iface.addToolBarIcon(self.apply_auto_label_action)
+		#self.tbAutoLabel = QToolButton()
+		#self.tbAutoLabel.setIcon(icon)
+		#self.tbAutoLabel.setToolTip("Apply Label to Current Layer")
+		self.autoLabelMenu = QMenu()
+		self.autoLabelMenu.menuAction().triggered.connect(self.apply_label_cLayer)
+		self.autoLabelMenu.setIcon(icon)
+		self.autoLabelMenu.setToolTip("Apply Label to Current Layer")
+		self.autoLabelSettingLocAction = QAction("Open Label Settings", self.autoLabelMenu)
+		self.autoLabelSettingLocAction.triggered.connect(self.openLabelSettingLoc)
+		self.autoLabelMenu.addAction(self.autoLabelSettingLocAction)
+		#self.iface.addPluginToMenu("&TUFLOW", self.apply_auto_label_action)
+		#self.tbAutoLabel.setMenu(self.autoLabelMenu)
+		self.iface.addToolBarIcon(self.autoLabelMenu.menuAction())
 		
 		#ES 2018/01 ARR2016 Beta
 		icon = QIcon(os.path.join(dir, "icons", "arr2016.PNG"))
@@ -360,7 +372,11 @@ class tuflowqgis_menu:
 				                                  reloadTuview=self.reloadTuviewAction)
 			#except:
 			#	pass
-			self.iface.addDockWidget(Qt.BottomDockWidgetArea, self.resultsPlottingDock)
+			dockArea = Qt.BottomDockWidgetArea
+			if QSettings().contains("TUFLOW/tuview_defaultlayout"):
+				if QSettings().value("TUFLOW/tuview_defaultlayout", "plot") == "narrow":
+					dockArea = Qt.RightDockWidgetArea
+			self.iface.addDockWidget(dockArea, self.resultsPlottingDock)
 			self.resultsPlottingDockOpened = True
 			
 	def removeTuview(self, **kwargs):
@@ -497,6 +513,11 @@ class tuflowqgis_menu:
 		error, message = tuflowqgis_apply_autoLabel_clayer(self.iface)
 		if error:
 			QMessageBox.critical(self.iface.mainWindow(), "Error", message)
+
+	def openLabelSettingLoc(self):
+		dir = os.path.dirname(__file__)
+		p = os.path.join(dir, "layer_labelling")
+		os.startfile(p)
 	
 	def loadTuflowLayersFromTCF(self):
 		settings = QSettings()
@@ -527,7 +548,9 @@ class tuflowqgis_menu:
 				else:
 					error, message, scenarios = getScenariosFromTcf(inFileName)
 					if error:
-						QMessageBox.information(self.iface.mainWindow(), "Message", message)
+						if message:
+							QMessageBox.information(self.iface.mainWindow(), "Message", message)
+						return
 					if len(scenarios) > 0:
 						self.dialog = tuflowqgis_scenarioSelection_dialog(self.iface, inFileName, scenarios)
 						self.dialog.exec_()
