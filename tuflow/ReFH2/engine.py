@@ -2,7 +2,8 @@ try:
     import winreg
 except:
     pass
-import os, subprocess, re
+import os, subprocess, re, sys, traceback
+import numpy as np
 from PyQt5.QtCore import QObject, pyqtSignal, QVariant
 from PyQt5.QtWidgets import QMessageBox
 from qgis.core import QgsVectorFileWriter, QgsFields, QgsField, QgsWkbTypes, QgsFeature, NULL
@@ -54,7 +55,10 @@ class Refh2(QObject):
     def __init__(self, inputs: dict=None) -> None:
         QObject.__init__(self)
         self.inputs = inputs
-        
+        self.data = None
+        self.headers = []
+        self.bcdbaseContent = []
+
     def run(self) -> None:
         """
         Run the tool using ReFH2 cmd API
@@ -73,41 +77,67 @@ class Refh2(QObject):
         # arguments
         exe = self.inputs['exe']
         infile = '--infile={0}'.format(self.inputs['descriptor'])
-        outfile = '--outfile={0}'.format(self.inputs['output file'])
+        #outfile = '--outfile={0}'.format(self.inputs['output file'])
         checksum = '--checksum={0}'.format(checkSum(self.inputs['descriptor']))
         vendor = '--vendor=bmt'
         mode = '--mode=HYDROGRAPH'
         returnperiods = '--returnperiods={0}'.format(','.join([str(x) for x in self.inputs['return periods']]))
         country = '--country={0}'.format(self.inputs['location'])
-        model = '--model={0}'.format(self.inputs['output hydrograph type'])
+        #model = '--model={0}'.format(self.inputs['output hydrograph type'])
         seasonality = '--seasonality={0}'.format(self.inputs['season'])
         plotscale = '--plotscale=NO'
         area = '--area={0}'.format(self.inputs['area'])
         reportoutputfolder = '--reportoutputfolder={0}'.format(os.path.dirname(self.inputs['output file']))
         rainModel = '--rainmodel={0}'.format(self.inputs['rain model'])
+
+        durations = self.inputs['durations']
+        timesteps = self.inputs['timesteps']
+        if not durations:
+            self.inputs['durations'] = [None]
+            durations = [None]  # dummy entry
+
+        index = -1
+        for j, dur in enumerate(durations):
+            for i, (k, m) in enumerate(self.inputs['output hydrograph type'].items()):
+                index += 1
+                model = f'--model={m}'
+                outfile = '--outfile={0}_{1}.csv'.format(self.inputs['output file'], m)
+                self.inputs['output file final'] = outfile[10:]
+                args = [exe, infile, outfile, checksum, vendor, mode, returnperiods,
+                        country, model, seasonality, plotscale, area, reportoutputfolder,
+                        rainModel]
+
+                if dur is not None:
+                    outfile = '--outfile={0}_{1}_{2}.csv'.format(self.inputs['output file'], m, dur.replace(':', '-'))
+                    self.inputs['output file final'] = outfile[10:]
+                    args[2] = outfile
+                    duration = '--duration={0}'.format(dur)
+                    timestep = '--timestep={0}'.format(timesteps[j])
+                    args.append(duration)
+                    args.append(timestep)
+
+                self.refh2Start.emit()
+                CREATE_NO_WINDOW = 0x08000000
+                proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                        creationflags=CREATE_NO_WINDOW)
+                proc.wait()
+                out, err = proc.communicate()
+                if out:
+                    msg = out.decode('utf-8')
+                    if re.findall(r"^\d*:", msg):
+                        try:
+                            code = int(re.findall(r"^\d*:", msg)[0][:-1])
+                            if code == 6040:
+                                self.processIntoTuflow(msg=f"WARNING {msg}", model=k, model_type=m, index=index, iter=i, iDur=j)
+                                continue
+                        except ValueError:
+                            self.finished.emit(msg)
+                    self.finished.emit(msg)
+                    return
+                else:
+                    self.processIntoTuflow(model=k, model_type=m, index=index, iter=i, iDur=j)
         
-        args = [exe, infile, outfile, checksum, vendor, mode, returnperiods,
-                country, model, seasonality, plotscale, area, reportoutputfolder,
-                rainModel]
-        
-        if self.inputs['duration'] is not None:
-            duration = '--duration={0}'.format(self.inputs['duration'])
-            timestep = '--timestep={0}'.format(self.inputs['timestep'])
-            args.append(duration)
-            args.append(timestep)
-            
-        self.refh2Start.emit()
-        CREATE_NO_WINDOW = 0x08000000
-        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=CREATE_NO_WINDOW)
-        proc.wait()
-        out, err = proc.communicate()
-        if out:
-            self.finished.emit(out.decode('utf-8'))
-            return
-        else:
-            self.processIntoTuflow()
-        
-    def processIntoTuflow(self) -> None:
+    def processIntoTuflow(self, msg='', model=None, index=0, model_type=None, iter=0, iDur=0) -> None:
         """
         Processing the output data from ReFH2
         into TUFLOW format.
@@ -116,23 +146,30 @@ class Refh2(QObject):
         """
         
         self.tuflowProcessingStart.emit()
-        
+
+        mIter = len(set([x for k, x in self.inputs['output hydrograph type'].items()]))
+        mDur = len(self.inputs['durations'])
+
         if self.inputs['do output rainfall'] or self.inputs['do output hydrograph']:
             # manipulate output data
-            self.convertFormatToTuflow()
+            self.convertFormatToTuflow(model, iter, mIter, model_type, index, mIter * mDur, iDur)
             
             # create TEF
-            self.createTEF()
+            if index == 0:
+                self.createTEF()
             
             # create bc_dbase
-            self.createBcDbase()
+            if index < mIter:
+                self.createBcDbase(model, iter, mIter, model_type)
             
             # create GIS
-            self.createGis()
+            if index == 0:
+                self.createGis()
             
-        self.finished.emit('')
+        if index + 1 == mIter * mDur:
+            self.finished.emit(msg)
 
-    def getTimestep(self) -> float:
+    def getTimestep(self, model=None) -> float:
         """
         Works out what the timestep is from the REFH2 output file
 
@@ -142,8 +179,10 @@ class Refh2(QObject):
         timeFirst = None
         timeSecond = None
         timestep = 0
+        f = self.inputs['output file final']
+        #f = "{0}_{1}.csv".format(self.inputs['output file'], self.inputs['output hydrograph type'][model])
         try:
-            with open(self.inputs['output file'], 'r') as fo:
+            with open(f, 'r') as fo:
                 for i, line in enumerate(fo):
                     comp = line.split(',')
                     if i > 0:
@@ -154,7 +193,7 @@ class Refh2(QObject):
                         if timeFirst is None:
                             timeFirst = convertFormattedTimeToTime(comp[0])
         except IOError:
-            self.finished.emit('Error Opening {0}'.format(self.inputs['output file']))
+            self.finished.emit('Error Opening {0}'.format(f))
             return 0
         except Exception:
             self.finished.emit('Unexpected error calculating timestep from {0}'.format(self.inputs['output file']))
@@ -162,7 +201,7 @@ class Refh2(QObject):
 
         return timestep
         
-    def convertFormatToTuflow(self) -> None:
+    def convertFormatToTuflow(self, model=None, iter=0, mIter=1, model_type=None, index=0, mIndex=1, iDur=0) -> None:
         """
         Converts the native output from
         ReFH2 to TUFLOW compatible - change time column and remove unwanted columns
@@ -170,16 +209,24 @@ class Refh2(QObject):
         :return: None
         """
 
-        name = '{0}_TUFLOW.csv'.format(os.path.basename(os.path.splitext(self.inputs['output file'])[0]))
-        self.inputs['source file'] = name
+        # name = '{0}_TUFLOW.csv'.format(os.path.basename(os.path.splitext(self.inputs['output file'])[0]))
+        if self.inputs['durations'][0] is not None:
+            #iDur = int((index - iter) / len(self.inputs['durations']))
+            name = '{0}_{1}.csv'.format(os.path.basename(self.inputs['output file']), self.inputs['durations'][iDur].replace(":", "-"))
+            self.inputs['source file'] = '{0}_~DUR~.csv'.format(os.path.basename(self.inputs['output file']))
+        else:
+            name = '{0}.csv'.format(os.path.basename(self.inputs['output file']))
+            self.inputs['source file'] = name
         outfile = os.path.join(os.path.dirname(self.inputs['output file']), name)
         timehr = None
         contents = []
-        timestep = self.getTimestep()
+        timestep = self.getTimestep(model)
         if not timestep:
             return
         try:
-            with open(self.inputs['output file'], 'r') as fo:
+            f = self.inputs['output file final']
+            #f = "{0}_{1}.csv".format(self.inputs['output file'], self.inputs['output hydrograph type'][model])
+            with open(f, 'r') as fo:
                 for i, line in enumerate(fo):
                     lineComp = line.split(',')
                     if i == 0:
@@ -204,32 +251,67 @@ class Refh2(QObject):
                                     sourceHeaderWildcard = '{0}~ARI~{1}'.format(sourceHeaderWoARI[0], sourceHeaderWoARI[1])
                                 else:
                                     sourceHeaderWildcard = '!! ERROR occured getting header name !!'
-                                if 'rain' in sourceHeaderWildcard.lower():
-                                    self.inputs['rainfall source column'] = sourceHeaderWildcard
-                                else:
-                                    self.inputs['inflow source column'] = sourceHeaderWildcard
+                                if 'net rain' in sourceHeaderWildcard.lower():
+                                    if model_type == self.inputs['output hydrograph type']["rainfall"]:
+                                        self.inputs['net rainfall source column'] = sourceHeaderWildcard
+                                elif 'design rain' in sourceHeaderWildcard.lower():
+                                    if model_type == self.inputs['output hydrograph type']["rainfall"]:
+                                        self.inputs['design rainfall source column'] = sourceHeaderWildcard
+                                elif 'direct runoff' in sourceHeaderWildcard.lower():
+                                    if model_type == self.inputs['output hydrograph type']["hydrograph"]:
+                                        self.inputs['direct runoff inflow source column'] = sourceHeaderWildcard
+                                elif 'baseflow' in sourceHeaderWildcard.lower():
+                                    if model_type == self.inputs['output hydrograph type']["hydrograph"]:
+                                        self.inputs['baseflow inflow source column'] = sourceHeaderWildcard
+                                elif 'total flow' in sourceHeaderWildcard.lower():
+                                    if model_type == self.inputs['output hydrograph type']["hydrograph"]:
+                                        self.inputs['total inflow source column'] = sourceHeaderWildcard
                 # write a zero entry at the end
                 if timehr:
                     contents[-1] = ('{0}{1}'.format(contents[-1], timehr + timestep))
                     contents.append(','.join(zeros))
         except IOError:
-            self.finished.emit('Error Opening {0}'.format(self.inputs['output file']))
+            self.finished.emit('Error Opening {0}'.format(f))
             return
         except Exception as e:
-            self.finished.emit('Error Formatting into TUFLOW: {0}'.format(e))
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            self.finished.emit(f"{traceback.print_exception(exc_type, exc_value, exc_traceback)}")
         try:
-            with open(outfile, 'w') as fo:
-                fo.write('! {0} Processed into TUFLOW Format by ReFH2 to TUFLOW QGIS Plugin Tool\n'.format(self.inputs['output file']))
-                fo.write('! Zero values have been inserted at the start and end of event\n'.format(self.inputs['output file']))
-                fo.write(','.join(contents))
+            #with open(outfile, 'w') as fo:
+            #    fo.write('! {0} Processed into TUFLOW Format by ReFH2 to TUFLOW QGIS Plugin Tool\n'.format(self.inputs['output file']))
+            #    fo.write('! Zero values have been inserted at the start and end of event\n'.format(self.inputs['output file']))
+            #    fo.write(','.join(contents))
+            # change to array
+            d = [x.split(",") for x in ",".join(contents).split("\n")]
+            h = d[0]
+            a = np.array([[float(x) for x in y] for y in d[1:]])
+            if iter == 0:
+                self.data = np.copy(a)
+                self.headers = h[:]
+            else:
+                self.data, a = self.makeEqualLength(self.data, a, fill=0)
+                indexes = self.getModelIndexes(model, h)
+                for i in indexes:
+                    self.headers[i] = h[i]
+                    self.data[:,i] = a[:,i]
+
+            if iter + 1 == mIter:
+                header = '! {0} Processed into TUFLOW Format by ReFH2 to TUFLOW QGIS Plugin Tool\n' \
+                         '! Zero values have been inserted at the start and end of event\n' \
+                         '{1}'.format(self.inputs['output file'], ','.join(self.headers))
+                np.savetxt(outfile, self.data, fmt="%.3f", delimiter=",", newline="\n", header=header, comments="")
+
         except PermissionError:
             self.finished.emit('{0} Locked'.format(outfile))
             return
         except IOError:
             self.finished.emit('Error Opening {0}'.format(outfile))
             return
+        except Exception:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            self.finished.emit(f"{traceback.print_exception(exc_type, exc_value, exc_traceback)}")
     
-    def createBcDbase(self) -> None:
+    def createBcDbase(self, model=None, index=0, mIndex=1, model_type=None) -> None:
         """
         Create TUFLOW bc_dbase.csv
         based on user inputs i.e. catchment name
@@ -238,22 +320,42 @@ class Refh2(QObject):
         """
         
         bc_dbase = os.path.join(os.path.dirname(self.inputs['output file']), 'bc_dbase.csv')
-        
-        try:
-            with open(bc_dbase, 'w') as fo:
-                fo.write('Name,Source,Column 1,Column 2\n')
-                if self.inputs['do output rainfall']:
-                    fo.write('{0},{1},Time (hr),{2}\n'.format(self.inputs['rainfall name'], self.inputs['source file'],
-                                                            self.inputs['rainfall source column']))
-                if self.inputs['do output hydrograph']:
-                    fo.write('{0},{1},Time (hr),{2}\n'.format(self.inputs['inflow name'], self.inputs['source file'],
-                                                            self.inputs['inflow source column']))
-        except PermissionError:
-            self.finished.emit('{0} Locked'.format(bc_dbase))
-            return
-        except IOError:
-            self.finished.emit('Error Opening {0}'.format(bc_dbase))
-            return
+
+        #if index == 0:
+            #self.bcdbaseContent.append('Name,Source,Column 1,Column 2')
+        if self.inputs['do output rainfall'] and model_type == self.inputs['output hydrograph type']['rainfall']:
+            if Refh2.GrossRainfall in self.inputs['output data']:
+                self.bcdbaseContent.append('{0}_Gross,{1},Time (hr),{2}'.format(self.inputs['rainfall name'],
+                                                                  self.inputs['source file'],
+                                                                  self.inputs['design rainfall source column']))
+            if Refh2.NetRainfall in self.inputs['output data']:
+                self.bcdbaseContent.append('{0}_Net,{1},Time (hr),{2}'.format(self.inputs['rainfall name'],
+                                                                  self.inputs['source file'],
+                                                                  self.inputs['net rainfall source column']))
+        if self.inputs['do output hydrograph'] and model_type == self.inputs['output hydrograph type']['hydrograph']:
+            if Refh2.DirectRunoff in self.inputs['output data']:
+                self.bcdbaseContent.append('{0}_Direct,{1},Time (hr),{2}'.format(self.inputs['inflow name'],
+                                                                     self.inputs['source file'],
+                                                                     self.inputs['direct runoff inflow source column']))
+            if Refh2.BaseFlow in self.inputs['output data']:
+                self.bcdbaseContent.append('{0}_Baseflow,{1},Time (hr),{2}'.format(self.inputs['inflow name'],
+                                                                       self.inputs['source file'],
+                                                                       self.inputs['baseflow inflow source column']))
+            if Refh2.TotalRunoff in self.inputs['output data']:
+                self.bcdbaseContent.append('{0}_Total,{1},Time (hr),{2}'.format(self.inputs['inflow name'],
+                                                                    self.inputs['source file'],
+                                                                    self.inputs['total inflow source column']))
+        if index + 1 == mIndex:
+            try:
+                with open(bc_dbase, 'w') as fo:
+                    fo.write('Name,Source,Column 1,Column 2\n')
+                    fo.write('\n'.join(self.bcdbaseContent))
+            except PermissionError:
+                self.finished.emit('{0} Locked'.format(bc_dbase))
+                return
+            except IOError:
+                self.finished.emit('Error Opening {0}'.format(bc_dbase))
+                return
     
     def createTEF(self) -> None:
         """
@@ -287,6 +389,13 @@ class Refh2(QObject):
                     fo.write('    BC Event Source == ~ARI~ | {0} year\n'.format(int(rp)))
                     fo.write('End Define\n')
                     fo.write('!-------------------------------------\n')
+                if self.inputs['durations'][0] is not None:
+                    fo.write('\n!! DURATIONS !!\n')
+                    for dur in self.inputs['durations']:
+                        fo.write(f'Define Event == {dur.replace(":","-")}\n')
+                        fo.write(f'    BC Event Source == ~DUR~ | {dur.replace(":","-")}\n')
+                        fo.write('End Define\n')
+                        fo.write('!-------------------------------------\n')
         except PermissionError:
             self.finished.emit('{0} Locked'.format(tef))
             return
@@ -380,4 +489,59 @@ class Refh2(QObject):
                     return '{0}{1}RefH2CLI.exe'.format(os.path.dirname(winreg.EnumValue(hKey2, 0)[1]), os.path.sep)
         
         return "Error: Cannot Find ReFH2.exe"
-        
+
+    def getModelIndexes(self, model, header):
+        """
+        Returns index of relevant headers for model type.
+
+        Example:
+            model = "rainfall"
+            return indexes for headers - "net rain" and "design rain"
+
+        """
+
+        indexes = []
+        for i, h in enumerate(header):
+            if model == "rainfall":
+                if 'net rain' in h.lower():
+                    indexes.append(i)
+                elif 'design rain' in h.lower():
+                    indexes.append(i)
+            elif model == "hydrograph":
+                if 'direct runoff' in h.lower():
+                    indexes.append(i)
+                elif 'baseflow' in h.lower():
+                    indexes.append(i)
+                elif 'total flow' in h.lower():
+                    indexes.append(i)
+
+        return indexes
+
+    def makeEqualLength(self, a, b, fill=0):
+        """
+        Makes numpy qrrays equal length (based on largest).
+
+        """
+
+        shapeA = a.shape
+        shapeB = b.shape
+
+        if shapeA[0] > shapeB[0]:
+            b = self.lengthenArrayAndFill(b, shapeA[0], fill)
+        elif shapeA[0] < shapeB[0]:
+            a = self.lengthenArrayAndFill(a, shapeB[0], fill)
+
+        return a, b
+
+    def lengthenArrayAndFill(self, a, length, fill):
+        """
+        lengthen array a to length and fill.
+
+        """
+
+        diff = length - a.shape[0]
+        f = np.array([[fill for x in range(a.shape[1])] for y in range(diff)])
+        b = np.append(a, f, axis=0)
+
+        return b
+

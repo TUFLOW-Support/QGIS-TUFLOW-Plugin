@@ -24,9 +24,9 @@
        <property name="geometry">
         <rect>
          <x>0</x>
-         <y>-746</y>
+         <y>-84</y>
          <width>534</width>
-         <height>1557</height>
+         <height>1597</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_17">
@@ -35,7 +35,7 @@
           <property name="title">
            <string>Location</string>
           </property>
-          <property name="collapsed">
+          <property name="collapsed" stdset="0">
            <bool>false</bool>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_7">
@@ -235,7 +235,7 @@
           <property name="title">
            <string>Event Selection</string>
           </property>
-          <property name="collapsed">
+          <property name="collapsed" stdset="0">
            <bool>false</bool>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_11">
@@ -771,7 +771,7 @@
                <item>
                 <widget class="QLabel" name="label_9">
                  <property name="text">
-                  <string>If no duration is specified then the tool will use the recommended duration based on the Tp and SAAR parameters</string>
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If no duration is specified then the tool will use the recommended duration based on the Tp and SAAR parameters&lt;/p&gt;&lt;p&gt;- if outputting multiple durations, use + / - signs to add to Duration - Timestep box below&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                  </property>
                  <property name="wordWrap">
                   <bool>true</bool>
@@ -1451,6 +1451,129 @@
               </widget>
              </item>
              <item>
+              <widget class="QGroupBox" name="gbDurations">
+               <property name="minimumSize">
+                <size>
+                 <width>200</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="palette">
+                <palette>
+                 <active>
+                  <colorrole role="Base">
+                   <brush brushstyle="SolidPattern">
+                    <color alpha="255">
+                     <red>255</red>
+                     <green>255</green>
+                     <blue>255</blue>
+                    </color>
+                   </brush>
+                  </colorrole>
+                  <colorrole role="Window">
+                   <brush brushstyle="SolidPattern">
+                    <color alpha="255">
+                     <red>255</red>
+                     <green>255</green>
+                     <blue>255</blue>
+                    </color>
+                   </brush>
+                  </colorrole>
+                 </active>
+                 <inactive>
+                  <colorrole role="Base">
+                   <brush brushstyle="SolidPattern">
+                    <color alpha="255">
+                     <red>255</red>
+                     <green>255</green>
+                     <blue>255</blue>
+                    </color>
+                   </brush>
+                  </colorrole>
+                  <colorrole role="Window">
+                   <brush brushstyle="SolidPattern">
+                    <color alpha="255">
+                     <red>255</red>
+                     <green>255</green>
+                     <blue>255</blue>
+                    </color>
+                   </brush>
+                  </colorrole>
+                 </inactive>
+                 <disabled>
+                  <colorrole role="Base">
+                   <brush brushstyle="SolidPattern">
+                    <color alpha="255">
+                     <red>255</red>
+                     <green>255</green>
+                     <blue>255</blue>
+                    </color>
+                   </brush>
+                  </colorrole>
+                  <colorrole role="Window">
+                   <brush brushstyle="SolidPattern">
+                    <color alpha="255">
+                     <red>255</red>
+                     <green>255</green>
+                     <blue>255</blue>
+                    </color>
+                   </brush>
+                  </colorrole>
+                 </disabled>
+                </palette>
+               </property>
+               <property name="autoFillBackground">
+                <bool>true</bool>
+               </property>
+               <property name="title">
+                <string>Duration - Timestep</string>
+               </property>
+               <layout class="QVBoxLayout" name="verticalLayout_26">
+                <item>
+                 <layout class="QHBoxLayout" name="horizontalLayout_18">
+                  <item>
+                   <widget class="QToolButton" name="btnAddDur">
+                    <property name="text">
+                     <string>...</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QToolButton" name="btnRemDur">
+                    <property name="text">
+                     <string>...</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_22">
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
+                </item>
+                <item>
+                 <widget class="QListWidget" name="lwDuration">
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>75</height>
+                   </size>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+             <item>
               <spacer name="horizontalSpacer_7">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>
@@ -1593,7 +1716,7 @@
           <property name="title">
            <string>Output</string>
           </property>
-          <property name="collapsed">
+          <property name="collapsed" stdset="0">
            <bool>false</bool>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_16">
@@ -1614,26 +1737,20 @@
                 <item>
                  <layout class="QHBoxLayout" name="horizontalLayout_16">
                   <item>
-                   <widget class="QRadioButton" name="rbGrossRainfall">
+                   <widget class="QCheckBox" name="rbGrossRainfall">
                     <property name="text">
                      <string>Gross Design Rainfall</string>
                     </property>
                     <property name="checked">
                      <bool>true</bool>
                     </property>
-                    <attribute name="buttonGroup">
-                     <string notr="true">buttonGroup_3</string>
-                    </attribute>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QRadioButton" name="rbNetRainfall">
+                   <widget class="QCheckBox" name="rbNetRainfall">
                     <property name="text">
                      <string>Net Design Rainfall</string>
                     </property>
-                    <attribute name="buttonGroup">
-                     <string notr="true">buttonGroup_3</string>
-                    </attribute>
                    </widget>
                   </item>
                  </layout>
@@ -1699,58 +1816,66 @@
                   <property name="checked">
                    <bool>false</bool>
                   </property>
-                  <layout class="QHBoxLayout" name="horizontalLayout_17">
+                  <layout class="QVBoxLayout" name="verticalLayout_28">
                    <item>
-                    <spacer name="horizontalSpacer_14">
-                     <property name="orientation">
-                      <enum>Qt::Horizontal</enum>
-                     </property>
-                     <property name="sizeType">
-                      <enum>QSizePolicy::Fixed</enum>
-                     </property>
-                     <property name="sizeHint" stdset="0">
-                      <size>
-                       <width>10</width>
-                       <height>20</height>
-                      </size>
-                     </property>
-                    </spacer>
-                   </item>
-                   <item>
-                    <widget class="QRadioButton" name="rb2dRf">
-                     <property name="text">
-                      <string>2d_rf</string>
-                     </property>
-                     <property name="checked">
-                      <bool>true</bool>
-                     </property>
-                     <attribute name="buttonGroup">
-                      <string notr="true">buttonGroup_7</string>
-                     </attribute>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QRadioButton" name="rb2dSaRf">
-                     <property name="text">
-                      <string>2d_sa_rf</string>
-                     </property>
-                     <attribute name="buttonGroup">
-                      <string notr="true">buttonGroup_7</string>
-                     </attribute>
-                    </widget>
-                   </item>
-                   <item>
-                    <spacer name="horizontalSpacer_15">
-                     <property name="orientation">
-                      <enum>Qt::Horizontal</enum>
-                     </property>
-                     <property name="sizeHint" stdset="0">
-                      <size>
-                       <width>40</width>
-                       <height>20</height>
-                      </size>
-                     </property>
-                    </spacer>
+                    <layout class="QVBoxLayout" name="verticalLayout_29">
+                     <item>
+                      <layout class="QHBoxLayout" name="horizontalLayout_22">
+                       <item>
+                        <widget class="QRadioButton" name="rb2dRf">
+                         <property name="text">
+                          <string>2d_rf</string>
+                         </property>
+                         <property name="checked">
+                          <bool>true</bool>
+                         </property>
+                         <attribute name="buttonGroup">
+                          <string notr="true">buttonGroup_7</string>
+                         </attribute>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QRadioButton" name="rb2dSaRf">
+                         <property name="text">
+                          <string>2d_sa_rf</string>
+                         </property>
+                         <attribute name="buttonGroup">
+                          <string notr="true">buttonGroup_7</string>
+                         </attribute>
+                        </widget>
+                       </item>
+                       <item>
+                        <spacer name="horizontalSpacer_14">
+                         <property name="orientation">
+                          <enum>Qt::Horizontal</enum>
+                         </property>
+                         <property name="sizeType">
+                          <enum>QSizePolicy::Fixed</enum>
+                         </property>
+                         <property name="sizeHint" stdset="0">
+                          <size>
+                           <width>10</width>
+                           <height>20</height>
+                          </size>
+                         </property>
+                        </spacer>
+                       </item>
+                       <item>
+                        <spacer name="horizontalSpacer_15">
+                         <property name="orientation">
+                          <enum>Qt::Horizontal</enum>
+                         </property>
+                         <property name="sizeHint" stdset="0">
+                          <size>
+                           <width>40</width>
+                           <height>20</height>
+                          </size>
+                         </property>
+                        </spacer>
+                       </item>
+                      </layout>
+                     </item>
+                    </layout>
                    </item>
                   </layout>
                  </widget>
@@ -1786,57 +1911,48 @@
              </property>
              <layout class="QVBoxLayout" name="verticalLayout_14">
               <item>
-               <layout class="QHBoxLayout" name="horizontalLayout_14">
-                <item>
-                 <widget class="QRadioButton" name="rbDirectRunoff">
-                  <property name="text">
-                   <string>Direct Runoff</string>
-                  </property>
-                  <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_5</string>
-                  </attribute>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QRadioButton" name="rbBaseFlow">
-                  <property name="text">
-                   <string>Base Flow</string>
-                  </property>
-                  <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_5</string>
-                  </attribute>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QRadioButton" name="rbTotalRunoff">
-                  <property name="text">
-                   <string>Total Runoff</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                  <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_5</string>
-                  </attribute>
-                 </widget>
-                </item>
-                <item>
-                 <spacer name="horizontalSpacer_11">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>40</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-               </layout>
-              </item>
-              <item>
                <layout class="QVBoxLayout" name="verticalLayout_13">
+                <item>
+                 <layout class="QHBoxLayout" name="horizontalLayout_14">
+                  <item>
+                   <widget class="QCheckBox" name="rbDirectRunoff">
+                    <property name="text">
+                     <string>Direct Runoff</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QCheckBox" name="rbBaseFlow">
+                    <property name="text">
+                     <string>Base Flow</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QCheckBox" name="rbTotalRunoff">
+                    <property name="text">
+                     <string>Total Runoff</string>
+                    </property>
+                    <property name="checked">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_11">
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
+                </item>
                 <item>
                  <widget class="QLabel" name="label_12">
                   <property name="text">
@@ -1898,68 +2014,76 @@
                   <property name="checked">
                    <bool>false</bool>
                   </property>
-                  <layout class="QHBoxLayout" name="horizontalLayout_18">
+                  <layout class="QVBoxLayout" name="verticalLayout_31">
                    <item>
-                    <spacer name="horizontalSpacer_16">
-                     <property name="orientation">
-                      <enum>Qt::Horizontal</enum>
-                     </property>
-                     <property name="sizeType">
-                      <enum>QSizePolicy::Fixed</enum>
-                     </property>
-                     <property name="sizeHint" stdset="0">
-                      <size>
-                       <width>10</width>
-                       <height>20</height>
-                      </size>
-                     </property>
-                    </spacer>
-                   </item>
-                   <item>
-                    <widget class="QRadioButton" name="rb2dBc">
-                     <property name="text">
-                      <string>2d_bc</string>
-                     </property>
-                     <property name="checked">
-                      <bool>true</bool>
-                     </property>
-                     <attribute name="buttonGroup">
-                      <string notr="true">buttonGroup_8</string>
-                     </attribute>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QRadioButton" name="rb2dSa">
-                     <property name="text">
-                      <string>2d_sa</string>
-                     </property>
-                     <attribute name="buttonGroup">
-                      <string notr="true">buttonGroup_8</string>
-                     </attribute>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QRadioButton" name="rb1dBc">
-                     <property name="text">
-                      <string>1d_bc</string>
-                     </property>
-                     <attribute name="buttonGroup">
-                      <string notr="true">buttonGroup_8</string>
-                     </attribute>
-                    </widget>
-                   </item>
-                   <item>
-                    <spacer name="horizontalSpacer_17">
-                     <property name="orientation">
-                      <enum>Qt::Horizontal</enum>
-                     </property>
-                     <property name="sizeHint" stdset="0">
-                      <size>
-                       <width>40</width>
-                       <height>20</height>
-                      </size>
-                     </property>
-                    </spacer>
+                    <layout class="QVBoxLayout" name="verticalLayout_30">
+                     <item>
+                      <layout class="QHBoxLayout" name="horizontalLayout_17">
+                       <item>
+                        <widget class="QRadioButton" name="rb2dSa">
+                         <property name="text">
+                          <string>2d_sa</string>
+                         </property>
+                         <attribute name="buttonGroup">
+                          <string notr="true">buttonGroup_8</string>
+                         </attribute>
+                        </widget>
+                       </item>
+                       <item>
+                        <spacer name="horizontalSpacer_16">
+                         <property name="orientation">
+                          <enum>Qt::Horizontal</enum>
+                         </property>
+                         <property name="sizeType">
+                          <enum>QSizePolicy::Fixed</enum>
+                         </property>
+                         <property name="sizeHint" stdset="0">
+                          <size>
+                           <width>10</width>
+                           <height>20</height>
+                          </size>
+                         </property>
+                        </spacer>
+                       </item>
+                       <item>
+                        <widget class="QRadioButton" name="rb1dBc">
+                         <property name="text">
+                          <string>1d_bc</string>
+                         </property>
+                         <attribute name="buttonGroup">
+                          <string notr="true">buttonGroup_8</string>
+                         </attribute>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QRadioButton" name="rb2dBc">
+                         <property name="text">
+                          <string>2d_bc</string>
+                         </property>
+                         <property name="checked">
+                          <bool>true</bool>
+                         </property>
+                         <attribute name="buttonGroup">
+                          <string notr="true">buttonGroup_8</string>
+                         </attribute>
+                        </widget>
+                       </item>
+                       <item>
+                        <spacer name="horizontalSpacer_17">
+                         <property name="orientation">
+                          <enum>Qt::Horizontal</enum>
+                         </property>
+                         <property name="sizeHint" stdset="0">
+                          <size>
+                           <width>40</width>
+                           <height>20</height>
+                          </size>
+                         </property>
+                        </spacer>
+                       </item>
+                      </layout>
+                     </item>
+                    </layout>
                    </item>
                   </layout>
                  </widget>
@@ -2173,15 +2297,13 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_2"/>
-  <buttongroup name="buttonGroup_3"/>
-  <buttongroup name="buttonGroup_4"/>
-  <buttongroup name="buttonGroup_5"/>
-  <buttongroup name="buttonGroup_6"/>
   <buttongroup name="buttonGroup_7"/>
+  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup_8"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_4"/>
   <buttongroup name="buttonGroup_9"/>
+  <buttongroup name="buttonGroup_6"/>
   <buttongroup name="buttonGroup_10"/>
  </buttongroups>
 </ui>

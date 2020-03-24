@@ -73,10 +73,10 @@
      <widget class="QWidget" name="scrollAreaWidgetContents">
       <property name="geometry">
        <rect>
-        <x>0</x>
+        <x>-60</x>
         <y>0</y>
-        <width>742</width>
-        <height>716</height>
+        <width>785</width>
+        <height>964</height>
        </rect>
       </property>
       <layout class="QGridLayout" name="gridLayout_7">
@@ -91,10 +91,10 @@
          <property name="checked">
           <bool>false</bool>
          </property>
-         <property name="collapsed">
+         <property name="collapsed" stdset="0">
           <bool>true</bool>
          </property>
-         <property name="saveCollapsedState">
+         <property name="saveCollapsedState" stdset="0">
           <bool>false</bool>
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_11">
@@ -4349,7 +4349,7 @@
          <item row="0" column="1" rowspan="2">
           <layout class="QVBoxLayout" name="verticalLayout_9">
            <item>
-            <widget class="QGroupBox" name="groupBox_4">
+            <widget class="QgsCollapsibleGroupBox" name="groupBox_4">
              <property name="minimumSize">
               <size>
                <width>0</width>
@@ -4776,6 +4776,12 @@
              </property>
              <property name="title">
               <string>Temporal Patterns</string>
+             </property>
+             <property name="flat">
+              <bool>false</bool>
+             </property>
+             <property name="checkable">
+              <bool>false</bool>
              </property>
              <layout class="QVBoxLayout" name="verticalLayout_10">
               <item>
@@ -5396,6 +5402,393 @@
               <string>Initial Loss (IL = storm loss - preburst)</string>
              </property>
              <layout class="QVBoxLayout" name="verticalLayout_13">
+              <item>
+               <widget class="QCheckBox" name="cbPNIL">
+                <property name="text">
+                 <string>Use Probability Neutral Burst IL (if available)</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="Line" name="line_7">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_16">
+                <item>
+                 <widget class="QCheckBox" name="cbCompleteStorm">
+                  <property name="text">
+                   <string>Use Complete Storm</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <layout class="QVBoxLayout" name="verticalLayout_17">
+                  <item>
+                   <widget class="QLabel" name="label_29">
+                    <property name="text">
+                     <string>Preburst Pattern</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QComboBox" name="cboPreburstTPMethod">
+                    <item>
+                     <property name="text">
+                      <string>Constant Rate</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Temporal Pattern</string>
+                     </property>
+                    </item>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <widget class="QWidget" name="wPreburstConstant" native="true">
+                <layout class="QHBoxLayout" name="horizontalLayout_11">
+                 <item>
+                  <widget class="QComboBox" name="cboPreburstDurUnits">
+                   <property name="currentText">
+                    <string>Proportional</string>
+                   </property>
+                   <item>
+                    <property name="text">
+                     <string>min</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>hrs</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>Proportional</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QDoubleSpinBox" name="sbPreBurstDur">
+                   <property name="suffix">
+                    <string> min</string>
+                   </property>
+                   <property name="minimum">
+                    <double>0.010000000000000</double>
+                   </property>
+                   <property name="maximum">
+                    <double>100.000000000000000</double>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="label_26">
+                   <property name="text">
+                    <string>Preburst Duration</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_12">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeType">
+                    <enum>QSizePolicy::Expanding</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>0</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="QWidget" name="wPreburstTP" native="true">
+                <layout class="QHBoxLayout" name="horizontalLayout_17">
+                 <item>
+                  <layout class="QHBoxLayout" name="horizontalLayout_18">
+                   <item>
+                    <layout class="QVBoxLayout" name="verticalLayout_15">
+                     <item>
+                      <widget class="QLabel" name="label_27">
+                       <property name="text">
+                        <string>Duration</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QComboBox" name="cboDurTP">
+                       <property name="currentText">
+                        <string>10 min</string>
+                       </property>
+                       <item>
+                        <property name="text">
+                         <string>Proportional</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>10 min</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>15 min</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>20 min</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>25 min</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>30 min</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>45 min</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>1 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>1.5 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>2 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>3 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>4.5 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>6 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>9 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>12 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>18 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>24 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>30 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>36 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>48 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>72 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>96 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>120 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>144 hr</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>168 hr</string>
+                        </property>
+                       </item>
+                      </widget>
+                     </item>
+                    </layout>
+                   </item>
+                   <item>
+                    <widget class="QWidget" name="wProportion" native="true">
+                     <layout class="QVBoxLayout" name="verticalLayout_18">
+                      <property name="leftMargin">
+                       <number>0</number>
+                      </property>
+                      <property name="topMargin">
+                       <number>0</number>
+                      </property>
+                      <property name="rightMargin">
+                       <number>0</number>
+                      </property>
+                      <property name="bottomMargin">
+                       <number>0</number>
+                      </property>
+                      <item>
+                       <widget class="QLabel" name="label_30">
+                        <property name="text">
+                         <string>Proportion</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QDoubleSpinBox" name="sbProportion">
+                        <property name="minimum">
+                         <double>0.010000000000000</double>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </widget>
+                   </item>
+                   <item>
+                    <layout class="QVBoxLayout" name="verticalLayout_16">
+                     <item>
+                      <widget class="QLabel" name="label_28">
+                       <property name="text">
+                        <string>Temporal Pattern</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QComboBox" name="cboTP">
+                       <item>
+                        <property name="text">
+                         <string>TP01</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>TP02</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>TP03</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>TP04</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>TP05</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>TP06</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>TP07</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>TP08</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>TP09</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>TP10</string>
+                        </property>
+                       </item>
+                      </widget>
+                     </item>
+                    </layout>
+                   </item>
+                  </layout>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_13">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>0</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="Line" name="line_6">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+               </widget>
+              </item>
               <item>
                <layout class="QHBoxLayout" name="horizontalLayout_7">
                 <item>
@@ -6083,78 +6476,94 @@
                </widget>
               </item>
               <item>
-               <layout class="QHBoxLayout" name="horizontalLayout_6">
-                <property name="spacing">
-                 <number>0</number>
-                </property>
+               <layout class="QVBoxLayout" name="verticalLayout_14">
                 <item>
-                 <widget class="QCheckBox" name="cbUserIL">
+                 <layout class="QHBoxLayout" name="horizontalLayout_6">
+                  <property name="spacing">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <widget class="QCheckBox" name="cbUserIL">
+                    <property name="text">
+                     <string>User IL*</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QDoubleSpinBox" name="sbUserIL">
+                    <property name="suffix">
+                     <string> mm</string>
+                    </property>
+                    <property name="decimals">
+                     <number>1</number>
+                    </property>
+                    <property name="maximum">
+                     <double>999.000000000000000</double>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_3">
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeType">
+                     <enum>QSizePolicy::Fixed</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>4</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                  <item>
+                   <widget class="QCheckBox" name="cbUserCL">
+                    <property name="text">
+                     <string>User CL</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QDoubleSpinBox" name="sbUserCL">
+                    <property name="suffix">
+                     <string> mm/h</string>
+                    </property>
+                    <property name="decimals">
+                     <number>1</number>
+                    </property>
+                    <property name="maximum">
+                     <double>999.000000000000000</double>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer">
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
+                </item>
+                <item>
+                 <widget class="QLabel" name="label_14">
+                  <property name="font">
+                   <font>
+                    <pointsize>7</pointsize>
+                   </font>
+                  </property>
                   <property name="text">
-                   <string>User IL</string>
+                   <string>*NSW: IL burst = User IL x IL Burst ARR / IL Storm ARR</string>
                   </property>
                  </widget>
-                </item>
-                <item>
-                 <widget class="QDoubleSpinBox" name="sbUserIL">
-                  <property name="suffix">
-                   <string> mm</string>
-                  </property>
-                  <property name="decimals">
-                   <number>1</number>
-                  </property>
-                  <property name="maximum">
-                   <double>999.000000000000000</double>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <spacer name="horizontalSpacer_3">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Fixed</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>4</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item>
-                 <widget class="QCheckBox" name="cbUserCL">
-                  <property name="text">
-                   <string>User CL</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QDoubleSpinBox" name="sbUserCL">
-                  <property name="suffix">
-                   <string> mm/h</string>
-                  </property>
-                  <property name="decimals">
-                   <number>1</number>
-                  </property>
-                  <property name="maximum">
-                   <double>999.000000000000000</double>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <spacer name="horizontalSpacer">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>40</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
                 </item>
                </layout>
               </item>

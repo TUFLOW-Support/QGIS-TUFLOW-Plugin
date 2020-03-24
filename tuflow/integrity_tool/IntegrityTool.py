@@ -120,6 +120,13 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                         QMessageBox.critical(self, "Integrity Tool",
                                              "Layer Is Not a 1d_nwk Type: {0}".format(layer.name()))
                         return
+                    else:
+                        if inputType == 'lines':
+                            for f in layer.getFeatures():
+                                if isinstance(f.attribute(1), QVariant):
+                                    QMessageBox.critical(self, "Integrity Tool",
+                                                         "Feature type must be character or string type (cannot be blank or NULL).\nLayer: {0}\nFID: {1}".format(layer.name(), f.id()))
+                                    return
                 else:  # tables
                     if not is1dTable(layer):
                         QMessageBox.critical(self, "Integrity Tool",
@@ -382,6 +389,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             self.dataCollectorLines.finished.connect(
                 lambda e: self.finishedDataCollection(e, text='Finished {0}'.format(tool)))
             self.dataCollectorLines.collectData(inputLines, dem, exclRadius=exclRadius)
+            if self.dataCollectorLines.errMessage is not None:
+                self.finishedDataCollection(self.dataCollectorLines, "Errors occurred")
 
         # points
         if inputPoints:

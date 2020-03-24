@@ -22,6 +22,8 @@ from matplotlib.patches import Polygon
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumenufunctions import TuMenuFunctions
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplottoolbar_viewtoolbar import ViewToolbar
+from tuflow.spinbox_action import SingleSpinBoxAction
+
 
 
 class TuPlotToolbar():
@@ -34,10 +36,13 @@ class TuPlotToolbar():
 		self.tuPlot = TuPlot
 		self.tuView = TuPlot.tuView
 		self.tuMenuFunctions = TuMenuFunctions(self.tuView)
+		self.averageMethodActions = []
 		
 		self.initialiseMplToolbars()
 		self.initialiseMapOutputPlottingToolbar()
 		self.initialiseViewToolbar()
+
+
 		
 	def initialiseMplToolbars(self):
 		"""
@@ -83,11 +88,18 @@ class TuPlotToolbar():
 		
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
 		# toolbar settings
 		self.mapOutputPlotToolbar = QToolBar('Map Output Plotting', self.tuView.MapOutputPlotFrame)
 		self.mapOutputPlotToolbar.setIconSize(QSize(20, 20))
 		self.mapOutputPlotToolbar.resize(QSize(250, 30))
+
+		# 3D mesh averaging plotting
+		self.mesh3dPlotToolbar = QToolBar('3D Mesh Plotting', self.tuView.Mesh3DToolbarFrame)
+		self.mesh3dPlotToolbar.setIconSize(QSize(20, 20))
+		self.mesh3dPlotToolbar.resize(QSize(250, 30))
 		
 		# icons
 		dir = os.path.dirname(os.path.dirname(__file__))
@@ -97,6 +109,8 @@ class TuPlotToolbar():
 		fluxSecAxisIcon = QIcon(os.path.join(dir, "icons", "2nd_axis_2.png"))
 		cursorTrackingIcon = QIcon(os.path.join(dir, "icons", "live_cursor_tracking.png"))
 		meshGridIcon = QIcon(os.path.join(dir, "icons", "meshGrid.png"))
+		meshAveragingIcon = QgsApplication.getThemeIcon('/propertyicons/meshaveraging.svg')
+		curtainPlotIcon = QIcon(os.path.join(dir, "icons", "curtain_plot.png"))
 		
 		# buttons
 		self.plotTSMenu = DatasetMenu('Plot Time Series From Map Output')
@@ -123,6 +137,13 @@ class TuPlotToolbar():
 		self.meshGridAction = QAction(meshGridIcon, 'Toggle Mesh Rendering', self.meshGridButton)
 		self.meshGridAction.setCheckable(True)
 		self.meshGridButton.setDefaultAction(self.meshGridAction)
+		self.averageMethodMenu = DatasetMenu("3D to 2D Averaging Method")
+		self.averageMethodMenu.menuAction().setIcon(meshAveragingIcon)
+		self.averageMethodMenu.menuAction().setCheckable(True)
+		self.addAverageMethods()
+		self.curtainPlotMenu = DatasetMenu("Curtain Plot")
+		self.curtainPlotMenu.menuAction().setIcon(curtainPlotIcon)
+		self.curtainPlotMenu.menuAction().setCheckable(True)
 
 		# add buttons to toolbar
 		self.mapOutputPlotToolbar.addAction(self.plotTSMenu.menuAction())
@@ -136,13 +157,16 @@ class TuPlotToolbar():
 		self.mapOutputPlotToolbar.addSeparator()
 		self.mapOutputPlotToolbar.addSeparator()
 		self.mapOutputPlotToolbar.addWidget(self.meshGridButton)
+		self.mesh3dPlotToolbar.addAction(self.averageMethodMenu.menuAction())
+		self.mesh3dPlotToolbar.addAction(self.curtainPlotMenu.menuAction())
 		
 		# connect buttons
-		self.plotTSMenu.menuAction().triggered.connect(lambda: self.mapOutputPlottingButtonClicked(0))
-		self.plotLPMenu.menuAction().triggered.connect(lambda: self.mapOutputPlottingButtonClicked(1))
-		self.plotFluxButton.released.connect(lambda: self.mapOutputPlottingButtonClicked(10))
+		self.plotTSMenu.menuAction().triggered.connect(lambda: self.mapOutputPlottingButtonClicked(TuPlot.DataTimeSeries2D))
+		self.plotLPMenu.menuAction().triggered.connect(lambda: self.mapOutputPlottingButtonClicked(TuPlot.DataCrossSection2D))
+		self.plotFluxButton.released.connect(lambda: self.mapOutputPlottingButtonClicked(TuPlot.DataFlow2D))
 		self.cursorTrackingButton.released.connect(self.cursorTrackingToggled)
 		self.meshGridAction.triggered.connect(self.tuMenuFunctions.toggleMeshRender)
+		self.curtainPlotMenu.menuAction().triggered.connect(lambda: self.mapOutputPlottingButtonClicked(TuPlot.DataCurtainPlot))
 		
 		return True
 	
@@ -210,60 +234,73 @@ class TuPlotToolbar():
 		# menubar
 		self.tuView.tuMenuBar.viewMenu.clear()
 		self.tuView.tuMenuBar.loadViewMenu(plotNo, update=True)
-		
+		self.tuView.tuMenuBarSecond.viewMenu.clear()
+		self.tuView.tuMenuBarSecond.loadViewMenu(plotNo, update=True)
+
 		self.tuView.tuMenuBar.exportMenu.clear()
 		self.tuView.tuMenuBar.loadExportMenu(plotNo, update=True)
-		
+		self.tuView.tuMenuBarSecond.exportMenu.clear()
+		self.tuView.tuMenuBarSecond.loadExportMenu(plotNo, update=True)
+
 		# context menu
 		self.tuView.tuContextMenu.plotMenu.clear()
 		self.tuView.tuContextMenu.loadPlotMenu(plotNo, update=True)
-		
+
 		return True
 	
-	def mapOutputPlottingButtonClicked(self, plotNo):
+	def mapOutputPlottingButtonClicked(self, dataType):
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 		# unpress buttons if already pressed
-		if plotNo == 0:
+		if dataType == TuPlot.DataTimeSeries2D:
 			if self.plotTSMenu.menuAction().isChecked():
 				# turn other buttons off
 				self.plotLPMenu.menuAction().setChecked(False)
 				self.plotFluxButton.setChecked(False)
+				self.curtainPlotMenu.menuAction().setChecked(False)
 				# turn off other plotting instances
-				if self.tuPlot.tuRubberBand.cursorTrackingConnected:
-					self.tuPlot.tuRubberBand.mouseTrackDisconnect()
+				if self.tuPlot.tuCrossSection.cursorTrackingConnected:
+					self.tuPlot.tuCrossSection.mouseTrackDisconnect()
 				if self.tuPlot.tuFlowLine.cursorTrackingConnected:
 					self.tuPlot.tuFlowLine.mouseTrackDisconnect()
+				if self.tuPlot.tuCurtainLine.cursorTrackingConnected:
+					self.tuPlot.tuCurtainLine.mouseTrackDisconnect()
 				# turn on time series plot
 				#if self.tuView.mcboResultType.checkedItems():
-				if self.getCheckedItemsFromPlotOptions(0):
-					self.tuView.tabWidget.setCurrentIndex(0)
+				if self.getCheckedItemsFromPlotOptions(dataType):
+					self.tuView.tabWidget.setCurrentIndex(TuPlot.TimeSeries)
 					if self.tuView.cboSelectType.currentText() == 'Layer Selection':
-						self.tuPlot.tuPlotSelection.useSelection(plotNo)
+						self.tuPlot.tuPlotSelection.useSelection(dataType)
 					else:
-						self.tuPlot.tuRubberBand.startRubberBand(plotNo)
+						self.tuPlot.tuTSPoint.startRubberBand()
 				else:
 					self.plotTSMenu.menuAction().setChecked(False)
 			else:
 				# turn off self plotting instance
-				self.tuPlot.tuRubberBand.mouseTrackDisconnect()
-		elif plotNo == 1:
+				self.tuPlot.tuTSPoint.mouseTrackDisconnect()
+		elif dataType == TuPlot.DataCrossSection2D:
 			if self.plotLPMenu.menuAction().isChecked():
 				# turn other buttons off
 				self.plotTSMenu.menuAction().setChecked(False)
 				self.plotFluxButton.setChecked(False)
+				self.curtainPlotMenu.menuAction().setChecked(False)
 				# turn off other plotting instances
-				if self.tuPlot.tuRubberBand.cursorTrackingConnected:
-					self.tuPlot.tuRubberBand.mouseTrackDisconnect()
+				if self.tuPlot.tuTSPoint.cursorTrackingConnected:
+					self.tuPlot.tuTSPoint.mouseTrackDisconnect()
 				if self.tuPlot.tuFlowLine.cursorTrackingConnected:
 					self.tuPlot.tuFlowLine.mouseTrackDisconnect()
+				if self.tuPlot.tuCurtainLine.cursorTrackingConnected:
+					self.tuPlot.tuCurtainLine.mouseTrackDisconnect()
 				# turn on long plot
 				#if self.tuView.mcboResultType.checkedItems():
-				if self.getCheckedItemsFromPlotOptions(1):
-					self.tuView.tabWidget.setCurrentIndex(1)
+				if self.getCheckedItemsFromPlotOptions(dataType):
+					self.tuView.tabWidget.setCurrentIndex(TuPlot.CrossSection)
 					if self.tuView.cboSelectType.currentText() == 'Layer Selection':
-						self.tuPlot.tuPlotSelection.useSelection(plotNo)
+						self.tuPlot.tuPlotSelection.useSelection(dataType)
 					else:
-						started = self.tuPlot.tuRubberBand.startRubberBand(plotNo)
+						# started = self.tuPlot.tuRubberBand.startRubberBand(plotNo)
+						started = self.tuPlot.tuCrossSection.startRubberBand()
 						if not started:
 							# turn off self plotting instance
 							self.plotLPMenu.menuAction().setChecked(False)
@@ -271,20 +308,26 @@ class TuPlotToolbar():
 					self.plotLPMenu.menuAction().setChecked(False)
 			else:
 				# turn off self plotting instance
-				self.tuPlot.tuRubberBand.mouseTrackDisconnect()
-		elif plotNo == 10:
+				# self.tuPlot.tuRubberBand.mouseTrackDisconnect()
+				self.tuPlot.tuCrossSection.mouseTrackDisconnect()
+		elif dataType == TuPlot.DataFlow2D:
 			if self.plotFluxButton.isChecked():
 				# turn other buttons off
 				self.plotTSMenu.menuAction().setChecked(False)
 				self.plotLPMenu.menuAction().setChecked(False)
+				self.curtainPlotMenu.menuAction().setChecked(False)
 				# turn off other plotting instances
-				if not self.tuPlot.tuRubberBand.cursorTrackingConnected:
-					self.tuPlot.tuRubberBand.mouseTrackDisconnect()
+				if self.tuPlot.tuTSPoint.cursorTrackingConnected:
+					self.tuPlot.tuTSPoint.mouseTrackDisconnect()
+				if self.tuPlot.tuCrossSection.cursorTrackingConnected:
+					self.tuPlot.tuCrossSection.mouseTrackDisconnect()
+				if self.tuPlot.tuCurtainLine.cursorTrackingConnected:
+					self.tuPlot.tuCurtainLine.mouseTrackDisconnect()
 				# turn on flux plot
 				if self.tuView.tuResults.tuResults2D.activeMeshLayers:
-					self.tuView.tabWidget.setCurrentIndex(0)
+					self.tuView.tabWidget.setCurrentIndex(TuPlot.TimeSeries)
 					if self.tuView.cboSelectType.currentText() == 'Layer Selection':
-						self.tuPlot.tuPlotSelection.useSelection(0, type='flow')
+						self.tuPlot.tuPlotSelection.useSelection(TuPlot.DataFlow2D)
 					else:
 						started = self.tuPlot.tuFlowLine.startRubberBand()
 						if not started:
@@ -295,6 +338,34 @@ class TuPlotToolbar():
 			else:
 				# turn off self plotting instance
 				self.tuPlot.tuFlowLine.mouseTrackDisconnect()
+		elif dataType == TuPlot.DataCurtainPlot:
+			if self.curtainPlotMenu.menuAction().isChecked():
+				# turn other buttons off
+				self.plotTSMenu.menuAction().setChecked(False)
+				self.plotLPMenu.menuAction().setChecked(False)
+				self.plotFluxButton.setChecked(False)
+				# turn off other plotting instances
+				if self.tuPlot.tuTSPoint.cursorTrackingConnected:
+					self.tuPlot.tuTSPoint.mouseTrackDisconnect()
+				if self.tuPlot.tuCrossSection.cursorTrackingConnected:
+					self.tuPlot.tuCrossSection.mouseTrackDisconnect()
+				if self.tuPlot.tuFlowLine.cursorTrackingConnected:
+					self.tuPlot.tuFlowLine.mouseTrackDisconnect()
+				# turn on curtain plot
+				if self.getCheckedItemsFromPlotOptions(dataType):
+					self.tuView.tabWidget.setCurrentIndex(TuPlot.CrossSection)
+					if self.tuView.cboSelectType.currentText() == 'Layer Selection':
+						self.tuPlot.tuPlotSelection.useSelection(TuPlot.DataCurtainPlot)
+					else:
+						started = self.tuPlot.tuCurtainLine.startRubberBand()
+						if not started:
+							# turn off self plotting instance
+							self.curtainPlotMenu.menuAction().setChecked(False)
+				else:
+					self.curtainPlotMenu.menuAction().setChecked(False)
+			else:
+				# turn off self plotting instance
+				self.tuPlot.tuCurtainLine.mouseTrackDisconnect()
 				
 		return False
 	
@@ -303,6 +374,8 @@ class TuPlotToolbar():
 			menu = self.plotTSMenu
 		elif plotNo == 1:
 			menu = self.plotLPMenu
+		elif plotNo == 20:
+			menu = self.curtainPlotMenu
 		else:
 			return False
 		
@@ -326,11 +399,16 @@ class TuPlotToolbar():
 		
 		return actions
 	
-	def getCheckedItemsFromPlotOptions(self, plotNo):
-		if plotNo == 0:
+	def getCheckedItemsFromPlotOptions(self, dataType):
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+		if dataType == TuPlot.DataTimeSeries2D:
 			menu = self.plotTSMenu
-		elif plotNo == 1:
+		elif dataType == TuPlot.DataCrossSection2D:
 			menu = self.plotLPMenu
+		elif dataType == TuPlot.DataCurtainPlot:
+			menu = self.curtainPlotMenu
 		else:
 			return []
 		
@@ -362,3 +440,92 @@ class TuPlotToolbar():
 			self.tuView.tuOptions.liveMapTracking = False
 			
 		return True
+
+	def addAverageMethods(self):
+		methods = [
+			"Single Vertical Level (from top)",
+			"Single Vertical Level (from bottom)",
+			"Multi Vertical Level (from top)",
+			"Multi Vertical Level (from bottom)",
+			"Sigma",
+			"Depth (relative to surface)",
+			"Height (relative to bed level)",
+			"Elevation (absolute to model's datum)"
+		]
+
+		self.averageMethodActions.clear()
+		for method in methods:
+			menu = DatasetMenu(method, self.averageMethodMenu)
+			menu.menuAction().setCheckable(True)
+
+			if method == "Single Vertical Level (from top)":
+				self.singleVerticalLevelMethod(menu, False)
+
+			self.averageMethodMenu.addAction(menu.menuAction())
+			self.averageMethodActions.append(menu)
+
+	def singleVerticalLevelMethod(self, menu: QMenu, bAdd: bool) -> None:
+		if bAdd:
+			action = SingleSpinBoxAction(menu, True, "Vertical Layer Index", range=(0, 99999))
+			action.setCheckable(True)
+			action.removeActionRequested.connect(lambda e: self.removeAveragingMethod(e, menu))
+			lastAction = menu.actions()[-2]  # insert before separator
+			menu.insertAction(lastAction, action)
+			if len(menu.actions()) > 3:
+				if not menu.actions()[0].bCheckBox:
+					menu.actions()[0].insertCheckbox()
+		else:
+			action = SingleSpinBoxAction(menu, False, "Vertical Layer Index", range=(0, 99999))
+			action.setCheckable(True)
+			action.removeActionRequested.connect(lambda e: self.removeAveragingMethod(e, menu))
+			menu.addAction(action)
+			menu.addSeparator()
+			action = QAction("Add Additional...", menu)
+			menu.addAction(action)
+			action.triggered.connect(lambda e: self.singleVerticalLevelMethod(menu, True))
+
+	def removeAveragingMethod(self, p, menu):
+		if len(menu.actions()) > 3:
+			action = menu.actionAt(p)
+			menu.removeAction(action)
+			if len(menu.actions()) <= 3:
+				if menu.actions()[0].bCheckBox:
+					menu.actions()[0].removeCheckbox()
+
+	def getAveragingMethods(self, groupMetadata):
+		if groupMetadata.maximumVerticalLevelsCount() < 2: return [None]
+		if not self.averageMethodMenu.menuAction().isChecked(): return [None]
+
+		averagingMethods = []
+		for action in self.averageMethodMenu.actions():
+			if action.isChecked():
+				counter = 0
+				for action2 in action.menu().actions():
+					if action2.isChecked():
+						averagingMethods.append('{0}_{1}'.format(action.text(), counter))
+						counter += 1
+
+		if averagingMethods:
+			return averagingMethods
+		else:
+			return [None]
+
+	def getAveragingParameters(self, averagingMethod):
+		for action in self.averageMethodMenu.actions():
+			if action.text() in averagingMethod:
+				counter = 0
+				for action2 in action.menu().actions():
+					if action2.isChecked():
+						if counter == int(averagingMethod[-1]):
+							return action2.values()
+						else:
+							counter += 1
+
+		return None
+
+
+
+
+
+
+

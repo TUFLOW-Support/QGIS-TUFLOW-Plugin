@@ -186,6 +186,8 @@ class TuResults1D():
 		
 		if 'line_ts' not in results[result.displayname].keys():
 			resultTypes = result.lineResultTypesTS()
+			if 'Velocity' in resultTypes and 'Velocity' in result.pointResultTypesTS():
+				resultTypes.remove('Velocity')
 			metadata1d = (resultTypes, timesteps)
 			results[result.displayname]['line_ts'] = metadata1d
 		

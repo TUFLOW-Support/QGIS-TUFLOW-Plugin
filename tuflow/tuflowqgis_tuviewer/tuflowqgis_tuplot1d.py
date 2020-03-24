@@ -1,4 +1,4 @@
-
+import re
 
 
 class TuPlot1D():
@@ -10,6 +10,7 @@ class TuPlot1D():
 	def __init__(self, TuPlot):
 		self.tuPlot = TuPlot
 		self.tuView = TuPlot.tuView
+		self.tuResults = TuPlot.tuView.tuResults
 	
 	def plot1dResults(self):
 		"""
@@ -20,6 +21,7 @@ class TuPlot1D():
 		
 		if self.tuView.tabWidget.currentIndex() == 0:
 			self.plot1dTimeSeries()
+			self.plot1dMaximums()
 		elif self.tuView.tabWidget.currentIndex() == 1:
 			self.plot1dLongPlot()
 		
@@ -32,6 +34,8 @@ class TuPlot1D():
 		:param kwargs: dict -> keyword arguments
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 		activeMeshLayers = self.tuView.tuResults.tuResults2D.activeMeshLayers  # list
 		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
@@ -47,10 +51,11 @@ class TuPlot1D():
 		if bypass:
 			pass
 		else:
-			if plot.lower() == '1d only':
-				self.tuPlot.clearPlot(0)
-			else:
-				self.tuPlot.clearPlot(0, retain_2d=True, retain_flow=True)
+			# if plot.lower() == '1d only':
+			# 	self.tuPlot.clearPlot(0)
+			# else:
+			# 	self.tuPlot.clearPlot(0, retain_2d=True, retain_flow=True)
+			self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataTimeSeries1D)
 		
 		labels = []
 		types = []
@@ -58,19 +63,22 @@ class TuPlot1D():
 		yAll = []
 		plotAsPoints = []  # 2019 for flow regime
 		flowRegime = []  # 2019
+		flowRegimeTied = []  # 2020 flow regime tied to specific result type
 		
 		# iterate through all selected results
+		#results = [x.text() for x in self.tuView.OpenResults.selectedItems()]
+		#for result in results:
 		for result in self.tuView.OpenResults.selectedItems():
-		#for result in self.tuView.tuResults.tuResults2D.activeMeshLayers:
 			result = result.text()
 			#result = result.name()
-			
+
 			if result in tuResults1D.results1d.keys():
 				res = tuResults1D.results1d[result]
 				
 				# get result types for all selected types
-				for rtype in tuResults1D.typesTS:
-					
+				rtypes = tuResults1D.typesTS[:]
+				#for rtype in tuResults1D.typesTS:
+				for rtype in rtypes:
 					# get result for each selected element
 					for i, id in enumerate(tuResults1D.ids):
 						#types.append('{0}_1d'.format(rtype))
@@ -78,6 +86,16 @@ class TuPlot1D():
 							plotAsPoints.append(True)
 							flowRegime.append(True)
 							types.append('{0}_1d'.format(rtype))
+							flowRegimeTied.append(-1)
+						elif re.findall(r"flow regime_\d", rtype, flags=re.IGNORECASE):
+							f_id = re.split(r".*_\d_", rtype, flags=re.IGNORECASE)[1]
+							if f_id == id:
+								plotAsPoints.append(True)
+								flowRegime.append(True)
+								types.append('{0}_1d'.format(rtype))
+								flowRegimeTied.append(int(re.findall(r"\d", rtype)[0]))
+							else:
+								continue
 						elif rtype.lower() == "losses":
 							iun = res.Data_1D.CL.uID.index(id)  # index unique name
 							nCol = res.Data_1D.CL.nCols[iun]  # number of columns associated with element losses
@@ -85,14 +103,16 @@ class TuPlot1D():
 								plotAsPoints.append(False)
 								flowRegime.append(False)
 								types.append('{0}_1d'.format(rtype))
+								flowRegimeTied.append(-1)
 						else:
 							plotAsPoints.append(False)
 							flowRegime.append(False)
 							types.append('{0}_1d'.format(rtype))
+							flowRegimeTied.append(-1)
 						
 						# get data
 						if res.formatVersion == 1:  # 2013
-							found, ydata, message = res.getTSData(id, type)
+							found, ydata, message = res.getTSData(id, rtype)
 							xdata = res.times
 						elif res.formatVersion == 2:  # 2015
 							dom = tuResults1D.domains[i]
@@ -107,7 +127,10 @@ class TuPlot1D():
 								else:
 									typename = rtype
 							else:
-								typename = rtype
+								if re.findall("flow regime", rtype, re.IGNORECASE):
+									typename = "Flow Regime"
+								else:
+									typename = rtype
 							found, ydata, message = res.getTSData(id, dom, typename, 'Geom')
 							xdata = res.times
 							if type(ydata) is list:
@@ -125,8 +148,14 @@ class TuPlot1D():
 						else:
 							continue
 						if rtype != "Losses":
-							label = '{0} - {1}'.format(id, rtype) if len(self.tuView.OpenResults.selectedItems()) < 2 \
-								else '{0} - {1} - {2}'.format(result, id, rtype)
+							if re.findall(r"flow regime", rtype, re.IGNORECASE):
+								rtypelab = "Flow Regime_"
+								label = '{0} - {1}'.format(id, rtypelab) if len(
+									self.tuView.OpenResults.selectedItems()) < 2 \
+									else '{0} - {1} - {2}'.format(result, id, rtypelab)
+							else:
+								label = '{0} - {1}'.format(id, rtype) if len(self.tuView.OpenResults.selectedItems()) < 2 \
+									else '{0} - {1} - {2}'.format(result, id, rtype)
 							xAll.append(xdata)
 							yAll.append(ydata)
 							labels.append(label)
@@ -143,11 +172,19 @@ class TuPlot1D():
 								#	types.append('{0}_1d'.format(rtype))
 								#	plotAsPoints.append(False)
 								#	flowRegime.append(False)
+
+						tsResultTypes = [x for x in self.tuView.OpenResultTypes.model().timeSeriesItem.children()]
+						if rtype.lower() in [x.ds_name.lower() for x in tsResultTypes]:
+							irtype = [x.ds_name.lower() for x in tsResultTypes].index(rtype.lower())
+							if tsResultTypes[irtype].isFlowRegime:
+								rtypes.append('Flow Regime_{0}_{1}'.format(len(xAll) - 1, id))
 		
 		data = list(zip(xAll, yAll))
+		dataTypes = [TuPlot.DataTimeSeries1D] * len(data)
 		if data:
-			self.tuPlot.drawPlot(0, data, labels, types, draw=draw, time=time, show_current_time=showCurrentTime,
-			                     plot_as_points=plotAsPoints, flow_regime=flowRegime)
+			self.tuPlot.drawPlot(TuPlot.TimeSeries, data, labels, types, dataTypes,
+			                     draw=draw, time=time, show_current_time=showCurrentTime,
+			                     plot_as_points=plotAsPoints, flow_regime=flowRegime, flow_regime_tied=flowRegimeTied)
 		
 		return True
 	
@@ -158,6 +195,8 @@ class TuPlot1D():
 		:param kwargs: dict -> keyword arguments
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 		activeMeshLayers = self.tuView.tuResults.tuResults2D.activeMeshLayers  # list
 		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
@@ -172,10 +211,11 @@ class TuPlot1D():
 		if bypass:
 			pass
 		else:
-			if plot.lower() == '1d only':
-				self.tuPlot.clearPlot(1)
-			else:
-				self.tuPlot.clearPlot(1, retain_2d=True)
+			#if plot.lower() == '1d only':
+			#	self.tuPlot.clearPlot(1)
+			#else:
+			#	self.tuPlot.clearPlot(1, retain_2d=True)
+			self.tuPlot.clearPlot2(TuPlot.CrossSection, TuPlot.DataCrossSection1D)
 		
 		labels = []
 		xAll = []
@@ -183,11 +223,12 @@ class TuPlot1D():
 		types = []
 		plotAsPoints = []
 		plotAsPatch = []
+		dataTypes = []
 		
 		# iterate through all selected results
 		for result in self.tuView.OpenResults.selectedItems():
 			result = result.text()
-			
+
 			if result in tuResults1D.results1d.keys():
 				res = tuResults1D.results1d[result]
 				error = tuResults1D.getLongPlotConnectivity(res)
@@ -273,8 +314,96 @@ class TuPlot1D():
 								plotAsPatch.append(False)
 		
 		data = list(zip(xAll, yAll))
+		dataTypes = [TuPlot.DataCrossSection1D] * len(data)
 		if data:
-			self.tuPlot.drawPlot(1, data, labels, types, plot_as_points=plotAsPoints, plot_as_patch=plotAsPatch, draw=draw)
+			self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes,
+			                     plot_as_points=plotAsPoints, plot_as_patch=plotAsPatch, draw=draw)
 			self.tuPlot.profilePlotFirst = False
 		
+		return True
+
+	def plot1dMaximums(self, **kwargs):
+		"""
+		Plots 1D maximums based on selected features, results, and result types.
+
+		:param kwargs: dict -> keyword arguments
+		:return: bool -> True for successful, False for unsuccessful
+		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+		activeMeshLayers = self.tuView.tuResults.tuResults2D.activeMeshLayers  # list
+		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
+
+		# deal with kwargs
+		bypass = kwargs['bypass'] if 'bypass' in kwargs.keys() else False  # bypass clearing any data from plot
+		bypass = True
+		plot = kwargs['plot'] if 'plot' in kwargs.keys() else ''
+		draw = kwargs['draw'] if 'draw' in kwargs.keys() else True
+
+		# clear the plot based on kwargs
+		if bypass:
+			pass
+		else:
+			if plot.lower() == '1d only':
+				self.tuPlot.clearPlot(0)
+			else:
+				self.tuPlot.clearPlot(0, retain_2d=True, retain_flow=True)
+
+		labels = []
+		types = []
+		xAll = []
+		yAll = []
+		plotAsPoints = []
+		dataTypes = []
+
+		# iterate through all selected results
+		for result in self.tuView.OpenResults.selectedItems():
+			# for result in self.tuView.tuResults.tuResults2D.activeMeshLayers:
+			result = result.text()
+			# result = result.name()
+
+			if result in tuResults1D.results1d.keys():
+				res = tuResults1D.results1d[result]
+
+				# get result types for all selected types
+				for type in tuResults1D.typesTS:
+
+					if '{0}_1d'.format(type) in self.tuResults.maxResultTypes:
+
+						# get result for each selected element
+						for i, id in enumerate(tuResults1D.ids):
+							types.append('{0}_1d'.format(type))
+
+							# get data
+							if res.formatVersion == 1:  # 2013
+								found, ydata, message = res.getMAXData(id, type)
+								xdata = res.times
+							elif res.formatVersion == 2:  # 2015
+								dom = tuResults1D.domains[i]
+								source = tuResults1D.sources[i].upper()
+								typename = type
+								found, xydata, message = res.getMAXData(id, dom, typename)
+								if len(xydata) != 2:
+									xAll.append([])
+									yAll.append([])
+									labels.append('')
+									plotAsPoints.append(True)
+									continue
+								xdata = [xydata[0]]
+								ydata = [xydata[1]]
+							else:
+								continue
+							label = '{0} - {1} Max'.format(id, type) if len(self.tuView.OpenResults.selectedItems()) < 2 \
+								else '{0} - {1} - {2} Max'.format(result, id, type)
+							xAll.append(xdata)
+							yAll.append(ydata)
+							labels.append(label)
+							plotAsPoints.append(True)
+
+		data = list(zip(xAll, yAll))
+		dataTypes = [TuPlot.DataTimeSeries1D] * len(data)
+		if data:
+			self.tuPlot.drawPlot(TuPlot.TimeSeries, data, labels, types, dataTypes, plot_as_points=plotAsPoints, draw=draw)
+
 		return True

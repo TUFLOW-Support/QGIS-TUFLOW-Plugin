@@ -12,6 +12,7 @@ from tuflow.dataset_view import DataSetModel
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tuflowqgis_turesults
 import tuflowqgis_tuplot
+from tuflowqgis_tuplot import TuPlot
 import tuflowqgis_tumenubar
 import tuflowqgis_tuoptions
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumenucontext import TuContextMenu
@@ -50,7 +51,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# main menu bar
 		removeTuview = kwargs['removeTuview'] if 'removeTuview' else None
 		reloadTuview = kwargs['reloadTuview'] if 'reloadTuview' else None
-		self.tuMenuBar = tuflowqgis_tumenubar.TuMenuBar(self, removeTuview=removeTuview, reloadTuview=reloadTuview)
+		self.tuMenuBar = tuflowqgis_tumenubar.TuMenuBar(self, removeTuview=removeTuview, reloadTuview=reloadTuview,
+		                                                layout=self.mainMenu)
 		self.tuMenuBar.loadFileMenu()
 		self.tuMenuBar.loadViewMenu(0)
 		self.tuMenuBar.loadSettingsMenu(0)
@@ -58,7 +60,18 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.tuMenuBar.loadResultsMenu()
 		self.tuMenuBar.loadHelpMenu()
 		#self.tuMenuBar.connectMenu()
-		
+
+		# secondary menu bar
+		self.tuMenuBarSecond = tuflowqgis_tumenubar.TuMenuBar(self, removeTuview=removeTuview,
+		                                                      reloadTuview=reloadTuview, menu_bar=self.tuMenuBar,
+		                                                      layout=self.mainMenuSecond)
+		self.tuMenuBarSecond.loadFileMenu()
+		self.tuMenuBarSecond.loadViewMenu(0)
+		self.tuMenuBarSecond.loadSettingsMenu(0)
+		self.tuMenuBarSecond.loadExportMenu(0)
+		self.tuMenuBarSecond.loadHelpMenu()
+		self.tuMenuBarSecond.loadResultsMenu()
+
 		# context menu
 		self.tuContextMenu = TuContextMenu(self)
 		self.tuContextMenu.loadPlotMenu(0)
@@ -81,6 +94,15 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.tuResults.tuResults2D.loadOpenMeshLayers()
 		
 		self.tabWidget.removeTab(2)
+		self.SecondMenu.setVisible(False)
+
+		narrowWidth = self.pbShowPlotWindow.minimumSizeHint().width() + \
+		              self.mainMenuSecond_2.minimumSizeHint().width()
+		self.dockWidgetContents.setMinimumWidth(narrowWidth)
+
+		if QSettings().contains("TUFLOW/tuview_defaultlayout"):
+			if QSettings().value("TUFLOW/tuview_defaultlayout", "plot") == "narrow":
+				self.plotWindowVisibilityToggled(initialisation=True)
 		
 	def __del__(self):
 		self.qgisDisconnect()
@@ -244,6 +266,9 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:return:
 		"""
 
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+
 		# update list of types with max activated
 		self.tuResults.updateMinMaxTypes(event, 'max')
 
@@ -256,7 +281,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.OpenResultTypes.selectionModel().select(selection, flags)
 
 		# redraw plot and re-render map
-		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
+		self.tuPlot.updateCrossSectionPlot()
 		self.renderMap()
 
 	def minResultTypesChanged(self, event):
@@ -279,7 +304,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.OpenResultTypes.selectionModel().select(selection, flags)
 
 		# redraw plot and re-render map
-		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
+		self.tuPlot.updateCrossSectionPlot()
 		self.renderMap()
 
 	def nextTimestep(self):
@@ -326,12 +351,71 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		:return:
 		"""
-		
+
 		# update active toolbar
 		self.tuPlot.tuPlotToolbar.setToolbarActive(self.tabWidget.currentIndex())
 		
 		# update the enabled result types
 		self.currentLayerChanged()
+
+	def moveOpenResults(self, layoutType):
+		"""
+		Moves open results list widget.
+
+		layoutType:
+			"plot": original position with plot visible
+			"narrow": place under result types
+		"""
+
+		if layoutType.lower() == "narrow":
+			self.ResultTypeSplitter.addWidget(self.OpenResultsLayout)
+			totalHeight = self.ResultTypeSplitter.sizeHint().height()
+			self.ResultTypeSplitter.setSizes([totalHeight * 9/10, totalHeight * 1/10])
+		elif layoutType.lower() == "plot":
+			self.PlotOptionSplitter.insertWidget(0, self.OpenResultsLayout)
+
+	def plotWindowVisibilityToggled(self, initialisation=False):
+		"""
+		Sets the plot window visible / not visible
+		"""
+
+		if initialisation:
+			self.originalWidth = self.PlotLayout.minimumSizeHint().width() + self.ResultLayout.minimumSizeHint().width()
+			self.PlotLayout.setVisible(False)
+			self.SecondMenu.setVisible(True)
+			self.OpenResultsWidget.setVisible(False)
+			self.moveOpenResults("narrow")
+			narrowWidth = self.pbShowPlotWindow.minimumSizeHint().width() + \
+			              self.mainMenuSecond_2.minimumSizeHint().width()
+			self.dockWidgetContents.setMinimumWidth(narrowWidth)
+			self.label_5.setMinimumWidth(self.label_5.minimumSizeHint().width())
+			docks = [x.windowTitle() for x in self.iface.mainWindow().findChildren(QDockWidget)]
+			if "TUFLOW Viewer" in docks:
+				self.iface.mainWindow().resizeDocks([self], [narrowWidth], Qt.Horizontal)
+
+			return
+
+		if self.PlotLayout.isVisible():
+			self.PlotLayout.setVisible(False)
+			self.SecondMenu.setVisible(True)
+			self.OpenResultsWidget.setVisible(False)
+			self.moveOpenResults("narrow")
+			narrowWidth = self.pbShowPlotWindow.minimumSizeHint().width() + \
+			              self.mainMenuSecond_2.minimumSizeHint().width()
+			self.dockWidgetContents.setMinimumWidth(narrowWidth)
+			self.label_5.setMinimumWidth(self.label_5.minimumSizeHint().width())
+			docks = [x.windowTitle() for x in self.iface.mainWindow().findChildren(QDockWidget)]
+			if "TUFLOW Viewer" in docks:
+				self.iface.mainWindow().resizeDocks([self], [narrowWidth], Qt.Horizontal)
+		else:
+			self.PlotLayout.setVisible(True)
+			self.SecondMenu.setVisible(False)
+			self.OpenResultsWidget.setVisible(True)
+			self.moveOpenResults("plot")
+			# self.dockWidgetContents.setMinimumWidth(self.originalWidth)
+			# self.iface.mainWindow().resizeDocks([self], [self.originalWidth], Qt.Horizontal)
+			plotWidth = self.PlotLayout.minimumSizeHint().width() + self.ResultLayout.minimumSizeHint().width()
+			self.iface.mainWindow().resizeDocks([self], [plotWidth], Qt.Horizontal)
 		
 	def projectCleared(self):
 		"""
@@ -387,6 +471,10 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		if not self.connected:
 			
+			# hide/show plot window
+			self.pbHidePlotWindow.clicked.connect(self.plotWindowVisibilityToggled)
+			self.pbShowPlotWindow.clicked.connect(self.plotWindowVisibilityToggled)
+
 			# time
 			self.cboTime.currentIndexChanged.connect(self.timeSliderChanged)
 			self.sliderTime.valueChanged.connect(lambda: self.timeComboChanged(0))
@@ -409,7 +497,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.OpenResultTypes.leftClicked.connect(self.resultTypesChanged)
 			
 			# Plotting buttons
-			self.cbShowCurrentTime.clicked.connect(lambda: self.refreshCurrentPlot(update='1d only'))
+			self.cbShowCurrentTime.clicked.connect(lambda: self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataCurrentTime))
 			self.tuPlot.tuPlotToolbar.fluxSecAxisButton.released.connect(lambda: self.secondaryAxisResultTypesChanged(None))
 			
 			# switching between plots
@@ -701,12 +789,13 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:param event: dict -> { 'parent': DataSetTreeNode, 'index': DataSetTreeNode }
 		:return:
 		"""
-		
+
 		# update list of types sitting on secondary axis
 		self.tuResults.updateSecondaryAxisTypes(event)
 		
 		# redraw plot
-		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
+		# self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
+		self.tuPlot.changeLineAxis(event)
 		
 		# force selected result types in widget to be active types
 		#self.OpenResultTypes.selectionModel().clear()
@@ -778,7 +867,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# update red time slider on plot
 		if self.cbShowCurrentTime.isChecked():
 			# pf.drawPlot(self, 0, None, None, None, refresh_only=True)
-			self.tuPlot.updateCurrentPlot(0, update='1d only')
+			# self.tuPlot.updateCurrentPlot(TuPlot.TimeSeries)
+			self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataCurrentTime)
 		
 		# update long profile / cross section plots with new timestep
 		if not self.tuPlot.profilePlotFirst:
