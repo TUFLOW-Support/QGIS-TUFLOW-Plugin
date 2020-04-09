@@ -398,7 +398,7 @@ p, li { white-space: pre-wrap; }
                          </widget>
                         </item>
                         <item>
-                         <widget class="QFrame" name="Mesh3DToolbarFrame">
+                         <widget class="QFrame" name="mesh3DToolbar">
                           <property name="minimumSize">
                            <size>
                             <width>100</width>

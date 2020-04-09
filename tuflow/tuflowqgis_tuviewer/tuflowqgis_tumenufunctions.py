@@ -41,8 +41,9 @@ class TuMenuFunctions():
 		
 		if not result2D:
 			# Get last loaded settings
-			fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_2DResults/lastFolder")
-			
+			# fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_2DResults/lastFolder")
+			fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_Results/lastFolder")
+
 			# User get 2D result file
 			inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW 2D results file',
 			                                           fpath,
@@ -77,7 +78,7 @@ class TuMenuFunctions():
 		# finally save the last folder location
 		fpath = os.path.dirname(inFileNames[0][0])
 		settings = QSettings()
-		settings.setValue("TUFLOW_2DResults/lastFolder", fpath)
+		settings.setValue("TUFLOW_Results/lastFolder", fpath)
 		
 		if not loaded:
 			return False
@@ -97,8 +98,9 @@ class TuMenuFunctions():
 		
 		if not result1D:
 			# Get last loaded settings
-			fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_1DResults/lastFolder")
-			
+			# fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_1DResults/lastFolder")
+			fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_Results/lastFolder")
+
 			# User get 1D result file
 			inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW 1D results file',
 			                                           fpath,
@@ -149,7 +151,7 @@ class TuMenuFunctions():
 		# finally save the last folder location
 		fpath = os.path.dirname(inFileNames[0][0])
 		settings = QSettings()
-		settings.setValue("TUFLOW_1DResults/lastFolder", fpath)
+		settings.setValue("TUFLOW_Results/lastFolder", fpath)
 		
 		return True
 	
@@ -359,8 +361,7 @@ class TuMenuFunctions():
 
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		import pydevd_pycharm
-		pydevd_pycharm.settrace('localhost', port=53100, stdoutToServer=True, stderrToServer=True)
+
 		plotNo = self.tuView.tabWidget.currentIndex()
 		
 		dataHeader, data = self.getPlotData(plotNo)
@@ -833,7 +834,7 @@ class TuMenuFunctions():
 		dp.addAttributes([QgsField('Name', QVariant.String)])
 		shpLayer.updateFields()
 		feats = []  # list of QgsFeature objects
-		for i, rubberBand in enumerate(self.tuView.tuPlot.tuCrossSection.rubberBands):
+		for i, rubberBand in enumerate(self.tuView.tuPlot.tuRubberBand.rubberBands):
 			geom = rubberBand.asGeometry().asPolyline()
 			feat = QgsFeature()
 			try:
@@ -891,7 +892,7 @@ class TuMenuFunctions():
 		dp.addAttributes([QgsField('Name', QVariant.String)])
 		shpLayer.updateFields()
 		feats = []  # list of QgsFeature objects
-		for i, point in enumerate(self.tuView.tuPlot.tuTSPoint.points):
+		for i, point in enumerate(self.tuView.tuPlot.tuRubberBand.markerPoints):
 			feat = QgsFeature()
 			feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
 			feat.setAttributes(['Point {0}'.format(i + 1)])
@@ -1452,14 +1453,11 @@ class TuMenuFunctions():
 		
 		:return:
 		"""
-
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 		
 		self.userPlotDataDialog = TuUserPlotDataManagerDialog(self.iface, self.tuView.tuPlot.userPlotData)
 		self.userPlotDataDialog.exec_()
-		# self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), retain_1d=True, retain_2d=True, retain_flow=True)
-		self.tuView.tuPlot.clearPlot2(self.tuView.tabWidget.currentIndex(), TuPlot.DataUserData)
-
+		self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), retain_1d=True, retain_2d=True, retain_flow=True)
+		
 		return True
 
 	def toggleMeshRender(self):
