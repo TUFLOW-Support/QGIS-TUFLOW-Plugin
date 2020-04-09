@@ -12,7 +12,6 @@ from tuflow.dataset_view import DataSetModel
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tuflowqgis_turesults
 import tuflowqgis_tuplot
-from tuflowqgis_tuplot import TuPlot
 import tuflowqgis_tumenubar
 import tuflowqgis_tuoptions
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumenucontext import TuContextMenu
@@ -266,9 +265,6 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:return:
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
-
-
 		# update list of types with max activated
 		self.tuResults.updateMinMaxTypes(event, 'max')
 
@@ -281,7 +277,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.OpenResultTypes.selectionModel().select(selection, flags)
 
 		# redraw plot and re-render map
-		self.tuPlot.updateCrossSectionPlot()
+		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
 		self.renderMap()
 
 	def minResultTypesChanged(self, event):
@@ -304,7 +300,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.OpenResultTypes.selectionModel().select(selection, flags)
 
 		# redraw plot and re-render map
-		self.tuPlot.updateCrossSectionPlot()
+		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
 		self.renderMap()
 
 	def nextTimestep(self):
@@ -351,7 +347,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		:return:
 		"""
-
+		
 		# update active toolbar
 		self.tuPlot.tuPlotToolbar.setToolbarActive(self.tabWidget.currentIndex())
 		
@@ -497,7 +493,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.OpenResultTypes.leftClicked.connect(self.resultTypesChanged)
 			
 			# Plotting buttons
-			self.cbShowCurrentTime.clicked.connect(lambda: self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataCurrentTime))
+			self.cbShowCurrentTime.clicked.connect(lambda: self.refreshCurrentPlot(update='1d only'))
 			self.tuPlot.tuPlotToolbar.fluxSecAxisButton.released.connect(lambda: self.secondaryAxisResultTypesChanged(None))
 			
 			# switching between plots
@@ -789,13 +785,12 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:param event: dict -> { 'parent': DataSetTreeNode, 'index': DataSetTreeNode }
 		:return:
 		"""
-
+		
 		# update list of types sitting on secondary axis
 		self.tuResults.updateSecondaryAxisTypes(event)
 		
 		# redraw plot
-		# self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
-		self.tuPlot.changeLineAxis(event)
+		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
 		
 		# force selected result types in widget to be active types
 		#self.OpenResultTypes.selectionModel().clear()
@@ -867,8 +862,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# update red time slider on plot
 		if self.cbShowCurrentTime.isChecked():
 			# pf.drawPlot(self, 0, None, None, None, refresh_only=True)
-			# self.tuPlot.updateCurrentPlot(TuPlot.TimeSeries)
-			self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataCurrentTime)
+			self.tuPlot.updateCurrentPlot(0, update='1d only')
 		
 		# update long profile / cross section plots with new timestep
 		if not self.tuPlot.profilePlotFirst:

@@ -467,13 +467,14 @@ class TuProject():
 			currentTab = self.tuView.tabWidget.currentIndex()
 			self.project.writeEntry("TUVIEW", "currentplottab", str(currentTab))
 		else:  # load
-			currentTab = int(self.project.readEntry("TUVIEW", "currentplottab")[0])
+			try:
+				currentTab = int(self.project.readEntry("TUVIEW", "currentplottab")[0])
+			except:
+				currentTab = 0
 			self.tuView.tabWidget.setCurrentIndex(currentTab)
 	
 	def processMapPlotting(self, call_type):
 		"""Project settings for 2D mapoutput plotting."""
-
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 		
 		cbo = self.tuView.cboSelectType
 		toolbar = self.tuView.tuPlot.tuPlotToolbar
@@ -481,7 +482,7 @@ class TuProject():
 		if call_type == 'save':
 			self.project.writeEntry("TUVIEW", "selecttype", str(cbo.currentIndex()))
 			
-			checkedTS = toolbar.getCheckedItemsFromPlotOptions(TuPlot.DataTimeSeries2D)
+			checkedTS = toolbar.getCheckedItemsFromPlotOptions(0)
 			tstypes = ''
 			for i, rtype in enumerate(checkedTS):
 				if i == 0:
@@ -490,7 +491,7 @@ class TuProject():
 					tstypes += '~~{0}'.format(rtype)
 			self.project.writeEntry("TUVIEW", "tstypes", tstypes)
 			
-			checkedCS = toolbar.getCheckedItemsFromPlotOptions(TuPlot.DataCrossSection2D)
+			checkedCS = toolbar.getCheckedItemsFromPlotOptions(1)
 			cstypes = ''
 			for i, rtype in enumerate(checkedCS):
 				if i == 0:
@@ -874,12 +875,12 @@ class TuProject():
 	def processGraphics(self, call_type):
 		"""Graphic objects in the project."""
 		
-		points = self.tuView.tuPlot.tuTSPoint.points
-		markers = self.tuView.tuPlot.tuTSPoint.markers
+		points = self.tuView.tuPlot.tuRubberBand.markerPoints
+		markers = self.tuView.tuPlot.tuRubberBand.markers
 		
-		linesCS = self.tuView.tuPlot.tuCrossSection.rubberBands
-		lineMarkersCS = self.tuView.tuPlot.tuCrossSection.linePoints
-		linePointsCS = self.tuView.tuPlot.tuCrossSection.points
+		linesCS = self.tuView.tuPlot.tuRubberBand.rubberBands
+		lineMarkersCS = self.tuView.tuPlot.tuRubberBand.linePoints
+		linePointsCS = self.tuView.tuPlot.tuRubberBand.points
 		
 		linesQ = self.tuView.tuPlot.tuFlowLine.rubberBands
 		lineMarkersQ = self.tuView.tuPlot.tuFlowLine.linePoints

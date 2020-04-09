@@ -44,7 +44,7 @@ class TuResults():
 			
 			# 2D results
 			self.tuResults2D = tuflowqgis_turesults2d.TuResults2D(TuView)
-
+	
 	def importResults(self, type, inFileNames):
 		"""
 		Import results 1D or 2D
@@ -108,8 +108,7 @@ class TuResults():
 		#self.tuView.mcboResultType.clear()
 		self.tuView.tuPlot.tuPlotToolbar.plotTSMenu.clear()
 		self.tuView.tuPlot.tuPlotToolbar.plotLPMenu.clear()
-		self.tuView.tuPlot.tuPlotToolbar.curtainPlotMenu.clear()
-
+		
 		return True
 	
 	def getDataFromResultsDict(self, resultName):
@@ -176,7 +175,7 @@ class TuResults():
 					lTypeLP.append((x, 7, False))
 			else:
 				temporalResultTypes.append(type)
-				for i, (time, values) in enumerate(t['times'].items()):
+				for i, (time, values) in enumerate(t.items()):
 					if values[0] != 9999.0:
 						if values[0] not in timesteps:
 							timesteps.append(float(values[0]))
@@ -351,8 +350,6 @@ class TuResults():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
-
 		sliderTime = self.tuView.sliderTime  # QSlider
 		cboTime = self.tuView.cboTime  # QComboBox
 		#mcboResultType = self.tuView.mcboResultType  # QgsCheckableComboBox
@@ -361,8 +358,8 @@ class TuResults():
 		
 		# record existing plotting 2D result types and time so it can be re-applied after the update
 		#currentNames = mcboResultType.checkedItems()
-		currentNamesTS = self.tuView.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(TuPlot.DataTimeSeries2D)
-		currentNamesLP = self.tuView.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(TuPlot.DataCrossSection2D)
+		currentNamesTS = self.tuView.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(0)
+		currentNamesLP = self.tuView.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(1)
 		currentTime = str(self.activeTime) if self.activeTime is not None else None
 		
 		# reset types
@@ -396,7 +393,7 @@ class TuResults():
 						if rtype in self.results[result.text()].keys():
 							break
 				t = self.results[result.text()][rtype]
-				for i, (time, values) in enumerate(t['times'].items()):
+				for i, (time, values) in enumerate(t.items()):
 					if i == 0:  # get the data type from the first timestep i.e. scalar or vector
 						info = (rtype, values[1], rtype in maxResultTypes, rtype in minResultTypes)
 						mapOutputs.append(info)
@@ -404,8 +401,6 @@ class TuResults():
 						break
 				self.tuView.tuPlot.tuPlotToolbar.addItemToPlotOptions(rtype, 0)
 				self.tuView.tuPlot.tuPlotToolbar.addItemToPlotOptions(rtype, 1)
-				self.tuView.tuPlot.tuPlotToolbar.addItemToPlotOptions(rtype, 20)
-
 				#mcboResultType.addItem(type)
 			for rtype in maxResultTypes:  # check - there may be results that only have maximums
 				if rtype not in temporalResultTypes:
@@ -419,7 +414,7 @@ class TuResults():
 					if not mrtype:  # couldn't be found - hopefully not the case!
 						continue
 					t = self.results[result.text()][mrtype]
-					for i, (time, values) in enumerate(t['times'].items()):
+					for i, (time, values) in enumerate(t.items()):
 						if i == 0:  # get the data type from the first timestep i.e. scalar or vector
 							info = (rtype, values[1], True, False)
 							mapOutputs.append(info)
@@ -698,9 +693,9 @@ class TuResults():
 		forceGetTime = kwargs['force_get_time'] if 'force_get_time' in kwargs.keys() else None
 		results = self.tuView.tuResults.results  # dict
 		
-		key1 = index.result if 'result_name' not in kwargs else kwargs['result_name']
-		key2 = index.resultType if 'result_type' not in kwargs else kwargs['result_type']
-		key3 = index.timestep if 'timestep' not in kwargs else kwargs['timestep']
+		key1 = index.result
+		key2 = index.resultType
+		key3 = index.timestep
 		
 		if key1 not in results.keys():
 			return False
@@ -709,49 +704,17 @@ class TuResults():
 			return False
 		
 		if key3 is not None:
-			if key3 not in results[key1][key2]['times'].keys():
-				if len(results[key1][key2]['times']) == 1:
-					for k in results[key1][key2]['times']:
+			if key3 not in results[key1][key2].keys():
+				if len(results[key1][key2]) == 1:
+					for k in results[key1][key2]:
 						key3 = k
 				elif forceGetTime == 'next lower':
 					key3 = self.findTimeNextLower(key1, key2, key3)
 		
 		if key3 is not None:
-			return results[key1][key2]['times'][key3]
+			return results[key1][key2][key3]
 		else:
-			return results[key1][key2]['times']
-
-	def is3d(self, index, **kwargs):
-		"""
-
-		"""
-
-		results = self.tuView.tuResults.results  # dict
-		key1 = index.result if 'result_name' not in kwargs else kwargs['result_name']
-		key2 = index.resultType if 'result_type' not in kwargs else kwargs['result_type']
-
-		if key1 not in results.keys():
-			return False
-		if key2 not in results[key1].keys():
-			return False
-
-		return results[key1][key2]['is3dDataset']
-
-	def getTimeUnit(self, index, **kwargs):
-		"""
-
-		"""
-
-		results = self.tuView.tuResults.results  # dict
-		key1 = index.result if 'result_name' not in kwargs else kwargs['result_name']
-		key2 = index.resultType if 'result_type' not in kwargs else kwargs['result_type']
-
-		if key1 not in results.keys():
-			return 'h'
-		if key2 not in results[key1].keys():
-			return 'h'
-
-		return results[key1][key2]['timeUnit']
+			return results[key1][key2]
 	
 	def findTimeNextLower(self, key1, key2, key3):
 		"""
@@ -765,7 +728,7 @@ class TuResults():
 		
 		timePrev = None
 		higher = False
-		for i, (timekey, time) in enumerate(self.results[key1][key2]['times'].items()):
+		for i, (timekey, time) in enumerate(self.results[key1][key2].items()):
 			# timekey -> str e.g. '1.0000'
 			# time -> dict e.g. ( timestep, type, QgsMeshDatasetIndex )}
 			

@@ -111,7 +111,7 @@ class ViewToolbar():
 		
 		# connect buttons
 		self.refreshPlotButton.released.connect(self.tuView.refreshCurrentPlot)
-		self.clearPlotButton.released.connect(lambda: self.tuView.tuPlot.clearPlot2(self.plotNo, clear_rubberband=True))
+		self.clearPlotButton.released.connect(lambda: self.tuView.tuPlot.clearPlot(self.plotNo, clear_rubberband=True, clear_selection=True))
 		self.freezeXYAxisButton.released.connect(self.freezeXYAxis)
 		self.freezeXAxisButton.released.connect(self.freezeXAxis)
 		self.freezeYAxisButton.released.connect(self.freezeYAxis)

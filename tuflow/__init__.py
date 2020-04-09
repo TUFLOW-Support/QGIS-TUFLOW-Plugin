@@ -21,8 +21,6 @@
  This script initializes the plugin, making it known to QGIS.
 """
 from qgis.core import *
-import sys
-
 
 def name():
     return "TUFLOW"

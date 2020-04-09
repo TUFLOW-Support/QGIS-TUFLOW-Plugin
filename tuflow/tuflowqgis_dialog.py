@@ -94,7 +94,7 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		
 		i = 0
 		for name, layer in QgsProject.instance().mapLayers().items():
-			if layer.type() == QgsMapLayerType.VectorLayer:
+			if layer.type() == QgsMapLayer.VectorLayer:
 				self.sourcelayer.addItem(layer.name())
 				if layer.name() == cName:
 					self.sourcelayer.setCurrentIndex(i)
@@ -566,7 +566,7 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 
 		i = 0
 		for name, layer in QgsProject.instance().mapLayers().items():
-			if layer.type() == QgsMapLayerType.VectorLayer:
+			if layer.type() == QgsMapLayer.VectorLayer:
 				self.sourcelayer.addItem(layer.name())
 				if layer.name() == cName:
 					self.sourcelayer.setCurrentIndex(i)
@@ -594,7 +594,7 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 		layername = unicode(self.sourcelayer.currentText())
 		self.cLayer = tuflowqgis_find_layer(layername)
 		self.elev_attr.clear()
-		if self.cLayer and (self.cLayer.type() == QgsMapLayerType.VectorLayer):
+		if self.cLayer and (self.cLayer.type() == QgsMapLayer.VectorLayer):
 			datacolumns = self.cLayer.dataProvider().fields()
 			GType = self.cLayer.dataProvider().geometryType()
 			if (GType == QGis.WKBPoint):
@@ -790,7 +790,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		#add vector data as options in dropbox
 		i = 0
 		for name, layer in QgsProject.instance().mapLayers().items():
-			if layer.type() == QgsMapLayerType.VectorLayer:
+			if layer.type() == QgsMapLayer.VectorLayer:
 				self.sourcelayer.addItem(layer.name())
 				if cLayer:
 					if layer.name() == cName:
@@ -1179,7 +1179,7 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		
 		# Set up Input Catchment File ComboBox
 		for name, layer in QgsProject.instance().mapLayers().items():
-				if layer.type() == QgsMapLayerType.VectorLayer:
+				if layer.type() == QgsMapLayer.VectorLayer:
 					if layer.geometryType() == QgsWkbTypes.PointGeometry or layer.geometryType() == QgsWkbTypes.PolygonGeometry:
 						self.comboBox_inputCatchment.addItem(layer.name())
 							
@@ -2088,7 +2088,7 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 		
 		# Set up Input Catchment File ComboBox
 		for name, layer in QgsProject.instance().mapLayers().items():
-			if layer.type() == QgsMapLayerType.VectorLayer:
+			if layer.type() == QgsMapLayer.VectorLayer:
 				self.comboBox_inputLayer.addItem(layer.name())						
 		
 		# load stored settings
@@ -2819,7 +2819,7 @@ class TuSelectedElementsDialog(QDialog, Ui_selectedElements):
 			selIds.append(item.text())
 		
 		for layer in self.iface.mapCanvas().layers():
-			if layer.type() == QgsMapLayerType.VectorLayer:
+			if layer.type() == QgsMapLayer.VectorLayer:
 				if ' plot ' in layer.name().lower() or '_plot_' in layer.name().lower():
 					layer.removeSelection()
 					for feature in layer.getFeatures():
@@ -2865,7 +2865,7 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 		
 	def populateGISLayers(self):
 		for name, layer in QgsProject.instance().mapLayers().items():
-			if layer.type() == QgsMapLayerType.VectorLayer:
+			if layer.type() == QgsMapLayer.VectorLayer:
 				if layer.geometryType() == QgsWkbTypes.PointGeometry or layer.geometryType() == QgsWkbTypes.LineGeometry:
 					self.cbGISLayer.addItem(layer.name())
 					

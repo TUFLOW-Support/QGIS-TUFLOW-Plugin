@@ -31,7 +31,6 @@ class TuResults2D():
 		self.activeScalar, self.activeVector = None, None
 		self.meshProperties = {}
 		self.results2d = {}  # holds 2d properties e.g. 'path'
-		self.bRecordSpecialTime = None
 	
 	def importResults(self, inFileNames):
 		"""
@@ -77,9 +76,6 @@ class TuResults2D():
 						l = self.loadDataGroup(d, mLayer, preExisting)
 				else:
 					loaded = self.loadDataGroup(f, mLayer, preExisting)
-			else:
-				pass
-				#self.tuView.tuResults.tuResults3D.importResults([f])
 			#res = {'path': f}
 			#self.results2d[mLayer.name()] = res
 			
@@ -291,58 +287,226 @@ class TuResults2D():
 		if name not in results.keys():  # add results to dict
 			results[name] = {}
 		
-		resultTypes = []
+		timesteps, minResultTypes, maxResultTypes, temporalResultTypes = [], [], [], []
 		dp = layer.dataProvider()  # QgsMeshDataProvider
 		
 		for i in range(dp.datasetGroupCount()):
+			
 			# Get result type e.g. depth, velocity, max depth
 			mdGroup = dp.datasetGroupMetadata(i)  # Group Metadata
-			id, id2 = self.getResultTypeNames(mdGroup, ext, resultTypes)
+			if mdGroup.isScalar() or ext.upper() == '.DAT':
+				type = 1
+			else:
+				type = 2
 
-			# add to temporal result type list
-			resultTypes.append(id)
-			if id2 is not None:
-				resultTypes.append(id2)
+			if self.tuView.tuResults.isMaximumResultType(mdGroup.name(), dp, i):
+				# get result group name
+				rt = mdGroup.name().split('/')[0]
+				if 'max_' in rt:
+					rt = rt.split('max_')[1]
+					mdGroupName = '{0}/Maximums'.format(rt)  # FV
+				elif 'minimum dt' in rt.lower():
+					mdGroupName = '{0}/Final'.format(rt)  # special treatment for Minimum dt
+				else:
+					mdGroupName = mdGroup.name()
+				
+				# check for duplicates - if there are duplicates add [1] or [2] ... [n] to name
+				if mdGroupName in maxResultTypes:
+					counter = 1
+					mdGroupName = '{0} [{1}]'.format(mdGroupName, counter)
+					while mdGroupName in maxResultTypes:
+						mdGroupName = mdGroupName.replace('[{0}]'.format(counter), '[{0}]'.format(counter + 1))
+						counter += 1
+				
+				# add to max result type list
+				maxResultTypes.append(mdGroupName)
+				#rt = mdGroup.name().split('/')[0]
+				#if 'max_' in rt:
+				#	rt = rt.split('max_')[1]
+				#	mdGroupName = '{0}/Maximums'.format(rt)  # FV
+				#else:
+				#	mdGroupName = mdGroup.name()
+				#maxResultTypes.append(rt)
+				
+				# initiate in results dict
+				results[name][mdGroupName] = {}  # add result type to results dictionary
+				
+				# add max result as time -99999
+				results[name][mdGroupName]['-99999'] = (-99999, type, QgsMeshDatasetIndex(i, 0))
+				timekey2time['-99999'] = -99999
+				timekey2date['-99999'] = -99999
+				time2date['-99999'] = -99999
+				date2timekey[-99999] = '-99999'
+				date2time[-99999] = '-99999'
+				
+				# apply any default rendering styles to datagroup
+				if mdGroup.isScalar() or ext.upper() == '.DAT':
+					resultType = mdGroup.name().split('/')[0]
+					if 'max_' in resultType:
+						resultType = resultType.split('max_')[1]
+					# try finding if style has been saved as a ramp first
+					key = 'TUFLOW_scalarRenderer/{0}_ramp'.format(resultType)
+					file = QSettings().value(key)
+					if file:
+						self.applyScalarRenderSettings(layer, i, file, type='ramp')
+					# else try map
+					key = 'TUFLOW_scalarRenderer/{0}_map'.format(resultType)
+					file = QSettings().value(key)
+					if file:
+						self.applyScalarRenderSettings(layer, i, file, type='map')
+				if mdGroup.isVector():
+					vectorProperties = QSettings().value('TUFLOW_vectorRenderer/vector')
+					if vectorProperties:
+						self.applyVectorRenderSettings(layer, i, vectorProperties)
+						
+			elif self.tuView.tuResults.isMinimumResultType(mdGroup.name(), dp, i):
+				# get result group name
+				rt = mdGroup.name().split('/')[0]
+				if 'min_' in rt:
+					rt = rt.split('min_')[1]
+					mdGroupName = '{0}/Minimums'.format(rt)  # FV
+				#elif 'minimum dt' in rt.lower():
+				#	mdGroupName = '{0}/Final'.format(rt)  # special treatment for Minimum dt
+				else:
+					mdGroupName = mdGroup.name()
 
-			# initiate in result dict
-			results[name][id] = {'times': {},
-			                     'is3dDataset': self.is3dDataset(i, dp),
-			                     'timeUnit': self.getTimeUnit(layer),
-			                     }  # add result type to results dictionary
-			if id2 is not None:
-				results[name][id2] = {'times': {},
-				                      'is3dDataset': self.is3dDataset(i, dp),
-				                      'timeUnit': self.getTimeUnit(layer)
-				                      }  # add result type to results dictionary
+				# check for duplicates - if there are duplicates add [1] or [2] ... [n] to name
+				if mdGroupName in minResultTypes:
+					counter = 1
+					mdGroupName = '{0} [{1}]'.format(mdGroupName, counter)
+					while mdGroupName in minResultTypes:
+						mdGroupName = mdGroupName.replace('[{0}]'.format(counter), '[{0}]'.format(counter + 1))
+						counter += 1
 
-			# apply any default rendering styles to datagroup
-			if id:
-				resultType = mdGroup.name()
-				# try finding if style has been saved as a ramp first
-				key = 'TUFLOW_scalarRenderer/{0}_ramp'.format(resultType)
-				file = QSettings().value(key)
-				if file:
-					self.applyScalarRenderSettings(layer, i, file, type='ramp')
-				# else try map
-				key = 'TUFLOW_scalarRenderer/{0}_map'.format(resultType)
-				file = QSettings().value(key)
-				if file:
-					self.applyScalarRenderSettings(layer, i, file, type='map')
-			if mdGroup.isVector() or id2:
-				vectorProperties = QSettings().value('TUFLOW_vectorRenderer/vector')
-				if vectorProperties:
-					self.applyVectorRenderSettings(layer, i, vectorProperties)
+				# add to min result type list
+				minResultTypes.append(mdGroupName)
 
-			# record datasetindex for each timestep
-			for j in range(dp.datasetCount(i)):
-				md = dp.datasetMetadata(QgsMeshDatasetIndex(i, j))  # metadata for individual timestep
+				# initiate in results dict
+				results[name][mdGroupName] = {}  # add result type to results dictionary
 
-				# TUFLOW special timesteps
-				st = self.recordSpecialTime(name, md.time(), id, id2, i, j)
+				# add min result as time 99999
+				results[name][mdGroupName]['99999'] = (9999, type, QgsMeshDatasetIndex(i, 0))
+				timekey2time['99999'] = 99999
+				timekey2date['99999'] = 99999
+				time2date['99999'] = 99999
+				date2timekey[99999] = '99999'
+				date2time[99999] = '99999'
 
-				if not st:
-					self.recordTime(mdGroup, md, name, id, id2, i, j)
+				# apply any default rendering styles to datagroup
+				if mdGroup.isScalar() or ext.upper() == '.DAT':
+					resultType = mdGroup.name().split('/')[0]
+					if 'min_' in resultType:
+						resultType = resultType.split('min_')[1]
+					# try finding if style has been saved as a ramp first
+					key = 'TUFLOW_scalarRenderer/{0}_ramp'.format(resultType)
+					file = QSettings().value(key)
+					if file:
+						self.applyScalarRenderSettings(layer, i, file, type='ramp')
+					# else try map
+					key = 'TUFLOW_scalarRenderer/{0}_map'.format(resultType)
+					file = QSettings().value(key)
+					if file:
+						self.applyScalarRenderSettings(layer, i, file, type='map')
+				if mdGroup.isVector():
+					vectorProperties = QSettings().value('TUFLOW_vectorRenderer/vector')
+					if vectorProperties:
+						self.applyVectorRenderSettings(layer, i, vectorProperties)
 
+			else:
+				mdGroupName = mdGroup.name()
+				if mdGroupName in temporalResultTypes:
+					counter = 1
+					mdGroupName = '{0} [{1}]'.format(mdGroupName, counter)
+					while mdGroupName in temporalResultTypes:
+						mdGroupName = mdGroupName.replace('[{0}]'.format(counter), '[{0}]'.format(counter + 1))
+						counter += 1
+					
+				# add to temporal result type list
+				if ext.upper() == '.DAT' and mdGroup.isVector():  # because dat files need to load in as both vector and scalar
+					temporalResultTypes.append('{0} Vector'.format(mdGroupName))
+					temporalResultTypes.append(mdGroupName)
+				else:
+					temporalResultTypes.append(mdGroupName)
+				
+				# initiate in result dict
+				if ext.upper() == '.DAT' and mdGroup.isVector():  # because dat files need to load in as both vector and scalar
+					results[name][mdGroupName] = {}
+					results[name]['{0} Vector'.format(mdGroupName)] = {}
+				else:
+					results[name][mdGroupName] = {}  # add result type to results dictionary
+				
+				# apply any default rendering styles to datagroup
+				if mdGroup.isScalar() or ext.upper() == '.DAT':
+					resultType = mdGroupName
+					# try finding if style has been saved as a ramp first
+					key = 'TUFLOW_scalarRenderer/{0}_ramp'.format(resultType)
+					file = QSettings().value(key)
+					if file:
+						self.applyScalarRenderSettings(layer, i, file, type='ramp')
+					# else try map
+					key = 'TUFLOW_scalarRenderer/{0}_map'.format(resultType)
+					file = QSettings().value(key)
+					if file:
+						self.applyScalarRenderSettings(layer, i, file, type='map')
+				if mdGroup.isVector():
+					vectorProperties = QSettings().value('TUFLOW_vectorRenderer/vector')
+					if vectorProperties:
+						self.applyVectorRenderSettings(layer, i, vectorProperties)
+
+				for j in range(dp.datasetCount(i)):
+					md = dp.datasetMetadata(QgsMeshDatasetIndex(i, j))  # metadata for individual timestep
+					if md.time() == 900001.0 and self.tuView.tuOptions.timeUnits == 'h':  # time of peak h
+						if mdGroupName in results[name]:
+							del results[name][mdGroupName]
+						results[name]['Time of Peak h'] = {'0.000000': (0, type, QgsMeshDatasetIndex(i, j))}
+					elif md.time() == 900002.0 and self.tuView.tuOptions.timeUnits == 'h':  # time of peak V
+						if mdGroupName in results[name]:
+							del results[name][mdGroupName]
+						results[name]['Time of Peak V'] = {'0.000000': (0, type, QgsMeshDatasetIndex(i, j))}
+						
+					elif md.time() > 100000 and md.time() < 200000 and not md.time() == 111111.0 \
+							and self.tuView.tuOptions.timeUnits == 'h':
+						if mdGroupName in results[name]:
+							del results[name][mdGroupName]
+						value = md.time() - 100000.0
+						results[name]['Time of Cutoff {0}'.format(value)] = {'0.000000': (0, type, QgsMeshDatasetIndex(i, j))}
+					elif md.time() > 200000 and md.time() < 300000 and not md.time() == 222222.0 \
+							and self.tuView.tuOptions.timeUnits == 'h':
+						if mdGroupName in results[name]:
+							del results[name][mdGroupName]
+						value = md.time() - 200000.0
+						results[name]['Time Exc Cutoff {0}'.format(value)] = {'0.000000': (0, type, QgsMeshDatasetIndex(i, j))}
+					else:  # not a special time
+						results[name][mdGroupName]['{0:.6f}'.format(md.time())] = \
+							(md.time(), type, QgsMeshDatasetIndex(i, j))  # add result index to results dict
+						timekey2time['{0:.6f}'.format(md.time())] = md.time()
+						if self.tuView.tuOptions.timeUnits == 's':
+							date = zeroTime + timedelta(seconds=md.time())
+						else:
+							try:
+								date = zeroTime + timedelta(hours=md.time())
+							except OverflowError:
+								date = zeroTime + timedelta(seconds=md.time())
+						date = roundSeconds(date)
+						timekey2date['{0:.6f}'.format(md.time())] = date
+						time2date[md.time()] = date
+						date2timekey[date] = '{0:.6f}'.format(md.time())
+						date2time[date] = md.time()
+						if ext.upper() == '.DAT' and mdGroup.isVector():  # need to add result type again as vector type
+							md = dp.datasetMetadata(QgsMeshDatasetIndex(i, j))  # metadata for individual timestep
+							results[name]['{0} Vector'.format(mdGroupName)]['{0:.6f}'.format(md.time())] = \
+								(md.time(), 2, QgsMeshDatasetIndex(i, j))  # add result index to results dict
+							timekey2time['{0:.6f}'.format(md.time())] = md.time()
+							if self.tuView.tuOptions.timeUnits == 's':
+								date = zeroTime + timedelta(seconds=md.time())
+							else:
+								date = zeroTime + timedelta(hours=md.time())
+							date = roundSeconds(date)
+							timekey2date['{0:.6f}'.format(md.time())] = date
+							time2date[md.time()] = date
+							date2timekey[date] = '{0:.6f}'.format(md.time())
+							date2time[date] = md.time()
+							
 		# align first timestep values
 		# e.g. if first temporal timestep is 1 hr
 		# bed elevation has timestep 0 hrs by default
@@ -352,186 +516,6 @@ class TuResults2D():
 
 		return True
 	
-	def getTimeUnit(self, lyr):
-		"""
-
-		"""
-
-		qv = Qgis.QGIS_VERSION_INT
-
-		if qv >= 31100:
-			tu2text = {
-				QgsMeshTimeSettings.seconds: 's',
-				QgsMeshTimeSettings.minutes: 'm',
-				QgsMeshTimeSettings.hours: 'h',
-				QgsMeshTimeSettings.days: 'd',
-			}
-			return tu2text[lyr.timeSettings().providerTimeUnit()]
-		else:
-			return 'h'
-
-	def is3dDataset(self, mdi, dp):
-		"""
-
-		"""
-
-		for i in range(dp.datasetCount(mdi)):
-			try:
-				return dp.dataset3dValues(QgsMeshDatasetIndex(mdi, i), 0, 1).verticalLevelsCount()[0] > 1
-			except:
-				continue
-
-		return False
-
-	def recordTime(self, mdg, md, name, id, id2, i, j):
-		"""
-
-		"""
-
-		results = self.tuView.tuResults.results  # dict
-		timekey2time = self.tuView.tuResults.timekey2time  # dict
-		timekey2date = self.tuView.tuResults.timekey2date  # dict
-		time2date = self.tuView.tuResults.time2date  # dict
-		date2timekey = self.tuView.tuResults.date2timekey  # dict
-		date2time = self.tuView.tuResults.date2time  # dict
-		zeroTime = self.tuView.tuOptions.zeroTime
-
-		t = md.time()
-
-		for k, x in enumerate([id, id2]):
-			if x is not None:
-				if id and id2 and k == 0:
-					v = 1
-				elif id and id2 and k == 1:
-					v = 2
-				elif mdg.isScalar():
-					v = 1
-				elif mdg.isVector():
-					v = 2
-				else:
-					v = 1
-				results[name][x]['times']['{0:.6f}'.format(t)] = (t, v, QgsMeshDatasetIndex(i, j))
-				timekey2time['{0:.6f}'.format(t)] = t
-				if self.tuView.tuOptions.timeUnits == 's':
-					date = zeroTime + timedelta(seconds=t)
-				else:
-					try:
-						date = zeroTime + timedelta(hours=t)
-					except OverflowError:
-						date = zeroTime + timedelta(seconds=t)
-				date = roundSeconds(date)
-				timekey2date['{0:.6f}'.format(t)] = date
-				time2date[t] = date
-				date2timekey[date] = '{0:.6f}'.format(t)
-				date2time[date] = t
-
-	def recordSpecialTime(self, name, t, id, id2, i, j):
-		"""
-
-		"""
-
-		results = self.tuView.tuResults.results  # dict
-
-		ri = TuResultsIndex(name, id)
-		timeUnits = self.tuView.tuResults.getTimeUnit(ri)  # is the same for the whole layer
-		if t == 900001.0 and timeUnits == 'h':  # time of peak h
-			specialName = 'Time of Peak h'
-			self.checkRecordSpecialTime(t, specialName)
-			if self.bRecordSpecialTime:
-				if id in results[name]:
-					del results[name][id]
-				results[name][specialName] = {'times': {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}}
-				return True
-		elif t == 900002.0 and timeUnits == 'h':  # time of peak V
-			specialName = 'Time of Peak V'
-			self.checkRecordSpecialTime(t, specialName)
-			if self.bRecordSpecialTime:
-				if id in results[name]:
-					del results[name][id]
-				results[name][specialName] = {'times': {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}}
-				return True
-		elif 100000 < t < 200000 and t != 111111.0 and timeUnits == 'h':
-			value = t - 100000.0
-			specialName = 'Time of Cutoff {0}'.format(value)
-			self.checkRecordSpecialTime(t, specialName)
-			if self.bRecordSpecialTime:
-				if id in results[name]:
-					del results[name][id]
-				results[name][specialName] = {'times': {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}}
-				return True
-		elif 200000 < t < 300000 and t != 222222.0 and timeUnits == 'h':
-			value = t - 200000.0
-			specialName = 'Time Exc Cutoff {0}'.format(value)
-			self.checkRecordSpecialTime(t, specialName)
-			if self.bRecordSpecialTime:
-				if id in results[name]:
-					del results[name][id]
-				value = t - 200000.0
-				results[name][specialName] = {'times': {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}}
-				return True
-
-		return False
-
-	def checkRecordSpecialTime(self, time, specialName):
-		"""
-
-		"""
-
-		if self.bRecordSpecialTime is None:
-			btn1 = QPushButton()
-			btn1.setText("Special Times")
-			btn2 = QPushButton()
-			btn2.setText("Skip")
-			msg = QMessageBox(QMessageBox.Question, "Special Times", "Found potential special times in results. "
-			                                                         "Would you like TUFLOW Viewer to interpret these "
-			                                                         "as special times or leave as is?:"
-			                                                         "\n{0}-> {1}\n".format(time, specialName))
-			msg.addButton(btn1, QMessageBox.AcceptRole)
-			msg.addButton(btn2, QMessageBox.RejectRole)
-			msg.exec()
-			if msg.clickedButton == btn1:
-				self.bRecordSpecialTime = True
-			else:
-				self.bRecordSpecialTime = False
-
-	def getResultTypeNames(self, mdg, ext, ids):
-		"""
-
-		"""
-
-		id = None
-		id2 = None
-
-		if ext.upper != ".XMDF":
-			if mdg.isScalar():
-				id = self.addCounter(mdg.name(), ids)
-			if mdg.isVector():
-				if id is None:
-					id = self.addCounter(mdg.name(), ids)
-					id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
-				else:
-					id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
-		else:
-			id = self.addCounter(mdg.name(), ids)
-
-		return id, id2
-
-	def addCounter(self, id, ids):
-		"""
-
-		"""
-
-		if id in ids:
-			counter = 1
-			newId = '{0} [{1}]'.format(newId, counter)
-			while newId in ids:
-				newId = newId.replace('[{0}]'.format(counter), '[{0}]'.format(counter + 1))
-				counter += 1
-		else:
-			newId = id
-
-		return newId
-
 	def updateActiveMeshLayers(self):
 		"""
 		Updates the list of selected 2D results.
@@ -567,14 +551,14 @@ class TuResults2D():
 		
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-
+		
 		# first make sure selected result types match active result types
 		self.tuView.tuResults.checkSelectedResults()
 
 		for layer in self.activeMeshLayers:
 
 			rs = layer.rendererSettings()
-
+			
 			# Get result index
 			activeScalarIndex = TuResultsIndex(layer.name(), self.activeScalar,
 			                                   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('scalar'),
@@ -861,7 +845,7 @@ class TuResults2D():
 		
 		:return:
 		"""
-
+		
 		results = self.tuView.tuResults.results
 		firstTime = None
 		
@@ -872,9 +856,9 @@ class TuResults2D():
 				if firstTime is not None:
 					break
 				if '_ts' not in resultType and '_lp' not in resultType:
-					if len(results[result][resultType]['times']) > 1:
-						for i in results[result][resultType]['times']:
-							firstTime = results[result][resultType]['times'][i][0]
+					if len(results[result][resultType]) > 1:
+						for i in results[result][resultType]:
+							firstTime = results[result][resultType][i][0]
 							break
 
 			if firstTime is not None:
@@ -883,11 +867,11 @@ class TuResults2D():
 				else:  # find time 0 values and change to firstTime
 					for resultType in results[result]:
 						if '_ts' not in resultType and '_lp' not in resultType:
-							if len(results[result][resultType]['times']) == 1:
-								for i in results[result][resultType]['times']:
-									if results[result][resultType]['times'][i][0] == 0:
+							if len(results[result][resultType]) == 1:
+								for i in results[result][resultType]:
+									if results[result][resultType][i][0] == 0:
 										timeKey = '{0:.6f}'.format(firstTime)
-										dataType = results[result][resultType]['times'][i][1]
-										meshIndex = results[result][resultType]['times'][i][2]
-										results[result][resultType]['times'][timeKey] = (firstTime, dataType, meshIndex)
-										del results[result][resultType]['times'][i]
+										dataType = results[result][resultType][i][1]
+										meshIndex = results[result][resultType][i][2]
+										results[result][resultType][timeKey] = (firstTime, dataType, meshIndex)
+										del results[result][resultType][i]

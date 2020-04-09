@@ -159,11 +159,9 @@ class TuMenuBar():
 			self.refreshMapWindow_action.triggered.connect(self.tuView.renderMap)
 			self.refreshCurrentPlotWindow_action.triggered.connect(self.tuView.refreshCurrentPlot)
 			self.refreshAllPlotWindows_action.triggered.connect(self.tuView.tuPlot.updateAllPlots)
-			#self.clearPlotWindow_action.triggered.connect(
-			#	lambda: self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), clear_rubberband=True,
-			#	                                     clear_selection=True))
 			self.clearPlotWindow_action.triggered.connect(
-				lambda: self.tuView.tuPlot.clearPlot2(self.tuView.tabWidget.currentIndex()))
+				lambda: self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), clear_rubberband=True,
+				                                     clear_selection=True))
 			self.clearAllPlotWindows_action.triggered.connect(self.tuView.tuPlot.clearAllPlots)
 		else:
 			self.viewMenu.addAction(toolbar[0])

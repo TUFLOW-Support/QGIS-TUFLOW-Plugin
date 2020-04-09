@@ -35,8 +35,6 @@ class TuPlot1D():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
-
 		activeMeshLayers = self.tuView.tuResults.tuResults2D.activeMeshLayers  # list
 		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
 		
@@ -51,11 +49,10 @@ class TuPlot1D():
 		if bypass:
 			pass
 		else:
-			# if plot.lower() == '1d only':
-			# 	self.tuPlot.clearPlot(0)
-			# else:
-			# 	self.tuPlot.clearPlot(0, retain_2d=True, retain_flow=True)
-			self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataTimeSeries1D)
+			if plot.lower() == '1d only':
+				self.tuPlot.clearPlot(0)
+			else:
+				self.tuPlot.clearPlot(0, retain_2d=True, retain_flow=True)
 		
 		labels = []
 		types = []
@@ -79,6 +76,8 @@ class TuPlot1D():
 				rtypes = tuResults1D.typesTS[:]
 				#for rtype in tuResults1D.typesTS:
 				for rtype in rtypes:
+					# import pydevd_pycharm
+					# pydevd_pycharm.settrace('localhost', port=53100, stdoutToServer=True, stderrToServer=True)
 					# get result for each selected element
 					for i, id in enumerate(tuResults1D.ids):
 						#types.append('{0}_1d'.format(rtype))
@@ -180,10 +179,8 @@ class TuPlot1D():
 								rtypes.append('Flow Regime_{0}_{1}'.format(len(xAll) - 1, id))
 		
 		data = list(zip(xAll, yAll))
-		dataTypes = [TuPlot.DataTimeSeries1D] * len(data)
 		if data:
-			self.tuPlot.drawPlot(TuPlot.TimeSeries, data, labels, types, dataTypes,
-			                     draw=draw, time=time, show_current_time=showCurrentTime,
+			self.tuPlot.drawPlot(0, data, labels, types, draw=draw, time=time, show_current_time=showCurrentTime,
 			                     plot_as_points=plotAsPoints, flow_regime=flowRegime, flow_regime_tied=flowRegimeTied)
 		
 		return True
@@ -195,8 +192,6 @@ class TuPlot1D():
 		:param kwargs: dict -> keyword arguments
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 		activeMeshLayers = self.tuView.tuResults.tuResults2D.activeMeshLayers  # list
 		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
@@ -211,11 +206,10 @@ class TuPlot1D():
 		if bypass:
 			pass
 		else:
-			#if plot.lower() == '1d only':
-			#	self.tuPlot.clearPlot(1)
-			#else:
-			#	self.tuPlot.clearPlot(1, retain_2d=True)
-			self.tuPlot.clearPlot2(TuPlot.CrossSection, TuPlot.DataCrossSection1D)
+			if plot.lower() == '1d only':
+				self.tuPlot.clearPlot(1)
+			else:
+				self.tuPlot.clearPlot(1, retain_2d=True)
 		
 		labels = []
 		xAll = []
@@ -223,7 +217,6 @@ class TuPlot1D():
 		types = []
 		plotAsPoints = []
 		plotAsPatch = []
-		dataTypes = []
 		
 		# iterate through all selected results
 		for result in self.tuView.OpenResults.selectedItems():
@@ -314,10 +307,8 @@ class TuPlot1D():
 								plotAsPatch.append(False)
 		
 		data = list(zip(xAll, yAll))
-		dataTypes = [TuPlot.DataCrossSection1D] * len(data)
 		if data:
-			self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes,
-			                     plot_as_points=plotAsPoints, plot_as_patch=plotAsPatch, draw=draw)
+			self.tuPlot.drawPlot(1, data, labels, types, plot_as_points=plotAsPoints, plot_as_patch=plotAsPatch, draw=draw)
 			self.tuPlot.profilePlotFirst = False
 		
 		return True
@@ -329,8 +320,6 @@ class TuPlot1D():
 		:param kwargs: dict -> keyword arguments
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 		activeMeshLayers = self.tuView.tuResults.tuResults2D.activeMeshLayers  # list
 		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
@@ -355,7 +344,6 @@ class TuPlot1D():
 		xAll = []
 		yAll = []
 		plotAsPoints = []
-		dataTypes = []
 
 		# iterate through all selected results
 		for result in self.tuView.OpenResults.selectedItems():
@@ -402,8 +390,7 @@ class TuPlot1D():
 							plotAsPoints.append(True)
 
 		data = list(zip(xAll, yAll))
-		dataTypes = [TuPlot.DataTimeSeries1D] * len(data)
 		if data:
-			self.tuPlot.drawPlot(TuPlot.TimeSeries, data, labels, types, dataTypes, plot_as_points=plotAsPoints, draw=draw)
+			self.tuPlot.drawPlot(0, data, labels, types, plot_as_points=plotAsPoints, draw=draw)
 
 		return True

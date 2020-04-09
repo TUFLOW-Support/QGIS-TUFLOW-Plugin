@@ -85,10 +85,8 @@ class TuContextMenu():
 		self.freezeAxisXLimits_action.triggered.connect(viewToolbar.freezeXAxis)
 		self.freezeAxisYLimits_action.triggered.connect(viewToolbar.freezeYAxis)
 		self.refreshCurrentPlotWindow_action.triggered.connect(self.tuView.refreshCurrentPlot)
-		# self.clearPlotWindow_action.triggered.connect(
-		# 	lambda: self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), clear_rubberband=True, clear_selection=True))
 		self.clearPlotWindow_action.triggered.connect(
-			lambda: self.tuView.tuPlot.clearPlot2(self.tuView.tabWidget.currentIndex()))
+			lambda: self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), clear_rubberband=True, clear_selection=True))
 		self.exportAsCSV_action.triggered.connect(self.tuMenuFunctions.exportCSV)
 		
 		return True

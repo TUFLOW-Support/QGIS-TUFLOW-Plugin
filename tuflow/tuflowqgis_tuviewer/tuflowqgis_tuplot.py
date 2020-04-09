@@ -23,21 +23,15 @@ from matplotlib.patches import Patch
 from matplotlib.patches import Polygon
 import matplotlib.dates as mdates
 import matplotlib.ticker
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib.quiver import Quiver
-from matplotlib.collections import PolyCollection
-from matplotlib.pyplot import arrow
-from matplotlib import cm
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplottoolbar import TuPlotToolbar
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplotselection import TuPlotSelection
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turubberband import TuCrossSection, TuTimeSeriesPoint
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_turubberband import TuRubberBand
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuflowline import TuFlowLine
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot2d import TuPlot2D
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot1d import TuPlot1D
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuuserplotdata import TuUserPlotDataManager
-from tuflow.tuflowqgis_library import applyMatplotLibArtist, getMean, roundSeconds, convert_datetime_to_float, generateRandomMatplotColours
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot3d import TuPlot3D, TuCurtainLine, ColourBar
+from tuflow.tuflowqgis_library import applyMatplotLibArtist, getMean, roundSeconds, convert_datetime_to_float
 
 
 class TuPlot():
@@ -45,23 +39,7 @@ class TuPlot():
 	Class for plotting.
 	
 	"""
-
-	TimeSeries = 0
-	CrossSection = 1
-	CrossSection1D = 2
-
-	DataTimeSeries2D = 100
-	DataCrossSection2D = 101
-	DataFlow2D = 102
-	DataTimeSeries1D = 103
-	DataCrossSection1D = 104
-	DataUserData = 105
-	DataCurrentTime = 106
-	DataTimeSeriesStartLine = 107
-	DataCrossSectionStartLine = 108
-	DataCrossSectionStartLine1D = 109
-	DataCurtainPlot = 110
-
+	
 	def __init__(self, TuView):
 		self.tuView = TuView
 		self.iface = self.tuView.iface
@@ -107,7 +85,6 @@ class TuPlot():
 		self.isTimeSeriesSecondaryAxis = [False]  # use list because a list is mutable
 		self.timeSeriesPlotFirst = True  # first time series plot - so the test case can be removed
 		self.holdTimeSeriesPlot = False  # holds the current time series plot if True - used when plotting multi
-		self.clearedTimeSeriesPlot = True
 		self.frozenTSProperties = {}  # dictionary object to save user defined names and styles
 		self.frozenTSAxisLabels = {}  # dictionary object to save user defined axis labels
 		
@@ -157,42 +134,13 @@ class TuPlot():
 		self.holdCrossSectionPlot = False  # holds the current cross section plot if True
 		self.frozenCSProperties = {}  # dictionary object to save user defined names and styles
 		self.frozenCSAxisLabels = {}  # dictionary object to save user defined axis labels
-
-		# keep track of all the data being plotted so plot can be cleared appropriately
-		self.plotData = {
-			TuPlot.DataTimeSeries1D: [],
-			TuPlot.DataTimeSeries2D: [],
-			TuPlot.DataCrossSection1D: [],
-			TuPlot.DataCrossSection2D: [],
-			TuPlot.DataFlow2D: [],
-			TuPlot.DataUserData: [],
-			TuPlot.DataCurrentTime: [],
-			TuPlot.DataTimeSeriesStartLine: [],
-			TuPlot.DataCrossSectionStartLine: [],
-			TuPlot.DataCrossSectionStartLine1D: [],
-			TuPlot.DataCurtainPlot: [],
-		}
-
-		self.plotDataToPlotType = {
-			TuPlot.DataTimeSeries1D: TuPlot.TimeSeries,
-			TuPlot.DataTimeSeries2D: TuPlot.TimeSeries,
-			TuPlot.DataCrossSection1D: TuPlot.CrossSection,
-			TuPlot.DataCrossSection2D: TuPlot.CrossSection,
-			TuPlot.DataFlow2D: TuPlot.TimeSeries,
-			TuPlot.DataUserData: TuPlot.TimeSeries,
-			TuPlot.DataCurrentTime: TuPlot.TimeSeries,
-			TuPlot.DataTimeSeriesStartLine: TuPlot.TimeSeries,
-			TuPlot.DataCrossSectionStartLine: TuPlot.CrossSection,
-			TuPlot.DataCrossSectionStartLine1D: TuPlot.CrossSection1D,
-			TuPlot.DataCurtainPlot: TuPlot.CrossSection,
-		}
 		
 		# Draw Plots
-		self.initialisePlot(TuPlot.TimeSeries, TuPlot.DataTimeSeriesStartLine)  # time series
+		self.initialisePlot(0)  # time series
 		
-		self.initialisePlot(TuPlot.CrossSection, TuPlot.DataCrossSectionStartLine)  # long profile / cross section
+		self.initialisePlot(1)  # long profile / cross section
 		
-		self.initialisePlot(TuPlot.CrossSection1D, TuPlot.DataCrossSectionStartLine1D)  # cross section editor
+		self.initialisePlot(2)  # cross section editor
 		
 		# plot toolbar class
 		self.tuPlotToolbar = TuPlotToolbar(self)
@@ -201,29 +149,17 @@ class TuPlot():
 		self.tuPlotSelection = TuPlotSelection(self)
 		
 		# rubberband class plot class
-		# self.tuRubberBand = TuRubberBand(self)
-		self.tuTSPoint = TuTimeSeriesPoint(self, TuPlot.TimeSeries)
-		self.tuCrossSection = TuCrossSection(self, TuPlot.CrossSection)
-		self.tuFlowLine = TuFlowLine(self, TuPlot.TimeSeries)
-		self.tuCurtainLine = TuCurtainLine(self, TuPlot.CrossSection)
+		self.tuRubberBand = TuRubberBand(self)
+		self.tuFlowLine = TuFlowLine(self)
 		
 		# TuPlot2D class
 		self.tuPlot2D = TuPlot2D(self)
 		
 		# TuPlot1D class
 		self.tuPlot1D = TuPlot1D(self)
-
-		# TuPlot3D class
-		self.tuPlot3D = TuPlot3D(self)
 		
 		# User Plot Data Manager
 		self.userPlotData = TuUserPlotDataManager()
-
-		# plot colours
-		self.colours = generateRandomMatplotColours(100)
-
-		self.cax = None  # axes object for colourbar
-		self.qk = None  # artist object for vector arrow legend
 
 	def plot2D(self):
 		"""
@@ -322,7 +258,7 @@ class TuPlot():
 		
 		return parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabel,  xAxisLabel, xAxisLimits, yAxisLimits
 	
-	def initialisePlot(self, plotNo, dataType):
+	def initialisePlot(self, plotNo):
 		"""
 
 
@@ -353,7 +289,6 @@ class TuPlot():
 		x = np.linspace(-np.pi, np.pi, 201)
 		y = np.sin(x)
 		a, = subplot.plot(x, y)
-		self.plotData[dataType].append(a)
 		artists[0].append(a)
 		labels[0].append(label)
 		#subplot.hold(True)
@@ -385,103 +320,6 @@ class TuPlot():
 		
 		return True
 	
-	def changeLineAxis(self, clickedItem):
-		"""
-
-		"""
-
-		for plotNo in [TuPlot.TimeSeries, TuPlot.CrossSection]:
-			data = []
-			labels = []
-			types = []
-			dataTypes = []
-			plotAsPoints = []
-			flowRegime = []
-			flowRegimeTied = []
-			plotAsPatch = []
-
-			bFlowRegimeTied = False
-			flowRegimeY = []
-			flowRegimeX = []
-
-			for dpt in self.plotData:
-				if self.plotDataToPlotType[dpt] == plotNo:
-					for line in self.plotData[dpt][:]:
-						if type(line) is dict:
-							artist = list(line.keys())[0]
-							rtype = line[artist]
-							if type(artist) is matplotlib.lines.Line2D:
-								# get data
-								x, y = artist.get_data()
-								label = artist.get_label()
-
-								if rtype not in types:
-									normal = True
-								elif re.findall(r"flow regime_\d", rtype, flags=re.IGNORECASE):
-									normal = False
-								else:
-									normal = True
-
-								if normal:
-									if bFlowRegimeTied:
-										data.append([flowRegimeX, flowRegimeY])
-										bFlowRegimeTied = False
-										flowRegimeX.clear()
-										flowRegimeY.clear()
-									labels.append(label)
-									types.append(rtype)
-									dataTypes.append(dpt)
-									plotAsPatch.append(False)
-
-									if artist.get_linestyle() == 'None':
-										plotAsPoints.append(True)
-									else:
-										plotAsPoints.append(False)
-
-									if rtype.lower() == "flow regime_1d":
-										flowRegime.append(True)
-										flowRegimeTied.append(-1)
-										data.append([x, y])
-									elif re.findall(r"flow regime_\d", rtype, flags=re.IGNORECASE):
-										f_id = re.split(r".*_\d_", rtype, flags=re.IGNORECASE)[1]
-										flowRegime.append(True)
-										flowRegimeTied.append(int(re.findall(r"\d", rtype)[0]))
-										flowRegimeX.append(x[0])
-										flowRegimeY.append(artist.get_marker().strip('$'))
-									else:
-										flowRegime.append(False)
-										flowRegimeTied.append(-1)
-										data.append([x, y])
-								# elif re.findall(r"flow regime_\d", rtype, flags=re.IGNORECASE):
-								else:
-									bFlowRegimeTied = True
-									flowRegimeX.append(x[0])
-									flowRegimeY.append(artist.get_marker().strip('$'))
-							elif type(artist) is Polygon:
-								xy = artist.get_xy()
-								x = xy[:, 0]
-								y = xy[:, 1]
-								x = [list(zip(x, y))]
-								y = [x for x in range(6)]
-								label = artist.get_label()
-
-								data.append([x, y])
-								labels.append(label)
-								types.append(rtype)
-								dataTypes.append(dpt)
-								plotAsPatch.append(True)
-								plotAsPoints.append(False)
-								flowRegime.append(False)
-								flowRegimeTied.append(-1)
-					if bFlowRegimeTied:
-						data.append([flowRegimeX, flowRegimeY])
-						bFlowRegimeTied = False
-
-			if data:
-				self.clearPlot2(plotNo, clear_rubberband=False)
-				self.drawPlot(plotNo, data, labels, types, dataTypes, draw=True, plot_as_points=plotAsPoints,
-				              plot_as_patch=plotAsPatch, flow_regime=flowRegime, flow_regime_tied=flowRegimeTied)
-
 	def clearAllPlots(self):
 		"""
 		Clear all plots.
@@ -490,105 +328,13 @@ class TuPlot():
 		"""
 		
 		for i in range(3):
-			# self.clearPlot(i, clear_rubberband=True)
-			self.clearPlot2(i)
-
+			self.clearPlot(i, clear_rubberband=True)
+		
 		self.tuPlot2D.plotSelectionPointFeat = []
 		self.tuPlot2D.plotSelectionLineFeat = []
 		self.tuPlot2D.plotSelectionFlowFeat = []
 		
 		return True
-
-	def clearPlot2(self, plotNo, clearType = None, last_only = False, remove_no = 1, clearOnly = (), **kwargs):
-		"""
-		Updated clear plot method.
-
-		Clears only lines of one type. Previous clearPlot method cleared everything and then
-		replotted kept data (obviously a little inefficient)
-		"""
-
-		clearRubberband = kwargs['clear_rubberband'] if 'clear_rubberband' in kwargs else True
-		clearSelection = kwargs['clear_selection'] if 'clear_selection' in kwargs else True
-
-		# get plot objects
-		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
-			self.plotEnumerator(plotNo)
-
-		if clearType is None:
-			for dpt in self.plotData:
-				if self.plotDataToPlotType[dpt] == plotNo:
-					for line in self.plotData[dpt][:]:
-						self.plotData[dpt].remove(line)
-			self.removeColourBar(figure)
-			self.clearPlot(plotNo, clear_rubberband=clearRubberband, clear_selection=clearSelection)
-			return
-
-		if isSecondaryAxis[0]:
-			subplot2 = self.getSecondaryAxis(plotNo)
-		else:
-			subplot2 = None
-
-		# delete lines associated with plotting type
-		for i, line in enumerate(self.plotData[clearType][:]):
-			if type(line) is dict:
-				artist = list(line.keys())[0]
-			else:
-				artist = line
-			if not last_only and not clearOnly or i + 1 >= len(self.plotData[clearType]) - remove_no + 1 or line in clearOnly:
-				if artist in subplot.lines:
-					subplot.lines.remove(artist)
-				if subplot2 is not None and artist in subplot2.lines:
-					subplot2.lines.remove(artist)
-				if artist in subplot.collections:
-					subplot.collections.remove(artist)
-				if subplot2 is not None and artist in subplot2.collections:
-					subplot2.collections.remove(artist)
-				self.plotData[clearType].remove(line)
-				if clearSelection:
-					self.tuPlotSelection.clearSelection(clearType)
-
-		# some lines that are always removed
-		showCurrentTime = clearType == TuPlot.DataCurrentTime
-		if plotNo == TuPlot.TimeSeries:
-			for line in self.plotData[TuPlot.DataCurrentTime]:
-				if line in subplot.lines:
-					showCurrentTime = True
-					subplot.lines.remove(line)
-				del line
-			for line in self.plotData[TuPlot.DataTimeSeriesStartLine]:
-				if line in subplot.lines:
-					subplot.lines.remove(line)
-				del line
-		elif plotNo == TuPlot.CrossSection:
-			for line in self.plotData[TuPlot.DataCrossSectionStartLine]:
-				if line in subplot.lines:
-					subplot.lines.remove(line)
-				del line
-		elif plotNo == TuPlot.CrossSection1D:
-			for line in self.plotData[TuPlot.DataCrossSectionStartLine1D]:
-				if line in subplot.lines:
-					subplot.lines.remove(line)
-				del line
-
-		self.removeColourBar(figure)
-
-		self.drawPlot(plotNo, [], [], [], [], refreshOnly=True, draw=True, showCurrentTime=showCurrentTime)
-
-	def removeColourBar(self, figure):
-
-		# delete colour bar axis
-		if self.cax is not None:
-			if self.cax in figure.axes:
-				self.cax.remove()
-			self.cax = None
-
-	def removeQuiverKey(self, figure):
-
-		if self.qk is not None:
-			for ax in figure.axes:
-				if self.qk in ax.lines:
-					ax.lines.remove(self.qk)
-			self.qk = None
 	
 	def clearPlot(self, plotNo, **kwargs):
 		"""
@@ -661,7 +407,6 @@ class TuPlot():
 		
 		# reset multi line plotting
 		if plotNo == 0:
-			self.clearedTimeSeriesPlot = True
 			self.tuPlot2D.resetMultiPointCount()
 			self.tuPlot2D.resetMultiFlowLineCount()
 		elif plotNo == 1:
@@ -710,13 +455,10 @@ class TuPlot():
 		if 'clear_rubberband' in kwargs.keys():
 			if kwargs['clear_rubberband']:
 				if plotNo == 0:
-					#self.tuRubberBand.clearMarkers()
-					self.tuTSPoint.clearMarkers()
+					self.tuRubberBand.clearMarkers()
 					self.tuFlowLine.clearRubberBand()
 				elif plotNo == 1:
-					# self.tuRubberBand.clearRubberBand()
-					self.tuCrossSection.clearRubberBand()
-					self.tuCurtainLine.clearRubberBand()
+					self.tuRubberBand.clearRubberBand()
 		if 'clear_selection' in kwargs.keys():
 			if kwargs['clear_selection']:
 				if plotNo == 0:
@@ -861,7 +603,7 @@ class TuPlot():
 										 2: cross section plot
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-
+		
 		# deal with kwargs
 		time = kwargs['time'] if 'time' in kwargs.keys() else None
 		showCurrentTime = kwargs['show_current_time'] if 'show_current_time' in kwargs.keys() else False
@@ -882,23 +624,16 @@ class TuPlot():
 			yLimits2 = subplot2.get_ylim()
 		
 		# check to see if current time already exists
-		# i = True
-		# while i is not None:
-		# 	i = labels[0].index('Current Time') if 'Current Time' in labels[0] else None  # index for individual lists
-		# 	lab = labels[0] + labels[1]
-		# 	j = lab.index('Current Time') if 'Current Time' in lab else None  # index in all lines on figure
-		# 	if i or i == 0:
-		# 		artists[0].pop(i)
-		# 		labels[0].pop(i)
-		# 		del subplot.lines[j]
-		# 		subplot.legend_ = None
-		if self.plotData[TuPlot.DataCurrentTime]:
-			if self.plotData[TuPlot.DataCurrentTime][0] in subplot.lines:
-				subplot.lines.remove(self.plotData[TuPlot.DataCurrentTime][0])
-				del self.plotData[TuPlot.DataCurrentTime][0]
-			else:
-				del self.plotData[TuPlot.DataCurrentTime][0]
-
+		i = True
+		while i is not None:
+			i = labels[0].index('Current Time') if 'Current Time' in labels[0] else None  # index for individual lists
+			lab = labels[0] + labels[1]
+			j = lab.index('Current Time') if 'Current Time' in lab else None  # index in all lines on figure
+			if i or i == 0:
+				artists[0].pop(i)
+				labels[0].pop(i)
+				del subplot.lines[j]
+				subplot.legend_ = None
 		
 		if self.tuView.cbShowCurrentTime.isChecked() or showCurrentTime:
 
@@ -932,7 +667,6 @@ class TuPlot():
 			# add to plot
 			label, artistTemplates = self.getNewPlotProperties(plotNo, ['Current Time'], rtype='lines')
 			a, = subplot.plot(x, y, color='red', linewidth=2, label=label[0])
-			self.plotData[TuPlot.DataCurrentTime].append(a)
 			applyMatplotLibArtist(a, artistTemplates[0])
 			artists[0].append(a)
 			labels[0].append('Current Time')
@@ -1208,8 +942,7 @@ class TuPlot():
 			elif plotNo == 1:
 				return self.axis2LongPlot
 			
-	def reorderByAxis(self, types, data, label, plotAsPoints, plotAsPatch, flowRegime, flowRegimeTied, plotAsCollection,
-	                  plotAsQuiver):
+	def reorderByAxis(self, types, data, label, plotAsPoints, plotAsPatch, flowRegime, flowRegimeTied):
 		"""
 		Reorders the data for plotting so that it is ordered by axis - axis 1 then axis 2. This is so that is
 		consistent with how the legend is going to be plotted when freezing the plotting style.
@@ -1227,11 +960,9 @@ class TuPlot():
 		plotAsPatch1, plotAsPatch2, plotAsPatchOrdered = [], [], []
 		flowRegime1, flowRegime2, flowRegimeOrdered = [], [], []
 		flowRegimeTied1, flowRegimeTied2, flowRegimeTiedOrdered = [], [], []
-		plotAsCollection1, plotAsCollection2, plotAsCollectionOrdered = [], [], []
-		plotAsQuiver1, plotAsQuiver2, plotAsQuiverOrdered = [], [], []
 
 		for i, rtype in enumerate(types):
-			if plotAsCollection[i] or plotAsQuiver[i] or len(data[i][0]) > 0:
+			if len(data[i][0]) > 0:
 				secondaryAxis = False
 				if rtype in self.tuView.tuResults.secondaryAxisTypes:
 					secondaryAxis = True
@@ -1247,8 +978,6 @@ class TuPlot():
 					plotAsPatch2.append(plotAsPatch[i])
 					flowRegime2.append(flowRegime[i])
 					flowRegimeTied2.append(flowRegimeTied[i])
-					plotAsCollection2.append(plotAsCollection[i])
-					plotAsQuiver2.append(plotAsQuiver[i])
 				else:
 					types1.append(rtype)
 					data1.append(data[i])
@@ -1257,9 +986,7 @@ class TuPlot():
 					plotAsPatch1.append(plotAsPatch[i])
 					flowRegime1.append(flowRegime[i])
 					flowRegimeTied1.append(flowRegimeTied[i])
-					plotAsCollection1.append(plotAsCollection[i])
-					plotAsQuiver1.append(plotAsQuiver[i])
-
+		
 		typesOrdered = types1 + types2
 		dataOrdered = data1 + data2
 		labelOrdered = label1 + label2
@@ -1267,24 +994,10 @@ class TuPlot():
 		plotAsPatchOrdered = plotAsPatch1 + plotAsPatch2
 		flowRegimeOrdered = flowRegime1 + flowRegime2
 		flowRegimeTiedOrdered = flowRegimeTied1 + flowRegimeTied2
-		plotAsCollectionOrdered = plotAsCollection1 + plotAsCollection2
-		plotAsQuiverOrdered = plotAsQuiver1 + plotAsQuiver2
 
-		# loop through a second time to fix flow regime indexes
-		for i, rtype in enumerate(typesOrdered[:]):
-			if plotAsCollection[i] or len(data[i][0]) > 0:
-				if re.findall(r"flow regime_\d_", rtype, re.IGNORECASE):
-					j = int(re.findall(r"\d", rtype)[0])
-					j2 = labelOrdered.index(label[j])
-					rtypeNew = re.sub(r"flow regime_\d_", f"flow regime_{j2}_", rtype, flags=re.IGNORECASE)
-					typesOrdered[i] = rtypeNew
-					flowRegimeTiedOrdered[i] = j2
-
-		return typesOrdered, dataOrdered, labelOrdered, plotAsPointsOrdered, \
-		       plotAsPatchOrdered, flowRegimeOrdered, flowRegimeTiedOrdered, \
-			   plotAsCollectionOrdered, plotAsQuiverOrdered
+		return typesOrdered, dataOrdered, labelOrdered, plotAsPointsOrdered, plotAsPatchOrdered, flowRegimeOrdered, flowRegimeTiedOrdered
 	
-	def drawPlot(self, plotNo, data, label, types, dataTypes, **kwargs):
+	def drawPlot(self, plotNo, data, label, types, **kwargs):
 		"""
 		Will draw the plot based on plot enumerator, x y data, and labels
 
@@ -1310,8 +1023,6 @@ class TuPlot():
 		showCurrentTime = kwargs['show_current_time'] if 'show_current_time' in kwargs.keys() else False
 		flowRegime = kwargs['flow_regime'] if 'flow_regime' in kwargs.keys() else [False] * len(data)
 		flowRegimeTied = kwargs['flow_regime_tied'] if 'flow_regime_tied' in kwargs.keys() else [-1] * len(data)
-		plotAsCollection = kwargs['plot_as_collection'] if 'plot_as_collection' in kwargs else [False] * len(data)
-		plotAsQuiver = kwargs['plot_as_quiver'] if 'plot_as_quiver' in kwargs else [False] * len(data)
 
 		flowRegimeTiedMult = 0.1
 
@@ -1331,12 +1042,9 @@ class TuPlot():
 
 		# get labels
 		if data:
-			types, data, label, plotAsPoints, \
-			plotAsPatch, flowRegime, flowRegimeTied, \
-			plotAsCollection, plotAsQuiver  = self.reorderByAxis(types, data, label,
-                                                                 plotAsPoints, plotAsPatch,
-                                                                 flowRegime, flowRegimeTied,
-                                                                 plotAsCollection, plotAsQuiver)  # orders the data by axis (axis 1 then axis 2)
+			types, data, label, plotAsPoints, plotAsPatch, flowRegime, flowRegimeTied = self.reorderByAxis(types, data, label,
+			                                                                                               plotAsPoints, plotAsPatch,
+			                                                                                               flowRegime, flowRegimeTied)  # orders the data by axis (axis 1 then axis 2)
 			labelsOriginal = label[:]  # save a copy as original labels so it can be referenced later
 			label, artistTemplates = self.getNewPlotProperties(plotNo, label, rtype='lines')  # check if there are any new names and styling
 		
@@ -1365,38 +1073,26 @@ class TuPlot():
 				#else:
 				#	axis = 1
 
-				# colour
-				ci = len(subplot.lines)
-				if isSecondaryAxis[0]:
-					ci += len(subplot2.lines)
-				while ci + 1 > len(self.colours):
-					self.colours += generateRandomMatplotColours(100)
-				colour = self.colours[ci]
-
 				# data
-				if self.tuView.tuOptions.xAxisDates and plotNo == TuPlot.TimeSeries:
+				if self.tuView.tuOptions.xAxisDates and plotNo == 0:
 					if data[i]:
-						if plotAsCollection is None or not plotAsCollection[i]:
-							if type(data[i][0]) is np.ndarray:
-								if type(data[i][0][0]) is datetime:
-									x = data[i][0]
-								else:
-									x = self.convertTimeToDate(data[i][0])
+						if type(data[i][0]) is np.ndarray:
+							if type(data[i][0][0]) is datetime:
+								x = data[i][0]
 							else:
 								x = self.convertTimeToDate(data[i][0])
+						else:
+							x = self.convertTimeToDate(data[i][0])
 				else:
-					if plotAsCollection is None or not plotAsCollection[i]:
-						x = data[i][0]
-				if plotAsCollection is None or not plotAsCollection[i]:
-					y = data[i][1]
+					x = data[i][0]
+				y = data[i][1]
 
 				# add data to plot
 				if axis == 1:
 					if plotAsPatch is None or not plotAsPatch[i]:  # normal X, Y data
 						if plotAsPoints is None or not plotAsPoints[i]:  # plot as line
-							a, = subplot.plot(x, y, label=label[i], color=colour)
+							a, = subplot.plot(x, y, label=label[i])
 							applyMatplotLibArtist(a, artistTemplates[i])
-							self.plotData[dataTypes[i]].append({a: types[i]})
 						else:  # plot as points only
 							if flowRegime[i]:
 								if flowRegimeTied[i] > -1:
@@ -1408,54 +1104,34 @@ class TuPlot():
 									y2 = [x + add for x in data[flowRegimeTied[i]][1]]
 								else:
 									y2 = self.convertFlowRegimeToInt(y)
-								if type(y[0]) is not np.int32:
-									for j, n in enumerate(y[:]):
-										if not re.findall(r"[a-z]", n, re.IGNORECASE):
-											y[j] = n.strip().replace("", "G")
-										else:
-											y[j] = n.upper()
+								for j, n in enumerate(y[:]):
+									if not re.findall(r"[a-z]", n, re.IGNORECASE):
+										y[j] = n.strip().replace("", "G")
+									else:
+										y[j] = n.upper()
 								if flowRegimeTied[i] > -1:
 									for j, n in enumerate(x):
-										a, = subplot.plot(n, y2[j], marker=f"${y[j]}$", color='grey', label=label[i], markeredgewidth=0.1, linestyle='None')
-										self.plotData[dataTypes[i]].append({a: types[i]})
+										a, = subplot.plot(n, y2[j], marker=f"${y[j]}$", color='grey', label=label[i], markeredgewidth=0.1)
 								else:
-									a, = subplot.plot(x, y2, marker='o', linestyle='None', label=label[i], color=colour)
-									self.plotData[dataTypes[i]].append({a: types[i]})
+									a, = subplot.plot(x, y2, marker='o', linestyle='None', label=label[i])
 							else:
-								a, = subplot.plot(x, y, marker='o', linestyle='None', label=label[i], color=colour)
-								self.plotData[dataTypes[i]].append({a: types[i]})
+								a, = subplot.plot(x, y, marker='o', linestyle='None', label=label[i])
 							applyMatplotLibArtist(a, artistTemplates[i])
 						if not export:
 							artists[0].append(a)
 							labels[0].append(labelsOriginal[i])
 						#subplot.hold(True)
-					else:  # plot as patch
-						if plotAsCollection is not None and plotAsCollection[i]:  # curtain plot
-							a = subplot.add_collection(data[i], autolim=True)
-							self.plotData[dataTypes[i]].append({a: types[i]})
-							subplot.autoscale_view()
-							#self.plotData[dataTypes[i]].append({a: types[i]})
-						elif plotAsQuiver is not None and plotAsQuiver[i]:
-							q = data[i]
-							quiver = Quiver(subplot, q[0], q[1], q[2], q[3], scale=0.0025, scale_units='x', width=0.0025, headwidth=2.5, headlength=3, label=label[i])
-							a = subplot.add_collection(quiver, autolim=True)
-							self.plotData[dataTypes[i]].append({a: types[i]})
-							subplot.autoscale_view()
-							# quiver.set_offsets(q[0])
-							# quiver.set_UVC(q[1], q[2])
-						else:  # culvert layer
-							for verts in x:
-								if verts:
-									poly = Polygon(verts, facecolor='0.9', edgecolor='0.5', label=label[i])
-									a = subplot.add_patch(poly)
-									self.plotData[dataTypes[i]].append({a: types[i]})
+					else:  # plot as patch i.e. culvert
+						for verts in x:
+							if verts:
+								poly = Polygon(verts, facecolor='0.9', edgecolor='0.5', label=label[i])
+								subplot.add_patch(poly)
 				elif axis == 2:
 					secondYAxisInUse = True
 					if plotAsPatch is None or not plotAsPatch[i]:  # normal X, Y data
 						if plotAsPoints is None or not plotAsPoints[i]:
-							a, = subplot2.plot(x, y, marker='x', label=label[i], color=colour)
+							a, = subplot2.plot(x, y, marker='x', label=label[i])
 							applyMatplotLibArtist(a, artistTemplates[i])
-							self.plotData[dataTypes[i]].append({a: types[i]})
 						else:
 							if flowRegime[i]:
 								if flowRegimeTied[i] > -1:
@@ -1467,22 +1143,18 @@ class TuPlot():
 									y2 = [x + add for x in data[flowRegimeTied[i]][1]]
 								else:
 									y2 = self.convertFlowRegimeToInt(y)
-								if type(y[0]) is not np.int32:
-									for j, n in enumerate(y[:]):
-										if not re.findall(r"[a-z]", n, re.IGNORECASE):
-											y[j] = n.strip().replace("", "G")
-										else:
-											y[j] = n.upper()
+								for j, n in enumerate(y[:]):
+									if not re.findall(r"[a-z]", n, re.IGNORECASE):
+										y[j] = n.strip().replace("", "G")
+									else:
+										y[j] = n.upper()
 								if flowRegimeTied[i] > -1:
 									for j, n in enumerate(x):
-										a, = subplot2.plot(n, y2[j], marker=f"${y[j]}$", color='grey', label=label[i], markeredgewidth=0.1, linestyle='None')
-										self.plotData[dataTypes[i]].append({a: types[i]})
+										a, = subplot2.plot(n, y2[j], marker=f"${y[j]}$", color='grey', label=label[i], markeredgewidth=0.1)
 								else:
-									a, = subplot2.plot(x, y2, marker='D', linestyle='None', label=label[i], color=colour)
-									self.plotData[dataTypes[i]].append({a: types[i]})
+									a, = subplot2.plot(x, y2, marker='D', linestyle='None', label=label[i])
 							else:
-								a, = subplot2.plot(x, y, marker='D', linestyle='None', label=label[i], color=colour)
-								self.plotData[dataTypes[i]].append({a: types[i]})
+								a, = subplot2.plot(x, y, marker='D', linestyle='None', label=label[i])
 							applyMatplotLibArtist(a, artistTemplates[i])
 						if not export:
 							artists[1].append(a)
@@ -1492,8 +1164,7 @@ class TuPlot():
 						for verts in x:
 							if verts:
 								poly = Polygon(verts, facecolor='0.9', edgecolor='0.5', label=label[i])
-								a = subplot2.add_patch(poly)
-								self.plotData[dataTypes[i]].append({a: types[i]})
+								subplot2.add_patch(poly)
 		
 		# get secondary axis if refresh only
 		if isSecondaryAxis[0] and refreshOnly:
@@ -1589,6 +1260,8 @@ class TuPlot():
 					elif self.tuView.tuOptions.xAxisLabelRotation > -360 and self.tuView.tuOptions.xAxisLabelRotation < -270:
 						tick.set_horizontalalignment('right')
 			except:
+				import pydevd_pycharm
+				pydevd_pycharm.settrace('localhost', port=53100, stdoutToServer=True, stderrToServer=True)
 				pass
 
 		if self.tuView.tuMenuBar.freezeAxisXLimits_action.isChecked():
@@ -1610,13 +1283,8 @@ class TuPlot():
 				subplot.set_yticks([], minor=True)
 				subplot.set_yticklabels(['L', 'K', 'B', 'A', 'G', 'C', 'D', 'E', 'F', 'H', 'J'])
 		try:
-			subplot.relim()
-			if isSecondaryAxis[0]:
-				subplot2.relim()
 			figure.tight_layout()
 		except ValueError:  # something has gone wrong and trying to plot time (hrs) on a date formatted x axis
-			pass
-		except Exception as e:
 			pass
 			
 		if export:
@@ -1658,29 +1326,27 @@ class TuPlot():
 		retainFlow = kwargs['retain_flow'] if 'retain_flow' in kwargs.keys() else False
 		meshRendered = kwargs['mesh_rendered'] if 'mesh_rendered' in kwargs.keys() else True
 		plotActiveScalar = kwargs['plot_active_scalar'] if 'plot_active_scalar' in kwargs else False
-		clearType = kwargs['clear_type'] if 'clear_type' in kwargs else None
 		
-		# if not plot:
-		# 	if update == '1d only':
-		# 		self.clearPlot(0, retain_2d=True, retain_flow=True)
-		# 	elif update == '1d and 2d only':
-		# 		self.clearPlot(0, retain_flow=True)
-		# 	else:
-		# 		self.clearPlot(0, retain_flow=retainFlow)
-		self.clearPlot2(TuPlot.TimeSeries, clearType, clear_rubberband=False, clear_selection=False)
+		if not plot:
+			if update == '1d only':
+				self.clearPlot(0, retain_2d=True, retain_flow=True)
+			elif update == '1d and 2d only':
+				self.clearPlot(0, retain_flow=True)
+			else:
+				self.clearPlot(0, retain_flow=retainFlow)
 		
 		if plot.lower() != '1d only' and plot.lower() != 'flow only' and update != '1d only':
 			self.tuPlot2D.resetMultiPointCount()
 			
 			multi = False  # do labels need to be counted up e.g. point 1, point 2
-			if len(self.tuTSPoint.points) + len(self.tuPlot2D.plotSelectionPointFeat) > 1:
+			if len(self.tuRubberBand.markerPoints) + len(self.tuPlot2D.plotSelectionPointFeat) > 1:
 				multi = True
 			
-			for i, point in enumerate(self.tuTSPoint.points):
+			for i, point in enumerate(self.tuRubberBand.markerPoints):
 				self.tuPlot2D.plotTimeSeriesFromMap(None, QgsPointXY(point), bypass=multi, plot='2D Only',
 				                                    draw=draw, time=time, show_current_time=showCurrentTime,
 				                                    retain_flow=retainFlow, mesh_rendered=meshRendered,
-				                                    plot_active_scalar=plotActiveScalar, markerNo=i+1)
+				                                    plot_active_scalar=plotActiveScalar)
 			
 			for f in self.tuPlot2D.plotSelectionPointFeat:
 				# get feature name from attribute
@@ -1726,7 +1392,7 @@ class TuPlot():
 				if self.tuPlot2D.multiFlowLineSelectCount > 1:
 					self.tuPlot2D.reduceMultiFlowLineCount(1)
 		elif showCurrentTime:  # might need to update plot with updated time - for animation
-			self.drawPlot(0, [], None, None, [TuPlot.DataCurrentTime], draw=draw, time=time, show_current_time=showCurrentTime)
+			self.drawPlot(0, [], None, None, draw=draw, time=time, show_current_time=showCurrentTime)
 		
 		if plot.lower() != '2d only' and plot.lower() != 'flow only':
 			self.tuPlot1D.plot1dTimeSeries(bypass=True, plot='1D Only', draw=draw, time=time, show_current_time=showCurrentTime)
@@ -1741,7 +1407,7 @@ class TuPlot():
 				
 		if not self.artistsTimeSeriesFirst and not self.artistsCrossSectionSecond:
 			if self.userPlotData.datasets:
-				self.drawPlot(0, [], None, None, [TuPlot.DataUserData], draw=draw, time=time, show_current_time=showCurrentTime)
+				self.drawPlot(0, [], None, None, draw=draw, time=time, show_current_time=showCurrentTime)
 		
 		return True
 	
@@ -1762,21 +1428,20 @@ class TuPlot():
 			if time != 'Maximum' and time != 99999:
 				time = '{0:.6f}'.format(kwargs['time']) if 'time' in kwargs.keys() else None
 		
-		# if not plot:
-		# 	self.clearPlot(1)
-		# 	#self.clearedLongPlot = False
-		self.clearPlot2(TuPlot.CrossSection, clear_rubberband=False, clear_selection=False)
+		if not plot:
+			self.clearPlot(1)
+			#self.clearedLongPlot = False
 		
 		if plot.lower() != '1d only':
 			multi = False  # do labels need to be counted up e.g. line 1, line 2
-			if len(self.tuCrossSection.rubberBands) > 1:
+			if len(self.tuRubberBand.rubberBands) > 1:
 				multi = True
 			elif len(self.tuPlot2D.plotSelectionLineFeat) > 1:
 				multi = True
-			elif len(self.tuCrossSection.rubberBands) + len(self.tuPlot2D.plotSelectionLineFeat) > 1:
+			elif len(self.tuRubberBand.rubberBands) + len(self.tuPlot2D.plotSelectionLineFeat) > 1:
 				multi = True
 			
-			for i, rubberBand in enumerate(self.tuCrossSection.rubberBands):
+			for i, rubberBand in enumerate(self.tuRubberBand.rubberBands):
 				if rubberBand.asGeometry() is not None:
 					if not rubberBand.asGeometry().isNull():
 						geom = rubberBand.asGeometry().asPolyline()
@@ -1785,14 +1450,14 @@ class TuPlot():
 							feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
 						except:
 							feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in geom]))
-						# if i == 0:
-						self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=multi, plot='2D Only', draw=draw,
-						                                      time=time, mesh_rendered=meshRendered,
-						                                      plot_active_scalar=plotActiveScalar, lineNo=i+1)
-						# else:
-						# 	self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=True, plot='2D Only', draw=draw,
-						# 	                                      time=time, mesh_rendered=meshRendered,
-						# 	                                      plot_active_scalar=plotActiveScalar)
+						if i == 0:
+							self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=multi, plot='2D Only', draw=draw,
+							                                      time=time, mesh_rendered=meshRendered,
+							                                      plot_active_scalar=plotActiveScalar)
+						else:
+							self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=True, plot='2D Only', draw=draw,
+							                                      time=time, mesh_rendered=meshRendered,
+							                                      plot_active_scalar=plotActiveScalar)
 			
 			for feat in self.tuPlot2D.plotSelectionLineFeat:
 				# get feature name from attribute
@@ -1808,28 +1473,6 @@ class TuPlot():
 				
 			if self.tuPlot2D.multiLineSelectCount > 1:
 				self.tuPlot2D.reduceMultiLineCount(1)
-
-			for i, rubberBand in enumerate(self.tuCurtainLine.rubberBands):
-				if rubberBand.asGeometry() is not None:
-					if not rubberBand.asGeometry().isNull():
-						geom = rubberBand.asGeometry().asPolyline()
-						feat = QgsFeature()
-						try:
-							feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
-						except:
-							feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in geom]))
-						# if i == 0:
-						self.tuPlot3D.plotCurtainFromMap(None, feat, bypass=multi, draw=draw,
-						                                 time=time,
-						                                 plot_active_scalar=plotActiveScalar, lineNo=i+1,
-						                                 update=True)
-			for feat in self.tuPlot3D.plotSelectionCurtainFeat:
-				iFeatName = self.tuView.tuOptions.iLabelField
-				if len(feat.attributes()) > iFeatName:
-					featName = feat.attributes()[iFeatName]
-				else:
-					featName = None
-				self.tuPlot3D.plotCurtainFromMap(None, feat, bypass=multi, draw=draw, timestep=time, featName=featName, update=True)
 		
 		if plot.lower() != '2d only':
 			self.tuPlot1D.plot1dLongPlot(bypass=True, plot='1D Only', draw=draw, time=time)
@@ -1954,25 +1597,12 @@ class TuPlot():
 			legendPos = 4
 		lines = uniqueLines + uniqueLines2
 		lab = uniqueNames + uniqueNames2
-		linesCopy, labCopy = [], []
-		for i, l in enumerate(lines):
-			if type(l) is PolyCollection:
-				divider = make_axes_locatable(subplot)
-				self.cax = divider.append_axes("right", "5%", pad="3%")
-				col_bar = ColourBar(l, self.cax)
-				col_bar.ax.set_xlabel(lab[i])
-			elif type(l) is Quiver:
-				self.qk = subplot.quiverkey(l, X=0.9, Y=0.95, U=0.1, label=lab[i], labelpos='W', coordinates='figure')
-			else:
-				linesCopy.append(l)
-				labCopy.append(lab[i])
-		if linesCopy:
-			if viewToolbar.legendAuto.isChecked():
-				subplot.legend(linesCopy, labCopy)
-			else:
-				subplot.legend(linesCopy, labCopy, loc=legendPos)
-			if redraw:
-				plotWidget.draw()
+		if viewToolbar.legendAuto.isChecked():
+			subplot.legend(lines, lab)
+		else:
+			subplot.legend(lines, lab, loc=legendPos)
+		if redraw:
+			plotWidget.draw()
 		
 		return True
 	
@@ -2244,7 +1874,6 @@ class TuPlot():
 								x = data.dates[:]
 						y = data.y[:]
 						a, = subplot.plot(x, y, label=label[0])
-						self.plotData[TuPlot.DataUserData].append(a)
 						applyMatplotLibArtist(a, artistTemplates[0])
 						artists[0].append(a)
 						labels[0].append(labelOriginal)
@@ -2289,9 +1918,6 @@ class TuPlot():
 		Converts flow regime letter to an integer value
 
 		"""
-
-		if type(data[0]) is np.int32:
-			return data
 
 		fr2int = {
 			# inlet control below x axis
