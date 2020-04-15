@@ -41,6 +41,8 @@ import matplotlib
 import glob # MJS 11/02
 from tuflow.utm.utm import from_latlon, to_latlon
 from tuflow.__version__ import version
+import ctypes
+from typing import Tuple, List
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tuflowqgis_styles
@@ -50,6 +52,63 @@ import tuflowqgis_styles
 # --------------------------------------------------------
 #build_vers = build_vers
 #build_type = 'release' #release / developmental
+
+class NC_Error:
+	NC_NOERR = 0
+	NC_EBADID = -33
+	NC_ENOTVAR = -49
+	NC_EBADDIM = -46
+	NC_EPERM = -37
+	NC_ENFILE = -34
+	NC_ENOMEM = -61
+	NC_EHDFERR = -101
+	NC_EDIMMETA = -106
+
+	@staticmethod
+	def message(error):
+		error2message = {
+			NC_Error.NC_NOERR: "No error",
+			NC_Error.NC_EBADID: "Invalid ncid",
+			NC_Error.NC_ENOTVAR: "Invalid Variable ID",
+			NC_Error.NC_EBADDIM: "Invalid Dimension ID",
+			NC_Error.NC_EPERM: "Attempting to create a netCDF file in a directory where you do not have permission to open files",
+			NC_Error.NC_ENFILE: "Too many files open",
+			NC_Error.NC_ENOMEM: "Out of memory",
+			NC_Error.NC_EHDFERR: "HDF5 error. (NetCDF-4 files only.)",
+			NC_Error.NC_EDIMMETA: "Error in netCDF-4 dimension metadata. (NetCDF-4 files only.)"
+		}
+
+		if error in error2message:
+			return error2message[error]
+		else:
+			return "code {0}".format(error)
+
+
+class NcDim():
+
+	def __init__(self):
+		self.id = -1
+		self.name = ""
+		self.len = 0
+
+	def print_(self):
+		return 'id: {0}, name: {1}, len: {2}'.format(self.id, self.name, self.len)
+
+
+class NcVar():
+
+	def __init__(self):
+		self.id = -1
+		self.name = ""
+		self.type = -1
+		self.nDims = 0
+		self.dimIds = ()
+		self.dimNames = ()
+		self.dimLens = ()
+
+	def print_(self):
+		return 'id: {0}, name: {1}, type: {2}, nDim: {3}, dims: ({4})'.format(self.id, self.name, self.type, self.nDims, ', '.join(self.dimNames))
+
 
 def about(window):
 	build_type, build_vers = version()
@@ -134,14 +193,14 @@ def findAllVectorLyrs():
 
 	vectorLyrs = []
 	for name, search_layer in QgsProject.instance().mapLayers().items():
-		if search_layer.type() == QgsMapLayer.VectorLayer:
+		if search_layer.type() == QgsMapLayerType.VectorLayer:
 			vectorLyrs.append(search_layer.name())
 
 	return vectorLyrs
 
 
 def tuflowqgis_duplicate_file(qgis, layer, savename, keepform):
-	if (layer == None) and (layer.type() != QgsMapLayer.VectorLayer):
+	if (layer == None) and (layer.type() != QgsMapLayerType.VectorLayer):
 		return "Invalid Vector Layer " + layer.name()
 		
 	# Create output file
@@ -312,7 +371,7 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 def tuflowqgis_get_selected_IDs(qgis,layer):
 	QMessageBox.information(qgis.mainWindow(),"Info", "Entering tuflowqgis_get_selected_IDs")
 	IDs = []
-	if (layer == None) and (layer.type() != QgsMapLayer.VectorLayer):
+	if (layer == None) and (layer.type() != QgsMapLayerType.VectorLayer):
 		return None, "Invalid Vector Layer " + layer.name()
 
 	dataprovider = layer.dataProvider()
@@ -697,7 +756,7 @@ def tuflowqgis_apply_check_tf(qgis):
 		return error, message
 		
 	for layer_name, layer in QgsProject.instance().mapLayers().items():
-		if layer.type() == QgsMapLayer.VectorLayer:
+		if layer.type() == QgsMapLayerType.VectorLayer:
 			layer_fname = os.path.split(layer.source())[1][:-4]
 			#QMessageBox.information(qgis.mainWindow(), "DEBUG", "shp layer name = "+layer.name())
 			renderer = region_renderer(layer)
@@ -740,7 +799,7 @@ def tuflowqgis_apply_check_tf_clayer(qgis, **kwargs):
 		return error, message
 		
 
-	if cLayer.type() == QgsMapLayer.VectorLayer:
+	if cLayer.type() == QgsMapLayerType.VectorLayer:
 		layer_fname = os.path.split(cLayer.source())[1][:-4]
 		renderer = region_renderer(cLayer)
 		if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
@@ -1715,15 +1774,9 @@ def lineToPoints(feat, spacing, mapUnits):
 
 	from math import sin, cos, asin
 
-	if feat.geometry().wkbType() == QgsWkbTypes.LineString or \
-			feat.geometry().wkbType() == QgsWkbTypes.LineStringZ or \
-			feat.geometry().wkbType() == QgsWkbTypes.LineStringM or \
-			feat.geometry().wkbType() == QgsWkbTypes.LineStringZM:
+	if feat.geometry().wkbType() == QgsWkbTypes.LineString:
 		geom = feat.geometry().asPolyline()
-	elif feat.geometry().wkbType() == QgsWkbTypes.MultiLineString or \
-			feat.geometry().wkbType() == QgsWkbTypes.MultiLineStringZ or \
-			feat.geometry().wkbType() == QgsWkbTypes.MultiLineStringM or \
-			feat.geometry().wkbType() == QgsWkbTypes.MultiLineStringZM:
+	elif feat.geometry().wkbType() == QgsWkbTypes.MultiLineString:
 		mGeom = feat.geometry().asMultiPolyline()
 		geom = []
 		for g in mGeom:
@@ -5366,6 +5419,411 @@ def convert_datetime_to_float(dt_time):
 	t0 = datetime(1, 1, 1, 0, 0, 0)
 	dt = dt_time - t0
 	return (dt.total_seconds() / 60 / 60 / 24) + 1
+
+
+def getNetCDFLibrary():
+	try:
+		from netCDF4 import Dataset
+		return "python", None
+	except ImportError:
+		pass
+
+	try:
+		from qgis.core import QgsApplication
+		netcdf_dll_path = os.path.dirname(os.path.join(os.path.dirname(os.path.dirname(QgsApplication.pkgDataPath()))))
+		netcdf_dll_path = os.path.join(netcdf_dll_path, "bin", "netcdf.dll")
+		if os.path.exists(netcdf_dll_path):
+			return "c_netcdf.dll", netcdf_dll_path
+	except ImportError:
+		pass
+
+	return None, None
+
+
+DimReturn = Tuple[str, List[NcDim]]
+def ncReadDimCDLL(ncdll: ctypes.cdll, ncid: ctypes.c_long, n: int) -> DimReturn:
+	"""
+	Read all dimensions from netcdf file.
+
+	ncdll - loaded netcdf dll
+	ncid - open netcdf file
+	n - number of dimensions
+	"""
+
+	dims = []
+	cstr_array = (ctypes.c_char * 256)()
+	cint_p = ctypes.pointer(ctypes.c_int())
+	for i in range(n):
+		dim = NcDim()
+		dims.append(dim)
+
+		# gets dimension name and length
+		err = ncdll.nc_inq_dim(ncid, ctypes.c_int(i), ctypes.byref(cstr_array), cint_p)
+		if err:
+			if ncid.value > 0:
+				ncdll.nc_close(ncid)
+			return "ERROR: error getting netcdf dimensions. Error: {0}".format(NC_Error.message(err)), dims
+
+		dim.id = i
+		dim.name = cstr_array.value.decode('utf-8')
+		dim.len = cint_p.contents.value
+
+	return "", dims
+
+VarReturn = Tuple[str, List[NcVar]]
+ncDimArg = List[NcDim]
+def ncReadVarCDLL(ncdll: ctypes.cdll, ncid: ctypes.c_long, n: int, ncDims: ncDimArg) -> VarReturn:
+	"""
+	Read all dimensions from netcdf file.
+
+	ncdll - loaded netcdf dll
+	ncid - open netcdf file
+	n - number of variables
+	ncDims - list of NcDim class
+	"""
+
+	# get info on variables
+	cstr_array = (ctypes.c_char * 256)()
+	cint_p = ctypes.pointer(ctypes.c_int())
+	ncVars = []
+	for i in range(n):
+		var = NcVar()
+		ncVars.append(var)
+
+		# id
+		var.id = i
+
+		# variable name
+		err = ncdll.nc_inq_varname(ncid, ctypes.c_int(i), ctypes.byref(cstr_array))
+		if err:
+			if ncid.value > 0:
+				ncdll.nc_close(ncid)
+			return "ERROR: error getting netcdf variable names. Error: {0}".format(NC_Error.message(err)), ncVars
+		var.name = cstr_array.value.decode('utf-8')
+
+		# variable data type
+		err = ncdll.nc_inq_vartype(ncid, ctypes.c_int(i), cint_p)
+		if err:
+			if ncid.value > 0:
+				ncdll.nc_close(ncid)
+			return "ERROR: error getting netcdf variable types. Error: {0}".format(NC_Error.message(err)), ncVars
+		var.type = cint_p.contents.value
+
+		# number of dimensions
+		err = ncdll.nc_inq_varndims(ncid, ctypes.c_int(i), cint_p)
+		if err:
+			if ncid.value > 0:
+				ncdll.nc_close(ncid)
+			return "ERROR: error getting netcdf variable dimensions. Error: {0}".format(NC_Error.message(err)), ncVars
+		var.nDims = cint_p.contents.value
+
+		# dimension information
+		cint_array = (ctypes.c_int * var.nDims)()
+		err = ncdll.nc_inq_vardimid(ncid, ctypes.c_int(i), ctypes.byref(cint_array))
+		if err:
+			if ncid.value > 0:
+				ncdll.nc_close(ncid)
+			return "ERROR: error getting netcdf variable dimensions. Error: {0}".format(NC_Error.message(err)), ncVars
+		var.dimIds = tuple(cint_array[x] for x in range(var.nDims))
+		var.dimNames = tuple(ncDims[x].name for x in var.dimIds)
+		var.dimLens = tuple(ncDims[x].len for x in var.dimIds)
+
+	return "", ncVars
+
+def lineIntersectsPoly(p1, p2, poly):
+	"""
+
+	"""
+
+	pLine = QgsGeometry.fromPolyline([QgsPoint(p1.x(), p1.y()), QgsPoint(p2.x(), p2.y())])
+	return pLine.intersects(poly.geometry())
+
+def doLinesIntersect(a1, a2, b1, b2):
+	"""
+	Does line a intersect line b
+
+	"""
+
+	pLine1 = QgsGeometry.fromPolyline([QgsPoint(a1.x(), a1.y()), QgsPoint(a2.x(), a2.y())])
+	pLine2 = QgsGeometry.fromPolyline([QgsPoint(b1.x(), b1.y()), QgsPoint(b2.x(), b2.y())])
+
+	return pLine1.intersects(pLine2)
+
+
+def intersectionPoint(a1, a2, b1, b2):
+	"""
+
+	"""
+
+	pLine1 = QgsGeometry.fromPolyline([QgsPoint(a1.x(), a1.y()), QgsPoint(a2.x(), a2.y())])
+	pLine2 = QgsGeometry.fromPolyline([QgsPoint(b1.x(), b1.y()), QgsPoint(b2.x(), b2.y())])
+
+	return pLine1.intersection(pLine2).asPoint()
+
+
+def generateRandomMatplotColours(n):
+	import random
+	colours = []
+	while len(colours) < n:
+		colour = [random.randint(0, 100) / 100 for x in range(3)]
+		if colour != [1.0, 1.0, 1.0]:  # don't include white
+			colours.append(colour)
+
+	return colours
+
+def meshToPolygon(mesh: QgsMesh, face: int) -> QgsFeature:
+	"""
+	converts a mesh to QgsFeature polygon
+
+	"""
+
+	# convert mesh face into polygon
+	w = 'POLYGON (('
+	for i, v in enumerate(face):
+		if i == 0:
+			w = '{0}{1} {2}'.format(w, mesh.vertex(v).x(), mesh.vertex(v).y())
+		else:
+			w = '{0}, {1} {2}'.format(w, mesh.vertex(v).x(), mesh.vertex(v).y())
+	w += '))'
+	f = QgsFeature()
+	f.setGeometry(QgsGeometry.fromWkt(w))
+
+	return f
+
+
+PointList = List[QgsPointXY]
+FaceIndexList = List[int]
+def getFaceIndexes3(si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider, points: PointList, mesh: QgsMesh) -> FaceIndexList:
+	"""
+
+	"""
+
+	if not points:
+		return []
+	points = [QgsPointXY(x) for x in points]
+
+	faceIndexes = []
+	for p in points:
+		indexes = si.nearestNeighbor(p, 1)
+		if indexes:
+			if len(indexes) == 1:
+				if indexes[0] not in faceIndexes:
+					faceIndexes.append(indexes[0])
+			else:
+				for ind in indexes:
+					f = meshToPolygon(mesh, mesh.face(ind))
+					if f.geometry().contains(p):
+						if ind not in faceIndexes:
+							faceIndexes.append(ind)
+						break
+
+	return faceIndexes
+
+
+def findMeshFaceIntersects(p1: QgsPointXY, p2: QgsPointXY, si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider,
+                           mesh: QgsMesh):
+	"""
+
+	"""
+
+	rect = QgsRectangle(p1, p2)
+	return si.intersects(rect)
+
+
+FaceList = List[int]
+def findMeshSideIntersects(p1: QgsPointXY, p2: QgsPointXY, faces: FaceList, mesh: QgsMesh, allFaces, pf_dli, pf_np, pf_mv) -> PointList:
+	"""
+
+	"""
+
+	v_used = []
+	m_used = []
+	p_intersects = [p1]
+	for f in faces:
+		vs = mesh.face(f)
+		for i, v in enumerate(vs):
+			if i == 0:
+				f1 = v
+			else:
+				pf = datetime.now()  # profiling
+				p3 = mesh.vertex(vs[i-1])
+				p4 = mesh.vertex(v)
+				pf_mv += datetime.now() - pf  # profiling
+				pf = datetime.now()  # profiling
+				b = doLinesIntersect(p1, p2, p3, p4)
+				pf_dli += datetime.now() - pf  # profiling
+				if b:
+					if sorted([vs[i-1], v]) not in v_used:
+						pf = datetime.now()  # profiling
+						newPoint = intersectionPoint(p1, p2, p3, p4)
+						pf_np += datetime.now() - pf  # profiling
+						p_intersects.append(newPoint)
+						v_used.append(sorted([vs[i-1], v]))
+					if f not in m_used and f not in allFaces:
+						m_used.append(f)
+				elif i + 1 == len(vs):
+					pf = datetime.now()  # profiling
+					p3 = mesh.vertex(v)
+					p4 = mesh.vertex(f1)
+					pf_mv += datetime.now() - pf  # profiling
+					pf = datetime.now()  # profiling
+					b = doLinesIntersect(p1, p2, p3, p4)
+					pf_dli += datetime.now() - pf  # profiling
+					if b:
+						if sorted([f1, v]) not in v_used:
+							pf = datetime.now()  # profiling
+							newPoint = intersectionPoint(p1, p2, p3, p4)
+							pf_np += datetime.now() - pf  # profiling
+							p_intersects.append(newPoint)
+							v_used.append(sorted([f1, v]))
+						if f not in m_used and f not in allFaces:
+							m_used.append(f)
+
+	return p_intersects, m_used, pf_dli, pf_np, pf_mv
+
+
+def findMeshIntersects(si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider, mesh: QgsMesh,
+                       feat: QgsFeature, crs, project: QgsProject = None):
+	"""
+
+	"""
+
+	# profiling
+	pf_total = timedelta(hours=0)  # total
+	pf_geom = timedelta(hours=0)  # geometry
+	pf_mfi = timedelta(hours=0)  # mesh face intersects
+	pf_msi = timedelta(hours=0)  # mesh side intersects
+	pf_ch = timedelta(hours=0)  # chainage
+	pf_other = timedelta(hours=0)  # everything else
+	pf_dli = timedelta(hours=0)  # doLinesIntersect
+	pf_np = timedelta(hours=0)  # newPoint
+	pf_mv = timedelta(hours=0)  # mesh.vertex
+	pf_other2 = timedelta(hours=0)
+
+
+	pf_total_st = datetime.now()
+	# geometry
+	pf = datetime.now()  # profiling
+	if feat.geometry().wkbType() == QgsWkbTypes.LineString:
+		geom = feat.geometry().asPolyline()
+	elif feat.geometry().wkbType() == QgsWkbTypes.MultiLineString:
+		mGeom = feat.geometry().asMultiPolyline()
+		geom = []
+		for g in mGeom:
+			for p in g:
+				geom.append(p)
+	else:
+		return
+	pf_geom += datetime.now() - pf  # profiling
+
+	# get mesh intersects and face (side) intersects
+	points = []
+	chainages = []
+	allFaces = []
+	for i, p in enumerate(geom):
+		if i > 0:
+			pf = datetime.now()  # profiling
+			faces = findMeshFaceIntersects(geom[i-1], p, si, dp, mesh)
+			pf_mfi += datetime.now() - pf  # profiling
+			pf = datetime.now()  # profiling
+			inters, minter, pf_dli, pf_np, pf_mv = findMeshSideIntersects(geom[i-1], p, faces, mesh, [], pf_dli, pf_np, pf_mv)
+			pf_msi += datetime.now() - pf
+			if inters:
+				points += orderPointsByDistanceFromFirst(inters)
+				allFaces += minter
+		if i + 1 == len(geom):
+			points.append(p)
+	pf_other2 = pf_msi - pf_dli - pf_np - pf_mv
+
+	# calculate chainage
+	chainage = 0
+	chainages.append(chainage)
+	for i, p in enumerate(points):
+		if i > 0:
+			pf = datetime.now()  # profiling
+			chainage += calculateLength2(p, points[i-1], crs)
+			pf_ch += datetime.now() - pf  # profiling
+			chainages.append(chainage)
+
+	# profiling
+	pf_total += datetime.now() - pf_total_st
+	pf_other = pf_total - pf_geom - pf_mfi - pf_msi - pf_ch
+	# pf_str = f"{'Geometry:':20s}{pf_geom.total_seconds():02.2f}s - {pf_geom.total_seconds()/pf_total.total_seconds()*100:02.2f}%\n" \
+	#          f"{'Mesh Face Int:':20s}{pf_mfi.total_seconds():02.2f}s - {pf_mfi.total_seconds()/pf_total.total_seconds()*100:02.2f}%\n" \
+	#          f"{'Mesh Side Int:':20s}{pf_msi.total_seconds():02.2f}s - {pf_msi.total_seconds()/pf_total.total_seconds()*100:02.2f}%\n" \
+	#          f"{'Chainage:':20s}{pf_ch.total_seconds():02.2f}s - {pf_ch.total_seconds()/pf_total.total_seconds()*100:02.2f}%\n" \
+	#          f"{'Other:':20s}{pf_other.total_seconds():02.2f}s - {pf_other.total_seconds()/pf_total.total_seconds()*100:02.2f}%\n\n" \
+	#          f"{'Total:':20s}{pf_total.total_seconds():02.2f}"
+	# pf_str = f"{'doLinesIntersect:':20s}{pf_dli.total_seconds():02.2f}s - {pf_dli.total_seconds() / pf_msi.total_seconds() * 100:02.2f}%\n" \
+	#          f"{'newPoint:':20s}{pf_np.total_seconds():02.2f}s - {pf_np.total_seconds() / pf_msi.total_seconds() * 100:02.2f}%\n" \
+	#          f"{'mesh.vertex:':20s}{pf_mv.total_seconds():02.2f}s - {pf_mv.total_seconds() / pf_msi.total_seconds() * 100:02.2f}%\n" \
+	#          f"{'Other:':20s}{pf_other2.total_seconds():02.2f}s - {pf_other2.total_seconds() / pf_msi.total_seconds() * 100:02.2f}%\n\n" \
+	#          f"{'Total:':20s}{pf_msi.total_seconds():02.2f}"
+	#QMessageBox.information(None, "Speed Profiling", pf_str)
+
+	# switch on/off to get check mesh faces and intercepts
+	if 0:
+		# debug - write a temporary polygon layer and import into QGIS to check
+		crs = project.crs()
+		uri = "polygon?crs={0}".format(crs.authid().lower())
+		lyr = QgsVectorLayer(uri, "check_mesh_intercepts", "memory")
+		dp = lyr.dataProvider()
+		dp.addAttributes([QgsField('Id', QVariant.Int)])
+		lyr.updateFields()
+		feats = []
+		for i, f in enumerate(allFaces):
+			feat = meshToPolygon(mesh, mesh.face(f))
+			feat.setAttributes([i])
+			feats.append(feat)
+		dp.addFeatures(feats)
+		lyr.updateExtents()
+		project.addMapLayer(lyr)
+
+		# debug - write a temporary point layer and import into QGIS to check
+		crs = project.crs()
+		uri = "point?crs={0}".format(crs.authid().lower())
+		lyr = QgsVectorLayer(uri, "check_face_intercepts", "memory")
+		dp = lyr.dataProvider()
+		dp.addAttributes([QgsField('Ch', QVariant.Double)])
+		lyr.updateFields()
+		feats = []
+		for i, point in enumerate(points):
+			feat = QgsFeature()
+			feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
+			feat.setAttributes([chainages[i]])
+			feats.append(feat)
+		dp.addFeatures(feats)
+		lyr.updateExtents()
+		project.addMapLayer(lyr)
+
+	return points, chainages, allFaces
+
+
+def calculateLength2(p1, p2, crs=None):
+	"""
+
+	"""
+
+	da = QgsDistanceArea()
+	da.setSourceCrs(crs, QgsCoordinateTransformContext())
+	return da.convertLengthMeasurement(da.measureLine(p1, p2), QgsUnitTypes.DistanceMeters)
+
+
+def orderPointsByDistanceFromFirst(points):
+	"""
+
+	"""
+
+	pointsOrdered = []
+	pointsCopied = [QgsPoint(x.x(), x.y()) for x in points]
+	p = QgsPoint(points[0].x(), points[0].y())
+	while len(pointsOrdered) < len(points):
+		pointsOrdered.append(QgsPointXY(p))
+		pointsCopied.remove(p)
+		geom = QgsLineString(pointsCopied)
+		p, i = QgsGeometryUtils.closestVertex(geom, p)
+
+	return pointsOrdered
 
 
 if __name__ == '__main__':

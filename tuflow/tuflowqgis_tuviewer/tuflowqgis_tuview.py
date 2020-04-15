@@ -12,6 +12,7 @@ from tuflow.dataset_view import DataSetModel
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tuflowqgis_turesults
 import tuflowqgis_tuplot
+from tuflowqgis_tuplot import TuPlot
 import tuflowqgis_tumenubar
 import tuflowqgis_tuoptions
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumenucontext import TuContextMenu
@@ -92,7 +93,12 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# check for already open mesh layers
 		self.tuResults.tuResults2D.loadOpenMeshLayers()
 		
-		self.tabWidget.removeTab(2)
+		# set disabled tabs to be invisible
+		self.setStyleSheet("QTabBar::tab::disabled {width: 0; height: 0; margin: 0; padding: 0; border: none;} ")
+
+		# set 1D cross section tab invisible - for now
+		self.setTabVisible(TuPlot.CrossSection1D, False)
+
 		self.SecondMenu.setVisible(False)
 
 		narrowWidth = self.pbShowPlotWindow.minimumSizeHint().width() + \
@@ -106,7 +112,16 @@ class TuView(QDockWidget, Ui_Tuplot):
 	def __del__(self):
 		self.qgisDisconnect()
 		self.tuMenuBar.disconnectMenu()
-	
+
+	def setTabVisible(self, index, visible):
+		"""
+
+		"""
+
+		self.tabWidget.setTabEnabled(index, visible)
+		self.style().unpolish(self)
+		self.style().polish(self)
+
 	def closeEvent(self, event):
 		"""
 		Is called when dock window is closed
@@ -265,6 +280,9 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:return:
 		"""
 
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+
 		# update list of types with max activated
 		self.tuResults.updateMinMaxTypes(event, 'max')
 
@@ -277,7 +295,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.OpenResultTypes.selectionModel().select(selection, flags)
 
 		# redraw plot and re-render map
-		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
+		self.tuPlot.updateCrossSectionPlot()
 		self.renderMap()
 
 	def minResultTypesChanged(self, event):
@@ -300,7 +318,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.OpenResultTypes.selectionModel().select(selection, flags)
 
 		# redraw plot and re-render map
-		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
+		self.tuPlot.updateCrossSectionPlot()
 		self.renderMap()
 
 	def nextTimestep(self):
@@ -347,7 +365,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		:return:
 		"""
-		
+
 		# update active toolbar
 		self.tuPlot.tuPlotToolbar.setToolbarActive(self.tabWidget.currentIndex())
 		
@@ -493,7 +511,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.OpenResultTypes.leftClicked.connect(self.resultTypesChanged)
 			
 			# Plotting buttons
-			self.cbShowCurrentTime.clicked.connect(lambda: self.refreshCurrentPlot(update='1d only'))
+			self.cbShowCurrentTime.clicked.connect(lambda: self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataCurrentTime))
 			self.tuPlot.tuPlotToolbar.fluxSecAxisButton.released.connect(lambda: self.secondaryAxisResultTypesChanged(None))
 			
 			# switching between plots
@@ -785,12 +803,13 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:param event: dict -> { 'parent': DataSetTreeNode, 'index': DataSetTreeNode }
 		:return:
 		"""
-		
+
 		# update list of types sitting on secondary axis
 		self.tuResults.updateSecondaryAxisTypes(event)
 		
 		# redraw plot
-		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
+		# self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
+		self.tuPlot.changeLineAxis(event)
 		
 		# force selected result types in widget to be active types
 		#self.OpenResultTypes.selectionModel().clear()
@@ -860,13 +879,15 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.renderMap()
 		
 		# update red time slider on plot
-		if self.cbShowCurrentTime.isChecked():
-			# pf.drawPlot(self, 0, None, None, None, refresh_only=True)
-			self.tuPlot.updateCurrentPlot(0, update='1d only')
-		
+		if not self.tuPlot.timeSeriesPlotFirst:
+			if self.cbShowCurrentTime.isChecked():
+				self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataCurrentTime)
 		# update long profile / cross section plots with new timestep
 		if not self.tuPlot.profilePlotFirst:
 			self.tuPlot.updateCrossSectionPlot()
+		# vertical profile
+		if not self.tuPlot.verticalProfileFirst:
+			self.tuPlot.updateVerticalProfilePlot()
 			
 	def timestepLockChanged(self, event=None, switch=True):
 		"""

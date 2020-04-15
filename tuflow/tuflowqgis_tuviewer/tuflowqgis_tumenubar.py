@@ -17,7 +17,10 @@ class TuMenuBar():
 	"""
 	
 	def __init__(self, TuView, **kwargs):
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
 		self.tuView = TuView
+		self.tuPlot = TuView.tuPlot
 		self.iface = TuView.iface
 		self.connected = False
 		
@@ -39,6 +42,8 @@ class TuMenuBar():
 		self.removeTuview = kwargs['removeTuview'] if 'removeTuview' in kwargs else None
 		self.reloadTuview = kwargs['reloadTuview'] if 'reloadTuview' in kwargs else None
 		self.menu = kwargs['menu_bar'] if 'menu_bar' in kwargs else None
+
+		self.plotNoToToolbar = self.tuPlot.tuPlotToolbar.plotNoToToolbar
 		
 	def __del__(self):
 		self.disconnectMenu()
@@ -104,18 +109,22 @@ class TuMenuBar():
 		:param kwargs: dict -> key word arguments
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 		
 		update = kwargs['update'] if 'update' in kwargs.keys() else False
 		
-		if plotNo == 0:
-			toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsTimeSeries
-			viewToolbar = self.tuView.tuPlot.tuPlotToolbar.viewToolbarTimeSeries
-		elif plotNo == 1:
-			toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot
-			viewToolbar = self.tuView.tuPlot.tuPlotToolbar.viewToolbarLongPlot
-		elif plotNo == 2:
-			toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection
-			viewToolbar = self.tuView.tuPlot.tuPlotToolbar.viewToolbarCrossSection
+		# if plotNo == 0:
+		# 	toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsTimeSeries
+		# 	viewToolbar = self.tuView.tuPlot.tuPlotToolbar.viewToolbarTimeSeries
+		# elif plotNo == 1:
+		# 	toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot
+		# 	viewToolbar = self.tuView.tuPlot.tuPlotToolbar.viewToolbarLongPlot
+		# elif plotNo == 2:
+		# 	toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection
+		# 	viewToolbar = self.tuView.tuPlot.tuPlotToolbar.viewToolbarCrossSection
+
+		toolbar, viewToolbar, mplToolbar = self.plotNoToToolbar[plotNo]
 		
 		if not update:  # only create view menu if not just an update (updates when switching between plot type tabs)
 			self.viewMenu = self.menuBar.addMenu('&View')
@@ -159,9 +168,11 @@ class TuMenuBar():
 			self.refreshMapWindow_action.triggered.connect(self.tuView.renderMap)
 			self.refreshCurrentPlotWindow_action.triggered.connect(self.tuView.refreshCurrentPlot)
 			self.refreshAllPlotWindows_action.triggered.connect(self.tuView.tuPlot.updateAllPlots)
+			#self.clearPlotWindow_action.triggered.connect(
+			#	lambda: self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), clear_rubberband=True,
+			#	                                     clear_selection=True))
 			self.clearPlotWindow_action.triggered.connect(
-				lambda: self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), clear_rubberband=True,
-				                                     clear_selection=True))
+				lambda: self.tuView.tuPlot.clearPlot2(self.tuView.tabWidget.currentIndex()))
 			self.clearAllPlotWindows_action.triggered.connect(self.tuView.tuPlot.clearAllPlots)
 		else:
 			self.viewMenu.addAction(toolbar[0])
@@ -197,15 +208,17 @@ class TuMenuBar():
 		
 		update = kwargs['update'] if 'update' in kwargs.keys() else False
 		
-		if plotNo == 0:
-			toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsTimeSeries
-			viewToolbar = self.tuView.tuPlot.tuPlotToolbar.viewToolbarTimeSeries
-		elif plotNo == 1:
-			toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot
-			viewToolbar = self.tuView.tuPlot.tuPlotToolbar.viewToolbarLongPlot
-		elif plotNo == 2:
-			toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection
-			viewToolbar = self.tuView.tuPlot.tuPlotToolbar.viewToolbarCrossSection
+		# if plotNo == 0:
+		# 	toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsTimeSeries
+		# 	viewToolbar = self.tuView.tuPlot.tuPlotToolbar.viewToolbarTimeSeries
+		# elif plotNo == 1:
+		# 	toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot
+		# 	viewToolbar = self.tuView.tuPlot.tuPlotToolbar.viewToolbarLongPlot
+		# elif plotNo == 2:
+		# 	toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection
+		# 	viewToolbar = self.tuView.tuPlot.tuPlotToolbar.viewToolbarCrossSection
+
+		toolbar, viewToolbar, mplToolbar = self.plotNoToToolbar[plotNo]
 			
 		if not update:  # only create view menu if not just an update (updates when switching between plot type tabs)
 			self.settingsMenu = self.menuBar.addMenu('&Settings')
@@ -280,12 +293,14 @@ class TuMenuBar():
 		
 		update = kwargs['update'] if 'update' in kwargs.keys() else False
 		
-		if plotNo == 0:
-			toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsTimeSeries
-		elif plotNo == 1:
-			toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot
-		elif plotNo == 2:
-			toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection
+		# if plotNo == 0:
+		# 	toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsTimeSeries
+		# elif plotNo == 1:
+		# 	toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot
+		# elif plotNo == 2:
+		# 	toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection
+
+		toolbar, viewToolbar, mplToolbar = self.plotNoToToolbar[plotNo]
 		
 		if not update:  # only create view menu if not just an update (updates when switching between plot type tabs)
 			self.exportMenu = self.menuBar.addMenu('&Export')

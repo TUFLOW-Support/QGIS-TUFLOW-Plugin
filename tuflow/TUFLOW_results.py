@@ -3,60 +3,10 @@ import numpy
 import csv
 import ctypes
 import re
-from tuflow.tuflowqgis_library import getOSIndependentFilePath
+from tuflow.tuflowqgis_library import (getOSIndependentFilePath, NC_Error,
+									   NcDim, NcVar, getNetCDFLibrary)
 version = '2018-03-AA' #added reporting location regions
 
-
-
-class NC_Error:
-	NC_NOERR = 0
-	NC_EBADID = -33
-	NC_ENOTVAR = -49
-	NC_EBADDIM = -46
-	NC_EPERM = -37
-	NC_ENFILE = -34
-	NC_ENOMEM = -61
-	NC_EHDFERR = -101
-	NC_EDIMMETA = -106
-
-	@staticmethod
-	def message(error):
-		error2message = {
-			NC_Error.NC_NOERR: "No error",
-			NC_Error.NC_EBADID: "Invalid ncid",
-			NC_Error.NC_ENOTVAR: "Invalid Variable ID",
-			NC_Error.NC_EBADDIM: "Invalid Dimension ID",
-			NC_Error.NC_EPERM: "Attempting to create a netCDF file in a directory where you do not have permission to open files",
-			NC_Error.NC_ENFILE: "Too many files open",
-			NC_Error.NC_ENOMEM: "Out of memory",
-			NC_Error.NC_EHDFERR: "HDF5 error. (NetCDF-4 files only.)",
-			NC_Error.NC_EDIMMETA: "Error in netCDF-4 dimension metadata. (NetCDF-4 files only.)"
-		}
-
-		if error in error2message:
-			return error2message[error]
-		else:
-			return "code {0}".format(error)
-
-
-class NcDim():
-
-	def __init__(self):
-		self.id = -1
-		self.name = ""
-		self.len = 0
-
-
-class NcVar():
-
-	def __init__(self):
-		self.id = -1
-		self.name = ""
-		self.type = -1
-		self.nDims = 0
-		self.dimIds = ()
-		self.dimNames = ()
-		self.dimLens = ()
 
 
 class LP():
@@ -2100,24 +2050,6 @@ class ResData():
 
 		return "CSV"
 
-	def getNetCDFLibrary(self):
-		try:
-			from netCDF4 import Dataset
-			return "python", None
-		except ImportError:
-			pass
-
-		try:
-			from qgis.core import QgsApplication
-			netcdf_dll_path = os.path.dirname(os.path.join(os.path.dirname(os.path.dirname(QgsApplication.pkgDataPath()))))
-			netcdf_dll_path = os.path.join(netcdf_dll_path, "bin", "netcdf.dll")
-			if os.path.exists(netcdf_dll_path):
-				return "c_netcdf.dll", netcdf_dll_path
-		except ImportError:
-			pass
-
-		return None, None
-
 	def Load(self, fname):
 		error = False
 		message = None
@@ -2144,7 +2076,7 @@ class ResData():
 		error = False
 		message = None
 		if self.netCDFLibPath is None:
-			self.netCDFLib, self.netCDFLibPath = self.getNetCDFLibrary()
+			self.netCDFLib, self.netCDFLibPath = getNetCDFLibrary()
 		else:
 			if os.path.exists(self.netCDFLibPath):
 				self.netCDFLib = "c_netcdf.dll"

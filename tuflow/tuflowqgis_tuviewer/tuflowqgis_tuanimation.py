@@ -1591,7 +1591,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		:return: void
 		"""
 			
-		lines = self.tuView.tuPlot.tuRubberBand.rubberBands
+		lines = self.tuView.tuPlot.tuCrossSection.rubberBands
 		for i, line in enumerate(lines):
 			rowNo = self.tableGraphics.rowCount()
 			self.tableGraphics.setRowCount(rowNo + 1)
@@ -1605,7 +1605,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			self.addGraphicRowToTable('Flow Line {0}'.format(i + 1), rowNo)
 			self.label2graphic['Flow Line {0}'.format(i + 1)] = line
 		
-		points = self.tuView.tuPlot.tuRubberBand.markerPoints
+		points = self.tuView.tuPlot.tuTSPoint.points
 		for i, point in enumerate(points):
 			point = QgsPointXY(point)
 			rowNo = self.tableGraphics.rowCount()
@@ -2204,7 +2204,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		if self.layer is None:
 			QMessageBox.information(self, 'Input Error',
 									'Cannot Find Result File in QGIS: {0}'.format(self.cboResult.currentText()))
-		if self.layer.type() != QgsMapLayer.MeshLayer:
+		if self.layer.type() != QgsMapLayerType.MeshLayer:
 			QMessageBox.information(self, 'Input Error',
 									'Error finding Result Mesh Layer: {0}'.format(self.cboResult.currentText()))
 		if not os.path.exists(os.path.dirname(self.editOutput.text())) and not preview:
