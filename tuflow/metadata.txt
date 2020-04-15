@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.0.5
+version=3.0.4.49
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,31 +20,7 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=Updates based on API Vector Renderer changes in QGIS 3.12
-          Can now hide plot window in tuflow viewer - can save this as default layout in settings menu->options
-          Added maximum buttons for time series
-          ARR to TUFLOW tool will now auto download areal temporal patterns
-          ARR to TUFLOW tool now has option to use Probability Neutral Burst Initial Loss (for NSW)
-          ARR to TUFLOW tool now has complete storm option
-          ReFH2 to TUFLOW tool now supports different model type (urban, rural) for different output types
-          ReFH2 to TUFLOW tool now supports multiple durations
-          Removed radio buttons on tuflow utilities tool - active tab will be run
-          Tuflow utilities tool now has option to browse for files for advanced tab
-          Disabled ReFH2 tool on linux which was causing plugin to not load
-          Fixed bug when labelling on legend user selection map plotting
-          Close tuflow viewer completely will now clear all plot and graphic layers
-          Fixed bug when saving image from context menu from cross section tab
-          Outputs of integrity tool now have a crs
-          Fixed bug in quick label tool that would always apply as 'else' label
-          Auto label tool now has option to open location of label settings
-          Fixed bug with plotting with dates on x-axis that would error with empty data series
-          1D integrity tool improved error checking around projection and channel types
-          Fixed bug in date formatting in import user data
-          Added 1D maximums to the legend
-          Fixed loading from .tlf that sometimes didn't have 1D results
-          ReFH2 to TUFLOW now completes when it receives non-fatal error
-          ReFH2 can now output different rainfall/runoff components at the same time e.g. gross and net rainfall
-          Time series maximum buttons showing only for data with available maximums
+changelog=
 
 # tags are comma separated with spaces allowed
 tags=TUFLOW, simulation, flood, hydraulic modelling, MDAL, mesh, xmdf, dat, 2dm, Australian Rainfall & Runoff, ARR

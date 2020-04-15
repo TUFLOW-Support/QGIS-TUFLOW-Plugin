@@ -22,6 +22,8 @@ class TuContextMenu():
 		
 		# menu function class
 		self.tuMenuFunctions = TuMenuFunctions(TuView)
+
+		self.plotNoToToolbar = self.tuView.tuMenuBar.plotNoToToolbar
 		
 	def loadPlotMenu(self, plotNo, **kwargs):
 		"""
@@ -36,15 +38,17 @@ class TuContextMenu():
 		
 		update = kwargs['update'] if 'update' in kwargs.keys() else False
 		
-		if plotNo == 0:
-			toolbar = self.tuPlot.tuPlotToolbar.lstActionsTimeSeries
-			viewToolbar = self.tuPlot.tuPlotToolbar.viewToolbarTimeSeries
-		elif plotNo == 1:
-			toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot
-			viewToolbar = self.tuPlot.tuPlotToolbar.viewToolbarLongPlot
-		elif plotNo == 2:
-			toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection
-			viewToolbar = self.tuPlot.tuPlotToolbar.viewToolbarCrossSection
+		# if plotNo == 0:
+		# 	toolbar = self.tuPlot.tuPlotToolbar.lstActionsTimeSeries
+		# 	viewToolbar = self.tuPlot.tuPlotToolbar.viewToolbarTimeSeries
+		# elif plotNo == 1:
+		# 	toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot
+		# 	viewToolbar = self.tuPlot.tuPlotToolbar.viewToolbarLongPlot
+		# elif plotNo == 2:
+		# 	toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection
+		# 	viewToolbar = self.tuPlot.tuPlotToolbar.viewToolbarCrossSection
+
+		toolbar, viewToolbar, mplToolbar = self.plotNoToToolbar[plotNo]
 		
 		if not update:  # only create menu if not just an update (updates when switching between plot type tabs)
 			self.plotMenu = QMenu(self.tuView)
@@ -85,8 +89,10 @@ class TuContextMenu():
 		self.freezeAxisXLimits_action.triggered.connect(viewToolbar.freezeXAxis)
 		self.freezeAxisYLimits_action.triggered.connect(viewToolbar.freezeYAxis)
 		self.refreshCurrentPlotWindow_action.triggered.connect(self.tuView.refreshCurrentPlot)
+		# self.clearPlotWindow_action.triggered.connect(
+		# 	lambda: self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), clear_rubberband=True, clear_selection=True))
 		self.clearPlotWindow_action.triggered.connect(
-			lambda: self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), clear_rubberband=True, clear_selection=True))
+			lambda: self.tuView.tuPlot.clearPlot2(self.tuView.tabWidget.currentIndex()))
 		self.exportAsCSV_action.triggered.connect(self.tuMenuFunctions.exportCSV)
 		
 		return True
@@ -101,15 +107,12 @@ class TuContextMenu():
 										 2: cross section plot
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.tuPlot.plotEnumerator(plotNo)
 		
-		if plotNo == 0:
-			self.plotMenu.popup(self.tuPlot.plotWidgetTimeSeries.mapToGlobal(pos))
-		elif plotNo == 1:
-			self.plotMenu.popup(self.tuPlot.plotWidgetLongPlot.mapToGlobal(pos))
-		elif plotNo == 2:
-			self.plotMenu.popup(self.tuPlot.plotWidgetCrossSection.mapToGlobal(pos))
-		else:
-			return False
+		self.plotMenu.popup(plotWidget.mapToGlobal(pos))
+
 		
 		return True
 	

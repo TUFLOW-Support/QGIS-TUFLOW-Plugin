@@ -1,10 +1,12 @@
+import os
 from qgis.core import QgsMesh, QgsMeshSpatialIndex, QgsGeometryUtils
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
 from tuflow.canvas_event import *
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turubberband import TuRubberBand
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_turubberband import TuRubberBand, TuMarker
 from tuflow.tuflowqgis_library import findMeshIntersects
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot2d import TuPlot2D
 import numpy as np
 from matplotlib.collections import PolyCollection
 from matplotlib.quiver import Quiver
@@ -14,23 +16,190 @@ from matplotlib.colors import Normalize
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from datetime import datetime, timedelta
 from math import sin, cos, pi
+import statistics
 
 
 
-class TuPlot3D():
+class TuPlot3D(TuPlot2D):
     """
-    Class for handling 3d plotting such as profile and curtain plotting
+    Class for handling 3d plotting such as various depth averaging methods, profile and curtain plotting
     """
 
     def __init__(self, tuPlot):
-        self.tuPlot = tuPlot
-        self.tuView = tuPlot.tuView
-        self.tuResults = self.tuView.tuResults
-        self.iface = self.tuView.iface
+        TuPlot2D.__init__(self, tuPlot)
         self.colSpec = dict(cmap=cm.jet, clim=[0, 40], norm=Normalize(0, 0.5))
         self.collection = None
 
         self.plotSelectionCurtainFeat = []
+        self.plotSelectionVPFeat = []
+
+    def getAveragingMethods(self, dataType, gmd, resultTypes):
+        """
+
+        """
+
+        return self.tuPlot.tuPlotToolbar.getAveragingMethods(dataType, gmd)
+
+    def plotVerticalProfileFromMap(self, vLayer, point, **kwargs):
+
+        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+        activeMeshLayers = self.tuResults.tuResults2D.activeMeshLayers  # list
+        results = self.tuResults.results  # dict
+
+        # Check that layer is points
+        if vLayer is not None:  # if none then memory layer
+            if vLayer.geometryType() != QgsWkbTypes.PointGeometry:
+                return
+
+        if type(point) is QgsFeature:
+            point = point.geometry().asPoint()  # if feature is passed in as argument, convert to QgsPointXY
+
+        # deal with the kwargs
+        bypass = kwargs['bypass'] if 'bypass' in kwargs.keys() else False  # bypass clearing any data from plot
+        plot = kwargs['plot'] if 'plot' in kwargs.keys() else ''
+        resultTypes = kwargs['types'] if 'types' in kwargs.keys() else []  # export kwarg
+        resultMesh = kwargs['mesh'] if 'mesh' in kwargs.keys() else []  # export kwarg
+        timestep = kwargs['time'] if 'time' in kwargs.keys() else None  # export kwarg
+        timestepFormatted = kwargs['time_formatted'] if 'time_formatted' in kwargs.keys() else ''
+        export = kwargs['export'] if 'export' in kwargs.keys() else None  # 'csv' or 'image'
+        exportOut = kwargs['export_location'] if 'export_location' in kwargs.keys() else None
+        exportFormat = kwargs['export_format'] if 'export_format' in kwargs.keys() else None
+        name = kwargs['name'] if 'name' in kwargs.keys() else None
+        draw = kwargs['draw'] if 'draw' in kwargs.keys() else True
+        meshRendered = kwargs['mesh_rendered'] if 'mesh_rendered' in kwargs.keys() else True
+        plotActiveScalar = kwargs['plot_active_scalar'] if 'plot_active_scalar' in kwargs else False
+        featName = kwargs['featName'] if 'featName' in kwargs else None
+        markerNo = kwargs['markerNo'] if 'markerNo' in kwargs else 0
+        dataType = kwargs['data_type'] if 'data_type' in kwargs else TuPlot.DataVerticalProfile
+
+        # clear the plot based on kwargs
+        if bypass:
+            pass
+        else:
+            if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
+                resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(dataType)
+            if not resultMesh:  # specified result meshes can be passed through kwargs (used for batch export not normal plotting)
+                resultMesh = activeMeshLayers
+            self.tuPlot.clearPlot2(TuPlot.VerticalProfile, dataType,
+                                   last_only=self.tuView.cboSelectType.currentText() == 'From Map Multi',
+                                   remove_no=len(resultTypes) * len(resultMesh))
+
+        # Initialise variables
+        data = []
+        labels = []
+        types = []
+        dataTypes = []
+        plotAsCollection = []
+        plotAsQuiver = []
+        plotAsPatch = []
+        xMagnitudes = []  # used to position arrows relative to scalar magnitudes - not passed into drawplot function
+
+        # iterate through all selected results
+        if not resultMesh:  # specified result meshes can be passed through kwargs (used for batch export not normal plotting)
+            resultMesh = activeMeshLayers
+        for layer in resultMesh:  # get plotting for all selected result meshes
+            if not meshRendered:
+                dp = layer.dataProvider()
+                mesh = QgsMesh()
+                dp.populateMesh(mesh)
+                si = QgsMeshSpatialIndex(mesh)
+            else:
+                dp = None
+                mesh = None
+                si = None
+
+            # get plotting for all checked result types
+            if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
+                resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(dataType)
+
+                # deal with active scalar plotting
+                if plotActiveScalar:
+                    if plotActiveScalar == 'active scalar':
+                        if self.tuView.tuResults.tuResults2D.activeScalar not in resultTypes:
+                            resultTypes += [self.tuView.tuResults.tuResults2D.activeScalar]
+                    else:  # do both active scalar and [depth for water level] - tumap specific
+                        if plotActiveScalar not in resultTypes:
+                            resultTypes.append(plotActiveScalar)
+                        if plotActiveScalar == 'Depth' or plotActiveScalar == 'D':
+                            if 'Water Level' in self.tuResults.results[layer.name()]:
+                                if 'Water Level' not in resultTypes:
+                                    resultTypes.append('Water Level')
+                            elif 'H' in self.tuResults.results[layer.name()]:
+                                if 'H' not in resultTypes:
+                                    resultTypes.append('H')
+
+            key = lambda x: 1 if 'vector' in x.lower() else 0
+            resultTypes = sorted(resultTypes, key=key)
+            for i, rtype in enumerate(resultTypes):
+                # time
+                if not timestep:
+                    timestep = self.tuView.tuResults.activeTime
+                if timestep == 'Maximum' or timestep == -99999 or timestep == '-99999.000000':
+                    isMax = True
+                else:
+                    isMax = self.tuView.tuResults.isMax(rtype)
+                if timestep == 'Minimum' or timestep == 99999 or timestep == '99999.000000':
+                    isMin = True
+                else:
+                    isMin = self.tuView.tuResults.isMin(rtype)
+
+                # get QgsMeshDatasetIndex
+                tuResultsIndex = TuResultsIndex(layer.name(), rtype, timestep, isMax, isMin)
+                meshDatasetIndex = self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower')
+                if not meshDatasetIndex:
+                    continue
+                elif type(meshDatasetIndex) is dict:
+                    continue
+                meshDatasetIndex = meshDatasetIndex[-1]
+
+                # for am in avgmethods:
+                types.append(rtype)
+
+                x, y = self.getScalarDataPoint(point, layer, dp, si, meshDatasetIndex, meshRendered)
+                xMagnitudes.append(x)
+                data.append((x, y))
+                plotAsCollection.append(False)
+                plotAsQuiver.append(False)
+                plotAsPatch.append(False)
+
+                # legend label for multi points
+                label = self.generateLabel(layer, resultMesh, rtype, markerNo, featName,
+                                           activeMeshLayers, None, export, bypass, i, dataType)
+
+                if label is not None:
+                    labels.append(label)
+
+        # increment point count for multi select
+        if bypass:  # multi select click
+            self.multiPointSelectCount += 1
+
+        # data = list(zip(xAll, yAll))
+        dataTypes = [dataType] * len(data)
+        if data:
+            if export is None:  # normal plot i.e. in tuview
+                self.tuPlot.drawPlot(TuPlot.VerticalProfile, data, labels, types, dataTypes, draw=True,
+                                     plot_as_collection=plotAsCollection, plot_as_patch=plotAsPatch,
+                                     plot_as_quiver=plotAsQuiver)
+            elif export == 'image':  # plot through drawPlot however instead of drawing, save figure
+                # unique output file name
+                outFile = '{0}{1}'.format(os.path.join(exportOut, name), exportFormat)
+                iterator = 1
+                while os.path.exists(outFile):
+                    outFile = '{0}_{2}{1}'.format(os.path.join(exportOut, name), exportFormat, iterator)
+                    iterator += 1
+                self.tuPlot.drawPlot(TuPlot.VerticalProfile, data, labels, types, dataTypes,
+                                     plot_as_collection=plotAsCollection, plot_as_patch=plotAsPatch,
+                                     plot_as_quiver=plotAsQuiver, export=outFile)
+            elif export == 'csv':  # export to csv, don't plot
+                self.tuPlot.exportCSV(TuPlot.TimeSeries, data, labels, types, exportOut, name)
+                self.tuPlot.exportCSV(TuPlot.VerticalProfile, data, labels, types, exportOut)
+            else:  # catch all other cases and just do normal, although should never be triggered
+                self.tuPlot.drawPlot(TuPlot.VerticalProfile, data, labels, types, dataTypes, draw=True,
+                                     plot_as_collection=plotAsCollection, plot_as_patch=plotAsPatch,
+                                     plot_as_quiver=plotAsQuiver)
+
+        return True
 
     def plotCurtainFromMap(self, vLayer, feat, **kwargs):
 
@@ -44,6 +213,9 @@ class TuPlot3D():
         if vLayer is not None:  # if none then memory layer
             if vLayer.geometryType() != QgsWkbTypes.LineGeometry:
                 return
+            crs = vLayer.sourceCrs()
+        else:
+            crs = self.tuView.project.crs()
 
         # deal with the kwargs
         bypass = kwargs['bypass'] if 'bypass' in kwargs.keys() else False  # bypass clearing any data from plot
@@ -75,15 +247,15 @@ class TuPlot3D():
 
             # get mesh intersects
             if not update:
-                self.inters, self.chainages, self.faces = findMeshIntersects(si, dp, mesh, feat, self.iface.mapCanvas().mapUnits(),
+                self.inters, self.chainages, self.faces = findMeshIntersects(si, dp, mesh, feat, crs,
                                                                              self.tuView.project)
                 update = True  # turn on update now - allow only one line at the moment
 
             # loop through result types
             if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
                 resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(TuPlot.DataCurtainPlot)
-                key = lambda x: 1 if 'vector' in x.lower() else 0
-                resultTypes = sorted(resultTypes, key=key)
+            key = lambda x: 1 if 'vector' in x.lower() else 0
+            resultTypes = sorted(resultTypes, key=key)
             for rtype in resultTypes:
                 # time
                 if not timestep:
@@ -108,12 +280,12 @@ class TuPlot3D():
 
                 # collect and arrange data
                 if 'vector' in rtype.lower():
-                    self.getVectorData(dp, meshDatasetIndex, self.faces, self.chainages, self.inters, update)
+                    self.getVectorDataCurtain(dp, meshDatasetIndex, self.faces, self.chainages, self.inters, update)
                     data.append(self.quiver)
-                    plotAsQuiver.append(True)
                     plotAsCollection.append(False)
+                    plotAsQuiver.append(True)
                 else:
-                    self.getScalarData(dp, meshDatasetIndex, self.faces, self.chainages, update, rtype)
+                    self.getScalarDataCurtain(dp, meshDatasetIndex, self.faces, self.chainages, update, rtype)
                     data.append(self.collection)
                     plotAsCollection.append(True)
                     plotAsQuiver.append(False)
@@ -129,7 +301,30 @@ class TuPlot3D():
 
         return True
 
-    def getScalarData(self, dp, mdi, faces, ch, update, rtype):
+    def getScalarDataPoint(self, point, layer, dp, si, mdi, meshRendered):
+        """
+
+        """
+
+        x, y = [], []
+        if meshRendered:
+            data3d = layer.dataset3dValue(mdi, point)
+        else:
+            faces = si.nearestNeighbor(point, 1)
+            face = faces[0] if faces else None
+            data3d = dp.dataset3dValues(mdi, face, 1) if face else None
+
+        if isinstance(data3d, QgsMesh3dDataBlock):
+            vlc = data3d.verticalLevelsCount()[0] if data3d.verticalLevelsCount() else 0
+            x = data3d.values()
+            if len(x) == 2 * vlc:  # vector (x, y) -> get magnitude
+                x = [ ( x[i] ** 2 + x[i+1] ** 2 ) ** 0.5 for i in range(0, len(x), 2) ]
+            y = data3d.verticalLevels()
+            y = [ ( y[i] + y[i+1] ) / 2. for i in range(0, len(y) - 1) ]  # point halfway between levels
+
+        return x, y
+
+    def getScalarDataCurtain(self, dp, mdi, faces, ch, update, rtype):
         """
 
         """
@@ -168,7 +363,7 @@ class TuPlot3D():
         self.colSpec['clim'] = self.getMinMaxValue(dp, mdi.group())
         self.collection = PolyCollection(xy, array=values, edgecolor='face', label=rtype, **self.colSpec)
 
-    def getVectorData(self, dp, mdi, faces, ch, points, update):
+    def getVectorDataCurtain(self, dp, mdi, faces, ch, points, update):
         """
 
         """
@@ -205,6 +400,15 @@ class TuPlot3D():
 
         xy = np.hstack((x, y))
         self.quiver = [x, y, uc, vc]
+
+        config = {
+            'scale': 0.0025,
+            "scale_units": 'x',
+            "width": 0.0025,
+            "headwidth": 2.5,
+            "headlength": 3,
+        }
+        self.quiver.append(config)
 
     def getMinMaxValue(self, dp, mdgi):
         """
@@ -281,7 +485,87 @@ class TuCurtainLine(TuRubberBand):
         self.tuPlot.tuPlotToolbar.curtainPlotMenu.menuAction().setChecked(False)
 
 
+class TuDepthAvRubberBand(TuRubberBand):
+    """
+    Class for handling curtain line graphic
+    """
+
+    def __init__(self, tuPlot, plotNo):
+        TuRubberBand.__init__(self, tuPlot, plotNo)
+        self.colour = Qt.darkGreen
+        self.symbol = QgsVertexMarker.ICON_DOUBLE_TRIANGLE
+
+    def clearPlot(self, firstPlot):
+        """
+        Overrides clearPlot method with specific plot clearing settings.
+        """
+
+        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+
+        self.tuPlot.clearPlot2(TuPlot.CrossSection, TuPlot.DataCrossSectionDepAv)
+
+    def plotFromRubberBand(self, feat, bypass=False):
+        """
+        Overrides plotFromRubberBand method with specific plotting function.
+        """
+
+        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+        return self.tuPlot.tuPlot3D.plotCrossSectionFromMap(None, feat, bypass=bypass, lineNo=len(self.rubberBands),
+                                                            data_type=TuPlot.DataCrossSectionDepAv)
+
+    def unpressButton(self):
+        """
+        Overrides unpressButton method.
+        """
+
+        self.tuPlot.tuPlotToolbar.averageMethodCSMenu.menuAction().setChecked(False)
+
+
+class TuDepthAvPoint(TuMarker):
+
+    def __init__(self, tuPlot, plotNo):
+        TuMarker.__init__(self, tuPlot, plotNo)
+        self.colour = Qt.darkGreen
+        self.symbol = QgsVertexMarker.ICON_CIRCLE
+        self.allowLiveTracking = True
+
+    def clearPlot(self, firstTimePlotting: bool, lastOnly: bool = False) -> None:
+        """
+
+        """
+
+        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+        #if firstTimePlotting:
+        resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(TuPlot.DataTimeSeriesDepAv)
+        activeMeshLayers = self.tuView.tuResults.tuResults2D.activeMeshLayers
+        self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataTimeSeriesDepAv, last_only=lastOnly,
+                               remove_no=len(resultTypes) * len(activeMeshLayers))
+
+    def plotFromMarker(self, point: QgsPointXY, bypass: bool = False) -> bool:
+        """
+
+        """
+
+        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+        return self.tuPlot.tuPlot3D.plotTimeSeriesFromMap(None, point, bypass=bypass, markerNo=len(self.points),
+                                                          data_type=TuPlot.DataTimeSeriesDepAv)
+
+    def unpressButton(self) -> None:
+        """
+
+        """
+
+        self.tuPlot.tuPlotToolbar.averageMethodTSMenu.menuAction().setChecked(False)
+
+
 class ColourBar(ColorbarBase):
+    """
+    Stolen from tfv python library. Modified slightly to use cax - as this lets tight_layout() work.
+    """
 
     def __init__(self, patch, cax, location='right', offset=0.03, thickness=0.025, label=''):
         # Get target axes handle

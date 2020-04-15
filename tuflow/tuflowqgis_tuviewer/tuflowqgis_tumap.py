@@ -377,7 +377,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		:return: void
 		"""
 		
-		lines = self.tuView.tuPlot.tuRubberBand.rubberBands
+		lines = self.tuView.tuPlot.tuCrossSection.rubberBands
 		for i, line in enumerate(lines):
 			rowNo = self.tableGraphics.rowCount()
 			self.tableGraphics.setRowCount(rowNo + 1)
@@ -391,7 +391,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 			self.addGraphicRowToTable('Flow Line {0}'.format(i + 1), rowNo)
 			self.label2graphic['Flow Line {0}'.format(i + 1)] = line
 		
-		points = self.tuView.tuPlot.tuRubberBand.markerPoints
+		points = self.tuView.tuPlot.tuTSPoint.points
 		for i, point in enumerate(points):
 			rowNo = self.tableGraphics.rowCount()
 			self.tableGraphics.setRowCount(rowNo + 1)

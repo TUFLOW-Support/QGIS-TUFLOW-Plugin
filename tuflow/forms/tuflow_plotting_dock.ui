@@ -222,6 +222,27 @@ p, li { white-space: pre-wrap; }
             </item>
            </layout>
           </widget>
+          <widget class="QWidget" name="VerticalProfileTab">
+           <attribute name="title">
+            <string>Vertical Profile</string>
+           </attribute>
+           <layout class="QGridLayout" name="gridLayout_4">
+            <item row="0" column="0">
+             <layout class="QGridLayout" name="VerticalProfileLayout">
+              <item row="0" column="0">
+               <widget class="QFrame" name="VerticalProfileFrame">
+                <property name="frameShape">
+                 <enum>QFrame::StyledPanel</enum>
+                </property>
+                <property name="frameShadow">
+                 <enum>QFrame::Raised</enum>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
          </widget>
         </item>
        </layout>
@@ -398,7 +419,7 @@ p, li { white-space: pre-wrap; }
                          </widget>
                         </item>
                         <item>
-                         <widget class="QFrame" name="mesh3DToolbar">
+                         <widget class="QFrame" name="Mesh3DToolbarFrame">
                           <property name="minimumSize">
                            <size>
                             <width>100</width>
