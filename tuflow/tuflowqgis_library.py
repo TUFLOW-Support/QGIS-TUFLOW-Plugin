@@ -5683,7 +5683,7 @@ def findMeshSideIntersects(p1: QgsPointXY, p2: QgsPointXY, faces: FaceList, mesh
 
 
 def findMeshIntersects(si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider, mesh: QgsMesh,
-                       feat: QgsFeature, crs, project: QgsProject = None):
+                       feat: QgsFeature, crs, project: QgsProject = None, debug=False):
 	"""
 
 	"""
@@ -5762,7 +5762,7 @@ def findMeshIntersects(si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider, mesh: Q
 	#QMessageBox.information(None, "Speed Profiling", pf_str)
 
 	# switch on/off to get check mesh faces and intercepts
-	if 0:
+	if debug:
 		# debug - write a temporary polygon layer and import into QGIS to check
 		crs = project.crs()
 		uri = "polygon?crs={0}".format(crs.authid().lower())
@@ -5809,6 +5809,17 @@ def calculateLength2(p1, p2, crs=None):
 	return da.convertLengthMeasurement(da.measureLine(p1, p2), QgsUnitTypes.DistanceMeters)
 
 
+def calcMidPoint(p1, p2, crs):
+	"""
+	Calculates a point halfway between p1 and p2
+	"""
+
+	h = calculateLength2(p1, p2, crs) / 2.
+	a = atan2((p2.x() - p1.x()), (p2.y() - p1.y()))
+	x = p1.x() + sin(a) * h
+	y = p1.y() + cos(a) * h
+	return QgsPointXY(x, y)
+
 def orderPointsByDistanceFromFirst(points):
 	"""
 
@@ -5824,6 +5835,29 @@ def orderPointsByDistanceFromFirst(points):
 		p, i = QgsGeometryUtils.closestVertex(geom, p)
 
 	return pointsOrdered
+
+
+def writeTempPoints(points, project, crs=None):
+	"""
+
+	"""
+
+	if crs is None:
+		crs = project.crs()
+	uri = "point?crs={0}".format(crs.authid().lower())
+	lyr = QgsVectorLayer(uri, "check_face_intercepts", "memory")
+	dp = lyr.dataProvider()
+	dp.addAttributes([QgsField('ID', QVariant.Int)])
+	lyr.updateFields()
+	feats = []
+	for i, point in enumerate(points):
+		feat = QgsFeature()
+		feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
+		feat.setAttributes([i])
+		feats.append(feat)
+	dp.addFeatures(feats)
+	lyr.updateExtents()
+	project.addMapLayer(lyr)
 
 
 if __name__ == '__main__':
