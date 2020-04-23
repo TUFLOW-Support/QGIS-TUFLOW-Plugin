@@ -27,6 +27,7 @@ import matplotlib.ticker
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.quiver import Quiver
 from matplotlib.collections import PolyCollection
+import matplotlib.gridspec as gridspec
 from matplotlib.pyplot import arrow
 from matplotlib import cm
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -147,7 +148,9 @@ class TuPlot():
 		self.clearedLongPlot = True
 		self.frozenLPProperties = {}  # dictionary object to save user defined names and styles
 		self.frozenLPAxisLabels = {}  # dictionary object to save user defined axis labels
-		
+		cid = self.figLongPlot.canvas.mpl_connect('draw_event', self.resize)
+		cid2 = self.figLongPlot.canvas.mpl_connect('resize_event', self.resize)
+
 		# cross section
 		self.artistsCrossSectionFirst = []
 		self.artistsCrossSectionSecond = []
@@ -513,7 +516,7 @@ class TuPlot():
 
 		"""
 
-		for plotNo in [TuPlot.TimeSeries, TuPlot.CrossSection]:
+		for plotNo in [TuPlot.TimeSeries, TuPlot.CrossSection, TuPlot.VerticalProfile]:
 			data = []
 			labels = []
 			types = []
@@ -637,7 +640,8 @@ class TuPlot():
 				if self.plotDataToPlotType[dpt] == plotNo:
 					for line in self.plotData[dpt][:]:
 						self.plotData[dpt].remove(line)
-			self.removeColourBar(figure)
+			self.removeColourBar(plotNo)
+			self.removeQuiverKey(plotNo)
 			self.clearPlot(plotNo, clear_rubberband=clearRubberband, clear_selection=clearSelection)
 			return
 
@@ -693,11 +697,66 @@ class TuPlot():
 					subplot.lines.remove(line)
 				del line
 
-		self.removeColourBar(figure)
+		self.removeColourBar(plotNo)
+		self.removeQuiverKey(plotNo)
 
 		self.drawPlot(plotNo, [], [], [], [], refreshOnly=True, draw=True, showCurrentTime=showCurrentTime)
 
-	def removeColourBar(self, figure):
+	def addColourBarAxes(self, plotNo, **kwargs):
+
+		# get plot objects
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.plotEnumerator(plotNo)
+
+		if 'respec' in kwargs:
+			gs, rsi, rei, csi, cei = kwargs['respec']
+			gs_pos = gs[rsi:rei, 89:94]
+			pos = gs_pos.get_position(figure)
+			self.cax.set_position(pos)
+			self.cax.set_subplotspec(gs_pos)
+		else:
+			self.removeColourBar(plotNo)
+			self.cax = 1  # dummy value
+			gs, rsi, rei, csi, cei = self.reSpecPlot(plotNo)
+			self.cax = figure.add_subplot(gs[rsi:rei, 89:94])
+		# gs = gridspec.GridSpec(100, 100)
+		# figure.subplotpars.bottom = 0  # 0.206
+		# figure.subplotpars.top = 1  # 0.9424
+		# figure.subplotpars.left = 0  # 0.085
+		# figure.subplotpars.right = 1  # 0.98
+
+		# rsi = 6
+		# rei = int(100 - (subplot.xaxis.get_tightbbox(figure.canvas.get_renderer()).height +
+		#                  subplot.xaxis.get_label().get_size() + subplot.xaxis.get_ticklabels()[0].get_size() +
+		#                  subplot.xaxis.get_tick_padding() + 20)  / figure.bbox.height * 100)
+		# csi = int((subplot.yaxis.get_tightbbox(figure.canvas.get_renderer()).width +
+		#            subplot.yaxis.get_label().get_size() + subplot.yaxis.get_ticklabels()[0].get_size() +
+		#            subplot.yaxis.get_tick_padding() + 20) / figure.bbox.width * 100)
+
+		# if isSecondaryAxis[0]:
+		# 	cei = 81
+		# 	# gs_pos = gs[6:79,9:81]
+		# 	subplot2 = self.getSecondaryAxis(plotNo)
+		# else:
+		# 	# gs_pos = gs[6:79, 9:86]
+		# 	cei = 86
+		# 	subplot2 = None
+
+		# gs_pos = gs[rsi:rei, csi:cei]
+		# pos = gs_pos.get_position(figure)
+		# subplot.set_position(pos)
+		# subplot.set_subplotspec(gs_pos)
+
+		# if subplot2 is not None:
+		# 	subplot2.set_position(pos)
+		# 	subplot2.set_subplotspec(gs_pos)
+
+
+	def removeColourBar(self, plotNo):
+
+		# get plot objects
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.plotEnumerator(plotNo)
 
 		# delete colour bar axis
 		if self.cax is not None:
@@ -705,13 +764,111 @@ class TuPlot():
 				self.cax.remove()
 			self.cax = None
 
-	def removeQuiverKey(self, figure):
+		gs = gridspec.GridSpec(1, 1)
+		subplot.set_position(gs[0, 0].get_position(figure))
+		subplot.set_subplotspec(gs[0, 0])
+		if isSecondaryAxis[0]:
+			subplot2 = self.getSecondaryAxis(plotNo)
+			subplot2.set_position(gs[0, 0].get_position(figure))
+			subplot2.set_subplotspec(gs[0, 0])
+
+	def addQuiverLegend(self, plotNo, line, label):
+		"""
+
+		"""
+
+		# get plot objects
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.plotEnumerator(plotNo)
+
+		self.removeQuiverKey(plotNo)
+		self.qk = 1  # dummy value
+		gs, rsi, rei, csi, cei = self.reSpecPlot(plotNo)
+
+		# self.qk = subplot.quiverkey(line, X=cei+0.1, Y=(1-rsi+0.05), U=1, label=label, labelpos='W', coordinates='figure')
+		if self.cax is not None:
+			X = 0.95
+			Y = 1 - (rsi+4)/100 + 0.05
+		else:
+			X = 0.95
+			Y = 0.05
+		self.qk = subplot.quiverkey(line, X=X, Y=Y, U=self.quiver_U, label=label, labelpos='W', coordinates='figure')
+		if self.cax is not None:
+			self.addColourBarAxes(plotNo, respec=(gs, rsi+4, rei, csi, cei))
+
+	def removeQuiverKey(self, plotNo):
+
+		# get plot objects
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.plotEnumerator(plotNo)
 
 		if self.qk is not None:
 			for ax in figure.axes:
-				if self.qk in ax.lines:
-					ax.lines.remove(self.qk)
+				if self.qk in ax.artists:
+					ax.artists.remove(self.qk)
 			self.qk = None
+
+	def reSpecPlot(self, plotNo):
+		"""
+
+		"""
+
+		# get plot objects
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.plotEnumerator(plotNo)
+		if isSecondaryAxis[0]:
+			subplot2 = self.getSecondaryAxis(plotNo)
+		else:
+			subplot2 = None
+
+		if self.cax is None and self.qk is None:
+			gs = gridspec.GridSpec(1, 1)
+			rsi, rei, csi, cei = 0, 1, 0, 1
+		else:
+			gs = gridspec.GridSpec(100, 100)
+			figure.subplotpars.bottom = 0  # 0.206
+			figure.subplotpars.top = 1  # 0.9424
+			figure.subplotpars.left = 0  # 0.085
+			figure.subplotpars.right = 1  # 0.98
+			padding = 20
+			xlabelsize = 7 if subplot.get_xlabel() else subplot.xaxis.get_label().get_size() + subplot.xaxis.get_ticklabels()[0].get_size() + \
+			                 subplot.xaxis.get_tick_padding()
+			ylabelsize = 7 if subplot.get_ylabel() else subplot.yaxis.get_label().get_size() + subplot.yaxis.get_ticklabels()[0].get_size() + \
+			           subplot.yaxis.get_tick_padding()
+			rei = int(100 - (subplot.xaxis.get_tightbbox(figure.canvas.get_renderer()).height +
+			                 xlabelsize +
+			                 padding) / figure.bbox.height * 100)
+
+			csi = int((subplot.yaxis.get_tightbbox(figure.canvas.get_renderer()).width +
+			           ylabelsize +
+			           padding) / figure.bbox.width * 100)
+			rsi = 6
+			if self.cax is not None:
+				if subplot2 is not None:
+					cei = 81
+				else:
+					cei = 86
+			else:
+				if subplot2 is not None:
+					y2labelsize = 7 if subplot2.get_ylabel() else subplot2.yaxis.get_label().get_size() + \
+					                 subplot2.yaxis.get_ticklabels()[0].get_size() + \
+					                 subplot2.yaxis.get_tick_padding()
+					cei = int(100 - (subplot2.yaxis.get_tightbbox(figure.canvas.get_renderer()).width +
+					                 y2labelsize +
+					                 padding) / figure.bbox.width * 100)
+				else:
+					cei = 96
+
+		gs_pos = gs[rsi:rei, csi:cei]
+		pos = gs_pos.get_position(figure)
+		subplot.set_position(pos)
+		subplot.set_subplotspec(gs_pos)
+
+		if subplot2 is not None:
+			subplot2.set_position(pos)
+			subplot2.set_subplotspec(gs_pos)
+
+		return gs, rsi, rei, csi, cei
 	
 	def clearPlot(self, plotNo, **kwargs):
 		"""
@@ -1131,7 +1288,7 @@ class TuPlot():
 			
 		return True
 
-	def setAxisNames(self, plotNo, types):
+	def setAxisNames(self, plotNo, types, plotAsCollection=(), plotAsQuiver=()):
 		"""
 		Manages the axis labels including units and secondary axis.
 
@@ -1170,7 +1327,8 @@ class TuPlot():
 			'mb': ('%', '%', ''),
 			'mb1': ('%', '%', ''),
 			'mb2': ('%', '%', ''),
-			'unit flow': ('m%^2$/s', 'ft$^2$/s', ''),
+			'unit flow': ('m$^2$/s', 'ft$^2$/s', ''),
+			'z0': ('m$^2$/s', 'ft$^2$/s', ''),
 			'cumulative rainfall': ('mm', 'inches', ''),
 			'rfml': ('mm', 'inches', ''),
 			'rainfall rate': ('mm/hr', 'in/hr', ''),
@@ -1199,16 +1357,27 @@ class TuPlot():
 			'mb1': 'MB1',
 			'mb2': 'MB2',
 			'unit flow': 'q',
+			'z0': 'Z0',
 			'cumulative rainfall': 'CR',
 			'rfml': 'RFML',
 			'rainfall rate': 'RR',
 			'stream power': 'SP',
 			'flow area': 'QA',
 			'time of max h': 't',
+			'time of max v': 't',
 			'losses': 'LC',
 			'flow regime': 'F'
 		}
-		
+
+		# create a copy of types - keep any changes local
+		# curtain plot y-axis needs to be changed to elevation
+		types = types[:]
+		for i, t in enumerate(types[:]):
+			if plotAsQuiver and plotAsQuiver[i]:
+				types[i] = ''
+			elif plotAsCollection and plotAsCollection[i]:
+				types[i] = 'water level'
+
 		if self.tuView.tuMenuBar.freezeAxisLabels_action.isChecked():
 			xAxisLabel = subplot.get_xlabel()
 			yAxisLabelNewFirst = subplot.get_ylabel()
@@ -1304,7 +1473,7 @@ class TuPlot():
 			if unit[1][0]:
 				y2 = '{0} ({1})'.format(y2, unit[1][0])
 
-		# finalise axis names
+		# finalise axis labels depending on plot type
 		if plotNo != TuPlot.VerticalProfile:
 			xAxisLabel = x
 			yAxisLabelNewFirst = y1
@@ -1312,7 +1481,7 @@ class TuPlot():
 		else:
 			xAxisLabel = y1
 			yAxisLabelNewFirst = x
-			yAxisLabelNewSecond = x
+			yAxisLabelNewSecond = y2
 		
 		return xAxisLabel, yAxisLabelNewFirst, yAxisLabelNewSecond
 	
@@ -1331,17 +1500,22 @@ class TuPlot():
 		
 		if not isSecondaryAxis[0]:
 			isSecondaryAxis[0] = True
-			if plotNo == 0:
+			if plotNo == TuPlot.TimeSeries:
 				self.axis2TimeSeries = subplot.twinx()
 				return self.axis2TimeSeries
-			elif plotNo == 1:
+			elif plotNo == TuPlot.CrossSection:
 				self.axis2LongPlot = subplot.twinx()
 				return self.axis2LongPlot
+			elif plotNo == TuPlot.VerticalProfile:
+				self.axis2VerticalPlot = subplot.twiny()
+				return self.axis2VerticalPlot
 		else:
-			if plotNo == 0:
+			if plotNo == TuPlot.TimeSeries:
 				return self.axis2TimeSeries
-			elif plotNo == 1:
+			elif plotNo == TuPlot.CrossSection:
 				return self.axis2LongPlot
+			elif plotNo == TuPlot.VerticalProfile:
+				return self.axis2VerticalPlot
 			
 	def reorderByAxis(self, types, data, label, plotAsPoints, plotAsPatch, flowRegime, flowRegimeTied, plotAsCollection,
 	                  plotAsQuiver):
@@ -1369,7 +1543,8 @@ class TuPlot():
 			if plotAsCollection[i] or plotAsQuiver[i] or len(data[i][0]) > 0:
 				secondaryAxis = False
 				if rtype in self.tuView.tuResults.secondaryAxisTypes:
-					secondaryAxis = True
+					if not plotAsCollection[i] or not plotAsQuiver:
+						secondaryAxis = True
 				elif re.findall(r"flow regime_\d_", rtype, re.IGNORECASE):
 					j = int(re.findall(r"\d", rtype)[0])
 					if types[j] in self.tuView.tuResults.secondaryAxisTypes:
@@ -1483,7 +1658,8 @@ class TuPlot():
 				rtype = types[i]
 				axis = 1
 				if rtype in self.tuView.tuResults.secondaryAxisTypes:
-					axis = 2
+					if not plotAsCollection[i]:
+						axis = 2
 				elif re.findall(r"flow regime_\d_", rtype, re.IGNORECASE):
 					j = int(re.findall(r"\d", rtype)[0])
 					if types[j] in self.tuView.tuResults.secondaryAxisTypes:
@@ -1576,6 +1752,7 @@ class TuPlot():
 							config['label'] = label[i]
 							# quiver = Quiver(subplot, q[0], q[1], q[2], q[3], scale=0.0025, scale_units='x', width=0.0025, headwidth=2.5, headlength=3, label=label[i])
 							quiver = Quiver(subplot, q[0], q[1], q[2], q[3], **config)
+							self.quiver_U = q[5]
 							a = subplot.add_collection(quiver, autolim=True)
 							self.plotData[dataTypes[i]].append({a: types[i]})
 							subplot.autoscale_view()
@@ -1645,7 +1822,7 @@ class TuPlot():
 		
 		# get axis labels
 		if data:
-			xAxisLabel, yAxisLabelFirst, yAxisLabelSecond = self.setAxisNames(plotNo, types)
+			xAxisLabel, yAxisLabelFirst, yAxisLabelSecond = self.setAxisNames(plotNo, types, plotAsCollection, plotAsQuiver)
 			xAxisLabels[0].append(xAxisLabel)
 			yAxisLabels[0].append(yAxisLabelFirst)
 			yAxisLabels[1].append(yAxisLabelSecond)
@@ -1679,7 +1856,10 @@ class TuPlot():
 				if isSecondaryAxis[0]:
 					#if not isSecondaryAxisLocal:
 					#	subplot2 = self.getSecondaryAxis(plotNo)
-					subplot2.set_ylabel(yAxisLabelSecond)
+					if plotNo != TuPlot.VerticalProfile:
+						subplot2.set_ylabel(yAxisLabelSecond)
+					else:
+						subplot2.set_xlabel(yAxisLabelSecond)
 		
 		# check if there is user plot data
 		userPlotData = False
@@ -2208,15 +2388,36 @@ class TuPlot():
 		linesCopy, labCopy = [], []
 		for i, l in enumerate(lines):
 			if type(l) is PolyCollection:
-				divider = make_axes_locatable(subplot)
-				self.cax = divider.append_axes("right", "5%", pad="3%")
-				col_bar = ColourBar(l, self.cax)
-				col_bar.ax.set_xlabel(lab[i])
+				# if not isSecondaryAxis[0]:
+				# 	divider = make_axes_locatable(subplot)
+				# else:
+				# 	subplot2 = self.getSecondaryAxis(plotNo)
+				# 	divider = make_axes_locatable(subplot2)
+				# self.cax = divider.append_axes("right", "5%", pad="3%")
+				if viewToolbar.legendAuto.isChecked():
+					self.addColourBarAxes(plotNo)
+					col_bar = ColourBar(l, self.cax)
+					col_bar.ax.set_xlabel(lab[i])
+				else:
+					self.removeColourBar(plotNo)
+
 			elif type(l) is Quiver:
-				self.qk = subplot.quiverkey(l, X=0.9, Y=0.95, U=0.1, label=lab[i], labelpos='W', coordinates='figure')
+				# self.qk = subplot.quiverkey(l, X=0.9, Y=0.95, U=1, label=lab[i], labelpos='W', coordinates='figure')
+				if viewToolbar.legendAuto.isChecked():
+					self.addQuiverLegend(plotNo, l, 'vector')
+				else:
+					self.removeQuiverKey(plotNo)
 			else:
 				linesCopy.append(l)
 				labCopy.append(lab[i])
+		# if self.cax is None:
+		# 	gs = gridspec.GridSpec(1, 1)
+		# 	subplot.set_position(gs[0, 0].get_position(figure))
+		# 	subplot.set_subplotspec(gs[0, 0])
+		# 	if isSecondaryAxis[0]:
+		# 		subplot2 = self.getSecondaryAxis(plotNo)
+		# 		subplot2.set_position(gs[0, 0].get_position(figure))
+		# 		subplot2.set_subplotspec(gs[0, 0])
 		if linesCopy:
 			if viewToolbar.legendAuto.isChecked():
 				subplot.legend(linesCopy, labCopy)
@@ -2226,7 +2427,19 @@ class TuPlot():
 				plotWidget.draw()
 		
 		return True
-	
+
+	def resize(self, e):
+		"""
+
+		"""
+
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.plotEnumerator(1)
+
+		if isSecondaryAxis[0]:
+			self.removeColourBar(1)
+
+
 	def setNewPlotProperties(self, plotNo):
 		"""
 		Freezes the figure options based on the current legend options - name and styling. Adds to dictionary object

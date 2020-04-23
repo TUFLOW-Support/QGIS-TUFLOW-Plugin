@@ -4,9 +4,10 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
 from tuflow.canvas_event import *
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turubberband import TuRubberBand, TuMarker
-from tuflow.tuflowqgis_library import findMeshIntersects
+from tuflow.tuflowqgis_library import findMeshIntersects, calcMidPoint, writeTempPoints
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot2d import TuPlot2D
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 import numpy as np
 from matplotlib.collections import PolyCollection
 from matplotlib.quiver import Quiver
@@ -99,15 +100,10 @@ class TuPlot3D(TuPlot2D):
         if not resultMesh:  # specified result meshes can be passed through kwargs (used for batch export not normal plotting)
             resultMesh = activeMeshLayers
         for layer in resultMesh:  # get plotting for all selected result meshes
-            if not meshRendered:
-                dp = layer.dataProvider()
-                mesh = QgsMesh()
-                dp.populateMesh(mesh)
-                si = QgsMeshSpatialIndex(mesh)
-            else:
-                dp = None
-                mesh = None
-                si = None
+            dp = layer.dataProvider()
+            mesh = QgsMesh()
+            dp.populateMesh(mesh)
+            si = QgsMeshSpatialIndex(mesh)
 
             # get plotting for all checked result types
             if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
@@ -152,11 +148,17 @@ class TuPlot3D(TuPlot2D):
                 elif type(meshDatasetIndex) is dict:
                     continue
                 meshDatasetIndex = meshDatasetIndex[-1]
+                gmd = dp.datasetGroupMetadata(meshDatasetIndex.group())
+                if gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices:
+                    onFaces = False
+                else:
+                    onFaces = True
 
                 # for am in avgmethods:
                 types.append(rtype)
 
-                x, y = self.getScalarDataPoint(point, layer, dp, si, meshDatasetIndex, meshRendered)
+                x, y = self.getScalarDataPoint(point, layer, dp, si, mesh, meshDatasetIndex, meshRendered, onFaces,
+                                               isMax, isMin)
                 xMagnitudes.append(x)
                 data.append((x, y))
                 plotAsCollection.append(False)
@@ -204,7 +206,7 @@ class TuPlot3D(TuPlot2D):
     def plotCurtainFromMap(self, vLayer, feat, **kwargs):
 
         from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
-
+        debug = False
 
         activeMeshLayers = self.tuResults.tuResults2D.activeMeshLayers  # list
         results = self.tuResults.results  # dict
@@ -245,12 +247,6 @@ class TuPlot3D(TuPlot2D):
             dp.populateMesh(mesh)
             si = QgsMeshSpatialIndex(mesh)
 
-            # get mesh intersects
-            if not update:
-                self.inters, self.chainages, self.faces = findMeshIntersects(si, dp, mesh, feat, crs,
-                                                                             self.tuView.project)
-                update = True  # turn on update now - allow only one line at the moment
-
             # loop through result types
             if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
                 resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(TuPlot.DataCurtainPlot)
@@ -277,15 +273,35 @@ class TuPlot3D(TuPlot2D):
                 elif type(meshDatasetIndex) is dict:
                     continue
                 meshDatasetIndex = meshDatasetIndex[-1]
+                gmd = dp.datasetGroupMetadata(meshDatasetIndex.group())
+                if gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices:
+                    onFaces = False
+                else:
+                    onFaces = True
+
+                # get mesh intersects
+                if not update:
+                    self.inters, self.chainages, self.faces = findMeshIntersects(si, dp, mesh, feat, crs,
+                                                                                 self.tuView.project)
+                    update = True  # turn on update now - allow only one line at the moment
+                    if not onFaces:
+                        self.points = [calcMidPoint(self.inters[i], self.inters[i+1], crs) for i in range(len(self.inters) - 1)]
+                        if debug:
+                            writeTempPoints(self.points, self.tuView.project, crs)
+                    else:
+                        onFaces = True
+                        self.points = self.faces[:]
 
                 # collect and arrange data
                 if 'vector' in rtype.lower():
-                    self.getVectorDataCurtain(dp, meshDatasetIndex, self.faces, self.chainages, self.inters, update)
+                    self.getVectorDataCurtain(layer, dp, si, mesh, meshDatasetIndex, self.points,
+                                              self.chainages, self.inters, update, onFaces, isMax, isMin)
                     data.append(self.quiver)
                     plotAsCollection.append(False)
                     plotAsQuiver.append(True)
                 else:
-                    self.getScalarDataCurtain(dp, meshDatasetIndex, self.faces, self.chainages, update, rtype)
+                    self.getScalarDataCurtain(layer, dp, si, mesh, meshDatasetIndex, self.points,
+                                              self.chainages, update, rtype, onFaces, isMax, isMin)
                     data.append(self.collection)
                     plotAsCollection.append(True)
                     plotAsQuiver.append(False)
@@ -301,56 +317,72 @@ class TuPlot3D(TuPlot2D):
 
         return True
 
-    def getScalarDataPoint(self, point, layer, dp, si, mdi, meshRendered):
+    def getScalarDataPoint(self, point, layer, dp, si, mesh, mdi, meshRendered, onFaces, isMax, isMin):
         """
 
         """
+
+        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
         x, y = [], []
-        if meshRendered:
-            data3d = layer.dataset3dValue(mdi, point)
-        else:
-            faces = si.nearestNeighbor(point, 1)
-            face = faces[0] if faces else None
-            data3d = dp.dataset3dValues(mdi, face, 1) if face else None
+        if onFaces:
+            if meshRendered:
+                data3d = layer.dataset3dValue(mdi, point)
+            else:
+                faces = si.nearestNeighbor(point, 1)
+                face = faces[0] if faces else None
+                data3d = dp.dataset3dValues(mdi, face, 1) if face else None
 
-        if isinstance(data3d, QgsMesh3dDataBlock):
-            vlc = data3d.verticalLevelsCount()[0] if data3d.verticalLevelsCount() else 0
-            x = data3d.values()
-            if len(x) == 2 * vlc:  # vector (x, y) -> get magnitude
-                x = [ ( x[i] ** 2 + x[i+1] ** 2 ) ** 0.5 for i in range(0, len(x), 2) ]
-            y = data3d.verticalLevels()
-            y = [ ( y[i] + y[i+1] ) / 2. for i in range(0, len(y) - 1) ]  # point halfway between levels
+            if isinstance(data3d, QgsMesh3dDataBlock):
+                vlc = data3d.verticalLevelsCount()[0] if data3d.verticalLevelsCount() else 0
+                x = data3d.values()
+                if len(x) == 2 * vlc:  # vector (x, y) -> get magnitude
+                    x = [ ( x[i] ** 2 + x[i+1] ** 2 ) ** 0.5 for i in range(0, len(x), 2) ]
+                y = data3d.verticalLevels()
+                y = [ ( y[i] + y[i+1] ) / 2. for i in range(0, len(y) - 1) ]  # point halfway between levels
+        else:
+            x = [self.datasetValue(layer, dp, si, mesh, mdi, False, point, 0, TuPlot.DataVerticalProfile, None) for x in range(2)]
+            y = self.getBedAndWaterElevation(layer, dp, si, mesh, mdi, False, point, 0, TuPlot.DataVerticalProfile, None,
+                                             isMax, isMin)
 
         return x, y
 
-    def getScalarDataCurtain(self, dp, mdi, faces, ch, update, rtype):
+    def getScalarDataCurtain(self, layer, dp, si, mesh, mdi, faces, ch, update, rtype, onFaces, isMax, isMin):
         """
 
         """
+
+        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
         d = []
         x = []
         y = []
         for i, f in enumerate(faces):
-            data3d = dp.dataset3dValues(mdi, f, 1)
-            vlc = data3d.verticalLevelsCount()
-            if vlc:
-                vlc = vlc[0]
-            else:
-                continue
-            vl = data3d.verticalLevels()
-            v = data3d.values()
-
-            for j in range(vlc):
-                x.append([ch[i], ch[i + 1], ch[i + 1], ch[i]])
-                y.append([vl[j + 1], vl[j + 1], vl[j], vl[j]])
-                if len(v) == 2 * vlc:  # x,y components
-                    m = v[j*2] ** 2 + v[j*2 + 1] ** 2
-                    m = m ** 0.5
-                    d.append(m)
+            if onFaces:
+                data3d = dp.dataset3dValues(mdi, f, 1)
+                vlc = data3d.verticalLevelsCount()
+                if vlc:
+                    vlc = vlc[0]
                 else:
-                    d.append(v[j])
+                    continue
+                vl = data3d.verticalLevels()
+                v = data3d.values()
+            else:
+                vlc = 1
+                v = [self.datasetValue(layer, dp, si, mesh, mdi, False, f, 0, TuPlot.DataCurtainPlot, None)]
+                vl = self.getBedAndWaterElevation(layer, dp, si, mesh, mdi, False, f, 0, TuPlot.DataCurtainPlot, None,
+                                                  isMax, isMin)
+
+            if not np.isnan(v).any():
+                for j in range(vlc):
+                    x.append([ch[i], ch[i + 1], ch[i + 1], ch[i]])
+                    y.append([vl[j + 1], vl[j + 1], vl[j], vl[j]])
+                    if len(v) == 2 * vlc:  # x,y components
+                        m = v[j*2] ** 2 + v[j*2 + 1] ** 2
+                        m = m ** 0.5
+                        d.append(m)
+                    else:
+                        d.append(v[j])
 
         xy = np.dstack((np.array(x), np.array(y)))
         values = np.array(d)
@@ -363,52 +395,68 @@ class TuPlot3D(TuPlot2D):
         self.colSpec['clim'] = self.getMinMaxValue(dp, mdi.group())
         self.collection = PolyCollection(xy, array=values, edgecolor='face', label=rtype, **self.colSpec)
 
-    def getVectorDataCurtain(self, dp, mdi, faces, ch, points, update):
+    def getVectorDataCurtain(self, layer, dp, si, mesh, mdi, faces, ch, points, update, onFaces, isMax, isMin):
         """
 
         """
+
+        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
         uc = []
         vc = []
         x = []
         y = []
         for i, f in enumerate(faces):
-            data3d = dp.dataset3dValues(mdi, f, 1)
-            vlc = data3d.verticalLevelsCount()
-            if vlc:
-                vlc = vlc[0]
+            if onFaces:
+                data3d = dp.dataset3dValues(mdi, f, 1)
+                vlc = data3d.verticalLevelsCount()
+                if vlc:
+                    vlc = vlc[0]
+                else:
+                    continue
+                vl = data3d.verticalLevels()
+                v = data3d.values()
             else:
-                continue
-            vl = data3d.verticalLevels()
-            v = data3d.values()
+                vlc = 1
+                v = self.datasetValue(layer, dp, si, mesh, mdi, False, f, 0, TuPlot.DataCurtainPlot, None, value='vector')
+                if type(v) is tuple:
+                    v = v[1:]
+                else:
+                    v = [v]
+                vl = self.getBedAndWaterElevation(layer, dp, si, mesh, mdi, False, f, 0, TuPlot.DataCurtainPlot, None,
+                                                  isMax, isMin)
 
             # line angle - rotate x,y velocity to local line angle u,v
             a = QgsGeometryUtils.lineAngle(points[i].x(), points[i].y(), points[i+1].x(), points[i+1].y())
             a = pi / 2 - a  # qgis is angle clockwise from north - need to adjust to be counter clockwise from horizontal
             r = np.array([[cos(a), -sin(a)], [sin(a), cos(a)]])  # rotation matrix
 
-            for j in range(vlc):
-                x.append((ch[i] + ch[i + 1]) / 2.)
-                y.append((vl[j] + vl[j + 1]) / 2.)
-                if len(v) == 2 * vlc:  # x,y components
-                    vel = np.array([[v[j*2]], [-v[j*2 + 1]]])
-                    uc.append(np.dot(r, vel)[0, 0])  # u component needed only
-                    vc.append(0)
-                else:
-                    QMessageBox.critical(self.tuView, "Error", "Should not be here [getVectorData]")
-                    return
+            if not np.isnan(v).any():
+                for j in range(vlc):
+                    x.append((ch[i] + ch[i + 1]) / 2.)
+                    y.append((vl[j] + vl[j + 1]) / 2.)
+                    if len(v) == 2 * vlc:  # x,y components
+                        vel = np.array([[v[j*2]], [-v[j*2 + 1]]])
+                        uc.append(np.dot(r, vel)[0, 0])  # u component needed only
+                        vc.append(0)
+                    else:
+                        QMessageBox.critical(self.tuView, "Error", "Should not be here [getVectorData]")
+                        return
 
         xy = np.hstack((x, y))
         self.quiver = [x, y, uc, vc]
 
+        mn, mx = self.getMinMaxValue(dp, mdi.group())
         config = {
-            'scale': 0.0025,
-            "scale_units": 'x',
+            # 'scale': 0.0025,
+            'scale': mx,
+            "scale_units": 'inches',
             "width": 0.0025,
             "headwidth": 2.5,
             "headlength": 3,
         }
         self.quiver.append(config)
+        self.quiver.append(mx/4)
 
     def getMinMaxValue(self, dp, mdgi):
         """
@@ -446,6 +494,54 @@ class TuPlot3D(TuPlot2D):
             maximum = 1
 
         return minimum, maximum
+
+    def getBedAndWaterElevation(self, layer, dp, si, mesh, mdi, meshRendered, f, ind, dataType, am, isMax, isMin):
+        """
+
+        """
+
+        possibleWlNames = ['water level', 'water surface elevation']
+        possibleBdNames = ['bed elevation']
+        iBedGmd = None  # bed group metadata index
+        iWlGmd = None  # water level group metadata index
+        for i in range(dp.datasetGroupCount()):
+            name = dp.datasetGroupMetadata(i).name()
+            if name.lower() in possibleBdNames:
+                iBedGmd = i
+                continue
+            if isMax:
+                if TuResults.isMaximumResultType(TuResults(None), name):
+                    name = TuResults.stripMaximumName(TuResults(None), name)
+                    if name.lower() in possibleWlNames:
+                        iWlGmd = i
+            elif isMin:
+                if TuResults.isMinimumResultType(TuResults(None), name):
+                    name = TuResults.stripMinimumName(TuResults(None), name)
+                    if name.lower() in possibleWlNames:
+                        iWlGmd = i
+            else:
+                if name.lower() in possibleWlNames:
+                    iWlGmd = i
+
+        if iBedGmd is None: return [0, 0]
+        if iWlGmd is None: return [0, 0]
+
+        bedGmdMdi = QgsMeshDatasetIndex(iBedGmd, 0)  # bed elevation is constant
+        wlGmdMdi = None
+        rt = dp.datasetMetadata(mdi).time()  # reference time
+        for i in range(dp.datasetCount(iWlGmd)):
+            tmdi = QgsMeshDatasetIndex(iWlGmd, i)  # test mesh dataset index
+            time = dp.datasetMetadata(tmdi).time()
+            if time == rt:
+                wlGmdMdi =  tmdi
+                break
+
+        if wlGmdMdi is None: return [0, 0]
+
+        bed = self.datasetValue(layer, dp, si, mesh, bedGmdMdi, meshRendered, f, ind, dataType, am)
+        wl = self.datasetValue(layer, dp, si, mesh, wlGmdMdi, meshRendered, f, ind, dataType, am)
+        return [bed, wl]
+
 
 
 class TuCurtainLine(TuRubberBand):

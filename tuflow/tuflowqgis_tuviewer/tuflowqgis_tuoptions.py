@@ -6,6 +6,7 @@ class TuOptions():
 	
 	def __init__(self):
 		settings = QSettings()
+		self.defaultZeroTime = datetime(1999, 12, 31, 14, 0, 0)
 		self.liveMapTracking = False
 		self.meanEventSelection = 'next higher'
 		self.playDelay = 1.0
@@ -24,7 +25,8 @@ class TuOptions():
 		if zeroTime:
 			self.zeroTime = zeroTime
 		else:
-			self.zeroTime = datetime(1990, 1, 1, 0, 0, 0)
+			# self.zeroTime = datetime(1990, 1, 1, 0, 0, 0)
+			self.zeroTime = self.defaultZeroTime
 		dateFormat = settings.value('TUFLOW/tuview_dateFormat')
 		if dateFormat:
 			self.dateFormat = dateFormat

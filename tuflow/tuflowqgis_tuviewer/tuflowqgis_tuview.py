@@ -1,6 +1,6 @@
 import os
 import sys
-import time
+from datetime import datetime
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5 import QtGui
@@ -17,7 +17,7 @@ import tuflowqgis_tumenubar
 import tuflowqgis_tuoptions
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumenucontext import TuContextMenu
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuproject import TuProject
-from tuflow.tuflowqgis_library import tuflowqgis_find_layer, findAllMeshLyrs
+from tuflow.tuflowqgis_library import tuflowqgis_find_layer, findAllMeshLyrs, convertTimeToFormattedTime
 from tuflow.tuflowqgis_dialog import tuflowqgis_meshSelection_dialog
 
 
@@ -483,6 +483,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:return:
 		"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		if not self.connected:
 			
 			# hide/show plot window
@@ -498,6 +500,10 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.btnLast.clicked.connect(lambda: self.timeComboChanged(2))
 			self.btnTimePlay.clicked.connect(self.playThroughTimesteps)
 			self.btn2dLock.clicked.connect(self.timestepLockChanged)
+
+			# qgis time controller
+			if qv >= 31300:
+				self.iface.mapCanvas().temporalRangeChanged.connect(self.qgsTimeChanged)
 			
 			# results
 			self.OpenResults.itemClicked.connect(lambda: self.resultsChanged('item clicked'))
@@ -540,6 +546,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		:return:
 		"""
+
+		qv = Qgis.QGIS_VERSION_INT
 		
 		if self.connected or completely_remove:
 			
@@ -576,6 +584,13 @@ class TuView(QDockWidget, Ui_Tuplot):
 				self.btn2dLock.clicked.disconnect()
 			except:
 				pass
+
+			# qgis time controller
+			if qv >= 31300:
+				try:
+					self.iface.mapCanvas().temporalRangeChanged.connect(self.qgsTimeChanged)
+				except:
+					pass
 			
 			# results
 			try:
@@ -879,9 +894,10 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.renderMap()
 		
 		# update red time slider on plot
-		if not self.tuPlot.timeSeriesPlotFirst:
-			if self.cbShowCurrentTime.isChecked():
-				self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataCurrentTime)
+		# if not self.tuPlot.timeSeriesPlotFirst:
+		if self.cbShowCurrentTime.isChecked():
+			self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataCurrentTime)
+			# self.tuPlot.drawPlot(TuPlot.TimeSeries, [], [], [], [], refresh_only=True)
 		# update long profile / cross section plots with new timestep
 		if not self.tuPlot.profilePlotFirst:
 			self.tuPlot.updateCrossSectionPlot()
@@ -903,3 +919,23 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.btn2dLock.setIcon(lock2DIcon)
 		
 		self.tuResults.updateResultTypes()
+
+	def qgsTimeChanged(self):
+		"""
+
+		"""
+
+		t = self.tuResults.getTuViewTimeFromQgsTime()
+		tf = None
+		if type(t) is datetime:
+			if self.tuOptions.xAxisDates:
+				tf = self.tuResults._dateFormat.format(t)  # time formatted
+			else:
+				t = self.tuResults.date2time[t]
+		if tf is None:
+			tf = convertTimeToFormattedTime(t, unit=self.tuOptions.timeUnits)  # time formatted
+		for i in range(self.cboTime.count()):
+			if self.cboTime.itemText(i) == tf:
+				self.cboTime.setCurrentIndex(i)
+				return
+

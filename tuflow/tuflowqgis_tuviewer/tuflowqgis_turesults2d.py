@@ -280,6 +280,8 @@ class TuResults2D():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		results = self.tuView.tuResults.results  # dict
 		timekey2time = self.tuView.tuResults.timekey2time  # dict
 		timekey2date = self.tuView.tuResults.timekey2date  # dict
@@ -293,6 +295,8 @@ class TuResults2D():
 		
 		resultTypes = []
 		dp = layer.dataProvider()  # QgsMeshDataProvider
+		if qv >= 31300:
+			self.tuView.tuOptions.zeroTime = self.getReferenceTime(layer.temporalProperties())
 		
 		for i in range(dp.datasetGroupCount()):
 			# Get result type e.g. depth, velocity, max depth
@@ -308,11 +312,13 @@ class TuResults2D():
 			results[name][id] = {'times': {},
 			                     'is3dDataset': self.is3dDataset(i, dp),
 			                     'timeUnit': self.getTimeUnit(layer),
+			                     'referenceTime': self.tuView.tuOptions.zeroTime,
 			                     }  # add result type to results dictionary
 			if id2 is not None:
 				results[name][id2] = {'times': {},
 				                      'is3dDataset': self.is3dDataset(i, dp),
-				                      'timeUnit': self.getTimeUnit(layer)
+				                      'timeUnit': self.getTimeUnit(layer),
+				                      'referenceTime': self.tuView.tuOptions.zeroTime,
 				                      }  # add result type to results dictionary
 
 			# apply any default rendering styles to datagroup
@@ -503,7 +509,7 @@ class TuResults2D():
 		id = None
 		id2 = None
 
-		if ext.upper != ".XMDF":
+		if ext.upper() != ".XMDF":
 			if mdg.isScalar():
 				id = self.addCounter(mdg.name(), ids)
 			if mdg.isVector():
@@ -540,7 +546,7 @@ class TuResults2D():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 		
-		self.activeMeshLayers = []
+		self.activeMeshLayers.clear()
 		openResults = self.tuView.OpenResults  # QListWidget
 		
 		for r in range(openResults.count()):
@@ -553,16 +559,14 @@ class TuResults2D():
 					if item.isSelected():
 						self.activeMeshLayers.append(layer)
 					else:
-						rs = layer.rendererSettings()
-						rs.setActiveScalarDataset(QgsMeshDatasetIndex(-1, -1))
-						layer.setRendererSettings(rs)
-						rs.setActiveVectorDataset(QgsMeshDatasetIndex(-1, -1))
-						layer.setRendererSettings(rs)
+						self.renderMap(layers=[layer], turn_off=True)
+
+		self.renderMap()
 		
 		return True
 	
 	
-	def renderMap(self):
+	def renderMap(self, layers=(), turn_off=False):
 		"""
 		Renders the active scalar and vector layers.
 		
@@ -572,14 +576,20 @@ class TuResults2D():
 		# first make sure selected result types match active result types
 		self.tuView.tuResults.checkSelectedResults()
 
-		for layer in self.activeMeshLayers:
-			# mesh index (dataset or group depending on qgis version)
-			activeScalarIndex = TuResultsIndex(layer.name(), self.activeScalar,
-			                                   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('scalar'),
-			                                   self.tuView.tuResults.isMin('scalar'))
-			activeVectorIndex = TuResultsIndex(layer.name(), self.activeVector,
-			                                   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('vector'),
-			                                   self.tuView.tuResults.isMin('vector'))
+		if not layers:
+			layers = self.activeMeshLayers[:]
+
+		for layer in layers:
+			if turn_off:
+				activeScalarIndex = None
+				activeVectorIndex = None
+			else:
+				activeScalarIndex = TuResultsIndex(layer.name(), self.activeScalar,
+				                                   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('scalar'),
+				                                   self.tuView.tuResults.isMin('scalar'))
+				activeVectorIndex = TuResultsIndex(layer.name(), self.activeVector,
+				                                   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('vector'),
+				                                   self.tuView.tuResults.isMin('vector'))
 			activeScalarMeshIndex = self.tuView.tuResults.getResult(activeScalarIndex, force_get_time='next lower',
 			                                                        mesh_index_only=True)
 			activeVectorMeshIndex = self.tuView.tuResults.getResult(activeVectorIndex, force_get_time='next lower',
@@ -590,7 +600,7 @@ class TuResults2D():
 			setActiveScalar(activeScalarMeshIndex)
 			setActiveVector(activeVectorMeshIndex)
 			layer.setRendererSettings(rs)
-				
+
 			# turn on / off mesh and triangles
 			self.renderNativeMesh(layer, rs)
 
@@ -874,6 +884,23 @@ class TuResults2D():
 										results[result][resultType]['times'][timeKey] = (firstTime, dataType, meshIndex)
 										del results[result][resultType]['times'][i]
 
+										# also delete from dicts
+										a = sorted([x for x in self.tuView.tuResults.time2date.keys()])
+										if a[0] != firstTime:
+											del self.tuView.tuResults.time2date[a[0]]
+
+											a = sorted([x for x in self.tuView.tuResults.timekey2date.keys()])
+											del self.tuView.tuResults.timekey2date[a[0]]
+
+											a = sorted([x for x in self.tuView.tuResults.timekey2time.keys()])
+											del self.tuView.tuResults.timekey2time[a[0]]
+
+											a = sorted([x for x in self.tuView.tuResults.date2time.keys()])
+											del self.tuView.tuResults.date2time[a[0]]
+
+											a = sorted([x for x in self.tuView.tuResults.date2timekey.keys()])
+											del self.tuView.tuResults.date2timekey[a[0]]
+
 	def meshRenderVersion(self, rs):
 		"""
 		API changes between versions
@@ -907,3 +934,14 @@ class TuResults2D():
 			rsTriangles.setEnabled(self.tuView.tuOptions.showTriangles)
 			rs.setTriangularMeshSettings(rsTriangles)
 			layer.setRendererSettings(rs)
+
+	def getReferenceTime(self, tp):
+		"""
+
+		"""
+		rt = tp.referenceTime()
+		if rt.isValid():
+			return datetime(rt.date().year(), rt.date().month(), rt.date().day(), rt.time().hour(),
+			                rt.time().minute(),  rt.time().second(), int(rt.time().msec() * 1000))
+		else:
+			return self.tuView.tuOptions.defaultZeroTime

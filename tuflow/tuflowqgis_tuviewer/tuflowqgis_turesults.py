@@ -711,6 +711,12 @@ class TuResults():
 		forceGetTime = kwargs['force_get_time'] if 'force_get_time' in kwargs.keys() else None
 		meshIndexOnly = kwargs['mesh_index_only'] if 'mesh_index_only' in kwargs else False
 		results = self.tuView.tuResults.results  # dict
+
+		if index is None:
+			if qv < 31300:
+				return QgsMeshDatasetIndex(-1, -1)
+			else:
+				return -1
 		
 		key1 = index.result if 'result_name' not in kwargs else kwargs['result_name']
 		key2 = index.resultType if 'result_type' not in kwargs else kwargs['result_type']
@@ -827,7 +833,33 @@ class TuResults():
 		
 		# return time prev if higher is never found
 		return timePrev
-	
+
+	def findTimeNext(self, key1, key2, key3, times=(), is_date=False):
+		"""
+		Finds the next available time after specified time
+		"""
+
+		if is_date:
+			if type(key3) is str:
+				rt = datetime.strptime(key3, self.dateFormat)
+			else:
+				rt = key3
+		else:
+			if type(key3) is str:
+				rt = float(key3)
+			else:
+				rt = key3
+
+		if not times:
+			times = [y for x, y in self.results[key1][key2]['times'].items()]
+
+		assert(len(times) > 0)
+		for time in times:
+			if time >= rt:
+				return time
+
+		return time
+
 	def isMax(self, typ):
 		"""
 		Returns whether the result type is max or not. Can put 'scalar' or 'vector' to auto get active scalar or vector.
@@ -1136,13 +1168,45 @@ class TuResults():
 
 		if qv >= 31300:
 			zt = self.tuView.tuOptions.zeroTime
-			rt = QDateTime(QDate(zt.year, zt.month, zt.day), QTime(zt.hour, zt.minute, zt.second, zt.microsecond / 1000.))
+			rt = QDateTime(QDate(zt.year, zt.month, zt.day),
+			               QTime(zt.hour, zt.minute, zt.second, zt.microsecond / 1000.))
 			rt.setTimeSpec(self.iface.mapCanvas().temporalRange().begin().timeSpec())
 			begin = rt.addSecs(float(self.activeTime) * 60. * 60 - 1)
 			end = begin.addSecs(60.*60.)
 			dtr = QgsDateTimeRange(begin, end)
 			self.iface.mapCanvas().setTemporalRange(dtr)
 			self.iface.mapCanvas().refresh()
+
+	def getTuViewTimeFromQgsTime(self):
+		"""
+
+		"""
+
+		qv = Qgis.QGIS_VERSION_INT
+
+		if qv >= 31300:
+			modelDates = sorted([x for x in self.date2time.keys()])
+			if modelDates:
+				# fdt = modelDates[0]  # first datetime
+				# ldt = modelDates[-1]  # last datetime
+				# modelBegin = QDateTime(QDate(fdt.year, fdt.month, fdt.day),
+				#                        QTime(fdt.hour, fdt.minute, fdt.second, fdt.microsecond / 1000.))
+				# modelBegin.setTimeSpec(self.iface.mapCanvas().temporalRange().begin().timeSpec())
+				# modelEnd = QDateTime(QDate(ldt.year, ldt.month, ldt.day),
+				#                      QTime(ldt.hour, ldt.minute, ldt.second, ldt.microsecond / 1000.))
+				# modelEnd.setTimeSpec(self.iface.mapCanvas().temporalRange().begin().timeSpec())
+				# modelRange = QgsDateTimeRange(modelBegin, modelEnd)
+				qdt = self.iface.mapCanvas().temporalRange().begin()  # QDateTime
+				pdt = datetime(qdt.date().year(), qdt.date().month(), qdt.date().day(),     # python datetime
+				               qdt.time().hour(), qdt.time().minute(), qdt.time().second(),
+				               int(round(qdt.time().msec(), -1) * 1000.))
+				# qgsEnd = self.iface.mapCanvas().temopralRange().end()
+
+				return self.findTimeNext(None, None, pdt, modelDates, True)
+			else:
+				return 0
+
+
 
 
 
