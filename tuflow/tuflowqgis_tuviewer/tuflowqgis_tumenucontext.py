@@ -129,25 +129,31 @@ class TuContextMenu():
 		self.load1d2dResults_action = QAction('Load Results', self.resultsMenu)
 		self.load2dResults_action = QAction('Load Results - Map Outputs', self.resultsMenu)
 		self.load1dResults_action = QAction('Load Results - Time Series', self.resultsMenu)
+		self.loadParticlesResults_action = QAction('Load Results - Particles', self.resultsMenu)
 		self.remove1d2dResults_action = QAction(closeResultsIcon, 'Close Results', self.resultsMenu)
 		self.remove2dResults_action = QAction('Close Results - Map Outputs', self.resultsMenu)
 		self.remove1dResults_action = QAction('Close Results - Time Series', self.resultsMenu)
-		
+		self.removeParticlesResults_action = QAction('Close Results - Particles', self.resultsMenu)
+
 		self.resultsMenu.addAction(self.load1d2dResults_action)
 		self.resultsMenu.addAction(self.load2dResults_action)
 		self.resultsMenu.addAction(self.load1dResults_action)
+		self.resultsMenu.addAction(self.loadParticlesResults_action)
 		self.resultsMenu.addSeparator()
 		self.resultsMenu.addAction(self.remove1d2dResults_action)
 		self.resultsMenu.addAction(self.remove2dResults_action)
 		self.resultsMenu.addAction(self.remove1dResults_action)
+		self.resultsMenu.addAction(self.removeParticlesResults_action)
 		
 		self.load2dResults_action.triggered.connect(self.tuMenuFunctions.load2dResults)
 		self.load1dResults_action.triggered.connect(self.tuMenuFunctions.load1dResults)
+		self.loadParticlesResults_action.triggered.connect(self.tuMenuFunctions.loadParticlesResults)
 		self.load1d2dResults_action.triggered.connect(self.tuMenuFunctions.load1d2dResults)
 		self.remove1d2dResults_action.triggered.connect(self.tuMenuFunctions.remove1d2dResults)
 		self.remove2dResults_action.triggered.connect(self.tuMenuFunctions.remove2dResults)
 		self.remove1dResults_action.triggered.connect(self.tuMenuFunctions.remove1dResults)
-		
+		self.removeParticlesResults_action.triggered.connect(self.tuMenuFunctions.removeParticlesResults)
+
 		return True
 	
 	def showResultsMenu(self, pos):

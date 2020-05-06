@@ -291,7 +291,7 @@ class tuflowqgis_menu:
 		self.tuflowUtilitiesAction.triggered.connect(self.tuflowUtilities)
 		self.iface.addPluginToMenu("&TUFLOW", self.tuflowUtilitiesAction)
 		self.iface.addToolBarIcon(self.tuflowUtilitiesAction)
-		
+
 		#Init classes variables
 		self.dockOpened = False		#remember for not reopening dock if there's already one opened
 		self.resdockOpened = False
@@ -307,6 +307,7 @@ class tuflowqgis_menu:
 		self.iface.removePluginMenu("&TUFLOW", self.about_menu.menuAction())
 		self.iface.removePluginMenu("&TUFLOW", self.editing_menu.menuAction())
 		self.iface.removePluginMenu("&TUFLOW", self.run_menu.menuAction())
+
 		del self.import_chk_action
 
 	def configure_tf(self):

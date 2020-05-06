@@ -1,0 +1,14 @@
+__pycache__
+.pyc
+*.DS_Store
+*.user
+*.user.*
+nbproject*
+*-swp
+.idea/
+.idea/*
+.vagrant/
+*.autosave
+.pytest_cache
+.cache
+.coverage

@@ -152,7 +152,76 @@ class TuMenuFunctions():
 		settings.setValue("TUFLOW_1DResults/lastFolder", fpath)
 		
 		return True
-	
+
+	def loadParticlesResults(self, **kwargs):
+		"""
+		Loads Particles results into ui and prompts user to load GIS files.
+
+		:return: bool -> True for successful, False for unsuccessful
+		"""
+
+		resultParticles = kwargs['result_particles'] if 'result_particles' in kwargs.keys() else None
+		unlock = kwargs['unlock'] if 'unlock' in kwargs else True
+		askGis = kwargs['ask_gis'] if 'ask_gis' in kwargs else True
+
+		if not resultParticles:
+			# Get last loaded settings
+			fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_ParticlesResults/lastFolder")
+
+			# User get 1D result file
+			inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW Particles results file',
+													   fpath,
+													   "TUFLOW Particles Results (*.nc)")
+			if not inFileNames[0]:  # empty list
+				return False
+
+		else:
+			# check if the result paths exist
+			# for loading in project - check if links are not broken
+			inFileNames = []
+			brokenLinks = []
+			for inFileName in resultParticles[0]:
+				if os.path.exists(inFileName):
+					inFileNames.append(inFileName)
+				else:
+					brokenLinks.append(inFileName)
+			if brokenLinks:
+				brokenLinksDialog = tuflowqgis_brokenLinks_dialog(self.iface, brokenLinks)
+				brokenLinksDialog.exec_()
+			inFileNames = [inFileNames]
+
+		if not inFileNames[0]:
+			return False
+
+		# Prompt user if they want to load in GIS files
+		for inFileName in inFileNames[0]:
+			alsoOpenGis = QMessageBox.No
+			if os.path.splitext(inFileName)[1].lower() == '.tpc':
+				if askGis:
+					alsoOpenGis = QMessageBox.question(self.iface.mainWindow(),
+													   "TUFLOW Viewer", 'Do you also want to open result GIS layer?',
+													   QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+			break  # only need to ask once
+		if alsoOpenGis == QMessageBox.Yes:
+			self.tuView.tuResults.tuResults1D.openGis(inFileNames[0][0])
+		elif alsoOpenGis == QMessageBox.Cancel:
+			return False
+
+		# import results
+		self.tuView.tuResults.importResults('particles', inFileNames[0])
+
+		# unlock map output timesteps only
+		if unlock:
+			if self.tuView.lock2DTimesteps:
+				self.tuView.timestepLockChanged()
+
+		# finally save the last folder location
+		fpath = os.path.dirname(inFileNames[0][0])
+		settings = QSettings()
+		settings.setValue("TUFLOW_ParticlesResults/lastFolder", fpath)
+
+		return True
+
 	def load1d2dResults(self):
 		"""
 		Loads 1D and 2D reuslts from TCF file.
@@ -306,7 +375,24 @@ class TuMenuFunctions():
 		self.tuView.resultsChanged()
 		
 		return True
-	
+
+	def removeParticlesResults(self):
+		"""
+		Removes the selected results from the ui - 1D results only
+
+		:return: bool -> True for successful, False for unsuccessful
+		"""
+
+		results = []
+		for item in self.tuView.OpenResults.selectedItems():
+			results.append(item.text())
+
+		self.tuView.tuResults.tuResultsParticles.removeResults(results)
+
+		self.tuView.resultsChanged()
+
+		return True
+
 	def updateMapPlotWindows(self):
 		"""
 		Update map window and all plot windows
