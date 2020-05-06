@@ -20,7 +20,6 @@ from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuproject import TuProject
 from tuflow.tuflowqgis_library import tuflowqgis_find_layer, findAllMeshLyrs, convertTimeToFormattedTime
 from tuflow.tuflowqgis_dialog import tuflowqgis_meshSelection_dialog
 
-
 class TuView(QDockWidget, Ui_Tuplot):
 	
 	def __init__(self, iface, **kwargs):
@@ -44,7 +43,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		# results class
 		self.tuResults = tuflowqgis_turesults.TuResults(self)
-		
+
 		# plot class
 		self.tuPlot = tuflowqgis_tuplot.TuPlot(self)
 		
