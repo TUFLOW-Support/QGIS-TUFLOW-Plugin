@@ -6,6 +6,7 @@ from qgis.core import *
 from PyQt5.QtWidgets import *
 import tuflowqgis_turesults1d
 import tuflowqgis_turesults2d
+import tuflowqgis_turesultsParticles
 from tuflow.dataset_view import DataSetModel
 from tuflow.tuflowqgis_library import tuflowqgis_find_layer, convertFormattedTimeToTime, convertTimeToFormattedTime, \
 	findAllMeshLyrs, roundSeconds
@@ -14,7 +15,7 @@ from tuflow.dataset_menu import DatasetMenuDepAv
 
 class TuResults():
 	"""
-	Parent class for handling 1D and 2D results classes.
+	Parent class for handling 1D, 2D and Particles results classes.
 	
 	"""
 	
@@ -46,11 +47,14 @@ class TuResults():
 			# 2D results
 			self.tuResults2D = tuflowqgis_turesults2d.TuResults2D(TuView)
 
+			# Particles results
+			self.tuResultsParticles = tuflowqgis_turesultsParticles.TuResultsParticles(TuView)
+
 	def importResults(self, type, inFileNames):
 		"""
-		Import results 1D or 2D
+		Import results 1D or 2D or Particles
 		
-		:param type: str -> 'mesh' or 'timeseries'
+		:param type: str -> 'mesh' or 'timeseries' or 'particles'
 		:param inFileNames: list -> str file path
 		:return: bool -> True for successful, False for unsuccessful
 		"""
@@ -60,6 +64,8 @@ class TuResults():
 			result = self.tuResults2D.importResults(inFileNames)
 		elif type.lower() == 'timeseries':
 			result = self.tuResults1D.importResults(inFileNames)
+		elif type.lower() == 'particles':
+			result = self.tuResultsParticles.importResults(inFileNames)
 		if not result:
 			return False
 
@@ -96,6 +102,7 @@ class TuResults():
 				self.activeTime = self.date2timekey[self.activeTime]
 
 		self.updateQgsTime()
+		self.tuResultsParticles.updateActiveTime()
 	
 	def resetResultTypes(self):
 		"""
@@ -184,6 +191,8 @@ class TuResults():
 					#	lTypeLP.append((x, 7, True))
 					#else:
 					lTypeLP.append((x, 7, False))
+			elif '_particles' in type:
+				timestepsParticles = t[0]
 			else:
 				temporalResultTypes.append(type)
 				for i, (time, values) in enumerate(t['times'].items()):
@@ -192,7 +201,7 @@ class TuResults():
 							timesteps.append(float(values[0]))
 		
 		if not self.tuView.lock2DTimesteps:
-			timesteps = self.joinResultTypes(timesteps, timestepsTS, timestepsLP, type='time')
+			timesteps = self.joinResultTypes(timesteps, timestepsTS, timestepsLP, timestepsParticles, type='time')
 		
 		return timesteps, minResultTypes, maxResultTypes, temporalResultTypes, pTypeTS, lTypeTS, rTypeTS, lTypeLP
 	
@@ -905,7 +914,8 @@ class TuResults():
 		results = self.tuView.tuResults.results
 		results2d = self.tuView.tuResults.tuResults2D.results2d
 		results1d = self.tuView.tuResults.tuResults1D.results1d
-		
+		resultsParticles = self.tuView.tuResults.tuResultsParticles.resultsParticles
+
 		for res in resList:
 			if res in results.keys():
 				# remove from indexed results
@@ -914,6 +924,9 @@ class TuResults():
 					del results2d[res]
 				if res in results1d:
 					del results1d[res]
+				if res in resultsParticles:
+					del resultsParticles[res]
+
 				#layer = tuflowqgis_find_layer(res)
 				#self.tuView.project.removeMapLayer(layer)
 				#self.tuView.canvas.refresh()
