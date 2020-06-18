@@ -1,5 +1,6 @@
 from qgis.core import *
 from .Enumerators import *
+from PyQt5.QtWidgets import QMessageBox
 from tuflow.tuflowqgis_library import lineToPoints, getRasterValue
 
 
@@ -16,6 +17,8 @@ class DrapeData():
         self.chainages = []
         self.directions = []
         self.elevations = []
+        self.error = False
+        self.message = ""
 
         if layer is not None:
             if layer.geometryType() == QgsWkbTypes.PointGeometry:
@@ -35,7 +38,15 @@ class DrapeData():
                     units = iface.mapCanvas().mapUnits()
                 else:
                     units = QgsUnitTypes.DistanceMeters
-                points, chainages, directions = lineToPoints(feature, demCellSize, units)
+                points, chainages, directions, self.message = lineToPoints(feature, demCellSize, units, inlcude_error_messaging=True)
+                if self.message:
+                    self.message = 'ERRORS occurred: {0}'.format(self.message)
+                    self.error = True
+                    return
+                if points is None:
+                    self.error = True
+                    self.message = "Could not process 1d_nwk line layer. Could be projection related error."
+                    return
                 elevations = []
                 for point in points:
                     elevation = getRasterValue(point, dem) if dem is not None else None

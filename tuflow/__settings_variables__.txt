@@ -18,6 +18,7 @@
         TUFLOW_Results/lastFolder
         TUFLOW_Results/export_csv
         TUFLOW_Results/export_shp
+        TUFLOW/tuview_defaultlayout
     </tuviewer>
     TUFLOW/load_TCF_last_folder
     TUFLOW/CRS

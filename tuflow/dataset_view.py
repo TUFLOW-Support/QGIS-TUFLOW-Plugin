@@ -48,6 +48,7 @@ class DataSetTreeNode(object):
                   5: line time series
                   6: region time series
                   7: line long plot
+                  8: 1D cross section plot
     
     """
     
@@ -57,8 +58,21 @@ class DataSetTreeNode(object):
         self.ds_type = ds_type  # see above multi line comment
         self.hasMax = max
         self.hasMin = min
+        self.hasFlowRegime = False
+        if ds_type == 4 or ds_type == 5:
+            if 'flow regime' in ds_name.lower():
+                pass
+            elif 'flow' in ds_name.lower():
+                self.hasFlowRegime = True
+            elif 'velocity' in ds_name.lower():
+                self.hasFlowRegime = True
+            elif 'level' in ds_name.lower():
+                self.hasFlowRegime = True
+            elif 'energy' in ds_name.lower():
+                self.hasFlowRegime = True
         self.isMax = False
         self.isMin = False
+        self.isFlowRegime = False
         self.parentItem = parentItem
         self.childItems = []
         self.secondaryActive = False
@@ -74,6 +88,7 @@ class DataSetTreeNode(object):
     def toggleSecondaryActive(self): self.secondaryActive = True if not self.secondaryActive else False
     def toggleMaxActive(self): self.isMax = True if not self.isMax else False
     def toggleMinActive(self): self.isMin = True if not self.isMin else False
+    def toggleFlowRegime(self): self.isFlowRegime = True if not self.isFlowRegime else False
 
 
 class DataSetModel(QAbstractItemModel):
@@ -290,6 +305,8 @@ class DataSetModel(QAbstractItemModel):
                 return True
             else:
                 return False
+        if role == Qt.UserRole + 8:
+            return item.enabled
 
     def index(self, row, column, parent=None):
         if parent is None: parent = QModelIndex()
@@ -369,6 +386,8 @@ class DataSetItemDelegate(QStyledItemDelegate):
         self.pix_max0 = QPixmap(os.path.join(dir, "icons", "max_inactive.png"))
         self.pix_min = QPixmap(os.path.join(dir, "icons", "max.png")).transformed(transformer)
         self.pix_min0 = QPixmap(os.path.join(dir, "icons", "max_inactive.png")).transformed(transformer)
+        self.pix_cs = QPixmap(os.path.join(dir, "icons", "CrossSection_2.png"))
+        self.pix_cs0 = QIcon(self.pix_cs).pixmap(self.pix_cs.width(), self.pix_cs.height(), QIcon.Disabled)
         #self.pix_max0 = QIcon(self.pix_max).pixmap(self.pix_max.width(), self.pix_max.height(), QIcon.Disabled)
         #self.pix_v0 = QIcon(self.pix_v).pixmap(self.pix_v.width(),self.pix_v.height(), QIcon.Disabled)
 
@@ -395,6 +414,10 @@ class DataSetItemDelegate(QStyledItemDelegate):
             enabled = index.data(Qt.UserRole + 7)
             painter.drawPixmap(self.iconRect(option.rect, option.rect.left(), POS_LP),
                                self.pix_lp if enabled else self.pix_lp0)
+
+        elif index.data(Qt.UserRole) == 8:
+            enabled = index.data(Qt.UserRole + 8)
+            painter.drawPixmap(self.iconRect(option.rect, option.rect.left(), POS_C), self.pix_cs if enabled else self.pix_cs0)
 	
         secondaryAxis = index.data(Qt.UserRole + 3)
         painter.drawPixmap(self.iconRect(option.rect, option.rect.right(), POS_2), self.pix_2nd if secondaryAxis else self.pix_2nd0)

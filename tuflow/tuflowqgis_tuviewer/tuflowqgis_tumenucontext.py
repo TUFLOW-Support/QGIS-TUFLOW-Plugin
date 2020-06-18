@@ -22,6 +22,8 @@ class TuContextMenu():
 		
 		# menu function class
 		self.tuMenuFunctions = TuMenuFunctions(TuView)
+
+		self.plotNoToToolbar = self.tuView.tuMenuBar.plotNoToToolbar
 		
 	def loadPlotMenu(self, plotNo, **kwargs):
 		"""
@@ -33,18 +35,22 @@ class TuContextMenu():
 		:param kwargs: dict -> key word arguments
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
 		update = kwargs['update'] if 'update' in kwargs.keys() else False
 		
-		if plotNo == 0:
-			toolbar = self.tuPlot.tuPlotToolbar.lstActionsTimeSeries
-			viewToolbar = self.tuPlot.tuPlotToolbar.viewToolbarTimeSeries
-		elif plotNo == 1:
-			toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot
-			viewToolbar = self.tuPlot.tuPlotToolbar.viewToolbarLongPlot
-		elif plotNo == 2:
-			toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection
-			viewToolbar = self.tuPlot.tuPlotToolbar.viewToolbarCrossSection
+		# if plotNo == 0:
+		# 	toolbar = self.tuPlot.tuPlotToolbar.lstActionsTimeSeries
+		# 	viewToolbar = self.tuPlot.tuPlotToolbar.viewToolbarTimeSeries
+		# elif plotNo == 1:
+		# 	toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot
+		# 	viewToolbar = self.tuPlot.tuPlotToolbar.viewToolbarLongPlot
+		# elif plotNo == 2:
+		# 	toolbar = self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection
+		# 	viewToolbar = self.tuPlot.tuPlotToolbar.viewToolbarCrossSection
+
+		toolbar, viewToolbar, mplToolbar = self.plotNoToToolbar[plotNo]
 		
 		if not update:  # only create menu if not just an update (updates when switching between plot type tabs)
 			self.plotMenu = QMenu(self.tuView)
@@ -58,7 +64,7 @@ class TuContextMenu():
 		self.refreshCurrentPlotWindow_action = QAction(iconRefreshPlot, 'Refresh Plot Window', self.plotMenu)
 		self.clearPlotWindow_action = QAction(iconClearPlot, 'Clear Plot Window', self.plotMenu)
 		self.exportAsCSV_action = QAction('Export Plot As CSV', self.plotMenu)
-		
+
 		self.plotMenu.addAction(self.userPlotDataManager_action)
 		self.plotMenu.addSeparator()
 		self.plotMenu.addAction(toolbar[0])
@@ -70,6 +76,9 @@ class TuContextMenu():
 		self.plotMenu.addAction(self.freezeAxisXLimits_action)
 		self.plotMenu.addAction(self.freezeAxisYLimits_action)
 		self.plotMenu.addSeparator()
+		self.plotMenu.addAction(viewToolbar.hGridLines_action)
+		self.plotMenu.addAction(viewToolbar.vGridLines_action)
+		self.plotMenu.addSeparator()
 		self.plotMenu.addAction(self.refreshCurrentPlotWindow_action)
 		self.plotMenu.addAction(self.clearPlotWindow_action)
 		self.plotMenu.addSeparator()
@@ -79,14 +88,19 @@ class TuContextMenu():
 		exportMenu = self.plotMenu.addMenu('&Export')
 		exportMenu.addAction(toolbar[9])
 		exportMenu.addAction(self.exportAsCSV_action)
+		if plotNo == TuPlot.CrossSection or plotNo == TuPlot.VerticalProfile:
+			self.plotMenu.addSeparator()
+			self.plotMenu.addAction(self.tuPlot.verticalMesh_action)
 		
 		#self.userPlotDataManager_action.triggered.connect(self.tuMenuFunctions.openUserPlotDataManager)
 		self.freezeAxisLimits_action.triggered.connect(viewToolbar.freezeXYAxis)
 		self.freezeAxisXLimits_action.triggered.connect(viewToolbar.freezeXAxis)
 		self.freezeAxisYLimits_action.triggered.connect(viewToolbar.freezeYAxis)
 		self.refreshCurrentPlotWindow_action.triggered.connect(self.tuView.refreshCurrentPlot)
+		# self.clearPlotWindow_action.triggered.connect(
+		# 	lambda: self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), clear_rubberband=True, clear_selection=True))
 		self.clearPlotWindow_action.triggered.connect(
-			lambda: self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), clear_rubberband=True, clear_selection=True))
+			lambda: self.tuView.tuPlot.clearPlot2(self.tuView.tabWidget.currentIndex()))
 		self.exportAsCSV_action.triggered.connect(self.tuMenuFunctions.exportCSV)
 		
 		return True
@@ -101,15 +115,12 @@ class TuContextMenu():
 										 2: cross section plot
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.tuPlot.plotEnumerator(plotNo)
 		
-		if plotNo == 0:
-			self.plotMenu.popup(self.tuPlot.plotWidgetTimeSeries.mapToGlobal(pos))
-		elif plotNo == 1:
-			self.plotMenu.popup(self.tuPlot.plotWidgetLongPlot.mapToGlobal(pos))
-		elif plotNo == 2:
-			self.plotMenu.popup(self.tuPlot.plotWidgetCrossSection.mapToGlobal(pos))
-		else:
-			return False
+		self.plotMenu.popup(plotWidget.mapToGlobal(pos))
+
 		
 		return True
 	
@@ -126,25 +137,37 @@ class TuContextMenu():
 		self.load1d2dResults_action = QAction('Load Results', self.resultsMenu)
 		self.load2dResults_action = QAction('Load Results - Map Outputs', self.resultsMenu)
 		self.load1dResults_action = QAction('Load Results - Time Series', self.resultsMenu)
+		self.loadParticlesResults_action = QAction('Load Results - Particles', self.resultsMenu)
+		self.loadHydraulicTable_action = QAction("Import 1D Hydraulic Tables", self.resultsMenu)
 		self.remove1d2dResults_action = QAction(closeResultsIcon, 'Close Results', self.resultsMenu)
 		self.remove2dResults_action = QAction('Close Results - Map Outputs', self.resultsMenu)
 		self.remove1dResults_action = QAction('Close Results - Time Series', self.resultsMenu)
-		
+		self.removeParticlesResults_action = QAction('Close Results - Particles', self.resultsMenu)
+		self.closeHydraulicTable_action = QAction("Close 1D Hydraulic Tables", self.resultsMenu)
+
 		self.resultsMenu.addAction(self.load1d2dResults_action)
 		self.resultsMenu.addAction(self.load2dResults_action)
 		self.resultsMenu.addAction(self.load1dResults_action)
+		self.resultsMenu.addAction(self.loadParticlesResults_action)
+		self.resultsMenu.addAction(self.loadHydraulicTable_action)
 		self.resultsMenu.addSeparator()
 		self.resultsMenu.addAction(self.remove1d2dResults_action)
 		self.resultsMenu.addAction(self.remove2dResults_action)
 		self.resultsMenu.addAction(self.remove1dResults_action)
-		
+		self.resultsMenu.addAction(self.removeParticlesResults_action)
+		self.resultsMenu.addAction(self.closeHydraulicTable_action)
+
 		self.load2dResults_action.triggered.connect(self.tuMenuFunctions.load2dResults)
 		self.load1dResults_action.triggered.connect(self.tuMenuFunctions.load1dResults)
+		self.loadParticlesResults_action.triggered.connect(self.tuMenuFunctions.loadParticlesResults)
 		self.load1d2dResults_action.triggered.connect(self.tuMenuFunctions.load1d2dResults)
+		self.loadHydraulicTable_action.triggered.connect(self.tuMenuFunctions.loadHydraulicTables)
 		self.remove1d2dResults_action.triggered.connect(self.tuMenuFunctions.remove1d2dResults)
 		self.remove2dResults_action.triggered.connect(self.tuMenuFunctions.remove2dResults)
 		self.remove1dResults_action.triggered.connect(self.tuMenuFunctions.remove1dResults)
-		
+		self.removeParticlesResults_action.triggered.connect(self.tuMenuFunctions.removeParticlesResults)
+		self.closeHydraulicTable_action.triggered.connect(self.tuMenuFunctions.removeHydraulicTables)
+
 		return True
 	
 	def showResultsMenu(self, pos):
@@ -180,10 +203,13 @@ class TuContextMenu():
 		self.loadDefaultStyle_action = QAction('Load Default Style', self.resultTypesMenu)
 		self.loadDefaultVectorStyle_action = QAction('Load Default Vector Style', self.resultTypesMenu)
 		self.propertiesDialog_action = QAction('Properties', self.resultTypesMenu)
+		self.includeFlowRegime_action = QAction('Flow Regime', self.resultTypesMenu)
+		self.includeFlowRegime_action.setCheckable(True)
 		
 		self.resultTypesMenu.addAction(self.setToMaximumResult_action)
 		self.resultTypesMenu.addAction(self.setToMinimumResult_action)
 		self.resultTypesMenu.addAction(self.setToSecondaryAxis_action)
+		self.resultTypesMenu.addAction(self.includeFlowRegime_action)
 		self.resultTypesMenu.addSeparator()
 		self.saveStyleMenu = self.resultTypesMenu.addMenu('Save Style as Default')
 		self.saveStyleMenu.addAction(self.saveDefaultStyleRamp_action)
@@ -203,6 +229,7 @@ class TuContextMenu():
 		self.loadDefaultStyle_action.triggered.connect(lambda: self.tuMenuFunctions.loadDefaultStyleScalar(use_clicked=True))
 		self.loadDefaultVectorStyle_action.triggered.connect(lambda: self.tuMenuFunctions.loadDefaultStyleVector(use_clicked=True))
 		self.propertiesDialog_action.triggered.connect(lambda: self.tuView.resultTypeDoubleClicked(None))
+		self.includeFlowRegime_action.triggered.connect(self.tuMenuFunctions.flowRegimeToggled)
 		
 		return True
 	
@@ -213,7 +240,9 @@ class TuContextMenu():
 		:param pos: QPoint
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
+		flowRegimeExists = 'flow regime' in [x.ds_name.lower() for x in self.tuView.OpenResultTypes.model().timeSeriesItem.children()]
+
 		modelIndex = self.tuView.OpenResultTypes.indexAt(pos)
 		if modelIndex.isValid():
 			item = self.tuView.OpenResultTypes.model().index2item(modelIndex)
@@ -255,6 +284,16 @@ class TuContextMenu():
 						self.setToMinimumResult_action.setChecked(False)
 				else:
 					self.setToMinimumResult_action.setEnabled(False)
+				# flow regime
+				if item.hasFlowRegime:
+					self.includeFlowRegime_action.setEnabled(True)
+					if item.isFlowRegime:
+						self.includeFlowRegime_action.setChecked(True)
+					else:
+						self.includeFlowRegime_action.setChecked(False)
+				else:
+					self.includeFlowRegime_action.setEnabled(False)
+
 				# save and load styling
 				if item.ds_type == 1:  # scalar
 					self.saveStyleMenu.menuAction().setVisible(True)
@@ -262,19 +301,31 @@ class TuContextMenu():
 					self.saveDefaultVectorStyle_action.setVisible(False)
 					self.loadDefaultVectorStyle_action.setVisible(False)
 					self.propertiesDialog_action.setVisible(True)
+					self.includeFlowRegime_action.setVisible(False)
 				elif item.ds_type == 2:  # vector
 					self.saveStyleMenu.menuAction().setVisible(False)
 					self.loadDefaultStyle_action.setVisible(False)
 					self.saveDefaultVectorStyle_action.setVisible(True)
 					self.loadDefaultVectorStyle_action.setVisible(True)
 					self.propertiesDialog_action.setVisible(True)
-				else:  # time series or long plot
+					self.includeFlowRegime_action.setVisible(False)
+				elif item.ds_type == 4 or item.ds_type == 5:  # time series plot
 					self.saveStyleMenu.menuAction().setVisible(False)
 					self.loadDefaultStyle_action.setVisible(False)
 					self.saveDefaultVectorStyle_action.setVisible(False)
 					self.loadDefaultVectorStyle_action.setVisible(False)
 					self.propertiesDialog_action.setVisible(False)
+					self.includeFlowRegime_action.setVisible(True)
+				else:  # long plot
+					self.saveStyleMenu.menuAction().setVisible(False)
+					self.loadDefaultStyle_action.setVisible(False)
+					self.saveDefaultVectorStyle_action.setVisible(False)
+					self.loadDefaultVectorStyle_action.setVisible(False)
+					self.propertiesDialog_action.setVisible(False)
+					self.includeFlowRegime_action.setVisible(False)
 		
+		if not flowRegimeExists:
+			self.includeFlowRegime_action.setVisible(False)
 		self.resultTypeContextItem = item
 		self.resultTypesMenu.popup(self.tuView.OpenResultTypes.mapToGlobal(pos))
 		
@@ -290,11 +341,13 @@ class TuContextMenu():
 		self.tuPlot.plotWidgetTimeSeries.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.tuPlot.plotWidgetLongPlot.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.tuPlot.plotWidgetCrossSection.setContextMenuPolicy(Qt.CustomContextMenu)
+		self.tuPlot.plotWidgetVerticalProfile.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.tuView.OpenResults.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.tuView.OpenResultTypes.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.tuPlot.plotWidgetTimeSeries.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 0))
 		self.tuPlot.plotWidgetLongPlot.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 1))
 		self.tuPlot.plotWidgetCrossSection.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 2))
+		self.tuPlot.plotWidgetVerticalProfile.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 3))
 		self.tuView.OpenResults.customContextMenuRequested.connect(self.showResultsMenu)
 		self.tuView.OpenResultTypes.customContextMenuRequested.connect(self.showResultTypesMenu)
 		

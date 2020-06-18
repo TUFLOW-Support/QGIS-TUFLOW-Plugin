@@ -156,6 +156,8 @@ class DataCollector(QObject):
             id = self.getIdFromFid(layer.name(), f.id())
             if id is None:
                 featureData = self.populateFeatureData(layer, f, dem)
+                if self.errMessage is not None:
+                    return
                 id = featureData.id
             else:
                 featureData = self.features[id]
@@ -332,6 +334,9 @@ class DataCollector(QObject):
 
         # create drape data object and store in dict
         drapeData = DrapeData(self.iface, id, layer, feature, dem)
+        if drapeData.error:
+            self.errMessage = drapeData.message
+            return
         self.drapes[id] = drapeData
 
         return featureData

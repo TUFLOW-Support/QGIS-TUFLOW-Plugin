@@ -94,7 +94,7 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		
 		i = 0
 		for name, layer in QgsProject.instance().mapLayers().items():
-			if layer.type() == QgsMapLayerType.VectorLayer:
+			if layer.type() == QgsMapLayer.VectorLayer:
 				self.sourcelayer.addItem(layer.name())
 				if layer.name() == cName:
 					self.sourcelayer.setCurrentIndex(i)
@@ -143,7 +143,7 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		outname = unicode(self.outfilename.displayText()).strip()
 		if not outname[-4:].upper() == '.SHP':
 			outname = outname+'.shp'
-			QMessageBox.information( self.iface.mainWindow(),"Information", "Appending .shp to filename.")
+			# QMessageBox.information( self.iface.mainWindow(),"Information", "Appending .shp to filename.")
 		outfolder = unicode(self.outfolder.displayText()).strip()
 		savename = os.path.join(outfolder, outname)
 		if savename == self.curr_file:
@@ -566,7 +566,7 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 
 		i = 0
 		for name, layer in QgsProject.instance().mapLayers().items():
-			if layer.type() == QgsMapLayerType.VectorLayer:
+			if layer.type() == QgsMapLayer.VectorLayer:
 				self.sourcelayer.addItem(layer.name())
 				if layer.name() == cName:
 					self.sourcelayer.setCurrentIndex(i)
@@ -594,7 +594,7 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 		layername = unicode(self.sourcelayer.currentText())
 		self.cLayer = tuflowqgis_find_layer(layername)
 		self.elev_attr.clear()
-		if self.cLayer and (self.cLayer.type() == QgsMapLayerType.VectorLayer):
+		if self.cLayer and (self.cLayer.type() == QgsMapLayer.VectorLayer):
 			datacolumns = self.cLayer.dataProvider().fields()
 			GType = self.cLayer.dataProvider().geometryType()
 			if (GType == QGis.WKBPoint):
@@ -790,7 +790,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		#add vector data as options in dropbox
 		i = 0
 		for name, layer in QgsProject.instance().mapLayers().items():
-			if layer.type() == QgsMapLayerType.VectorLayer:
+			if layer.type() == QgsMapLayer.VectorLayer:
 				self.sourcelayer.addItem(layer.name())
 				if cLayer:
 					if layer.name() == cName:
@@ -1179,7 +1179,7 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		
 		# Set up Input Catchment File ComboBox
 		for name, layer in QgsProject.instance().mapLayers().items():
-				if layer.type() == QgsMapLayerType.VectorLayer:
+				if layer.type() == QgsMapLayer.VectorLayer:
 					if layer.geometryType() == QgsWkbTypes.PointGeometry or layer.geometryType() == QgsWkbTypes.PolygonGeometry:
 						self.comboBox_inputCatchment.addItem(layer.name())
 							
@@ -1266,7 +1266,72 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		                                                          "HTML format (*.html *.HTML)", self.leBOMFile))
 		self.pbOk.clicked.connect(self.check)
 		self.pbCancel.clicked.connect(self.reject)
+
+		self.preburstTPMethodChanged()
+		self.preburstUnitsChanged()
+		self.cboDurTP.setCurrentIndex(1)
+		self.cboDurTPChanged()
+		self.cboPreburstTPMethod.currentIndexChanged.connect(self.preburstTPMethodChanged)
+		self.cboPreburstDurUnits.currentIndexChanged.connect(self.preburstUnitsChanged)
+		self.cboDurTP.currentIndexChanged.connect(self.cboDurTPChanged)
+
+	def cboDurTPChanged(self, e=None):
+		"""
+		What happens when preburst temporal pattern duration combobox is changed.
+
+		:param e: QEvent
+		:return: None
+		"""
+
+		if self.cboDurTP.currentIndex() == 0:
+			self.cboDurTP.resize(self.cboDurTP.sizeHint())
+			self.wProportion.setVisible(True)
+		else:
+			self.cboDurTP.resize(self.cboDurTP.sizeHint())
+			self.wProportion.setVisible(False)
+
+
+	def preburstUnitsChanged(self, e=None):
+		"""
+		What happens when preburst constant rate unit combobox is changed.
+		Change the suffix in spinbox.
+
+		:param e: QEvent
+		:return: None
+		"""
+
+		if self.cboPreburstDurUnits.currentIndex() == 0:
+			self.cboPreburstDurUnits.resize(self.cboPreburstDurUnits.sizeHint())
+			self.sbPreBurstDur.setSuffix(" min")
+			self.sbPreBurstDur.setDecimals(0)
+			self.sbPreBurstDur.setMinimum(1)
+		elif self.cboPreburstDurUnits.currentIndex() == 1:
+			self.cboPreburstDurUnits.resize(self.cboPreburstDurUnits.sizeHint())
+			self.sbPreBurstDur.setSuffix(" hr")
+			self.sbPreBurstDur.setDecimals(2)
+			self.sbPreBurstDur.setMinimum(0.01)
+		elif self.cboPreburstDurUnits.currentIndex() == 2:
+			self.cboPreburstDurUnits.resize(self.cboPreburstDurUnits.sizeHint())
+			self.sbPreBurstDur.setSuffix("")
+			self.sbPreBurstDur.setDecimals(2)
+			self.sbPreBurstDur.setMinimum(0.01)
 	
+	def preburstTPMethodChanged(self, e=None):
+		"""
+		What happens when preburst TP method is changed.
+		Make the different method widgets visible / not visible
+
+		:param e: QEvent
+		:return: None
+		"""
+
+		if self.cboPreburstTPMethod.currentIndex() == 0:
+			self.wPreburstConstant.setVisible(True)
+			self.wPreburstTP.setVisible(False)
+		elif self.cboPreburstTPMethod.currentIndex() == 1:
+			self.wPreburstConstant.setVisible(False)
+			self.wPreburstTP.setVisible(True)
+
 	def catchmentLayer_changed(self):
 		layerName = self.comboBox_inputCatchment.currentText()
 		layer = tuflowqgis_find_layer(layerName)
@@ -1755,6 +1820,35 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			offlineMode = 'false'
 			arrFile = 'none'
 			bomFile = 'none'
+
+		# probability neutral burst initial loss
+		pnil = 'true' if self.cbPNIL.isChecked() else 'false'
+
+		# preburst tp
+		complete_storm = 'true' if self.cbCompleteStorm.isChecked() else 'false'
+		preburst_proportional = 'false'
+		preburst_pattern = 'none'
+		preburst_pattern_dur = 'none'
+		preburst_pattern_tp = 'none'
+		if self.cbCompleteStorm.isChecked():
+			if self.cboPreburstTPMethod.currentIndex() == 0:
+				preburst_pattern = 'constant'
+				if self.cboPreburstDurUnits.currentIndex() == 0:
+					preburst_pattern_dur = f'{self.sbPreBurstDur.value()/60.:.4f}'
+				elif self.cboPreburstDurUnits.currentIndex() == 1:
+					preburst_pattern_dur = f'{self.sbPreBurstDur.value():.2f}'
+				elif self.cboPreburstDurUnits.currentIndex() == 2:
+					preburst_proportional = 'true'
+					preburst_pattern_dur = f'{self.sbPreBurstDur.value():.2f}'
+			elif self.cboPreburstTPMethod.currentIndex() == 1:
+				preburst_pattern = 'tp'
+				preburst_pattern_tp = self.cboTP.currentText()
+				if self.cboDurTP.currentIndex() == 0:
+					preburst_proportional = 'true'
+					preburst_pattern_dur = f'{self.sbProportion.value():.2f}'
+				else:
+					preburst_pattern_dur = self.cboDurTP.currentText()
+
 		
 		# get system arguments and call ARR2016 tool
 		# use QThread so that progress bar works properly
@@ -1775,7 +1869,11 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			            '-offline_mode', offlineMode, '-arr_file', arrFile, '-bom_file', bomFile,
 			            '-user_initial_loss', userInitialLoss, '-user_continuing_loss', userContinuingLoss,
 			            '-arffreq', arfFrequent, '-urban_initial_loss', urbanInitialLoss,
-			            '-urban_continuing_loss', urbanContinuingLoss]
+			            '-urban_continuing_loss', urbanContinuingLoss,
+			            '-probability_neutral_losses', pnil,
+			            '-complete_storm', complete_storm, '-preburst_pattern_method', preburst_pattern,
+			            '-preburst_pattern_dur', preburst_pattern_dur, '-preburst_pattern_tp', preburst_pattern_tp,
+			            '-preburst_dur_proportional', preburst_proportional]
 			self.arr2016.append(sys_args, name_list[i])
 			
 		self.arr2016.moveToThread(self.thread)
@@ -1990,7 +2088,7 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 		
 		# Set up Input Catchment File ComboBox
 		for name, layer in QgsProject.instance().mapLayers().items():
-			if layer.type() == QgsMapLayerType.VectorLayer:
+			if layer.type() == QgsMapLayer.VectorLayer:
 				self.comboBox_inputLayer.addItem(layer.name())						
 		
 		# load stored settings
@@ -2565,6 +2663,9 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		# cross section and flux line resolution
 		self.sbResolution.setValue(self.tuOptions.resolution)
 
+		# vertical profile interpolation
+		self.cbInterpolateVertProf.setChecked(self.tuOptions.verticalProfileInterpolated)
+
 		# layer selection labelling
 		self.sbLabelFieldIndex.setValue(self.tuOptions.iLabelField + 1)
 		
@@ -2573,12 +2674,31 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 			self.rbARRNextHigher.setChecked(True)
 		else:
 			self.rbARRClosest.setChecked(True)
+
+		# default layout
+		if self.tuOptions.defaultLayout == "plot":
+			self.rbDefaultLayoutPlotView.setChecked(True)
+		else:
+			self.rbDeafultLayoutNarrowView.setChecked(True)
+
+		# debug - check files
+		if self.tuOptions.writeMeshIntersects:
+			self.cbMeshIntCheck.setChecked(True)
+		else:
+			self.cbMeshIntCheck.setChecked(False)
+		self.cbParticleDebug.setChecked(self.tuOptions.particlesWriteDebugInfo)
+
 		
 		# Signals
 		self.leDateFormat.textChanged.connect(self.updatePreview)
+		self.rbDefaultLayoutPlotView.clicked.connect(lambda: self.saveDefaultLayout("plot"))
+		self.rbDeafultLayoutNarrowView.clicked.connect(lambda: self.saveDefaultLayout("narrow"))
 		self.buttonBox.rejected.connect(self.cancel)
 		self.buttonBox.accepted.connect(self.run)
 		
+	def saveDefaultLayout(self, layoutType):
+		QSettings().setValue("TUFLOW/tuview_defaultlayout", layoutType)
+
 	def updatePreview(self):
 		self.tuOptions.dateFormat, self.tuOptions._dateFormat = convertTuviewftimToStrftim(self.leDateFormat.text())
 		self.datePreview.setText(self.tuOptions._dateFormat.format(self.date))
@@ -2652,6 +2772,9 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		# cross section and flux line resolution
 		self.tuOptions.resolution = self.sbResolution.value()
 
+		# vertical profile interpolation
+		self.tuOptions.verticalProfileInterpolated = self.cbInterpolateVertProf.isChecked()
+
 		# layer selection labelling
 		self.tuOptions.iLabelField = self.sbLabelFieldIndex.value() - 1
 		
@@ -2660,6 +2783,19 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 			self.tuOptions.meanEventSelection = 'next higher'
 		else:
 			self.tuOptions.meanEventSelection = 'closest'
+
+		# default layout
+		if self.rbDefaultLayoutPlotView.isChecked():
+			self.tuOptions.defaultLayout = "plot"
+		else:
+			self.tuOptions.defaultLayout = "narrow"
+
+		# debug - check files
+		if self.cbMeshIntCheck.isChecked():
+			self.tuOptions.writeMeshIntersects = True
+		else:
+			self.tuOptions.writeMeshIntersects = False
+		self.tuOptions.particlesWriteDebugInfo = self.cbParticleDebug.isChecked()
 			
 
 # ----------------------------------------------------------
@@ -2704,7 +2840,7 @@ class TuSelectedElementsDialog(QDialog, Ui_selectedElements):
 			selIds.append(item.text())
 		
 		for layer in self.iface.mapCanvas().layers():
-			if layer.type() == QgsMapLayerType.VectorLayer:
+			if layer.type() == QgsMapLayer.VectorLayer:
 				if ' plot ' in layer.name().lower() or '_plot_' in layer.name().lower():
 					layer.removeSelection()
 					for feature in layer.getFeatures():
@@ -2742,15 +2878,22 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 		self.project.layersAdded.connect(self.populateGISLayers)
 		self.cbGISLayer.currentIndexChanged.connect(self.populateTimeSteps)
 		self.cbGISLayer.currentIndexChanged.connect(self.populateNameAttributes)
-		self.mcbResultMesh.checkedItemsChanged.connect(self.populateResultTypes)
-		self.mcbResultMesh.checkedItemsChanged.connect(self.populateTimeSteps)
-		self.btnBrowse.clicked.connect(self.browse)
+		self.cbGISLayer.currentIndexChanged.connect(self.populateResultTypes)
+		# self.mcbResultMesh.checkedItemsChanged.connect(self.populateResultTypes)
+		# self.mcbResultMesh.checkedItemsChanged.connect(self.populateTimeSteps)
+		self.lwResultMesh.itemSelectionChanged.connect(self.populateResultTypes)
+		self.lwResultMesh.itemSelectionChanged.connect(self.populateTimeSteps)
+		#self.mcbResultMesh.currentTextChanged.connect(self.populateResultTypes)
+		#self.mcbResultMesh.currentTextChanged.connect(self.populateTimeSteps)
+		# self.mcbResultTypes.checkedItemsChanged.connect(self.populateTimeSteps)
+		self.btnBrowse.clicked.connect(lambda: browse(self, 'existing folder', 'TUFLOW/batch_export', 'Ouput Folder',
+		                                              "", self.outputFolder))
 		self.buttonBox.accepted.connect(self.check)
 		self.buttonBox.rejected.connect(self.reject)
 		
 	def populateGISLayers(self):
 		for name, layer in QgsProject.instance().mapLayers().items():
-			if layer.type() == QgsMapLayerType.VectorLayer:
+			if layer.type() == QgsMapLayer.VectorLayer:
 				if layer.geometryType() == QgsWkbTypes.PointGeometry or layer.geometryType() == QgsWkbTypes.LineGeometry:
 					self.cbGISLayer.addItem(layer.name())
 					
@@ -2764,41 +2907,68 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 	def populateResultMesh(self):
 		for resultName, result in self.tuView.tuResults.results.items():
 			for type, items in result.items():
-				if '_ts' not in type and '_lp' not in type:  # check if there is at least one 2D result type
-					self.mcbResultMesh.addItem(resultName)
+				if '_ts' not in type and '_lp' not in type and '_particles':  # check if there is at least one 2D result type
+					# self.mcbResultMesh.addItem(resultName)
+					self.lwResultMesh.addItem(resultName)
 					break
 	
 	def populateResultTypes(self):
 		self.mcbResultTypes.clear()
+		layer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
 		resultTypes = []
-		for mesh in self.mcbResultMesh.checkedItems():
-			r = self.tuView.tuResults.results[mesh]
-			for type, t in r.items():
-				if '/Maximums' not in type:
-					if type not in resultTypes:
-						resultTypes.append(type)
+		# meshes = [self.mcbResultMesh.currentText()]
+		# meshes = self.mcbResultMesh.checkedItems()
+		meshes = [x.text() for x in self.lwResultMesh.selectedItems()]
+		if layer is not None:
+			for mesh in meshes:
+			#for mesh in self.mcbResultMesh.checkedItems():
+				r = self.tuView.tuResults.results[mesh]
+				for type, t in r.items():
+					if (layer.geometryType() == QgsWkbTypes.LineGeometry or ('isTemporal' in t
+							and t['isTemporal'] and layer.geometryType() == QgsWkbTypes.PointGeometry)) \
+							and ('isMax' in t and not t['isMax'] and 'isMin' in t and not t['isMin']):
+						if type not in resultTypes:
+							resultTypes.append(type)
+
 		self.mcbResultTypes.addItems(resultTypes)
 		
-	def populateTimeSteps(self):
+	def populateTimeSteps(self, *args):
+
+		self.cbTimesteps.clear()
 		self.cbTimesteps.setEnabled(False)
 		timesteps = []
 		timestepsFormatted = []
 		maximum = False
+		minimum = False
 		layer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
 		if layer is not None:
 			if layer.geometryType() == QgsWkbTypes.PointGeometry:
 				self.cbTimesteps.setEnabled(False)
 			elif layer.geometryType() == QgsWkbTypes.LineGeometry:
 				self.cbTimesteps.setEnabled(True)
-				for mesh in self.mcbResultMesh.checkedItems():
+				# meshes = [self.mcbResultMesh.currentText()]
+				# meshes = self.mcbResultMesh.checkedItems()
+				meshes = [x.text() for x in self.lwResultMesh.selectedItems()]
+				rts = [x.lower() for x in self.mcbResultTypes.checkedItems()]
+				for mesh in meshes:
+				# for mesh in self.mcbResultMesh.checkedItems():
 					r = self.tuView.tuResults.results[mesh]
 					for rtype, t in r.items():
 						if type(t) is dict:  # map outputs results stored in dict, time series results stored as tuple
-							for time, items in t.items():
-								if time == '-99999':
-									maximum = True
-								elif items[0] not in timesteps:
-									timesteps.append(items[0])
+							if (layer.geometryType() == QgsWkbTypes.LineGeometry or ('isTemporal' in t
+									and t['isTemporal'] and layer.geometryType() == QgsWkbTypes.PointGeometry)) \
+									and ('isMax' in t and not t['isMax'] and 'isMin' in t and not t['isMin']):
+								if 'times' in t:
+									for time, items in t['times'].items():
+										if time == '99999' or time == '-99999':
+											continue
+										elif items[0] not in timesteps:
+											timesteps.append(items[0])
+							elif 'isMax' in t and t['isMax']:
+								maximum = True
+							elif 'isMin' in t and t['isMin']:
+								minimum = True
+
 				timesteps = sorted(timesteps)
 				if timesteps:
 					if timesteps[-1] < 100:
@@ -2807,6 +2977,8 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 						timestepsFormatted = [convertTimeToFormattedTime(x, hour_padding=3) for x in timesteps]
 					if maximum:
 						timestepsFormatted.insert(0, 'Maximum')
+					if minimum:
+						timestepsFormatted.insert(0, 'Minimum')
 		self.cbTimesteps.addItems(timestepsFormatted)
 	
 	def populateImageFormats(self):
@@ -2840,7 +3012,7 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 	def check(self):
 		if not self.cbGISLayer.currentText():
 			QMessageBox.information(self, 'Missing Data', 'Missing GIS Layer')
-		elif not self.mcbResultMesh.checkedItems():
+		elif not self.lwResultMesh.selectedItems():
 			QMessageBox.information(self, 'Missing Data', 'Missing Result Mesh')
 		elif not self.mcbResultTypes.checkedItems():
 			QMessageBox.information(self, 'Missing Data', 'Missing Result Types')
@@ -2861,7 +3033,8 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 		# get parameters
 		gisLayer = self.cbGISLayer.currentText()  # str
 		nameField = self.cbNameAttribute.currentText()  # str
-		resultMesh = self.mcbResultMesh.checkedItems()  # list -> str
+		# resultMesh = self.mcbResultMesh.checkedItems()  # list -> str
+		resultMesh = [x.text() for x in self.lwResultMesh.selectedItems()]
 		resultTypes = self.mcbResultTypes.checkedItems()  # list -> str
 		timestep = self.cbTimesteps.currentText()  # str
 		features = 'all' if self.rbAllFeatures.isChecked() else 'selection'  # str
@@ -3099,6 +3272,7 @@ class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
 		self.ok = False
 		self.message = ''
 		self._dateFormat = '{0:%d}/{0:%m}/{0:%Y} {0:%H}:{0:%M}:{0:%S}'
+		self.dteZeroTime.setDisplayFormat('d/M/yyyy h:mm AP')
 		
 		self.btnBrowse.clicked.connect(lambda: browse(self, 'existing file', 'TUFLOW/import_user_data',
 		                                              'Import Delimited File', lineEdit=self.inFile))
@@ -3124,6 +3298,15 @@ class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
 		self.dteZeroTime.dateTimeChanged.connect(self.updatePreview)
 		self.pbOk.clicked.connect(self.check)
 		self.pbCancel.clicked.connect(self.reject)
+		self.cbUSDateFormat.toggled.connect(self.dateFormatChanged)
+
+	def dateFormatChanged(self,):
+		if self.cbUSDateFormat.isChecked():
+			self.dteZeroTime.setDisplayFormat('M/d/yyyy h:mm AP')
+		else:
+			self.dteZeroTime.setDisplayFormat('d/M/yyyy h:mm AP')
+
+		self.updatePreview()
 
 	def addDateConversionError(self, txt='', clear=False):
 		"""
@@ -3746,6 +3929,8 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 		self.buttonGroup = QButtonGroup()
 		self.buttonGroup.addButton(self.rbCommonFunctions)
 		self.buttonGroup.addButton(self.rbAdvanced)
+		self.rbCommonFunctions.setVisible(False)
+		self.rbAdvanced.setVisible(False)
 		self.rbCommonFunctions.setChecked(True)
 		self.loadProjectSettings()
 		
@@ -3758,6 +3943,36 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 		self.pbDownloadExecutables.clicked.connect(self.downloadExecutables)
 		self.pbOK.clicked.connect(self.check)
 		self.pbCancel.clicked.connect(self.reject)
+		self.tabWidget.currentChanged.connect(self.currentTabChanged)
+		self.btnFindFile.clicked.connect(self.findFile)
+
+	def findFile(self):
+		files = QFileDialog.getOpenFileNames(self, "Select File(s)", self.leAdvWorkingDir.text(), "ALL (*)")[0]
+		text = [self.teCommands.toPlainText()]
+		# for f in files:
+		# 	name = os.path.basename(f)
+		# 	if not text[0]:
+		# 		t = "{0}".format(name)
+		# 	elif text[0][-1] == " ":
+		# 		t = "{0}".format(name)
+		# 	else:
+		# 		t = " {0}".format(name)
+		# 	text.append(t)
+		relPaths = [os.path.relpath(x, self.leAdvWorkingDir.text()) for x in files]
+		if text[0] and text[0][-1] == " ":
+			text[0] = text[0][:-1]
+		text.extend(relPaths)
+		text = ' '.join(text)
+		self.teCommands.setPlainText(text)
+
+	def currentTabChanged(self):
+		self.pbOK.setEnabled(True)
+		if self.tabWidget.currentIndex() == 0:
+			self.rbCommonFunctions.setChecked(True)
+		elif self.tabWidget.currentIndex() == 1:
+			self.rbAdvanced.setChecked(True)
+		else:
+			self.pbOK.setEnabled(False)
 		
 	def downloadExecutables(self):
 		# check if windows

@@ -41,6 +41,14 @@ import matplotlib
 import glob # MJS 11/02
 from tuflow.utm.utm import from_latlon, to_latlon
 from tuflow.__version__ import version
+import ctypes
+from typing import Tuple, List
+import matplotlib.gridspec as gridspec
+from matplotlib.quiver import Quiver
+from matplotlib.collections import PolyCollection
+from matplotlib import cm
+import inspect
+import xml.etree.ElementTree as ET
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tuflowqgis_styles
@@ -50,6 +58,63 @@ import tuflowqgis_styles
 # --------------------------------------------------------
 #build_vers = build_vers
 #build_type = 'release' #release / developmental
+
+class NC_Error:
+	NC_NOERR = 0
+	NC_EBADID = -33
+	NC_ENOTVAR = -49
+	NC_EBADDIM = -46
+	NC_EPERM = -37
+	NC_ENFILE = -34
+	NC_ENOMEM = -61
+	NC_EHDFERR = -101
+	NC_EDIMMETA = -106
+
+	@staticmethod
+	def message(error):
+		error2message = {
+			NC_Error.NC_NOERR: "No error",
+			NC_Error.NC_EBADID: "Invalid ncid",
+			NC_Error.NC_ENOTVAR: "Invalid Variable ID",
+			NC_Error.NC_EBADDIM: "Invalid Dimension ID",
+			NC_Error.NC_EPERM: "Attempting to create a netCDF file in a directory where you do not have permission to open files",
+			NC_Error.NC_ENFILE: "Too many files open",
+			NC_Error.NC_ENOMEM: "Out of memory",
+			NC_Error.NC_EHDFERR: "HDF5 error. (NetCDF-4 files only.)",
+			NC_Error.NC_EDIMMETA: "Error in netCDF-4 dimension metadata. (NetCDF-4 files only.)"
+		}
+
+		if error in error2message:
+			return error2message[error]
+		else:
+			return "code {0}".format(error)
+
+
+class NcDim():
+
+	def __init__(self):
+		self.id = -1
+		self.name = ""
+		self.len = 0
+
+	def print_(self):
+		return 'id: {0}, name: {1}, len: {2}'.format(self.id, self.name, self.len)
+
+
+class NcVar():
+
+	def __init__(self):
+		self.id = -1
+		self.name = ""
+		self.type = -1
+		self.nDims = 0
+		self.dimIds = ()
+		self.dimNames = ()
+		self.dimLens = ()
+
+	def print_(self):
+		return 'id: {0}, name: {1}, type: {2}, nDim: {3}, dims: ({4})'.format(self.id, self.name, self.type, self.nDims, ', '.join(self.dimNames))
+
 
 def about(window):
 	build_type, build_vers = version()
@@ -134,14 +199,14 @@ def findAllVectorLyrs():
 
 	vectorLyrs = []
 	for name, search_layer in QgsProject.instance().mapLayers().items():
-		if search_layer.type() == QgsMapLayerType.VectorLayer:
+		if search_layer.type() == QgsMapLayer.VectorLayer:
 			vectorLyrs.append(search_layer.name())
 
 	return vectorLyrs
 
 
 def tuflowqgis_duplicate_file(qgis, layer, savename, keepform):
-	if (layer == None) and (layer.type() != QgsMapLayerType.VectorLayer):
+	if (layer == None) and (layer.type() != QgsMapLayer.VectorLayer):
 		return "Invalid Vector Layer " + layer.name()
 		
 	# Create output file
@@ -312,7 +377,7 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 def tuflowqgis_get_selected_IDs(qgis,layer):
 	QMessageBox.information(qgis.mainWindow(),"Info", "Entering tuflowqgis_get_selected_IDs")
 	IDs = []
-	if (layer == None) and (layer.type() != QgsMapLayerType.VectorLayer):
+	if (layer == None) and (layer.type() != QgsMapLayer.VectorLayer):
 		return None, "Invalid Vector Layer " + layer.name()
 
 	dataprovider = layer.dataProvider()
@@ -697,7 +762,7 @@ def tuflowqgis_apply_check_tf(qgis):
 		return error, message
 		
 	for layer_name, layer in QgsProject.instance().mapLayers().items():
-		if layer.type() == QgsMapLayerType.VectorLayer:
+		if layer.type() == QgsMapLayer.VectorLayer:
 			layer_fname = os.path.split(layer.source())[1][:-4]
 			#QMessageBox.information(qgis.mainWindow(), "DEBUG", "shp layer name = "+layer.name())
 			renderer = region_renderer(layer)
@@ -740,7 +805,7 @@ def tuflowqgis_apply_check_tf_clayer(qgis, **kwargs):
 		return error, message
 		
 
-	if cLayer.type() == QgsMapLayerType.VectorLayer:
+	if cLayer.type() == QgsMapLayer.VectorLayer:
 		layer_fname = os.path.split(cLayer.source())[1][:-4]
 		renderer = region_renderer(cLayer)
 		if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
@@ -1285,7 +1350,7 @@ def parseLabelProperties(fpath: str, override: str='', rule_based: bool=False,
 			'only_rule_based': False,
 		}
 
-	isOnlyRuleBased = False
+	isOnlyRuleBased = False if not isOverride else d['only_rule_based']
 	if os.path.exists(fpath):
 		if not rule_based:  # not looking for a specific labelling rule
 			# first sweep pick up rule-based labelling names
@@ -1340,6 +1405,7 @@ def parseLabelProperties(fpath: str, override: str='', rule_based: bool=False,
 						if read:
 							assignLabelProperty(d, comm, val)
 		# check if there is only rule based or if there are also default values i.e. an 'else' rule
+		d['only_rule_based'] = isOnlyRuleBased
 		if not isOnlyRuleBased and d['rule_based']:
 			# copy defaults into a rule called 'else'
 			rule = {
@@ -1703,7 +1769,7 @@ def getDirection(point1, point2, **kwargs):
 	return angle
 
 
-def lineToPoints(feat, spacing, mapUnits):
+def lineToPoints(feat, spacing, mapUnits, **kwargs):
 	"""
 	Takes a line and converts it to points with additional vertices inserted at the max spacing
 
@@ -1714,14 +1780,45 @@ def lineToPoints(feat, spacing, mapUnits):
 
 	from math import sin, cos, asin
 
-	if feat.geometry().wkbType() == QgsWkbTypes.LineString:
+	message = ""
+	if feat.geometry().wkbType() == QgsWkbTypes.LineString or \
+			feat.geometry().wkbType() == QgsWkbTypes.LineStringZ or \
+			feat.geometry().wkbType() == QgsWkbTypes.LineStringM or \
+			feat.geometry().wkbType() == QgsWkbTypes.LineStringZM:
 		geom = feat.geometry().asPolyline()
-	elif feat.geometry().wkbType() == QgsWkbTypes.MultiLineString:
+	elif feat.geometry().wkbType() == QgsWkbTypes.MultiLineString or \
+			feat.geometry().wkbType() == QgsWkbTypes.MultiLineStringZ or \
+			feat.geometry().wkbType() == QgsWkbTypes.MultiLineStringM or \
+			feat.geometry().wkbType() == QgsWkbTypes.MultiLineStringZM:
 		mGeom = feat.geometry().asMultiPolyline()
 		geom = []
 		for g in mGeom:
 			for p in g:
 				geom.append(p)
+	elif feat.geometry().wkbType() == QgsWkbTypes.Unknown:
+		if 'inlcude_error_messaging' in kwargs:
+			if kwargs['inlcude_error_messaging']:
+				if feat.attributes():
+					id = feat.attributes()[0]
+					message = 'Feature with {0} = {1} (FID = {2}) has unknown geometry type, check input feature is valid.'.format(
+							feat.fields().names()[0], feat.attributes()[0], feat.id())
+				else:
+					message = 'Feature with FID = {0} has unknown geometry type, check input feature is valid.'.format(
+							feat.id())
+				return None, None, None, message
+		return None, None, None
+	else:
+		if 'inlcude_error_messaging' in kwargs:
+			if kwargs['inlcude_error_messaging']:
+				if feat.attributes():
+					id = feat.attributes()[0]
+					message = 'Feature with {0} = {1} is not a line geometry type, check input feature is valid.'.format(
+						feat.fields().names()[0], feat.attributes()[0])
+				else:
+					message = 'Feature with fid = {0} is not a line geometry type, check input feature is valid.'.format(
+						feat.id())
+				return None, None, None, message
+		return None, None, None
 	pPrev = None
 	points = []  # X, Y coordinates of point in line
 	chainage = 0
@@ -1739,6 +1836,9 @@ def lineToPoints(feat, spacing, mapUnits):
 			else:
 				length = calculateLength(p, pPrev, mapUnits)
 				if length is None:
+					if 'inlcude_error_messaging' in kwargs:
+						if kwargs['inlcude_error_messaging']:
+							return None, None, None, message
 					return None, None, None
 				if length < spacing:
 					points.append(p)
@@ -1758,7 +1858,10 @@ def lineToPoints(feat, spacing, mapUnits):
 					chainages.append(chainage)
 					directions.append(getDirection(pPrev, newPoint))
 					pPrev = newPoint
-	
+
+	if 'inlcude_error_messaging' in kwargs:
+		if kwargs['inlcude_error_messaging']:
+			return points, chainages, directions, message
 	return points, chainages, directions
 
 
@@ -2035,7 +2138,9 @@ def getResultPathsFromTCF(fpath, **kwargs):
 	outputDrive = checkForOutputDrive(fpath, scenarios)
 	
 	# check for variables
-	variables = getVariableNamesFromTCF(fpath, scenarios)
+	variables, error = getVariableNamesFromTCF(fpath, scenarios)
+	if error:
+		return results1D, results2D, messages
 	
 	# get output folders
 	outputFolder1D, outputFolder2D = getOutputFolderFromTCF(fpath, variables=variables, output_drive=outputDrive,
@@ -2082,7 +2187,7 @@ def getResultPathsFromTCF(fpath, **kwargs):
 					if ext.lower() == '.xmdf' or ext.lower() == '.dat':
 						matches = True
 						for x in basenameComponents2D:
-							if x not in name:
+							if x.lower() not in name.lower():
 								matches = False
 								break
 						if matches:
@@ -2246,9 +2351,12 @@ def getScenariosFromTcf(tcf):
 	
 	messages = []
 	error = False
-	variables = getVariableNamesFromTCF(tcf, 'all')
-	dir = os.path.dirname(tcf)
 	scenarios = []
+	variables, error = getVariableNamesFromTCF(tcf, 'all')
+	if error:
+		message = '\n'.join(messages)
+		return True, message, scenarios
+	dir = os.path.dirname(tcf)
 	msg, scenarios = getScenariosFromControlFile(tcf, scenarios)
 	if msg:
 		error = True
@@ -2747,46 +2855,55 @@ def getVariableNamesFromControlFile(controlFile, variables, scenarios=()):
 	
 	read = True
 	with open(controlFile, 'r') as fo:
-		for f in fo:
-			if 'if scenario' in f.lower():
-				ind = f.lower().find('if scenario')
-				if '!' not in f[:ind]:
-					command, scenario = f.split('==')
-					command = command.strip()
-					scenario = scenario.split('!')[0]
-					scenario = scenario.strip()
-					scenarios_ = scenario.split('|')
-					found = False
-					if scenarios == 'all':
-						found = True
-					else:
-						for scenario in scenarios_:
-							scenario = scenario.strip()
-							if scenario in scenarios:
-								found = True
-					if found:
+		try:
+			for f in fo:
+				if 'if scenario' in f.lower():
+					ind = f.lower().find('if scenario')
+					if '!' not in f[:ind]:
+						command, scenario = f.split('==')
+						command = command.strip()
+						scenario = scenario.split('!')[0]
+						scenario = scenario.strip()
+						scenarios_ = scenario.split('|')
+						found = False
+						if scenarios == 'all':
+							found = True
+						else:
+							for scenario in scenarios_:
+								scenario = scenario.strip()
+								if scenario in scenarios:
+									found = True
+						if found:
+							read = True
+						else:
+							read = False
+				elif 'end if' in f.lower():
+					ind = f.lower().find('end if')
+					if '!' not in f[:ind]:
 						read = True
-					else:
-						read = False
-			elif 'end if' in f.lower():
-				ind = f.lower().find('end if')
-				if '!' not in f[:ind]:
-					read = True
-			elif not read:
-				continue
-			elif 'set variable' in f.lower():
-				ind = f.lower().find('set variable')
-				if '!' not in f[:ind]:
-					command, value = f.split('==')
-					command = command.strip()
-					variable = command[12:].strip()
-					value = value.split('!')[0]
-					value = value.strip()
-					if variable.lower() not in variables:
-						variables[variable.lower()] = []
-					variables[variable.lower()].append(value)
+				elif not read:
+					continue
+				elif 'set variable' in f.lower():
+					ind = f.lower().find('set variable')
+					if '!' not in f[:ind]:
+						command, value = f.split('==')
+						command = command.strip()
+						variable = command[12:].strip()
+						value = value.split('!')[0]
+						value = value.strip()
+						if variable.lower() not in variables:
+							variables[variable.lower()] = []
+						variables[variable.lower()].append(value)
+		except UnicodeDecodeError:
+			msgBox = QMessageBox()
+			msgBox.setIcon(QMessageBox.Critical)
+			msgBox.setWindowTitle("Load Results")
+			msgBox.setTextFormat(Qt.RichText)
+			msgBox.setText("Encoding error:<br>{0}<br><a href='https://wiki.tuflow.com/index.php?title=TUFLOW_Viewer#Loading_Results'>wiki.tuflow.com/index.php?title=TUFLOW_Viewer#Loading_Results</a>".format(controlFile))
+			msgBox.exec()
+			return {}, True
 	
-	return variables
+	return variables, False
 				
 
 def getVariableNamesFromTCF(tcf, scenarios=()):
@@ -2801,102 +2918,125 @@ def getVariableNamesFromTCF(tcf, scenarios=()):
 	dir = os.path.dirname(tcf)
 	variables = {}
 	# first look for variables in tcf
-	variables = getVariableNamesFromControlFile(tcf, variables, scenarios)
+	variables, error = getVariableNamesFromControlFile(tcf, variables, scenarios)
+	if error:
+		return {}, True
 	# then look for variables in other control files
 	read = True
 	with open(tcf, 'r') as fo:
-		for f in fo:
-			if 'if scenario' in f.lower():
-				ind = f.lower().find('if scenario')
-				if '!' not in f[:ind]:
-					command, scenario = f.split('==')
-					command = command.strip()
-					scenario = scenario.split('!')[0]
-					scenario = scenario.strip()
-					scenarios_ = scenario.split('|')
-					found = False
-					if scenarios == 'all':
-						found = True
-					else:
-						for scenario in scenarios_:
-							scenario = scenario.strip()
-							if scenario in scenarios:
-								found = True
-					if found:
+		try:
+			for f in fo:
+				if 'if scenario' in f.lower():
+					ind = f.lower().find('if scenario')
+					if '!' not in f[:ind]:
+						command, scenario = f.split('==')
+						command = command.strip()
+						scenario = scenario.split('!')[0]
+						scenario = scenario.strip()
+						scenarios_ = scenario.split('|')
+						found = False
+						if scenarios == 'all':
+							found = True
+						else:
+							for scenario in scenarios_:
+								scenario = scenario.strip()
+								if scenario in scenarios:
+									found = True
+						if found:
+							read = True
+						else:
+							read = False
+				if 'end if' in f.lower():
+					ind = f.lower().find('end if')
+					if '!' not in f[:ind]:
 						read = True
-					else:
-						read = False
-			if 'end if' in f.lower():
-				ind = f.lower().find('end if')
-				if '!' not in f[:ind]:
-					read = True
-			if not read:
-				continue
-			if 'estry control file' in f.lower():
-				ind = f.lower().find('estry control file')
-				if '!' not in f[:ind]:
-					if 'estry control file auto' in f.lower():
-						path = '{0}.ecf'.format(os.path.splitext(tcf)[0])
-					else:
+				if not read:
+					continue
+				if 'estry control file' in f.lower():
+					ind = f.lower().find('estry control file')
+					if '!' not in f[:ind]:
+						if 'estry control file auto' in f.lower():
+							path = '{0}.ecf'.format(os.path.splitext(tcf)[0])
+						else:
+							command, relPath = f.split('==')
+							command = command.strip()
+							relPath = relPath.split('!')[0]
+							relPath = relPath.strip()
+							path = getPathFromRel(dir, relPath)
+							if os.path.exists(path):
+								variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
+								if error:
+									return {}, True
+				if 'geometry control file' in f.lower():
+					ind = f.lower().find('geometry control file')
+					if '!' not in f[:ind]:
 						command, relPath = f.split('==')
 						command = command.strip()
 						relPath = relPath.split('!')[0]
 						relPath = relPath.strip()
 						path = getPathFromRel(dir, relPath)
 						if os.path.exists(path):
-							variables = getVariableNamesFromControlFile(path, variables, scenarios)
-			if 'geometry control file' in f.lower():
-				ind = f.lower().find('geometry control file')
-				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
-					command = command.strip()
-					relPath = relPath.split('!')[0]
-					relPath = relPath.strip()
-					path = getPathFromRel(dir, relPath)
-					if os.path.exists(path):
-						variables = getVariableNamesFromControlFile(path, variables, scenarios)
-			if 'bc control file' in f.lower():
-				ind = f.lower().find('bc control file')
-				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
-					command = command.strip()
-					relPath = relPath.split('!')[0]
-					relPath = relPath.strip()
-					path = getPathFromRel(dir, relPath)
-					if os.path.exists(path):
-						variables = getVariableNamesFromControlFile(path, variables, scenarios)
-			if 'event control file' in f.lower():
-				ind = f.lower().find('event control file')
-				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
-					command = command.strip()
-					relPath = relPath.split('!')[0]
-					relPath = relPath.strip()
-					path = getPathFromRel(dir, relPath)
-					if os.path.exists(path):
-						variables = getVariableNamesFromControlFile(path, variables, scenarios)
-			if 'read file' in f.lower():
-				ind = f.lower().find('read file')
-				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
-					command = command.strip()
-					relPath = relPath.split('!')[0]
-					relPath = relPath.strip()
-					path = getPathFromRel(dir, relPath)
-					if os.path.exists(path):
-						variables = getVariableNamesFromControlFile(path, variables, scenarios)
-			if 'read operating controls file' in f.lower():
-				ind = f.lower().find('read operating controls file')
-				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
-					command = command.strip()
-					relPath = relPath.split('!')[0]
-					relPath = relPath.strip()
-					path = getPathFromRel(dir, relPath)
-					if os.path.exists(path):
-						variables = getVariableNamesFromControlFile(path, variables, scenarios)
+							variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
+							if error:
+								return {}, True
+				if 'bc control file' in f.lower():
+					ind = f.lower().find('bc control file')
+					if '!' not in f[:ind]:
+						command, relPath = f.split('==')
+						command = command.strip()
+						relPath = relPath.split('!')[0]
+						relPath = relPath.strip()
+						path = getPathFromRel(dir, relPath)
+						if os.path.exists(path):
+							variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
+							if error:
+								return {}, True
+				if 'event control file' in f.lower():
+					ind = f.lower().find('event control file')
+					if '!' not in f[:ind]:
+						command, relPath = f.split('==')
+						command = command.strip()
+						relPath = relPath.split('!')[0]
+						relPath = relPath.strip()
+						path = getPathFromRel(dir, relPath)
+						if os.path.exists(path):
+							variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
+							if error:
+								return {}, True
+				if 'read file' in f.lower():
+					ind = f.lower().find('read file')
+					if '!' not in f[:ind]:
+						command, relPath = f.split('==')
+						command = command.strip()
+						relPath = relPath.split('!')[0]
+						relPath = relPath.strip()
+						path = getPathFromRel(dir, relPath)
+						if os.path.exists(path):
+							variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
+							if error:
+								return {}, True
+				if 'read operating controls file' in f.lower():
+					ind = f.lower().find('read operating controls file')
+					if '!' not in f[:ind]:
+						command, relPath = f.split('==')
+						command = command.strip()
+						relPath = relPath.split('!')[0]
+						relPath = relPath.strip()
+						path = getPathFromRel(dir, relPath)
+						if os.path.exists(path):
+							variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
+							if error:
+								return {}, True
+		except UnicodeDecodeError:
+			msgBox = QMessageBox()
+			msgBox.setIcon(QMessageBox.Critical)
+			msgBox.setWindowTitle("Load Results")
+			msgBox.setTextFormat(Qt.RichText)
+			msgBox.setText("Encoding error:<br>{0}<br><a href='https://wiki.tuflow.com/index.php?title=TUFLOW_Viewer#Loading_Results'>wiki.tuflow.com/index.php?title=TUFLOW_Viewer#Loading_Results</a>".format(controlFile))
+			msgBox.exec()
+			return {}, True
 						
-	return variables
+	return variables, False
 
 
 def loadGisFile(iface, path, group, processed_paths, processed_layers, error, log):
@@ -3023,7 +3163,8 @@ def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers
 			if 'read' in f.lower():
 				ind = f.lower().find('read')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
-					if 'read materials file' not in f.lower() and 'read file' not in f.lower() and 'read operating controls file' not in f.lower():
+					if not re.findall(r'read material(s)? file', f, flags=re.IGNORECASE) \
+							and 'read file' not in f.lower() and 'read operating controls file' not in f.lower():
 						command, relPath = f.split('==')
 						command = command.strip()
 						relPath = relPath.split('!')[0].split('#')[0]
@@ -3057,7 +3198,9 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 	dir = os.path.dirname(tcf)
 	
 	# get variable names and corresponding values
-	variables = getVariableNamesFromTCF(tcf, scenarios)
+	variables, error = getVariableNamesFromTCF(tcf, scenarios)
+	if error:
+		return
 	
 	processed_paths = []
 	processed_layers = []
@@ -3228,9 +3371,16 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 
 
 def applyMatplotLibArtist(line, artist):
-	
+
 	if artist:
-		if type(artist) is dict:
+		if type(line) is PolyCollection:
+			if type(artist) is PolyCollection:
+				line.setcmap(artist.cmap)
+				line.set_clim(artist.norm.vmin, artist.norm.vmax)
+			elif type(artist) is dict:
+				line.set_cmap(artist['cmap'])
+				line.set_clim(artist['vmin'], artist['vmax'])
+		elif type(artist) is dict:
 			line.set_color(artist['color'])
 			line.set_linewidth(artist['linewidth'])
 			line.set_linestyle(artist['linestyle'])
@@ -3248,6 +3398,26 @@ def applyMatplotLibArtist(line, artist):
 			line.set_markersize(artist.get_markersize())
 			line.set_markeredgecolor(artist.get_markeredgecolor())
 			line.set_markerfacecolor(artist.get_markerfacecolor())
+
+
+def saveMatplotLibArtist(artist):
+
+	a = {}
+	if type(artist) is PolyCollection:
+		a['vmin'] = artist.norm.vmin
+		a['vmax'] = artist.norm.vmax
+		a['cmap'] = artist.cmap
+	else:
+		a['color'] = artist.get_color()
+		a['linewidth'] = artist.get_linewidth()
+		a['linestyle'] = artist.get_linestyle()
+		a['drawstyle'] = artist.get_drawstyle()
+		a['marker'] = artist.get_marker()
+		a['markersize'] = artist.get_markersize()
+		a['markeredgecolor'] = artist.get_markeredgecolor()
+		a['markerfacecolor'] = artist.get_markerfacecolor()
+
+	return a
 		
 		
 def getMean(values, **kwargs):
@@ -4677,8 +4847,168 @@ def convertFormattedTimeToTime(formatted_time, hour_padding=2, unit='h'):
 	else:
 		return d.total_seconds() / 3600
 
+def convertFormattedDateToTime(formatted_date, format, date2time):
+	"""
+	Converts formatted date (dd/mm/yyyy hh:mm:ss) to time
+	"""
 
-def convertFormattedTimeToFromattedTime(formatted_time: str, return_format: str = '{0:02d}:{1:02d}:{2:02.0f}') -> str:
+	dt = datetime.strptime(formatted_date, format)
+	if dt in date2time:
+		return date2time[dt]
+	else:
+		return 0
+
+
+def reSpecPlot(fig, ax, ax2, cax, bqv):
+	"""
+
+	"""
+
+	if cax is None and not bqv:
+		gs = gridspec.GridSpec(1, 1)
+		rsi, rei, csi, cei = 0, 1, 0, 1
+	else:
+		gs = gridspec.GridSpec(1000, 1000)
+		fig.subplotpars.bottom = 0  # 0.206
+		fig.subplotpars.top = 1  # 0.9424
+		fig.subplotpars.left = 0  # 0.085
+		fig.subplotpars.right = 1  # 0.98
+		padding = 200
+		xlabelsize = 70 if ax.get_xlabel() else ax.xaxis.get_label().get_size() + ax.xaxis.get_ticklabels()[0].get_size() + \
+		                 ax.xaxis.get_tick_padding()
+		ylabelsize = 70 if ax.get_ylabel() else ax.yaxis.get_label().get_size() + ax.yaxis.get_ticklabels()[0].get_size() + \
+		           ax.yaxis.get_tick_padding()
+		rei = int(1000 - (ax.xaxis.get_tightbbox(fig.canvas.get_renderer()).height +
+		                 xlabelsize +
+		                 padding) / fig.bbox.height * 100)
+
+		csi = int((ax.yaxis.get_tightbbox(fig.canvas.get_renderer()).width +
+		           ylabelsize +
+		           padding) / fig.bbox.width * 100)
+		rsi = 60
+		if cax is not None:
+			if ax2 is not None:
+				cei = 810
+			else:
+				cei = 860
+		else:
+			if ax2 is not None:
+				y2labelsize = 70 if ax2.get_ylabel() else ax2.yaxis.get_label().get_size() + \
+				                 ax2.yaxis.get_ticklabels()[0].get_size() + \
+				                 ax2.yaxis.get_tick_padding()
+				cei = int(1000 - (ax2.yaxis.get_tightbbox(fig.canvas.get_renderer()).width +
+				                 y2labelsize +
+				                 padding) / fig.bbox.width * 100)
+			else:
+				cei = 960
+
+	gs_pos = gs[rsi:rei, csi:cei]
+	pos = gs_pos.get_position(fig)
+	ax.set_position(pos)
+	ax.set_subplotspec(gs_pos)
+
+	if ax2 is not None:
+		ax2.set_position(pos)
+		ax2.set_subplotspec(gs_pos)
+
+	return gs, rsi, rei, csi, cei
+
+
+def addColourBarAxes(fig, ax, ax2, bqv, **kwargs):
+	"""
+
+	"""
+
+	if 'respec' in kwargs:
+		gs, rsi, rei, csi, cei = kwargs['respec']
+		gs_pos = gs[rsi:rei, 890:940]
+		pos = gs_pos.get_position(fig)
+		cax = kwargs['cax']
+		cax.set_position(pos)
+		cax.set_subplotspec(gs_pos)
+	else:
+		cax = 1  # dummy value
+		gs, rsi, rei, csi, cei = reSpecPlot(fig, ax, ax2, cax, bqv)
+		cax = fig.add_subplot(gs[rsi:rei, 890:940])
+
+	return cax
+
+
+def addQuiverKey(fig, ax, ax2, bqv, qv, label, max_u, **kwargs):
+	"""
+
+	"""
+
+	qk = 1
+	if bqv:
+		if len(fig.axes) == 2:
+			cax = fig.axes[1]
+		else:
+			cax = None
+	else:
+		cax = None
+	gs, rsi, rei, csi, cei = reSpecPlot(fig, ax, ax2, cax, bqv)
+
+	if cax is not None:
+		X = 0.95
+		Y = 1 - (rsi + 4) / 100 + 0.05
+	else:
+		X = 0.95
+		Y = 0.05
+	u = max_u/4
+	qk = ax.quiverkey(qv, X=X, Y=Y, U=u, label=label, labelpos='W', coordinates='figure')
+	if cax is not None:
+		addColourBarAxes(fig, ax, ax2, bqv, respec=(gs, rsi + 4, rei, csi, cei), cax=cax)
+
+
+def removeDuplicateLegendItems(labels, lines):
+	"""
+
+	"""
+
+	labels_copy, lines_copy = [], []
+	for i, l in enumerate(labels):
+		if l not in labels_copy:
+			labels_copy.append(l)
+			lines_copy.append(lines[i])
+
+	return labels_copy, lines_copy
+
+
+def removeCurtainItems(labels, lines):
+	"""
+
+	"""
+
+	labels_copy, lines_copy = [], []
+	for i, l in enumerate(lines[:]):
+		if type(l) is not PolyCollection and type(l) is not Quiver:
+			lines_copy.append(l)
+			labels_copy.append(labels[i])
+
+	return labels_copy, lines_copy
+
+
+def addLegend(fig, ax, ax2, pos):
+	"""
+
+	"""
+
+	line, lab = ax.get_legend_handles_labels()
+	if ax2 is not None:
+		line2, lab2 = ax2.get_legend_handles_labels()
+	else:
+		line2, lab2 = [], []
+
+	lines = line + line2
+	labels = lab + lab2
+	labels, lines = removeCurtainItems(labels, lines)
+	labels, lines = removeDuplicateLegendItems(labels, lines)
+
+	ax.legend(lines, labels, loc=pos)
+
+
+def convertFormattedTimeToFormattedTime(formatted_time: str, return_format: str = '{0:02d}:{1:02d}:{2:02.0f}') -> str:
 	"""
 	Converts formatted time hh:mm:ss.ms to another formatted time string. Benefit is that it can
 	take non digit characters e.g. '_'
@@ -4817,6 +5147,9 @@ def is1dNetwork(layer):
 	                         QVariant.String, QVariant.String, QVariant.LongLong, QVariant.Double, QVariant.Double,
 	                         QVariant.LongLong, QVariant.Double, QVariant.Double, QVariant.Double, QVariant.Double]
 
+	if not isinstance(layer, QgsVectorLayer):
+		return False
+
 	fieldTypes = []
 	for i, f in enumerate(layer.getFeatures()):
 		if i > 0:
@@ -4846,6 +5179,9 @@ def is1dTable(layer):
 	:return: bool
 	"""
 
+	if not isinstance(layer, QgsVectorLayer):
+		return False
+
 	correct1dTableType = [QVariant.String, QVariant.String, QVariant.String, QVariant.String, QVariant.String,
 	                      QVariant.String, QVariant.String, QVariant.String, QVariant.String]
 
@@ -4854,12 +5190,48 @@ def is1dTable(layer):
 		if i > 0:
 			break
 		fields = f.fields()
+		if fields.count() < 9:
+			return False
 		for j in range(0, 9):
 			field = fields.field(j)
 			fieldType = field.type()
 			fieldTypes.append(fieldType)
 
 	if fieldTypes == correct1dTableType:
+		return True
+	else:
+		return False
+
+
+def isPlotLayer(layer, geom=''):
+	"""
+
+	"""
+
+	if not isinstance(layer, QgsVectorLayer):
+		return False
+
+	if not geom:
+		geom = 'PLR'
+	s = r'[_\s]PLOT[_\s][{0}]'.format(geom)
+	if not re.findall(s, layer.name(), flags=re.IGNORECASE):
+		return False
+
+	correctPlotType = [QVariant.String, QVariant.String, QVariant.String]
+
+	fieldTypes = []
+	for i, f in enumerate(layer.getFeatures()):
+		if i > 0:
+			break
+		fields = f.fields()
+		if fields.count() < 3:
+			return False
+		for j in range(0, 3):
+			field = fields.field(j)
+			fieldType = field.type()
+			fieldTypes.append(fieldType)
+
+	if fieldTypes == correctPlotType:
 		return True
 	else:
 		return False
@@ -5047,6 +5419,7 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
 			f = fs
 		else:
 			value = f
+		settings.setValue(key, value)
 		if lineEdit is not None:
 			if type(lineEdit) is QLineEdit:
 				lineEdit.setText(f)
@@ -5056,7 +5429,11 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
 				lineEdit.setText(f)
 			elif type(lineEdit) is QModelIndex:
 				lineEdit.model().setData(lineEdit, f, Qt.EditRole)
-		settings.setValue(key, value)
+		else:
+			if browseType == 'existing files':
+				return f.split(';;')
+			else:
+				return f
 
 		if action is not None:
 			action()
@@ -5091,6 +5468,8 @@ def getResultPathsFromTLF(fpath: str) -> (list, list, list):
 					if len(line) > 20:
 						path = line[19:].strip()
 						basename = os.path.splitext(os.path.basename(path))[0][:-5]
+						if re.findall(r"_[PLR]$", basename, flags=re.IGNORECASE):
+							basename = basename[:-2]
 						dir = os.path.dirname(os.path.dirname(path))
 						res = '{0}.tpc'.format(os.path.join(dir, basename))
 						if res not in res1D:
@@ -5304,6 +5683,739 @@ def makeDir(path: str) -> bool:
 			return False
 
 	return True
+
+
+def convert_datetime_to_float(dt_time):
+	"""
+	How Matplotlib interprets dates: days since 0001-01-01 00:00:00 UTC + 1 day
+	https://matplotlib.org/gallery/text_labels_and_annotations/date.html
+
+	:param dt_time: datetime.datetime
+	:return: float
+	"""
+
+	t0 = datetime(1, 1, 1, 0, 0, 0)
+	dt = dt_time - t0
+	return (dt.total_seconds() / 60 / 60 / 24) + 1
+
+
+def getNetCDFLibrary():
+	try:
+		from netCDF4 import Dataset
+		return "python", None
+	except ImportError:
+		pass
+
+	try:
+		from qgis.core import QgsApplication
+		netcdf_dll_path = os.path.dirname(os.path.join(os.path.dirname(os.path.dirname(QgsApplication.pkgDataPath()))))
+		netcdf_dll_path = os.path.join(netcdf_dll_path, "bin", "netcdf.dll")
+		if os.path.exists(netcdf_dll_path):
+			return "c_netcdf.dll", netcdf_dll_path
+	except ImportError:
+		pass
+
+	return None, None
+
+
+DimReturn = Tuple[str, List[NcDim]]
+def ncReadDimCDLL(ncdll: ctypes.cdll, ncid: ctypes.c_long, n: int) -> DimReturn:
+	"""
+	Read all dimensions from netcdf file.
+
+	ncdll - loaded netcdf dll
+	ncid - open netcdf file
+	n - number of dimensions
+	"""
+
+	dims = []
+	cstr_array = (ctypes.c_char * 256)()
+	cint_p = ctypes.pointer(ctypes.c_int())
+	for i in range(n):
+		dim = NcDim()
+		dims.append(dim)
+
+		# gets dimension name and length
+		err = ncdll.nc_inq_dim(ncid, ctypes.c_int(i), ctypes.byref(cstr_array), cint_p)
+		if err:
+			if ncid.value > 0:
+				ncdll.nc_close(ncid)
+			return "ERROR: error getting netcdf dimensions. Error: {0}".format(NC_Error.message(err)), dims
+
+		dim.id = i
+		dim.name = cstr_array.value.decode('utf-8')
+		dim.len = cint_p.contents.value
+
+	return "", dims
+
+VarReturn = Tuple[str, List[NcVar]]
+ncDimArg = List[NcDim]
+def ncReadVarCDLL(ncdll: ctypes.cdll, ncid: ctypes.c_long, n: int, ncDims: ncDimArg) -> VarReturn:
+	"""
+	Read all dimensions from netcdf file.
+
+	ncdll - loaded netcdf dll
+	ncid - open netcdf file
+	n - number of variables
+	ncDims - list of NcDim class
+	"""
+
+	# get info on variables
+	cstr_array = (ctypes.c_char * 256)()
+	cint_p = ctypes.pointer(ctypes.c_int())
+	ncVars = []
+	for i in range(n):
+		var = NcVar()
+		ncVars.append(var)
+
+		# id
+		var.id = i
+
+		# variable name
+		err = ncdll.nc_inq_varname(ncid, ctypes.c_int(i), ctypes.byref(cstr_array))
+		if err:
+			if ncid.value > 0:
+				ncdll.nc_close(ncid)
+			return "ERROR: error getting netcdf variable names. Error: {0}".format(NC_Error.message(err)), ncVars
+		var.name = cstr_array.value.decode('utf-8')
+
+		# variable data type
+		err = ncdll.nc_inq_vartype(ncid, ctypes.c_int(i), cint_p)
+		if err:
+			if ncid.value > 0:
+				ncdll.nc_close(ncid)
+			return "ERROR: error getting netcdf variable types. Error: {0}".format(NC_Error.message(err)), ncVars
+		var.type = cint_p.contents.value
+
+		# number of dimensions
+		err = ncdll.nc_inq_varndims(ncid, ctypes.c_int(i), cint_p)
+		if err:
+			if ncid.value > 0:
+				ncdll.nc_close(ncid)
+			return "ERROR: error getting netcdf variable dimensions. Error: {0}".format(NC_Error.message(err)), ncVars
+		var.nDims = cint_p.contents.value
+
+		# dimension information
+		cint_array = (ctypes.c_int * var.nDims)()
+		err = ncdll.nc_inq_vardimid(ncid, ctypes.c_int(i), ctypes.byref(cint_array))
+		if err:
+			if ncid.value > 0:
+				ncdll.nc_close(ncid)
+			return "ERROR: error getting netcdf variable dimensions. Error: {0}".format(NC_Error.message(err)), ncVars
+		var.dimIds = tuple(cint_array[x] for x in range(var.nDims))
+		var.dimNames = tuple(ncDims[x].name for x in var.dimIds)
+		var.dimLens = tuple(ncDims[x].len for x in var.dimIds)
+
+	return "", ncVars
+
+def lineIntersectsPoly(p1, p2, poly):
+	"""
+
+	"""
+
+	pLine = QgsGeometry.fromPolyline([QgsPoint(p1.x(), p1.y()), QgsPoint(p2.x(), p2.y())])
+	return pLine.intersects(poly.geometry())
+
+def doLinesIntersect(a1, a2, b1, b2):
+	"""
+	Does line a intersect line b
+
+	"""
+
+	pLine1 = QgsGeometry.fromPolyline([QgsPoint(a1.x(), a1.y()), QgsPoint(a2.x(), a2.y())])
+	pLine2 = QgsGeometry.fromPolyline([QgsPoint(b1.x(), b1.y()), QgsPoint(b2.x(), b2.y())])
+
+	return pLine1.intersects(pLine2)
+
+
+def intersectionPoint(a1, a2, b1, b2):
+	"""
+
+	"""
+
+	pLine1 = QgsGeometry.fromPolyline([QgsPoint(a1.x(), a1.y()), QgsPoint(a2.x(), a2.y())])
+	pLine2 = QgsGeometry.fromPolyline([QgsPoint(b1.x(), b1.y()), QgsPoint(b2.x(), b2.y())])
+
+	return pLine1.intersection(pLine2).asPoint()
+
+
+def generateRandomMatplotColours(n):
+	import random
+	colours = []
+	while len(colours) < n:
+		colour = [random.randint(0, 100) / 100 for x in range(3)]
+		if colour != [1.0, 1.0, 1.0]:  # don't include white
+			colours.append(colour)
+
+	return colours
+
+def meshToPolygon(mesh: QgsMesh, face: int) -> QgsFeature:
+	"""
+	converts a mesh to QgsFeature polygon
+
+	"""
+
+	# convert mesh face into polygon
+	w = 'POLYGON (('
+	for i, v in enumerate(face):
+		if i == 0:
+			w = '{0}{1} {2}'.format(w, mesh.vertex(v).x(), mesh.vertex(v).y())
+		else:
+			w = '{0}, {1} {2}'.format(w, mesh.vertex(v).x(), mesh.vertex(v).y())
+	w += '))'
+	f = QgsFeature()
+	f.setGeometry(QgsGeometry.fromWkt(w))
+
+	return f
+
+
+PointList = List[QgsPointXY]
+FaceIndexList = List[int]
+def getFaceIndexes3(si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider, points: PointList, mesh: QgsMesh) -> FaceIndexList:
+	"""
+
+	"""
+
+	if not points:
+		return []
+	points = [QgsPointXY(x) for x in points]
+
+	faceIndexes = []
+	for p in points:
+		indexes = si.nearestNeighbor(p, 1)
+		if indexes:
+			if len(indexes) == 1:
+				if indexes[0] not in faceIndexes:
+					faceIndexes.append(indexes[0])
+			else:
+				for ind in indexes:
+					f = meshToPolygon(mesh, mesh.face(ind))
+					if f.geometry().contains(p):
+						if ind not in faceIndexes:
+							faceIndexes.append(ind)
+						break
+
+	return faceIndexes
+
+
+def getFaceIndex(p, si, mesh, p2=None, crs=None):
+	"""
+
+	"""
+
+
+	indexes = si.nearestNeighbor(p, 2)
+	if indexes:
+		if len(indexes) == 1:
+			return indexes[0]
+		else:
+			for ind in indexes:
+				f = meshToPolygon(mesh, mesh.face(ind))
+				if p2 is None:
+					if f.geometry().contains(p):
+						return ind
+				else:
+					p3 = calcMidPoint2(p, p2)
+					if f.geometry().contains(p3):
+						return ind
+
+	return None
+
+
+def findMeshFaceIntersects(p1: QgsPointXY, p2: QgsPointXY, si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider,
+                           mesh: QgsMesh):
+	"""
+
+	"""
+
+	rect = QgsRectangle(p1, p2)
+	return si.intersects(rect)
+
+
+FaceList = List[int]
+def findMeshSideIntersects(p1: QgsPointXY, p2: QgsPointXY, faces: FaceList, mesh: QgsMesh, allFaces) -> PointList:
+	"""
+
+	"""
+
+	v_used = []
+	m_used = []
+	p_intersects = [p1]
+	for f in faces:
+		vs = mesh.face(f)
+		for i, v in enumerate(vs):
+			if i == 0:
+				f1 = v
+			else:
+				p3 = mesh.vertex(vs[i-1])
+				p4 = mesh.vertex(v)
+				b = doLinesIntersect(p1, p2, p3, p4)
+				if b:
+					if sorted([vs[i-1], v]) not in v_used:
+						newPoint = intersectionPoint(p1, p2, p3, p4)
+						p_intersects.append(newPoint)
+						v_used.append(sorted([vs[i-1], v]))
+					if f not in m_used and f not in allFaces:
+						m_used.append(f)
+				if i + 1 == len(vs):
+					p3 = mesh.vertex(v)
+					p4 = mesh.vertex(f1)
+					b = doLinesIntersect(p1, p2, p3, p4)
+					if b:
+						if sorted([f1, v]) not in v_used:
+							newPoint = intersectionPoint(p1, p2, p3, p4)
+							p_intersects.append(newPoint)
+							v_used.append(sorted([f1, v]))
+						if f not in m_used and f not in allFaces:
+							m_used.append(f)
+
+	return p_intersects, m_used
+
+
+def findMeshIntersects(si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider, mesh: QgsMesh,
+                       feat: QgsFeature, crs, project: QgsProject = None, debug=False):
+	"""
+
+	"""
+
+	# geometry
+	if feat.geometry().wkbType() == QgsWkbTypes.LineString:
+		geom = feat.geometry().asPolyline()
+	elif feat.geometry().wkbType() == QgsWkbTypes.MultiLineString:
+		mGeom = feat.geometry().asMultiPolyline()
+		geom = []
+		for g in mGeom:
+			for p in g:
+				geom.append(p)
+	else:
+		return
+
+	# get mesh intersects and face (side) intersects
+	points = []
+	chainages = []
+	allFaces = []
+	for i, p in enumerate(geom):
+		if i > 0:
+			faces = findMeshFaceIntersects(geom[i-1], p, si, dp, mesh)
+			inters, minter = findMeshSideIntersects(geom[i-1], p, faces, mesh, [])
+			if inters:
+				inters.append(geom[i])
+				pOrdered, mOrdered = orderPointsByDistanceFromFirst(inters, minter, si, mesh, i, crs)
+				points += pOrdered
+				allFaces += mOrdered
+		if i + 1 == len(geom):
+			if p not in points:
+				points.append(p)
+
+	# calculate chainage
+	chainage = 0
+	chainages.append(chainage)
+	for i, p in enumerate(points):
+		if i > 0:
+			chainage += calculateLength2(p, points[i-1], crs)
+			chainages.append(chainage)
+
+	# switch on/off to get check mesh faces and intercepts
+	if debug:
+		# debug - write a temporary polygon layer and import into QGIS to check
+		crs = project.crs()
+		uri = "polygon?crs={0}".format(crs.authid().lower())
+		lyr = QgsVectorLayer(uri, "check_mesh_intercepts", "memory")
+		dp = lyr.dataProvider()
+		dp.addAttributes([QgsField('Id', QVariant.Int)])
+		lyr.updateFields()
+		feats = []
+		for i, f in enumerate(allFaces):
+			feat = meshToPolygon(mesh, mesh.face(f))
+			feat.setAttributes([i])
+			feats.append(feat)
+		dp.addFeatures(feats)
+		lyr.updateExtents()
+		project.addMapLayer(lyr)
+
+		# debug - write a temporary point layer and import into QGIS to check
+		crs = project.crs()
+		uri = "point?crs={0}".format(crs.authid().lower())
+		lyr = QgsVectorLayer(uri, "check_face_intercepts", "memory")
+		dp = lyr.dataProvider()
+		dp.addAttributes([QgsField('Ch', QVariant.Double)])
+		lyr.updateFields()
+		feats = []
+		for i, point in enumerate(points):
+			feat = QgsFeature()
+			feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
+			feat.setAttributes([chainages[i]])
+			feats.append(feat)
+		dp.addFeatures(feats)
+		lyr.updateExtents()
+		project.addMapLayer(lyr)
+
+	return points, chainages, allFaces
+
+
+def calculateLength2(p1, p2, crs=None):
+	"""
+
+	"""
+
+	da = QgsDistanceArea()
+	da.setSourceCrs(crs, QgsCoordinateTransformContext())
+	return da.convertLengthMeasurement(da.measureLine(p1, p2), QgsUnitTypes.DistanceMeters)
+
+
+def calcMidPoint(p1, p2, crs):
+	"""
+	Calculates a point halfway between p1 and p2
+	"""
+
+	h = calculateLength2(p1, p2, crs) / 2.
+	a = atan2((p2.x() - p1.x()), (p2.y() - p1.y()))
+	x = p1.x() + sin(a) * h
+	y = p1.y() + cos(a) * h
+	return QgsPointXY(x, y)
+
+def calcMidPoint2(p1, p2):
+	"""
+	Calculates a point halfway between p1 and p2
+	"""
+
+	return QgsGeometryUtils.interpolatePointOnLine(p1.x(), p1.y(), p2.x(), p2.y(), 0.5)
+
+def orderPointsByDistanceFromFirst(points, faces, si, mesh, ind, crs):
+	"""
+
+	"""
+
+	pointsOrdered = []
+	facesOrdered = []
+	pointsCopied = [QgsPoint(x.x(), x.y()) for x in points]
+	p = QgsPoint(points[0].x(), points[0].y())
+	# f = si.nearestNeighbor(QgsPointXY(p), 1)[0]
+	f = getFaceIndex(QgsPointXY(p), si, mesh)
+	if f is not None:
+		facesOrdered.append(f)
+	counter = 0
+	while len(pointsOrdered) < len(points):
+		pointsOrdered.append(QgsPointXY(p))
+		pointsCopied.remove(p)
+		geom = QgsLineString(pointsCopied)
+		p, i = QgsGeometryUtils.closestVertex(geom, p)
+		# fs = si.nearestNeighbor(QgsPointXY(p), 2)
+		f = getFaceIndex(QgsPointXY(p), si, mesh, pointsOrdered[counter], crs)
+		# for f in fs:
+		if f is not None:
+			if f not in facesOrdered and len(facesOrdered) < len(faces):
+				facesOrdered.append(f)
+		counter += 1
+
+	if ind > 1:
+		pointsOrdered = pointsOrdered[1:]
+		# facesOrdered = facesOrdered[1:]
+
+	return pointsOrdered, facesOrdered
+
+
+def writeTempPoints(points, project, crs=None, label=(), field_id='', field_type=None):
+	"""
+
+	"""
+
+	if crs is None:
+		crs = project.crs()
+	uri = "point?crs={0}".format(crs.authid().lower())
+	lyr = QgsVectorLayer(uri, "check_face_intercepts", "memory")
+	dp = lyr.dataProvider()
+	if label:
+		dp.addAttributes([QgsField(field_id, field_type)])
+	else:
+		dp.addAttributes([QgsField('ID', QVariant.Int)])
+
+	lyr.updateFields()
+	feats = []
+	for i, point in enumerate(points):
+		feat = QgsFeature()
+		feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
+		if label:
+			feat.setAttributes([label[i]])
+		else:
+			feat.setAttributes([i])
+		feats.append(feat)
+	dp.addFeatures(feats)
+	lyr.updateExtents()
+	project.addMapLayer(lyr)
+
+
+def writeTempPolys(polys, project, crs=None, label=(), field_id='', field_type=None):
+	"""
+
+	"""
+
+	if crs is None:
+		crs = project.crs()
+	uri = "polygon?crs={0}".format(crs.authid().lower())
+	lyr = QgsVectorLayer(uri, "check_mesh_intercepts", "memory")
+	dp = lyr.dataProvider()
+	if label:
+		dp.addAttributes([QgsField(field_id, field_type)])
+	else:
+		dp.addAttributes([QgsField('ID', QVariant.Int)])
+
+	lyr.updateFields()
+	feats = []
+	for i, poly in enumerate(polys):
+		if label:
+			poly.setAttributes([label[i]])
+		else:
+			poly.setAttributes([i])
+		feats.append(poly)
+	dp.addFeatures(feats)
+	lyr.updateExtents()
+	project.addMapLayer(lyr)
+
+
+def getPolyCollectionExtents(pc, axis, empty_return=(999999, -999999)):
+	"""
+	Return min / max extents for matplotlib PolyCollection:
+
+	axis options: 'x', 'y', 'scalar'
+	empty_return: dictates what is returned if array is empty
+	"""
+
+	assert axis.lower() in ['x', 'y', 'scalar'], "'axis' variable not one of 'x', 'y', or 'scalar'"
+
+	if axis.lower() == 'x':
+		a = numpy.array([x.vertices[:, 0] for x in pc.get_paths()])
+	elif axis.lower() == 'y':
+		a = numpy.array([x.vertices[:, 1] for x in pc.get_paths()])
+	else:
+		a = pc.get_array()
+
+	if a.size == 0:
+		return empty_return
+	else:
+		return numpy.nanmin(a), numpy.nanmax(a)
+
+
+def polyCollectionPathIndexFromXY(pc, x, y):
+	"""
+	Return path index from x, y values
+	"""
+
+	path = [p for p in pc.get_paths()
+	        if numpy.amin(p.vertices[:, 1]) < y <= numpy.amax(p.vertices[:, 1])
+	        and numpy.amin(p.vertices[:, 0]) < x <= numpy.amax(p.vertices[:, 0])]
+
+	if len(path) != 1:
+		return None
+	else:
+		return pc.get_paths().index(path[0])
+
+
+def getQuiverExtents(qv, axis, empty_return=(999999, -999999)):
+	"""
+	Return min/max extents for matplotlib Quiver
+
+	axis options: 'x', 'y', 'scalar'
+	empty_return: dictates what is returned if Quiver is empty
+	"""
+
+	assert axis.lower() in ['x', 'y', 'scalar'], "'axis' variable not one of 'x', 'y', or 'scalar'"
+
+	if axis.lower() == 'x':
+		a = qv.X
+	elif axis.lower() == 'y':
+		a = qv.Y
+	else:
+		a = qv.U  # V component is always zero
+
+	if a.size == 0:
+		return empty_return
+	else:
+		return numpy.nanmin(a), numpy.nanmax(a)
+
+
+def convertTimeToDate(refTime, t, unit):
+	"""
+	Convert time to date
+	"""
+
+	assert unit in ['s', 'h'], "'unit' variable not one of 's', or 'h'"
+
+	if unit == 's':
+		date = refTime + timedelta(seconds=t)
+	else:
+		try:
+			date = refTime + timedelta(hours=t)
+		except OverflowError:
+			date = refTime + timedelta(seconds=t)
+
+	return roundSeconds(date)
+
+
+def findPlotLayers(geom=''):
+	"""
+
+	"""
+
+	lyrs = []
+	if not geom:
+		geom = 'PLR'
+	s = r'[_\s]PLOT[_\s][{0}]'.format(geom)
+	for id, lyr in QgsProject.instance().mapLayers().items():
+		if re.findall(s, lyr.name(), flags=re.IGNORECASE):
+			lyrs.append(lyr)
+
+	return lyrs
+
+
+def findTableLayers():
+	"""
+
+	"""
+
+	lyrs = []
+	for id, lyr in QgsProject.instance().mapLayers().items():
+		if is1dTable(lyr):
+			lyrs.append(lyr)
+
+	return lyrs
+
+
+def findIntersectFeat(feat, lyr):
+	"""
+
+	"""
+
+	for f in lyr.getFeatures():
+		if feat.geometry().intersects(f.geometry()):
+			return f
+
+	return None
+
+
+def isSame_float(a, b, prec=None):
+	"""
+
+	"""
+
+	if prec is None:
+		prec = abs(sys.float_info.epsilon * max(a, b) * 2.)
+
+	return abs(a - b) <= prec
+
+
+def qdt2dt(dt):
+	"""
+	Converts QDateTime to datetime
+	"""
+
+	return datetime(dt.date().year(), dt.date().month(), dt.date().day(), dt.time().hour(),
+	                dt.time().minute(), dt.time().second(), int(dt.time().msec() * 1000))
+
+
+def dt2qdt(dt, timeSpec):
+	"""Converts datetime to QDateTime: assumes timespec = 1"""
+
+	return QDateTime(QDate(dt.year, dt.month, dt.day),
+	                 QTime(dt.hour, dt.minute, dt.second, dt.microsecond / 1000.),
+	                 Qt.TimeSpec(timeSpec))
+
+
+def regex_dict_val(d: dict, key):
+	"""return dictionary value when dict keys use re"""
+
+	a = {key: val for k, val in d.items() if re.findall(k, key, flags=re.IGNORECASE)}
+	return a[key] if key in a else None
+
+
+
+def qgsxml_colorramp_prop(node, key):
+
+	try:
+		return [x for x in node.findall('prop') if x.attrib['k'] == key][0].attrib['v']
+	except IndexError:
+		return None
+
+
+def read_colour_ramp_qgsxml(xml_node, break_points, reds, greens, blues, alphas):
+	"""parse breakpoints and colours out of qgis xml file"""
+
+	c1 = qgsxml_colorramp_prop(xml_node, 'color1')
+	if c1 is None: return False
+	try:
+		r, g, b, a = c1.split(',')
+		break_points.append(0.)
+		reds.append(float(r))
+		greens.append(float(g))
+		blues.append(float(b))
+		alphas.append(float(a))
+	except ValueError:
+		return False
+
+	cm = qgsxml_colorramp_prop(xml_node, 'stops')
+	if cm is None: return False
+	stops = cm.split(':')
+	for s in stops:
+		try:
+			br, rgba = s.split(';')
+			break_points.append(float(br))
+			r, g, b, a = rgba.split(',')
+			reds.append(float(r))
+			greens.append(float(g))
+			blues.append(float(b))
+			alphas.append(float(a))
+		except ValueError:
+			return False
+
+	c2 = qgsxml_colorramp_prop(xml_node, 'color2')
+	if c2 is None: return False
+	try:
+		r, g, b, a = c2.split(',')
+		break_points.append(1.)
+		reds.append(float(r))
+		greens.append(float(g))
+		blues.append(float(b))
+		alphas.append(float(a))
+	except ValueError:
+		return False
+
+	return True
+
+
+def generate_mpl_colourramp(break_points, reds, greens, blues, alphas):
+	"""Convert data into matplotlib linear colour ramp"""
+
+	cdict = {'red': [], 'green': [], 'blue': []}
+	for i, br in enumerate(break_points):
+		r = reds[i] / 255.
+		cdict['red'].append((br, r, r))
+		g = greens[i] / 255.
+		cdict['green'].append((br, g, g))
+		b = blues[i] / 255.
+		cdict['blue'].append((br, b, b))
+
+	return cdict
+
+
+def qgsxml_as_mpl_cdict(fpath):
+	"""Read QGIS colour ramp style xml and convert to matplotlib colour ramp dict"""
+
+	mpl_cdicts = {}
+	tree = ET.parse(fpath)
+	root = tree.getroot()
+	if root.findall("colorramps"):
+		for cr in root.findall("colorramps")[0].findall("colorramp"):
+			name = cr.attrib['name']
+			break_points, reds, greens, blues, alphas = [], [], [], [], []
+			success = read_colour_ramp_qgsxml(cr, break_points, reds, greens, blues, alphas)
+			if not success: continue
+
+			mpl_cr = generate_mpl_colourramp(break_points, reds, greens, blues, alphas)
+			mpl_cdicts[name] = mpl_cr
+
+	return mpl_cdicts
+
+
 
 
 if __name__ == '__main__':

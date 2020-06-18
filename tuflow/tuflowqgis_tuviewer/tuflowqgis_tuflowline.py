@@ -6,9 +6,70 @@ from PyQt5 import QtGui
 from qgis.core import *
 from PyQt5.QtWidgets import *
 from tuflow.canvas_event import *
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_turubberband import TuRubberBand
 
 
-class TuFlowLine():
+class TuFlowLine(TuRubberBand):
+
+
+	def startRubberBand(self):
+		# check for velocity and one of depth or water level - to see if it is possible to get flow
+		if not self.checkIsPossible():
+			QMessageBox.information(self.tuView, "Flux Calculation",
+			                        "Flux Calculation Requires Depth and Velocity Results.")
+			return False
+		else:
+			TuRubberBand.startRubberBand(self)
+
+	def checkIsPossible(self):
+		"""
+		Checks if flow calculation is possible i.e. need velocity and one of depth or water level.
+
+		:return: bool -> True is possible, False not possible
+		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+
+		results = self.tuView.tuResults.results
+
+		possible = False
+		for meshLayer in self.tuView.tuResults.tuResults2D.activeMeshLayers:
+			foundDepth = False
+			foundWL = False
+			foundVel = False
+			result = results[meshLayer.name()]
+			for resultType in result:
+				if TuResults.isMapOutputType(resultType) and not TuResults.isMaximumResultType(resultType) \
+						and not TuResults.isMinimumResultType(resultType):
+				#if '_ts' not in resultType and '_lp' not in resultType and 'Maximum' not in resultType:  # not a 1D result
+					if 'dep' in resultType.lower() and 'time' not in resultType.lower() and \
+							'dur' not in resultType.lower():
+						foundDepth = True
+					elif resultType[0].lower() == 'd' and 'time' not in resultType.lower() and \
+							'dur' not in resultType.lower():
+						foundDepth = True
+					elif 'vel' in resultType.lower() and 'time' not in resultType.lower() and \
+							'dur' not in resultType.lower():
+						foundVel = True
+					elif resultType[0].lower() == 'v' and 'time' not in resultType.lower() and \
+							'dur' not in resultType.lower():
+						foundVel = True
+					elif 'water level' in resultType.lower() and 'time' not in resultType.lower() and \
+							'dur' not in resultType.lower():
+						foundWL = True
+					elif resultType[0].lower() == 'h' and 'time' not in resultType.lower() and \
+							'dur' not in resultType.lower():
+						foundWL = True
+			if foundVel:
+				if foundDepth or foundWL:
+					possible = True
+					break
+
+		return possible
+
+
+
+class TuFlowLine2():
 	"""
 	Class for handling rubberband flow line and calculating flow.
 	
@@ -24,13 +85,15 @@ class TuFlowLine():
 		self.points = []  # list -> QgsPoint line geometry
 		self.cursorTrackingConnected = False
 		self.prevMapTool = None
-		
+
 	def checkIsPossible(self):
 		"""
 		Checks if flow calculation is possible i.e. need velocity and one of depth or water level.
 		
 		:return: bool -> True is possible, False not possible
 		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 		
 		results = self.tuView.tuResults.results
 		
@@ -41,7 +104,8 @@ class TuFlowLine():
 			foundVel = False
 			result = results[meshLayer.name()]
 			for resultType in result:
-				if '_ts' not in resultType and '_lp' not in resultType and 'Maximum' not in resultType:  # not a 1D result
+				if TuResults.isMapOutputType(resultType) and not TuResults.isMaximumResultType(resultType) \
+						and not TuResults.isMinimumResultType(resultType):  # not a 1D result
 					if 'dep' in resultType.lower() and 'time' not in resultType.lower() and \
 							'dur' not in resultType.lower():
 						foundDepth = True
@@ -330,12 +394,12 @@ class TuFlowLine():
 		worked = self.tuPlot.tuPlot2D.plotFlowFromMap(None, feat)
 		if not worked:
 			self.escape(QKeyEvent(QEvent.KeyPress, Qt.Key_Escape, Qt.NoModifier))
-			self.clearRubberBand()
+			self.clearGraphics()
 			return False
 		
 		return True
 	
-	def clearRubberBand(self):
+	def clearGraphics(self):
 		"""
 		Clear rubber band line layers and any vertex markers
 
