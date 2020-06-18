@@ -68,6 +68,14 @@ class ViewToolbar():
 		self.freezeYAxisAction = QAction(freezeYAxisIcon, 'Freeze Y-Axis Limits Only', self.freezeYAxisButton)
 		self.freezeYAxisAction.setCheckable(True)
 		self.freezeYAxisButton.setDefaultAction(self.freezeYAxisAction)
+
+		# grid lines
+		self.hGridLines_action = QAction('Horizontal Grid Lines', None)
+		self.hGridLines_action.setCheckable(True)
+		self.hGridLines_action.setChecked(True)
+		self.vGridLines_action = QAction('Vertical Grid Lines', None)
+		self.vGridLines_action.setCheckable(True)
+		self.vGridLines_action.setChecked(True)
 		
 		self.legendMenu = QMenu('Legend')
 		self.legendMenu.menuAction().setIcon(legendIcon)
@@ -122,7 +130,9 @@ class ViewToolbar():
 		self.legendUR.triggered.connect(lambda: self.legendPosChanged(self.legendUR))
 		self.legendLR.triggered.connect(lambda: self.legendPosChanged(self.legendLR))
 		self.userPlotDataManagerAction.triggered.connect(self.tuMenuFunctions.openUserPlotDataManager)
-	
+		self.hGridLines_action.triggered.connect(self.gridLines_toggled)
+		self.vGridLines_action.triggered.connect(self.gridLines_toggled)
+
 	def freezeXYAxis(self):
 		
 		if self.freezeXYAxisButton.isChecked():
@@ -186,3 +196,12 @@ class ViewToolbar():
 			return 4
 		else:
 			return 0
+
+	def gridLines_toggled(self):
+
+		plotNo = self.tuView.tabWidget.currentIndex()
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.tuPlot.plotEnumerator(plotNo)
+
+		self.tuPlot.manageMatplotlibAxe(subplot)
+		plotWidget.draw()

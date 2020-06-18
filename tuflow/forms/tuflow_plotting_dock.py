@@ -104,10 +104,7 @@ class Ui_Tuplot(object):
         self.CrossSectionFrame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.CrossSectionFrame.setObjectName("CrossSectionFrame")
         self.CrossSectionLayout.addWidget(self.CrossSectionFrame, 0, 0, 1, 1)
-        self.gridLayout_5.addLayout(self.CrossSectionLayout, 1, 0, 1, 1)
-        self.textEdit = QtWidgets.QTextEdit(self.CrossSectionTab)
-        self.textEdit.setObjectName("textEdit")
-        self.gridLayout_5.addWidget(self.textEdit, 0, 0, 1, 1)
+        self.gridLayout_5.addLayout(self.CrossSectionLayout, 0, 0, 1, 1)
         self.tabWidget.addTab(self.CrossSectionTab, "")
         self.VerticalProfileTab = QtWidgets.QWidget()
         self.VerticalProfileTab.setObjectName("VerticalProfileTab")
@@ -242,6 +239,9 @@ class Ui_Tuplot(object):
         self.mplToolbarFrame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.mplToolbarFrame.setObjectName("mplToolbarFrame")
         self.verticalLayout.addWidget(self.mplToolbarFrame)
+        self.plotCoords = QtWidgets.QLabel(self.MapPlottingLayout)
+        self.plotCoords.setObjectName("plotCoords")
+        self.verticalLayout.addWidget(self.plotCoords)
         self.verticalLayout_5.addLayout(self.verticalLayout)
         self.cbShowCurrentTime = QtWidgets.QCheckBox(self.MapPlottingLayout)
         self.cbShowCurrentTime.setObjectName("cbShowCurrentTime")
@@ -343,13 +343,6 @@ class Ui_Tuplot(object):
         self.pbHidePlotWindow.setText(_translate("Tuplot", "Hide Plot Window >>"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.TimeSeriesTab), _translate("Tuplot", "Time Series"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.LongPlotTab), _translate("Tuplot", "Cross Section / Long Profile"))
-        self.textEdit.setHtml(_translate("Tuplot", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
-"<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
-"p, li { white-space: pre-wrap; }\n"
-"</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:14pt; font-weight:600;\">TODO</span></p>\n"
-"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:12pt;\">Coming Soon..</span></p></body></html>"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.CrossSectionTab), _translate("Tuplot", "1D Cross Section Viewer"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.VerticalProfileTab), _translate("Tuplot", "Vertical Profile"))
         self.pbShowPlotWindow.setText(_translate("Tuplot", "<< Plot Window"))
@@ -358,6 +351,7 @@ class Ui_Tuplot(object):
         self.cboSelectType.setItemText(0, _translate("Tuplot", "From Map"))
         self.cboSelectType.setItemText(1, _translate("Tuplot", "From Map Multi"))
         self.cboSelectType.setItemText(2, _translate("Tuplot", "Layer Selection"))
+        self.plotCoords.setText(_translate("Tuplot", "X:  Y:  Z:"))
         self.cbShowCurrentTime.setText(_translate("Tuplot", "Show Current Time"))
         self.label_6.setText(_translate("Tuplot", "Result Type"))
         self.OpenResultTypes.setToolTip(_translate("Tuplot", "Test"))

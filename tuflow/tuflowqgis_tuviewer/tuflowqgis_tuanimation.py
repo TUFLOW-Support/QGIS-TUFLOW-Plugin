@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import zipfile
 import subprocess
+import re
 from datetime import datetime
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -18,7 +19,10 @@ from ui_animation_dialog import Ui_AnimationDialog
 from animation_plot_properties import Ui_PlotProperties
 from label_properties import Ui_textPropertiesDialog
 from image_properties import Ui_ImageProperties
-from tuflow.tuflowqgis_library import tuflowqgis_find_layer, applyMatplotLibArtist, convertTimeToFormattedTime, convertFormattedTimeToTime
+from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, applyMatplotLibArtist, convertTimeToFormattedTime,
+                                       convertFormattedTimeToTime, getPolyCollectionExtents, getQuiverExtents,
+                                       convertTimeToDate, convertFormattedDateToTime, addColourBarAxes,
+                                       addLegend, addQuiverKey)
 import matplotlib
 import numpy as np
 try:
@@ -35,6 +39,10 @@ from matplotlib.patches import Patch
 from matplotlib.patches import Polygon
 import matplotlib.dates as mdates
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.collections import PolyCollection
+from matplotlib.quiver import Quiver
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot3d import ColourBar
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults2d import TuResults2D
 
 
 # http://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
@@ -236,7 +244,7 @@ def setPlotProperties(fig, ax, prop, ax2, layout_type, layout_item, dateTime=Fal
 		               left=True, right=False)
 
 
-def addLineToPlot(fig, ax, line, label):
+def addLineToPlot(fig, ax, line, label, bLegend=False, ax2=None, polyCollAndQuiver=False):
 	if label == 'Current Time':
 		ylim = ax.get_ylim()
 		line.set_ydata(ylim)
@@ -248,6 +256,36 @@ def addLineToPlot(fig, ax, line, label):
 		xy = line.get_xy()
 		poly = Polygon(xy, facecolor='0.9', edgecolor='0.5', label=label)
 		ax.add_patch(poly)
+	elif type(line) is PolyCollection:
+		xy = line.get_paths()
+		x = [x.vertices[:,0] for x in xy]
+		y = [x.vertices[:,1] for x in xy]
+		xy = np.dstack((x, y))
+		values = line.get_array()
+		lab = re.sub(r' \[curtain]', '', label, flags=re.IGNORECASE)
+		colSpec = dict(cmap=line.cmap, clim=line.get_clim(), norm=line.norm)
+		polyCol = PolyCollection(xy, array=values, edgecolor='face', label=lab, **colSpec)
+		ax.add_collection(polyCol, autolim=True)
+		if bLegend:
+			cax = addColourBarAxes(fig, ax, ax2, polyCollAndQuiver)
+			colbar = ColourBar(line, cax)
+			colbar.ax.set_xlabel(lab)
+	elif type(line) is Quiver:
+		x = line.X
+		y = line.Y
+		u = line.U
+		v = line.V
+		config = {
+			'scale': line.scale,
+			'scale_units': line.scale_units,
+			'width': line.width,
+			'headwidth': line.headwidth,
+			'headlength': line.headlength,
+		}
+		qv = Quiver(ax, x, y, u, v, **config)
+		ax.add_collection(qv, autolim=True)
+		lab = re.sub(r' \[curtain]', '', label, flags=re.IGNORECASE)
+		addQuiverKey(fig, ax, ax2, polyCollAndQuiver, qv, 'Vector', config['scale'])
 
 
 def isSecondaryNeeded(neededLabels, allLabels, allAxis):
@@ -267,6 +305,11 @@ def isSecondaryNeeded(neededLabels, allLabels, allAxis):
 						return True
 	
 	return False
+
+
+def isCollectionAndQuiver(lines):
+	tps = [type(x) for x in lines]
+	return PolyCollection in tps and Quiver in tps
 
 
 def createText(text, result, scalar, vector, time, outfile, project, number):
@@ -338,6 +381,7 @@ def transformMapCoordToLayout(layout, extent, point, margin):
 	
 			
 def composition_set_plots(dialog, cfg, time, layout, dir, layout_type, showCurrentTime, retainFlow):
+	from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 	layoutcfg = cfg['layout']
 	l = cfg['layer']
@@ -345,10 +389,12 @@ def composition_set_plots(dialog, cfg, time, layout, dir, layout_type, showCurre
 
 	# update tuplot with new time and if time series, show current time - but don't draw
 	rendered = cfg['rendered'] if 'rendered' in cfg else True
-	dialog.tuView.tuPlot.updateCurrentPlot(0, retain_flow=retainFlow, draw=False, time=time,
+	dialog.tuView.tuPlot.updateCurrentPlot(TuPlot.TimeSeries, draw=False, time=time,
 	                                       show_current_time=showCurrentTime, mesh_rendered=rendered,
 	                                       plot_active_scalar=cfg['active scalar'])
-	dialog.tuView.tuPlot.updateCurrentPlot(1, draw=False, time=time, mesh_rendered=rendered,
+	dialog.tuView.tuPlot.updateCurrentPlot(TuPlot.CrossSection, draw=False, time=time, mesh_rendered=rendered,
+	                                       plot_active_scalar=cfg['active scalar'])
+	dialog.tuView.tuPlot.updateCurrentPlot(TuPlot.VerticalProfile, draw=False, time=time, mesh_rendered=rendered,
 	                                       plot_active_scalar=cfg['active scalar'])
 	
 	# split out lines into specified plots
@@ -362,7 +408,8 @@ def composition_set_plots(dialog, cfg, time, layout, dir, layout_type, showCurre
 		else:
 			positionConverted = position
 		properties = layoutcfg['plots'][plot]['properties']
-		isdatetime = dialog.tuView.tuOptions.xAxisDates
+		# isdatetime = dialog.tuView.tuOptions.xAxisDates
+		isdatetime = properties.datetime
 		dateformat = dialog.tuView.tuOptions.dateFormat
 		labels = layoutcfg['plots'][plot]['labels'][:]
 		
@@ -396,22 +443,26 @@ def composition_set_plots(dialog, cfg, time, layout, dir, layout_type, showCurre
 			cPlot = findLayoutItem(layout, 'plot_{0}'.format(plot))
 		else:
 			return
-		
+
 		fig, ax = plt.subplots()
 		ax2 = None
 		lines, labs, axis = dialog.plotItems(ptype, include_duplicates=True)
 		y2 = isSecondaryNeeded(labels, labs, axis)
 		if y2:
-			ax2 = ax.twinx()
+			if ptype == 'Vert Profile':
+				ax2 = ax.twiny()
+			else:
+				ax2 = ax.twinx()
 		setPlotProperties(fig, ax, properties, ax2, layout_type, cPlot, isdatetime, dateformat)
 		for i, line in enumerate(lines):
 			if labs[i] in labels or labs[i] == 'Current Time':
 				if y2 and axis[i] == 'axis 2':
-					addLineToPlot(fig, ax2, line, labs[i])
+					addLineToPlot(fig, ax2, line, labs[i], properties.cbLegend.isChecked(), None)
 				else:
-					addLineToPlot(fig, ax, line, labs[i])
+					addLineToPlot(fig, ax, line, labs[i], properties.cbLegend.isChecked(), ax2, isCollectionAndQuiver(lines))
 		if properties.cbLegend.isChecked():
-			legend(ax, properties.cboLegendPos.currentIndex())
+			#legend(ax, properties.cboLegendPos.currentIndex())
+			addLegend(fig, ax, ax2, properties.cboLegendPos.currentIndex())
 		fig.tight_layout()
 		datetimestr = '{0}'.format(datetime.now()).replace(':', '-')
 		fname = os.path.join('{0}'.format(cfg['tmpdir']), '{0}-{1}-{2}-{3}.svg'.format(l.name(), plot, time, datetimestr))
@@ -424,7 +475,8 @@ def composition_set_plots(dialog, cfg, time, layout, dir, layout_type, showCurre
 				set_item_pos(cPlot, positionConverted, layout, margin, buffer=2)
 
 
-def prepare_composition_from_template(layout, cfg, time, dialog, dir, showCurrentTime, retainFlow, layers=None):
+def prepare_composition_from_template(layout, cfg, time, dialog, dir, showCurrentTime, retainFlow, layers=None,
+                                      tuResults=None, meshLayer=None):
 
 	layoutcfg = cfg['layout']
 	template_path = layoutcfg['file']
@@ -438,6 +490,8 @@ def prepare_composition_from_template(layout, cfg, time, dialog, dir, showCurren
 	layout_map = layout.referenceMap()
 	if layers is not None:
 		layout_map.setLayers(layers)
+
+	setTemporalRange(tuResults, layout_map, time, meshLayer)
 	
 	composition_set_time(layout, cfg['time text'])
 	if 'plots' in layoutcfg:
@@ -459,7 +513,7 @@ def composition_set_graphics_from_template(layout, layoutcfg, layout_map, margin
 		gtype = layoutcfg['graphics'][graphic]['type']
 		
 		# graphic
-		if gtype == 'rubberband profile' or gtype == 'rubberband flow':
+		if gtype == 'rubberband profile' or gtype == 'rubberband flow' or gtype == 'curtain':
 			geom = graphic.asGeometry().asPolyline()
 			layoutGeom = [transformMapCoordToLayout(layout_map.rectWithFrame(), layout_map.extent(), x, margin) for x in
 			              geom]
@@ -612,6 +666,9 @@ def _page_size(layout, margin):
 
 
 def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
+	# get version
+	qv = Qgis.QGIS_VERSION_INT
+
 	margin = cfg['page margin'] if 'page margin' in cfg else (0, 0, 0, 0)
 	dpi = 96
 	cfg["dpi"] = dpi
@@ -621,6 +678,7 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 	layers = cfg['layers'] if 'layers' in cfg else [l.id()]
 	extent = cfg['extent'] if 'extent' in cfg else l.extent()
 	crs = cfg['crs'] if 'crs' in cfg else None
+	tuResults = cfg['turesults']
 	dataset_group_index = cfg['scalar index']
 	assert (dataset_group_index)
 	count = l.dataProvider().datasetCount(dataset_group_index)
@@ -652,10 +710,27 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 		# Set to render next timesteps
 		rs = l.rendererSettings()
 		asd = cfg['scalar index']
-		rs.setActiveScalarDataset(QgsMeshDatasetIndex(asd, i))
+		if qv < 31300:
+			asd = QgsMeshDatasetIndex(asd, i)
+		#rs.setActiveScalarDataset(QgsMeshDatasetIndex(asd, i))
 		avd = cfg['vector index']
-		rs.setActiveVectorDataset(QgsMeshDatasetIndex(avd, i))
+		if qv < 31300:
+			avd = QgsMeshDatasetIndex(avd, i)
+		#rs.setActiveVectorDataset(QgsMeshDatasetIndex(avd, i))
+
+		# new api for 3.14
+		setActiveScalar, setActiveVector = TuResults2D.meshRenderVersion(rs)
+		setActiveScalar(asd)
+		setActiveVector(avd)
 		l.setRendererSettings(rs)
+
+		# particles
+		ptms = cfg['particles']
+		#if ptm_res:
+		for ptm_res in ptms:
+			if ptm_res[1] in layers:
+				dialog.tuView.tuResults.tuResultsParticles.updateActiveTime(time)
+				break
 
 		# Prepare layout
 		layout = QgsPrintLayout(QgsProject.instance())
@@ -664,7 +739,8 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 
 		layoutcfg = cfg['layout']
 		if layoutcfg['type'] == 'file':
-			prepare_composition_from_template(layout, cfg, time, dialog, os.path.dirname(imgfile), True, True)
+			prepare_composition_from_template(layout, cfg, time, dialog, os.path.dirname(imgfile), True, True,
+			                                  tuResults=tuResults, meshLayer=l)
 			# when using composition from template, match video's aspect ratio to paper size
 			# by updating video's width (keeping the height)
 			aspect = _page_size(layout, margin).width() / _page_size(layout, margin).height()
@@ -674,7 +750,8 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 			layout.setUnits(QgsUnitTypes.LayoutMillimeters)
 			main_page = layout.pageCollection().page(0)
 			main_page.setPageSize(QgsLayoutSize(w * 25.4 / dpi, h * 25.4 / dpi, QgsUnitTypes.LayoutMillimeters))
-			prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, os.path.dirname(imgfile), dialog)
+			prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, os.path.dirname(imgfile), dialog,
+			                    tuResults=tuResults, meshLayer=l)
 
 		imgnum += 1
 		fname = imgfile % imgnum
@@ -800,6 +877,9 @@ def createDefaultSymbol(gtype):
 	elif gtype == 'rubberband flow':
 		color = '0, 0, 255'
 		symbol = QgsSymbol.defaultSymbol(1)
+	elif gtype == 'curtain':
+		color = '0, 255, 0'
+		symbol = QgsSymbol.defaultSymbol(1)
 	elif gtype == 'marker':
 		color = '255, 0, 0'
 		symbol = QgsSymbol.defaultSymbol(1)
@@ -827,10 +907,23 @@ def createDefaultSymbol(gtype):
 			symbol.appendSymbolLayer(symbol_layer2)
 			
 	return symbol
-	
+
+
+
+def setTemporalRange(tuResults, layout_map, time, meshLayer):
+	qv = Qgis.QGIS_VERSION_INT
+	if qv >= 31300:
+		if tuResults is not None:
+			if meshLayer is None:
+				timeSpec = None
+			else:
+				timeSpec = meshLayer.temporalProperties().referenceTime().timeSpec()
+			layout_map.setIsTemporal(True)
+			tuResults.updateQgsTime(qgsObject=layout_map, time=time, timeSpec=timeSpec)
+
 
 def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, dialog, show_current_time=True,
-                        retainFlow=True):
+                        retainFlow=True, tuResults=None, meshLayer=None):
 	margin = cfg['page margin'] if 'page margin' in cfg else None
 	layout_map = QgsLayoutItemMap(layout)
 	layout_map.attemptResize(_page_size(layout, margin))
@@ -844,6 +937,9 @@ def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, 
 	layout.setReferenceMap(layout_map)
 	layout.addLayoutItem(layout_map)
 	layout_map.attemptResize(_page_size(layout, margin))
+
+	setTemporalRange(tuResults, layout_map, time, meshLayer)
+
 	if 'frame' in cfg:
 		layout_map.setFrameEnabled(cfg['frame'])
 		layout_map.setFrameStrokeColor(cfg['frame color'])
@@ -908,7 +1004,7 @@ def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, 
 			gtype = layoutcfg['graphics'][graphic]['type']
 			
 			# graphic
-			if gtype == 'rubberband profile' or gtype == 'rubberband flow':
+			if gtype == 'rubberband profile' or gtype == 'rubberband flow' or gtype == 'curtain':
 				geom = graphic.asGeometry().asPolyline()
 				layoutGeom = [transformMapCoordToLayout(layout_map.rectWithFrame(), layout_map.extent(), x, margin) for x in geom]
 			else:
@@ -1051,6 +1147,33 @@ def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, 
 		set_item_pos(cNorthArrow, itemcfg['position'], layout, margin, buffer=2)
 		
 
+def convert_fmt_to_re(name):
+	pattern = re.compile(r'\%\d{1,2}d')
+	fmt = pattern.findall(name)
+	if len(fmt) != 1:
+		raise Exception("Wildcards used more than once")
+	f = fmt[0]
+	d = f.strip('%d')
+	mx = re.findall(r'[1-9]', d)[0]
+	pad = '0' in d
+	if pad:
+		sub = r'\\d{' + mx + '}'
+	else:
+		sub = r'\\d{1,' + mx + '}'
+	new_name = pattern.sub(sub, name)
+
+	return  new_name
+
+
+def count_images(img_dir):
+	dir = os.path.dirname(img_dir)  # directory
+	bname = os.path.basename(img_dir)  # basename
+	new_name = convert_fmt_to_re(bname)  # basename but with regex pattern
+
+	images = [os.path.join(dir, y) for y in [x for x in os.walk(dir)][0][2] if re.findall(new_name, y, flags=re.IGNORECASE)]
+	return len(images)
+
+
 def images_to_video(tmp_img_dir="/tmp/vid/%03d.png", output_file="/tmp/vid/test.avi", fps=10, qual=1,
 					ffmpeg_bin="ffmpeg"):
 	if qual == 0:  # lossless
@@ -1073,6 +1196,59 @@ def images_to_video(tmp_img_dir="/tmp/vid/%03d.png", output_file="/tmp/vid/test.
 		f.delete = False  # keep the file on error
 
 	return res == 0, f.name
+
+
+def images_to_video2(tmp_img_dir="/tmp/vid/%03d.png", output_file="/tmp/vid/test.avi", fps=10, qual=1,
+                    ffmpeg_bin="ffmpeg", target_dur=15):
+
+	t = count_images(tmp_img_dir) / target_dur  # input framerate (not output fps)
+
+	if qual == 0:  # lossless
+		opts = ["-vcodec", "ffv1"]
+	else:
+		bitrate = 10000 if qual == 1 else 2000
+		opts = ["-vcodec", "mpeg4", "-b:v", str(bitrate) + "K"]
+
+	cmd = [ffmpeg_bin, "-f", "image2", '-framerate', f'{t}']
+	cmd.extend(['-t', f'{target_dur}', '-i', tmp_img_dir])
+	cmd.extend(opts)
+	cmd.extend(['-r', f'{fps}', '-y', output_file])
+
+	res = subprocess.call(cmd, stdin=subprocess.PIPE)
+	return res == 0, ""
+
+
+def images_to_video_gif(tmp_img_dir="/tmp/vid/%03d.png", output_file="/tmp/vid/test.avi", fps=10, qual=1,
+                        ffmpeg_bin="ffmpeg", target_dur=15):
+	# get images
+	dir = os.path.dirname(tmp_img_dir)
+	s = re.sub(r"\%\d*d", r'\\d*', os.path.basename(tmp_img_dir))  # replace string format with regex pattern
+	images = [os.path.join(dir, y) for y in [x for x in os.walk(dir)][0][2] if re.findall(s, y, flags=re.IGNORECASE)]
+	images = sorted(images, key=lambda x: '{0:03d}'.format(
+		int(os.path.splitext(re.findall(s, os.path.basename(x), flags=re.IGNORECASE)[0])[0])))
+	nImages = len(images)
+
+	#  duration each image is shown
+	t = target_dur / nImages
+
+	cmd = [ffmpeg_bin, "-f", "image2pipe"]
+	for img in images:
+		cmd.extend(['-framerate', f'{fps}', '-loop', '1', '-t', f'{t}', '-i', img])
+	cmd.extend(
+		["-filter_complex", f"concat=n={nImages}:v=1:a=0,split[v0][v1];[v0]palettegen[p];[v1][p]paletteuse[v]", "-map",
+		 "[v]", '-r', f'{fps}', '-y', output_file])
+
+	#f = tempfile.NamedTemporaryFile(prefix="tuflow", suffix=".txt")
+	#f.write(str.encode(" ".join(cmd) + "\n\n"))
+
+	## stdin redirection is necessary in some cases on Windows
+	#res = subprocess.call(cmd, stdin=subprocess.PIPE, stdout=f, stderr=f)
+	#if res != 0:
+	#	f.delete = False  # keep the file on error
+
+	#return res == 0, f.name
+	res = subprocess.call(cmd, stdin=subprocess.PIPE)
+	return res == 0, ''
 
 
 class TuAnimationDialog(QDialog, Ui_AnimationDialog):
@@ -1140,7 +1316,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		self.populateVideoTab()
 		
 		self.cboResult.currentIndexChanged.connect(lambda: self.populateGeneralTab(ignore='results'))
-		self.btnBrowseOutput.clicked.connect(lambda: self.browse('save', 'TUFLOW/animation_outfolder', "AVI files (*.avi)", self.editOutput))
+		self.btnBrowseOutput.clicked.connect(lambda: self.browse('save', 'TUFLOW/animation_outfolder', "AVI (*.avi *.AVI);;MP4 (*.mp4 *.MP4);;GIF (*.gif *.GIF)", self.editOutput))
 		self.btnBrowseTemplate.clicked.connect(lambda: self.browse('load', "TUFLOW/animation_template", "QGIS Print Layout (*.qpt)", self.editTemplate))
 		self.btnBrowseFfmpegPath.clicked.connect(lambda: self.browse('ffmpeg', 'TUFLOW/animation_ffmpeg', "FFmpeg (ffmpeg ffmpeg.exe avconv avconv.exe)", self.editFfmpegPath))
 		self.btnAddPlot.clicked.connect(self.addPlot)
@@ -1517,19 +1693,21 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			for  rtype, ts in result.items():
 				if rtype == 'Bed Elevation':
 					continue
-				if '_ts' not in rtype and '_lp' not in rtype and '/Maximums' not in rtype:  # temporal map output result type
-					for key, item in ts.items():
-						if item[1] == 1:
-							scalarResults.append(rtype)
-							scalarCount += 1
-							if rtype in self.tuView.tuResults.activeResults:
-								activeScalar = scalarCount
-						elif item[1] == 2:
-							vectorResults.append(rtype)
-							vectorCount += 1
-							if rtype in self.tuView.tuResults.activeResults:
-								activeVector = vectorCount
-						break  # only need to check one entry
+				if 'times' in ts:
+					ts = ts['times']
+					if '_ts' not in rtype and '_lp' not in rtype and '/Maximums' not in rtype:  # temporal map output result type
+						for key, item in ts.items():
+							if item[1] == 1:
+								scalarResults.append(rtype)
+								scalarCount += 1
+								if rtype in self.tuView.tuResults.activeResults:
+									activeScalar = scalarCount
+							elif item[1] == 2:
+								vectorResults.append(rtype)
+								vectorCount += 1
+								if rtype in self.tuView.tuResults.activeResults:
+									activeVector = vectorCount
+							break  # only need to check one entry
 		
 		self.cboScalar.addItems(scalarResults)
 		self.cboVector.addItems(vectorResults)
@@ -1543,14 +1721,18 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		:param plotNo:
 		:return:
 		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 		
 		# deal with kwargs
 		includeDuplicates = kwargs['include_duplicates'] if 'include_duplicates' in kwargs.keys() else False
 		
 		if ptype == 'Time Series':
-			plotNo = 0
+			plotNo = TuPlot.TimeSeries
 		elif ptype == 'CS / LP':
-			plotNo = 1
+			plotNo = TuPlot.CrossSection
+		elif ptype == 'Vert Profile':
+			plotNo = TuPlot.VerticalProfile
 		else:
 			return [], []
 		
@@ -1558,10 +1740,14 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			self.tuView.tuPlot.plotEnumerator(plotNo)
 		
 		lines, labs = subplot.get_legend_handles_labels()
+		ct = [PolyCollection, Quiver]  # curtain types
+		labs = [labs[x] + '{0}'.format(' [Curtain]' if type(lines[x]) in ct else "") for x in range(len(labs))]
 		axis = ['axis 1' for x in range(len(lines))]
 		if isSecondaryAxis[0]:
 			subplot2 = self.tuView.tuPlot.getSecondaryAxis(plotNo)
 			lines2, labs2 = subplot2.get_legend_handles_labels()
+			labs2 = [labs2[x] + '{0}'.format(' [Curtain]' if type(lines2[x]) is PolyCollection else "") for x in
+			        range(len(labs))]
 			axis2 = ['axis 2' for x in range(len(lines2))]
 		else:
 			lines2, labs2, axis2 = [], [], []
@@ -1590,29 +1776,28 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		:param checked: bool -> True means groupbox is checked on
 		:return: void
 		"""
-			
-		lines = self.tuView.tuPlot.tuCrossSection.rubberBands
-		for i, line in enumerate(lines):
+
+		self.populateGraphics2(self.tuView.tuPlot.tuTSPoint.points, 'TS Point')
+		self.populateGraphics2(self.tuView.tuPlot.tuCrossSection.rubberBands, 'CS / LP Line')
+		self.populateGraphics2(self.tuView.tuPlot.tuFlowLine.rubberBands, 'Flow Line')
+		self.populateGraphics2(self.tuView.tuPlot.tuCurtainLine.rubberBands, 'Curtain Line')
+		self.populateGraphics2(self.tuView.tuPlot.tuTSPointDepAv.points, 'TS DepAv Point')
+		self.populateGraphics2(self.tuView.tuPlot.tuCSLineDepAv.rubberBands, 'CS DepAv Line')
+		self.populateGraphics2(self.tuView.tuPlot.tuVPPoint.points, 'Vert Profile Point')
+
+	def populateGraphics2(self, graphics, prefix):
+		"""
+		helper for the function above to stop the need for repeated code
+		"""
+
+		for i, graphic in enumerate(graphics):
+			if type(graphic) is QgsPoint:
+				graphic = QgsPointXY(graphic)
 			rowNo = self.tableGraphics.rowCount()
 			self.tableGraphics.setRowCount(rowNo + 1)
-			self.addGraphicRowToTable('CS / LP Line {0}'.format(i + 1), rowNo)
-			self.label2graphic['CS / LP Line {0}'.format(i + 1)] = line
-			
-		lines = self.tuView.tuPlot.tuFlowLine.rubberBands
-		for i, line in enumerate(lines):
-			rowNo = self.tableGraphics.rowCount()
-			self.tableGraphics.setRowCount(rowNo + 1)
-			self.addGraphicRowToTable('Flow Line {0}'.format(i + 1), rowNo)
-			self.label2graphic['Flow Line {0}'.format(i + 1)] = line
-		
-		points = self.tuView.tuPlot.tuTSPoint.points
-		for i, point in enumerate(points):
-			point = QgsPointXY(point)
-			rowNo = self.tableGraphics.rowCount()
-			self.tableGraphics.setRowCount(rowNo + 1)
-			self.addGraphicRowToTable('TS Point {0}'.format(i + 1), rowNo)
-			self.label2graphic['TS Point {0}'.format(i + 1)] = point
-	
+			self.addGraphicRowToTable('{0} {1}'.format(prefix, i + 1), rowNo)
+			self.label2graphic['{0} {1}'.format(prefix, i + 1)] = graphic
+
 	def addGraphicRowToTable(self, label, rowNo, status=True, userLabel=None):
 		"""
 		Create widget for graphic to insert into graphic table.
@@ -1687,7 +1872,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			dialog = PlotProperties(self, item1, item2, self.tuView.tuOptions.xAxisDates)
 		self.pbDialogs[pb] = dialog
 		self.dialog2Plot[dialog] = [item1, item2, item3]
-		pb.clicked.connect(lambda: dialog.setDefaults(self, item1, item2, static=True))
+		pb.clicked.connect(lambda: dialog.setDefaults(self, item1, item2, static=False))
 		pb.clicked.connect(lambda: dialog.exec_())
 		self.tablePlots.setCellWidget(n, 3, pb)
 		if n == 0:
@@ -1893,6 +2078,16 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			if item.column() == 0:
 				lines, labs, axis = self.plotItems(self.tablePlots.item(item.row(), item.column()).text())
 				self.tablePlots.itemDelegateForColumn(1).setItems(item.row(), labs)
+
+				for i in range(self.tablePlots.rowCount()):
+					if self.tablePlots.item(i, 0) == item:
+						pb = self.tablePlots.cellWidget(i, 3)
+						if pb is not None:
+							dialog = self.pbDialogs[pb]
+							if self.tablePlots.item(item.row(), item.column()).text() == 'Time Series':
+								dialog.setDateTime(self.tuView.tuOptions.xAxisDates)
+							else:
+								dialog.setDateTime(False)
 	
 	def addImage(self, e=False, item1=None, item2=None, dialog=None):
 		"""
@@ -2067,7 +2262,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 	
 	def setPlotTableProperties(self):
 		
-		plotTypes = ['Time Series', 'CS / LP']
+		plotTypes = ['Time Series', 'CS / LP', 'Vert Profile']
 		positions = ['Top-Left', 'Top-Right', 'Bottom-Left', 'Bottom-Right']
 		
 		self.tablePlots.itemDelegateForColumn(0).setItems(items=plotTypes, default='Time Series')
@@ -2204,7 +2399,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		if self.layer is None:
 			QMessageBox.information(self, 'Input Error',
 									'Cannot Find Result File in QGIS: {0}'.format(self.cboResult.currentText()))
-		if self.layer.type() != QgsMapLayerType.MeshLayer:
+		if self.layer.type() != QgsMapLayer.MeshLayer:
 			QMessageBox.information(self, 'Input Error',
 									'Error finding Result Mesh Layer: {0}'.format(self.cboResult.currentText()))
 		if not os.path.exists(os.path.dirname(self.editOutput.text())) and not preview:
@@ -2362,8 +2557,8 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			QApplication.setOverrideCursor(Qt.WaitCursor)
 		
 		# save plot settings so line colours won't vary over time
-		self.tuView.tuPlot.setNewPlotProperties(0)
-		self.tuView.tuPlot.setNewPlotProperties(1)
+		#self.tuView.tuPlot.setNewPlotProperties(0)
+		#self.tuView.tuPlot.setNewPlotProperties(1)
 		
 		# get results
 		asd = self.cboScalar.currentText()
@@ -2379,12 +2574,22 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		#		avd = i
 		for resultType in self.tuView.tuResults.results[self.layer.name()]:
 			if resultType == asd:
-				for time in self.tuView.tuResults.results[self.layer.name()][resultType]:
-					asd = self.tuView.tuResults.results[self.layer.name()][resultType][time][-1].group()
+				for time in self.tuView.tuResults.results[self.layer.name()][resultType]['times']:
+					asd = self.tuView.tuResults.results[self.layer.name()][resultType]['times'][time][-1].group()
 			if resultType == avd:
-				for time in self.tuView.tuResults.results[self.layer.name()][resultType]:
-					avd = self.tuView.tuResults.results[self.layer.name()][resultType][time][-1].group()
-		
+				for time in self.tuView.tuResults.results[self.layer.name()][resultType]['times']:
+					avd = self.tuView.tuResults.results[self.layer.name()][resultType]['times'][time][-1].group()
+
+		# particles
+		ptm_res = []  # particles dataprovider
+		# ptm = '{0}_ptm.nc'.format(self.layer.name())
+		ptms = [x.name() for x in QgsProject.instance().layerTreeRoot().findLayers() if re.findall(r'_ptm\.nc', x.name(), flags=re.IGNORECASE)]
+		for ptm in ptms:
+			if ptm in self.tuView.tuResults.results:
+				if ptm in self.tuView.tuResults.tuResultsParticles.resultsParticles:
+					# ptm_res = self.tuView.tuResults.tuResultsParticles.resultsParticles[ptm]
+					ptm_res.append(self.tuView.tuResults.tuResultsParticles.resultsParticles[ptm])
+
 		# Get start and end time
 		if self.tuView.tuOptions.xAxisDates:
 			tStart = self.tuView.tuPlot.convertDateToTime(self.cboStart.currentText(),
@@ -2407,6 +2612,8 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		w = self.spinWidth.value()  # width
 		h = self.spinHeight.value()  # height
 		fps = self.spinSpeed.value()  # frames per second
+		target_dur = self.sbTargetDur.value()  # target duration (sec)
+		m1 = self.cbMethod1.isChecked()  # use method 1 (original method)
 		
 		# Get output directory for images
 		tmpdir = tempfile.mkdtemp(prefix='tuflow')
@@ -2499,8 +2706,12 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 						graphicDict['type'] = 'marker'
 					elif 'CS' in label.text():
 						graphicDict['type'] = 'rubberband profile'
-					else:
+					elif 'Flow' in label.text():
 						graphicDict['type'] = 'rubberband flow'
+					elif 'Curtain' in label.text():
+						graphicDict['type'] = 'curtain'
+					elif 'Vert Profile' in label.text():
+						graphicDict['type'] = 'marker'
 					graphics[graphic] = graphicDict
 			if graphics:
 				layout['graphics'] = graphics
@@ -2533,7 +2744,9 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		     'scalar index': asd,
 		     'vector index': avd,
 		     'active scalar': self.cboScalar.currentText(),
-		     'tmpdir': os.path.dirname(img_output_tpl)
+		     'tmpdir': os.path.dirname(img_output_tpl),
+		     'particles': ptm_res,
+		     'turesults': self.tuView.tuResults,
 			 }
 		
 		for pb, dialog in self.pbDialogs.items():
@@ -2546,7 +2759,15 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		if preview:
 			self.iface.openLayoutDesigner(layout=self.layout)
 		else:
-			ffmpeg_res, logfile = images_to_video(img_output_tpl, output_file, fps, self.quality(), self.ffmpeg_bin)
+			if m1:
+				ffmpeg_res, logfile = images_to_video(img_output_tpl, output_file, fps, self.quality(), self.ffmpeg_bin)
+			else:
+				if os.path.splitext(output_file)[1].upper() == '.GIF':
+					ffmpeg_res, logfile = images_to_video_gif(img_output_tpl, output_file, fps, self.quality(),
+					                                          self.ffmpeg_bin, target_dur)
+				else:
+					ffmpeg_res, logfile = images_to_video2(img_output_tpl, output_file, fps, self.quality(), self.ffmpeg_bin,
+					                                       target_dur)
 			
 			if ffmpeg_res:
 				shutil.rmtree(tmpdir)
@@ -2760,6 +2981,27 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 		self.pbAutoCalcY2Lim.clicked.connect(lambda event: self.setDefaults(self.animationDialog, self.cboPlotType, self.mcboPlotItems, 'y2 limits'))
 		self.buttonBox.accepted.connect(self.userSetTrue)
 		
+	def setDateTime(self, bDt):
+		self.datetime = bDt
+		if self.datetime:
+			self.dteXmin.setVisible(True)
+			self.dteXMax.setVisible(True)
+			self.sbXmin.setVisible(False)
+			self.sbXMax.setVisible(False)
+			self.sbXAxisRotation.setVisible(True)
+			self.label_17.setVisible(True)
+			self.horizontalWidget.setVisible(True)
+			self.sbXAxisRotation.setValue(self.animationDialog.tuView.tuOptions.xAxisLabelRotation)
+		else:
+			self.dteXmin.setVisible(False)
+			self.dteXMax.setVisible(False)
+			self.sbXmin.setVisible(True)
+			self.sbXMax.setVisible(True)
+			self.sbXAxisRotation.setVisible(False)
+			self.label_17.setVisible(False)
+			self.horizontalWidget.setVisible(False)
+		self.resize(self.minimumSizeHint())
+
 	def userSetTrue(self):
 		self.xUseMatplotLibDefault = False
 		self.userSet = True
@@ -2785,6 +3027,7 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 			self.sbFigSizeY.setValue(prop.sbFigSizeY.value())
 	
 	def setDefaults(self, animation, plotType, items, recalculate='', static=False, activeScalar=None, xAxisDates=False):
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 		if type(plotType) is not str:
 			if type(plotType) is QTableWidgetItem:
@@ -2833,28 +3076,50 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 				self.leXLabel.setText('Chainage')
 
 		# X Axis Limits
-		if not self.userSet or recalculate == 'x limits':
-			xmin = 99999
-			xmax = -99999
-			for item in items:
-				if item != 'Current Time' and item != 'Culverts and Pipes':
-					i = labels.index(item) if labels.count(item) else -1
-					if i > -1:
-						x = lines[i].get_xdata()
-						margin = (max(x) - min(x)) * 0.05
-						xmin = np.nanmin(x) - margin
-						xmax = np.nanmax(x) + margin
-						if not self.datetime:
-							self.sbXmin.setValue(xmin)
-							self.sbXMax.setValue(xmax)
-						else:
-							self.dteXmin.setDateTime(xmin)
-							self.dteXMax.setDateTime(xmax)
-						break
-					self.sbXmin.setValue(0)
-					self.sbXMax.setValue(1)
-			if xmin == 99999 or xmax == -99999:
-				self.xUseMatplotLibDefault = True
+		if plotType == 'Time Series':
+			if not self.userSet or recalculate == 'x limits':
+				xmin = 999999
+				xmax = -999999
+				for item in items:
+					if item != 'Current Time' and item != 'Culverts and Pipes':
+						i = labels.index(item) if labels.count(item) else -1
+						if i > -1:
+							if type(lines[i]) is PolyCollection:
+								xmin2, xmax2 = getPolyCollectionExtents(lines[i], axis='x')
+							elif type(lines[i]) is Quiver:
+								xmin2, xmax2 = getQuiverExtents(lines[i], axis='y')
+							else:
+								x = lines[i].get_xdata()
+								xmin2, xmax2 = np.nanmin(x), np.nanmax(x)
+								if self.animationDialog.tuView.tuOptions.xAxisDates:
+									if xmin2 in self.animationDialog.tuView.tuResults.date2time:
+										xmin2 = self.animationDialog.tuView.tuResults.date2time[xmin2]
+									else:
+										xmin2 = 999999
+									if xmax2 in self.animationDialog.tuView.tuResults.date2time:
+										xmax2 = self.animationDialog.tuView.tuResults.date2time[xmax2]
+									else:
+										xmax2 = -999999
+							xmin = min(xmin, xmin2)
+							xmax = max(xmax, xmax2)
+							margin = (xmax - xmin) * 0.05
+							xmin = xmin - margin
+							xmax = xmax + margin
+							if not self.datetime:
+								self.sbXmin.setValue(xmin)
+								self.sbXMax.setValue(xmax)
+							else:
+								xmin = convertTimeToDate(self.animationDialog.tuView.tuOptions.zeroTime, xmin,
+								                         self.animationDialog.tuView.tuOptions.timeUnits)
+								xmax = convertTimeToDate(self.animationDialog.tuView.tuOptions.zeroTime, xmax,
+								                         self.animationDialog.tuView.tuOptions.timeUnits)
+								self.dteXmin.setDateTime(xmin)
+								self.dteXMax.setDateTime(xmax)
+							break
+						self.sbXmin.setValue(0)
+						self.sbXMax.setValue(1)
+				if xmin == 99999 or xmax == -99999:
+					self.xUseMatplotLibDefault = True
 				
 		# Y Axis Label
 		if not self.userSet and not self.dynamicYAxis:
@@ -2864,10 +3129,16 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 						i = labels.index(item) if labels.count(item) else -1
 						if i > -1:
 							if axis[i] == 'axis 1':
-								self.leYLabel.setText(item)
+								if '[Curtain]' in item:
+									self.leYLabel.setText('Elevation')
+								else:
+									self.leYLabel.setText(item)
 								break
 				else:
-					self.leYLabel.setText(items[0])
+					if '[Curtain]' in items[0]:
+						self.leYLabel.setText('Elevation')
+					else:
+						self.leYLabel.setText(items[0])
 				
 		# Y2 Axis Label
 		userSetY2 = True
@@ -2907,11 +3178,11 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 			# to get max and min
 			if plotType == 'Time Series' or static == True:
 				if items:
-					ymin = 99999
-					ymax = -99999
+					ymin = 999999
+					ymax = -999999
 					if 'axis 1' in axis and 'axis 2' in axis:
-						ymin2 = 99999
-						ymax2 = -99999
+						ymin2 = 999999
+						ymax2 = -999999
 						for item in items:
 							if item != 'Current Time':
 								i = labels.index(item) if labels.count(item) else -1
@@ -2958,15 +3229,25 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 					self.sbYMax.setValue(1)
 			else:  # long plot / cross section - so need to loop through all timesteps to get max
 				if items:
-					ymin = 99999
-					ymax = -99999
-					ymin2 = 99999
-					ymax2 = -99999
+					ymin = 999999
+					ymax = -999999
+					ymin2 = 999999
+					ymax2 = -999999
+					xmin = 999999
+					xmax = -999999
 					for i in range(animation.tuView.cboTime.count()):
 						timeFormatted = animation.tuView.cboTime.itemText(i)
 						unit = self.animationDialog.tuView.tuOptions.timeUnits
-						time = convertFormattedTimeToTime(timeFormatted, unit=unit)
-						animation.tuView.tuPlot.updateCurrentPlot(1, draw=False, time=time)
+						if self.animationDialog.tuView.tuOptions.xAxisDates:
+							time = convertFormattedDateToTime(timeFormatted,
+							                                  self.animationDialog.tuView.tuResults.dateFormat,
+							                                  self.animationDialog.tuView.tuResults.date2time)
+						else:
+							time = convertFormattedTimeToTime(timeFormatted, unit=unit)
+						if plotType == 'CS / LP':
+							animation.tuView.tuPlot.updateCurrentPlot(TuPlot.CrossSection, draw=False, time=time)
+						else:
+							animation.tuView.tuPlot.updateCurrentPlot(TuPlot.VerticalProfile, draw=False, time=time)
 						lines, labels, axis = animation.plotItems(plotType)
 						if 'axis 1' in axis and 'axis 2' in axis:
 							for item in items:
@@ -2975,45 +3256,100 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 									if axis[i] == 'axis 1':
 										if type(lines[i]) is matplotlib.lines.Line2D:
 											y = lines[i].get_ydata()
+											x = lines[i].get_xdata()
+											ymin = min(ymin, np.nanmin(y))
+											ymax = max(ymax, np.nanmax(y))
+											xmin = min(xmin, np.nanmin(x))
+											xmax = max(xmax, np.nanmax(x))
 										elif type(lines[i]) is matplotlib.patches.Polygon:
 											xy = lines[i].line.get_xy()
 											y = xy[:, 1]
-										ymin = min(ymin, np.nanmin(y))
-										ymax = max(ymax, np.nanmax(y))
+											x = xy[:, 0]
+											ymin = min(ymin, np.nanmin(y))
+											ymax = max(ymax, np.nanmax(y))
+											xmin = min(xmin, np.nanmin(x))
+											xmax = max(xmax, np.nanmax(x))
+										elif type(lines[i]) is PolyCollection:
+											ymin_t, ymax_t, = getPolyCollectionExtents(lines[i], axis='y')
+											xmin_t, xmax_t, = getPolyCollectionExtents(lines[i], axis='x')
+											ymin = min(ymin, ymin_t)
+											ymax = max(ymax, ymax_t)
+											xmin = min(xmin, xmin_t)
+											xmax = max(xmax, xmax_t)
+										elif type(lines[i]) is Quiver:
+											ymin_t, ymax_t = getQuiverExtents(lines[i], axis='y')
+											xmin_t, xmax_t, = getQuiverExtents(lines[i], axis='x')
+											ymin = min(ymin, ymin_t)
+											ymax = max(ymax, ymax_t)
+											xmin = min(xmin, xmin_t)
+											xmax = max(xmax, xmax_t)
 									elif axis[i] == 'axis 2':
 										y = lines[i].get_ydata()
+										x = lines[i].get_xdata()
 										ymin2 = min(ymin2, np.nanmin(y))
 										ymax2 = max(ymax2, np.nanmax(y))
+										xmin = min(xmin, np.nanmin(x))
+										xmax = max(xmax, np.nanmax(x))
 								complete += 1
 								if maxProgress:
 									pComplete = complete / maxProgress * 100
 									progress.setValue(pComplete)
-						elif not self.userSet or recalculate == 'y limits':
+						elif not self.userSet or recalculate == 'y limits' or recalculate == 'x limits':
 							for item in items:
 								if item != 'Current Time':
 									i = labels.index(item) if labels.count(item) else -1
 									if i > -1:
 										if type(lines[i]) is matplotlib.lines.Line2D:
 											y = lines[i].get_ydata()
+											x = lines[i].get_xdata()
+											ymin = min(ymin, np.nanmin(y))
+											ymax = max(ymax, np.nanmax(y))
+											xmin = min(xmin, np.nanmin(x))
+											xmax = max(xmax, np.nanmax(x))
 										elif type(lines[i]) is matplotlib.patches.Polygon:
 											xy = lines[i].get_xy()
 											y = xy[:, 1]
-										ymin = min(ymin, np.nanmin(y))
-										ymax = max(ymax, np.nanmax(y))
+											x = xy[:, 0]
+											ymin = min(ymin, np.nanmin(y))
+											ymax = max(ymax, np.nanmax(y))
+											xmin = min(xmin, np.nanmin(x))
+											xmax = max(xmax, np.nanmax(x))
+										elif type(lines[i]) is PolyCollection:
+											ymin_t, ymax_t = getPolyCollectionExtents(lines[i], axis='y')
+											xmin_t, xmax_t, = getPolyCollectionExtents(lines[i], axis='x')
+											ymin = min(ymin, ymin_t)
+											ymax = max(ymax, ymax_t)
+											xmin = min(xmin, xmin_t)
+											xmax = max(xmax, xmax_t)
+										elif type(lines[i]) is Quiver:
+											ymin_t, ymax_t = getQuiverExtents(lines[i], axis='y')
+											xmin_t, xmax_t, = getQuiverExtents(lines[i], axis='x')
+											ymin = min(ymin, ymin_t)
+											ymax = max(ymax, ymax_t)
+											xmin = min(xmin, xmin_t)
+											xmax = max(xmax, xmax_t)
 								complete += 1
 								if maxProgress:
 									pComplete = complete / maxProgress * 100
 									progress.setValue(pComplete)
 					margin = (ymax - ymin) * 0.05
+					marginx = (xmax - xmin) * 0.05
 					if not self.userSet or recalculate == 'y limits':
 						self.sbYMin.setValue(ymin - margin)
 						self.sbYMax.setValue(ymax + margin)
-					if ymin2 != 99999 and ymax2 != -99999:
+					if not self.userSet or recalculate == 'x limits':
+						#if not self.datetime:
+						self.sbXmin.setValue(xmin - marginx)
+						self.sbXMax.setValue(xmax + marginx)
+						#else:
+						#	self.dteXmin.setDateTime(xmin - marginx)
+						#	self.dteXMax.setDateTime(xmax + marginx)
+					if ymin2 != 999999 and ymax2 != -999999:
 						if not self.userSet or recalculate == 'y2 limits':
 							margin2 = (ymax2 - ymin2) * 0.05
 							self.sbY2Min.setValue(ymin2 - margin2)
 							self.sbY2Max.setValue(ymax2 + margin2)
-					if ymin == 99999 or ymax == -99999:
+					if ymin == 999999 or ymax == -999999:
 						self.yUseMatplotLibDefault = True
 				else:
 					self.sbYMin.setValue(0)

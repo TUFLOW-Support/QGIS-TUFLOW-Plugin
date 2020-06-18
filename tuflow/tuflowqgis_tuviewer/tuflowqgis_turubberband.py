@@ -334,7 +334,7 @@ class TuRubberBand():
         :return: True if successful
         """
 
-		return self.plotFunction(None, feat, bypass=bypass, lineNo=len(self.rubberBands))
+		return self.plotFunction(None, feat, bypass=bypass, lineNo=len(self.rubberBands), data_type=self.dataType)
 
 	def unpressButton(self) -> None:
 		"""

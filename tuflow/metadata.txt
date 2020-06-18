@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.0.4.55
+version=3.1.0
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,10 +20,18 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=
+changelog=Compatible with QGIS temporal controller
+          Added new plotting types for 3D datasets
+          Added Cross section viewing capabilities
+          Added ability to load 1D hydraulic check files
+          Added particle tracking loading / viewing
+          Added further error checking / messaging to 1D integrity tool
+          Fixed bug in ARR tool that would occur when adding additional temporal patterns with large catchments that required Areal TP
+          Fixed minor bug with case sensitivity when loading results through TCF file
+          Removed message window "appended .shp to output" from increment tool
 
 # tags are comma separated with spaces allowed
-tags=TUFLOW, simulation, flood, hydraulic modelling, MDAL, mesh, xmdf, dat, 2dm, Australian Rainfall & Runoff, ARR
+tags=TUFLOW, simulation, flood, hydraulic modelling, MDAL, mesh, xmdf, dat, 2dm, Australian Rainfall & Runoff, ARR, ReFH2
 
 homepage=http://wiki.tuflow.com/index.php?title=TUFLOW_QGIS_Plugin
 tracker=https://github.com/TUFLOW-Support/QGIS-TUFLOW-Plugin/issues

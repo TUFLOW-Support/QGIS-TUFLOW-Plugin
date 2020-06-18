@@ -76,6 +76,7 @@ class TuPlotToolbar():
 		self.mpltoolbarTimeSeries.resize(QSize(250, 30))
 		self.lstActionsTimeSeries = self.mpltoolbarTimeSeries.actions()
 		self.mpltoolbarTimeSeries.removeAction(self.lstActionsTimeSeries[6])  # remove customise subplot
+
 		
 		# Plotting Toolbar - Long plot
 		self.mpltoolbarLongPlot = matplotlib.backends.backend_qt5agg.NavigationToolbar2QT(
@@ -136,7 +137,9 @@ class TuPlotToolbar():
 		fluxSecAxisIcon = QIcon(os.path.join(dir, "icons", "2nd_axis_2.png"))
 		cursorTrackingIcon = QIcon(os.path.join(dir, "icons", "live_cursor_tracking.png"))
 		meshGridIcon = QIcon(os.path.join(dir, "icons", "meshGrid.png"))
-		meshAveragingIcon = QgsApplication.getThemeIcon('/propertyicons/meshaveraging.svg')
+		#meshAveragingIcon = QgsApplication.getThemeIcon('/propertyicons/meshaveraging.svg')
+		tsDepthAvIcon = QIcon(os.path.join(dir, "icons", "TS_3D.PNG"))
+		csDepthAvIcon = QIcon(os.path.join(dir, "icons", "XS_3D.PNG"))
 		curtainPlotIcon = QIcon(os.path.join(dir, "icons", "curtain_plot.png"))
 		verticalProfileIcon = QIcon(os.path.join(dir, "icons", "vertical_profile.png"))
 		
@@ -166,10 +169,10 @@ class TuPlotToolbar():
 		self.meshGridAction.setCheckable(True)
 		self.meshGridButton.setDefaultAction(self.meshGridAction)
 		self.averageMethodTSMenu = DatasetMenuDepAv("3D to 2D Averaging Time Series")
-		self.averageMethodTSMenu.menuAction().setIcon(meshAveragingIcon)
+		self.averageMethodTSMenu.menuAction().setIcon(tsDepthAvIcon)
 		self.averageMethodTSMenu.menuAction().setCheckable(True)
 		self.averageMethodCSMenu = DatasetMenuDepAv("3D to 2D Averaging Cross Section")
-		self.averageMethodCSMenu.menuAction().setIcon(meshAveragingIcon)
+		self.averageMethodCSMenu.menuAction().setIcon(csDepthAvIcon)
 		self.averageMethodCSMenu.menuAction().setCheckable(True)
 		self.addAverageMethods(self.averageMethodTSMenu)
 		self.addAverageMethods(self.averageMethodCSMenu)
@@ -226,6 +229,9 @@ class TuPlotToolbar():
 			TuPlot.DataCrossSectionDepAv: self.averageMethodCSMenu.menuAction(),
 			TuPlot.DataVerticalProfileStartLine: None,
 			TuPlot.DataVerticalProfile: self.plotVPMenu.menuAction(),
+			TuPlot.DataCrossSection1DViewer: None,
+			TuPlot.DataHydraulicProperty: None,
+			TuPlot.DataVerticalMesh: None,
 		}
 
 		return True

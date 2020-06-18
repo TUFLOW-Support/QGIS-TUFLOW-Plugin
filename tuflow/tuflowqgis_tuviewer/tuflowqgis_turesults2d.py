@@ -8,8 +8,9 @@ from qgis.core import *
 from PyQt5.QtWidgets import *
 from qgis.PyQt.QtXml import QDomDocument
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 from tuflow.tuflowqgis_library import tuflowqgis_find_layer, findAllMeshLyrs, loadSetting, roundSeconds, \
-	getPropertiesFrom2dm
+	getPropertiesFrom2dm, qdt2dt, dt2qdt
 
 
 
@@ -18,7 +19,7 @@ class TuResults2D():
 	Class for handling 2D results
 	
 	"""
-	
+
 	def __init__(self, TuView):
 		self.tuView = TuView
 		self.iface = TuView.iface
@@ -289,15 +290,19 @@ class TuResults2D():
 		date2timekey = self.tuView.tuResults.date2timekey  # dict
 		date2time = self.tuView.tuResults.date2time  # dict
 		zeroTime = self.tuView.tuOptions.zeroTime
-		
+
+
 		if name not in results.keys():  # add results to dict
 			results[name] = {}
 		
 		resultTypes = []
 		dp = layer.dataProvider()  # QgsMeshDataProvider
-		if qv >= 31300:
-			self.tuView.tuOptions.zeroTime = self.getReferenceTime(layer.temporalProperties())
-		
+		if self.tuView.OpenResults.count() == 0:
+			self.tuView.tuOptions.zeroTime = self.getReferenceTime(layer, self.tuView.tuOptions.defaultZeroTime)
+
+		# turn on temporal properties
+		self.configTemporalProperties(layer)
+
 		for i in range(dp.datasetGroupCount()):
 			# Get result type e.g. depth, velocity, max depth
 			mdGroup = dp.datasetGroupMetadata(i)  # Group Metadata
@@ -313,12 +318,20 @@ class TuResults2D():
 			                     'is3dDataset': self.is3dDataset(i, dp),
 			                     'timeUnit': self.getTimeUnit(layer),
 			                     'referenceTime': self.tuView.tuOptions.zeroTime,
+			                     'isMax': TuResults.isMaximumResultType(id, dp, i),
+			                     'isMin':TuResults.isMinimumResultType(id, dp, i),
+			                     'isStatic': TuResults.isStatic(id, dp, i),
+			                     'isTemporal': TuResults.isTemporal(id, dp, i),
 			                     }  # add result type to results dictionary
 			if id2 is not None:
 				results[name][id2] = {'times': {},
 				                      'is3dDataset': self.is3dDataset(i, dp),
 				                      'timeUnit': self.getTimeUnit(layer),
 				                      'referenceTime': self.tuView.tuOptions.zeroTime,
+				                      'isMax': TuResults.isMaximumResultType(id, dp, i),
+				                      'isMin':TuResults.isMinimumResultType(id, dp, i),
+				                      'isStatic': TuResults.isStatic(id, dp, i),
+				                      'isTemporal': TuResults.isTemporal(id, dp, i),
 				                      }  # add result type to results dictionary
 
 			# apply any default rendering styles to datagroup
@@ -347,7 +360,7 @@ class TuResults2D():
 				st = self.recordSpecialTime(name, md.time(), id, id2, i, j, ext)
 
 				if not st:
-					self.recordTime(mdGroup, md, name, id, id2, i, j)
+					self.recordTime(layer, mdGroup, md, name, id, id2, i, j)
 
 		# align first timestep values
 		# e.g. if first temporal timestep is 1 hr
@@ -389,10 +402,12 @@ class TuResults2D():
 
 		return False
 
-	def recordTime(self, mdg, md, name, id, id2, i, j):
+	def recordTime(self, layer, mdg, md, name, id, id2, i, j):
 		"""
 
 		"""
+
+		qv = Qgis.QGIS_VERSION_INT
 
 		results = self.tuView.tuResults.results  # dict
 		timekey2time = self.tuView.tuResults.timekey2time  # dict
@@ -403,6 +418,13 @@ class TuResults2D():
 		zeroTime = self.tuView.tuOptions.zeroTime
 
 		t = md.time()
+		if self.getReferenceTime(layer) != self.tuView.tuOptions.zeroTime:
+			dt = self.getReferenceTime(layer) - self.tuView.tuOptions.zeroTime
+			if self.tuView.tuOptions.timeUnits == 'h':
+				factor = 60. * 60.
+			else:  # 's'
+				factor = 1.
+			t += dt.total_seconds() / factor
 
 		for k, x in enumerate([id, id2]):
 			if x is not None:
@@ -530,7 +552,7 @@ class TuResults2D():
 
 		if id in ids:
 			counter = 1
-			newId = '{0} [{1}]'.format(newId, counter)
+			newId = '{0} [{1}]'.format(id, counter)
 			while newId in ids:
 				newId = newId.replace('[{0}]'.format(counter), '[{0}]'.format(counter + 1))
 				counter += 1
@@ -596,7 +618,7 @@ class TuResults2D():
 			                                                        mesh_index_only=True)
 			# render active datasets
 			rs = layer.rendererSettings()
-			setActiveScalar, setActiveVector = self.meshRenderVersion(rs)
+			setActiveScalar, setActiveVector = TuResults2D.meshRenderVersion(rs)
 			setActiveScalar(activeScalarMeshIndex)
 			setActiveVector(activeVectorMeshIndex)
 			layer.setRendererSettings(rs)
@@ -620,13 +642,16 @@ class TuResults2D():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+
 		results = self.tuView.tuResults.results
 
 		for res in resList:
 			if res in results.keys():
 				# remove from indexed results
 				for resultType in list(results[res].keys()):
-					if '_ts' not in resultType and '_lp' not in resultType:
+					# if '_ts' not in resultType and '_lp' not in resultType:
+					if TuResults.isMapOutputType(resultType):
 						del results[res][resultType]
 
 				# remove from map
@@ -854,6 +879,8 @@ class TuResults2D():
 		:return:
 		"""
 
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+
 		results = self.tuView.tuResults.results
 		firstTime = None
 		
@@ -863,7 +890,8 @@ class TuResults2D():
 			for resultType in results[result]:
 				if firstTime is not None:
 					break
-				if '_ts' not in resultType and '_lp' not in resultType:
+				if TuResults.isMapOutputType(resultType):
+				# elif '_ts' not in resultType and '_lp' not in resultType and '_particles' not in resultType:
 					if len(results[result][resultType]['times']) > 1:
 						for i in results[result][resultType]['times']:
 							firstTime = results[result][resultType]['times'][i][0]
@@ -874,7 +902,8 @@ class TuResults2D():
 					continue  # move onto next result dataset
 				else:  # find time 0 values and change to firstTime
 					for resultType in results[result]:
-						if '_ts' not in resultType and '_lp' not in resultType:
+						#if '_ts' not in resultType and '_lp' not in resultType:
+						if TuResults.isMapOutputType(resultType):
 							if len(results[result][resultType]['times']) == 1:
 								for i in results[result][resultType]['times']:
 									if results[result][resultType]['times'][i][0] == 0:
@@ -901,7 +930,8 @@ class TuResults2D():
 											a = sorted([x for x in self.tuView.tuResults.date2timekey.keys()])
 											del self.tuView.tuResults.date2timekey[a[0]]
 
-	def meshRenderVersion(self, rs):
+	@staticmethod
+	def meshRenderVersion(rs):
 		"""
 		API changes between versions
 		"""
@@ -935,13 +965,41 @@ class TuResults2D():
 			rs.setTriangularMeshSettings(rsTriangles)
 			layer.setRendererSettings(rs)
 
-	def getReferenceTime(self, tp):
+	def getReferenceTime(self, layer, defaultZeroTime=None):
 		"""
 
 		"""
-		rt = tp.referenceTime()
-		if rt.isValid():
-			return datetime(rt.date().year(), rt.date().month(), rt.date().day(), rt.time().hour(),
-			                rt.time().minute(),  rt.time().second(), int(rt.time().msec() * 1000))
+		qv = Qgis.QGIS_VERSION_INT
+
+		rt = None
+		if qv >= 31300:
+			rt = layer.temporalProperties().referenceTime()
+			rt = rt.toTimeSpec(self.tuView.tuResults.timeSpec)
 		else:
-			return self.tuView.tuOptions.defaultZeroTime
+			try:  # unclear what version this was introduced
+				rt = layer.timeSettings().absoluteTimeReferenceTime()
+			except:
+				pass
+
+		if rt is not None and rt.isValid():
+			return qdt2dt(rt)
+		else:
+			if defaultZeroTime is not None:
+				return defaultZeroTime
+			else:
+				return self.tuView.tuOptions.zeroTime
+
+	def configTemporalProperties(self, layer):
+		"""
+
+		"""
+		qv = Qgis.QGIS_VERSION_INT
+
+		if qv >= 31300:
+			tp = layer.temporalProperties()
+			if not tp.isActive():
+				tp.setIsActive(True)
+
+			if not tp.referenceTime().isValid():
+				layer.setReferenceTime(dt2qdt(self.getReferenceTime(layer),
+				                              self.tuView.tuResults.timeSpec))

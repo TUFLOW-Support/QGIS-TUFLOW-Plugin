@@ -2,12 +2,15 @@
 import sys
 import os
 import csv
+import numpy.ma as ma
+from .tuflowqgis_library import interpolate
 version = '2018-04-AA'
 
 
 class XS_Data():
-	def __init__(self,fpath,fname,xs_type,flags,col1,col2,col3,col4,col5,col6):
+	def __init__(self,fpath,fname,xs_type,flags,col1,col2,col3,col4,col5,col6, feat):
 		self.source = fname
+		self.feature = feat
 		#self.type = xs_type
 		self.flags = flags
 		self.col1 = col1
@@ -162,8 +165,12 @@ class XS_Data():
 				for i in range(0,nheader):
 					next(reader)
 				for line in reader:
-					self.x.append(float(line[c1_ind]))
-					self.z.append(float(line[c2_ind]))
+					if self.type.upper() == 'XZ':
+						self.x.append(float(line[c1_ind]))
+						self.z.append(float(line[c2_ind]))
+					else:
+						self.z.append(float(line[c1_ind]))
+						self.x.append(float(line[c2_ind]))
 					if self.flags:
 						if self.type == 'XZ':
 							if self.has_mat:
@@ -371,6 +378,58 @@ class XS_results():
 				self.maxH.append(None)
 
 
+	@staticmethod
+	def fitResToXS2(xs, h):
+		"""
+
+		"""
+
+		xmin, xmax = min(xs.x), max(xs.x)
+		ymin, ymax = min(xs.z), max(xs.z)
+
+		if xs.type.upper() != 'XZ':
+			x = [xmin, xmax]
+			y = [h, h]
+		else:
+			if h >= ymax:
+				x = [xmin, xmax]
+				y = [h, h]
+			elif h <= ymin:
+				y = [ymin]
+				i = xs.z.index(ymin)
+				x = [xs.x[i]]
+			else:
+				x = []
+				y = []
+				waswet = xs.z[0] <= h
+				if waswet:
+					x.append(xs.x[0])
+					y.append(h)
+				mi = []
+				i = 0
+				for c in xs.x[1:]:
+					i += 1
+					wet = xs.z[i] <= h
+					if waswet != wet:
+						if xs.z[i] == h:
+							x.append(c)
+							y.append(h)
+						else:
+							x.append(interpolate(h, xs.z[i-1], xs.z[i], xs.x[i-1], xs.x[i]))
+							y.append(h)
+						if waswet:
+							x.append(c)
+							y.append(h)
+							mi.append(len(y) - 1)
+						waswet = wet
+				if wet:
+					x.append(xmax)
+					y.append(h)
+				y = ma.array(y)
+				for i in mi:
+					y[i] = ma.masked
+
+		return x, y
 
 	def fitResToXs(self):
 		"""
@@ -599,16 +658,20 @@ class XS():
 		self.script_version = version
 		self.results = []
 		self.xsLayers = []
-		self.clear()
-
+		self.data = []
+		self.all_loaded = False
+		self.nXS = 0
+		self.source = []
+		self.all_types = []
+		self.layer = None
 
 	def clear(self):
 		self.nXS = 0
 		self.all_loaded = False
-		self.data = []
-		self.source = []
-		self.all_types = []
-		self.results = []
+		self.data.clear()
+		self.source.clear()
+		self.all_types.clear()
+		self.results.clear()
 
 	def add(self,fpath,fname,xs_type,flags,col1,col2,col3,col4,col5,col6):
 		self.nXS = self.nXS + 1
@@ -624,7 +687,26 @@ class XS():
 				self.all_types.append(self.data[-1].type)
 			return False, None
 
-	def addfromfeature(self,fpath,fields,feature):
+	def removeByFeaturesNotIncluded(self, features):
+		selSource = [x.attributes()[0] for x in features]
+		l = len(self.source)
+		for i, s in enumerate(reversed(self.source[:])):
+			j = l - i - 1
+			if s not in selSource:
+				try:
+					self.source.pop(j)
+				except:
+					pass
+				try:
+					self.data.pop(j)
+				except:
+					pass
+				self.nXS -= 1
+				if self.nXS < 0:
+					self.nXS = 0
+		self.all_types = list(set([x.type for x in self.data]))
+
+	def addFromFeature(self,fpath,fields,feature, lyr):
 		error = False
 		message = None
 		# get field info
@@ -690,7 +772,7 @@ class XS():
 		try:
 			self.nXS = self.nXS + 1
 			self.source.append(source)
-			self.data.append(XS_Data(fpath,source,xs_type,flags,col1,col2,col3,col4,col5,col6))
+			self.data.append(XS_Data(fpath,source,xs_type,flags,col1,col2,col3,col4,col5,col6, feature))
 			if self.data[-1].error:
 				return self.data[-1].error, self.data[-1].message
 			else: # check if we have seen this type of section before
@@ -702,6 +784,7 @@ class XS():
 			return error, message
 
 		#normal termination
+		self.lyr = lyr
 		return error, message
 
 	def set_axis_titles(self,units):
@@ -801,3 +884,19 @@ class XS():
 		"""
 
 		self.xsLayer = XS_layer(xsLayer)
+
+	@staticmethod
+	def getAllSourcesForType(lyr, t):
+		"""
+		Gets all source names for type e.g. 'XZ'
+		"""
+
+		return [x.attributes()[0].lower() for x in list(filter(lambda x: x.attributes()[1].lower() == t.lower(), lyr.getFeatures()))]
+
+	@staticmethod
+	def getAllTypes(lyr):
+		"""
+
+		"""
+
+		return list(set([x.attributes()[1].upper() for x in lyr.getFeatures()]))

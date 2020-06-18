@@ -28,6 +28,8 @@ class TuFlowLine(TuRubberBand):
 		:return: bool -> True is possible, False not possible
 		"""
 
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+
 		results = self.tuView.tuResults.results
 
 		possible = False
@@ -37,7 +39,9 @@ class TuFlowLine(TuRubberBand):
 			foundVel = False
 			result = results[meshLayer.name()]
 			for resultType in result:
-				if '_ts' not in resultType and '_lp' not in resultType and 'Maximum' not in resultType:  # not a 1D result
+				if TuResults.isMapOutputType(resultType) and not TuResults.isMaximumResultType(resultType) \
+						and not TuResults.isMinimumResultType(resultType):
+				#if '_ts' not in resultType and '_lp' not in resultType and 'Maximum' not in resultType:  # not a 1D result
 					if 'dep' in resultType.lower() and 'time' not in resultType.lower() and \
 							'dur' not in resultType.lower():
 						foundDepth = True
@@ -88,6 +92,8 @@ class TuFlowLine2():
 		
 		:return: bool -> True is possible, False not possible
 		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 		
 		results = self.tuView.tuResults.results
 		
@@ -98,7 +104,8 @@ class TuFlowLine2():
 			foundVel = False
 			result = results[meshLayer.name()]
 			for resultType in result:
-				if '_ts' not in resultType and '_lp' not in resultType and 'Maximum' not in resultType:  # not a 1D result
+				if TuResults.isMapOutputType(resultType) and not TuResults.isMaximumResultType(resultType) \
+						and not TuResults.isMinimumResultType(resultType):  # not a 1D result
 					if 'dep' in resultType.lower() and 'time' not in resultType.lower() and \
 							'dur' not in resultType.lower():
 						foundDepth = True

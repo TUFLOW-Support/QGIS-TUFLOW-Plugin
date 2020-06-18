@@ -28,9 +28,12 @@ class TuResults1D():
 		self.pointTS = []
 		self.lineTS = []
 		self.regionTS = []
-		self.activeType = -1
+		self.activeType = -1  # -1 null, 0 pointTS, 1 lineTS, 2 RegionTS, 3 XS
 		self.typesLP = []  # list -> str selected 1D long plot result types
-	
+		self.typesXS = []  # 1D cross section types
+		self.lineXS = []  # 1D cross section line types
+		self.typesXSRes = []  # store results that can be plotted on XS (i.e. water level)
+
 	def importResults(self, inFilePaths):
 		"""
 		Loads in the 1D result class.

@@ -17,6 +17,9 @@ class TuOptions():
 		self.xAxisDates = False
 		self.xAxisLabelRotation = 0
 		self.timeUnits = 'h'
+		self.writeMeshIntersects = False
+		self.particlesWriteDebugInfo = False
+		self.verticalProfileInterpolated = False
 		if settings.contains("TUFLOW/tuview_defaultlayout"):
 			self.defaultLayout = settings.value('TUFLOW/tuview_defaultlayout')
 		else:

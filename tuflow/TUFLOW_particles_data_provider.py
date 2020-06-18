@@ -1,8 +1,9 @@
 from datetime import datetime
 import re
 import netCDF4
+from PyQt5.QtWidgets import QMessageBox
 
-class TuParticlesDataProviderError:
+class TuParticlesDataProviderError(BaseException):
     pass
 
 class TuParticlesDataProvider:
@@ -11,8 +12,10 @@ class TuParticlesDataProvider:
         self.nc = None
         self.times = [] # Python DateTimes (absolute)
         self.reference_time = None # Python DateTime
+        self.default_reference_time = None
+        self.crs = None
 
-    def load_file(self, filename):
+    def load_file(self, filename, defaultRefTime=None):
         """
         Loads a netCDF4 filename
 
@@ -21,10 +24,12 @@ class TuParticlesDataProvider:
         """
 
         self.filename = filename
+        self.default_reference_time = defaultRefTime
         self.nc = netCDF4.Dataset(self.filename, 'r')
         try:
             self._fill_times_arr()
-        except (KeyError, TuParticlesDataProviderError):
+        except (KeyError, TuParticlesDataProviderError) as e:
+            QMessageBox.critical(None, 'Loading Particles', f'{e}')
             self.nc = None
 
         return self._is_valid_file()
@@ -90,12 +95,12 @@ class TuParticlesDataProvider:
 
         return data
 
-    def get_all_variable_names(self):
+    def get_all_variable_names(self, debug=False):
         """
             Return the names of the attributes that are in the file
         """
         vars = list(self.nc.variables.keys())
-        ignore_vars = ['Time', 'x', 'y', 'z']
+        ignore_vars = ['Time', 'x', 'y', 'z'] if not debug else ['Time']
 
         ret_vars = []
         for var in vars:
@@ -129,11 +134,14 @@ class TuParticlesDataProvider:
 
         conditions = [bool(re.match(re.compile('^[0-9]+'), candidate)) for candidate in time_tokens]
         if not (conditions[0] and conditions[1]):
-            raise TuParticlesDataProviderError("Invalid time long_name")
-
-        # d/m/y needs to be converted to y-m-d
-        date = ' '.join(time_tokens)
-        date = datetime.strptime(date, '%d/%m/%Y %H:%M:%S')
+            if self.default_reference_time is None:
+                raise TuParticlesDataProviderError("Invalid time long_name")
+            else:
+                date = self.default_reference_time
+        else:
+            # d/m/y needs to be converted to y-m-d
+            date = ' '.join(time_tokens)
+            date = datetime.strptime(date, '%d/%m/%Y %H:%M:%S')
 
         # needed format example: hours since 1950-01-01T00:00:00Z
         time_string = units + ' since ' + date.strftime('%Y-%m-%dT%H:%M:%SZ')

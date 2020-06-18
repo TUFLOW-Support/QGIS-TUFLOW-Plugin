@@ -10,6 +10,7 @@ import os
 import re
 import matplotlib
 import numpy as np
+import numpy.ma as ma
 try:
 	import matplotlib.pyplot as plt
 except:
@@ -31,6 +32,7 @@ import matplotlib.gridspec as gridspec
 from matplotlib.pyplot import arrow
 from matplotlib import cm
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+# from matplotlib.backend_bases import MouseButton
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplottoolbar import TuPlotToolbar
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplotselection import TuPlotSelection
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turubberband import TuRubberBand, TuMarker
@@ -38,8 +40,11 @@ from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuflowline import TuFlowLine
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot2d import TuPlot2D
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot1d import TuPlot1D
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuuserplotdata import TuUserPlotDataManager
-from tuflow.tuflowqgis_library import applyMatplotLibArtist, getMean, roundSeconds, convert_datetime_to_float, generateRandomMatplotColours
+from tuflow.tuflowqgis_library import (applyMatplotLibArtist, getMean, roundSeconds, convert_datetime_to_float,
+                                       generateRandomMatplotColours, saveMatplotLibArtist,
+                                       polyCollectionPathIndexFromXY, regex_dict_val)
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot3d import (TuPlot3D, ColourBar)
+
 
 
 class TuPlot():
@@ -69,6 +74,9 @@ class TuPlot():
 	DataCrossSectionDepAv = 112
 	DataVerticalProfileStartLine = 113
 	DataVerticalProfile = 114
+	DataCrossSection1DViewer = 115
+	DataHydraulicProperty = 116
+	DataVerticalMesh = 117
 
 	def __init__(self, TuView):
 		self.tuView = TuView
@@ -81,24 +89,28 @@ class TuPlot():
 		self.figTimeSeries, self.subplotTimeSeries = plt.subplots()
 		self.plotWidgetTimeSeries = FigureCanvasQTAgg(self.figTimeSeries)
 		self.plotWidgetTimeSeries.setMinimumWidth(0)
+		self.figTimeSeries.canvas.mpl_connect('button_press_event', lambda e: self.onclick(e, TuPlot.TimeSeries))
 		
 		# long plot
 		self.layoutLongPlot = self.tuView.LongPlotFrame.layout()
 		self.figLongPlot, self.subplotLongPlot = plt.subplots()
 		self.plotWidgetLongPlot = FigureCanvasQTAgg(self.figLongPlot)
 		self.plotWidgetLongPlot.setMinimumWidth(0)
+		self.figLongPlot.canvas.mpl_connect('button_press_event', lambda e: self.onclick(e, TuPlot.CrossSection))
 		
 		# cross section
 		self.layoutCrossSection = self.tuView.CrossSectionFrame.layout()
 		self.figCrossSection, self.subplotCrossSection = plt.subplots()
 		self.plotWidgetCrossSection = FigureCanvasQTAgg(self.figCrossSection)
 		self.plotWidgetCrossSection.setMinimumWidth(0)
+		self.figCrossSection.canvas.mpl_connect('button_press_event', lambda e: self.onclick(e, TuPlot.CrossSection1D))
 
 		# vertical profile
 		self.layoutVerticalProfile = self.tuView.VerticalProfileFrame.layout()
 		self.figVerticalProfile, self.subplotVerticalProfile = plt.subplots()
 		self.plotWidgetVerticalProfile = FigureCanvasQTAgg(self.figVerticalProfile)
 		self.plotWidgetVerticalProfile.setMinimumWidth(0)
+		self.figVerticalProfile.canvas.mpl_connect('button_press_event', lambda e: self.onclick(e, TuPlot.VerticalProfile))
 		
 		# Initialise other variables
 		# time series
@@ -216,6 +228,9 @@ class TuPlot():
 			TuPlot.DataCrossSectionDepAv: [],
 			TuPlot.DataVerticalProfileStartLine: [],
 			TuPlot.DataVerticalProfile: [],
+			TuPlot.DataCrossSection1DViewer: [],
+			TuPlot.DataHydraulicProperty: [],
+			TuPlot.DataVerticalMesh: [],
 		}
 
 		self.plotDataToPlotType = {
@@ -234,6 +249,9 @@ class TuPlot():
 			TuPlot.DataCrossSectionDepAv: TuPlot.CrossSection,
 			TuPlot.DataVerticalProfileStartLine: TuPlot.VerticalProfile,
 			TuPlot.DataVerticalProfile: TuPlot.VerticalProfile,
+			TuPlot.DataCrossSection1DViewer: TuPlot.CrossSection,
+			TuPlot.DataHydraulicProperty: TuPlot.CrossSection,
+			TuPlot.DataVerticalMesh: TuPlot.VerticalProfile,
 		}
 
 		self.plotDataPlottingTypes = [
@@ -245,7 +263,7 @@ class TuPlot():
 			TuPlot.DataCrossSectionDepAv,
 			TuPlot.DataVerticalProfile,
 		]
-		
+
 		# Draw Plots
 		self.initialisePlot(TuPlot.TimeSeries, TuPlot.DataTimeSeriesStartLine)  # time series
 		
@@ -292,9 +310,26 @@ class TuPlot():
 		self.tuVPPoint = TuMarker(self, TuPlot.VerticalProfile, TuPlot.DataVerticalProfile,
 		                          self.tuPlotToolbar.plotVPMenu, self.tuPlot3D.plotVerticalProfileFromMap,
 		                          Qt.magenta, QgsVertexMarker.ICON_CIRCLE, True)
+
+		self.markers = {
+			self.tuTSPoint: 'Time Series',
+		    self.tuTSPointDepAv: '3D to 2D DepAv Time Series',
+			self.tuVPPoint: 'Vertical Profile',
+		}
+		self.lines = {
+			self.tuCrossSection: 'Cross Section',
+			self.tuFlowLine: 'Flow Line',
+			self.tuCurtainLine: 'Curtain Line',
+			self.tuCSLineDepAv: '3D to 2D DepAv Cross Section',
+		}
 		
 		# User Plot Data Manager
 		self.userPlotData = TuUserPlotDataManager()
+
+		# vertical mesh
+		self.verticalMesh_action = QAction('Vertical Mesh', None)
+		self.verticalMesh_action.setCheckable(True)
+		self.verticalMesh_action.triggered.connect(self.vmeshToggled)
 
 		# plot colours
 		self.colours = generateRandomMatplotColours(100)
@@ -319,6 +354,9 @@ class TuPlot():
 			TuPlot.DataCrossSectionDepAv: self.tuCSLineDepAv,
 			TuPlot.DataVerticalProfileStartLine: None,
 			TuPlot.DataVerticalProfile: self.tuVPPoint,
+			TuPlot.DataCrossSection1DViewer: None,
+			TuPlot.DataHydraulicProperty: None,
+			TuPlot.DataVerticalMesh: None,
 		}
 
 		# plot data to selection
@@ -338,6 +376,9 @@ class TuPlot():
 			TuPlot.DataCrossSectionDepAv: self.tuPlot3D.plotSelectionLineFeat,
 			TuPlot.DataVerticalProfileStartLine: None,
 			TuPlot.DataVerticalProfile: self.tuPlot3D.plotSelectionVPFeat,
+			TuPlot.DataCrossSection1DViewer: None,
+			TuPlot.DataHydraulicProperty: None,
+			TuPlot.DataVerticalMesh: None,
 		}
 
 	def plot2D(self):
@@ -501,8 +542,29 @@ class TuPlot():
 		:param axe1: matplotlib.axis object
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
-		axe1.grid()
+
+		try:
+			for plotNo in [TuPlot.TimeSeries, TuPlot.CrossSection, TuPlot.CrossSection1D, TuPlot.VerticalProfile]:
+				parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+					self.plotEnumerator(plotNo)
+				if subplot == axe1:
+					break
+			toolbar, viewToolbar, mplToolbar = self.tuPlotToolbar.plotNoToToolbar[plotNo]
+			if viewToolbar.hGridLines_action.isChecked() and viewToolbar.vGridLines_action.isChecked():
+				axe1.grid(True, axis='both')
+			elif viewToolbar.hGridLines_action.isChecked():
+				axe1.grid(True, axis='y')
+				axe1.grid(False, axis='x')
+			elif viewToolbar.vGridLines_action.isChecked():
+				axe1.grid(False, axis='y')
+				axe1.grid(True, axis='x')
+			else:
+				axe1.grid(False, axis='both')
+		except:
+			axe1.grid(True, axis='both')
+
+		#if axis is not None:
+		#	axe1.grid(b, axis=axis)
 		axe1.tick_params(axis="both", which="major", direction="out", length=10, width=1, bottom=True, top=False,
 		                 left=True, right=False)
 		axe1.minorticks_on()
@@ -656,6 +718,11 @@ class TuPlot():
 				artist = list(line.keys())[0]
 			else:
 				artist = line
+			for k, ax in enumerate(artists):
+				for j, a in enumerate(ax):
+					if a == artist:
+						ax.pop(j)
+						labels[k].pop(j)
 			if not last_only and not clearOnly or i + 1 >= len(self.plotData[clearType]) - remove_no + 1 or line in clearOnly:
 				if artist in subplot.lines:
 					subplot.lines.remove(artist)
@@ -673,27 +740,103 @@ class TuPlot():
 		showCurrentTime = clearType == TuPlot.DataCurrentTime
 		if plotNo == TuPlot.TimeSeries:
 			for line in self.plotData[TuPlot.DataCurrentTime]:
-				if line in subplot.lines:
+				if type(line) is dict:
+					artist = list(line.keys())[0]
+				else:
+					artist = line
+				if artist in artists[0]:
+					ind = artists[0].index(artist)
+					labels[0].pop(ind)
+					artists[0].pop(ind)
+				if artist in artists[1]:
+					ind = artists[1].index(artist)
+					labels[1].pop(ind)
+					artists[1].pop(ind)
+				if artist in subplot.lines:
 					showCurrentTime = True
-					subplot.lines.remove(line)
+					subplot.lines.remove(artist)
 				del line
 			for line in self.plotData[TuPlot.DataTimeSeriesStartLine]:
-				if line in subplot.lines:
+				if type(line) is dict:
+					artist = list(line.keys())[0]
+				else:
+					artist = line
+				if artist in artists[0]:
+					ind = artists[0].index(artist)
+					labels[0].pop(ind)
+					artists[0].pop(ind)
+				if artist in artists[1]:
+					ind = artists[1].index(artist)
+					labels[1].pop(ind)
+					artists[1].pop(ind)
+				if artist in subplot.lines:
 					subplot.lines.remove(line)
 				del line
 		elif plotNo == TuPlot.CrossSection:
 			for line in self.plotData[TuPlot.DataCrossSectionStartLine]:
-				if line in subplot.lines:
+				if type(line) is dict:
+					artist = list(line.keys())[0]
+				else:
+					artist = line
+				if artist in artists[0]:
+					ind = artists[0].index(artist)
+					labels[0].pop(ind)
+					artists[0].pop(ind)
+				if artist in artists[1]:
+					ind = artists[0].index(artist)
+					labels[1].pop(ind)
+					artists[1].pop(ind)
+				if artist in subplot.lines:
 					subplot.lines.remove(line)
 				del line
 		elif plotNo == TuPlot.CrossSection1D:
 			for line in self.plotData[TuPlot.DataCrossSectionStartLine1D]:
-				if line in subplot.lines:
+				if type(line) is dict:
+					artist = list(line.keys())[0]
+				else:
+					artist = line
+				if artist in artists[0]:
+					ind = artists[0].index(artist)
+					labels[0].pop(ind)
+					artists[0].pop(ind)
+				if artist in artists[1]:
+					ind = artists[0].index(artist)
+					labels[1].pop(ind)
+					artists[1].pop(ind)
+				if artist in subplot.lines:
 					subplot.lines.remove(line)
 				del line
 		elif plotNo == TuPlot.VerticalProfile:
+			for line in self.plotData[TuPlot.DataVerticalMesh][:]:
+				if type(line) is dict:
+					artist = list(line.keys())[0]
+				else:
+					artist = line
+				if artist in artists[0]:
+					ind = artists[0].index(artist)
+					labels[0].pop(ind)
+					artists[0].pop(ind)
+				if artist in artists[1]:
+					ind = artists[0].index(artist)
+					labels[1].pop(ind)
+					artists[1].pop(ind)
+				if artist in subplot.lines:
+					subplot.lines.remove(line)
+				del line
 			for line in self.plotData[TuPlot.DataVerticalProfileStartLine]:
-				if line in subplot.lines:
+				if type(line) is dict:
+					artist = list(line.keys())[0]
+				else:
+					artist = line
+				if artist in artists[0]:
+					ind = artists[0].index(artist)
+					labels[0].pop(ind)
+					artists[0].pop(ind)
+				if artist in artists[1]:
+					ind = artists[0].index(artist)
+					labels[1].pop(ind)
+					artists[1].pop(ind)
+				if artist in subplot.lines:
 					subplot.lines.remove(line)
 				del line
 
@@ -763,6 +906,16 @@ class TuPlot():
 			if self.cax in figure.axes:
 				self.cax.remove()
 			self.cax = None
+
+		# force find and remove and axes object that isn't meant to be there (happens if cax bugs out and remains)
+		if self.cax is None:
+			if isSecondaryAxis[0]:
+				subplot2 = self.getSecondaryAxis(plotNo)
+			else:
+				subplot2 = None
+			for ax in figure.axes:
+				if ax != subplot and ax != subplot2:
+					ax.remove()
 
 		gs = gridspec.GridSpec(1, 1)
 		subplot.set_position(gs[0, 0].get_position(figure))
@@ -1003,6 +1156,9 @@ class TuPlot():
 					if self.plotDataToPlotType[dataType] == plotNo:
 						self.plotDataToSelection[dataType].clear()
 
+			#if plotNo == TuPlot.CrossSection:
+			#	self.tuView.crossSections1D.clear()
+
 		# Retain 1D results
 		retain1d = kwargs['retain_1d'] if 'retain_1d' in kwargs.keys() else False
 		if retain1d:
@@ -1208,9 +1364,9 @@ class TuPlot():
 				y = yAxisLimits[0][0]
 
 			# add to plot
-			label, artistTemplates = self.getNewPlotProperties(plotNo, ['Current Time'], rtype='lines')
+			label, artistTemplates = self.getNewPlotProperties(plotNo, ['Current Time'], None, rtype='lines')
 			a, = subplot.plot(x, y, color='red', linewidth=2, label=label[0])
-			self.plotData[TuPlot.DataCurrentTime].append(a)
+			self.plotData[TuPlot.DataCurrentTime].append({a: 'Current Time'})
 			applyMatplotLibArtist(a, artistTemplates[0])
 			artists[0].append(a)
 			labels[0].append('Current Time')
@@ -1223,6 +1379,84 @@ class TuPlot():
 			subplot.legend_ = None
 			
 		return True
+
+	def showVertMesh(self, plotNo, data, label, plotVertMesh):
+		"""Shows vertical mesh/levels on vertical profile plot"""
+
+		if plotNo != TuPlot.VerticalProfile:
+			return
+
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.plotEnumerator(plotNo)
+
+		# get axis limits
+		xLimits = subplot.get_xlim()
+		yLimits = subplot.get_ylim()
+		if isSecondaryAxis[0]:
+			subplot2 = self.getSecondaryAxis(plotNo)
+			xLimits2 = subplot2.get_xlim()
+
+		# del any existing vertical mesh
+		if self.plotData[TuPlot.DataVerticalMesh]:
+			for line in self.plotData[TuPlot.DataVerticalMesh][:]:
+				if line in subplot.lines:
+					subplot.lines.remove(line)
+					self.plotData[TuPlot.DataVerticalMesh].remove(line)
+				else:
+					self.plotData[TuPlot.DataVerticalMesh].remove(line)
+
+		if self.verticalMesh_action.isChecked():
+			vmydata = [data[i][1] for i, x in enumerate(plotVertMesh) if x]
+			vmlabels = [label[i] for i, x in enumerate(plotVertMesh) if x]
+
+			# get x axis limits
+			if not self.tuView.tuMenuBar.freezeAxisXLimits_action.isChecked():
+				subplot.relim()
+				subplot.autoscale()
+				xlim = subplot.get_xlim()
+			else:
+				xlim = xAxisLimits[0][0]
+			vmdata = []
+			for vm in vmydata:
+				x, y = [], []
+				for vlayer in vm:
+					x.extend(xlim)
+					x.append(-99999.)
+					y.extend([vlayer, vlayer, -99999.])
+				x = ma.array(x)
+				y = ma.array(y)
+				x = ma.masked_where(x == -99999., x)
+				y = ma.masked_where(y == -99999., y)
+				vmdata.append((x, y))
+
+			# add to plot
+			label, artistTemplates = self.getNewPlotProperties(plotNo, vmlabels, None, rtype='lines')
+			for i, d in enumerate(vmdata):
+				x = d[0]
+				y = d[1]
+				lab = label[i]
+				a, = subplot.plot(x, y, color='black', linewidth=1.2, linestyle='--', label=lab, zorder=2)
+				applyMatplotLibArtist(a, artistTemplates[i])
+				self.plotData[TuPlot.DataVerticalMesh].append({a: 'Vertical Mesh'})
+				artists[0].append(a)
+				labels[0].append(lab)
+			if self.tuView.tuMenuBar.freezeAxisXLimits_action.isChecked():
+				subplot.set_xbound(xAxisLimits[0][0])
+			if self.tuView.tuMenuBar.freezeAxisYLimits_action.isChecked():
+				subplot.set_ybound(yAxisLimits[0][0])
+			else:
+				subplot.set_xbound(xlim)
+			subplot.legend_ = None
+
+			# bring non-mesh lines to front
+			z = 10
+			for line in self.plotData[TuPlot.DataVerticalProfile][:]:
+				if type(line) is dict:
+					artist = list(line.keys())[0]
+				else:
+					artist = line
+				artist.zorder = z
+				z += 5
 	
 	def showStatResult(self, plotNo, statType):
 		"""
@@ -1300,78 +1534,130 @@ class TuPlot():
 		:return: str -> y axis 1 label
 		:return: str -> y axis 2 label
 		"""
-		
+
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.plotEnumerator(plotNo)
 		
 		# Units  (SI, Imperial, ..place holders.. , blank)
+		# can use regular expressions
 		units = {
-			'level': ('m RL', 'ft RL', ''),
-			'max water level': ('m RL', 'ft RL', ''),
-			'bed level': ('m RL', 'ft RL', ''),
-			'left bank obvert': ('m RL', 'ft RL', ''),
-			'right bank obvert': ('m RL', 'ft RL', ''),
-			'us levels': ('m RL', 'ft RL', ''),
-			'ds levels': ('m RL', 'ft RL', ''),
-			'bed elevation': ('m RL', 'ft RL', ''),
-			'flow': ('m$^3$/s', 'ft$^3$/s', ''),
-			'2d flow': ('m$^3$/s', 'ft$^3$/s', ''),
-			'atmospheric pressure': ('hPA', 'hPa', ''),
-			'bed shear stress': ('N/m$^2$', 'lbf/ft$^2$', 'pdl/ft%^2$', ''),
-			'depth': ('m', 'ft', ''),
-			'velocity': ('m/s', 'ft/s', ''),
-			'cumulative infiltration': ('mm', 'inches', ''),
-			'depth to groundwater': ('m', 'ft', ''),
-			'water level': ('m RL', 'ft RL', ''),
-			'infiltration rate': ('mm/hr', 'in/hr', ''),
-			'mb': ('%', '%', ''),
-			'mb1': ('%', '%', ''),
-			'mb2': ('%', '%', ''),
-			'unit flow': ('m$^2$/s', 'ft$^2$/s', ''),
-			'z0': ('m$^2$/s', 'ft$^2$/s', ''),
-			'cumulative rainfall': ('mm', 'inches', ''),
-			'rfml': ('mm', 'inches', ''),
-			'rainfall rate': ('mm/hr', 'in/hr', ''),
-			'stream power': ('W/m$^2%', 'lbf/ft$^2$', 'pdl/ft%^2$', ''),
-			'sink': ('m$^3$/s', 'ft$^3$/s', ''),
-			'source': ('m$^3$/s', 'ft$^3$/s', ''),
-			'flow area': ('m$^2$', 'ft$^2$', ''),
-			'time of max h': ('hrs', 'hrs', '')
+			r'.*elevation.*': ('m RL', 'ft RL', ''),
+			r'level': ('m RL', 'ft RL', ''),
+			r'obvert': ('m RL', 'ft RL', ''),
+			r'us levels': ('m RL', 'ft RL', ''),
+			r'(bed elevation)$': ('m RL', 'ft RL', ''),
+			r'flow': ('m$^3$/s', 'ft$^3$/s', ''),
+			r'2d flow': ('m$^3$/s', 'ft$^3$/s', ''),
+			r'atmospheric pressure': ('hPA', 'hPa', ''),
+			r'bed shear stress': ('N/m$^2$', 'lbf/ft$^2$', 'pdl/ft%^2$', ''),
+			r'depth': ('m', 'ft', ''),
+			r'([^a-z]|^)vel': ('m/s', 'ft/s', ''),
+			r'cumulative infiltration': ('mm', 'inches', ''),
+			r'depth to groundwater': ('m', 'ft', ''),
+			r'infiltration rate': ('mm/hr', 'in/hr', ''),
+			r'mb\d*': ('%', '%', ''),
+			r'unit flow': ('m$^2$/s', 'ft$^2$/s', ''),
+			r'z0': ('m$^2$/s', 'ft$^2$/s', ''),
+			r'cumulative rainfall': ('mm', 'inches', ''),
+			r'rfml': ('mm', 'inches', ''),
+			r'rainfall rate': ('mm/hr', 'in/hr', ''),
+			r'stream power': ('W/m$^2$', 'lbf/ft$^2$', 'pdl/ft$^2$', ''),
+			r'sink': ('m$^3$/s', 'ft$^3$/s', ''),
+			r'source': ('m$^3$/s', 'ft$^3$/s', ''),
+			r'flow area': ('m$^2$', 'ft$^2$', ''),
+			r'time of max h': ('hrs', 'hrs', ''),
+			r'([^a-z]|^)sal': ('ppt', 'ppt', ''),
+			r'([^a-z]|^)temp': ('$^o$C', 'N/A', ''),
+			r'bed elevation change': ('m', 'ft', ''),
+			r'downward .* wave radiaton flux': ('W/m$^2$', 'N/A', ''),
+			r'evaporation rate': ('m/day', 'N/A', ''),
+			r'mean sea level pressure': ('hPA', 'hPa', ''),
+			r'particle group \d* concentration': ('mg/L', 'N/A', ''),
+			r'particle group \d* bed concentration': ('g/m$^2$', 'N/A', ''),
+			r'precipitation rate': ('mm/hr', 'in/hr', ''),
+			r'relative humidity': ('%', '%', ''),
+			r'significant wave height': ('m', 'ft', ''),
+			r'surface shear stress': ('N/m$^2$', 'lbf/ft$^2$', 'pdl/ft$^2$', ''),
+			r'tracer \d*': ('units/m$^3$', 'units/ft$^3$', ''),
+			r'water density': ('kg/m$^3$', 'N/A', ''),
+			r'wave direction.*': ('$^o$C', '$^o$C', ''),
+			r'wave force': ('N/m$^2$', 'N/A', ''),
+			r'wave peak period': ('s', 's', ''),
 		}
 		
 		shortNames = {
-			'flow': 'Q',
-			'2d flow': 'Q',
-			'bed shear stress': 'BSS',
-			'depth': 'd',
-			'velocity': 'V',
-			'cumulative infiltration': 'CI',
-			'water level': 'h',
-			'max water level': 'h',
-			'level': 'h',
-			'bed level': 'h',
-			'us levels': 'h',
-			'ds levels': 'h',
-			'infiltration rate': 'IR',
-			'mb': 'MB',
-			'mb1': 'MB1',
-			'mb2': 'MB2',
-			'unit flow': 'q',
-			'z0': 'Z0',
-			'cumulative rainfall': 'CR',
-			'rfml': 'RFML',
-			'rainfall rate': 'RR',
-			'stream power': 'SP',
-			'flow area': 'QA',
-			'time of max h': 't',
-			'time of max v': 't',
-			'losses': 'LC',
-			'flow regime': 'F'
+			r'.*elevation.*': 'h',
+			r'flow': 'Q',
+			r'2d flow': 'Q',
+			r'bed shear stress': 'BSS',
+			r'(bed elevation)$': 'h',
+			r'depth': 'd',
+			r'([^a-z]|^)vel': 'V',
+			r'cumulative infiltration': 'CI',
+			r'level': 'h',
+			r'bed level': 'h',
+			r'infiltration rate': 'IR',
+			r'mb\d*': 'MB',
+			r'unit flow': 'q',
+			r'z0': 'Z0',
+			r'cumulative rainfall': 'CR',
+			r'rfml': 'RFML',
+			r'rainfall rate': 'RR',
+			r'stream power': 'SP',
+			r'flow area': 'QA',
+			r'time of max h': 't',
+			r'time of max v': 't',
+			r'losses': 'LC',
+			r'flow regime': 'F',
+			r'([^a-z]|^)sal': 'SAL',
+			r'([^a-z]|^)temp': 'TEMP',
+			r'bed elevation change' : 'DZB',
+			r'downward .* wave radiaton flux': 'LW_Rad',
+			r'evaporation rate': 'EVAP',
+			r'mean sea level pressure' : 'MSLP',
+			r'particle group \d* concentration': 'PTM',
+			r'particle group \d* bed concentration': 'PTM_BED',
+			r'precipitation rate': 'PRECIP',
+			r'relative humidity': 'Rel_hum',
+			r'significant wave height': 'Hsig',
+			r'surface shear stress': 'Taus',
+			r'tracer \d*': 'TRACE',
+			r'water density': 'RHOW',
+			r'wave direction.*': 'Wvdir',
+			r'wave force': 'Wvstr',
+			r'wave peak period': 'Wvper',
+			r'wind velocity': 'W10',
 		}
+
+		# clear existing values
+		yAxisLabelTypes[0].clear()
+		yAxisLabelTypes[1].clear()
+		unit[0].clear()
+		unit[1].clear()
+
+		# get all plot data types
+		types = []
+		plotAsCollection = []
+		plotAsQuiver = []
+		for plotData, plotType in self.plotDataToPlotType.items():
+			if plotType == plotNo:
+				for line in self.plotData[plotData]:
+					if type(line) is dict:
+						types.append([val for k, val in line.items()][0])
+						if plotData == TuPlot.DataCurtainPlot:
+							if 'vector' in [val for k, val in line.items()][0].lower():
+								plotAsQuiver.append(True)
+								plotAsCollection.append(False)
+							else:
+								plotAsCollection.append(True)
+								plotAsQuiver.append(False)
+						else:
+							plotAsCollection.append(False)
+							plotAsQuiver.append(False)
 
 		# create a copy of types - keep any changes local
 		# curtain plot y-axis needs to be changed to elevation
-		types = types[:]
+		# types = types[:]
 		for i, t in enumerate(types[:]):
 			if plotAsQuiver and plotAsQuiver[i]:
 				types[i] = ''
@@ -1423,11 +1709,14 @@ class TuPlot():
 					name = name.strip('_1d')
 				
 				# first axis label
-				if name.lower() in shortNames.keys():
-					shortName = shortNames[name.lower()]
+				# if name.lower() in shortNames.keys():
+				if regex_dict_val(shortNames, name) is not None:
+					#shortName = shortNames[name.lower()]
+					shortName = regex_dict_val(shortNames, name)
 					if shortName not in yAxisLabelTypes[0]:
 						yAxisLabelTypes[0].append(shortName)  # add to list of labels so no double ups
-				unitNew = units[name.lower()][u] if name.lower() in units.keys() else ''
+				# unitNew = units[name.lower()][u] if name.lower() in units.keys() else ''
+				unitNew = regex_dict_val(units, name)[u] if regex_dict_val(units, name) is not None else ''
 				if not unit[0]:
 					unit[0].append(unitNew)
 				else:
@@ -1441,11 +1730,14 @@ class TuPlot():
 					name = name.strip('_1d')
 				
 				# secondary axis label
-				if name.lower() in shortNames.keys():
-					shortName = shortNames[name.lower()]
+				# if name.lower() in shortNames.keys():
+				if regex_dict_val(shortNames, name) is not None:
+					# shortName = shortNames[name.lower()]
+					shortName = regex_dict_val(shortNames, name)
 					if shortName not in yAxisLabelTypes[1]:
 						yAxisLabelTypes[1].append(shortName)
-				unitNew = units[name.lower()][u] if name.lower() in units.keys() else ''
+				# unitNew = units[name.lower()][u] if name.lower() in units.keys() else ''
+				unitNew = regex_dict_val(units, name)[u] if regex_dict_val(units, name) is not None else ''
 				if not unit[1]:
 					unit[1].append(unitNew)
 				else:
@@ -1518,7 +1810,7 @@ class TuPlot():
 				return self.axis2VerticalPlot
 			
 	def reorderByAxis(self, types, data, label, plotAsPoints, plotAsPatch, flowRegime, flowRegimeTied, plotAsCollection,
-	                  plotAsQuiver):
+	                  plotAsQuiver, plotVertMesh):
 		"""
 		Reorders the data for plotting so that it is ordered by axis - axis 1 then axis 2. This is so that is
 		consistent with how the legend is going to be plotted when freezing the plotting style.
@@ -1538,6 +1830,7 @@ class TuPlot():
 		flowRegimeTied1, flowRegimeTied2, flowRegimeTiedOrdered = [], [], []
 		plotAsCollection1, plotAsCollection2, plotAsCollectionOrdered = [], [], []
 		plotAsQuiver1, plotAsQuiver2, plotAsQuiverOrdered = [], [], []
+		plotVertMesh1, plotVertMesh2, plotVertMeshOrdered = [], [], []
 
 		for i, rtype in enumerate(types):
 			if plotAsCollection[i] or plotAsQuiver[i] or len(data[i][0]) > 0:
@@ -1559,6 +1852,7 @@ class TuPlot():
 					flowRegimeTied2.append(flowRegimeTied[i])
 					plotAsCollection2.append(plotAsCollection[i])
 					plotAsQuiver2.append(plotAsQuiver[i])
+					plotVertMesh2.append(plotVertMesh[i])
 				else:
 					types1.append(rtype)
 					data1.append(data[i])
@@ -1569,6 +1863,7 @@ class TuPlot():
 					flowRegimeTied1.append(flowRegimeTied[i])
 					plotAsCollection1.append(plotAsCollection[i])
 					plotAsQuiver1.append(plotAsQuiver[i])
+					plotVertMesh1.append(plotVertMesh[i])
 
 		typesOrdered = types1 + types2
 		dataOrdered = data1 + data2
@@ -1579,6 +1874,7 @@ class TuPlot():
 		flowRegimeTiedOrdered = flowRegimeTied1 + flowRegimeTied2
 		plotAsCollectionOrdered = plotAsCollection1 + plotAsCollection2
 		plotAsQuiverOrdered = plotAsQuiver1 + plotAsQuiver2
+		plotVertMeshOrdered = plotVertMesh1 + plotVertMesh2
 
 		# loop through a second time to fix flow regime indexes
 		for i, rtype in enumerate(typesOrdered[:]):
@@ -1592,7 +1888,7 @@ class TuPlot():
 
 		return typesOrdered, dataOrdered, labelOrdered, plotAsPointsOrdered, \
 		       plotAsPatchOrdered, flowRegimeOrdered, flowRegimeTiedOrdered, \
-			   plotAsCollectionOrdered, plotAsQuiverOrdered
+			   plotAsCollectionOrdered, plotAsQuiverOrdered, plotVertMeshOrdered
 	
 	def drawPlot(self, plotNo, data, label, types, dataTypes, **kwargs):
 		"""
@@ -1622,6 +1918,7 @@ class TuPlot():
 		flowRegimeTied = kwargs['flow_regime_tied'] if 'flow_regime_tied' in kwargs.keys() else [-1] * len(data)
 		plotAsCollection = kwargs['plot_as_collection'] if 'plot_as_collection' in kwargs else [False] * len(data)
 		plotAsQuiver = kwargs['plot_as_quiver'] if 'plot_as_quiver' in kwargs else [False] * len(data)
+		plotVertMesh = kwargs['plot_vert_mesh'] if 'plot_vert_mesh' in kwargs else [False] * len(data)
 
 		flowRegimeTiedMult = 0.1
 
@@ -1643,12 +1940,13 @@ class TuPlot():
 		if data:
 			types, data, label, plotAsPoints, \
 			plotAsPatch, flowRegime, flowRegimeTied, \
-			plotAsCollection, plotAsQuiver  = self.reorderByAxis(types, data, label,
-                                                                 plotAsPoints, plotAsPatch,
-                                                                 flowRegime, flowRegimeTied,
-                                                                 plotAsCollection, plotAsQuiver)  # orders the data by axis (axis 1 then axis 2)
+			plotAsCollection, plotAsQuiver, plotVertMesh  = self.reorderByAxis(types, data, label,
+                                                                               plotAsPoints, plotAsPatch,
+                                                                               flowRegime, flowRegimeTied,
+                                                                               plotAsCollection, plotAsQuiver,
+			                                                                   plotVertMesh)  # orders the data by axis (axis 1 then axis 2)
 			labelsOriginal = label[:]  # save a copy as original labels so it can be referenced later
-			label, artistTemplates = self.getNewPlotProperties(plotNo, label, rtype='lines')  # check if there are any new names and styling
+			label, artistTemplates = self.getNewPlotProperties(plotNo, label, data, rtype='lines')  # check if there are any new names and styling
 		
 		# Get data
 		secondYAxisInUse = False  # this is for an empty secondary axis
@@ -1703,6 +2001,8 @@ class TuPlot():
 
 				# add data to plot
 				if axis == 1:
+					if plotVertMesh is not None and plotVertMesh[i]:  # skip vertical mesh plotting for now
+						continue
 					if plotAsPatch is None or not plotAsPatch[i]:  # normal X, Y data
 						if plotAsPoints is None or not plotAsPoints[i]:  # plot as line
 							a, = subplot.plot(x, y, label=label[i], color=colour)
@@ -1743,8 +2043,12 @@ class TuPlot():
 					else:  # plot as patch
 						if plotAsCollection is not None and plotAsCollection[i]:  # curtain plot
 							a = subplot.add_collection(data[i], autolim=True)
+							applyMatplotLibArtist(a, artistTemplates[i])
 							self.plotData[dataTypes[i]].append({a: types[i]})
 							subplot.autoscale_view()
+							if not export:
+								artists[0].append(a)
+								labels[0].append(labelsOriginal[i])
 							#self.plotData[dataTypes[i]].append({a: types[i]})
 						elif plotAsQuiver is not None and plotAsQuiver[i]:
 							q = data[i]
@@ -1819,6 +2123,9 @@ class TuPlot():
 		
 		# check if show current time is selected
 		self.showCurrentTime(plotNo, time=time, show_current_time=showCurrentTime)
+
+		# show vertical mesh
+		self.showVertMesh(plotNo, data, label, plotVertMesh)
 		
 		# get axis labels
 		if data:
@@ -1828,7 +2135,7 @@ class TuPlot():
 			yAxisLabels[1].append(yAxisLabelSecond)
 			# Get user axis labels
 			oldLabels = [xAxisLabel, yAxisLabelFirst, yAxisLabelSecond]
-			newLabels = self.getNewPlotProperties(plotNo, oldLabels, rtype='axis labels')
+			newLabels = self.getNewPlotProperties(plotNo, oldLabels, None, rtype='axis labels')
 			if newLabels:
 				xAxisLabel = newLabels[0]
 			if len(newLabels) > 1:
@@ -1846,7 +2153,8 @@ class TuPlot():
 				subplot2 = None
 			self.updateLegend(plotNo, redraw=False, ax=subplot, ax2=subplot2)
 		else:
-			self.updateLegend(plotNo, redraw=False)
+			if draw:
+				self.updateLegend(plotNo, redraw=False)
 		if data:
 			if xAxisLabel:
 				subplot.set_xlabel(xAxisLabel)
@@ -1909,6 +2217,14 @@ class TuPlot():
 			except:
 				pass
 
+		try:
+			if not self.lockAxis(plotNo, showCurrentTime):
+				subplot.autoscale(True)
+				subplot.relim()
+			if isSecondaryAxis[0]:
+				subplot2.relim()
+		except:
+			pass
 		if self.tuView.tuMenuBar.freezeAxisXLimits_action.isChecked():
 			subplot.set_xbound(xLimits)
 		if self.tuView.tuMenuBar.freezeAxisYLimits_action.isChecked():
@@ -1928,9 +2244,10 @@ class TuPlot():
 				subplot.set_yticks([], minor=True)
 				subplot.set_yticklabels(['L', 'K', 'B', 'A', 'G', 'C', 'D', 'E', 'F', 'H', 'J'])
 		try:
-			subplot.relim()
-			if isSecondaryAxis[0]:
-				subplot2.relim()
+			#subplot.autoscale(True)
+			#subplot.relim()
+			#if isSecondaryAxis[0]:
+			#	subplot2.relim()
 			figure.tight_layout()
 		except ValueError:  # something has gone wrong and trying to plot time (hrs) on a date formatted x axis
 			pass
@@ -1945,7 +2262,7 @@ class TuPlot():
 		else:
 			if draw:
 				plotWidget.draw()
-		
+
 			# record axis limits
 			xLimits = subplot.get_xlim()
 			yLimits = subplot.get_ylim()
@@ -2228,10 +2545,12 @@ class TuPlot():
 		
 		if plot.lower() != '2d only':
 			self.tuPlot1D.plot1dLongPlot(bypass=True, plot='1D Only', draw=draw, time=time)
-			
+			self.tuPlot1D.plot1dCrossSection(bypass=True, draw=draw, time=time)
+			self.tuPlot1D.plot1dHydProperty(bypass=True, draw=draw, time=time)
+
 		if not self.artistsLongPlotFirst and not self.artistsLongPlotSecond:
 			if self.userPlotData.datasets:
-				self.drawPlot(1, [], None, None, draw=draw, time=time)
+				self.drawPlot(1, [], [], None, None, draw=draw, time=time)
 			
 		return True
 
@@ -2289,6 +2608,7 @@ class TuPlot():
 		meshRendered = kwargs['mesh_rendered'] if 'mesh_rendered' in kwargs.keys() else True
 		plotActiveScalar = kwargs['plot_active_scalar'] if 'plot_active_scalar' in kwargs else False
 
+		success = False
 		if plotNo is None:
 			plotNo = self.tuView.tabWidget.currentIndex()
 		
@@ -2398,6 +2718,7 @@ class TuPlot():
 					self.addColourBarAxes(plotNo)
 					col_bar = ColourBar(l, self.cax)
 					col_bar.ax.set_xlabel(lab[i])
+					plotWidget.draw()
 				else:
 					self.removeColourBar(plotNo)
 
@@ -2454,12 +2775,14 @@ class TuPlot():
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.plotEnumerator(plotNo)
 		
-		if plotNo == 0:
+		if plotNo == TuPlot.TimeSeries:
 			viewToolbar = self.tuPlotToolbar.viewToolbarTimeSeries
-		elif plotNo == 1:
+		elif plotNo == TuPlot.CrossSection:
 			viewToolbar = self.tuPlotToolbar.viewToolbarLongPlot
-		elif plotNo == 2:
+		elif plotNo == TuPlot.CrossSection1D:
 			viewToolbar = self.tuPlotToolbar.viewToolbarCrossSection
+		elif plotNo == TuPlot.VerticalProfile:
+			viewToolbar = self.tuPlotToolbar.viewToolbarVerticalProfile
 		
 		# get new labels and styles
 		lines, labs = subplot.get_legend_handles_labels()
@@ -2482,48 +2805,65 @@ class TuPlot():
 		# store standard name with user name and style in dictionary
 		for i, label in enumerate(labels[0]):
 			label = label.split('[')[0].strip()  # remove any time values in the label e.g. 'water level [01:00:00]'
-			if plotNo == 0:
-				self.frozenTSProperties[label] = [labs[i], lines[i]]
-			elif plotNo == 1:
-				self.frozenLPProperties[label] = [labs[i], lines[i]]
-			elif plotNo == 2:
-				self.frozenCSProperties[label] = [labs[i], lines[i]]
+			if type(lines[i]) is PolyCollection:
+				lab = '{0}__curtain_plot__'.format(labs[i])
+			else:
+				lab = label
+
+			if plotNo == TuPlot.TimeSeries:
+				self.frozenTSProperties[lab] = [labs[i], lines[i]]
+			elif plotNo == TuPlot.CrossSection:
+				self.frozenLPProperties[lab] = [labs[i], saveMatplotLibArtist(lines[i])]
+			elif plotNo == TuPlot.CrossSection1D:
+				self.frozenCSProperties[lab] = [labs[i], lines[i]]
+			elif plotNo == TuPlot.VerticalProfile:
+				self.frozenVPProperties[lab] = [labs[i], lines[i]]
 		if isSecondaryAxis[0]:
 			for i, label in enumerate(labels[1]):
 				label = label.split('[')[0].strip()  # remove any time values in the label e.g. 'water level [01:00:00]'
-				if plotNo == 0:
+				if plotNo == TuPlot.TimeSeries:
 					self.frozenTSProperties[label] = [labs2[i], lines2[i]]
-				elif plotNo == 1:
+				elif plotNo == TuPlot.CrossSection:
 					self.frozenLPProperties[label] = [labs2[i], lines2[i]]
-				elif plotNo == 2:
+				elif plotNo == TuPlot.CrossSection1D:
 					self.frozenCSProperties[label] = [labs2[i], lines2[i]]
+				elif plotNo == TuPlot.VerticalProfile:
+					self.frozenVPProperties[label] = [labs2[i], lines2[i]]
 					
 		# store axis labels
-		if plotNo == 0:
+		if plotNo == TuPlot.TimeSeries:
 			if xAxisLabels[0]:
 				self.frozenTSAxisLabels[xAxisLabels[0][0]] = xLabel
 			if yAxisLabels[0]:
 				self.frozenTSAxisLabels[yAxisLabels[0][0]] = yLabel
-		elif plotNo == 1:
+		elif plotNo == TuPlot.CrossSection:
 			if xAxisLabels[0]:
 				self.frozenLPAxisLabels[xAxisLabels[0][0]] = xLabel
 			if yAxisLabels[0]:
 				self.frozenLPAxisLabels[yAxisLabels[0][0]] = yLabel
-		elif plotNo == 2:
+		elif plotNo == TuPlot.CrossSection1D:
 			if xAxisLabels[0]:
 				self.frozenCSAxisLabels[xAxisLabels[0][0]] = xLabel
 			if yAxisLabels[0]:
 				self.frozenCSAxisLabels[yAxisLabels[0][0]] = yLabel
+		elif plotNo == TuPlot.VerticalProfile:
+			if xAxisLabels[0]:
+				self.frozenVPAxisLabels[xAxisLabels[0][0]] = xLabel
+			if yAxisLabels[0]:
+				self.frozenVPAxisLabels[yAxisLabels[0][0]] = yLabel
 		if isSecondaryAxis[0]:
-			if plotNo == 0:
+			if plotNo == TuPlot.TimeSeries:
 				if yAxisLabels[1]:
 					self.frozenTSAxisLabels[yAxisLabels[1][0]] = yLabel2
-			elif plotNo == 1:
+			elif plotNo == TuPlot.CrossSection:
 				if yAxisLabels[1]:
 					self.frozenLPAxisLabels[yAxisLabels[1][0]] = yLabel2
-			elif plotNo == 2:
+			elif plotNo == TuPlot.CrossSection1D:
 				if yAxisLabels[1]:
 					self.frozenCSAxisLabels[yAxisLabels[1][0]] = yLabel2
+			elif plotNo == TuPlot.VerticalProfile:
+				if yAxisLabels[1]:
+					self.frozenVPAxisLabels[yAxisLabels[1][0]] = yLabel2
 				
 		# check if axis limits have changed - if yes then auto lock axis limits
 		if xLimits != xAxisLimits[0][0]:
@@ -2538,7 +2878,7 @@ class TuPlot():
 
 		return True
 
-	def getNewPlotProperties(self, plotNo, labels, rtype):
+	def getNewPlotProperties(self, plotNo, labels, data, rtype):
 		"""
 		Looks up the new plot properties from the dictionary object added to in setNewPlotProperties.
 		
@@ -2550,17 +2890,21 @@ class TuPlot():
 		:return: list -> str new rtype name, list -> matplotlib line2D
 		"""
 		
-		
+
 		if rtype == 'lines':
 			newLabels = []
 			newArtists = []
-			for label in labels:
+			for i, label in enumerate(labels):
 				labelparts = label.split('[')  # remove any time values in the label e.g. 'water level [01:00:00]'
 				label = labelparts[0].strip()
 				if len(labelparts) > 1:
 					labelend = ' [{0}'.format(labelparts[-1])
 				else:
 					labelend = ''
+				if data is not None:
+					if type(data[i]) is PolyCollection:
+						label = '{0}__curtain_plot__'.format(label)
+
 				if plotNo == TuPlot.TimeSeries:
 					if label in self.frozenTSProperties.keys():
 						newLabels.append(self.frozenTSProperties[label][0])
@@ -2573,6 +2917,7 @@ class TuPlot():
 						newLabels.append(self.frozenLPProperties[label][0])
 						newArtists.append(self.frozenLPProperties[label][1])
 					else:
+						label = re.split(r'(__curtain_plot__)$', label, re.IGNORECASE)[0]
 						newLabels.append(label + labelend)
 						newArtists.append(None)
 				elif plotNo == TuPlot.CrossSection1D:
@@ -2633,12 +2978,12 @@ class TuPlot():
 		"""
 
 		# convert labels to user defined dataset labels (or default label if user has not changed it)
-		newLabels, newArtists = self.getNewPlotProperties(plotNo, labels, rtype='lines')  # newArtists not used for csv
+		newLabels, newArtists = self.getNewPlotProperties(plotNo, labels, None, rtype='lines')  # newArtists not used for csv
 		
 		# convert axis names to user defined labels (or default label if user has not changed it)
 		xAxisLabel, yAxisLabelFirst, yAxisLabelSecond = self.setAxisNames(plotNo, types)
 		oldAxisNames = [xAxisLabel, yAxisLabelFirst, yAxisLabelSecond]
-		newAxisNames = self.getNewPlotProperties(plotNo, oldAxisNames, rtype='axis labels')  # only need X axis name for csv
+		newAxisNames = self.getNewPlotProperties(plotNo, oldAxisNames, None, rtype='axis labels')  # only need X axis name for csv
 		
 		# sort data into format ready to write - first find any datasets that are different in length and index pos
 		lengthChanges = []
@@ -2710,7 +3055,7 @@ class TuPlot():
 			if data.status:
 				if (data.plotType == 'time series' and plotNo == 0) or (data.plotType == 'long plot' and plotNo == 1):
 					labelOriginal = 'User Plot Data: {0}'.format(data.name)
-					label, artistTemplates = self.getNewPlotProperties(plotNo, [labelOriginal], rtype='lines')
+					label, artistTemplates = self.getNewPlotProperties(plotNo, [labelOriginal], None, rtype='lines')
 					if labelOriginal not in labels[0]:
 						x = data.x[:]
 						if self.tuView.tuOptions.xAxisDates and plotNo == 0:
@@ -2797,3 +3142,48 @@ class TuPlot():
 
 		return dataInt
 
+	def formatCoord(self, x, y, z):
+		x = x if x is not None else ' '
+		y = y if y is not None else ' '
+		z = f', Z={z:.2f}' if z is not None else ''
+
+		return f'X={x:.2f}, Y={y:.2f}{z}'
+
+
+	def onclick(self, e, plotNo):
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.plotEnumerator(plotNo)
+
+		x, y, z = None, None, None
+		if e.inaxes == subplot:
+			# if e.button == MouseButton.LEFT and not e.dblclick:
+			if e.guiEvent.type() == QEvent.MouseButtonPress and e.guiEvent.button() == Qt.LeftButton:
+				x = e.xdata
+				y = e.ydata
+				if PolyCollection in [type(x) for x in artists[0]]:
+					pc = [x for x in artists[0] if type(x) is PolyCollection][0]
+					pci = polyCollectionPathIndexFromXY(pc, e.xdata, e.ydata)
+					if pci is not None:
+						z = pc.get_array()[pci]
+		self.tuView.plotCoords.setText(self.formatCoord(x, y, z))
+
+	def vmeshToggled(self):
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.plotEnumerator(self.tuView.tabWidget.currentIndex())
+
+		if self.tuView.tabWidget.currentIndex() == TuPlot.CrossSection:
+			if PolyCollection in [type(x) for x in artists[0]]:
+				self.updateCrossSectionPlot()
+		elif self.tuView.tabWidget.currentIndex() == TuPlot.VerticalProfile:
+			self.updateVerticalProfilePlot()
+
+	def lockAxis(self, plotNo, showCurrentTime):
+		"""return True if axis should not be relimed"""
+
+		if plotNo == TuPlot.TimeSeries and showCurrentTime:
+			return True
+
+		if plotNo == TuPlot.VerticalProfile and self.verticalMesh_action.isChecked():
+			return True
+
+		return False

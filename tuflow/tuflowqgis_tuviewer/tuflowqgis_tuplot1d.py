@@ -1,4 +1,8 @@
 import re
+import numpy as np
+from PyQt5.QtWidgets import QMessageBox
+from tuflow.tuflowqgis_library import (findPlotLayers, findIntersectFeat, is1dTable, is1dNetwork)
+from tuflow.TUFLOW_XS import XS_results
 
 
 class TuPlot1D():
@@ -18,15 +22,203 @@ class TuPlot1D():
 
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 		
-		if self.tuView.tabWidget.currentIndex() == 0:
+		if self.tuView.tabWidget.currentIndex() == TuPlot.TimeSeries:
 			self.plot1dTimeSeries()
 			self.plot1dMaximums()
-		elif self.tuView.tabWidget.currentIndex() == 1:
+		elif self.tuView.tabWidget.currentIndex() == TuPlot.CrossSection:
 			self.plot1dLongPlot()
+			self.plot1dCrossSection()
+			self.plot1dHydProperty()
 		
 		return True
 	
+	def plot1dHydProperty(self, **kwargs):
+		"""
+
+		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
+
+		# deal with kwargs
+		bypass = kwargs['bypass'] if 'bypass' in kwargs.keys() else False  # bypass clearing any data from plot
+		plot = kwargs['plot'] if 'plot' in kwargs.keys() else ''
+		draw = kwargs['draw'] if 'draw' in kwargs.keys() else True
+		timestep = kwargs['time'] if 'time' in kwargs.keys() else None
+
+		if is1dTable(self.tuView.currentLayer):
+			ids = [x.attributes()[0].lower() for x in self.tuView.currentLayer.selectedFeatures()]
+		elif is1dNetwork(self.tuView.currentLayer):
+			ids = [x.attributes()[0].lower() for x in self.tuView.currentLayer.selectedFeatures()]
+		elif self.tuView.currentLayer in findPlotLayers(geom='L'):
+			ids = [x.attributes()[0].lower() for x in self.tuView.currentLayer.selectedFeatures()]
+		else:
+			ids = []
+
+		# clear the plot based on kwargs
+		if bypass:
+			pass
+		else:
+			self.tuPlot.clearPlot2(TuPlot.CrossSection, TuPlot.DataHydraulicProperty)
+
+		# initialise plot data
+		labels = []
+		types = []
+		xAll = []
+		yAll = []
+
+		for result in self.tuView.OpenResults.selectedItems():
+			result = result.text()
+			if result in self.tuResults.results.keys():
+				rtypes = tuResults1D.typesXS[:]
+				for id in ids:
+					for rtype in rtypes:
+						if 'line_cs' in self.tuResults.results[result] and \
+								rtype in self.tuResults.results[result]['line_cs'] and \
+								id.lower() in [x.lower() for x in self.tuResults.results[result]['line_cs'][rtype]]:
+							ta = self.tuView.hydTables.getData(result)
+							if ta is None:
+								continue
+							x, y = ta.plotProperty(id, rtype)
+							xAll.append(x)
+							yAll.append(y)
+							labels.append('{0} - {1}'.format(id, rtype))
+							types.append('{0}_CS'.format(rtype))
+
+							# x, y, label, typ = self.plotResultsOnXS(xs, timestep)
+							# xAll += x
+							# yAll += y
+							# labels += label
+							# types += typ
+
+		data = list(zip(xAll, yAll))
+		dataTypes = [TuPlot.DataHydraulicProperty] * len(data)
+		if data:
+			self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes, draw=draw)
+			self.tuPlot.profilePlotFirst = False
+
+	def plot1dCrossSection(self, **kwargs):
+		"""
+
+		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
+
+		# deal with kwargs
+		bypass = kwargs['bypass'] if 'bypass' in kwargs.keys() else False  # bypass clearing any data from plot
+		plot = kwargs['plot'] if 'plot' in kwargs.keys() else ''
+		draw = kwargs['draw'] if 'draw' in kwargs.keys() else True
+		timestep = kwargs['time'] if 'time' in kwargs.keys() else None
+
+		if is1dTable(self.tuView.currentLayer):
+			self.tuView.loadXsSelections()
+
+		# clear the plot based on kwargs
+		if bypass:
+			pass
+		else:
+			self.tuPlot.clearPlot2(TuPlot.CrossSection, TuPlot.DataCrossSection1DViewer)
+
+		# initialise plot data
+		labels = []
+		types = []
+		xAll = []
+		yAll = []
+
+		for result in self.tuView.OpenResults.selectedItems():
+			result = result.text()
+			if result in self.tuResults.results.keys():
+				rtypes = tuResults1D.typesXS[:]
+				for xs in self.tuView.crossSections1D.data:
+					if xs.type.upper() in [x.upper() for x in rtypes]:
+						if 'line_cs' in self.tuResults.results[result] and \
+								xs.type in self.tuResults.results[result]['line_cs'] and \
+								xs.source.lower() in self.tuResults.results[result]['line_cs'][xs.type]:
+							xAll.append(xs.x)
+							yAll.append(xs.z)
+							labels.append(xs.source)
+							types.append('{0}_CS'.format(xs.type))
+
+							x, y, label, typ = self.plotResultsOnXS(xs, timestep)
+							xAll += x
+							yAll += y
+							labels += label
+							types += typ
+
+		data = list(zip(xAll, yAll))
+		dataTypes = [TuPlot.DataCrossSection1DViewer] * len(data)
+		if data:
+			self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes, draw=draw)
+			self.tuPlot.profilePlotFirst = False
+
+	def plotResultsOnXS(self, xs, timestep):
+		"""
+
+		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
+
+		xAll, yAll = [], []
+		labels = []
+		typs = []
+		ids = []
+
+		plyrs = findPlotLayers('P')  # plot layers
+		if not plyrs:
+			return xAll, yAll, labels, typs
+
+		acceptedResults = ['level']
+		rtypes = tuResults1D.typesXSRes
+		rtypes = list(filter(lambda x: x.lower() in acceptedResults, rtypes))
+
+		for rtype in rtypes:
+			# get time
+			if '{0}_1d'.format(rtype) in self.tuView.tuResults.maxResultTypes:
+				rtypeLabel = '{0}/Maximums'.format(rtype)
+				time = -99999
+			elif 'max' in rtype.lower():
+				time = -99999
+				rtypeLabel = rtype
+			else:
+				if timestep is None:
+					timestep = self.tuView.tuResults.activeTime
+				if timestep not in self.tuView.tuResults.timekey2time.keys():
+					continue
+				time = self.tuView.tuResults.timekey2time[timestep]
+				rtypeLabel = rtype
+
+			for plyr in plyrs:
+				feat = findIntersectFeat(xs.feature, plyr)
+				if feat is None:
+					return xAll, yAll, labels, typs
+				id = feat.attributes()[0]
+				if id not in ids:
+					for result in self.tuView.OpenResults.selectedItems():
+						result = result.text()
+						if result in self.tuResults.tuResults1D.results1d:
+							res = self.tuResults.tuResults1D.results1d[result]
+							if id in res.nodes.node_name:
+								if res.formatVersion > 1:
+									h = res.getResAtTime(id, '1D', rtype, time)
+									if h is None or np.isnan(h):
+										continue
+									x, y = XS_results.fitResToXS2(xs, h)
+									label = '{0} - {1}'.format(id, rtypeLabel) if len(
+										self.tuView.OpenResults.selectedItems()) < 2 \
+										else '{0} - {1} - {2}'.format(result, id, rtypeLabel)
+									xAll.append(x)
+									yAll.append(y)
+									labels.append(label)
+									typs.append(rtype)
+									ids.append(id)
+
+		return xAll, yAll, labels, typs
+
 	def plot1dTimeSeries(self, **kwargs):
 		"""
 		Plots 1D time series based on selected features, results, and result types.

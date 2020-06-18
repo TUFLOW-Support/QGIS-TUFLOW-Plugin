@@ -38,7 +38,11 @@ class DrapeData():
                     units = iface.mapCanvas().mapUnits()
                 else:
                     units = QgsUnitTypes.DistanceMeters
-                points, chainages, directions = lineToPoints(feature, demCellSize, units)
+                points, chainages, directions, self.message = lineToPoints(feature, demCellSize, units, inlcude_error_messaging=True)
+                if self.message:
+                    self.message = 'ERRORS occurred: {0}'.format(self.message)
+                    self.error = True
+                    return
                 if points is None:
                     self.error = True
                     self.message = "Could not process 1d_nwk line layer. Could be projection related error."

@@ -16,6 +16,7 @@ from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuanimation import (ImagePropertiesDi
 from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, convertTimeToFormattedTime, convertFormattedTimeToTime,
                                        browse)
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults2d import TuResults2D
 
 
 
@@ -32,9 +33,9 @@ def getResultTypes(results, layer):
 	if layer in results:
 		result = results[layer]
 		for rtype, ts in result.items():
-			if '_ts' not in rtype and '_lp' not in rtype:
+			if '_ts' not in rtype and '_lp' not in rtype and '_particles' not in rtype:
 				t = rtype.split('/')[0].strip()
-				for key, item in ts.items():
+				for key, item in ts['times'].items():
 					if item[1] == 1:
 						if t not in scalarTypes:
 							scalarTypes.append(t)
@@ -64,13 +65,13 @@ def getTimes(results, layer, stype, vtype, units='h', xAxisDates=False, tuResult
 		result = results[layer]
 		for rtype, ts in result.items():
 			if '_ts' not in rtype and '_lp' not in rtype:
-				if TuResults.isMaximumResultType(TuResults(None), rtype):
-					t = TuResults.stripMaximumName(TuResults(None), rtype)
+				if TuResults.isMaximumResultType(rtype):
+					t = TuResults.stripMaximumName(rtype)
 					if t == typ:
 						if 'Max' not in times:
 							times.insert(0, 'Max')
 				else:
-					for key, item in ts.items():
+					for key, item in ts['times'].items():
 						x = item[0]
 						if x == -99999:
 							if 'Max' not in times:
@@ -101,6 +102,9 @@ def makeMap(cfg, iface, progress_fn=None, dialog=None, preview=False, iteration=
 	:param preview: bool
 	:return: QgsLayout
 	"""
+
+	# get version
+	qv = Qgis.QGIS_VERSION_INT
 	
 	# get configuration properties
 	l = cfg['layer']
@@ -112,24 +116,36 @@ def makeMap(cfg, iface, progress_fn=None, dialog=None, preview=False, iteration=
 	extent = cfg['extent'] if 'extent' in cfg else l.extent()
 	crs = cfg['crs'] if 'crs' in cfg else None
 	layoutcfg = cfg['layout']
+	tuResults = cfg['turesults']
 	
 	# store original values
 	#original_rs = l.rendererSettings()
 	
 	# render - take settings from first render and use for subsequent renders
+
 	rs = l.rendererSettings()
+	# new api for 3.14
+	setActiveScalar, setActiveVector = TuResults2D.meshRenderVersion(rs)
+
+
 	asd = cfg['scalar index']
 	if asd:
-		rs.setActiveScalarDataset(asd)
+		#rs.setActiveScalarDataset(asd)
 		#if iteration == 0 or 'scalar settings' not in cfg:
 		#	cfg['scalar settings'] = rs.scalarSettings(asd.group())
 		rs.setScalarSettings(asd.group(), cfg['rendering'][cfg['active scalar']])
+		if qv >= 31300:
+			asd = asd.group()
+		setActiveScalar(asd)
 	avd = cfg['vector index']
 	if avd:
-		rs.setActiveVectorDataset(avd)
+		# rs.setActiveVectorDataset(avd)
 		if iteration == 0 or 'vector settings' not in cfg:
 			cfg['vector settings'] = rs.vectorSettings(avd.group())
 		rs.setVectorSettings(avd.group(), cfg['vector settings'])
+		if qv >= 31300:
+			avd = avd.group()
+		setActiveVector(avd)
 	l.setRendererSettings(rs)
 	
 	timetext = convertTimeToFormattedTime(time, unit=dialog.tuView.tuOptions.timeUnits)
@@ -144,15 +160,17 @@ def makeMap(cfg, iface, progress_fn=None, dialog=None, preview=False, iteration=
 	layout = QgsPrintLayout(QgsProject.instance())
 	layout.initializeDefaults()
 	layout.setName('tuflow')
-	
+
 	if layoutcfg['type'] == 'file':
-		prepare_composition_from_template(layout, cfg, time, dialog, os.path.dirname(imgfile), False, False, layers)
+		prepare_composition_from_template(layout, cfg, time, dialog, os.path.dirname(imgfile), False, False, layers,
+		                                  tuResults=tuResults, meshLayer=l)
 	else:
 		layout.renderContext().setDpi(dpi)
 		layout.setUnits(QgsUnitTypes.LayoutMillimeters)
 		main_page = layout.pageCollection().page(0)
 		main_page.setPageSize(QgsLayoutSize(w,  h, QgsUnitTypes.LayoutMillimeters))
-		prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, os.path.dirname(imgfile), dialog, False, False)
+		prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, os.path.dirname(imgfile), dialog,
+		                    False, False, tuResults=tuResults, meshLayer=l)
 		
 	# export layout
 	layout_exporter = QgsLayoutExporter(layout)
@@ -1564,7 +1582,8 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		     'page margin': pageMargin,
 		     'datetime': self.tuView.tuOptions.xAxisDates,
 		     'dateformat': self.tuView.tuOptions.dateFormat,
-		     'dynamic axis update': self.cbDynamicAxisLimits.isChecked()
+		     'dynamic axis update': self.cbDynamicAxisLimits.isChecked(),
+		     'turesults': self.tuView.tuResults,
 		     }
 		tmpdir = tempfile.mkdtemp(suffix='tflw_maps')
 		d['tmpdir'] = tmpdir
@@ -1722,6 +1741,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 				                   activeScalar=d['active scalar'], xAxisDates=self.tuView.tuOptions.xAxisDates)
 
 			self.layout = makeMap(d, self.iface, prog, self, preview, i)
+			# self.tuView.renderMap()
 			
 			if preview:
 				self.iface.openLayoutDesigner(layout=self.layout)

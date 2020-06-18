@@ -653,16 +653,20 @@ if access_web:
         if tpRegion.upper() == 'RANGELANDS WEST AND RANGELANDS':
             #print("Splitting {0} into separate regions: Rangelands West, Rangelands".format(tpRegion))
             logger.info("Splitting {0} into separate regions: Rangelands West, Rangelands".format(tpRegion))
-            if 'rangelands west' not in add_tp:
+            if not add_tp or'rangelands west' not in add_tp:
                 #print('Adding Rangelands West to additional temporal patterns')
                 logger.info('Adding Rangelands West to additional temporal patterns')
+                if type(add_tp) is bool:
+                    add_tp = []
                 add_tp.append("rangelands west")
             else:
                 #print("Rangelands West already selected in additional temporal patterns... skipping")
                 logger.info("Rangelands West already selected in additional temporal patterns... skipping")
-            if 'rangelands' not in add_tp:
+            if not add_tp or 'rangelands' not in add_tp:
                 #print('Adding Rangelands to additional temporal patterns')
                 logger.info('Adding Rangelands to additional temporal patterns')
+                if type(add_tp) is bool:
+                    add_tp = []
                 add_tp.append("rangelands")
             else:
                 #print("Rangelands already selected in additional temporal patterns... skipping")
@@ -674,7 +678,7 @@ if access_web:
             for tp in add_tp:
                 add_tpFilename = os.path.join(export_path, 'data', 'ARR_Web_data_{0}_TP_{1}.txt'.format(site_name, tp))
                 tpCoord = tpRegion_coords(tp)
-                url2 = 'http://data.arr-software.org/?lon_coord={0}5&lat_coord={1}&TemporalPatterns=on' \
+                url2 = 'http://data.arr-software.org/?lon_coord={0}5&lat_coord={1}&type=text&All=1' \
                        .format(tpCoord[1], tpCoord[0])
 
                 try:

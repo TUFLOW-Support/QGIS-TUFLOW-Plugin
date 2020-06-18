@@ -48,6 +48,7 @@ class DataSetTreeNode(object):
                   5: line time series
                   6: region time series
                   7: line long plot
+                  8: 1D cross section plot
     
     """
     
@@ -304,6 +305,8 @@ class DataSetModel(QAbstractItemModel):
                 return True
             else:
                 return False
+        if role == Qt.UserRole + 8:
+            return item.enabled
 
     def index(self, row, column, parent=None):
         if parent is None: parent = QModelIndex()
@@ -383,6 +386,8 @@ class DataSetItemDelegate(QStyledItemDelegate):
         self.pix_max0 = QPixmap(os.path.join(dir, "icons", "max_inactive.png"))
         self.pix_min = QPixmap(os.path.join(dir, "icons", "max.png")).transformed(transformer)
         self.pix_min0 = QPixmap(os.path.join(dir, "icons", "max_inactive.png")).transformed(transformer)
+        self.pix_cs = QPixmap(os.path.join(dir, "icons", "CrossSection_2.png"))
+        self.pix_cs0 = QIcon(self.pix_cs).pixmap(self.pix_cs.width(), self.pix_cs.height(), QIcon.Disabled)
         #self.pix_max0 = QIcon(self.pix_max).pixmap(self.pix_max.width(), self.pix_max.height(), QIcon.Disabled)
         #self.pix_v0 = QIcon(self.pix_v).pixmap(self.pix_v.width(),self.pix_v.height(), QIcon.Disabled)
 
@@ -409,6 +414,10 @@ class DataSetItemDelegate(QStyledItemDelegate):
             enabled = index.data(Qt.UserRole + 7)
             painter.drawPixmap(self.iconRect(option.rect, option.rect.left(), POS_LP),
                                self.pix_lp if enabled else self.pix_lp0)
+
+        elif index.data(Qt.UserRole) == 8:
+            enabled = index.data(Qt.UserRole + 8)
+            painter.drawPixmap(self.iconRect(option.rect, option.rect.left(), POS_C), self.pix_cs if enabled else self.pix_cs0)
 	
         secondaryAxis = index.data(Qt.UserRole + 3)
         painter.drawPixmap(self.iconRect(option.rect, option.rect.right(), POS_2), self.pix_2nd if secondaryAxis else self.pix_2nd0)

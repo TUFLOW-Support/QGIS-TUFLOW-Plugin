@@ -1,10 +1,11 @@
 import os
 from qgis.core import QgsMesh, QgsMeshSpatialIndex, QgsGeometryUtils
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QVariant
 from PyQt5.QtWidgets import QMessageBox
 from tuflow.canvas_event import *
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turubberband import TuRubberBand, TuMarker
-from tuflow.tuflowqgis_library import findMeshIntersects, calcMidPoint, writeTempPoints
+from tuflow.tuflowqgis_library import (findMeshIntersects, calcMidPoint, writeTempPoints, meshToPolygon,
+                                       writeTempPolys, getFaceIndex)
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot2d import TuPlot2D
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
@@ -14,10 +15,67 @@ from matplotlib.quiver import Quiver
 from matplotlib.colorbar import ColorbarBase
 from matplotlib import cm
 from matplotlib.colors import Normalize
+from matplotlib.colors import LinearSegmentedColormap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from datetime import datetime, timedelta
 from math import sin, cos, pi
 import statistics
+
+
+
+# bmtblue = {
+#     'red':  ((0.0, 1.0, 1.0),
+#              (0.5, 26.0 / 255.0, 26.0 / 255.0),
+#              (1.0, 0.0, 0.0)),
+#     'green': ((0.0, 1.0, 1.0),
+#               (0.5, 189.0 / 255.0, 189.0 / 255.0),
+#               (1.0, 85.0 / 255.0, 85.0 / 255.0)),
+#     'blue': ((0.0, 1.0, 1.0),
+#              (0.5, 201.0 / 255.0, 201.0 / 255.0),
+#              (1.0, 129.0 / 255.0, 129.0 / 255.0))
+# }
+# cm_bmtblue = LinearSegmentedColormap('bmt_blue', bmtblue)
+# cm.register_cmap(name="bmt_blue", cmap=cm_bmtblue)
+#
+bmtbluepink = {
+    'red':  ((0.0, 0.0, 0.0),
+             (0.25, 26.0 / 255.0, 26.0 / 255.0),
+             (0.5, 1.0, 1.0),
+             (0.75, 241.0 / 255.0, 241.0 / 255.0),
+             (1.0, 226.0 / 255.0, 226.0 / 255.0)),
+    'green': ((0.0, 85.0 / 255.0, 85.0 / 255.0),
+             (0.25, 189.0 / 255.0, 189.0 / 255.0),
+             (0.5, 1.0, 1.0),
+             (0.75, 120.0 / 255.0, 120.0 / 255.0),
+             (1.0, 1.0 / 255.0, 1.0 / 255.0)),
+    'blue': ((0.0, 129.0 / 255.0, 129.0 / 255.0),
+             (0.25, 201.0 / 255.0, 201.0 / 255.0),
+             (0.5, 1.0, 1.0),
+             (0.75, 185.0 / 255.0, 185.0 / 255.0),
+             (1.0, 119.0 / 255.0, 119.0 / 255.0))
+}
+cm_bmtbluepink = LinearSegmentedColormap('bmt_blue_pink', bmtbluepink)
+cm.register_cmap(name="bmt_blue_pink", cmap=cm_bmtbluepink)
+#
+# bmtblueyellowred = {
+#     'red':  ((0.0, 0.0, 0.0),
+#              (0.25, 26.0 / 255.0, 26.0 / 255.0),
+#              (0.5, 1.0, 1.0),
+#              (0.75, 253.0 / 255.0, 253.0 / 255.0),
+#              (1.0, 215.0 / 255.0, 215.0 / 255.0)),
+#     'green': ((0.0, 85.0 / 255.0, 85.0 / 255.0),
+#              (0.25, 189.0 / 255.0, 189.0 / 255.0),
+#              (0.5, 1.0, 1.0),
+#              (0.75, 174.0 / 255.0, 174.0 / 255.0),
+#              (1.0, 25.0 / 255.0, 25.0 / 255.0)),
+#     'blue': ((0.0, 129.0 / 255.0, 129.0 / 255.0),
+#              (0.25, 201.0 / 255.0, 201.0 / 255.0),
+#              (0.5, 191.0 / 255.0, 191.0 / 255.0),
+#              (0.75, 97.0 / 255.0, 97.0 / 255.0),
+#              (1.0, 28.0 / 255.0, 28.0 / 255.0))
+# }
+# cm_bmtblueyellowred = LinearSegmentedColormap('bmt_blue_yellow_red', bmtblueyellowred)
+# cm.register_cmap(name="bmt_blue_yellow_red", cmap=cm_bmtblueyellowred)
 
 
 
@@ -95,6 +153,7 @@ class TuPlot3D(TuPlot2D):
         plotAsQuiver = []
         plotAsPatch = []
         xMagnitudes = []  # used to position arrows relative to scalar magnitudes - not passed into drawplot function
+        plotVertMesh = []
 
         # iterate through all selected results
         if not resultMesh:  # specified result meshes can be passed through kwargs (used for batch export not normal plotting)
@@ -156,14 +215,15 @@ class TuPlot3D(TuPlot2D):
 
                 # for am in avgmethods:
                 types.append(rtype)
-
-                x, y = self.getScalarDataPoint(point, layer, dp, si, mesh, meshDatasetIndex, meshRendered, onFaces,
-                                               isMax, isMin)
+                x, y, vm = self.getScalarDataPoint(point, layer, dp, si, mesh, meshDatasetIndex, meshRendered, onFaces,
+                                                   isMax, isMin)
                 xMagnitudes.append(x)
                 data.append((x, y))
                 plotAsCollection.append(False)
                 plotAsQuiver.append(False)
                 plotAsPatch.append(False)
+                plotVertMesh.append(False)
+                dataTypes.append(TuPlot.DataVerticalProfile)
 
                 # legend label for multi points
                 label = self.generateLabel(layer, resultMesh, rtype, markerNo, featName,
@@ -171,18 +231,30 @@ class TuPlot3D(TuPlot2D):
 
                 if label is not None:
                     labels.append(label)
+                else:
+                    labels.append('')
+
+                # vertical mesh - dummy x values (only concerned with y values)
+                data.append(([1, 2, 3], vm))
+                labels.append('{0} - Vertical Mesh'.format(layer.name()))
+                plotVertMesh.append(True)
+                plotAsCollection.append(False)
+                plotAsQuiver.append(False)
+                plotAsPatch.append(False)
+                dataTypes.append(TuPlot.DataVerticalMesh)
+                types.append('Vertical Mesh')
 
         # increment point count for multi select
         if bypass:  # multi select click
             self.multiPointSelectCount += 1
 
         # data = list(zip(xAll, yAll))
-        dataTypes = [dataType] * len(data)
+        # dataTypes = [dataType] * len(data)
         if data:
             if export is None:  # normal plot i.e. in tuview
-                self.tuPlot.drawPlot(TuPlot.VerticalProfile, data, labels, types, dataTypes, draw=True,
+                self.tuPlot.drawPlot(TuPlot.VerticalProfile, data, labels, types, dataTypes, draw=draw,
                                      plot_as_collection=plotAsCollection, plot_as_patch=plotAsPatch,
-                                     plot_as_quiver=plotAsQuiver)
+                                     plot_as_quiver=plotAsQuiver, plot_vert_mesh=plotVertMesh)
             elif export == 'image':  # plot through drawPlot however instead of drawing, save figure
                 # unique output file name
                 outFile = '{0}{1}'.format(os.path.join(exportOut, name), exportFormat)
@@ -192,22 +264,22 @@ class TuPlot3D(TuPlot2D):
                     iterator += 1
                 self.tuPlot.drawPlot(TuPlot.VerticalProfile, data, labels, types, dataTypes,
                                      plot_as_collection=plotAsCollection, plot_as_patch=plotAsPatch,
-                                     plot_as_quiver=plotAsQuiver, export=outFile)
+                                     plot_as_quiver=plotAsQuiver, export=outFile, plot_vert_mesh=plotVertMesh)
             elif export == 'csv':  # export to csv, don't plot
                 self.tuPlot.exportCSV(TuPlot.TimeSeries, data, labels, types, exportOut, name)
                 self.tuPlot.exportCSV(TuPlot.VerticalProfile, data, labels, types, exportOut)
             else:  # catch all other cases and just do normal, although should never be triggered
-                self.tuPlot.drawPlot(TuPlot.VerticalProfile, data, labels, types, dataTypes, draw=True,
+                self.tuPlot.drawPlot(TuPlot.VerticalProfile, data, labels, types, dataTypes, draw=draw,
                                      plot_as_collection=plotAsCollection, plot_as_patch=plotAsPatch,
-                                     plot_as_quiver=plotAsQuiver)
+                                     plot_as_quiver=plotAsQuiver, plot_vert_mesh=plotVertMesh)
 
         return True
 
     def plotCurtainFromMap(self, vLayer, feat, **kwargs):
 
         from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
-        debug = False
 
+        debug = self.tuView.tuOptions.writeMeshIntersects
         activeMeshLayers = self.tuResults.tuResults2D.activeMeshLayers  # list
         results = self.tuResults.results  # dict
 
@@ -226,6 +298,12 @@ class TuPlot3D(TuPlot2D):
         featName = kwargs['featName'] if 'featName' in kwargs else None
         resultTypes = kwargs['types'] if 'types' in kwargs.keys() else []  # export kwarg
         update = kwargs['update'] if 'update' in kwargs else False  # update only
+        # animation stuff
+        name = kwargs['name'] if 'name' in kwargs.keys() else None
+        export = kwargs['export'] if 'export' in kwargs.keys() else None  # 'csv' or 'image'
+        exportOut = kwargs['export_location'] if 'export_location' in kwargs.keys() else None
+        exportFormat = kwargs['export_format'] if 'export_format' in kwargs.keys() else None
+        plotActiveScalar = kwargs['plot_active_scalar'] if 'plot_active_scalar' in kwargs else False
 
         # clear the plot based on kwargs
         if not bypass:
@@ -287,10 +365,16 @@ class TuPlot3D(TuPlot2D):
                     if not onFaces:
                         self.points = [calcMidPoint(self.inters[i], self.inters[i+1], crs) for i in range(len(self.inters) - 1)]
                         if debug:
-                            writeTempPoints(self.points, self.tuView.project, crs)
+                            writeTempPoints(self.inters, self.tuView.project, crs, self.chainages, 'Chainage', QVariant.Double)
                     else:
                         onFaces = True
                         self.points = self.faces[:]
+                        if debug:
+                            polys = [meshToPolygon(mesh, mesh.face(x)) for x in self.faces]
+                            writeTempPolys(polys, self.tuView.project, crs)
+                            writeTempPoints(self.inters, self.tuView.project, crs, self.chainages, 'Chainage',
+                                            QVariant.Double)
+
 
                 # collect and arrange data
                 if 'vector' in rtype.lower():
@@ -311,9 +395,26 @@ class TuPlot3D(TuPlot2D):
                 plotAsPatch.append(True)
 
         dataTypes = [TuPlot.DataCurtainPlot] * len(data)
-        self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes, draw=True,
-                             plot_as_collection=plotAsCollection, plot_as_patch=plotAsPatch,
-                             plot_as_quiver=plotAsQuiver)
+        if export is None:
+            self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes, draw=draw,
+                                 plot_as_collection=plotAsCollection, plot_as_patch=plotAsPatch,
+                                 plot_as_quiver=plotAsQuiver)
+        elif export == 'image':  # plot through drawPlot however instead of drawing, save figure
+            # unique output file name
+            outFile = '{0}{1}'.format(os.path.join(exportOut, name), exportFormat)
+            iterator = 1
+            while os.path.exists(outFile):
+                outFile = '{0}_{2}{1}'.format(os.path.join(exportOut, name), exportFormat, iterator)
+                iterator += 1
+            self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes, draw=draw,
+                                 plot_as_collection=plotAsCollection, plot_as_patch=plotAsPatch,
+                                 plot_as_quiver=plotAsQuiver, export=outFile)
+        elif export == 'csv':  # export to csv, don't plot
+            pass  # for now
+        else:
+            self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes, draw=draw,
+                                 plot_as_collection=plotAsCollection, plot_as_patch=plotAsPatch,
+                                 plot_as_quiver=plotAsQuiver)
 
         return True
 
@@ -324,7 +425,7 @@ class TuPlot3D(TuPlot2D):
 
         from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
-        x, y = [], []
+        x, y, vm = [], [], []
         if onFaces:
             if meshRendered:
                 data3d = layer.dataset3dValue(mdi, point)
@@ -339,13 +440,19 @@ class TuPlot3D(TuPlot2D):
                 if len(x) == 2 * vlc:  # vector (x, y) -> get magnitude
                     x = [ ( x[i] ** 2 + x[i+1] ** 2 ) ** 0.5 for i in range(0, len(x), 2) ]
                 y = data3d.verticalLevels()
-                y = [ ( y[i] + y[i+1] ) / 2. for i in range(0, len(y) - 1) ]  # point halfway between levels
+                vm = y[:]
+                if self.tuView.tuOptions.verticalProfileInterpolated:
+                    y = [ ( y[i] + y[i+1] ) / 2. for i in range(0, len(y) - 1) ]  # point halfway between levels
+                else:
+                    x = sum([[x, x] for x in x], [])
+                    y = sum([[x, x] for x in y], [])[1:-1]
         else:
             x = [self.datasetValue(layer, dp, si, mesh, mdi, False, point, 0, TuPlot.DataVerticalProfile, None) for x in range(2)]
             y = self.getBedAndWaterElevation(layer, dp, si, mesh, mdi, False, point, 0, TuPlot.DataVerticalProfile, None,
                                              isMax, isMin)
+            vm = y[:]
 
-        return x, y
+        return x, y, vm
 
     def getScalarDataCurtain(self, layer, dp, si, mesh, mdi, faces, ch, update, rtype, onFaces, isMax, isMin):
         """
@@ -354,9 +461,12 @@ class TuPlot3D(TuPlot2D):
 
         from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
+        edgecolour = ((0,0,0,1),) if self.tuPlot.verticalMesh_action.isChecked() else 'face'
+
         d = []
         x = []
         y = []
+        xi = 0  # index for chainage - can be different due to null areas
         for i, f in enumerate(faces):
             if onFaces:
                 data3d = dp.dataset3dValues(mdi, f, 1)
@@ -375,7 +485,16 @@ class TuPlot3D(TuPlot2D):
 
             if not np.isnan(v).any():
                 for j in range(vlc):
-                    x.append([ch[i], ch[i + 1], ch[i + 1], ch[i]])
+                    # get correct ch index - this can be different because the first point could be outside mesh
+                    if len(self.inters) - 1 >= xi + 1:
+                        while getFaceIndex(self.inters[xi], si, mesh, p2=self.inters[xi+1]) is None:
+                            xi += 1
+                            if len(self.inters) - 1 < xi + 1:
+                                break
+                    if len(self.inters) - 1 < xi + 1 or getFaceIndex(self.inters[xi], si, mesh, p2=self.inters[xi+1]) is None:
+                        break  # don't think it should ever get here
+
+                    x.append([ch[xi], ch[xi + 1], ch[xi + 1], ch[xi]])
                     y.append([vl[j + 1], vl[j + 1], vl[j], vl[j]])
                     if len(v) == 2 * vlc:  # x,y components
                         m = v[j*2] ** 2 + v[j*2 + 1] ** 2
@@ -383,6 +502,7 @@ class TuPlot3D(TuPlot2D):
                         d.append(m)
                     else:
                         d.append(v[j])
+            xi += 1
 
         xy = np.dstack((np.array(x), np.array(y)))
         values = np.array(d)
@@ -393,7 +513,7 @@ class TuPlot3D(TuPlot2D):
         #    self.co_stuff += datetime.now() - pf  # profiling
         #else:
         self.colSpec['clim'] = self.getMinMaxValue(dp, mdi.group())
-        self.collection = PolyCollection(xy, array=values, edgecolor='face', label=rtype, **self.colSpec)
+        self.collection = PolyCollection(xy, array=values, edgecolor=edgecolour, label=rtype, **self.colSpec)
 
     def getVectorDataCurtain(self, layer, dp, si, mesh, mdi, faces, ch, points, update, onFaces, isMax, isMin):
         """
@@ -463,10 +583,10 @@ class TuPlot3D(TuPlot2D):
 
         """
 
-        isMax = self.tuResults.isMinimumResultType
-        isMin = self.tuResults.isMinimumResultType
-        stripMax = self.tuResults.stripMaximumName
-        stripMin = self.tuResults.stripMinimumName
+        isMax = TuResults.isMinimumResultType
+        isMin = TuResults.isMinimumResultType
+        stripMax = TuResults.stripMaximumName
+        stripMin = TuResults.stripMinimumName
 
         minimum = 99999
         maximum = -99999
@@ -510,13 +630,13 @@ class TuPlot3D(TuPlot2D):
                 iBedGmd = i
                 continue
             if isMax:
-                if TuResults.isMaximumResultType(TuResults(None), name):
-                    name = TuResults.stripMaximumName(TuResults(None), name)
+                if TuResults.isMaximumResultType(name):
+                    name = TuResults.stripMaximumName(name)
                     if name.lower() in possibleWlNames:
                         iWlGmd = i
             elif isMin:
-                if TuResults.isMinimumResultType(TuResults(None), name):
-                    name = TuResults.stripMinimumName(TuResults(None), name)
+                if TuResults.isMinimumResultType(name):
+                    name = TuResults.stripMinimumName(name)
                     if name.lower() in possibleWlNames:
                         iWlGmd = i
             else:

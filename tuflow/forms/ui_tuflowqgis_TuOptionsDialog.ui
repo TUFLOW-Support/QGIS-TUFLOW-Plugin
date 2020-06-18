@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>363</width>
-    <height>550</height>
+    <width>401</width>
+    <height>782</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -103,26 +103,6 @@
       <string>Plotting</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
-      <item row="0" column="0" colspan="2">
-       <widget class="QLabel" name="label">
-        <property name="text">
-         <string>Live Map Tracking:</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="3">
-       <widget class="QRadioButton" name="rbLiveCursorTrackingOff">
-        <property name="text">
-         <string>Off</string>
-        </property>
-        <attribute name="buttonGroup">
-         <string notr="true">LiveCursorTracking</string>
-        </attribute>
-       </widget>
-      </item>
       <item row="1" column="0">
        <spacer name="verticalSpacer">
         <property name="orientation">
@@ -139,19 +119,6 @@
         </property>
        </spacer>
       </item>
-      <item row="0" column="2">
-       <widget class="QRadioButton" name="rbLiveCursorTrackingOn">
-        <property name="text">
-         <string>On</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-        <attribute name="buttonGroup">
-         <string notr="true">LiveCursorTracking</string>
-        </attribute>
-       </widget>
-      </item>
       <item row="0" column="4">
        <spacer name="horizontalSpacer_3">
         <property name="orientation">
@@ -165,17 +132,20 @@
         </property>
        </spacer>
       </item>
-      <item row="2" column="0" colspan="4">
-       <widget class="QCheckBox" name="cbDates">
+      <item row="6" column="0" colspan="3">
+       <widget class="QLabel" name="label_8">
         <property name="text">
-         <string>Display Time Series X-Axis as Dates:</string>
+         <string>X-Axis Label Rotation (deg):</string>
         </property>
        </widget>
       </item>
-      <item row="4" column="0" colspan="2">
-       <widget class="QLabel" name="label_6">
+      <item row="0" column="0" colspan="2">
+       <widget class="QLabel" name="label">
         <property name="text">
-         <string>Display Format: </string>
+         <string>Live Map Tracking:</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
         </property>
        </widget>
       </item>
@@ -193,17 +163,34 @@
         </property>
        </widget>
       </item>
+      <item row="0" column="3">
+       <widget class="QRadioButton" name="rbLiveCursorTrackingOff">
+        <property name="text">
+         <string>Off</string>
+        </property>
+        <attribute name="buttonGroup">
+         <string notr="true">LiveCursorTracking</string>
+        </attribute>
+       </widget>
+      </item>
+      <item row="2" column="0" colspan="4">
+       <widget class="QCheckBox" name="cbDates">
+        <property name="text">
+         <string>Display Time Series X-Axis as Dates:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0" colspan="2">
+       <widget class="QLabel" name="label_6">
+        <property name="text">
+         <string>Display Format*: </string>
+        </property>
+       </widget>
+      </item>
       <item row="3" column="1">
        <widget class="QLabel" name="label_7">
         <property name="text">
          <string>Preview: </string>
-        </property>
-       </widget>
-      </item>
-      <item row="6" column="0" colspan="3">
-       <widget class="QLabel" name="label_8">
-        <property name="text">
-         <string>X-Axis Label Rotation (deg):</string>
         </property>
        </widget>
       </item>
@@ -214,6 +201,36 @@
         </property>
         <property name="calendarPopup">
          <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="2">
+       <widget class="QRadioButton" name="rbLiveCursorTrackingOn">
+        <property name="text">
+         <string>On</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+        <attribute name="buttonGroup">
+         <string notr="true">LiveCursorTracking</string>
+        </attribute>
+       </widget>
+      </item>
+      <item row="6" column="3">
+       <widget class="QSpinBox" name="sbXAxisLabelRotation">
+        <property name="minimum">
+         <number>-359</number>
+        </property>
+        <property name="maximum">
+         <number>359</number>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="2" colspan="4">
+       <widget class="QLineEdit" name="leDateFormat">
+        <property name="text">
+         <string>DD/MM/YYYY hh:mm:ss</string>
         </property>
        </widget>
       </item>
@@ -233,20 +250,16 @@
         </property>
        </spacer>
       </item>
-      <item row="4" column="2" colspan="4">
-       <widget class="QLineEdit" name="leDateFormat">
+      <item row="7" column="0" colspan="5">
+       <widget class="QLabel" name="label_11">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
         <property name="text">
-         <string>DD/MM/YYYY hh:mm:ss</string>
-        </property>
-       </widget>
-      </item>
-      <item row="6" column="3">
-       <widget class="QSpinBox" name="sbXAxisLabelRotation">
-        <property name="minimum">
-         <number>-359</number>
-        </property>
-        <property name="maximum">
-         <number>359</number>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;*Capitals for date (DD/MM/YYYY) lower case for time (hh:mm:ss)&lt;/p&gt;&lt;p&gt;DD/MM/YYYY hh:mm:ss - 31/12/1988 12:00:00&lt;/p&gt;&lt;p&gt;MMM/YY - Dec/88&lt;/p&gt;&lt;p&gt;DD/MMMM hh:mm - 31/December 12:00&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
        </widget>
       </item>
@@ -304,16 +317,6 @@
       <string>Map Plotting</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_4">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_4">
-        <property name="text">
-         <string>Resolution (map units)</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-        </property>
-       </widget>
-      </item>
       <item row="0" column="2">
        <spacer name="horizontalSpacer_2">
         <property name="orientation">
@@ -340,6 +343,16 @@
         </property>
        </widget>
       </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_4">
+        <property name="text">
+         <string>Resolution (map units)</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
       <item row="1" column="0">
        <widget class="QLabel" name="label_10">
         <property name="text">
@@ -360,13 +373,20 @@
         </property>
        </widget>
       </item>
+      <item row="2" column="0" colspan="2">
+       <widget class="QCheckBox" name="cbInterpolateVertProf">
+        <property name="text">
+         <string>Interpolate Vertical Profile</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
    <item>
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
-      <string>ARR2016</string>
+      <string>ARR2019</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_5">
       <item row="0" column="0">
@@ -461,6 +481,32 @@
     </widget>
    </item>
    <item>
+    <widget class="QgsCollapsibleGroupBox" name="gbCheckFiles">
+     <property name="title">
+      <string>Check Files</string>
+     </property>
+     <property name="collapsed">
+      <bool>false</bool>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_4">
+      <item>
+       <widget class="QCheckBox" name="cbMeshIntCheck">
+        <property name="text">
+         <string>Mesh intercept locations (for map plotting line types e.g. cross section)</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="cbParticleDebug">
+        <property name="text">
+         <string>Particles - Include X, Y, Z, Time info in attribute table</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -472,6 +518,14 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QgsCollapsibleGroupBox</class>
+   <extends>QGroupBox</extends>
+   <header>qgscollapsiblegroupbox.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>
@@ -508,9 +562,9 @@
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="MeanSelection"/>
-  <buttongroup name="buttonGroup"/>
-  <buttongroup name="LiveCursorTracking"/>
   <buttongroup name="DefaultLayout"/>
+  <buttongroup name="MeanSelection"/>
+  <buttongroup name="LiveCursorTracking"/>
+  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

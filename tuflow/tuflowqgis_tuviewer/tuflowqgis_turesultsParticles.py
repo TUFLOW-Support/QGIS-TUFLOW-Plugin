@@ -1,9 +1,11 @@
 import os
 import glob
-from datetime import timedelta
+import re
+from datetime import timedelta, datetime
 from qgis.core import *
 from PyQt5.QtCore import Qt, QVariant
 from qgis.core import QgsVectorLayer, QgsFeature, QgsPointXY, QgsGeometry, QgsField
+from tuflow.tuflowqgis_library import isSame_float, roundSeconds
 
 try:
 	from tuflow.TUFLOW_particles_data_provider import TuParticlesDataProvider
@@ -20,7 +22,8 @@ class TuResultsParticles():
 		self.tuView = TuView
 		self.iface = TuView.iface
 		self.resultsParticles = {} # display name -> [particles data provider, vectorLayer, [relative_times_in_hour]]
-	
+		self.debug = self.tuView.tuOptions.particlesWriteDebugInfo  # ES
+
 	def importResults(self, inFileNames):
 		"""
 		Imports function that opens result particles layer
@@ -41,11 +44,12 @@ class TuResultsParticles():
 
 		for j, f in enumerate(inFileNames):
 			# Load Particles
+			defaultRefTime = self.tuView.tuOptions.zeroTime
 			if type(inFileNames) is dict:
 				m = inFileNames[f]['particles']
-				mLayer, name = self._load_file(m)
+				mLayer, name = self._load_file(m, defaultRefTime)
 			else:
-				mLayer, name = self._load_file(f)
+				mLayer, name = self._load_file(f, defaultRefTime)
 
 			if mLayer is None or name is None:
 				if not skipConnect:
@@ -74,16 +78,25 @@ class TuResultsParticles():
 
 		return True
 
-	def _load_file(self, filename):
+	def _load_file(self, filename, defaultRefTime=None):
 		if not filename:
 			return None, None
 
+		self.debug = self.tuView.tuOptions.particlesWriteDebugInfo  # ES
+
 		particles_data_provider = TuParticlesDataProvider()
-		if particles_data_provider.load_file(filename):
+		if particles_data_provider.load_file(filename, defaultRefTime):
 			# create vector layer with correct attributes
 			displayname = os.path.basename(filename)
 			self.tuView.tuResults.results[displayname] = {}
-			vlayer = QgsVectorLayer("PointZ", displayname, "memory")
+			# ES added CRS
+			if particles_data_provider.crs is None:
+				crs = self.tuView.project.crs()
+			else:
+				crs = particles_data_provider.crs
+			uri = "pointZ?crs={0}".format(crs.authid().lower())
+			# vlayer = QgsVectorLayer("PointZ", displayname, "memory")
+			vlayer = QgsVectorLayer(uri, displayname, "memory")
 			vlayer.dataProvider().addAttributes(self._get_attributes_list(particles_data_provider))
 			vlayer.updateFields()
 
@@ -91,9 +104,12 @@ class TuResultsParticles():
 			dir_path = os.path.dirname(os.path.realpath(__file__))
 			styles_folder = os.path.join(dir_path, os.pardir, "QGIS_Styles", "particles", "*.qml")
 			styles = glob.glob(styles_folder)
+			# ES make sure default.qml is last otherwise default style is overwritten by each subsequent style
+			styles = sorted(styles, key=lambda x: 1 if re.findall(r'default.qml$', x, flags=re.IGNORECASE) else 0)
 			style_manager = vlayer.styleManager()
 			for style in styles:
-				style_name = os.path.basename(style).strip('.qml')
+				# style_name = os.path.basename(style).strip('.qml')
+				style_name = os.path.splitext(os.path.basename(style))[0]  # ES
 				(_, success) = vlayer.loadNamedStyle(style)
 				if not success:
 					style_manager.removeStyle(style)
@@ -108,16 +124,23 @@ class TuResultsParticles():
 			date2timekey = self.tuView.tuResults.date2timekey
 			date2time = self.tuView.tuResults.date2time
 			zeroTime = self.tuView.tuOptions.zeroTime  # datetime
-			if not zeroTime:
+			if not zeroTime or self.tuView.OpenResults.count() == 0:
 				zeroTime = particles_data_provider.getReferenceTime()
+				self.tuView.tuOptions.zeroTime = zeroTime  # ES
 
 			timesteps = particles_data_provider.timeSteps(zeroTime)
 			for t in timesteps:
+				date = zeroTime + timedelta(hours=t)
+				date = roundSeconds(date)
 				timekey2time['{0:.6f}'.format(t)] = t
-				timekey2date['{0:.6f}'.format(t)] = zeroTime + timedelta(hours=t)
-				time2date[t] = zeroTime + timedelta(hours=t)
-				date2timekey[zeroTime + timedelta(hours=t)] = '{0:.6f}'.format(t)
-				date2time[zeroTime + timedelta(hours=t)] = t
+				# timekey2date['{0:.6f}'.format(t)] = zeroTime + timedelta(hours=t)
+				timekey2date['{0:.6f}'.format(t)] = date
+				# time2date[t] = zeroTime + timedelta(hours=t)
+				time2date[t] = date
+				# date2timekey[zeroTime + timedelta(hours=t)] = '{0:.6f}'.format(t)
+				date2timekey[date] = '{0:.6f}'.format(t)
+				# date2time[zeroTime + timedelta(hours=t)] = t
+				date2time[date] = t
 
 			self.tuView.tuResults.results[displayname]["_particles"] = [timesteps]
 
@@ -158,16 +181,22 @@ class TuResultsParticles():
 
 		return True
 
-	def updateActiveTime(self):
+	def updateActiveTime(self, time=None):
 		"""
 		Loads a new set of particles for next timestep
 		"""
 
-		active_time = self.tuView.tuResults.activeTime
-		if active_time is None:
-			global_relative_time = 0
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults  # ES
+		self.debug = self.tuView.tuOptions.particlesWriteDebugInfo  # ES
+
+		if time is None:
+			active_time = self.tuView.tuResults.activeTime
+			if active_time is None:
+				global_relative_time = 0
+			else:
+				global_relative_time = self.tuView.tuResults.timekey2time[active_time]
 		else:
-			global_relative_time = self.tuView.tuResults.timekey2time[active_time]
+			global_relative_time = time
 
 		for _, data in self.resultsParticles.items():
 			particles_data_provider = data[0]
@@ -179,11 +208,15 @@ class TuResultsParticles():
 			for i, relative_time in enumerate(timesteps):
 				time_index = i
 				relative_time = timesteps[i]
+				if isSame_float(relative_time, global_relative_time, prec=TuResults.TimePrecision):  # ES
+					break  # ES
 				if relative_time > global_relative_time:
+					time_index = max(0, time_index - 1)  # ES
 					break
 
 			# re-populate particles
 			if vlayer is not None:
+				self._updateVectorLayerAttributes(vlayer, self.debug)
 				points = self._get_features(particles_data_provider, vlayer, time_index)
 				vlayer.dataProvider().truncate()
 				vlayer.dataProvider().addFeatures(points)
@@ -202,9 +235,13 @@ class TuResultsParticles():
 		])
 
 		# add optional attributes (variables) that are in file
-		dataset_vars = particles_data_provider.get_all_variable_names()
+		dataset_vars = particles_data_provider.get_all_variable_names(self.debug)
 		for var in dataset_vars:
 			attrs.append(QgsField(var, QVariant.Double))
+
+		# add some time attributes if debug
+		if self.debug:
+			attrs.extend(self._timeFields())
 
 		return attrs
 
@@ -216,9 +253,18 @@ class TuResultsParticles():
 		if data is None:
 			return points
 
-		x = data.pop('x')
-		y = data.pop('y')
-		z = data.pop('z')
+		if self.debug:  # ES keep coords in attribute table
+			x = data.get('x')
+			y = data.get('y')
+			z = data.get('z')
+			absTime = particles_data_provider.timeSteps(particles_data_provider.getReferenceTime())[time_index]
+			relTime = particles_data_provider.timeSteps(self.tuView.tuOptions.zeroTime)[time_index]
+			dt = particles_data_provider.getReferenceTime() + timedelta(hours=absTime)
+			dt = roundSeconds(dt)
+		else:
+			x = data.pop('x')
+			y = data.pop('y')
+			z = data.pop('z')
 		stats = data.get('stat')
 
 		for i, stat in enumerate(stats):
@@ -232,6 +278,58 @@ class TuResultsParticles():
 					feat['id'] = i
 					feat[attr] = float(
 						data.get(attr)[i])  # must be converted to primitive type, otherwise feature data wont be stored
+				if self.debug:  # ES
+					feat['_absTime'] = absTime
+					feat['_relTime'] = relTime
+					feat['_dateTime'] = self.tuView.tuResults._dateFormat.format(dt)
 				points.append(feat)
 
 		return points
+
+	def _timeFields(self):
+		"""Time fields"""
+
+		attrs = [
+			QgsField("_absTime", QVariant.Double),
+			QgsField("_relTime", QVariant.Double),
+			QgsField("_dateTime", QVariant.String, len=20)
+		]
+
+		return attrs
+
+	def _spatialFields(self):
+		"""Fields for X, Y, Z"""
+
+		attrs = [
+			QgsField("x", QVariant.Double),
+			QgsField("y", QVariant.Double),
+			QgsField("z", QVariant.Double)
+		]
+
+		return attrs
+
+	def _updateVectorLayerAttributes(self, vlayer, debug):
+		"""Update attributes based on whether debugging or not"""
+
+		changed = False
+		if debug:
+			if vlayer.fields().lookupField('_absTime') < 0:
+				vlayer.startEditing()
+				changed = True
+				for field in self._spatialFields():
+					vlayer.addAttribute(field)
+				for field in self._timeFields():
+					vlayer.addAttribute(field)
+		else:
+			if vlayer.fields().lookupField('_absTime') >= 0:
+				vlayer.startEditing()
+				changed = True
+				for field in self._spatialFields():
+					i = vlayer.fields().lookupField(field.name())
+					vlayer.deleteAttribute(i)
+				for field in self._timeFields():
+					i = vlayer.fields().lookupField(field.name())
+					vlayer.deleteAttribute(i)
+
+		if changed:
+			vlayer.commitChanges()

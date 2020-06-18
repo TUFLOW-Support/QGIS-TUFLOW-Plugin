@@ -813,7 +813,8 @@ class ArrTemporal:
                 for i, dur in enumerate(self.Duration):
                     if dur >= inclusions[0]:
                         if dur not in exclusions:
-                            j = self.arealDuration[tp_area].index(dur)
+                            m = self.arealRegion[tp_area].index(self.Region[i])
+                            j = self.arealDuration[tp_area][m:].index(dur) + m
                             if self.Region[i] == self.arealRegion[tp_area][j]:
                                 self.ID[i] = self.arealID[tp_area][j + k]
                                 self.TimeStep[i] = self.arealTimeStep[tp_area][j + k]
@@ -1038,6 +1039,8 @@ class Arr:
         #print('Loading Temporal Patterns')
         self.logger.info('Loading Temporal Patterns')
         tpRegion = self.temporalPatternRegion(fi)
+        if tpRegion == 'Rangelands West And Rangelands':
+            areal_tp_download = None
         self.Temporal.load(fname, fi, tpRegion, point_tp_csv, areal_tp_csv, areal_tp_download)
         if self.Temporal.error:
             #print('An error was encountered, when reading temporal patterns.')
@@ -1052,6 +1055,10 @@ class Arr:
                     fadd_tp = open(f, 'r')
                     self.Temporal.append(fadd_tp)
                     fadd_tp.close()
+                    tpCode = self.arealTemporalPatternCode(f)
+                    f = os.path.join(os.path.dirname(f), "Areal_{0}_Increments.csv".format(tpCode))
+                    if os.path.exists(f):
+                        self.Temporal.loadArealTpFromCSV(f)
                     if self.Temporal.error:
                         #print('An error was encountered, when reading temporal pattern: {0}'.format(tp))
                         self.logger.error('An error was encountered, when reading temporal pattern: {0}'.format(tp))

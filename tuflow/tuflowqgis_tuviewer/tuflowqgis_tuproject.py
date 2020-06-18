@@ -143,7 +143,10 @@ class TuProject():
 			results = self.project.readEntry("TUVIEW", "results2d")[0]
 			if results:
 				results = results.split('~~')
-				self.tuView.tuMenuBar.tuMenuFunctions.load2dResults(result_2D=[results])
+				try:
+					self.tuView.tuMenuBar.tuMenuFunctions.load2dResults(result_2D=[results])
+				except:
+					pass
 			
 	def processResults1d(self, call_type):
 		"""Project settings for 1d results"""
@@ -161,7 +164,10 @@ class TuProject():
 			results = self.project.readEntry("TUVIEW", "results1d")[0]
 			if results:
 				results = results.split('~~')
-				self.tuView.tuMenuBar.tuMenuFunctions.load1dResults(result_1D=[results], ask_gis=False)
+				try:
+					self.tuView.tuMenuBar.tuMenuFunctions.load1dResults(result_1D=[results], ask_gis=False)
+				except:
+					pass
 	
 	def processActiveResults(self, call_type):
 		"""Saves active mesh layers to project"""
@@ -193,31 +199,34 @@ class TuProject():
 					activeResults += '~~{0}'.format(result)
 			self.project.writeEntry("TUVIEW", "activeresults", activeResults)
 		else:  # load
-			allResults = self.project.readEntry("TUVIEW", 'allresults')[0]
-			if allResults:
-				allResults = allResults.split('~~')
-			activeResults = self.project.readEntry("TUVIEW", "activeresults")[0]
-			if activeResults:
-				activeResults = activeResults.split('~~')
-			# first fix the order
-			if allResults:
-				openResults.clear()
-				for res in allResults:
-					if res in self.tuView.tuResults.results:
-						openResults.addItem(res)
-			# then enforce selection
-			for i in range(openResults.count()):
-				item = openResults.item(i)
-				if item.text() in activeResults:
-					item.setSelected(True)
-				else:
-					item.setSelected(False)
-			self.tuView.tuResults.tuResults2D.activeMeshLayers.clear()
-			if activeResults:
-				for result in activeResults:
-					layer = tuflowqgis_find_layer(result)
-					if layer is not None:
-						self.tuView.tuResults.tuResults2D.activeMeshLayers.append(layer)
+			try:
+				allResults = self.project.readEntry("TUVIEW", 'allresults')[0]
+				if allResults:
+					allResults = allResults.split('~~')
+				activeResults = self.project.readEntry("TUVIEW", "activeresults")[0]
+				if activeResults:
+					activeResults = activeResults.split('~~')
+				# first fix the order
+				if allResults:
+					openResults.clear()
+					for res in allResults:
+						if res in self.tuView.tuResults.results:
+							openResults.addItem(res)
+				# then enforce selection
+				for i in range(openResults.count()):
+					item = openResults.item(i)
+					if item.text() in activeResults:
+						item.setSelected(True)
+					else:
+						item.setSelected(False)
+				self.tuView.tuResults.tuResults2D.activeMeshLayers.clear()
+				if activeResults:
+					for result in activeResults:
+						layer = tuflowqgis_find_layer(result)
+						if layer is not None:
+							self.tuView.tuResults.tuResults2D.activeMeshLayers.append(layer)
+			except:
+				pass
 			
 	def processActiveResultTypes(self, call_type):
 		"""Project settings for active result types"""
@@ -238,54 +247,59 @@ class TuProject():
 					activeResultTypes += '~~{0}'.format(result)
 			self.project.writeEntry("TUVIEW", "activeresulttypes", activeResultTypes)
 		else:  # load
-			activeResultTypes = self.project.readEntry("TUVIEW", "activeresulttypes")[0]
-			if activeResultTypes:
-				activeResultTypes = activeResultTypes.split('~~')
-				self.tuView.tuResults.activeResultsIndexes.clear()
-				self.tuView.tuResults.activeResultsTypes.clear()
-				self.tuView.tuResults.activeResultsItems.clear()
-				self.tuView.tuResults.activeResults.clear()
-				self.tuView.tuResults.tuResults1D.items1d.clear()
-				self.tuView.tuResults.tuResults1D.typesTS.clear()
-				self.tuView.tuResults.tuResults1D.typesLP.clear()
-				self.tuView.tuResults.tuResults1D.pointTS.clear()
-				self.tuView.tuResults.tuResults1D.lineTS.clear()
-				self.tuView.tuResults.tuResults1D.regionTS.clear()
-				for i in range(openResultTypes.model().mapOutputsItem.childCount()):
-					item = openResultTypes.model().dsindex2item[i]
-					name = item.ds_name
-					if name in activeResultTypes:
-						self.tuView.tuResults.activeResults.append(name)
-						self.tuView.tuResults.activeResultsItems.append(item)
-						self.tuView.tuResults.activeResultsIndexes.append(openResultTypes.model().item2index(item))
-						self.tuView.tuResults.activeResultsTypes.append(item.ds_type)
-						if item.ds_type == 1:
-							self.tuView.tuResults.tuResults2D.activeScalar = name
-						elif item.ds_type == 2:
-							self.tuView.tuResults.tuResults2D.activeVector = name
-				for item in openResultTypes.model().timeSeriesItem.children():
-					name = item.ds_name
-					if name in activeResultTypes:
-						self.tuView.tuResults.activeResultsItems.append(item)
-						self.tuView.tuResults.activeResultsIndexes.append(openResultTypes.model().item2index(item))
-						self.tuView.tuResults.activeResultsTypes.append(item.ds_type)
-						nameAppend = ''
-						if item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6 or item.ds_type == 7:
-							self.tuView.tuResults.tuResults1D.items1d.append(name)
-							if item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6:
-								nameAppend = '_TS'
-								self.tuView.tuResults.tuResults1D.typesTS.append(name)
-							else:
-								nameAppend = '_LP'
-								self.tuView.tuResults.tuResults1D.typesLP.append(name)
-							if item.ds_type == 4:
-								self.tuView.tuResults.tuResults1D.pointTS.append(name)
-							elif item.ds_type == 5:
-								self.tuView.tuResults.tuResults1D.lineTS.append(name)
-							elif item.ds_type == 6:
-								self.tuView.tuResults.tuResults1D.regionTS.append(name)
-							name += nameAppend
+			try:
+				activeResultTypes = self.project.readEntry("TUVIEW", "activeresulttypes")[0]
+				if activeResultTypes:
+					activeResultTypes = activeResultTypes.split('~~')
+					self.tuView.tuResults.activeResultsIndexes.clear()
+					self.tuView.tuResults.activeResultsTypes.clear()
+					self.tuView.tuResults.activeResultsItems.clear()
+					self.tuView.tuResults.activeResults.clear()
+					self.tuView.tuResults.tuResults1D.items1d.clear()
+					self.tuView.tuResults.tuResults1D.typesTS.clear()
+					self.tuView.tuResults.tuResults1D.typesLP.clear()
+					self.tuView.tuResults.tuResults1D.pointTS.clear()
+					self.tuView.tuResults.tuResults1D.lineTS.clear()
+					self.tuView.tuResults.tuResults1D.regionTS.clear()
+					for i in range(openResultTypes.model().mapOutputsItem.childCount()):
+						item = openResultTypes.model().dsindex2item[i]
+						name = item.ds_name
+						if name in activeResultTypes:
 							self.tuView.tuResults.activeResults.append(name)
+							self.tuView.tuResults.activeResultsItems.append(item)
+							self.tuView.tuResults.activeResultsIndexes.append(openResultTypes.model().item2index(item))
+							self.tuView.tuResults.activeResultsTypes.append(item.ds_type)
+							if item.ds_type == 1:
+								self.tuView.tuResults.tuResults2D.activeScalar = name
+							elif item.ds_type == 2:
+								self.tuView.tuResults.tuResults2D.activeVector = name
+					for item in openResultTypes.model().timeSeriesItem.children():
+						name = item.ds_name
+						if name in activeResultTypes:
+							self.tuView.tuResults.activeResultsItems.append(item)
+							self.tuView.tuResults.activeResultsIndexes.append(openResultTypes.model().item2index(item))
+							self.tuView.tuResults.activeResultsTypes.append(item.ds_type)
+							nameAppend = ''
+							if item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6 or item.ds_type == 7:
+								self.tuView.tuResults.tuResults1D.items1d.append(name)
+								if item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6:
+									nameAppend = '_TS'
+									self.tuView.tuResults.tuResults1D.typesTS.append(name)
+								elif item.ds_type == 7:
+									nameAppend = '_LP'
+									self.tuView.tuResults.tuResults1D.typesLP.append(name)
+								elif item.ds_type == 8:
+									nameAppend = '_CS'
+								if item.ds_type == 4:
+									self.tuView.tuResults.tuResults1D.pointTS.append(name)
+								elif item.ds_type == 5:
+									self.tuView.tuResults.tuResults1D.lineTS.append(name)
+								elif item.ds_type == 6:
+									self.tuView.tuResults.tuResults1D.regionTS.append(name)
+								name += nameAppend
+								self.tuView.tuResults.activeResults.append(name)
+			except:
+				pass
 							
 	def processActiveTime(self, call_type):
 		"""Project settings for current timestep"""
@@ -335,24 +349,27 @@ class TuProject():
 					mtypes += '~~{0}'.format(rtype)
 			self.project.writeEntry("TUVIEW", "maxtypes", mtypes)
 		else:  # load
-			stypes = self.project.readEntry("TUVIEW", "secondarytypes")[0]
-			secondaryResultTypes.clear()
-			secondaryResultTypes += stypes.split('~~')
-			mtypes = self.project.readEntry("TUVIEW", "maxtypes")[0]
-			maxResultTypes.clear()
-			maxResultTypes += mtypes.split('~~')
-			for item in openResultTypes.model().mapOutputsItem.children():
-				if item.ds_name in secondaryResultTypes:
-					item.toggleSecondaryActive()
-				if item.ds_name in maxResultTypes:
-					item.toggleMaxActive()
-			for item in openResultTypes.model().timeSeriesItem.children():
-				if '{0}_1d'.format(item.ds_name) in secondaryResultTypes:
-					item.toggleSecondaryActive()
-				if '{0}_1d'.format(item.ds_name) in maxResultTypes:
-					item.toggleMaxActive()
-			if '2D Flow' in secondaryResultTypes:
-				self.tuView.tuPlot.tuPlotToolbar.fluxSecAxisButton.setChecked(True)
+			try:
+				stypes = self.project.readEntry("TUVIEW", "secondarytypes")[0]
+				secondaryResultTypes.clear()
+				secondaryResultTypes += stypes.split('~~')
+				mtypes = self.project.readEntry("TUVIEW", "maxtypes")[0]
+				maxResultTypes.clear()
+				maxResultTypes += mtypes.split('~~')
+				for item in openResultTypes.model().mapOutputsItem.children():
+					if item.ds_name in secondaryResultTypes:
+						item.toggleSecondaryActive()
+					if item.ds_name in maxResultTypes:
+						item.toggleMaxActive()
+				for item in openResultTypes.model().timeSeriesItem.children():
+					if '{0}_1d'.format(item.ds_name) in secondaryResultTypes:
+						item.toggleSecondaryActive()
+					if '{0}_1d'.format(item.ds_name) in maxResultTypes:
+						item.toggleMaxActive()
+				if '2D Flow' in secondaryResultTypes:
+					self.tuView.tuPlot.tuPlotToolbar.fluxSecAxisButton.setChecked(True)
+			except:
+				pass
 
 	def processMeshStyles(self, call_type):
 		"""Project settings for scalar and vector mesh styles."""
@@ -413,42 +430,45 @@ class TuProject():
 								rtypeFormatted = rtypeFormatted.replace(' ', '_')
 								style = self.project.readEntry("TUVIEW",
 								                               "scalarstyle_{0}_{1}".format(result, rtypeFormatted))[0]
-								dtype = items[1]  # data type e.g. scalar or vector
-								mindex = items[2]  # QgsMeshDatasetIndex
-								gindex = mindex.group()  # int group index
-								if dtype == 1:
-									results2D.applyScalarRenderSettings(layer, gindex, style, 'map',
-									                                    save_type='project')
-								elif dtype == 2:
-									propertyDict = {}
-									propertyList = [
-										'arrow head length ratio',
-										'arrow head width ratio',
-										'color',
-										'filter max',
-										'filter min',
-										'fixed shaft length',
-										'line width',
-										'max shaft length',
-										'min shaft length',
-										'scale factor',
-										'shaft length method'
-									]
-									for property in propertyList:
-										propertyFormatted = property.replace(' ', '_')
-										value = self.project.readEntry("TUVIEW",
-										                               "vectorstyle_{0}_{1}_{2}".format(
-											                               result, rtypeFormatted, propertyFormatted))[0]
-										if value == '':
-											continue
-										if property == 'color':
-											item = QColor(value)
-										elif property == 'shaft length method':
-											item = int(value)
-										else:
-											item = float(value)
-										propertyDict[property] = item
-									results2D.applyVectorRenderSettings(layer, gindex, propertyDict)
+								try:
+									dtype = items[1]  # data type e.g. scalar or vector
+									mindex = items[2]  # QgsMeshDatasetIndex
+									gindex = mindex.group()  # int group index
+									if dtype == 1:
+										results2D.applyScalarRenderSettings(layer, gindex, style, 'map',
+										                                    save_type='project')
+									elif dtype == 2:
+										propertyDict = {}
+										propertyList = [
+											'arrow head length ratio',
+											'arrow head width ratio',
+											'color',
+											'filter max',
+											'filter min',
+											'fixed shaft length',
+											'line width',
+											'max shaft length',
+											'min shaft length',
+											'scale factor',
+											'shaft length method'
+										]
+										for property in propertyList:
+											propertyFormatted = property.replace(' ', '_')
+											value = self.project.readEntry("TUVIEW",
+											                               "vectorstyle_{0}_{1}_{2}".format(
+												                               result, rtypeFormatted, propertyFormatted))[0]
+											if value == '':
+												continue
+											if property == 'color':
+												item = QColor(value)
+											elif property == 'shaft length method':
+												item = int(value)
+											else:
+												item = float(value)
+											propertyDict[property] = item
+										results2D.applyVectorRenderSettings(layer, gindex, propertyDict)
+								except:
+									pass
 								break
 								
 	def processOptions(self, call_type):
@@ -457,8 +477,11 @@ class TuProject():
 		if call_type == 'save':
 			self.tuView.tuOptions.saveProject(self.project)
 		else:
-			self.tuView.tuOptions.readProject(self.project)
-			self.tuView.tuPlot.tuPlotToolbar.cursorTrackingButton.setChecked(self.tuView.tuOptions.liveMapTracking)
+			try:
+				self.tuView.tuOptions.readProject(self.project)
+				self.tuView.tuPlot.tuPlotToolbar.cursorTrackingButton.setChecked(self.tuView.tuOptions.liveMapTracking)
+			except:
+				pass
 			
 	def processPlotTab(self, call_type):
 		"""Project settings for which plotting tab is active."""
@@ -467,7 +490,10 @@ class TuProject():
 			currentTab = self.tuView.tabWidget.currentIndex()
 			self.project.writeEntry("TUVIEW", "currentplottab", str(currentTab))
 		else:  # load
-			currentTab = int(self.project.readEntry("TUVIEW", "currentplottab")[0])
+			try:
+				currentTab = int(self.project.readEntry("TUVIEW", "currentplottab")[0])
+			except:
+				currentTab = 0
 			self.tuView.tabWidget.setCurrentIndex(currentTab)
 	
 	def processMapPlotting(self, call_type):
@@ -499,16 +525,25 @@ class TuProject():
 					cstypes += '~~{0}'.format(rtype)
 			self.project.writeEntry("TUVIEW", "cstypes", cstypes)
 		else:  # load
-			selectType = self.project.readEntry("TUVIEW", "selecttype")[0]
-			cbo.setCurrentIndex(int(selectType))
-			
-			tstypes = self.project.readEntry("TUVIEW", "tstypes")[0]
-			tstypes = tstypes.split('~~')
-			toolbar.setCheckedItemsPlotOptions(tstypes, 0)
-			
-			cstypes = self.project.readEntry("TUVIEW", "cstypes")[0]
-			cstypes = cstypes.split('~~')
-			toolbar.setCheckedItemsPlotOptions(cstypes, 1)
+			try:
+				selectType = self.project.readEntry("TUVIEW", "selecttype")[0]
+				cbo.setCurrentIndex(int(selectType))
+			except:
+				pass
+
+			try:
+				tstypes = self.project.readEntry("TUVIEW", "tstypes")[0]
+				tstypes = tstypes.split('~~')
+				toolbar.setCheckedItemsPlotOptions(tstypes, 0)
+			except:
+				pass
+
+			try:
+				cstypes = self.project.readEntry("TUVIEW", "cstypes")[0]
+				cstypes = cstypes.split('~~')
+				toolbar.setCheckedItemsPlotOptions(cstypes, 1)
+			except:
+				pass
 			
 	def processPlotToolbarOptions(self, call_type):
 		"""Project settings for general plotting options."""
@@ -516,22 +551,30 @@ class TuProject():
 		viewToolbarTS = self.tuView.tuPlot.tuPlotToolbar.viewToolbarTimeSeries
 		viewToolbarLP = self.tuView.tuPlot.tuPlotToolbar.viewToolbarLongPlot
 		viewToolbarCS = self.tuView.tuPlot.tuPlotToolbar.viewToolbarCrossSection
+		viewToolbarVP = self.tuView.tuPlot.tuPlotToolbar.viewToolbarVerticalProfile
 		subplotTS = self.tuView.tuPlot.subplotTimeSeries
 		subplotLP = self.tuView.tuPlot.subplotLongPlot
 		subplotCS = self.tuView.tuPlot.subplotCrossSection
+		subplotVP = self.tuView.tuPlot.subplotVerticalProfile
 		isSecondaryTS = self.tuView.tuPlot.isTimeSeriesSecondaryAxis
 		isSecondaryLP = self.tuView.tuPlot.isLongPlotSecondaryAxis
 		isSecondaryCS = self.tuView.tuPlot.isCrossSectionSecondaryAxis
-		
+		isSecondaryVP = self.tuView.tuPlot.isVerticalProfileSecondaryAxis
+
 		if call_type == 'save':
 			self.saveViewToolbar(viewToolbarTS, subplotTS, isSecondaryTS, 0, 'ts')
 			self.saveViewToolbar(viewToolbarLP, subplotLP, isSecondaryLP, 1, 'lp')
 			self.saveViewToolbar(viewToolbarCS, subplotCS, isSecondaryCS, 2, 'cs')
+			self.saveViewToolbar(viewToolbarVP, subplotCS, isSecondaryCS, 3, 'vp')
 		else:  # load
-			self.loadViewToolbar(viewToolbarTS, subplotTS, 0, 'ts')
-			self.loadViewToolbar(viewToolbarLP, subplotLP, 1, 'lp')
-			self.loadViewToolbar(viewToolbarCS, subplotCS, 2, 'cs')
-		
+			try:
+				self.loadViewToolbar(viewToolbarTS, subplotTS, 0, 'ts')
+				self.loadViewToolbar(viewToolbarLP, subplotLP, 1, 'lp')
+				self.loadViewToolbar(viewToolbarCS, subplotCS, 2, 'cs')
+				self.loadViewToolbar(viewToolbarVP, subplotCS, 3, 'vp')
+			except:
+				pass
+
 	def saveViewToolbar(self, viewToolbar, subplot, isSecondary, plotNo, suffix):
 			freezeAxis = viewToolbar.freezeXYAxisAction.isChecked()
 			self.project.writeEntry("TUVIEW", "freezeaxis{0}".format(suffix), str(freezeAxis))
@@ -600,18 +643,34 @@ class TuProject():
 		frozenTSProperties = self.tuView.tuPlot.frozenTSProperties
 		frozenLPProperties = self.tuView.tuPlot.frozenLPProperties
 		frozenCSProperties = self.tuView.tuPlot.frozenCSProperties
+		frozenVPProperties = self.tuView.tuPlot.frozenVPProperties
 		frozenTSAxisLabels = self.tuView.tuPlot.frozenTSAxisLabels
 		frozenLPAxisLabels = self.tuView.tuPlot.frozenLPAxisLabels
 		frozenCSAxisLabels = self.tuView.tuPlot.frozenCSAxisLabels
-		
+		frozenVPAxisLabels = self.tuView.tuPlot.frozenVPAxisLabels
+
 		if call_type == 'save':
 			self.savePlot(frozenTSProperties, frozenTSAxisLabels, 'ts')
 			self.savePlot(frozenLPProperties, frozenLPAxisLabels, 'lp')
 			self.savePlot(frozenCSProperties, frozenCSAxisLabels, 'cs')
+			self.savePlot(frozenVPProperties, frozenVPAxisLabels, 'vp')
 		else:  # load
-			self.loadPlot(frozenTSProperties, frozenTSAxisLabels, 'ts')
-			self.loadPlot(frozenLPProperties, frozenLPAxisLabels, 'lp')
-			self.loadPlot(frozenCSProperties, frozenCSAxisLabels, 'cs')
+			try:
+				self.loadPlot(frozenTSProperties, frozenTSAxisLabels, 'ts')
+			except:
+				pass
+			try:
+				self.loadPlot(frozenLPProperties, frozenLPAxisLabels, 'lp')
+			except:
+				pass
+			try:
+				self.loadPlot(frozenCSProperties, frozenCSAxisLabels, 'cs')
+			except:
+				pass
+			try:
+				self.loadPlot(frozenVPProperties, frozenVPAxisLabels, 'vp')
+			except:
+				pass
 		
 	def savePlot(self, properties, labels, suffix):
 		autoLabels = ''
@@ -757,123 +816,126 @@ class TuProject():
 		self.project.writeEntry("TUVIEW", "useraxislabels{0}".format(suffix), userAxisLabels)
 	
 	def loadPlot(self, properties, labels, suffix):
-		autoLabels = self.project.readEntry("TUVIEW", "autolabels{0}".format(suffix))[0]
-		autoLabels = autoLabels.split('~~')
-		if autoLabels:
-			if autoLabels[0] == '':
-				autoLabels.clear()
-		
-		userLabels = self.project.readEntry("TUVIEW", "userlabels{0}".format(suffix))[0]
-		userLabels = userLabels.split('~~')
-		
-		colorTypes = self.project.readEntry("TUVIEW", "usercolortypes{0}".format(suffix))[0]
-		colorTypes = colorTypes.split('~~')
-		colors = self.project.readEntry("TUVIEW", "usercolors{0}".format(suffix))[0]
-		colors = colors.split('~~')
-		userColors = []
-		for i, c in enumerate(colors):
-			if colorTypes[i] == 'tuple':
-				d = c.strip('(').strip(')')
-				d = d.strip("'")
-				d = d.strip('"')
-				d = d.split(',')
-				e = []
-				for f in d:
-					f = f.strip()
-					e.append(float(f))
-				g = tuple(e)
-				userColors.append(g)
-			else:
-				userColors.append(c)
-			
-		lw = self.project.readEntry("TUVIEW", "userlinewidths{0}".format(suffix))[0]
-		lw = lw.split('~~')
-		userLineWidths = []
-		for a in lw:
-			if a != '':
-				userLineWidths.append(float(a))
-			
-		userLineStyles = self.project.readEntry("TUVIEW", "userlinestyles{0}".format(suffix))[0]
-		userLineStyles = userLineStyles.split('~~')
-		
-		userDrawStyles = self.project.readEntry("TUVIEW", "userdrawstyles{0}".format(suffix))[0]
-		userDrawStyles = userDrawStyles.split('~~')
-		
-		userMarkers = self.project.readEntry("TUVIEW", "usermarkers{0}".format(suffix))[0]
-		userMarkers = userMarkers.split('~~')
-		
-		ms = self.project.readEntry("TUVIEW", "usermarkersizes{0}".format(suffix))[0]
-		ms = ms.split('~~')
-		userMarkerSizes = []
-		for a in ms:
-			if a != '':
-				userMarkerSizes.append(float(a))
-		
-		edgeColorTypes = self.project.readEntry("TUVIEW", "usermarkeredgecolortypes{0}".format(suffix))[0]
-		edgeColorTypes = edgeColorTypes.split('~~')
-		edgeColor = self.project.readEntry("TUVIEW", "usermarkeredgecolors{0}".format(suffix))[0]
-		edgeColor = edgeColor.split('~~')
-		userMarkerEdgeColors = []
-		for i, c in enumerate(edgeColor):
-			if edgeColorTypes[i] == 'tuple':
-				d = c.strip('(').strip(')')
-				d = d.strip("'")
-				d = d.strip('"')
-				d = d.split(',')
-				e = []
-				for f in d:
-					f = f.strip()
-					e.append(float(f))
-				g = tuple(e)
-				userMarkerEdgeColors.append(g)
-			else:
-				userMarkerEdgeColors.append(c)
-		
-		faceColorTypes = self.project.readEntry("TUVIEW", "usermarkerfacecolortypes{0}".format(suffix))[0]
-		faceColorTypes = faceColorTypes.split('~~')
-		faceColor = self.project.readEntry("TUVIEW", "usermarkerfacecolors{0}".format(suffix))[0]
-		faceColor = faceColor.split('~~')
-		userMarkerFaceColors = []
-		for i, c in enumerate(faceColor):
-			if faceColorTypes[i] == 'tuple':
-				d = c.strip('(').strip(')')
-				d = d.strip("'")
-				d = d.strip('"')
-				d = d.split(',')
-				e = []
-				for f in d:
-					f = f.strip()
-					e.append(float(f))
-				g = tuple(e)
-				userMarkerFaceColors.append(g)
-			else:
-				userMarkerFaceColors.append(c)
-		
-		for i, autoLabel in enumerate(autoLabels):
-			style = {
-				'color': userColors[i],
-				'linewidth': userLineWidths[i],
-				'linestyle': userLineStyles[i],
-				'drawstyle': userDrawStyles[i],
-				'marker': userMarkers[i],
-				'markersize': userMarkerSizes[i],
-				'markeredgecolor': userMarkerEdgeColors[i],
-				'markerfacecolor': userMarkerFaceColors[i]
-			}
-			property = [userLabels[i], style]
-			properties[autoLabel] = property
-			
-		autoAxisLabels = self.project.readEntry("TUVIEW", "autoaxislabels{0}".format(suffix))[0]
-		autoAxisLabels = autoAxisLabels.split('~~')
-		userAxisLabels = self.project.readEntry("TUVIEW", "useraxislabels{0}".format(suffix))[0]
-		userAxisLabels = userAxisLabels.split('~~')
-		
-		for i, autoAxisLabel in enumerate(autoAxisLabels):
-			labels[autoAxisLabel] = userAxisLabels[i]
+		try:
+			autoLabels = self.project.readEntry("TUVIEW", "autolabels{0}".format(suffix))[0]
+			autoLabels = autoLabels.split('~~')
+			if autoLabels:
+				if autoLabels[0] == '':
+					autoLabels.clear()
+
+			userLabels = self.project.readEntry("TUVIEW", "userlabels{0}".format(suffix))[0]
+			userLabels = userLabels.split('~~')
+
+			colorTypes = self.project.readEntry("TUVIEW", "usercolortypes{0}".format(suffix))[0]
+			colorTypes = colorTypes.split('~~')
+			colors = self.project.readEntry("TUVIEW", "usercolors{0}".format(suffix))[0]
+			colors = colors.split('~~')
+			userColors = []
+			for i, c in enumerate(colors):
+				if colorTypes[i] == 'tuple':
+					d = c.strip('(').strip(')')
+					d = d.strip("'")
+					d = d.strip('"')
+					d = d.split(',')
+					e = []
+					for f in d:
+						f = f.strip()
+						e.append(float(f))
+					g = tuple(e)
+					userColors.append(g)
+				else:
+					userColors.append(c)
+
+			lw = self.project.readEntry("TUVIEW", "userlinewidths{0}".format(suffix))[0]
+			lw = lw.split('~~')
+			userLineWidths = []
+			for a in lw:
+				if a != '':
+					userLineWidths.append(float(a))
+
+			userLineStyles = self.project.readEntry("TUVIEW", "userlinestyles{0}".format(suffix))[0]
+			userLineStyles = userLineStyles.split('~~')
+
+			userDrawStyles = self.project.readEntry("TUVIEW", "userdrawstyles{0}".format(suffix))[0]
+			userDrawStyles = userDrawStyles.split('~~')
+
+			userMarkers = self.project.readEntry("TUVIEW", "usermarkers{0}".format(suffix))[0]
+			userMarkers = userMarkers.split('~~')
+
+			ms = self.project.readEntry("TUVIEW", "usermarkersizes{0}".format(suffix))[0]
+			ms = ms.split('~~')
+			userMarkerSizes = []
+			for a in ms:
+				if a != '':
+					userMarkerSizes.append(float(a))
+
+			edgeColorTypes = self.project.readEntry("TUVIEW", "usermarkeredgecolortypes{0}".format(suffix))[0]
+			edgeColorTypes = edgeColorTypes.split('~~')
+			edgeColor = self.project.readEntry("TUVIEW", "usermarkeredgecolors{0}".format(suffix))[0]
+			edgeColor = edgeColor.split('~~')
+			userMarkerEdgeColors = []
+			for i, c in enumerate(edgeColor):
+				if edgeColorTypes[i] == 'tuple':
+					d = c.strip('(').strip(')')
+					d = d.strip("'")
+					d = d.strip('"')
+					d = d.split(',')
+					e = []
+					for f in d:
+						f = f.strip()
+						e.append(float(f))
+					g = tuple(e)
+					userMarkerEdgeColors.append(g)
+				else:
+					userMarkerEdgeColors.append(c)
+
+			faceColorTypes = self.project.readEntry("TUVIEW", "usermarkerfacecolortypes{0}".format(suffix))[0]
+			faceColorTypes = faceColorTypes.split('~~')
+			faceColor = self.project.readEntry("TUVIEW", "usermarkerfacecolors{0}".format(suffix))[0]
+			faceColor = faceColor.split('~~')
+			userMarkerFaceColors = []
+			for i, c in enumerate(faceColor):
+				if faceColorTypes[i] == 'tuple':
+					d = c.strip('(').strip(')')
+					d = d.strip("'")
+					d = d.strip('"')
+					d = d.split(',')
+					e = []
+					for f in d:
+						f = f.strip()
+						e.append(float(f))
+					g = tuple(e)
+					userMarkerFaceColors.append(g)
+				else:
+					userMarkerFaceColors.append(c)
+
+			for i, autoLabel in enumerate(autoLabels):
+				style = {
+					'color': userColors[i],
+					'linewidth': userLineWidths[i],
+					'linestyle': userLineStyles[i],
+					'drawstyle': userDrawStyles[i],
+					'marker': userMarkers[i],
+					'markersize': userMarkerSizes[i],
+					'markeredgecolor': userMarkerEdgeColors[i],
+					'markerfacecolor': userMarkerFaceColors[i]
+				}
+				property = [userLabels[i], style]
+				properties[autoLabel] = property
+
+			autoAxisLabels = self.project.readEntry("TUVIEW", "autoaxislabels{0}".format(suffix))[0]
+			autoAxisLabels = autoAxisLabels.split('~~')
+			userAxisLabels = self.project.readEntry("TUVIEW", "useraxislabels{0}".format(suffix))[0]
+			userAxisLabels = userAxisLabels.split('~~')
+
+			for i, autoAxisLabel in enumerate(autoAxisLabels):
+				labels[autoAxisLabel] = userAxisLabels[i]
+		except:
+			pass
 			
 	def processGraphics(self, call_type):
 		"""Graphic objects in the project."""
-		
+
 		points = self.tuView.tuPlot.tuTSPoint.points
 		markers = self.tuView.tuPlot.tuTSPoint.markers
 		
@@ -908,23 +970,27 @@ class TuProject():
 		self.project.writeEntry("TUVIEW", "pointsy", y)
 		
 	def loadPoints(self, points, markers):
-		a = self.project.readEntry("TUVIEW", "pointsx")[0]
-		if a:
-			a = a.split('~~')
-			b = self.project.readEntry("TUVIEW", "pointsy")[0]
-			b = b.split('~~')
-			for i in range(len(a)):
-				x = float(a[i])
-				y = float(b[i])
-				point = QgsPointXY(x, y)
-				points.append(point)
-				marker = QgsVertexMarker(self.tuView.canvas)
-				marker.setColor(Qt.red)
-				marker.setFillColor(Qt.red)
-				marker.setIconSize(10)
-				marker.setIconType(QgsVertexMarker.ICON_CIRCLE)
-				marker.setCenter(QgsPointXY(point))
-				markers.append(marker)
+
+		try:
+			a = self.project.readEntry("TUVIEW", "pointsx")[0]
+			if a:
+				a = a.split('~~')
+				b = self.project.readEntry("TUVIEW", "pointsy")[0]
+				b = b.split('~~')
+				for i in range(len(a)):
+					x = float(a[i])
+					y = float(b[i])
+					point = QgsPointXY(x, y)
+					points.append(point)
+					marker = QgsVertexMarker(self.tuView.canvas)
+					marker.setColor(Qt.red)
+					marker.setFillColor(Qt.red)
+					marker.setIconSize(10)
+					marker.setIconType(QgsVertexMarker.ICON_CIRCLE)
+					marker.setCenter(QgsPointXY(point))
+					markers.append(marker)
+		except:
+			pass
 			
 	def saveLines(self, lines, suffix):
 		i = -1
@@ -944,40 +1010,43 @@ class TuProject():
 		self.project.writeEntry("TUVIEW", "lines{0}no".format(suffix), i + 1)
 		
 	def loadLines(self, lines, points, markers, suffix):
-		no = self.project.readEntry("TUVIEW", "lines{0}no".format(suffix))[0]
-		if no:
-			no = int(no)
-			for i in range(no):
-				a = self.project.readEntry("TUVIEW", 'lines{0}x{1}'.format(suffix, i))[0]
-				a = a.split('~~')
-				b = self.project.readEntry("TUVIEW", 'lines{0}y{1}'.format(suffix, i))[0]
-				b = b.split('~~')
-				points.clear()
-				for j in range(len(a)):
-					x = float(a[j])
-					y = float(b[j])
-					point = QgsPoint(x, y)
-					points.append(point)
-					if i + 1 == no:
-						marker = QgsVertexMarker(self.tuView.canvas)
-						if suffix == 'cs':
-							marker.setColor(Qt.red)
-							marker.setIconSize(10)
-							marker.setIconType(QgsVertexMarker.ICON_BOX)
-						else:  # 'q'
-							marker.setColor(Qt.blue)
-							marker.setIconSize(12)
-							marker.setIconType(QgsVertexMarker.ICON_DOUBLE_TRIANGLE)
-						marker.setCenter(QgsPointXY(point))
-						markers.append(marker)
-				line = QgsRubberBand(self.tuView.canvas, False)
-				line.setWidth(2)
-				if suffix == 'cs':
-					line.setColor(QColor(Qt.red))
-				else:  # 'q'
-					line.setColor(QColor(Qt.blue))
-				line.setToGeometry(QgsGeometry.fromPolyline(points), None)
-				lines.append(line)
+		try:
+			no = self.project.readEntry("TUVIEW", "lines{0}no".format(suffix))[0]
+			if no:
+				no = int(no)
+				for i in range(no):
+					a = self.project.readEntry("TUVIEW", 'lines{0}x{1}'.format(suffix, i))[0]
+					a = a.split('~~')
+					b = self.project.readEntry("TUVIEW", 'lines{0}y{1}'.format(suffix, i))[0]
+					b = b.split('~~')
+					points.clear()
+					for j in range(len(a)):
+						x = float(a[j])
+						y = float(b[j])
+						point = QgsPoint(x, y)
+						points.append(point)
+						if i + 1 == no:
+							marker = QgsVertexMarker(self.tuView.canvas)
+							if suffix == 'cs':
+								marker.setColor(Qt.red)
+								marker.setIconSize(10)
+								marker.setIconType(QgsVertexMarker.ICON_BOX)
+							else:  # 'q'
+								marker.setColor(Qt.blue)
+								marker.setIconSize(12)
+								marker.setIconType(QgsVertexMarker.ICON_DOUBLE_TRIANGLE)
+							marker.setCenter(QgsPointXY(point))
+							markers.append(marker)
+					line = QgsRubberBand(self.tuView.canvas, False)
+					line.setWidth(2)
+					if suffix == 'cs':
+						line.setColor(QColor(Qt.red))
+					else:  # 'q'
+						line.setColor(QColor(Qt.blue))
+					line.setToGeometry(QgsGeometry.fromPolyline(points), None)
+					lines.append(line)
+		except:
+			pass
 	
 	def processUserPlotData(self, call_type):
 		"""Save user plot data to Project."""
@@ -987,7 +1056,10 @@ class TuProject():
 		if call_type == 'save':
 			data.saveProject(self.project)
 		else:
-			data.loadProject(self.project)
+			try:
+				data.loadProject(self.project)
+			except:
+				pass
 			
 	def processShowActiveTime(self, call_type):
 		"""Save check box for show active time to Project"""

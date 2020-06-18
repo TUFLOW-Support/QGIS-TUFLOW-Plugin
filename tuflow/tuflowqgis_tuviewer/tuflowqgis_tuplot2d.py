@@ -8,7 +8,8 @@ from PyQt5.QtWidgets  import *
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
 from tuflow.tuflowqgis_library import (lineToPoints, getDirection, doLinesIntersect,
                                        intersectionPoint, calculateLength, getFaceIndexes3,
-                                       findMeshIntersects)
+                                       findMeshIntersects, writeTempPoints, writeTempPolys,
+                                       meshToPolygon, calcMidPoint)
 import inspect
 from datetime import datetime, timedelta
 
@@ -87,8 +88,8 @@ class TuPlot2D():
 			# 	self.tuPlot.clearPlot(0, retain_flow=retainFlow)
 			# else:
 			# 	self.tuPlot.clearPlot(0, retain_1d=True, retain_flow=True)
-			if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
-				resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(dataType)
+			#if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
+			#	resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(dataType)
 			if not resultMesh:  # specified result meshes can be passed through kwargs (used for batch export not normal plotting)
 				resultMesh = activeMeshLayers
 			self.tuPlot.clearPlot2(TuPlot.TimeSeries, dataType,
@@ -220,7 +221,8 @@ class TuPlot2D():
 		"""
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
-		
+
+		debug = self.tuView.tuOptions.writeMeshIntersects
 		activeMeshLayers = self.tuResults.tuResults2D.activeMeshLayers  # list
 		results = self.tuResults.results  # dict
 		
@@ -260,8 +262,8 @@ class TuPlot2D():
 			# 	self.tuPlot.clearPlot(1)
 			# else:
 			# 	self.tuPlot.clearPlot(1, retain_1d=True)
-			if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
-				resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(dataType)
+			# if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
+			# 	resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(dataType)
 			if not resultMesh:  # specified result meshes can be passed through kwargs (used for batch export not normal plotting)
 				resultMesh = activeMeshLayers
 			self.tuPlot.clearPlot2(TuPlot.CrossSection, dataType,
@@ -335,19 +337,39 @@ class TuPlot2D():
 				avgmethods = self.getAveragingMethods(dataType, gmd, resultTypes)
 				am = avgmethods[j]
 
-				if j == 0:
-					inters, chainage, faces = findMeshIntersects(si, dp, mesh, feat, crs,
-					                                             self.tuView.project)
-					if gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices:
-						points = inters[:]
+				if j == 0 or onVertices != (gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices):
+					onVertices = gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices
+					if j == 0:
+						inters, ch, fcs = findMeshIntersects(si, dp, mesh, feat, crs,
+						                                             self.tuView.project)
+					#if gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices:
+					if onVertices:
+						#points = inters[:]
+						points = inters[0:1]
+						points.extend([calcMidPoint(inters[i], inters[i + 1], crs) for i in range(len(inters) - 1)])
+						points.append(inters[-1])
+						chainage = ch[0:1]
+						chainage.extend([(ch[i] + ch[i+1]) / 2. for i in range(len(ch) - 1)])
+						chainage.append(ch[-1])
 						faces = [None] * len(points)
+						if debug:
+							writeTempPoints(inters, self.tuView.project, crs, chainage, 'Chainage',
+							                QVariant.Double)
 					else:
-						points = faces[:]
+						# points = faces[:]
+						points = inters[:]
+						chainage = ch[:]
+						faces = fcs[:]
+						if debug:
+							polys = [meshToPolygon(mesh, mesh.face(x)) for x in faces]
+							writeTempPolys(polys, self.tuView.project, crs)
+							writeTempPoints(inters, self.tuView.project, crs, chainage, 'Chainage',
+							                QVariant.Double)
 				
 				# iterate through points and extract data
 				x = []
 				y = []
-				for i in range(len(points)):
+				for i in range(len(faces)):
 					x.append(chainage[i])
 					v = self.datasetValue(layer, dp, si, mesh, meshDatasetIndex, meshRendered,
 					                      points[i], j, dataType, am, faces[i])
@@ -400,7 +422,9 @@ class TuPlot2D():
 		"""
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 
+		debug = self.tuView.tuOptions.writeMeshIntersects
 		activeMeshLayers = self.tuResults.tuResults2D.activeMeshLayers  # list
 		results = self.tuResults.results  # dict
 		
@@ -454,7 +478,8 @@ class TuPlot2D():
 			bedElevation = None
 
 			for resultType in results[layer.name()]:
-				if '_ts' not in resultType and '_lp' not in resultType and 'Maximum' not in resultType:
+				if TuResults.isMapOutputType(resultType) and not TuResults.isMaximumResultType(resultType) \
+						and not TuResults.isMinimumResultType(resultType):
 					if 'vel' in resultType.lower() and 'time' not in resultType.lower() and 'dur' not in resultType.lower():  # make sure it's vector dataset
 						velocityTRI = TuResultsIndex(layer.name(), resultType, None, False)
 						velRes = self.tuView.tuResults.getResult(velocityTRI)
@@ -500,26 +525,46 @@ class TuPlot2D():
 			for key, item in velRes.items():
 				gmd = layer.dataProvider().datasetGroupMetadata(item[-1].group())
 				break
-			inters, chainages, faces = findMeshIntersects(si, dp, mesh, feat, crs,
+			inters, ch, faces = findMeshIntersects(si, dp, mesh, feat, crs,
 			                                             self.tuView.project)
 			if gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices:
 				points = inters[:]
+				points = inters[0:1]
+				points.extend([calcMidPoint(inters[i], inters[i + 1], crs) for i in range(len(inters) - 1)])
+				points.append(inters[-1])
+				chainages = ch[0:1]
+				chainages.extend([(ch[i] + ch[i + 1]) / 2. for i in range(len(ch) - 1)])
+				chainages.append(ch[-1])
 				faces = [None] * len(points)
+				if debug:
+					writeTempPoints(inters, self.tuView.project, crs, chainages, 'Chainage',
+					                QVariant.Double)
 			else:
 				points = faces[:]
+				chainages = ch[:]
+				if debug:
+					polys = [meshToPolygon(mesh, mesh.face(x)) for x in faces]
+					writeTempPolys(polys, self.tuView.project, crs)
+					writeTempPoints(inters, self.tuView.project, crs, chainages, 'Chainage',
+					                QVariant.Double)
+
 			# get directions
 			directions = [None]
-			for j, inter in enumerate(inters[1:]):
-				directions.append(getDirection(inters[j], inter))
+			for j, point in enumerate(points[1:]):
+				directions.append(getDirection(points[j], point))
 
 			# initialise progress bar
 			noFeatures = 1
 			noPoints = len(points)
 			noTimesteps = []
 			for resultType in results[layer.name()]:
-				if '_ts' not in resultType and '_lp' not in resultType and 'Maximum' not in resultType and \
-						'bed elevation' not in resultType.lower() and 'time' not in resultType and \
+				if TuResults.isMapOutputType(resultType) and not TuResults.isMaximumResultType(resultType) \
+						and not TuResults.isMinimumResultType(resultType) \
+						and 'bed elevation' not in resultType.lower() and 'time' not in resultType and \
 						'dur' not in resultType:
+				# if '_ts' not in resultType and '_lp' not in resultType and 'Maximum' not in resultType and \
+				# 		'bed elevation' not in resultType.lower() and 'time' not in resultType and \
+				# 		'dur' not in resultType:
 					tuResultsIndex = TuResultsIndex(layer.name(), resultType, None, False)
 					res = self.tuView.tuResults.getResult(tuResultsIndex)
 					if len(res) > 1:
@@ -1152,17 +1197,23 @@ class TuPlot2D():
 			mdb = avgmethod.calculate(dataset3d)  # mesh data block
 		else:
 			mdb = self.calculateAverage(dataType, avgmethod, dataset3d)
-		if not mdb.isValid(): return
 
-		if len(mdb.values()) > 1:
-			if restype == 'scalar':
-				return (mdb.values()[0] ** 2 + mdb.values()[1] ** 2) ** 0.5
-			elif restype == 'x':
+		if mdb.isValid():
+			if len(mdb.values()) > 1:
+				if restype == 'scalar':
+					return (mdb.values()[0] ** 2 + mdb.values()[1] ** 2) ** 0.5
+				elif restype == 'x':
+					return mdb.values()[0]
+				elif restype == 'y':
+					return mdb.values()[1]
+			else:
 				return mdb.values()[0]
-			elif restype == 'y':
-				return mdb.values()[1]
-		else:
-			return mdb.values()[0]
+		else:  # probably 2d result
+			if face is None:
+				mdb = layer.datasetValue(res, p)
+			else:
+				mdb = layer.dataProvider().datasetValue(res, face)
+			return eval("mdb.{0}()".format(restype))
 
 	def datasetValueAvgDep2(self, dp, res, v, f, avgmethod, restype, dataType):
 		"""

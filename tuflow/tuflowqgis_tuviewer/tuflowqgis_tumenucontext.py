@@ -35,7 +35,9 @@ class TuContextMenu():
 		:param kwargs: dict -> key word arguments
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
 		update = kwargs['update'] if 'update' in kwargs.keys() else False
 		
 		# if plotNo == 0:
@@ -62,7 +64,7 @@ class TuContextMenu():
 		self.refreshCurrentPlotWindow_action = QAction(iconRefreshPlot, 'Refresh Plot Window', self.plotMenu)
 		self.clearPlotWindow_action = QAction(iconClearPlot, 'Clear Plot Window', self.plotMenu)
 		self.exportAsCSV_action = QAction('Export Plot As CSV', self.plotMenu)
-		
+
 		self.plotMenu.addAction(self.userPlotDataManager_action)
 		self.plotMenu.addSeparator()
 		self.plotMenu.addAction(toolbar[0])
@@ -74,6 +76,9 @@ class TuContextMenu():
 		self.plotMenu.addAction(self.freezeAxisXLimits_action)
 		self.plotMenu.addAction(self.freezeAxisYLimits_action)
 		self.plotMenu.addSeparator()
+		self.plotMenu.addAction(viewToolbar.hGridLines_action)
+		self.plotMenu.addAction(viewToolbar.vGridLines_action)
+		self.plotMenu.addSeparator()
 		self.plotMenu.addAction(self.refreshCurrentPlotWindow_action)
 		self.plotMenu.addAction(self.clearPlotWindow_action)
 		self.plotMenu.addSeparator()
@@ -83,6 +88,9 @@ class TuContextMenu():
 		exportMenu = self.plotMenu.addMenu('&Export')
 		exportMenu.addAction(toolbar[9])
 		exportMenu.addAction(self.exportAsCSV_action)
+		if plotNo == TuPlot.CrossSection or plotNo == TuPlot.VerticalProfile:
+			self.plotMenu.addSeparator()
+			self.plotMenu.addAction(self.tuPlot.verticalMesh_action)
 		
 		#self.userPlotDataManager_action.triggered.connect(self.tuMenuFunctions.openUserPlotDataManager)
 		self.freezeAxisLimits_action.triggered.connect(viewToolbar.freezeXYAxis)
@@ -130,29 +138,35 @@ class TuContextMenu():
 		self.load2dResults_action = QAction('Load Results - Map Outputs', self.resultsMenu)
 		self.load1dResults_action = QAction('Load Results - Time Series', self.resultsMenu)
 		self.loadParticlesResults_action = QAction('Load Results - Particles', self.resultsMenu)
+		self.loadHydraulicTable_action = QAction("Import 1D Hydraulic Tables", self.resultsMenu)
 		self.remove1d2dResults_action = QAction(closeResultsIcon, 'Close Results', self.resultsMenu)
 		self.remove2dResults_action = QAction('Close Results - Map Outputs', self.resultsMenu)
 		self.remove1dResults_action = QAction('Close Results - Time Series', self.resultsMenu)
 		self.removeParticlesResults_action = QAction('Close Results - Particles', self.resultsMenu)
+		self.closeHydraulicTable_action = QAction("Close 1D Hydraulic Tables", self.resultsMenu)
 
 		self.resultsMenu.addAction(self.load1d2dResults_action)
 		self.resultsMenu.addAction(self.load2dResults_action)
 		self.resultsMenu.addAction(self.load1dResults_action)
 		self.resultsMenu.addAction(self.loadParticlesResults_action)
+		self.resultsMenu.addAction(self.loadHydraulicTable_action)
 		self.resultsMenu.addSeparator()
 		self.resultsMenu.addAction(self.remove1d2dResults_action)
 		self.resultsMenu.addAction(self.remove2dResults_action)
 		self.resultsMenu.addAction(self.remove1dResults_action)
 		self.resultsMenu.addAction(self.removeParticlesResults_action)
-		
+		self.resultsMenu.addAction(self.closeHydraulicTable_action)
+
 		self.load2dResults_action.triggered.connect(self.tuMenuFunctions.load2dResults)
 		self.load1dResults_action.triggered.connect(self.tuMenuFunctions.load1dResults)
 		self.loadParticlesResults_action.triggered.connect(self.tuMenuFunctions.loadParticlesResults)
 		self.load1d2dResults_action.triggered.connect(self.tuMenuFunctions.load1d2dResults)
+		self.loadHydraulicTable_action.triggered.connect(self.tuMenuFunctions.loadHydraulicTables)
 		self.remove1d2dResults_action.triggered.connect(self.tuMenuFunctions.remove1d2dResults)
 		self.remove2dResults_action.triggered.connect(self.tuMenuFunctions.remove2dResults)
 		self.remove1dResults_action.triggered.connect(self.tuMenuFunctions.remove1dResults)
 		self.removeParticlesResults_action.triggered.connect(self.tuMenuFunctions.removeParticlesResults)
+		self.closeHydraulicTable_action.triggered.connect(self.tuMenuFunctions.removeHydraulicTables)
 
 		return True
 	
@@ -327,11 +341,13 @@ class TuContextMenu():
 		self.tuPlot.plotWidgetTimeSeries.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.tuPlot.plotWidgetLongPlot.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.tuPlot.plotWidgetCrossSection.setContextMenuPolicy(Qt.CustomContextMenu)
+		self.tuPlot.plotWidgetVerticalProfile.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.tuView.OpenResults.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.tuView.OpenResultTypes.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.tuPlot.plotWidgetTimeSeries.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 0))
 		self.tuPlot.plotWidgetLongPlot.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 1))
 		self.tuPlot.plotWidgetCrossSection.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 2))
+		self.tuPlot.plotWidgetVerticalProfile.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 3))
 		self.tuView.OpenResults.customContextMenuRequested.connect(self.showResultsMenu)
 		self.tuView.OpenResultTypes.customContextMenuRequested.connect(self.showResultTypesMenu)
 		

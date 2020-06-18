@@ -994,6 +994,33 @@ class ResData():
 	ResData class for reading and processing results
 	"""
 
+	def getResAtTime(self, id, dom, res, time, time_interpolate='previous'):
+		"""
+
+		"""
+
+		if time == -99999:
+			found, data, message = self.getMAXData(id, dom, res)
+			if found:
+				return data[1]
+		else:
+			if time not in self.times:
+				if time_interpolate == 'previous':
+					t = list(filter(lambda x: x < time, self.times))
+					if t:
+						time = t[-1]
+					else:
+						return None
+				else:
+					return None
+
+			i = self.times.tolist().index(time)
+			found, ydata, message = self.getTSData(id, dom, res, None)
+			if found:
+				return ydata[i]
+
+		return None
+
 	def getTSData(self, id, dom, res, geom):
 		message = None
 		if (dom.upper() == "1D"):
