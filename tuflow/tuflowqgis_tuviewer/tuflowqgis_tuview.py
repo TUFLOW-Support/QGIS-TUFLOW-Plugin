@@ -1,6 +1,6 @@
 import os
 import sys
-import time
+from datetime import datetime
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5 import QtGui
@@ -12,13 +12,16 @@ from tuflow.dataset_view import DataSetModel
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tuflowqgis_turesults
 import tuflowqgis_tuplot
+from tuflowqgis_tuplot import TuPlot
 import tuflowqgis_tumenubar
 import tuflowqgis_tuoptions
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumenucontext import TuContextMenu
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuproject import TuProject
-from tuflow.tuflowqgis_library import tuflowqgis_find_layer, findAllMeshLyrs
+from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, findAllMeshLyrs, convertTimeToFormattedTime,
+                                       is1dTable, findTableLayers, is1dNetwork, isPlotLayer)
 from tuflow.tuflowqgis_dialog import tuflowqgis_meshSelection_dialog
-
+from tuflow.TUFLOW_XS import XS
+from tuflow.TUFLOW_1dTa import HydTables
 
 class TuView(QDockWidget, Ui_Tuplot):
 	
@@ -41,16 +44,20 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.resultChangeSignalCount = 0
 		self.progressBar.setVisible(False)
 
+		# options
+		self.tuOptions = tuflowqgis_tuoptions.TuOptions()
+
 		# results class
 		self.tuResults = tuflowqgis_turesults.TuResults(self)
-		
+
 		# plot class
 		self.tuPlot = tuflowqgis_tuplot.TuPlot(self)
 		
 		# main menu bar
 		removeTuview = kwargs['removeTuview'] if 'removeTuview' else None
 		reloadTuview = kwargs['reloadTuview'] if 'reloadTuview' else None
-		self.tuMenuBar = tuflowqgis_tumenubar.TuMenuBar(self, removeTuview=removeTuview, reloadTuview=reloadTuview)
+		self.tuMenuBar = tuflowqgis_tumenubar.TuMenuBar(self, removeTuview=removeTuview, reloadTuview=reloadTuview,
+		                                                layout=self.mainMenu)
 		self.tuMenuBar.loadFileMenu()
 		self.tuMenuBar.loadViewMenu(0)
 		self.tuMenuBar.loadSettingsMenu(0)
@@ -58,7 +65,18 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.tuMenuBar.loadResultsMenu()
 		self.tuMenuBar.loadHelpMenu()
 		#self.tuMenuBar.connectMenu()
-		
+
+		# secondary menu bar
+		self.tuMenuBarSecond = tuflowqgis_tumenubar.TuMenuBar(self, removeTuview=removeTuview,
+		                                                      reloadTuview=reloadTuview, menu_bar=self.tuMenuBar,
+		                                                      layout=self.mainMenuSecond)
+		self.tuMenuBarSecond.loadFileMenu()
+		self.tuMenuBarSecond.loadViewMenu(0)
+		self.tuMenuBarSecond.loadSettingsMenu(0)
+		self.tuMenuBarSecond.loadExportMenu(0)
+		self.tuMenuBarSecond.loadHelpMenu()
+		self.tuMenuBarSecond.loadResultsMenu()
+
 		# context menu
 		self.tuContextMenu = TuContextMenu(self)
 		self.tuContextMenu.loadPlotMenu(0)
@@ -67,10 +85,16 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.tuContextMenu.connectMenu()
 		
 		# options
-		self.tuOptions = tuflowqgis_tuoptions.TuOptions()
+		#self.tuOptions = tuflowqgis_tuoptions.TuOptions()
 		
 		# Expand result type tree
 		self.initialiseDataSetView()
+
+		# 1D cross sections
+		self.selectionChangeConnected = False
+		self.crossSections1D = XS()
+		self.loadXSLayers()
+		self.hydTables = HydTables()
 		
 		# Activate signals
 		self.connected = False  # Signal connection
@@ -80,12 +104,35 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# check for already open mesh layers
 		self.tuResults.tuResults2D.loadOpenMeshLayers()
 		
-		self.tabWidget.removeTab(2)
+		# set disabled tabs to be invisible
+		self.setStyleSheet("QTabBar::tab::disabled {width: 0; height: 0; margin: 0; padding: 0; border: none;} ")
+
+		# set 1D cross section tab invisible - no longer using a separate tab so may never be used
+		self.setTabVisible(TuPlot.CrossSection1D, False)
+
+		self.SecondMenu.setVisible(False)
+
+		narrowWidth = self.pbShowPlotWindow.minimumSizeHint().width() + \
+		              self.mainMenuSecond_2.minimumSizeHint().width()
+		self.dockWidgetContents.setMinimumWidth(narrowWidth)
+
+		if QSettings().contains("TUFLOW/tuview_defaultlayout"):
+			if QSettings().value("TUFLOW/tuview_defaultlayout", "plot") == "narrow":
+				self.plotWindowVisibilityToggled(initialisation=True)
 		
 	def __del__(self):
 		self.qgisDisconnect()
 		self.tuMenuBar.disconnectMenu()
-	
+
+	def setTabVisible(self, index, visible):
+		"""
+
+		"""
+
+		self.tabWidget.setTabEnabled(index, visible)
+		self.style().unpolish(self)
+		self.style().polish(self)
+
 	def closeEvent(self, event):
 		"""
 		Is called when dock window is closed
@@ -106,77 +153,160 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		# disconnect layer
 		if self.selectionChangeConnected:
-			self.currentLayer.selectionChanged.disconnect(self.selectionChanged)
+			try:
+				self.currentLayer.selectionChanged.disconnect(self.selectionChanged)
+			except:
+				pass
 			self.selectionChangeConnected = False
 		
 		# get the active layer
 		self.currentLayer = self.iface.activeLayer()
 		
 		if self.currentLayer is not None:
-		
-			# Change the enabled/disabled status based on selected layer
-			if self.currentLayer.type() == QgsMapLayer.VectorLayer:  # vector layer
-				resVersion = []
-				for result in self.OpenResults.selectedItems():
-					if result.text() in self.tuResults.tuResults1D.results1d.keys():
-						resVersion.append(self.tuResults.tuResults1D.results1d[result.text()].formatVersion)
-				if 2 in resVersion:
-					if ' PLOT ' in self.currentLayer.name() or '_PLOT_' in self.currentLayer.name():
-						if self.tabWidget.currentIndex() == 0:
-							if self.currentLayer.geometryType() == 0:
-								self.OpenResultTypes.model().setEnabled(4, 5, 6, 7)
-								self.tuResults.tuResults1D.activeType = 0
-							elif self.currentLayer.geometryType() == 1:
-								self.OpenResultTypes.model().setEnabled(4, 5, 6, 7)
-								self.tuResults.tuResults1D.activeType = 1
-							elif self.currentLayer.geometryType() == 2:
-								self.OpenResultTypes.model().setEnabled(4, 5, 6, 7)
-								self.tuResults.tuResults1D.activeType = 2
-							self.tuResults.updateActiveResultTypes(None, geomType=self.currentLayer.geometryType())
-						elif self.tabWidget.currentIndex() == 1:
-							if self.currentLayer.geometryType() == 1:
-								self.OpenResultTypes.model().setEnabled(4, 5, 6, 7)
-								self.tuResults.tuResults1D.activeType = 1
-							else:
-								self.OpenResultTypes.model().setEnabled(0)  # i.e. none
-								self.tuResults.tuResults1D.activeType = -1
-							self.tuResults.updateActiveResultTypes(None, geomType=self.currentLayer.geometryType())
-						if not self.selectionChangeConnected:
-							self.currentLayer.selectionChanged.connect(self.selectionChanged)
-							self.selectionChangeConnected = True
-							self.selectionChanged()
-					elif 1 not in resVersion:
-						self.OpenResultTypes.model().setEnabled(0)  # i.e. none
-				if 1 in resVersion:
-					if self.tabWidget.currentIndex() == 0:
-						if self.currentLayer.geometryType() == 0:
-							self.OpenResultTypes.model().setEnabled(4)
-							self.tuResults.tuResults1D.activeType = 0
-						elif self.currentLayer.geometryType() == 1:
-							self.OpenResultTypes.model().setEnabled(5)
-							self.tuResults.tuResults1D.activeType = 1
-						elif self.currentLayer.geometryType() == 2:
-							self.OpenResultTypes.model().setEnabled(6)
-							self.tuResults.tuResults1D.activeType = 2
-					elif self.tabWidget.currentIndex() == 1:
-						if self.currentLayer.geometryType() == 1:
-							self.OpenResultTypes.model().setEnabled(7)
-							self.tuResults.tuResults1D.activeType = 1
-						else:
-							self.OpenResultTypes.model().setEnabled(0)  # i.e. none
-							self.tuResults.tuResults1D.activeType = -1
-					if not self.selectionChangeConnected:
-						self.currentLayer.selectionChanged.connect(self.selectionChanged)
-						self.selectionChangeConnected = True
-			else:
-				self.OpenResultTypes.model().setEnabled(0)  # i.e. none
-			
+			self.setTsTypesEnabled()
+			self.loadXsType()
+			# self.tuPlot.tuPlot1D.plot1dCrossSection(bypass=True, draw=True)
+
 		# repaint viewport to reflect changes
 		self.OpenResultTypes.viewport().update()
 		
 		# reconfig secondary axis list - disabled result types should not appear in secondary axis list
 		#self.secondaryAxisResultTypesChanged(None)
 	
+	def loadXsType(self, lyr=None):
+		"""
+		Load TUFLOW 1D cross section in plotter if available.
+		"""
+
+		if lyr is None:
+			lyr = self.currentLayer
+
+		if is1dTable(lyr):
+			self.loadXsSelections(lyr)
+			#if lyr not in self.xsConnectedLayers:
+			self.tuResults.addCrossSectionLayerToResults(lyr)
+				# self.currentLayer.selectionChanged.connect(self.loadXsSelections)
+				# self.xsConnectedLayers.append(self.currentLayer)
+		# else:
+		# 	for lyr in self.xsConnectedLayers:
+		# 		try:
+		# 			lyr.selectionChanged.disconnect(self.loadXsSelections)
+		# 		except:
+		# 			pass
+		# 	self.xsConnectedLayers.clear()
+
+	def loadXSLayers(self):
+		"""
+
+		"""
+
+		xsLayers = findTableLayers()
+		for lyr in xsLayers:
+			self.loadXsType(lyr)
+
+	def loadXsSelections(self, lyr=None):
+		"""
+		Load TUFLOW 1D cross sections from selected features
+		"""
+
+		if lyr is None:
+			lyr = self.currentLayer
+		if is1dTable(lyr):
+			self.crossSections1D.removeByFeaturesNotIncluded(lyr.selectedFeatures())
+			for sel in lyr.selectedFeatures():
+				source = sel.attributes()[0]
+				if source not in self.crossSections1D.source:
+					dir = os.path.dirname(lyr.source())
+					self.crossSections1D.addFromFeature(dir, lyr.fields(), sel, lyr)
+
+	def setTsTypesEnabled(self):
+		"""
+		Sets time series types to disabled or enabled based on selected layer
+		"""
+
+		if self.currentLayer is None:
+			# self.OpenResultTypes.model().setEnabled(0)
+			# self.tuResults.tuResults1D.activeType = -1
+			return
+
+		if isinstance(self.currentLayer, QgsVectorLayer):
+			self.OpenResultTypes.model().setEnabled(4, 5, 6, 7, 8)
+			self.tuResults.tuResults1D.activeType = self.currentLayer.geometryType()
+		else:
+			return
+
+		if is1dTable(self.currentLayer) or is1dNetwork(self.currentLayer) or isPlotLayer(self.currentLayer):
+			#self.OpenResultTypes.model().setEnabled(4, 5, 6, 7, 8)
+			#self.tuResults.tuResults1D.activeType = 3
+			self.tuResults.updateActiveResultTypes(None, geomType=self.currentLayer.geometryType())
+			if not self.selectionChangeConnected:
+				self.currentLayer.selectionChanged.connect(self.selectionChanged)
+				self.selectionChangeConnected = True
+
+
+		## Change the enabled/disabled status based on selected layer
+		#if self.currentLayer.type() == QgsMapLayer.VectorLayer:  # vector layer
+		#	resVersion = []
+		#	for result in self.OpenResults.selectedItems():
+		#		if result.text() in self.tuResults.tuResults1D.results1d.keys():
+		#			resVersion.append(self.tuResults.tuResults1D.results1d[result.text()].formatVersion)
+		#	if 2 in resVersion:
+		#		if ' PLOT ' in self.currentLayer.name() or '_PLOT_' in self.currentLayer.name():
+		#			if self.tabWidget.currentIndex() == 0:
+		#				if self.currentLayer.geometryType() == 0:
+		#					self.OpenResultTypes.model().setEnabled(4, 5, 6, 7, 8)
+		#					self.tuResults.tuResults1D.activeType = 0
+		#				elif self.currentLayer.geometryType() == 1:
+		#					self.OpenResultTypes.model().setEnabled(4, 5, 6, 7, 8)
+		#					self.tuResults.tuResults1D.activeType = 1
+		#				elif self.currentLayer.geometryType() == 2:
+		#					self.OpenResultTypes.model().setEnabled(4, 5, 6, 7, 8)
+		#					self.tuResults.tuResults1D.activeType = 2
+		#				self.tuResults.updateActiveResultTypes(None, geomType=self.currentLayer.geometryType())
+		#			elif self.tabWidget.currentIndex() == 1:
+		#				if self.currentLayer.geometryType() == 0:
+		#					self.OpenResultTypes.model().setEnabled(4, 5, 6, 7, 8)
+		#					self.tuResults.tuResults1D.activeType = 0
+		#				elif self.currentLayer.geometryType() == 1:
+		#					self.OpenResultTypes.model().setEnabled(4, 5, 6, 7, 8)
+		#					self.tuResults.tuResults1D.activeType = 1
+		#				elif self.currentLayer.geometryType() == 2:
+		#					self.OpenResultTypes.model().setEnabled(4, 5, 6, 7, 8)
+		#					self.tuResults.tuResults1D.activeType = 2
+		#				# else:
+		#				# 	self.OpenResultTypes.model().setEnabled(0)  # i.e. none
+		#				# 	self.tuResults.tuResults1D.activeType = -1
+		#				self.tuResults.updateActiveResultTypes(None, geomType=self.currentLayer.geometryType())
+		#			if not self.selectionChangeConnected:
+		#				self.currentLayer.selectionChanged.connect(self.selectionChanged)
+		#				self.selectionChangeConnected = True
+		#				self.selectionChanged()
+		#		elif 1 not in resVersion:
+		#			self.OpenResultTypes.model().setEnabled(0)  # i.e. none
+		#	if 1 in resVersion:
+		#		if self.tabWidget.currentIndex() == 0:
+		#			if self.currentLayer.geometryType() == 0:
+		#				self.OpenResultTypes.model().setEnabled(4)
+		#				self.tuResults.tuResults1D.activeType = 0
+		#			elif self.currentLayer.geometryType() == 1:
+		#				self.OpenResultTypes.model().setEnabled(5)
+		#				self.tuResults.tuResults1D.activeType = 1
+		#			elif self.currentLayer.geometryType() == 2:
+		#				self.OpenResultTypes.model().setEnabled(6)
+		#				self.tuResults.tuResults1D.activeType = 2
+		#		elif self.tabWidget.currentIndex() == 1:
+		#			if self.currentLayer.geometryType() == 1:
+		#				self.OpenResultTypes.model().setEnabled(7)
+		#				self.tuResults.tuResults1D.activeType = 1
+		#			else:
+		#				self.OpenResultTypes.model().setEnabled(0)  # i.e. none
+		#				self.tuResults.tuResults1D.activeType = -1
+		#		if not self.selectionChangeConnected:
+		#			self.currentLayer.selectionChanged.connect(self.selectionChanged)
+		#			self.selectionChangeConnected = True
+		#else:
+		#	self.OpenResultTypes.model().setEnabled(0)  # i.e. none
+
 	def initialiseDataSetView(self):
 		"""
 		Initialise the dataset view for result types.
@@ -244,6 +374,9 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:return:
 		"""
 
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+
 		# update list of types with max activated
 		self.tuResults.updateMinMaxTypes(event, 'max')
 
@@ -256,7 +389,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.OpenResultTypes.selectionModel().select(selection, flags)
 
 		# redraw plot and re-render map
-		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
+		self.tuPlot.updateCrossSectionPlot()
 		self.renderMap()
 
 	def minResultTypesChanged(self, event):
@@ -279,7 +412,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.OpenResultTypes.selectionModel().select(selection, flags)
 
 		# redraw plot and re-render map
-		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
+		self.tuPlot.updateCrossSectionPlot()
 		self.renderMap()
 
 	def nextTimestep(self):
@@ -326,12 +459,73 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		:return:
 		"""
-		
+
 		# update active toolbar
 		self.tuPlot.tuPlotToolbar.setToolbarActive(self.tabWidget.currentIndex())
 		
 		# update the enabled result types
-		self.currentLayerChanged()
+		# self.currentLayerChanged()
+		self.setTsTypesEnabled()
+		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), plot='1d only')
+
+	def moveOpenResults(self, layoutType):
+		"""
+		Moves open results list widget.
+
+		layoutType:
+			"plot": original position with plot visible
+			"narrow": place under result types
+		"""
+
+		if layoutType.lower() == "narrow":
+			self.ResultTypeSplitter.addWidget(self.OpenResultsLayout)
+			totalHeight = self.ResultTypeSplitter.sizeHint().height()
+			self.ResultTypeSplitter.setSizes([totalHeight * 9/10, totalHeight * 1/10])
+		elif layoutType.lower() == "plot":
+			self.PlotOptionSplitter.insertWidget(0, self.OpenResultsLayout)
+
+	def plotWindowVisibilityToggled(self, initialisation=False):
+		"""
+		Sets the plot window visible / not visible
+		"""
+
+		if initialisation:
+			self.originalWidth = self.PlotLayout.minimumSizeHint().width() + self.ResultLayout.minimumSizeHint().width()
+			self.PlotLayout.setVisible(False)
+			self.SecondMenu.setVisible(True)
+			self.OpenResultsWidget.setVisible(False)
+			self.moveOpenResults("narrow")
+			narrowWidth = self.pbShowPlotWindow.minimumSizeHint().width() + \
+			              self.mainMenuSecond_2.minimumSizeHint().width()
+			self.dockWidgetContents.setMinimumWidth(narrowWidth)
+			self.label_5.setMinimumWidth(self.label_5.minimumSizeHint().width())
+			docks = [x.windowTitle() for x in self.iface.mainWindow().findChildren(QDockWidget)]
+			if "TUFLOW Viewer" in docks:
+				self.iface.mainWindow().resizeDocks([self], [narrowWidth], Qt.Horizontal)
+
+			return
+
+		if self.PlotLayout.isVisible():
+			self.PlotLayout.setVisible(False)
+			self.SecondMenu.setVisible(True)
+			self.OpenResultsWidget.setVisible(False)
+			self.moveOpenResults("narrow")
+			narrowWidth = self.pbShowPlotWindow.minimumSizeHint().width() + \
+			              self.mainMenuSecond_2.minimumSizeHint().width()
+			self.dockWidgetContents.setMinimumWidth(narrowWidth)
+			self.label_5.setMinimumWidth(self.label_5.minimumSizeHint().width())
+			docks = [x.windowTitle() for x in self.iface.mainWindow().findChildren(QDockWidget)]
+			if "TUFLOW Viewer" in docks:
+				self.iface.mainWindow().resizeDocks([self], [narrowWidth], Qt.Horizontal)
+		else:
+			self.PlotLayout.setVisible(True)
+			self.SecondMenu.setVisible(False)
+			self.OpenResultsWidget.setVisible(True)
+			self.moveOpenResults("plot")
+			# self.dockWidgetContents.setMinimumWidth(self.originalWidth)
+			# self.iface.mainWindow().resizeDocks([self], [self.originalWidth], Qt.Horizontal)
+			plotWidth = self.PlotLayout.minimumSizeHint().width() + self.ResultLayout.minimumSizeHint().width()
+			self.iface.mainWindow().resizeDocks([self], [plotWidth], Qt.Horizontal)
 		
 	def projectCleared(self):
 		"""
@@ -385,8 +579,14 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:return:
 		"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		if not self.connected:
 			
+			# hide/show plot window
+			self.pbHidePlotWindow.clicked.connect(self.plotWindowVisibilityToggled)
+			self.pbShowPlotWindow.clicked.connect(self.plotWindowVisibilityToggled)
+
 			# time
 			self.cboTime.currentIndexChanged.connect(self.timeSliderChanged)
 			self.sliderTime.valueChanged.connect(lambda: self.timeComboChanged(0))
@@ -396,6 +596,10 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.btnLast.clicked.connect(lambda: self.timeComboChanged(2))
 			self.btnTimePlay.clicked.connect(self.playThroughTimesteps)
 			self.btn2dLock.clicked.connect(self.timestepLockChanged)
+
+			# qgis time controller
+			if qv >= 31300:
+				self.iface.mapCanvas().temporalRangeChanged.connect(self.qgsTimeChanged)
 			
 			# results
 			self.OpenResults.itemClicked.connect(lambda: self.resultsChanged('item clicked'))
@@ -409,7 +613,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.OpenResultTypes.leftClicked.connect(self.resultTypesChanged)
 			
 			# Plotting buttons
-			self.cbShowCurrentTime.clicked.connect(lambda: self.refreshCurrentPlot(update='1d only'))
+			self.cbShowCurrentTime.clicked.connect(lambda: self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataCurrentTime))
 			self.tuPlot.tuPlotToolbar.fluxSecAxisButton.released.connect(lambda: self.secondaryAxisResultTypesChanged(None))
 			
 			# switching between plots
@@ -428,6 +632,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 			# layer
 			self.selectionChangeConnected = False
 			self.currentLayerChanged()
+			# 1D cross sections
+			self.xsConnectedLayers = []
 			
 			self.connected = True
 	
@@ -438,6 +644,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		:return:
 		"""
+
+		qv = Qgis.QGIS_VERSION_INT
 		
 		if self.connected or completely_remove:
 			
@@ -474,6 +682,13 @@ class TuView(QDockWidget, Ui_Tuplot):
 				self.btn2dLock.clicked.disconnect()
 			except:
 				pass
+
+			# qgis time controller
+			if qv >= 31300:
+				try:
+					self.iface.mapCanvas().temporalRangeChanged.connect(self.qgsTimeChanged)
+				except:
+					pass
 			
 			# results
 			try:
@@ -701,12 +916,13 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:param event: dict -> { 'parent': DataSetTreeNode, 'index': DataSetTreeNode }
 		:return:
 		"""
-		
+
 		# update list of types sitting on secondary axis
 		self.tuResults.updateSecondaryAxisTypes(event)
 		
 		# redraw plot
-		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
+		# self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), update='1d only')
+		self.tuPlot.changeLineAxis(event)
 		
 		# force selected result types in widget to be active types
 		#self.OpenResultTypes.selectionModel().clear()
@@ -776,13 +992,16 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.renderMap()
 		
 		# update red time slider on plot
+		# if not self.tuPlot.timeSeriesPlotFirst:
 		if self.cbShowCurrentTime.isChecked():
-			# pf.drawPlot(self, 0, None, None, None, refresh_only=True)
-			self.tuPlot.updateCurrentPlot(0, update='1d only')
-		
+			self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataCurrentTime)
+			# self.tuPlot.drawPlot(TuPlot.TimeSeries, [], [], [], [], refresh_only=True)
 		# update long profile / cross section plots with new timestep
 		if not self.tuPlot.profilePlotFirst:
 			self.tuPlot.updateCrossSectionPlot()
+		# vertical profile
+		if not self.tuPlot.verticalProfileFirst:
+			self.tuPlot.updateVerticalProfilePlot()
 			
 	def timestepLockChanged(self, event=None, switch=True):
 		"""
@@ -798,3 +1017,27 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.btn2dLock.setIcon(lock2DIcon)
 		
 		self.tuResults.updateResultTypes()
+
+	def qgsTimeChanged(self):
+		"""
+
+		"""
+
+		if self.tuResults.timeSpec != self.iface.mapCanvas().temporalRange().begin().timeSpec():
+			self.tuResults.updateTemporalProperties()
+			return
+
+		t = self.tuResults.getTuViewTimeFromQgsTime()
+		tf = None
+		if type(t) is datetime:
+			if self.tuOptions.xAxisDates:
+				tf = self.tuResults._dateFormat.format(t)  # time formatted
+			else:
+				t = self.tuResults.date2time[t]
+		if tf is None:
+			tf = convertTimeToFormattedTime(t, unit=self.tuOptions.timeUnits)  # time formatted
+		for i in range(self.cboTime.count()):
+			if self.cboTime.itemText(i) == tf:
+				self.cboTime.setCurrentIndex(i)
+				return
+

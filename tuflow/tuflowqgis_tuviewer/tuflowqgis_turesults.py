@@ -6,17 +6,25 @@ from qgis.core import *
 from PyQt5.QtWidgets import *
 import tuflowqgis_turesults1d
 import tuflowqgis_turesults2d
+import tuflowqgis_turesultsParticles
 from tuflow.dataset_view import DataSetModel
 from tuflow.tuflowqgis_library import tuflowqgis_find_layer, convertFormattedTimeToTime, convertTimeToFormattedTime, \
-	findAllMeshLyrs, roundSeconds
+	findAllMeshLyrs, roundSeconds, isSame_float, dt2qdt
+from tuflow.dataset_menu import DatasetMenuDepAv
+from tuflow.TUFLOW_XS import XS
 
 
 class TuResults():
 	"""
-	Parent class for handling 1D and 2D results classes.
+	Parent class for handling 1D, 2D and Particles results classes.
 	
 	"""
-	
+
+	Results2D = [1, 2]
+	Results1D = [4, 5, 6, 7, 8]
+	TimePrecision = 0.000001
+	OtherTypes = ['_ts', '_lp', '_particles', '_cs']
+
 	def __init__(self, TuView=None):
 		if TuView is not None:
 			self.tuView = TuView
@@ -38,18 +46,22 @@ class TuResults():
 			self.activeResultsItems = []  # DataSetTreeNode
 			self.dateFormat = '%d/%m/%Y %H:%M:%S'  # for time combobox not plotting
 			self._dateFormat = '{0:%d}/{0:%m}/{0:%Y} {0:%H}:{0:%M}:{0:%S}'  # for time combobox not plotting
+			self.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
 			
 			# 1D results
 			self.tuResults1D = tuflowqgis_turesults1d.TuResults1D(TuView)
 			
 			# 2D results
 			self.tuResults2D = tuflowqgis_turesults2d.TuResults2D(TuView)
-	
+
+			# Particles results
+			self.tuResultsParticles = tuflowqgis_turesultsParticles.TuResultsParticles(TuView)
+
 	def importResults(self, type, inFileNames):
 		"""
-		Import results 1D or 2D
+		Import results 1D or 2D or Particles
 		
-		:param type: str -> 'mesh' or 'timeseries'
+		:param type: str -> 'mesh' or 'timeseries' or 'particles'
 		:param inFileNames: list -> str file path
 		:return: bool -> True for successful, False for unsuccessful
 		"""
@@ -59,6 +71,8 @@ class TuResults():
 			result = self.tuResults2D.importResults(inFileNames)
 		elif type.lower() == 'timeseries':
 			result = self.tuResults1D.importResults(inFileNames)
+		elif type.lower() == 'particles':
+			result = self.tuResultsParticles.importResults(inFileNames)
 		if not result:
 			return False
 
@@ -93,22 +107,56 @@ class TuResults():
 			else:
 				self.activeTime = datetime.strptime(self.activeTime, self.dateFormat)
 				self.activeTime = self.date2timekey[self.activeTime]
-	
+
+		self.updateQgsTime()
+		self.tuResultsParticles.updateActiveTime()
+
+	def updateOpenResults(self, *args):
+		"""
+
+		"""
+
+		sel = []
+		for i in range(self.tuView.OpenResults.count()):
+			item = self.tuView.OpenResults.item(i)
+			if item.isSelected():
+				sel.append(item.text())
+
+		self.tuView.OpenResults.clear()
+		self.tuView.OpenResults.addItems(self.results.keys())
+
+		for i in range(self.tuView.OpenResults.count()):
+			item = self.tuView.OpenResults.item(i)
+			if item.text() in sel:
+				item.setSelected(True)
+			if item.text() in args:
+				item.setSelected(True)
+
+		self.updateResultTypes()
+
 	def resetResultTypes(self):
 		"""
 		Resets the result types in the tree widget
 
 		:return: bool -> True for succssful, False for unsuccessful
 		"""
-		
+
 		# Remove all children of Map Outputs and time series
 		self.tuView.initialiseDataSetView()
-		
+
 		# Reset multi combobox to empty
-		#self.tuView.mcboResultType.clear()
-		self.tuView.tuPlot.tuPlotToolbar.plotTSMenu.clear()
-		self.tuView.tuPlot.tuPlotToolbar.plotLPMenu.clear()
-		
+		for dataType in self.tuView.tuPlot.plotDataPlottingTypes:
+			menu = self.tuView.tuPlot.tuPlotToolbar.plotDataToPlotMenu[dataType]
+			if isinstance(menu, QAction):
+				menu = menu.parentWidget()
+			if isinstance(menu, DatasetMenuDepAv):
+				menu.clearAllSubMenus()
+				continue
+			elif isinstance(menu, QToolButton):
+				continue
+
+			menu.clear()
+
 		return True
 	
 	def getDataFromResultsDict(self, resultName):
@@ -125,31 +173,48 @@ class TuResults():
 		:return: list -> tuple -> ( str type, int type, bool hasMax ) line long plot type  e.g. ( 'water level', 7, True )
 		"""
 
-		timesteps, minResultTypes, maxResultTypes, temporalResultTypes, pTypeTS, lTypeTS, rTypeTS, lTypeLP = [], [], [], [], [], [], [], []
+		timesteps, minResultTypes, maxResultTypes, temporalResultTypes, pTypeTS, lTypeTS, rTypeTS, lTypeLP, csTypes = [], [], [], [], [], [], [], [], []
 		timestepsTS = []
 		timestepsLP = []
+		timestepsParticles = []
 
 		r = self.results[resultName]
 		for type, t in r.items():
 			info = ()  # (name, type, haMax) e.g. (depth, 1, True) 1=Scalar 2=Vector, 3=none
-			if self.isMaximumResultType(type):
+			if TuResults.isMaximumResultType(type):
 				if type not in maxResultTypes:
-					rt = self.stripMaximumName(type)
+					rt = TuResults.stripMaximumName(type)
 					maxResultTypes.append(rt)
-			elif self.isMinimumResultType(type):
+			elif TuResults.isMinimumResultType(type):
 				if type not in minResultTypes:
-					rt = self.stripMinimumName(type)
+					rt = TuResults.stripMinimumName(type)
 					minResultTypes.append(rt)
 			elif '_ts' in type:
 				timestepsTS = t[-1]
 				if type == 'point_ts':
-					pTypeTS = [(x, 4, False) for x in t[0]]
+					pTypeTS = [[x, 4, True] for x in t[0]]
+					if ['MB', 4, True] in pTypeTS:
+						index = pTypeTS.index(['MB', 4, True])
+						info = pTypeTS[index]
+						info[2] = False
+					if ['Flow Regime', 4, True] in pTypeTS:
+						index = pTypeTS.index(['Flow Regime', 4, True])
+						info = pTypeTS[index]
+						info[2] = False
 				elif type == 'line_ts':
-					lTypeTS = [(x, 5, False) for x in t[0]]
-					if ('Flow Regime', 5, False) in lTypeTS:
-						lTypeTS.remove(('Flow Regime', 5, False))
+					lTypeTS = [[x, 5, True] for x in t[0]]
+					if ['Flow Area', 5, True] in lTypeTS:
+						index = lTypeTS.index(['Flow Area', 5, True])
+						info = lTypeTS[index]
+						info[2] = False
+					if ['Losses', 5, True] in lTypeTS:
+						index = lTypeTS.index(['Losses', 5, True])
+						info = lTypeTS[index]
+						info[2] = False
+					if ['Flow Regime', 4, False] in pTypeTS and ['Flow Regime', 5, True] in lTypeTS:
+						lTypeTS.remove(['Flow Regime', 5, True])
 				elif type == 'region_ts':
-					rTypeTS = [(x, 6, False) for x in t[0]]
+					rTypeTS = [(x, 6, True) for x in t[0]]
 			elif '_lp' in type:
 				timestepsLP = t[-1]
 				for x in t[0]:
@@ -157,17 +222,23 @@ class TuResults():
 					#	lTypeLP.append((x, 7, True))
 					#else:
 					lTypeLP.append((x, 7, False))
+			elif '_cs' in type:
+				if type == 'line_cs':
+					for x in t:
+						csTypes.append((x, 8, False))
+			elif '_particles' in type:
+				timestepsParticles = t[0]
 			else:
 				temporalResultTypes.append(type)
-				for i, (time, values) in enumerate(t.items()):
+				for i, (time, values) in enumerate(t['times'].items()):
 					if values[0] != 9999.0:
 						if values[0] not in timesteps:
 							timesteps.append(float(values[0]))
 		
 		if not self.tuView.lock2DTimesteps:
-			timesteps = self.joinResultTypes(timesteps, timestepsTS, timestepsLP, type='time')
+			timesteps = self.joinResultTypes(timesteps, timestepsTS, timestepsLP, timestepsParticles, type='time')
 		
-		return timesteps, minResultTypes, maxResultTypes, temporalResultTypes, pTypeTS, lTypeTS, rTypeTS, lTypeLP
+		return timesteps, minResultTypes, maxResultTypes, temporalResultTypes, pTypeTS, lTypeTS, rTypeTS, lTypeLP, csTypes
 	
 	def joinResultTypes(self, *args, **kwargs):
 		"""
@@ -183,7 +254,8 @@ class TuResults():
 		for arg in args:
 			for item in arg:
 				if 'type' in kwargs.keys() and kwargs['type'] == 'time':
-					if float('{0:.6f}'.format(item)) not in [float('{0:.6f}'.format(x)) for x in final]:
+					# if float('{0:.6f}'.format(item)) not in [float('{0:.6f}'.format(x)) for x in final]:
+					if not [item for x in final if isSame_float(item, x, prec=TuResults.TimePrecision)]:
 						final.append(item)
 				else:
 					if item not in final:
@@ -195,7 +267,7 @@ class TuResults():
 		
 		return final
 	
-	def applyPreviousResultTypeSelections(self, namesTS, namesLP, time):
+	def applyPreviousResultTypeSelections(self, currentPlotData, time):
 		"""
 		Applies the previously selected result types to updated DataSetView.
 
@@ -228,6 +300,8 @@ class TuResults():
 				nameAppend = '_TS'
 			elif item.ds_type == 7:
 				nameAppend = '_LP'
+			elif item.ds_type == 8:
+				nameAppend = '_CS'
 			name = item.ds_name + nameAppend
 			index = openResultTypes.model().item2index(item)
 			if name in self.activeResults:
@@ -271,8 +345,10 @@ class TuResults():
 		
 		# apply selection to plotting result types
 		#mcboResultType.setCheckedItems(names)
-		self.tuView.tuPlot.tuPlotToolbar.setCheckedItemsPlotOptions(namesTS, 0)
-		self.tuView.tuPlot.tuPlotToolbar.setCheckedItemsPlotOptions(namesLP, 1)
+		#self.tuView.tuPlot.tuPlotToolbar.setCheckedItemsPlotOptions(namesTS, 0)
+		#self.tuView.tuPlot.tuPlotToolbar.setCheckedItemsPlotOptions(namesLP, 1)
+		for dataType, plotData in currentPlotData.items():
+			self.tuView.tuPlot.tuPlotToolbar.setCheckedItemsPlotOptions(dataType, plotData)
 
 		# apply active time
 		if time is not None:
@@ -334,6 +410,8 @@ class TuResults():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
 		sliderTime = self.tuView.sliderTime  # QSlider
 		cboTime = self.tuView.cboTime  # QComboBox
 		#mcboResultType = self.tuView.mcboResultType  # QgsCheckableComboBox
@@ -342,8 +420,13 @@ class TuResults():
 		
 		# record existing plotting 2D result types and time so it can be re-applied after the update
 		#currentNames = mcboResultType.checkedItems()
-		currentNamesTS = self.tuView.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(0)
-		currentNamesLP = self.tuView.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(1)
+		#currentNamesTS = self.tuView.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(TuPlot.DataTimeSeries2D)
+		#currentNamesLP = self.tuView.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(TuPlot.DataCrossSection2D)
+		currentPlotData = {}
+		for dataType in self.tuView.tuPlot.plotDataPlottingTypes:
+			plotData = self.tuView.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(dataType, all_details=True)
+			if plotData:
+				currentPlotData[dataType] = plotData
 		currentTime = str(self.activeTime) if self.activeTime is not None else None
 		
 		# reset types
@@ -351,10 +434,10 @@ class TuResults():
 		if not reset:
 			return False
 		timesteps, minResultTypes, maxResultTypes, temporalResultTypes = [], [], [], []
-		pointTypesTS, lineTypesTS, regionTypesTS, lineTypesLP = [], [], [], []
+		pointTypesTS, lineTypesTS, regionTypesTS, lineTypesLP, crossSectionTypes = [], [], [], [], []
 		for result in openResults.selectedItems():
 			# Populate metadata lists
-			ts, minResTypes, maxResTypes, tResTypes, pTypesTS, lTypesTS, rTypesTS, lTypesLP = self.getDataFromResultsDict(result.text())
+			ts, minResTypes, maxResTypes, tResTypes, pTypesTS, lTypesTS, rTypesTS, lTypesLP, csTypes = self.getDataFromResultsDict(result.text())
 
 			# Join already open result types with new types
 			timesteps = self.joinResultTypes(timesteps, ts, type='time')
@@ -365,7 +448,8 @@ class TuResults():
 			lineTypesTS = self.joinResultTypes(lineTypesTS, lTypesTS)
 			regionTypesTS = self.joinResultTypes(regionTypesTS, rTypesTS)
 			lineTypesLP = self.joinResultTypes(lineTypesLP, lTypesLP)
-		
+			crossSectionTypes = self.joinResultTypes(crossSectionTypes, csTypes)
+
 		# Populate tuview interface
 		mapOutputs = []
 		if openResults.selectedItems():
@@ -377,14 +461,14 @@ class TuResults():
 						if rtype in self.results[result.text()].keys():
 							break
 				t = self.results[result.text()][rtype]
-				for i, (time, values) in enumerate(t.items()):
+				for i, (time, values) in enumerate(t['times'].items()):
 					if i == 0:  # get the data type from the first timestep i.e. scalar or vector
 						info = (rtype, values[1], rtype in maxResultTypes, rtype in minResultTypes)
 						mapOutputs.append(info)
 					else:
 						break
-				self.tuView.tuPlot.tuPlotToolbar.addItemToPlotOptions(rtype, 0)
-				self.tuView.tuPlot.tuPlotToolbar.addItemToPlotOptions(rtype, 1)
+				self.tuView.tuPlot.tuPlotToolbar.addItemToPlotOptions(rtype)
+
 				#mcboResultType.addItem(type)
 			for rtype in maxResultTypes:  # check - there may be results that only have maximums
 				if rtype not in temporalResultTypes:
@@ -398,7 +482,7 @@ class TuResults():
 					if not mrtype:  # couldn't be found - hopefully not the case!
 						continue
 					t = self.results[result.text()][mrtype]
-					for i, (time, values) in enumerate(t.items()):
+					for i, (time, values) in enumerate(t['times'].items()):
 						if i == 0:  # get the data type from the first timestep i.e. scalar or vector
 							info = (rtype, values[1], True, False)
 							mapOutputs.append(info)
@@ -408,7 +492,7 @@ class TuResults():
 			mapOutputs = [("None", 3, False)]
 			
 		timeSeries = []
-		timeSeries = timeSeries + pointTypesTS + lineTypesTS + regionTypesTS + lineTypesLP
+		timeSeries = timeSeries + pointTypesTS + lineTypesTS + regionTypesTS + lineTypesLP + crossSectionTypes
 		if not timeSeries:
 			timeSeries = [("None", 3, False, False)]
 		openResultTypes.setModel(DataSetModel(mapOutputs, timeSeries))
@@ -447,10 +531,11 @@ class TuResults():
 			self.tuView.cboTime.currentIndexChanged.connect(self.tuView.timeSliderChanged)
 		
 		# Apply selection
-		self.applyPreviousResultTypeSelections(currentNamesTS, currentNamesLP, currentTime)
+		self.applyPreviousResultTypeSelections(currentPlotData, currentTime)
 		
 		# Update viewport with enabled / disabled items
-		self.tuView.currentLayerChanged()
+		# self.tuView.currentLayerChanged()
+		self.tuView.setTsTypesEnabled()
 		
 		return True
 	
@@ -462,16 +547,20 @@ class TuResults():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 		openResultTypes = self.tuView.OpenResultTypes
 		
 		# if geomtype then change the TS result options
 		if geomType is not None:
 			if geomType == QgsWkbTypes.PointGeometry:
 				self.tuResults1D.typesTS = self.tuResults1D.pointTS[:]
+				self.tuResults1D.typesXS = self.tuResults1D.lineXS[:]
 			elif geomType == QgsWkbTypes.LineGeometry:
 				self.tuResults1D.typesTS = self.tuResults1D.lineTS[:] + self.tuResults1D.pointTS[:]
+				self.tuResults1D.typesXS = self.tuResults1D.lineXS[:]
 			elif geomType == QgsWkbTypes.PolygonGeometry:
 				self.tuResults1D.typesTS = self.tuResults1D.regionTS[:]
+				self.tuResults1D.typesXS = self.tuResults1D.lineXS[:]
 			else:
 				self.tuResults1D.typesTS = []
 				
@@ -498,7 +587,8 @@ class TuResults():
 					self.tuResults2D.activeScalar = item.ds_name
 				elif item.ds_type == 2:  # vector
 					self.tuResults2D.activeVector = item.ds_name
-				elif item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6 or item.ds_type == 7:  # 1d result
+				#elif item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6 or item.ds_type == 7:  # 1d result
+				elif item.ds_type in TuResults.Results1D:  # 1d result
 					self.tuResults1D.items1d.append(item)
 					#if item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6:  # time series
 					if item.ds_type == 4:  # point
@@ -513,12 +603,22 @@ class TuResults():
 					elif item.ds_type == 7:  # long plot
 						if item.ds_name not in self.tuResults1D.typesLP:
 							self.tuResults1D.typesLP.append(item.ds_name)
+					elif item.ds_type == 8:  # XS
+						if item.ds_name not in self.tuResults1D.typesXS:
+							self.tuResults1D.lineXS.append(item.ds_name)
 					if self.tuResults1D.activeType == 0:
 						self.tuResults1D.typesTS = self.tuResults1D.pointTS[:]
+						self.tuResults1D.typesXSRes = self.tuResults1D.pointTS[:]
 					elif self.tuResults1D.activeType == 1:
 						self.tuResults1D.typesTS = self.tuResults1D.lineTS[:] + self.tuResults1D.pointTS[:]
+						self.tuResults1D.typesXS = self.tuResults1D.lineXS[:]
+						self.tuResults1D.typesXSRes = self.tuResults1D.pointTS[:]
 					elif self.tuResults1D.activeType == 2:
 						self.tuResults1D.typesTS = self.tuResults1D.regionTS[:]
+						self.tuResults1D.typesXSRes = self.tuResults1D.pointTS[:]
+					# elif self.tuResults1D.activeType == 3:
+					# 	self.tuResults1D.typesXS = self.tuResults1D.lineXS[:]
+					# 	self.tuResults1D.typesXSRes = self.tuResults1D.pointTS[:]
 					#else:
 					#	self.tuResults1D.typesTS = []
 					#elif item.ds_type == 7:  # long plot
@@ -539,6 +639,8 @@ class TuResults():
 					nameAppend = '_TS'
 				elif item.ds_type == 7:
 					nameAppend = '_LP'
+				elif item.ds_type == 8:
+					nameAppend = '_CS'
 				self.activeResults.append(item.ds_name + nameAppend)
 				self.activeResultsTypes.append(item.ds_type)
 				self.activeResultsIndexes.append(resultIndex)
@@ -561,39 +663,44 @@ class TuResults():
 					self.tuResults1D.typesTS.remove(item.ds_name)
 				elif item.ds_name in self.tuResults1D.typesLP:
 					self.tuResults1D.typesLP.remove(item.ds_name)
+				elif item.ds_name in self.tuResults1D.typesXS:
+					self.tuResults1D.typesXS.remove(item.ds_name)
 				if item.ds_name in self.tuResults1D.pointTS:
 					self.tuResults1D.pointTS.remove(item.ds_name)
+					if item.ds_name in self.tuResults1D.typesXSRes:
+						self.tuResults1D.typesXSRes.remove(item.ds_name)
 				elif item.ds_name in self.tuResults1D.lineTS:
 					self.tuResults1D.lineTS.remove(item.ds_name)
 				elif item.ds_name in self.tuResults1D.regionTS:
 					self.tuResults1D.regionTS.remove(item.ds_name)
-		
-		# force selected result types in widget to be active types
-		#openResultTypes.selectionModel().clear()
-		#selection = QItemSelection()
-		#flags = QItemSelectionModel.ClearAndSelect
-		#for index in self.activeResultsIndexes:
-		#	selection.select(index, index)
-		#	openResultTypes.selectionModel().select(selection, flags)
-		
+				elif item.ds_name in self.tuResults1D.lineXS:
+					self.tuResults1D.lineXS.remove(item.ds_name)
+
 		if not skip:
 			# rerender map
 			if layer is not None:
-				rs = layer.rendererSettings()
-				# if no scalar or vector turn off dataset
-				if self.tuResults2D.activeScalar is None:
-					rs.setActiveScalarDataset(QgsMeshDatasetIndex(-1, -1))
-					layer.setRendererSettings(rs)
-				if self.tuResults2D.activeVector is None:
-					rs.setActiveVectorDataset(QgsMeshDatasetIndex(-1, -1))
-					layer.setRendererSettings(rs)
+				# rs = layer.rendererSettings()
+				# # if no scalar or vector turn off dataset
+				# if self.tuResults2D.activeScalar is None:
+				# 	rs.setActiveScalarDataset(QgsMeshDatasetIndex(-1, -1))
+				# 	layer.setRendererSettings(rs)
+				# if self.tuResults2D.activeVector is None:
+				# 	rs.setActiveVectorDataset(QgsMeshDatasetIndex(-1, -1))
+				# 	layer.setRendererSettings(rs)
 				self.tuView.renderMap()
+
+				# update default item in the depth averaging methods
+				self.tuView.tuPlot.tuPlotToolbar.averageMethodTSMenu.updateDefaultItem(self.tuResults2D.activeScalar)
 		else:
 			# redraw plot
 			if item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6:
-				self.tuView.tuPlot.updateCurrentPlot(0, update='1d only')
+				self.tuView.tuPlot.updateCurrentPlot(TuPlot.TimeSeries)
+				if self.tuResults1D.typesXS:
+					self.tuView.tuPlot.updateCurrentPlot(TuPlot.CrossSection)
 			elif item.ds_type == 7:
-				self.tuView.tuPlot.updateCurrentPlot(1, update='1d only')
+				self.tuView.tuPlot.updateCurrentPlot(TuPlot.CrossSection)
+			elif item.ds_type == 8:
+				self.tuView.tuPlot.updateCurrentPlot(TuPlot.CrossSection)
 			else:
 				self.tuView.tuPlot.updateCurrentPlot(self.tuView.tabWidget.currentIndex(), update='1d only')
 
@@ -623,7 +730,10 @@ class TuResults():
 		for item in openResultTypes.model().timeSeriesItem.children():
 			if item.enabled:
 				if item.secondaryActive:
-					self.secondaryAxisTypes.append('{0}_1d'.format(item.ds_name))
+					if item.ds_type == 8:
+						self.secondaryAxisTypes.append('{0}_CS'.format(item.ds_name))
+					else:
+						self.secondaryAxisTypes.append('{0}_1d'.format(item.ds_name))
 					
 		if self.tuView.tuPlot.tuPlotToolbar.fluxSecAxisButton.isChecked():
 			self.secondaryAxisTypes.append('2D Flow')
@@ -656,14 +766,14 @@ class TuResults():
 			if item.enabled:
 				if item.isMin:
 					self.minResultTypes.append(item.ds_name)
-		
+
 		for item in openResultTypes.model().timeSeriesItem.children():
 			if item.enabled:
 				if item.isMax:
 					self.maxResultTypes.append('{0}_1d'.format(item.ds_name))
 				if item.isMin:
 					self.minResultTypes.append('{0}_1d'.format(item.ds_name))
-					
+
 		return True
 
 	def getResult(self, index, **kwargs):
@@ -674,31 +784,101 @@ class TuResults():
 		:return: tuple -> result metadata
 		"""
 
+		# get version
+		qv = Qgis.QGIS_VERSION_INT
+
 		forceGetTime = kwargs['force_get_time'] if 'force_get_time' in kwargs.keys() else None
+		meshIndexOnly = kwargs['mesh_index_only'] if 'mesh_index_only' in kwargs else False
 		results = self.tuView.tuResults.results  # dict
+
+		if index is None:
+			if qv < 31300:
+				return QgsMeshDatasetIndex(-1, -1)
+			else:
+				return -1
 		
-		key1 = index.result
-		key2 = index.resultType
-		key3 = index.timestep
+		key1 = index.result if 'result_name' not in kwargs else kwargs['result_name']
+		key2 = index.resultType if 'result_type' not in kwargs else kwargs['result_type']
+		key3 = index.timestep if 'timestep' not in kwargs else kwargs['timestep']
 		
 		if key1 not in results.keys():
-			return False
+			if qv < 31300:
+				return QgsMeshDatasetIndex(-1, -1)
+			else:
+				return -1
 		
 		if key2 not in results[key1].keys():
-			return False
+			if qv < 31300:
+				return QgsMeshDatasetIndex(-1, -1)
+			else:
+				return -1
 		
 		if key3 is not None:
-			if key3 not in results[key1][key2].keys():
-				if len(results[key1][key2]) == 1:
-					for k in results[key1][key2]:
+			if key3 not in results[key1][key2]['times'].keys():
+				if len(results[key1][key2]['times']) == 1:
+					for k in results[key1][key2]['times']:
 						key3 = k
 				elif forceGetTime == 'next lower':
 					key3 = self.findTimeNextLower(key1, key2, key3)
 		
 		if key3 is not None:
-			return results[key1][key2][key3]
+			res = results[key1][key2]['times'][key3]
+			if qv < 31300:
+				if meshIndexOnly:
+					if res and type(res) is tuple:
+						return res[-1]
+					else:
+						return QgsMeshDatasetIndex(-1, -1)
+				else:
+					return results[key1][key2]['times'][key3]
+			else:
+				if meshIndexOnly:
+					if res and type(res) is tuple:
+						return res[-1].group()
+					else:
+						return -1
+				else:
+					return res
 		else:
-			return results[key1][key2]
+			if meshIndexOnly:
+				if qv < 31300:
+					return QgsMeshDatasetIndex(-1, -1)
+				else:
+					return -1
+			else:
+				return results[key1][key2]['times']
+
+	def is3d(self, index, **kwargs):
+		"""
+
+		"""
+
+		results = self.tuView.tuResults.results  # dict
+		key1 = index.result if 'result_name' not in kwargs else kwargs['result_name']
+		key2 = index.resultType if 'result_type' not in kwargs else kwargs['result_type']
+
+		if key1 not in results.keys():
+			return False
+		if key2 not in results[key1].keys():
+			return False
+
+		return results[key1][key2]['is3dDataset']
+
+	def getTimeUnit(self, index, **kwargs):
+		"""
+
+		"""
+
+		results = self.tuView.tuResults.results  # dict
+		key1 = index.result if 'result_name' not in kwargs else kwargs['result_name']
+		key2 = index.resultType if 'result_type' not in kwargs else kwargs['result_type']
+
+		if key1 not in results.keys():
+			return 'h'
+		if key2 not in results[key1].keys():
+			return 'h'
+
+		return results[key1][key2]['timeUnit']
 	
 	def findTimeNextLower(self, key1, key2, key3):
 		"""
@@ -712,7 +892,7 @@ class TuResults():
 		
 		timePrev = None
 		higher = False
-		for i, (timekey, time) in enumerate(self.results[key1][key2].items()):
+		for i, (timekey, time) in enumerate(self.results[key1][key2]['times'].items()):
 			# timekey -> str e.g. '1.0000'
 			# time -> dict e.g. ( timestep, type, QgsMeshDatasetIndex )}
 			
@@ -732,7 +912,33 @@ class TuResults():
 		
 		# return time prev if higher is never found
 		return timePrev
-	
+
+	def findTimeNext(self, key1, key2, key3, times=(), is_date=False):
+		"""
+		Finds the next available time after specified time
+		"""
+
+		if is_date:
+			if type(key3) is str:
+				rt = datetime.strptime(key3, self.dateFormat)
+			else:
+				rt = key3
+		else:
+			if type(key3) is str:
+				rt = float(key3)
+			else:
+				rt = key3
+
+		if not times:
+			times = [y for x, y in self.results[key1][key2]['times'].items()]
+
+		assert(len(times) > 0)
+		for time in times:
+			if time >= rt:
+				return time
+
+		return time
+
 	def isMax(self, typ):
 		"""
 		Returns whether the result type is max or not. Can put 'scalar' or 'vector' to auto get active scalar or vector.
@@ -778,7 +984,8 @@ class TuResults():
 		results = self.tuView.tuResults.results
 		results2d = self.tuView.tuResults.tuResults2D.results2d
 		results1d = self.tuView.tuResults.tuResults1D.results1d
-		
+		resultsParticles = self.tuView.tuResults.tuResultsParticles.resultsParticles
+
 		for res in resList:
 			if res in results.keys():
 				# remove from indexed results
@@ -787,6 +994,9 @@ class TuResults():
 					del results2d[res]
 				if res in results1d:
 					del results1d[res]
+				if res in resultsParticles:
+					del resultsParticles[res]
+
 				#layer = tuflowqgis_find_layer(res)
 				#self.tuView.project.removeMapLayer(layer)
 				#self.tuView.canvas.refresh()
@@ -863,20 +1073,22 @@ class TuResults():
 			self.tuResults1D.lineTS.clear()
 			self.tuResults1D.regionTS.clear()
 			self.tuResults1D.typesLP.clear()  # list -> str selected 1D long plot result types
+			self.tuResults1D.typesXS.clear()
 			for index in selectedIndexes:
 				item = index.internalPointer()
 				if item.ds_type == 1:  # scalar
 					self.tuResults2D.activeScalar = item.ds_name
 				elif item.ds_type == 2:  # vector
 					self.tuResults2D.activeVector = item.ds_name
-				elif item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6 or item.ds_type == 7:  # 1d result
+				# elif item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6 or item.ds_type == 7:  # 1d result
+				elif item.ds_type in TuResults.Results1D:  # 1d result
 					self.tuResults1D.items1d.append(item)
 					if item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6:  # time series
 						if item.ds_type == 4:  # point
 							self.tuResults1D.pointTS.append(item.ds_name)
 						elif item.ds_type == 5:  # line
 							self.tuResults1D.lineTS.append(item.ds_name)
-						else:
+						elif item.ds_type == 6:
 							self.tuResults1D.regionTS.append(item.ds_name)
 						if self.tuResults1D.activeType == 0:
 							self.tuResults1D.typesTS = self.tuResults1D.pointTS[:]
@@ -888,7 +1100,10 @@ class TuResults():
 							self.tuResults1D.typesTS = []
 					elif item.ds_type == 7:  # long plot
 						self.tuResults1D.typesLP.append(item.ds_name)
-						
+					elif item.ds_type == 8:  # cross section
+						self.tuResults1D.typesXS = self.tuResults1D.lineTS[:]
+						self.tuResults1D.activeType = 3
+
 	def findMaxResultType(self, result: str, resultType: str) -> str:
 		"""
 		Find maximum result type in results.
@@ -902,13 +1117,14 @@ class TuResults():
 		"""
 		
 		for rtype in self.results[result]:
-			if self.isMaximumResultType(rtype):
-				if self.stripMaximumName(rtype) == resultType:
+			if TuResults.isMaximumResultType(rtype):
+				if TuResults.stripMaximumName(rtype) == resultType:
 					return rtype
 				
 		return ''
-		
-	def stripMaximumName(self, resultType: str) -> str:
+
+	@staticmethod
+	def stripMaximumName(resultType: str) -> str:
 		"""
 		Strips the maximum identifier from the name.
 
@@ -924,7 +1140,8 @@ class TuResults():
 
 		return rtype
 
-	def stripMinimumName(self, resultType: str) -> str:
+	@staticmethod
+	def stripMinimumName(resultType: str) -> str:
 		"""
 		Strips the minimum identifier from the name.
 
@@ -939,8 +1156,9 @@ class TuResults():
 			rtype = rtype.split('min_')[1]
 
 		return rtype
-	
-	def isMaximumResultType(self, resultType: str,
+
+	@staticmethod
+	def isMaximumResultType(resultType: str,
 	                        dp: QgsMeshDataProvider = QgsMeshLayer().dataProvider(),
 	                        groupIndex: int = -1) -> bool:
 		"""
@@ -972,7 +1190,8 @@ class TuResults():
 		
 		return False
 
-	def isMinimumResultType(self, resultType: str,
+	@staticmethod
+	def isMinimumResultType(resultType: str,
 	                        dp: QgsMeshDataProvider = QgsMeshLayer().dataProvider(),
 	                        groupIndex: int = -1) -> bool:
 		"""
@@ -990,6 +1209,49 @@ class TuResults():
 			return True
 
 		return False
+
+	@staticmethod
+	def isStatic(resultType: str,
+                dp: QgsMeshDataProvider = QgsMeshLayer().dataProvider(),
+                groupIndex: int = -1) -> bool:
+		"""
+        Determines if the result type is a static or not
+
+        e.g. bed elevation
+
+        :param resultType: str
+        :param dp: QgsMeshDataProvider
+        :param groupIndex: int
+        :return: bool
+        """
+
+		if TuResults.isMaximumResultType(resultType, dp, groupIndex) \
+				or TuResults.isMinimumResultType(resultType, dp, groupIndex):
+			return True
+
+		if dp is not None:
+			if dp.isValid():
+				if dp.datasetCount(groupIndex) == 1:
+					return True
+
+		return False
+
+	@staticmethod
+	def isTemporal(resultType: str,
+	               dp: QgsMeshDataProvider = QgsMeshLayer().dataProvider(),
+	               groupIndex: int = -1) -> bool:
+		"""
+        Determines if the result type is a static or not
+
+        e.g. bed elevation
+
+        :param resultType: str
+        :param dp: QgsMeshDataProvider
+        :param groupIndex: int
+        :return: bool
+        """
+
+		return not TuResults.isStatic(resultType, dp, groupIndex)
 	
 	def updateDateTimes(self):
 		"""
@@ -1031,3 +1293,139 @@ class TuResults():
 			timeCopy.remove(-99999)
 
 		self.tuView.cboTime.addItems([self._dateFormat.format(self.time2date[x]) for x in timeCopy])
+
+	def updateQgsTime(self, time=None, qgsObject=None, timeSpec=None):
+		"""
+
+		"""
+
+		qv = Qgis.QGIS_VERSION_INT
+
+		if time is None:
+			time = float(self.activeTime)
+		if qgsObject is None:
+			qgsObject = self.iface.mapCanvas()
+		if timeSpec is None:
+			timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+
+		if qv >= 31300:
+			zt = self.tuView.tuOptions.zeroTime
+			rt = dt2qdt(zt, self.iface.mapCanvas().temporalRange().begin().timeSpec())
+			rt = rt.toTimeSpec(timeSpec)
+			# rt = QDateTime(QDate(zt.year, zt.month, zt.day),
+			#                QTime(zt.hour, zt.minute, zt.second, zt.microsecond / 1000.))
+			# rt.setTimeSpec(self.iface.mapCanvas().temporalRange().begin().timeSpec())
+			begin = rt.addSecs(time * 60. * 60 - 1)
+			end = begin.addSecs(60.*60.)
+			dtr = QgsDateTimeRange(begin, end)
+
+
+			#self.iface.mapCanvas().setTemporalRange(dtr)
+			#self.iface.mapCanvas().refresh()
+			qgsObject.setTemporalRange(dtr)
+			qgsObject.refresh()
+
+	def getTuViewTimeFromQgsTime(self):
+		"""
+
+		"""
+
+		qv = Qgis.QGIS_VERSION_INT
+
+		if qv >= 31300:
+			qdt = self.iface.mapCanvas().temporalRange().begin()  # QDateTime
+			if not qdt.isValid():
+				return float(self.activeTime)
+			else:
+				modelDates = sorted([x for x in self.date2time.keys()])
+				if modelDates:
+					# fdt = modelDates[0]  # first datetime
+					# ldt = modelDates[-1]  # last datetime
+					# modelBegin = QDateTime(QDate(fdt.year, fdt.month, fdt.day),
+					#                        QTime(fdt.hour, fdt.minute, fdt.second, fdt.microsecond / 1000.))
+					# modelBegin.setTimeSpec(self.iface.mapCanvas().temporalRange().begin().timeSpec())
+					# modelEnd = QDateTime(QDate(ldt.year, ldt.month, ldt.day),
+					#                      QTime(ldt.hour, ldt.minute, ldt.second, ldt.microsecond / 1000.))
+					# modelEnd.setTimeSpec(self.iface.mapCanvas().temporalRange().begin().timeSpec())
+					# modelRange = QgsDateTimeRange(modelBegin, modelEnd)
+					# qdt = self.iface.mapCanvas().temporalRange().begin()  # QDateTime
+					pdt = datetime(qdt.date().year(), qdt.date().month(), qdt.date().day(),     # python datetime
+					               qdt.time().hour(), qdt.time().minute(), qdt.time().second(),
+					               int(round(qdt.time().msec(), -1) * 1000.))
+					# qgsEnd = self.iface.mapCanvas().temopralRange().end()
+
+					return self.findTimeNext(None, None, pdt, modelDates, True)
+				else:
+					return 0
+
+	def addCrossSectionLayerToResults(self, lyr):
+		"""
+
+		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+		updateOpenResults = False
+		if lyr.name() not in self.results:
+			self.results[lyr.name()] = {}
+			updateOpenResults = True
+		if 'line_cs' not in self.results[lyr.name()]:
+			self.results[lyr.name()]['line_cs'] = {}
+
+		for t in XS.getAllTypes(lyr):
+			self.results[lyr.name()]['line_cs'][t] = XS.getAllSourcesForType(lyr, t)
+
+		if updateOpenResults:
+			self.updateOpenResults(lyr.name())
+		else:
+			self.tuView.tuPlot.updateCurrentPlot(TuPlot.CrossSection, plot='1d only')
+
+	def add1dHydTableToResults(self, displayName, table):
+		"""
+
+		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+		if displayName not in self.results:
+			self.results[displayName] = {}
+		if 'line_cs' not in self.results[displayName]:
+			self.results[displayName]['line_cs'] = {}
+
+		for t in sorted(table.getAllTypes()):
+			self.results[displayName]['line_cs'][t] = table.getAllIdsForType(t)
+
+		self.updateOpenResults(displayName)
+
+	def remove1dHydTable(self, displayName):
+		"""
+
+		"""
+
+		if displayName in self.results:
+			del self.results[displayName]
+
+		self.updateOpenResults(displayName)
+
+	@staticmethod
+	def isMapOutputType(resultType):
+		"""Returns true if resultType is a Map Output"""
+
+		a = [True for x in TuResults.OtherTypes if x in resultType]
+		return len(a) == 0
+
+	def updateTemporalProperties(self):
+		for res, val in self.results.items():
+			for restype in val:
+				if TuResults.isMapOutputType(restype):
+					layer = tuflowqgis_find_layer(res)
+					layer.setReferenceTime(dt2qdt(self.tuResults2D.getReferenceTime(layer),
+				                                  self.iface.mapCanvas().temporalRange().begin().timeSpec()))
+					break
+		self.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+		self.updateQgsTime()
+
+
+
+
+

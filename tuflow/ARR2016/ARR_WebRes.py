@@ -151,6 +151,13 @@ class ArrLosses:
         self.cls_user = None
         self.logger = logging.getLogger('ARR2019')
 
+        # NSW probability neutral losses
+        self.existsPNLosses = False
+        self.AEP = []
+        self.AEP_names = []
+        self.Duration = []
+        self.ilpn = None
+
     def load(self, fi):
         for line in fi:
             if line.find('[LOSSES]') >= 0:
@@ -174,17 +181,71 @@ class ArrLosses:
             self.ils = 0
             self.cls = 0
         fi.seek(0)  # rewind file
+
+        self.loadProbabilityNeutralLosses(fi)
+
         self.loaded = True
         #print('Finished reading file.')
         self.logger.info('Finished reading file.')
 
+    def loadProbabilityNeutralLosses(self, fi):
+        """
+        Load probability neutral losses
+
+        :param fi: FileIO object
+        :return: None
+        """
+
+        self.logger.info("Searching for Probability Neutral Initial Losses...")
+        for line in fi:
+            if line.find("[BURSTIL]") > -1:
+                self.logger.info("Found Probability Neutral Initial Losses... loading")
+                finished = False
+                read_header = True
+                losses_all = []
+                for block_line in fi:
+                    data = block_line.split(',')
+                    finished = (data[0] == '\n' or block_line.find('[BURSTIL_META]') >= 0)
+                    if finished:
+                        break
+                    if read_header:
+                        data = block_line.strip('\n').split(',')
+                        for valstr in data[1:]:
+                            try:
+                                val = float(valstr)
+                                self.AEP.append(val)
+                                self.AEP_names.append('{0:.0f}%'.format(val))
+                            except Exception as e:
+                                self.logger.warning(f"ERROR: Reading Probability Neutral Initial Losses AEP... skipping\n{e}")
+                                read_header = False
+                                return
+                        read_header = False
+                    else:
+                        try:
+                            dur = int(data[0][:data[0].index('(')])
+                            self.Duration.append(dur)
+                            losses = [float(x) for x in data[1:]]
+                            losses_all.append(losses)
+                        except Exception as e:
+                            self.error = True
+                            self.message = 'Error processing from line {0}'.format(block_line)
+                            self.logger.warning(f"ERROR: Reading Probability Neutral Initial Losses... skipping\n{e}")
+                            return
+                if finished:
+                    self.ilpn = numpy.array(losses_all)
+                    self.existsPNLosses = True
+                    self.logger.info("Finished reading Probability Neutral Initial Losses.")
+                    break
+
+        fi.seek(0)
+
     def applyUserInitialLoss(self, loss):
         """apply user specified (storm) initial loss to calculations instead of datahub loss"""
         
-        self.ils = loss
+        #self.ils = loss
         self.ils_user = loss
         #print("Using user specified intial loss: {0}".format(loss))
-        self.logger.info("Using user specified intial loss: {0}".format(loss))
+        self.logger.info("Using user specified initial loss: {0}".format(loss))
 
     def applyUserContinuingLoss(self, loss):
         """apply user specified continuing loss to calculations instead of datahub loss"""
@@ -469,7 +530,7 @@ class ArrTemporal:
 
         self.logger = logging.getLogger('ARR2019')
     
-    def load(self, fname, fi, tpRegion, point_tp_csv, areal_tp_csv):
+    def load(self, fname, fi, tpRegion, point_tp_csv, areal_tp_csv, areal_tp_download=None):
         """Load ARR data"""
         
         if point_tp_csv is None:
@@ -489,6 +550,15 @@ class ArrTemporal:
             #print("Loading areal temporal patterns from user input: {0}".format(areal_tp_csv))
             self.logger.info("Loading areal temporal patterns from user input: {0}".format(areal_tp_csv))
             self.loadArealTpFromCSV(areal_tp_csv)
+            if self.error:
+                #print("ERROR loading areal temporal patterns: {0}".format(self.message))
+                self.logger.error("ERROR loading areal temporal patterns: {0}".format(self.message))
+                raise SystemExit("Error loading areal temporal patterns")
+
+        if areal_tp_download is not None:
+            #print("Loading areal temporal patterns from user input: {0}".format(areal_tp_csv))
+            self.logger.info("Loading areal temporal patterns from download: {0}".format(areal_tp_download))
+            self.loadArealTpFromCSV(areal_tp_download)
             if self.error:
                 #print("ERROR loading areal temporal patterns: {0}".format(self.message))
                 self.logger.error("ERROR loading areal temporal patterns: {0}".format(self.message))
@@ -743,7 +813,8 @@ class ArrTemporal:
                 for i, dur in enumerate(self.Duration):
                     if dur >= inclusions[0]:
                         if dur not in exclusions:
-                            j = self.arealDuration[tp_area].index(dur)
+                            m = self.arealRegion[tp_area].index(self.Region[i])
+                            j = self.arealDuration[tp_area][m:].index(dur) + m
                             if self.Region[i] == self.arealRegion[tp_area][j]:
                                 self.ID[i] = self.arealID[tp_area][j + k]
                                 self.TimeStep[i] = self.arealTimeStep[tp_area][j + k]
@@ -772,6 +843,51 @@ class ArrTemporal:
                 increments.append(self.increments[i])
                 timestep.append(self.TimeStep[i])
         return id_, increments, timestep
+
+    def get_dur_aep_pb(self, duration, aep, preburst_pattern_method, preburst_pattern_dur,
+                       preburst_pattern_tp, bpreburst_dur_proportional, aep_name):
+        increments = []
+        timestep = 0
+        if preburst_pattern_method.lower() == "constant":
+            if bpreburst_dur_proportional:
+                dur = duration * float(preburst_pattern_dur)
+            else:
+                dur = float(preburst_pattern_dur) * 60.
+            increments.append(100)
+            timestep = dur
+            self.logger.info(f"For complete storm {aep_name} {duration} min using constant preburst rate of {dur} mins")
+        else:
+            if bpreburst_dur_proportional:
+                dur = duration * float(preburst_pattern_dur)
+            else:
+                if re.findall(r"hr", preburst_pattern_dur, re.IGNORECASE):
+                    dur = float(preburst_pattern_dur.strip(' hr')) * 60.
+                elif re.findall(r"min", preburst_pattern_dur, re.IGNORECASE):
+                    dur = float(preburst_pattern_dur.strip(' min'))
+            dur = self.findClosestTP(dur)
+            self.logger.info(f"For complete storm {aep_name} {duration} min "
+                             f"using ARR Temporal pattern for preburst: {dur} mins, {preburst_pattern_tp}")
+            id, increments, timestep = self.get_dur_aep(dur, aep)
+
+            tp = int(re.findall(r"\d{2}", preburst_pattern_tp)[0])
+            increments = increments[tp]
+            timestep = timestep[tp]
+
+        return increments, timestep
+
+    def findClosestTP(self, dur):
+        diff = 99999
+        diff_prev = 99999
+        d_prev = 0
+        for d in self.Duration:
+            diff = abs(dur - d)
+            if diff > diff_prev:
+                return d_prev
+            else:
+                diff_prev = diff
+                d_prev = d
+
+        return d_prev
 
     def get_durations(self, aep):
         # print ('Getting a list of durations with AEP band {0}'.format(AEP))
@@ -845,6 +961,7 @@ class Arr:
         areal_tp_csv = kwargs['areal_tp'] if 'areal_tp' in kwargs else None
         user_initial_loss = kwargs['user_initial_loss'] if 'user_initial_loss' in kwargs else None
         user_continuing_loss = kwargs['user_continuing_loss'] if 'user_continuing_loss' in kwargs else None
+        areal_tp_download = kwargs['areal_tp_download'] if 'areal_tp_download' in kwargs else None
 
         #print('Loading ARR website output .txt file')
         self.logger.info('Loading ARR website output .txt file')
@@ -922,7 +1039,9 @@ class Arr:
         #print('Loading Temporal Patterns')
         self.logger.info('Loading Temporal Patterns')
         tpRegion = self.temporalPatternRegion(fi)
-        self.Temporal.load(fname, fi, tpRegion, point_tp_csv, areal_tp_csv)
+        if tpRegion == 'Rangelands West And Rangelands':
+            areal_tp_download = None
+        self.Temporal.load(fname, fi, tpRegion, point_tp_csv, areal_tp_csv, areal_tp_download)
         if self.Temporal.error:
             #print('An error was encountered, when reading temporal patterns.')
             self.logger.error('An error was encountered, when reading temporal patterns.')
@@ -936,6 +1055,10 @@ class Arr:
                     fadd_tp = open(f, 'r')
                     self.Temporal.append(fadd_tp)
                     fadd_tp.close()
+                    tpCode = self.arealTemporalPatternCode(f)
+                    f = os.path.join(os.path.dirname(f), "Areal_{0}_Increments.csv".format(tpCode))
+                    if os.path.exists(f):
+                        self.Temporal.loadArealTpFromCSV(f)
                     if self.Temporal.error:
                         #print('An error was encountered, when reading temporal pattern: {0}'.format(tp))
                         self.logger.error('An error was encountered, when reading temporal pattern: {0}'.format(tp))
@@ -984,7 +1107,13 @@ class Arr:
         tuflow_loss_method = kwargs['tuflow_loss_method'] if 'tuflow_loss_method' in kwargs else 'infiltration'
         urban_initial_loss = kwargs['urban_initial_loss'] if 'urban_initial_loss' in kwargs else None
         urban_continuing_loss = kwargs['urban_continuing_loss'] if 'urban_continuing_loss' in kwargs else None
-        
+        probability_neutral_losses = kwargs['probability_neutral_losses'] if 'probability_neutral_losses' in kwargs else True
+        bComplete_storm = kwargs['use_complete_storm'] if 'use_complete_storm' in kwargs else False
+        preburst_pattern_method = kwargs['preburst_pattern_method'] if 'preburst_pattern_method' else 'Constant Rate'
+        preburst_pattern_dur = kwargs['preburst_pattern_dur'] if 'preburst_pattern_dur' else None
+        preburst_pattern_tp = kwargs['preburst_pattern_tp'] if 'preburst_pattern_tp' else None
+        bpreburst_dur_proportional = kwargs['preburst_dur_proportional'] if 'preburst_dur_proportional' else False
+
         # convert input RCP if 'all' is specified
         if str(cc_RCP).lower() == 'all':
             cc_RCP = ['RCP4.5', 'RCP6', 'RCP8.5']
@@ -1334,6 +1463,174 @@ class Arr:
                     else:
                         aep_list_formatted.append('{0:.0f}e'.format(float(aep[:-2])))
 
+        # Initial Losses
+        if self.Losses.existsPNLosses and probability_neutral_losses:  # use probability neutral initial losses if they exist
+            # generate same size array between rainfall depths and initial losses
+            b_com_aep, b_com_dur, b_dep_com, b_com_dur_index = common_data(bom.aep_names, bom.duration,
+                                                                           self.Losses.AEP_names,
+                                                                           self.Losses.Duration,
+                                                                           bom.depths)
+            ilb_complete = extend_array_dur(b_com_dur_index, b_com_aep, self.Losses.ilpn,
+                                            bom.duration)  # add all durations to array
+            ilb_complete = interpolate_nan(ilb_complete, bom.duration, self.Losses.ils, lossMethod=lossMethod,
+                                           mar=mar,
+                                           staticLoss=staticLoss)
+            # complete loss array to include all aeps (with nans)
+            ilb_complete = extend_array_aep(b_com_aep, bom.aep_names, ilb_complete)
+
+            # apply user IL
+            if self.Losses.ils_user is not None:
+                if float(self.Losses.ils) < 0:
+                    ilb_complete = ilb_complete * (self.Losses.ils_user / self.Losses.ils)
+                else:
+                    self.logger.warning(
+                        "WARNING: Cannot calculate initial losses from user input because Storm Initial is zero")
+
+        else:  # original method of using preburst and storm loss
+            # write out burst initial loss
+            if preBurst == '10%':
+                preBurst_depths = self.PreBurst.Depths10
+                preBurst_ratios = self.PreBurst.Ratios10
+            elif preBurst == '25%':
+                preBurst_depths = self.PreBurst.Depths25
+                preBurst_ratios = self.PreBurst.Ratios25
+            elif preBurst == '50%':
+                preBurst_depths = self.PreBurst.Depths50
+                preBurst_ratios = self.PreBurst.Ratios50
+            elif preBurst == '75%':
+                preBurst_depths = self.PreBurst.Depths75
+                preBurst_ratios = self.PreBurst.Ratios75
+            elif preBurst == '90%':
+                preBurst_depths = self.PreBurst.Depths90
+                preBurst_ratios = self.PreBurst.Ratios90
+            else:
+                preBurst_depths = self.PreBurst.Depths50
+                preBurst_ratios = self.PreBurst.Ratios50
+
+            # generate same size numpy arrays for burst and preburst data based on common AEPs and Durations
+            b_com_aep, b_com_dur, b_dep_com, b_com_dur_index = common_data(bom.aep_names, bom.duration,
+                                                                           self.PreBurst.AEP_names,
+                                                                           self.PreBurst.Duration,
+                                                                           bom.depths)
+            pb_com_aep, pb_com_dur, pb_dep_com, pb_com_dur_index = common_data(self.PreBurst.AEP_names,
+                                                                               self.PreBurst.Duration,
+                                                                               bom.aep_names,
+                                                                               bom.duration, preBurst_depths)
+            pb_com_aep, pb_com_dur, pb_rto_com, pb_com_dur_index = common_data(self.PreBurst.AEP_names,
+                                                                               self.PreBurst.Duration,
+                                                                               bom.aep_names,
+                                                                               bom.duration, preBurst_ratios)
+
+            # calculate the maximum preburst depths
+            pb_rto_d_com = numpy.multiply(b_dep_com, pb_rto_com)  # convert preburst ratios to depths
+            # pb_dep_final = numpy.maximum(pb_dep_com, pb_rto_d_com)  # take the max of preburst ratios and depths
+            pb_dep_final = pb_dep_com
+
+            # calculate burst intial loss (storm il minus preburst depth)
+            if float(self.Losses.ils) == 0 and float(self.Losses.cls) == 0:
+                # print('WARNING: No rainfall losses found.')
+                self.logger.warning('WARNING: No rainfall losses found.')
+            if float(self.Losses.ils) < 0:
+                # print('WARNING: initial loss value is {0}'.format(self.Losses.ils))
+                self.logger.warning('WARNING: initial loss value is {0}'.format(self.Losses.ils))
+            if float(self.Losses.cls) < 0:
+                # print('WARNING: continuing loss value is {0}'.format(self.Losses.cls))
+                self.logger.warning('WARNING: continuing loss value is {0}'.format(self.Losses.cls))
+            shape_com = pb_dep_final.shape  # array dimensions of preburst depths
+            if self.Losses.ils_user is not None:
+                ils = numpy.zeros(shape_com) + float(self.Losses.ils_user)  # storm initial loss array
+            else:
+                ils = numpy.zeros(shape_com) + float(self.Losses.ils)  # storm initial loss array
+            ilb = numpy.add(ils, -pb_dep_final)  # burst initial loss (storm initial loss subtract preburst)
+
+            # extend loss array to all durations using interpolation
+            ilb_complete = extend_array_dur(b_com_dur_index, b_com_aep, ilb,
+                                            bom.duration)  # add all durations to array
+            ilb_complete = interpolate_nan(ilb_complete, bom.duration, self.Losses.ils, lossMethod=lossMethod,
+                                           mar=mar,
+                                           staticLoss=staticLoss)
+            # complete loss array to include all aeps (with nans)
+            ilb_complete = extend_array_aep(b_com_aep, bom.aep_names, ilb_complete)
+
+            # extend pb array to all durations/AEP by reversing the calculation
+            pb_dep_final_complete = numpy.add(float(self.Losses.ils), -ilb_complete)
+
+            # copy ilb_complete incase complete storm is used later on - change values in routine further down as required
+            il_complete = numpy.copy(ilb_complete)
+
+        # set up negative entry and perc neg entry calculations
+        shape_ilb_complete = ilb_complete.shape  # array dimensions of preburst depths
+        total_entries = float(shape_ilb_complete[0] * shape_ilb_complete[1])  # total number of entries
+        neg_entries = 0
+
+        # write burst initial losses to csv
+        fname_losses = '{0}_Burst_Initial_Losses.csv'.format(site_name)
+        fname_losses_out = os.path.join(fpath, 'data', fname_losses)
+        try:
+            flosses = open(fname_losses_out, 'w')
+        except PermissionError:
+            # print("File is locked for editing {0}".format(fname_losses_out))
+            self.logger.error("File is locked for editing {0}".format(fname_losses_out))
+            raise SystemExit("ERROR: File is locked for editing {0}".format(fname_losses_out))
+        except IOError:
+            # print('Unexpected error opening file {0}'.format(fname_losses_out))
+            self.logger.error('Unexpected error opening file {0}'.format(fname_losses_out))
+            raise SystemExit('ERROR: Unexpected error opening file {0}'.format(fname_losses_out))
+        if self.Losses.existsPNLosses and probability_neutral_losses:
+            if self.Losses.ils_user is not None:
+                flosses.write(
+                    'This File has been generated using ARR_to_TUFLOW. The Burst losses have been calculated by '
+                    'using Probability Neutral Burst Initial Losses provided by the Datahub and the user '
+                    f'provided initial loss value of {self.Losses.ils_user} mm. '
+                    'Eqn: IL Burst = User IL x IL Burst ARR / IL Storm ARR\n')
+            else:
+                flosses.write(
+                    'This File has been generated using ARR_to_TUFLOW. The Burst losses have been calculated by '
+                    'using Probability Neutral Burst Initial Losses provided by the Datahub.\n')
+        else:
+            if self.Losses.ils_user is not None:
+                flosses.write(
+                    'This File has been generated using ARR_to_TUFLOW. The Burst losses have been calculated by '
+                    'subtracting the maximum preburst (Depth or Ratios) from the user defined initial loss '
+                    f'value of {self.Losses.ils_user} mm.\n')
+            else:
+                flosses.write(
+                    'This File has been generated using ARR_to_TUFLOW. The Burst losses have been calculated by '
+                    'subtracting the maximum preburst (Depth or Ratios) from the storm initial loss.\n')
+        flosses.write('Duration (mins),{0}\n'.format(",".join(map(str, bom.aep_names))))
+
+        for i, dur in enumerate(bom.duration):
+            line = '{0}'.format(dur)
+            for j in range(shape_ilb_complete[1]):
+                if numpy.isnan(ilb_complete[i, j]):
+                    line = line + ',-'
+                else:
+                    line = line + ',{0:.1f}'.format(ilb_complete[i, j])
+                    neg_entries += (1 if ilb_complete[i, j] < 0 else 0)
+            line = line + '\n'
+            flosses.write(line)
+
+        flosses.flush()
+        flosses.close()
+
+        # Save Figure
+        fig_name = os.path.join(fpath, 'data', '{0}_Burst_Initial_Losses.png'.format(site_name))
+        ymax = math.ceil(float(self.Losses.ils) / 10.0) * 10
+        xmax = 10 ** math.ceil(math.log10(max(b_com_dur)))
+        ymin = math.floor(numpy.nanmin(ilb_complete) / 10.0) * 10
+
+        make_figure(fig_name, bom.duration, ilb_complete, 1, xmax, ymin, ymax, 'Duration (mins)', 'Depth (mm)',
+                    'Design Initial Losses: {0}'.format(site_name), bom.aep_names, xlog=True)
+
+        # complete neg entry calculation and write out warning
+        perc_neg = (neg_entries / total_entries) * 100  # percentage of negative entries
+        if neg_entries > 0:
+            # print('WARNING: {0} preburst rainfall depths exceeded storm initial loss ({1:.1f}% of entries)'.
+            #      format(neg_entries, perc_neg))
+            self.logger.warning(
+                'WARNING: {0} preburst rainfall depths exceeded storm initial loss ({1:.1f}% of entries)'.
+                    format(neg_entries, perc_neg))
+
         for a, aep in enumerate(aep_list):
             # get AEP band as per Figure 2.5.12. Temporal Pattern Ranges
             if aep not in exported_aep:
@@ -1382,6 +1679,8 @@ class Arr:
                 #print('WARNING: Unable to find BOM data for AEP: {0} - skipping'.format(aep))
                 self.logger.warning('WARNING: Unable to find BOM data for AEP: {0} - skipping'.format(aep))
                 continue
+
+            # rf inflow
             if process_aep:  # AEP data exists
                 if all_duration:
                     # need to specify AEP_band based on AEP specified
@@ -1408,20 +1707,58 @@ class Arr:
                                 self.logger.warning("WARNING: Depths for very rare events (< 1% AEP) are not yet provided.")
                                 depth_available = False
                         ids, increments, dts = self.Temporal.get_dur_aep(duration, aep_band)
+                        increments_pb = []
+                        dts_pb = 0
+                        pb_depth = 0
+                        if bComplete_storm:
+                            if self.Losses.existsPNLosses and probability_neutral_losses:
+                                self.logger.warning("WARNING: Cannot use complete storm and Probability Neutral Burst"
+                                                    "Initial Losses... using design storm")
+                            else:
+                                i = aep_ind
+                                j = dur_ind
+                                try:
+                                    pb_depth = pb_dep_final_complete[j,i]
+                                    if numpy.isnan(pb_depth):
+                                        self.logger.warning(
+                                            f"WARNING: No preburst depths exist for aep/duration [{aep}/{duration} min]"
+                                            "... using design storm")
+                                    else:
+                                        increments_pb, dts_pb = self.Temporal.get_dur_aep_pb(duration, aep_band,
+                                                                                             preburst_pattern_method,
+                                                                                             preburst_pattern_dur,
+                                                                                             preburst_pattern_tp,
+                                                                                             bpreburst_dur_proportional,
+                                                                                             aep)
+                                        il_complete[j,i] = float(self.Losses.ils)  # change burst loss to storm loss
+                                except IndexError:
+                                    self.logger.warning(
+                                        "WARNING: Error occurred obtaining preburst depth... using design storm")
+
                         nid = len(ids)
-                        ntimes = len(increments[0]) + 2  # add zero to start and end
+                        ntimes = len(increments[0]) + len(increments_pb) + 2  # add zero to start and end
                         rf_array = numpy.zeros([nid, ntimes])
                         times = [0]
                         if out_form == 'ts1':
                             dt = dts[0]
                         else:
                             dt = dts[0] / 60.  # output in hours
-                        for i in range(ntimes - 1):
+                            dts_pb = dts_pb / 60.
+                        for i in range(len(increments_pb)):
+                            times.append(times[-1] + dts_pb)
+                        for i in range(len(increments[0])):
                             times.append(times[-1] + dt)
+                        times.append(times[-1] + dt)
                         # sort data into nice array
                         for i in range(nid):
+                            i2 = 1
+                            for j in range(len(increments_pb)):
+                                rf_array[i, i2] = increments_pb[j] * pb_depth / 100.
+                                i2 += 1
                             for j in range(len(increments[i])):
-                                rf_array[i, j + 1] = increments[i][j] * depth / 100.
+                                #rf_array[i, j + 1] = increments[i][j] * depth / 100.
+                                rf_array[i, i2] = increments[i][j] * depth / 100.
+                                i2 += 1
                         if cc:
                             # add climate change temporal patter to array so it can be written to same file
                             for year, k in cc_years_dict.items():
@@ -1435,8 +1772,14 @@ class Arr:
                                         cc_multip = (self.CCF.RCP8p5[k] / 100) + 1
                                     cc_rf_array = np.zeros([nid, ntimes])
                                     for i in range(nid):
+                                        i2 = 1
+                                        for j in range(len(increments_pb)):
+                                            cc_rf_array[i, i2] = increments_pb[j] * pb_depth / 100.
+                                            i2 += 1
                                         for j in range(len(increments[i])):
-                                            cc_rf_array[i, j + 1] = increments[i][j] * depth * cc_multip / 100
+                                            #cc_rf_array[i, j + 1] = increments[i][j] * depth * cc_multip / 100
+                                            cc_rf_array[i, i2] = increments[i][j] * depth * cc_multip / 100
+                                            i2 += 1
                                     rf_array = numpy.append(rf_array, cc_rf_array, axis=0)
                         # open output file
                         if aep[-1] == '%':
@@ -1525,115 +1868,157 @@ class Arr:
                         fo.flush()
                         fo.close()
 
-        # write out burst initial loss
-        if preBurst == '10%':
-            preBurst_depths = self.PreBurst.Depths10
-            preBurst_ratios = self.PreBurst.Ratios10
-        elif preBurst == '25%':
-            preBurst_depths = self.PreBurst.Depths25
-            preBurst_ratios = self.PreBurst.Ratios25
-        elif preBurst == '50%':
-            preBurst_depths = self.PreBurst.Depths50
-            preBurst_ratios = self.PreBurst.Ratios50
-        elif preBurst == '75%':
-            preBurst_depths = self.PreBurst.Depths75
-            preBurst_ratios = self.PreBurst.Ratios75
-        elif preBurst == '90%':
-            preBurst_depths = self.PreBurst.Depths90
-            preBurst_ratios = self.PreBurst.Ratios90
-        else:
-            preBurst_depths = self.PreBurst.Depths50
-            preBurst_ratios = self.PreBurst.Ratios50
-
-        # generate same size numpy arrays for burst and preburst data based on common AEPs and Durations
-        b_com_aep, b_com_dur, b_dep_com, b_com_dur_index = common_data(bom.aep_names, bom.duration,
-                                                                       self.PreBurst.AEP_names, self.PreBurst.Duration,
-                                                                       bom.depths)
-        pb_com_aep, pb_com_dur, pb_dep_com, pb_com_dur_index = common_data(self.PreBurst.AEP_names,
-                                                                           self.PreBurst.Duration, bom.aep_names,
-                                                                           bom.duration, preBurst_depths)
-        pb_com_aep, pb_com_dur, pb_rto_com, pb_com_dur_index = common_data(self.PreBurst.AEP_names,
-                                                                           self.PreBurst.Duration, bom.aep_names,
-                                                                           bom.duration, preBurst_ratios)
-
-        # calculate the maximum preburst depths
-        pb_rto_d_com = numpy.multiply(b_dep_com, pb_rto_com)  # convert preburst ratios to depths
-        #pb_dep_final = numpy.maximum(pb_dep_com, pb_rto_d_com)  # take the max of preburst ratios and depths
-        pb_dep_final = pb_dep_com
-
-        # calculate burst intial loss (storm il minus preburst depth)
-        if float(self.Losses.ils) == 0 and float(self.Losses.cls) == 0:
-            #print('WARNING: No rainfall losses found.')
-            self.logger.warning('WARNING: No rainfall losses found.')
-        if float(self.Losses.ils) < 0:
-            #print('WARNING: initial loss value is {0}'.format(self.Losses.ils))
-            self.logger.warning('WARNING: initial loss value is {0}'.format(self.Losses.ils))
-        if float(self.Losses.cls) < 0:
-            #print('WARNING: continuing loss value is {0}'.format(self.Losses.cls))
-            self.logger.warning('WARNING: continuing loss value is {0}'.format(self.Losses.cls))
-        shape_com = pb_dep_final.shape  # array dimensions of preburst depths
-        ils = numpy.zeros(shape_com) + float(self.Losses.ils)  # storm initial loss array
-        ilb = numpy.add(ils, -pb_dep_final)  # burst initial loss (storm initial loss subtract preburst)
-
-        # extend loss array to all durations using interpolation
-        ilb_complete = extend_array_dur(b_com_dur_index, b_com_aep, ilb, bom.duration)  # add all durations to array
-        ilb_complete = interpolate_nan(ilb_complete, bom.duration, self.Losses.ils, lossMethod=lossMethod, mar=mar,
-                                       staticLoss=staticLoss)
-        # complete loss array to include all aeps (with nans)
-        ilb_complete = extend_array_aep(b_com_aep, bom.aep_names, ilb_complete)
-
-        # set up negative entry and perc neg entry calculations
-        shape_ilb_complete = ilb_complete.shape  # array dimensions of preburst depths
-        total_entries = float(shape_ilb_complete[0] * shape_ilb_complete[1])  # total number of entries
-        neg_entries = 0
-
-        # write burst initial losses to csv
-        fname_losses = '{0}_Burst_Initial_Losses.csv'.format(site_name)
-        fname_losses_out = os.path.join(fpath, 'data', fname_losses)
-        try:
-            flosses = open(fname_losses_out, 'w')
-        except PermissionError:
-            #print("File is locked for editing {0}".format(fname_losses_out))
-            self.logger.error("File is locked for editing {0}".format(fname_losses_out))
-            raise SystemExit("ERROR: File is locked for editing {0}".format(fname_losses_out))
-        except IOError:
-            #print('Unexpected error opening file {0}'.format(fname_losses_out))
-            self.logger.error('Unexpected error opening file {0}'.format(fname_losses_out))
-            raise SystemExit('ERROR: Unexpected error opening file {0}'.format(fname_losses_out))
-        flosses.write('This File has been generated using ARR_to_TUFLOW. The Burst losses have been calculated by '
-                      'subtracting the maximum preburst (Depth or Ratios) from the storm initial loss.\n')
-        flosses.write('Duration (mins),{0}\n'.format(",".join(map(str, bom.aep_names))))
-
-        for i, dur in enumerate(bom.duration):
-            line = '{0}'.format(dur)
-            for j in range(shape_ilb_complete[1]):
-                if numpy.isnan(ilb_complete[i, j]):
-                    line = line + ',-'
-                else:
-                    line = line + ',{0:.1f}'.format(ilb_complete[i, j])
-                    neg_entries += (1 if ilb_complete[i, j] < 0 else 0)
-            line = line + '\n'
-            flosses.write(line)
-
-        flosses.flush()
-        flosses.close()
-
-        # Save Figure
-        fig_name = os.path.join(fpath, 'data', '{0}_Burst_Initial_Losses.png'.format(site_name))
-        ymax = math.ceil(float(self.Losses.ils) / 10.0) * 10
-        xmax = 10 ** math.ceil(math.log10(max(b_com_dur)))
-        ymin = math.floor(numpy.nanmin(ilb_complete) / 10.0) * 10
-
-        make_figure(fig_name, bom.duration, ilb_complete, 1, xmax, ymin, ymax, 'Duration (mins)', 'Depth (mm)',
-                    'Design Initial Losses: {0}'.format(site_name), bom.aep_names, xlog=True)
-
-        # complete neg entry calculation and write out warning
-        perc_neg = (neg_entries / total_entries) * 100  # percentage of negative entries
-        if neg_entries > 0:
-            #print('WARNING: {0} preburst rainfall depths exceeded storm initial loss ({1:.1f}% of entries)'.
-            #      format(neg_entries, perc_neg))
-            self.logger.warning('WARNING: {0} preburst rainfall depths exceeded storm initial loss ({1:.1f}% of entries)'.
-                                format(neg_entries, perc_neg))
+    #    # Initial Losses
+    #    if self.Losses.existsPNLosses and probability_neutral_losses:  # use probability neutral initial losses if they exist
+    #        # generate same size array between rainfall depths and initial losses
+    #        b_com_aep, b_com_dur, b_dep_com, b_com_dur_index = common_data(bom.aep_names, bom.duration,
+    #                                                                       self.Losses.AEP_names,
+    #                                                                       self.Losses.Duration,
+    #                                                                       bom.depths)
+    #        ilb_complete = extend_array_dur(b_com_dur_index, b_com_aep, self.Losses.ilpn, bom.duration)  # add all durations to array
+    #        ilb_complete = interpolate_nan(ilb_complete, bom.duration, self.Losses.ils, lossMethod=lossMethod, mar=mar,
+    #                                       staticLoss=staticLoss)
+    #        # complete loss array to include all aeps (with nans)
+    #        ilb_complete = extend_array_aep(b_com_aep, bom.aep_names, ilb_complete)
+#
+    #        # apply user IL
+    #        if self.Losses.ils_user is not None:
+    #            if float(self.Losses.ils) < 0:
+    #                ilb_complete = ilb_complete * (self.Losses.ils_user / self.Losses.ils)
+    #            else:
+    #                self.logger.warning(
+    #                    "WARNING: Cannot calculate initial losses from user input because Storm Initial is zero")
+#
+    #    else:  # original method of using preburst and storm loss
+    #        # write out burst initial loss
+    #        if preBurst == '10%':
+    #            preBurst_depths = self.PreBurst.Depths10
+    #            preBurst_ratios = self.PreBurst.Ratios10
+    #        elif preBurst == '25%':
+    #            preBurst_depths = self.PreBurst.Depths25
+    #            preBurst_ratios = self.PreBurst.Ratios25
+    #        elif preBurst == '50%':
+    #            preBurst_depths = self.PreBurst.Depths50
+    #            preBurst_ratios = self.PreBurst.Ratios50
+    #        elif preBurst == '75%':
+    #            preBurst_depths = self.PreBurst.Depths75
+    #            preBurst_ratios = self.PreBurst.Ratios75
+    #        elif preBurst == '90%':
+    #            preBurst_depths = self.PreBurst.Depths90
+    #            preBurst_ratios = self.PreBurst.Ratios90
+    #        else:
+    #            preBurst_depths = self.PreBurst.Depths50
+    #            preBurst_ratios = self.PreBurst.Ratios50
+#
+    #        # generate same size numpy arrays for burst and preburst data based on common AEPs and Durations
+    #        b_com_aep, b_com_dur, b_dep_com, b_com_dur_index = common_data(bom.aep_names, bom.duration,
+    #                                                                       self.PreBurst.AEP_names, self.PreBurst.Duration,
+    #                                                                       bom.depths)
+    #        pb_com_aep, pb_com_dur, pb_dep_com, pb_com_dur_index = common_data(self.PreBurst.AEP_names,
+    #                                                                           self.PreBurst.Duration, bom.aep_names,
+    #                                                                           bom.duration, preBurst_depths)
+    #        pb_com_aep, pb_com_dur, pb_rto_com, pb_com_dur_index = common_data(self.PreBurst.AEP_names,
+    #                                                                           self.PreBurst.Duration, bom.aep_names,
+    #                                                                           bom.duration, preBurst_ratios)
+#
+    #        # calculate the maximum preburst depths
+    #        pb_rto_d_com = numpy.multiply(b_dep_com, pb_rto_com)  # convert preburst ratios to depths
+    #        #pb_dep_final = numpy.maximum(pb_dep_com, pb_rto_d_com)  # take the max of preburst ratios and depths
+    #        pb_dep_final = pb_dep_com
+#
+    #        # calculate burst intial loss (storm il minus preburst depth)
+    #        if float(self.Losses.ils) == 0 and float(self.Losses.cls) == 0:
+    #            #print('WARNING: No rainfall losses found.')
+    #            self.logger.warning('WARNING: No rainfall losses found.')
+    #        if float(self.Losses.ils) < 0:
+    #            #print('WARNING: initial loss value is {0}'.format(self.Losses.ils))
+    #            self.logger.warning('WARNING: initial loss value is {0}'.format(self.Losses.ils))
+    #        if float(self.Losses.cls) < 0:
+    #            #print('WARNING: continuing loss value is {0}'.format(self.Losses.cls))
+    #            self.logger.warning('WARNING: continuing loss value is {0}'.format(self.Losses.cls))
+    #        shape_com = pb_dep_final.shape  # array dimensions of preburst depths
+    #        if self.Losses.ils_user is not None:
+    #            ils = numpy.zeros(shape_com) + float(self.Losses.ils_user)  # storm initial loss array
+    #        else:
+    #            ils = numpy.zeros(shape_com) + float(self.Losses.ils)  # storm initial loss array
+    #        ilb = numpy.add(ils, -pb_dep_final)  # burst initial loss (storm initial loss subtract preburst)
+#
+    #        # extend loss array to all durations using interpolation
+    #        ilb_complete = extend_array_dur(b_com_dur_index, b_com_aep, ilb, bom.duration)  # add all durations to array
+    #        ilb_complete = interpolate_nan(ilb_complete, bom.duration, self.Losses.ils, lossMethod=lossMethod, mar=mar,
+    #                                       staticLoss=staticLoss)
+    #        # complete loss array to include all aeps (with nans)
+    #        ilb_complete = extend_array_aep(b_com_aep, bom.aep_names, ilb_complete)
+#
+    #    # set up negative entry and perc neg entry calculations
+    #    shape_ilb_complete = ilb_complete.shape  # array dimensions of preburst depths
+    #    total_entries = float(shape_ilb_complete[0] * shape_ilb_complete[1])  # total number of entries
+    #    neg_entries = 0
+#
+    #    # write burst initial losses to csv
+    #    fname_losses = '{0}_Burst_Initial_Losses.csv'.format(site_name)
+    #    fname_losses_out = os.path.join(fpath, 'data', fname_losses)
+    #    try:
+    #        flosses = open(fname_losses_out, 'w')
+    #    except PermissionError:
+    #        #print("File is locked for editing {0}".format(fname_losses_out))
+    #        self.logger.error("File is locked for editing {0}".format(fname_losses_out))
+    #        raise SystemExit("ERROR: File is locked for editing {0}".format(fname_losses_out))
+    #    except IOError:
+    #        #print('Unexpected error opening file {0}'.format(fname_losses_out))
+    #        self.logger.error('Unexpected error opening file {0}'.format(fname_losses_out))
+    #        raise SystemExit('ERROR: Unexpected error opening file {0}'.format(fname_losses_out))
+    #    if self.Losses.existsPNLosses and probability_neutral_losses:
+    #        if self.Losses.ils_user is not None:
+    #            flosses.write(
+    #                'This File has been generated using ARR_to_TUFLOW. The Burst losses have been calculated by '
+    #                'using Probability Neutral Burst Initial Losses provided by the Datahub and the user '
+    #                f'provided initial loss value of {self.Losses.ils_user} mm. '
+    #                'Eqn: IL Burst = User IL x IL Burst ARR / IL Storm ARR\n')
+    #        else:
+    #            flosses.write('This File has been generated using ARR_to_TUFLOW. The Burst losses have been calculated by '
+    #                          'using Probability Neutral Burst Initial Losses provided by the Datahub.\n')
+    #    else:
+    #        if self.Losses.ils_user is not None:
+    #            flosses.write(
+    #                'This File has been generated using ARR_to_TUFLOW. The Burst losses have been calculated by '
+    #                'subtracting the maximum preburst (Depth or Ratios) from the user defined initial loss '
+    #                f'value of {self.Losses.ils_user} mm.\n')
+    #        else:
+    #            flosses.write('This File has been generated using ARR_to_TUFLOW. The Burst losses have been calculated by '
+    #                          'subtracting the maximum preburst (Depth or Ratios) from the storm initial loss.\n')
+    #    flosses.write('Duration (mins),{0}\n'.format(",".join(map(str, bom.aep_names))))
+#
+    #    for i, dur in enumerate(bom.duration):
+    #        line = '{0}'.format(dur)
+    #        for j in range(shape_ilb_complete[1]):
+    #            if numpy.isnan(ilb_complete[i, j]):
+    #                line = line + ',-'
+    #            else:
+    #                line = line + ',{0:.1f}'.format(ilb_complete[i, j])
+    #                neg_entries += (1 if ilb_complete[i, j] < 0 else 0)
+    #        line = line + '\n'
+    #        flosses.write(line)
+#
+    #    flosses.flush()
+    #    flosses.close()
+#
+    #    # Save Figure
+    #    fig_name = os.path.join(fpath, 'data', '{0}_Burst_Initial_Losses.png'.format(site_name))
+    #    ymax = math.ceil(float(self.Losses.ils) / 10.0) * 10
+    #    xmax = 10 ** math.ceil(math.log10(max(b_com_dur)))
+    #    ymin = math.floor(numpy.nanmin(ilb_complete) / 10.0) * 10
+#
+    #    make_figure(fig_name, bom.duration, ilb_complete, 1, xmax, ymin, ymax, 'Duration (mins)', 'Depth (mm)',
+    #                'Design Initial Losses: {0}'.format(site_name), bom.aep_names, xlog=True)
+#
+    #    # complete neg entry calculation and write out warning
+    #    perc_neg = (neg_entries / total_entries) * 100  # percentage of negative entries
+    #    if neg_entries > 0:
+    #        #print('WARNING: {0} preburst rainfall depths exceeded storm initial loss ({1:.1f}% of entries)'.
+    #        #      format(neg_entries, perc_neg))
+    #        self.logger.warning('WARNING: {0} preburst rainfall depths exceeded storm initial loss ({1:.1f}% of entries)'.
+    #                            format(neg_entries, perc_neg))
 
         # write common bc_dbase
         bc_fname = os.path.join(fpath, 'bc_dbase.csv')
@@ -1875,7 +2260,8 @@ class Arr:
                         trd_open.write("    Else If Event == {0}m\n".format(dur))
                     # get intial loss value
                     dur_index = bom.duration.index(dur_list[j])
-                    il = ilb_complete[dur_index, mag_index]
+                    #il = ilb_complete[dur_index, mag_index]
+                    il = il_complete[dur_index, mag_index]
                     if np.isnan(il):
                         il = 0
                     trd_open.write("        Set Variable IL_{1} == {0:.1f}\n".format(il, site_name))
@@ -1925,7 +2311,8 @@ class Arr:
                                             dur = dur.split('!')[0]
                                             dur = dur.strip().strip('m')
                                             dur_index = bom.duration.index(int(dur))
-                                            il = ilb_complete[dur_index, mag_index]
+                                            #il = ilb_complete[dur_index, mag_index]
+                                            il = il_complete[dur_index, mag_index]
                                             if np.isnan(il):
                                                 il = 0
                                             insert_index.append(k + catch_no * 2 + 1)
@@ -1998,6 +2385,43 @@ class Arr:
                             label = property_value.strip()
             fi.seek(0)
             
+        return label
+
+    def arealTemporalPatternCode(self, fi):
+        """
+        Collects the areal temporal pattern region code
+
+        :param fi: str full file path to input file
+        :return: str temporal pattern region
+        """
+
+        label = ''
+
+        # if fi is a string then open
+        if type(fi) is str:
+            with open(fi, 'r') as fo:
+                for line in fo:
+                    if "[ATP]" in line.upper():
+                        for subline in fo:
+                            if '[END_ATP]' in subline.upper():
+                                return label
+                            if 'CODE' in subline.upper():
+                                property_name, property_value = subline.split(',')
+                                label = property_value.strip()
+
+        # else file may already be an open object
+        else:
+            for line in fi:
+                if "[ATP]" in line.upper():
+                    for subline in fi:
+                        if '[END_ATP]' in subline.upper():
+                            fi.seek(0)
+                            return label
+                        if 'CODE' in subline.upper():
+                            property_name, property_value = subline.split(',')
+                            label = property_value.strip()
+            fi.seek(0)
+
         return label
     
 if __name__ == '__main__':

@@ -2,6 +2,7 @@ import os
 import numpy as np
 import io
 import datetime
+import re
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5 import QtGui
@@ -9,9 +10,13 @@ from qgis.core import *
 from PyQt5.QtWidgets import *
 from qgis.PyQt.QtXml import QDomDocument
 from matplotlib.patches import Polygon
+from matplotlib.quiver import Quiver
+from matplotlib.collections import PolyCollection
+from matplotlib import cm
+from matplotlib.colors import LinearSegmentedColormap
 from tuflow.tuflowqgis_library import loadLastFolder, getResultPathsFromTCF, getScenariosFromTcf, getEventsFromTCF, \
 	tuflowqgis_find_layer, getUnit, getCellSizeFromTCF, getOutputZonesFromTCF, getPathFromRel, convertTimeToFormattedTime, \
-	convertFormattedTimeToTime, getResultPathsFromTLF
+	convertFormattedTimeToTime, getResultPathsFromTLF, browse, qgsxml_as_mpl_cdict
 from tuflow.tuflowqgis_dialog import tuflowqgis_scenarioSelection_dialog, tuflowqgis_eventSelection_dialog, \
 	TuOptionsDialog, TuSelectedElementsDialog, tuflowqgis_meshSelection_dialog, TuBatchPlotExportDialog, \
 	TuUserPlotDataManagerDialog, tuflowqgis_outputZoneSelection_dialog, tuflowqgis_brokenLinks_dialog
@@ -41,8 +46,9 @@ class TuMenuFunctions():
 		
 		if not result2D:
 			# Get last loaded settings
-			fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_2DResults/lastFolder")
-			
+			# fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_2DResults/lastFolder")
+			fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_Results/lastFolder")
+
 			# User get 2D result file
 			inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW 2D results file',
 			                                           fpath,
@@ -77,7 +83,7 @@ class TuMenuFunctions():
 		# finally save the last folder location
 		fpath = os.path.dirname(inFileNames[0][0])
 		settings = QSettings()
-		settings.setValue("TUFLOW_2DResults/lastFolder", fpath)
+		settings.setValue("TUFLOW_Results/lastFolder", fpath)
 		
 		if not loaded:
 			return False
@@ -97,8 +103,9 @@ class TuMenuFunctions():
 		
 		if not result1D:
 			# Get last loaded settings
-			fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_1DResults/lastFolder")
-			
+			# fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_1DResults/lastFolder")
+			fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_Results/lastFolder")
+
 			# User get 1D result file
 			inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW 1D results file',
 			                                           fpath,
@@ -149,10 +156,79 @@ class TuMenuFunctions():
 		# finally save the last folder location
 		fpath = os.path.dirname(inFileNames[0][0])
 		settings = QSettings()
-		settings.setValue("TUFLOW_1DResults/lastFolder", fpath)
+		settings.setValue("TUFLOW_Results/lastFolder", fpath)
 		
 		return True
-	
+
+	def loadParticlesResults(self, **kwargs):
+		"""
+		Loads Particles results into ui and prompts user to load GIS files.
+
+		:return: bool -> True for successful, False for unsuccessful
+		"""
+
+		resultParticles = kwargs['result_particles'] if 'result_particles' in kwargs.keys() else None
+		unlock = kwargs['unlock'] if 'unlock' in kwargs else True
+		askGis = kwargs['ask_gis'] if 'ask_gis' in kwargs else True
+
+		if not resultParticles:
+			# Get last loaded settings
+			fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_ParticlesResults/lastFolder")
+
+			# User get 1D result file
+			inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW Particles results file',
+													   fpath,
+													   "TUFLOW Particles Results (*.nc)")
+			if not inFileNames[0]:  # empty list
+				return False
+
+		else:
+			# check if the result paths exist
+			# for loading in project - check if links are not broken
+			inFileNames = []
+			brokenLinks = []
+			for inFileName in resultParticles[0]:
+				if os.path.exists(inFileName):
+					inFileNames.append(inFileName)
+				else:
+					brokenLinks.append(inFileName)
+			if brokenLinks:
+				brokenLinksDialog = tuflowqgis_brokenLinks_dialog(self.iface, brokenLinks)
+				brokenLinksDialog.exec_()
+			inFileNames = [inFileNames]
+
+		if not inFileNames[0]:
+			return False
+
+		# Prompt user if they want to load in GIS files
+		for inFileName in inFileNames[0]:
+			alsoOpenGis = QMessageBox.No
+			if os.path.splitext(inFileName)[1].lower() == '.tpc':
+				if askGis:
+					alsoOpenGis = QMessageBox.question(self.iface.mainWindow(),
+													   "TUFLOW Viewer", 'Do you also want to open result GIS layer?',
+													   QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+			break  # only need to ask once
+		if alsoOpenGis == QMessageBox.Yes:
+			self.tuView.tuResults.tuResults1D.openGis(inFileNames[0][0])
+		elif alsoOpenGis == QMessageBox.Cancel:
+			return False
+
+		# import results
+		self.tuView.tuResults.importResults('particles', inFileNames[0])
+
+		# unlock map output timesteps only
+		if unlock:
+			if self.tuView.lock2DTimesteps:
+				self.tuView.timestepLockChanged()
+
+		# finally save the last folder location
+		fpath = os.path.dirname(inFileNames[0][0])
+		settings = QSettings()
+		settings.setValue("TUFLOW_ParticlesResults/lastFolder", fpath)
+
+		return True
+
 	def load1d2dResults(self):
 		"""
 		Loads 1D and 2D reuslts from TCF file.
@@ -180,7 +256,8 @@ class TuMenuFunctions():
 				# get scenarios from TCF and prompt user to select desired scenarios
 				error, message, scenarios = getScenariosFromTcf(file)
 				if error:
-					QMessageBox.critical(self.tuView, "Load From TCF", message)
+					if message:
+						QMessageBox.critical(self.tuView, "Load From TCF", message)
 				if scenarios:
 					self.scenarioDialog = tuflowqgis_scenarioSelection_dialog(self.iface, file, scenarios)
 					self.scenarioDialog.exec_()
@@ -260,7 +337,8 @@ class TuMenuFunctions():
 		
 		results = []
 		for item in self.tuView.OpenResults.selectedItems():
-			results.append(item.text())
+			if self.tuView.hydTables.getData(item.text()) is None:
+				results.append(item.text())
 
 		self.tuView.tuResults.removeResults(results)
 		for result in results:
@@ -281,8 +359,9 @@ class TuMenuFunctions():
 
 		results = []
 		for item in self.tuView.OpenResults.selectedItems():
-			layer = tuflowqgis_find_layer(item.text())
-			self.tuView.project.removeMapLayer(layer)
+			if self.tuView.hydTables.getData(item.text()) is None:
+				layer = tuflowqgis_find_layer(item.text())
+				self.tuView.project.removeMapLayer(layer)
 			
 		self.tuView.canvas.refresh()
 		self.tuView.resultsChanged()
@@ -298,14 +377,33 @@ class TuMenuFunctions():
 		
 		results = []
 		for item in self.tuView.OpenResults.selectedItems():
-			results.append(item.text())
+			if self.tuView.hydTables.getData(item.text()) is None:
+				results.append(item.text())
 		
 		self.tuView.tuResults.tuResults1D.removeResults(results)
 		
 		self.tuView.resultsChanged()
 		
 		return True
-	
+
+	def removeParticlesResults(self):
+		"""
+		Removes the selected results from the ui - 1D results only
+
+		:return: bool -> True for successful, False for unsuccessful
+		"""
+
+		results = []
+		for item in self.tuView.OpenResults.selectedItems():
+			if self.tuView.hydTables.getData(item.text()) is None:
+				results.append(item.text())
+
+		self.tuView.tuResults.tuResultsParticles.removeResults(results)
+
+		self.tuView.resultsChanged()
+
+		return True
+
 	def updateMapPlotWindows(self):
 		"""
 		Update map window and all plot windows
@@ -389,7 +487,8 @@ class TuMenuFunctions():
 						line = ''
 						for j, value in enumerate(row):
 							if type(data[i][j]) is datetime.datetime:
-								line += '{0}\t'.format(data[i][j])
+								# line += '{0}\t'.format(data[i][j])
+								line += '{0},'.format(data[i][j])
 							elif not np.isnan(data[i][j]):
 								line += '{0},'.format(data[i][j])
 							else:
@@ -492,6 +591,10 @@ class TuMenuFunctions():
 		for line in lines:
 			if type(line) == Polygon:
 				maxLen = max(maxLen, len(line.get_xy()))
+			elif type(line) is Quiver:
+				continue
+			elif type(line) is PolyCollection:
+				continue
 			else:
 				maxLen = max(maxLen, len(line.get_data()[0]))
 		for line in lines2:
@@ -505,10 +608,14 @@ class TuMenuFunctions():
 		for i, line in enumerate(lines):
 			if i == 0:
 				data = np.zeros((maxLen, 1))  # set up data array.. start with zeros and delete first column once populated
-			if type(line) == Polygon:
+			if type(line) is Polygon:
 				xy = line.get_xy()
 				x = xy[:,0]
 				y = xy[:,1]
+			elif type(line) is Quiver:
+				continue
+			elif type(line) is PolyCollection:
+				continue
 			else:
 				x, y = line.get_data()
 			if type(x) is list:  # if not a numpy array, convert it to one
@@ -537,10 +644,14 @@ class TuMenuFunctions():
 				if data is None:
 					data = np.zeros((maxLen, 1))  # set up data array
 					needToDeleteFirstColumn = True
-			if type(line) == Polygon:
+			if type(line) is Polygon:
 				xy = line.get_xy()
 				x = xy[:,0]
 				y = xy[:,1]
+			elif type(line) is Quiver:
+				continue
+			elif type(line) is PolyCollection:
+				continue
 			else:
 				x, y = line.get_data()
 			if type(x) is list:  # if not a numpy array, convert it to one
@@ -828,27 +939,37 @@ class TuMenuFunctions():
 		uri = 'linestring?crs={0}'.format(crsId)
 		shpLayer = QgsVectorLayer(uri, os.path.splitext(os.path.basename(saveFile))[0], 'memory')
 		dp = shpLayer.dataProvider()
-		dp.addAttributes([QgsField('Name', QVariant.String)])
+		dp.addAttributes([
+			QgsField('Name', QVariant.String, len=10),
+			QgsField('Type', QVariant.String, len=50)
+		])
 		shpLayer.updateFields()
 		feats = []  # list of QgsFeature objects
-		for i, rubberBand in enumerate(self.tuView.tuPlot.tuRubberBand.rubberBands):
-			geom = rubberBand.asGeometry().asPolyline()
-			feat = QgsFeature()
-			try:
-				feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
-			except:
-				feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in geom]))
-			feat.setAttributes(['Line {0}'.format(i+1)])
-			feats.append(feat)
-		for i, line in enumerate(self.tuView.tuPlot.tuFlowLine.rubberBands):
-			geom = line.asGeometry().asPolyline()
-			feat = QgsFeature()
-			try:
-				feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
-			except:
-				feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in geom]))
-			feat.setAttributes(['Flow Location {0}'.format(i + 1)])
-			feats.append(feat)
+		#for i, rubberBand in enumerate(self.tuView.tuPlot.tuCrossSection.rubberBands):
+		i = 0
+		for line, type_ in self.tuView.tuPlot.lines.items():
+			for rubberBand in line.rubberBands:
+				i += 1
+				geom = rubberBand.asGeometry().asPolyline()
+				feat = QgsFeature()
+				try:
+					feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
+				except:
+					feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in geom]))
+				feat.setAttributes([
+					'Line {0}'.format(i),
+					type_
+				])
+				feats.append(feat)
+		# for i, line in enumerate(self.tuView.tuPlot.tuFlowLine.rubberBands):
+		# 	geom = line.asGeometry().asPolyline()
+		# 	feat = QgsFeature()
+		# 	try:
+		# 		feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x) for x in geom]))
+		# 	except:
+		# 		feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in geom]))
+		# 	feat.setAttributes(['Flow Location {0}'.format(i + 1)])
+		# 	feats.append(feat)
 		error = dp.addFeatures(feats)
 		shpLayer.updateExtents()
 		QgsVectorFileWriter.writeAsVectorFormat(shpLayer, saveFile, 'CP1250', crs, 'ESRI Shapefile')
@@ -886,14 +1007,24 @@ class TuMenuFunctions():
 		uri = 'point?crs={0}'.format(crsId)
 		shpLayer = QgsVectorLayer(uri, os.path.splitext(os.path.basename(saveFile))[0], 'memory')
 		dp = shpLayer.dataProvider()
-		dp.addAttributes([QgsField('Name', QVariant.String)])
+		dp.addAttributes([
+			QgsField('Name', QVariant.String, len=10),
+			QgsField('Type', QVariant.String, len=50)
+		])
 		shpLayer.updateFields()
 		feats = []  # list of QgsFeature objects
-		for i, point in enumerate(self.tuView.tuPlot.tuRubberBand.markerPoints):
-			feat = QgsFeature()
-			feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
-			feat.setAttributes(['Point {0}'.format(i + 1)])
-			feats.append(feat)
+		#for i, point in enumerate(self.tuView.tuPlot.tuTSPoint.points):
+		i = 0
+		for marker, type_ in self.tuView.tuPlot.markers.items():
+			for point in marker.points:
+				i += 1
+				feat = QgsFeature()
+				feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
+				feat.setAttributes([
+					'Point {0}'.format(i),
+					type_
+				])
+				feats.append(feat)
 		error = dp.addFeatures(feats)
 		shpLayer.updateExtents()
 		QgsVectorFileWriter.writeAsVectorFormat(shpLayer, saveFile, 'CP1250', crs, 'ESRI Shapefile')
@@ -914,7 +1045,7 @@ class TuMenuFunctions():
 		
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		self.tuView.tuPlot.updateLegend(self.tuView.tabWidget.currentIndex())
 		self.tuView.tuPlot.setNewPlotProperties(self.tuView.tabWidget.currentIndex())
 		
@@ -1036,10 +1167,10 @@ class TuMenuFunctions():
 			resultType = self.tuView.tuContextMenu.resultTypeContextItem.ds_name
 			for i in range(dp.datasetGroupCount()):
 				# is the datasetGroup a maximum?
-				isDatasetMax = TuResults.isMaximumResultType(TuResults(), dp.datasetGroupMetadata(i).name(),
+				isDatasetMax = TuResults.isMaximumResultType(dp.datasetGroupMetadata(i).name(),
 				                                             dp=dp, groupIndex=i)
 				if self.tuView.tuContextMenu.resultTypeContextItem.isMax and isDatasetMax:
-					if TuResults.stripMaximumName(TuResults(), dp.datasetGroupMetadata(i).name()) == resultType:
+					if TuResults.stripMaximumName(dp.datasetGroupMetadata(i).name()) == resultType:
 						activeScalarGroupIndex = i
 						break
 				else:
@@ -1056,7 +1187,7 @@ class TuMenuFunctions():
 				return False
 
 		activeScalarType = dp.datasetGroupMetadata(activeScalarGroupIndex).name()
-		activeScalarType = TuResults.stripMaximumName(TuResults(None), activeScalarType)
+		activeScalarType = TuResults.stripMaximumName(activeScalarType)
 		rsScalar = rs.scalarSettings(activeScalarGroupIndex)
 		
 		# save color ramp if option chosen
@@ -1149,8 +1280,8 @@ class TuMenuFunctions():
 			resultType = self.tuView.tuContextMenu.resultTypeContextItem.ds_name
 			for i in range(dp.datasetGroupCount()):
 				if self.tuView.tuContextMenu.resultTypeContextItem.isMax and \
-						TuResults.isMaximumResultType(TuResults(), dp.datasetGroupMetadata(i).name()):
-					if TuResults.stripMaximumName(TuResults(), dp.datasetGroupMetadata(i).name()) == resultType:
+						TuResults.isMaximumResultType(dp.datasetGroupMetadata(i).name()):
+					if TuResults.stripMaximumName(dp.datasetGroupMetadata(i).name()) == resultType:
 						activeVectorGroupIndex = i
 						break
 				else:
@@ -1169,23 +1300,42 @@ class TuMenuFunctions():
 				else:
 					return ''
 		activeVectorType = dp.datasetGroupMetadata(activeVectorGroupIndex).name()
-		activeVectorType = TuResults.stripMaximumName(TuResults(None), activeVectorType)
+		activeVectorType = TuResults.stripMaximumName(activeVectorType)
+
+		qv = Qgis.QGIS_VERSION_INT
 		rsVector = rs.vectorSettings(activeVectorGroupIndex)
+		if qv >= 31100:
+			rsVectorArrow = rsVector.arrowSettings()
 		
 		# get vector properties
-		properties = {
-			'arrow head length ratio': rsVector.arrowHeadLengthRatio(),
-			'arrow head width ratio': rsVector.arrowHeadWidthRatio(),
-			'color': rsVector.color(),
-			'filter max': rsVector.filterMax(),
-			'filter min': rsVector.filterMin(),
-			'fixed shaft length': rsVector.fixedShaftLength(),
-			'line width': rsVector.lineWidth(),
-			'max shaft length': rsVector.maxShaftLength(),
-			'min shaft length': rsVector.minShaftLength(),
-			'scale factor': rsVector.scaleFactor(),
-			'shaft length method': rsVector.shaftLengthMethod()
-		}
+		if qv < 31100:
+			properties = {
+				'arrow head length ratio': rsVector.arrowHeadLengthRatio(),
+				'arrow head width ratio': rsVector.arrowHeadWidthRatio(),
+				'color': rsVector.color(),
+				'filter max': rsVector.filterMax(),
+				'filter min': rsVector.filterMin(),
+				'fixed shaft length': rsVector.fixedShaftLength(),
+				'line width': rsVector.lineWidth(),
+				'max shaft length': rsVector.maxShaftLength(),
+				'min shaft length': rsVector.minShaftLength(),
+				'scale factor': rsVector.scaleFactor(),
+				'shaft length method': rsVector.shaftLengthMethod()
+			}
+		else:
+			properties = {
+				'arrow head length ratio': rsVectorArrow.arrowHeadLengthRatio(),
+				'arrow head width ratio': rsVectorArrow.arrowHeadWidthRatio(),
+				'color': rsVector.color(),
+				'filter max': rsVector.filterMax(),
+				'filter min': rsVector.filterMin(),
+				'fixed shaft length': rsVectorArrow.fixedShaftLength(),
+				'line width': rsVector.lineWidth(),
+				'max shaft length': rsVectorArrow.maxShaftLength(),
+				'min shaft length': rsVectorArrow.minShaftLength(),
+				'scale factor': rsVectorArrow.scaleFactor(),
+				'shaft length method': rsVectorArrow.shaftLengthMethod()
+			}
 		
 		if saveType == 'default':
 			# save as default for that result type
@@ -1223,10 +1373,10 @@ class TuMenuFunctions():
 				resultType = self.tuView.tuContextMenu.resultTypeContextItem.ds_name
 				for i in range(dp.datasetGroupCount()):
 					# is the datasetGroup a maximum?
-					isDatasetMax = TuResults.isMaximumResultType(TuResults(), dp.datasetGroupMetadata(i).name(),
+					isDatasetMax = TuResults.isMaximumResultType(dp.datasetGroupMetadata(i).name(),
 					                                             dp=dp, groupIndex=i)
 					if self.tuView.tuContextMenu.resultTypeContextItem.isMax and isDatasetMax:
-						if TuResults.stripMaximumName(TuResults(), dp.datasetGroupMetadata(i).name()) == resultType:
+						if TuResults.stripMaximumName(dp.datasetGroupMetadata(i).name()) == resultType:
 							activeScalarGroupIndex = i
 							break
 					else:
@@ -1244,7 +1394,7 @@ class TuMenuFunctions():
 			# get the name and try and apply default styling
 			mdGroup = dp.datasetGroupMetadata(activeScalarGroupIndex)
 			if mdGroup.isScalar():  # should be scalar considering we used activeScalarDataset
-				resultType = TuResults.stripMaximumName(TuResults(), mdGroup.name())
+				resultType = TuResults.stripMaximumName(mdGroup.name())
 				# try finding if style has been saved as a ramp first
 				key = 'TUFLOW_scalarRenderer/{0}_ramp'.format(resultType)
 				file = QSettings().value(key)
@@ -1282,8 +1432,8 @@ class TuMenuFunctions():
 				resultType = self.tuView.tuContextMenu.resultTypeContextItem.ds_name
 				for i in range(dp.datasetGroupCount()):
 					if self.tuView.tuContextMenu.resultTypeContextItem.isMax and \
-							TuResults.isMaximumResultType(TuResults(), dp.datasetGroupMetadata(i).name()):
-						if TuResults.stripMaximumName(TuResults(), dp.datasetGroupMetadata(i).name()) == resultType:
+							TuResults.isMaximumResultType(dp.datasetGroupMetadata(i).name()):
+						if TuResults.stripMaximumName(dp.datasetGroupMetadata(i).name()) == resultType:
 							activeVectorGroupIndex = i
 							break
 					else:
@@ -1301,7 +1451,7 @@ class TuMenuFunctions():
 			mdGroup = dp.datasetGroupMetadata(activeVectorGroupIndex)
 			if mdGroup.isVector():  # should be vector considering we used activeScalarDataset
 				resultType = mdGroup.name()
-				resultType = TuResults.stripMaximumName(TuResults(None), resultType)
+				resultType = TuResults.stripMaximumName(resultType)
 				mdGroup = dp.datasetGroupMetadata(activeVectorGroupIndex)
 				rsVector = rs.vectorSettings(activeVectorGroupIndex)
 				vectorProperties = QSettings().value('TUFLOW_vectorRenderer/vector')
@@ -1431,11 +1581,14 @@ class TuMenuFunctions():
 		
 		:return:
 		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 		
 		self.userPlotDataDialog = TuUserPlotDataManagerDialog(self.iface, self.tuView.tuPlot.userPlotData)
 		self.userPlotDataDialog.exec_()
-		self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), retain_1d=True, retain_2d=True, retain_flow=True)
-		
+		# self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), retain_1d=True, retain_2d=True, retain_flow=True)
+		self.tuView.tuPlot.clearPlot2(self.tuView.tabWidget.currentIndex(), TuPlot.DataUserData)
+
 		return True
 
 	def toggleMeshRender(self):
@@ -1525,3 +1678,57 @@ class TuMenuFunctions():
 			results[name] = result
 			
 		return results, engine, build
+
+	def flowRegimeToggled(self):
+
+		self.tuView.tuContextMenu.resultTypeContextItem.toggleFlowRegime()
+
+		# redraw plot
+		self.tuView.tuPlot.updateCurrentPlot(0, update='1d only')
+
+	def loadHydraulicTables(self):
+		"""
+
+		"""
+
+		inFileNames = browse(self.tuView, 'existing files', 'TUFLOW_Results/lastFolder', 'Load 1D Hydraulic Tables',
+		                     'CSV (*.csv *.CSV)')
+		for f in inFileNames:
+			ta, err = self.tuView.hydTables.loadData(f)
+			if err:
+				QMessageBox.critical(self.tuView, "Load 1D Hydraulic Tables", err)
+			else:
+				# dn = re.sub(r"(_1d_ta_tables_check.csv)$", "", os.path.basename(f), flags=re.IGNORECASE)  # displayname
+				# dn = '{0}_1d_ta'.format(dn)
+				self.tuView.tuResults.add1dHydTableToResults(ta.displayName, ta)
+
+
+	def removeHydraulicTables(self):
+		"""
+
+		"""
+
+		results = []
+		for item in self.tuView.OpenResults.selectedItems():
+			ta = self.tuView.hydTables.getData(item.text())
+			if ta is not None:
+				self.tuView.tuResults.remove1dHydTable(ta.displayName)
+				self.tuView.hydTables.closeData(ta.displayName)
+
+	def addColourRampFromXML(self):
+		"""
+
+		"""
+
+		xmlfile = browse(self.tuView, 'existing file', "TUFLOW/plot_colour_ramp", "Load Style XML", "XML (*.xml *.XML)")
+		if xmlfile:
+			cdicts = qgsxml_as_mpl_cdict(xmlfile)
+
+			if not cdicts:
+				QMessageBox.warning(self.tuView, "Add Colour Ramp to Plot", "Error importing colour ramp styles")
+
+			for name, cdict in cdicts.items():
+				lcm = LinearSegmentedColormap(name, cdict)
+				cm.register_cmap(name=name, cmap=lcm)
+
+			QMessageBox.information(self.tuView, "Add Colour Ramp to Plot", "Successfully imported colour ramp(s)")

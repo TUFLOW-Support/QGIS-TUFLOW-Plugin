@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import pyqtSignal, QThread, QTimer
 from .DataCollector import DataCollector
 from .ContinuityTool import ContinuityTool
+from .FeatureData import FeatureData
 from .Enumerators import *
 from .FlowTraceLongPlot import DownstreamConnectivity
 from tuflow.forms.flowtrace_plot import Ui_flowTracePlot
@@ -134,7 +135,8 @@ class DataCollectorFlowTrace(DataCollector):
                 rect = self.createRequest(fData, 5)
                 for fid in spatialIndex.intersects(rect):
                     feat = allFeatures[fid]
-                    if fData.feature.geometry().intersects(feat.geometry()):
+                    # if fData.feature.geometry().intersects(feat.geometry()):
+                    if self.isSnapped(fData, FeatureData(layer, feat)):
                         if feat not in self.featuresToAssess:
                             self.featuresToAssess.append(feat)
                             self.layersToAssess.append(layer)
@@ -287,7 +289,7 @@ class FlowTracePlot(PlotDialog, Ui_flowTracePlot):
             if fData.layer not in inLyrs:
                 inLyrs.append(fData.layer)
                 
-                
+
         self.downstreamConnectivity = DownstreamConnectivity(dsLines, startLines, inLyrs, self.flowTraceTool.limitAngle,
                                                              lineDrape, self.flowTraceTool.limitCover, lineDict,
                                                              QgsUnitTypes.DistanceMeters, areaFlags, angleFlags,

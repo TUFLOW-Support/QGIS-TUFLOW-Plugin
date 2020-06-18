@@ -11,13 +11,15 @@ if pythonV == 3:
     from urllib import request as urllib2
 elif pythonV == 2:
     import urllib2
+import requests, zipfile, io, json
+import traceback
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from __version__ import version
 
 # remote debugging
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\debug-eggs')
-sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\plugins\python\helpers\pydev')
 
 build_type, version = version()
 now = datetime.now()
@@ -52,6 +54,12 @@ user_initial_loss = None  # float or str or None  e.g. 10, '10', None
 user_continuing_loss = None  # float or str or None e.g. 2.5, '2.5', None
 urban_initial_loss = None
 urban_continuing_loss = None
+probability_neutral_losses = True
+bComplete_storm = False
+preburst_pattern_method = None
+preburst_pattern_dur = None
+preburst_pattern_tp = None
+bPreburst_dur_proportional = False
 add_tp = []  # additional temporal patterns to include in the extract
 ARF_frequent = False  # Set to true if you want to ignore ARF limits and apply to frequent events (>50% AEP)
 min_ARF = 0.2  # minimum ARF factor
@@ -104,10 +112,14 @@ logger.info('STARTING ARR2019 to TUFLOW SCRIPT\nVersion: {0}\nScript run date: {
 # create argument order map so arguments are always printed in the same order
 arg_map = {'name': 0, 'coords': 1, 'area': 2, 'mag': 3, 'dur': 4, 'nonstnd': 5, 'format': 6, 'output_notation': 7,
            'frequent': 8, 'rare': 9, 'cc': 10, 'year': 11, 'rcp': 12, 'preburst': 13, 'lossmethod': 14, 'mar': 15,
-           'lossvalue': 16, 'tuflow_loss_method': 17, 'user_initial_loss': 18, 'user_continuing_loss': 19,
-           'urban_initial_loss': 20, 'urban_continuing_loss': 21, 'addtp': 22,
-           'point_tp': 23, 'areal_tp': 24, 'arffreq': 25, 'minarf': 26, 'out': 27, 'offline_mode': 28, 'arr_file': 29,
-           'bom_file': 30, 'catchment_no': 31}
+           'lossvalue': 16, 'tuflow_loss_method': 17, 'probability_neutral_losses': 18,
+           'complete_storm': 18.1, 'preburst_pattern_method': 18.2, 'preburst_pattern_dur': 18.3,
+           'preburst_pattern_tp': 18.4, 'preburst_dur_proportional': 18.5,
+           'user_initial_loss': 19,
+           'user_continuing_loss': 20,
+           'urban_initial_loss': 21, 'urban_continuing_loss': 22, 'addtp': 23,
+           'point_tp': 24, 'areal_tp': 25, 'arffreq': 26, 'minarf': 27, 'out': 28, 'offline_mode': 29, 'arr_file': 30,
+           'bom_file': 31, 'catchment_no': 32}
 for key in sorted(args, key=lambda k: arg_map[k]):
     value = args[key]
     #print('{0}={1};'.format(key, ",".join(map(str,value))))
@@ -394,6 +406,29 @@ if 'urban_continuing_loss' in args.keys():
         urban_continuing_loss = None
     else:
         urban_continuing_loss = args['urban_continuing_loss'][0]
+# probability neutral losses
+if 'probability_neutral_losses' in args.keys():
+    if args['probability_neutral_losses'][0] == 'false':
+        probability_neutral_losses = False
+    else:
+        probability_neutral_losses = True
+# complete storm stuff
+if 'complete_storm' in args.keys():
+    if args['complete_storm'][0] == 'true':
+        bComplete_storm = True
+    else:
+        bComplete_storm = False
+if 'preburst_pattern_method' in args.keys():
+    preburst_pattern_method = args['preburst_pattern_method'][0]
+if 'preburst_pattern_dur' in args.keys():
+    preburst_pattern_dur = args['preburst_pattern_dur'][0]
+if 'preburst_pattern_tp' in args.keys():
+    preburst_pattern_tp = args['preburst_pattern_tp'][0]
+if 'preburst_dur_proportional' in args.keys():
+    if args['preburst_dur_proportional'][0] == 'true':
+        bPreburst_dur_proportional = True
+    else:
+        bPreburst_dur_proportional = False
         
 warnings = []
 
@@ -500,6 +535,7 @@ if catchment_area <= 1.0:  # no catchment area, so no ARF. otherwise write out r
 
 # ARR data
 # Open and save raw ARR information
+areal_tp_download = None
 if arr_raw_fname is None:
     arr_raw_fname = os.path.join(export_path, 'data', 'ARR_Web_data_{0}.txt'.format(site_name))
 else:
@@ -577,7 +613,36 @@ if access_web:
             logger.error('Failed to get data from ARR website')
             logging.shutdown()
             raise SystemExit('Failed to get data from ARR website')
-    
+
+    if areal_tp_csv is None:
+        logger.info('Downloading Areal Temporal Pattern csv...')
+        atpRegion = ARR_WebRes.Arr()
+        atpRegionCode = atpRegion.arealTemporalPatternCode(arr_raw_fname)
+        if atpRegionCode:
+            try:
+                url_atp = f'http://data.arr-software.org//static/temporal_patterns/Areal/Areal_{atpRegionCode}.zip'
+                logger.info(f'URL: {url_atp}')
+                r = requests.get(url_atp)
+                z = zipfile.ZipFile(io.BytesIO(r.content))
+                z.extractall(os.path.join(export_path, "data"))
+                atpIncFiles = [x.filename for x in z.filelist]
+                atpInc = ""
+                for f in atpIncFiles:
+                    if 'INCREMENTS' in f.upper():
+                        atpInc = f
+                areal_tp_download = os.path.join(export_path, "data", atpInc)
+                if os.path.exists(areal_tp_download):
+                    logger.info(f'Areal temporal pattern csv: {areal_tp_download}')
+                else:
+                    logger.info(f'ERROR finding areal temporal pattern csv: {areal_tp_download}')
+                    logger.info('skipping step...')
+            except Exception as e:
+                logger.warning(f"ERROR: failed to download areal temporal pattern.. skipping step. Contact support@tuflow.com\n{e}")
+        else:
+            logger.warning("WARNING: unable to determine areal temporal pattern region... skipping step")
+    else:
+        logger.warning("WARNING: User specified areal temporal pattern found... skipping areal pattern download")
+
     if point_tp_csv is None:  # only check if user has not specified temporal patterns manually
         #print('Checking Temporal Pattern Region...')
         logger.info('Checking Temporal Pattern Region...')
@@ -588,16 +653,20 @@ if access_web:
         if tpRegion.upper() == 'RANGELANDS WEST AND RANGELANDS':
             #print("Splitting {0} into separate regions: Rangelands West, Rangelands".format(tpRegion))
             logger.info("Splitting {0} into separate regions: Rangelands West, Rangelands".format(tpRegion))
-            if 'rangelands west' not in add_tp:
+            if not add_tp or'rangelands west' not in add_tp:
                 #print('Adding Rangelands West to additional temporal patterns')
                 logger.info('Adding Rangelands West to additional temporal patterns')
+                if type(add_tp) is bool:
+                    add_tp = []
                 add_tp.append("rangelands west")
             else:
                 #print("Rangelands West already selected in additional temporal patterns... skipping")
                 logger.info("Rangelands West already selected in additional temporal patterns... skipping")
-            if 'rangelands' not in add_tp:
+            if not add_tp or 'rangelands' not in add_tp:
                 #print('Adding Rangelands to additional temporal patterns')
                 logger.info('Adding Rangelands to additional temporal patterns')
+                if type(add_tp) is bool:
+                    add_tp = []
                 add_tp.append("rangelands")
             else:
                 #print("Rangelands already selected in additional temporal patterns... skipping")
@@ -609,7 +678,7 @@ if access_web:
             for tp in add_tp:
                 add_tpFilename = os.path.join(export_path, 'data', 'ARR_Web_data_{0}_TP_{1}.txt'.format(site_name, tp))
                 tpCoord = tpRegion_coords(tp)
-                url2 = 'http://data.arr-software.org/?lon_coord={0}5&lat_coord={1}&TemporalPatterns=on' \
+                url2 = 'http://data.arr-software.org/?lon_coord={0}5&lat_coord={1}&type=text&All=1' \
                        .format(tpCoord[1], tpCoord[0])
 
                 try:
@@ -646,7 +715,8 @@ if access_web:
 ARR = ARR_WebRes.Arr()
 try:
     ARR.load(arr_raw_fname, catchment_area, add_tp=add_tp, point_tp=point_tp_csv, areal_tp=areal_tp_csv,
-             user_initial_loss=user_initial_loss, user_continuing_loss=user_continuing_loss)
+             user_initial_loss=user_initial_loss, user_continuing_loss=user_continuing_loss,
+             areal_tp_download=areal_tp_download)
 except Exception as e:
     logger.error("ERROR: Unable to load ARR data: {0}".format(e))
     logging.shutdown()
@@ -674,10 +744,18 @@ try:
                rare=rare_events, catch_no=catchment_no, out_notation=output_notation, arf_frequent=ARF_frequent,
                min_arf=min_ARF, preburst=preBurst, lossmethod=lossMethod, mar=mar, staticloss=staticLoss,
                add_tp=add_tp, tuflow_loss_method=tuflow_loss_method, urban_initial_loss=urban_initial_loss,
-               urban_continuing_loss=urban_continuing_loss)
+               urban_continuing_loss=urban_continuing_loss, probability_neutral_losses=probability_neutral_losses,
+               use_complete_storm=bComplete_storm, preburst_pattern_method=preburst_pattern_method,
+               preburst_pattern_dur=preburst_pattern_dur, preburst_pattern_tp=preburst_pattern_tp,
+               preburst_dur_proportional=bPreburst_dur_proportional)
 except Exception as e:
     #print('ERROR: Unable to export data: {0}'.format(e))
-    logger.error('ERROR: Unable to export data: {0}'.format(e))
+    try:
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        logger.error('ERROR: Unable to export data: {0}'.format(e))
+        logger.error(f"{traceback.print_exception(exc_type, exc_value, exc_traceback)}")
+    finally:
+        del exc_type, exc_value, exc_traceback
     #print("ERROR: if problem persists please email input files and log.txt to support@tuflow.com.")
     logger.error("ERROR: if problem persists please email input files and log.txt to support@tuflow.com.")
     logging.shutdown()
