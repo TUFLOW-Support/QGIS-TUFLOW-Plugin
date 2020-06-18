@@ -26,6 +26,7 @@ class TuResults():
 	OtherTypes = ['_ts', '_lp', '_particles', '_cs']
 
 	def __init__(self, TuView=None):
+		qv = qv = Qgis.QGIS_VERSION_INT
 		if TuView is not None:
 			self.tuView = TuView
 			self.iface = TuView.iface
@@ -46,7 +47,10 @@ class TuResults():
 			self.activeResultsItems = []  # DataSetTreeNode
 			self.dateFormat = '%d/%m/%Y %H:%M:%S'  # for time combobox not plotting
 			self._dateFormat = '{0:%d}/{0:%m}/{0:%Y} {0:%H}:{0:%M}:{0:%S}'  # for time combobox not plotting
-			self.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+			if qv >= 31300:
+				self.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+			else:
+				self.timeSpec = None
 			
 			# 1D results
 			self.tuResults1D = tuflowqgis_turesults1d.TuResults1D(TuView)
@@ -1301,14 +1305,13 @@ class TuResults():
 
 		qv = Qgis.QGIS_VERSION_INT
 
-		if time is None:
-			time = float(self.activeTime)
-		if qgsObject is None:
-			qgsObject = self.iface.mapCanvas()
-		if timeSpec is None:
-			timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
-
 		if qv >= 31300:
+			if time is None:
+				time = float(self.activeTime)
+			if qgsObject is None:
+				qgsObject = self.iface.mapCanvas()
+			if timeSpec is None:
+				timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
 			zt = self.tuView.tuOptions.zeroTime
 			rt = dt2qdt(zt, self.iface.mapCanvas().temporalRange().begin().timeSpec())
 			rt = rt.toTimeSpec(timeSpec)
