@@ -214,7 +214,7 @@ class Timeseries():
 			i += 1
 			a = col[len(prefix)+1:]
 			# strip simulation name - highly unlikely more than one match
-			a = "".join(re.split(r"\[{0}]".format(rSimID), col, re.IGNORECASE)).strip()
+			a = "".join(col.split(r"[{0}]".format(rSimID))).strip()
 			# strip prefix - only take the first occurrence just in case there's more than one match
 			rx = re.search(r"{0}\s".format(prefix), a, re.IGNORECASE)
 			if rx is None:
