@@ -22,7 +22,7 @@ from image_properties import Ui_ImageProperties
 from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, applyMatplotLibArtist, convertTimeToFormattedTime,
                                        convertFormattedTimeToTime, getPolyCollectionExtents, getQuiverExtents,
                                        convertTimeToDate, convertFormattedDateToTime, addColourBarAxes,
-                                       addLegend, addQuiverKey)
+                                       addLegend, addQuiverKey, datetime2timespec)
 import matplotlib
 import numpy as np
 try:
@@ -681,7 +681,9 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 	tuResults = cfg['turesults']
 	dataset_group_index = cfg['scalar index']
 	assert (dataset_group_index)
-	count = l.dataProvider().datasetCount(dataset_group_index)
+	# count = l.dataProvider().datasetCount(dataset_group_index)
+	timesteps = cfg['timesteps']
+	count = len(timesteps)
 	assert (count > 2)
 
 	time_from, time_to = cfg['time']
@@ -691,19 +693,37 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 
 	# animate
 	imgnum = 0
-	for i in range(count):
+	#for i in range(count):
+	for i, time in enumerate(timesteps):
 
 		if progress_fn:
 			progress_fn(i, count)
+		#time = l.dataProvider().datasetMetadata(QgsMeshDatasetIndex(dataset_group_index, i)).time()
+		#if tuResults.tuResults2D.getReferenceTime(l) != \
+		#		datetime2timespec(tuResults.tuView.tuOptions.zeroTime,
+		#		                  tuResults.loadedTimeSpec,
+		#		                  tuResults.timeSpec):
+		#	# dt = self.getReferenceTime(layer) - self.tuView.tuOptions.zeroTime
+		#	if tuResults.tuView.tuOptions.timeUnits == 's':
+		#		factor = 60. * 60.
+		#	else:  # 'h'
+		#		factor = 1.
+		#	# t += dt.total_seconds() / factor
+		#	time /= factor
 
-		time = l.dataProvider().datasetMetadata(QgsMeshDatasetIndex(dataset_group_index, i)).time()
+		#	time += (tuResults.tuResults2D.getReferenceTime(l)
+		#	      - datetime2timespec(tuResults.tuView.tuOptions.zeroTime,
+		#	                          tuResults.loadedTimeSpec,
+		#	                          tuResults.timeSpec)).total_seconds() / 60. / 60.
 		if time < time_from or time > time_to:
 			continue
 		timetext = convertTimeToFormattedTime(time, unit=dialog.tuView.tuOptions.timeUnits)
 		if dialog is not None:
 			if dialog.tuView.tuOptions.xAxisDates:
-				if time in dialog.tuView.tuResults.time2date:
-					timetext = dialog.tuView.tuResults.time2date[time]
+				# if time in dialog.tuView.tuResults.time2date:
+				if time in dialog.tuView.tuResults.time2date_tspec:
+					# timetext = dialog.tuView.tuResults.time2date[time]
+					timetext = dialog.tuView.tuResults.time2date_tspec[time]
 					timetext = dialog.tuView.tuResults._dateFormat.format(timetext)
 		cfg['time text'] = timetext
 
@@ -1747,7 +1767,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			subplot2 = self.tuView.tuPlot.getSecondaryAxis(plotNo)
 			lines2, labs2 = subplot2.get_legend_handles_labels()
 			labs2 = [labs2[x] + '{0}'.format(' [Curtain]' if type(lines2[x]) is PolyCollection else "") for x in
-			        range(len(labs))]
+			        range(len(labs2))]
 			axis2 = ['axis 2' for x in range(len(lines2))]
 		else:
 			lines2, labs2, axis2 = [], [], []
@@ -2731,7 +2751,23 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			layout['images'] = image
 		
 		prog = lambda i, count: self.updateProgress(i, count)  # progress bar
-		
+
+		timesteps = []
+		for i in range(self.cboStart.count()):
+			if self.tuView.tuOptions.xAxisDates:
+				timeconverted = self.tuView.tuPlot.convertDateToTime(self.cboStart.itemText(i),
+				                                                          unit=self.tuView.tuOptions.timeUnits)
+				if timeconverted == -99999.:
+					QMessageBox.information(self, 'Input Error', 'Error converting input start date')
+					return
+			else:
+				timeconverted = convertFormattedTimeToTime(self.cboStart.itemText(i),
+				                                                unit=self.tuView.tuOptions.timeUnits)
+				if timeconverted == -99999.:
+					QMessageBox.information(self, 'Input Error', 'Error converting input start date')
+					return
+			timesteps.append(timeconverted)
+
 		# put collected data into dictionary for easy access later
 		d = {'layer': self.layer,
 			 'time': (tStart, tEnd),
@@ -2747,6 +2783,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		     'tmpdir': os.path.dirname(img_output_tpl),
 		     'particles': ptm_res,
 		     'turesults': self.tuView.tuResults,
+		     'timesteps': timesteps,
 			 }
 		
 		for pb, dialog in self.pbDialogs.items():

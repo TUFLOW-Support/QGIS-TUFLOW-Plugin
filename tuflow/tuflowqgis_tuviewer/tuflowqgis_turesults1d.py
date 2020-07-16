@@ -7,7 +7,8 @@ from qgis.core import *
 from PyQt5.QtWidgets import *
 import tuflow.TUFLOW_results as TuflowResults
 import tuflow.TUFLOW_results2013 as TuflowResults2013
-from tuflow.tuflowqgis_library import getPathFromRel, tuflowqgis_apply_check_tf_clayer
+from tuflow.tuflowqgis_library import (getPathFromRel, tuflowqgis_apply_check_tf_clayer, datetime2timespec,
+                                       datetime2timespec, roundSeconds)
 
 
 class TuResults1D():
@@ -162,6 +163,7 @@ class TuResults1D():
 		:param result: TUFLOW_results.ResData
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+		qv = Qgis.QGIS_VERSION_INT
 
 		results = self.tuView.tuResults.results  # dict
 		timekey2time = self.tuView.tuResults.timekey2time  # dict
@@ -170,39 +172,64 @@ class TuResults1D():
 		date2timekey = self.tuView.tuResults.date2timekey
 		date2time = self.tuView.tuResults.date2time
 		zeroTime = self.tuView.tuOptions.zeroTime  # datetime
-		
+
 		if result.displayname not in results.keys():
 			results[result.displayname] = {}
-		
-		timesteps = result.timeSteps()
+
+		if self.tuView.OpenResults.count() == 0:
+			self.tuView.tuOptions.zeroTime = datetime2timespec(self.getReferenceTime(result, defaultZeroTime=zeroTime),
+			                                                   1, self.tuView.tuResults.timeSpec)
+			if qv >= 31300:
+				self.tuView.tuOptions.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+				self.tuView.tuResults.loadedTimeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+		self.configTemporalProperties(result)
+
+		timesteps = result.timeSteps(datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1))
 		for t in timesteps:
+			date = self.tuView.tuOptions.zeroTime + timedelta(hours=t)
+			# date = datetime2timespec(self.tuView.tuOptions.zeroTime,
+			#                          self.tuView.tuResults.loadedTimeSpec,
+			#                          self.tuView.tuResults.timeSpec) \
+			#        + timedelta(hours=t)
+			date = roundSeconds(date, 2)
 			timekey2time['{0:.6f}'.format(t)] = t
 			timekey2date['{0:.6f}'.format(t)] = zeroTime + timedelta(hours=t)
-			time2date[t] = zeroTime + timedelta(hours=t)
-			date2timekey[zeroTime + timedelta(hours=t)] = '{0:.6f}'.format(t)
-			date2time[zeroTime + timedelta(hours=t)] = t
+			time2date[t] = date
+			date2timekey[date] = '{0:.6f}'.format(t)
+			date2time[date] = t
 
-		if 'point_ts' not in results[result.displayname].keys():
-			resultTypes = result.pointResultTypesTS()
-			metadata1d = (resultTypes, timesteps)
-			results[result.displayname]['point_ts'] = metadata1d
+			if qv >= 31300:
+				date_tspec = datetime2timespec(date, self.tuView.tuResults.loadedTimeSpec, 1)
+			else:
+				date_tspec = date
+			self.tuView.tuResults.timekey2date_tspec['{0:.6f}'.format(t)] = date_tspec
+			self.tuView.tuResults.time2date_tspec[t] = date_tspec
+			self.tuView.tuResults.date_tspec2timekey[date_tspec] = '{0:.6f}'.format(t)
+			self.tuView.tuResults.date_tspec2time[date_tspec] = t
+			self.tuView.tuResults.date2date_tspec[date] = date_tspec
+			self.tuView.tuResults.date_tspec2date[date_tspec] = date
+
+		#if 'point_ts' not in results[result.displayname].keys():
+		resultTypes = result.pointResultTypesTS()
+		metadata1d = (resultTypes, timesteps)
+		results[result.displayname]['point_ts'] = metadata1d
 		
-		if 'line_ts' not in results[result.displayname].keys():
-			resultTypes = result.lineResultTypesTS()
-			if 'Velocity' in resultTypes and 'Velocity' in result.pointResultTypesTS():
-				resultTypes.remove('Velocity')
-			metadata1d = (resultTypes, timesteps)
-			results[result.displayname]['line_ts'] = metadata1d
+		#if 'line_ts' not in results[result.displayname].keys():
+		resultTypes = result.lineResultTypesTS()
+		if 'Velocity' in resultTypes and 'Velocity' in result.pointResultTypesTS():
+			resultTypes.remove('Velocity')
+		metadata1d = (resultTypes, timesteps)
+		results[result.displayname]['line_ts'] = metadata1d
 		
-		if 'region_ts' not in results[result.displayname].keys():
-			resultTypes = result.regionResultTypesTS()
-			metadata1d = (resultTypes, timesteps)
-			results[result.displayname]['region_ts'] = metadata1d
+		#if 'region_ts' not in results[result.displayname].keys():
+		resultTypes = result.regionResultTypesTS()
+		metadata1d = (resultTypes, timesteps)
+		results[result.displayname]['region_ts'] = metadata1d
 		
-		if 'line_lp' not in results[result.displayname].keys():
-			resultTypes = result.lineResultTypesLP()
-			metadata1d = (resultTypes, timesteps)
-			results[result.displayname]['line_lp'] = metadata1d
+		#if 'line_lp' not in results[result.displayname].keys():
+		resultTypes = result.lineResultTypesLP()
+		metadata1d = (resultTypes, timesteps)
+		results[result.displayname]['line_lp'] = metadata1d
 		
 		return True
 	
@@ -326,3 +353,42 @@ class TuResults1D():
 						self.tuView.OpenResults.takeItem(i)
 		
 		return True
+
+	def getReferenceTime(self, result, defaultZeroTime=None):
+		"""
+
+		"""
+
+		rt = result.reference_time  # assume timespec 1
+
+		if rt is not None:
+			return rt
+		else:
+			if defaultZeroTime is not None:
+				return defaultZeroTime
+			else:
+				return datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
+
+	def configTemporalProperties(self, result):
+		"""
+
+		"""
+		qv = Qgis.QGIS_VERSION_INT
+
+		if qv >= 31300:
+			if not result.has_reference_time or self.tuView.tuResults.loadedTimeSpec != self.tuView.tuResults.timeSpec:
+				#result.reference_time = datetime2timespec(self.getReferenceTime(result),
+				#                                          self.tuView.tuResults.timeSpec,
+				#                                          self.tuView.tuResults.loadedTimeSpec)
+				result.reference_time = self.getReferenceTime(result)
+
+	def reloadTimesteps(self, resname):
+		"""
+
+		"""
+
+		if resname in self.results1d:
+			result = self.results1d[resname]
+			if not result.has_reference_time:
+				result.reference_time = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
+			self.getResultMetaData(result)

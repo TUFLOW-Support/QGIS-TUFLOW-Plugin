@@ -536,6 +536,10 @@ class ResData():
         self.LP = LP()
         self.Data_1D = Data_1D()
 
+        self.reference_time = None
+        self.has_reference_time = False
+        self._tmp_reference_time = None
+
     
     def Load(self, fname, qgis):
         self.filename = fname

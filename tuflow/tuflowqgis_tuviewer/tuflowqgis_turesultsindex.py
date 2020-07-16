@@ -13,16 +13,16 @@ class TuResultsIndex():
 			self.timestep = '0.000000' if timestep is not None else timestep
 		else:
 			self.result = result
-			if resultType == 'Minimum dt':
-				self.resultType = '{0}/Final'.format(resultType) if ismax else resultType
+			# if resultType == 'Minimum dt':
+			# 	self.resultType = '{0}/Final'.format(resultType) if ismax else resultType
+			#else:
+			if ismax:
+				self.resultType = '{0}/Maximums'.format(resultType)
+				self.timestep = '99999'
+			elif ismin:
+				self.resultType = '{0}/Minimums'.format(resultType)
+				self.timestep = '-99999'
 			else:
-				if ismax:
-					self.resultType = '{0}/Maximums'.format(resultType)
-					self.timestep = '99999'
-				elif ismin:
-					self.resultType = '{0}/Minimums'.format(resultType)
-					self.timestep = '-99999'
-				else:
-					self.resultType = resultType
-					self.timestep = timestep
+				self.resultType = resultType
+				self.timestep = timestep
 

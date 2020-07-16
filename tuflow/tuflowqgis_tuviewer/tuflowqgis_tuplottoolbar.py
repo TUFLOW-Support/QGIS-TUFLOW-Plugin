@@ -323,12 +323,14 @@ class TuPlotToolbar():
 
 		return False
 	
-	def addItemToPlotOptions(self, type, dataType=None):
+	def addItemToPlotOptions(self, type, dataType=None, static=False):
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 		if dataType is None:
 			for dataType in self.tuPlot.plotDataPlottingTypes:
+				if static and dataType in self.tuPlot.plotDataTemporalPlottingTypes:
+					continue
 				self.addItemToPlotOption(type, dataType)
 		else:
 			self.addItemToPlotOption(type, dataType)

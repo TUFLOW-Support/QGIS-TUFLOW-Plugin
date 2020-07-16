@@ -10,7 +10,7 @@ from qgis.PyQt.QtXml import QDomDocument
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 from tuflow.tuflowqgis_library import tuflowqgis_find_layer, findAllMeshLyrs, loadSetting, roundSeconds, \
-	getPropertiesFrom2dm, qdt2dt, dt2qdt
+	getPropertiesFrom2dm, qdt2dt, dt2qdt, datetime2timespec
 
 
 
@@ -273,7 +273,7 @@ class TuResults2D():
 					
 		return types
 	
-	def getResultMetaData(self, name, layer, ext=''):
+	def getResultMetaData(self, name, layer, ext='', hadtp=None):
 		"""
 		Get all the result types and timesteps for 2D results.
 
@@ -291,22 +291,43 @@ class TuResults2D():
 		date2time = self.tuView.tuResults.date2time  # dict
 		zeroTime = self.tuView.tuOptions.zeroTime
 
-
 		if name not in results.keys():  # add results to dict
 			results[name] = {}
-		
 		resultTypes = []
 		dp = layer.dataProvider()  # QgsMeshDataProvider
 		if self.tuView.OpenResults.count() == 0:
-			self.tuView.tuOptions.zeroTime = self.getReferenceTime(layer, self.tuView.tuOptions.defaultZeroTime)
+			self.tuView.tuOptions.zeroTime = datetime2timespec(self.getReferenceTime(layer, self.tuView.tuOptions.defaultZeroTime),
+			                                                   1, self.tuView.tuResults.timeSpec)
+			if qv >= 31300:
+				self.tuView.tuOptions.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+				self.tuView.tuResults.loadedTimeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
 
-		# turn on temporal properties
+		# turn on temporal properties - record whether original layer had a reference time
+		if name in results and [x for x in results[name].keys()]:
+			restype = [x for x in results[name].keys()][0]
+			if 'hadTemporalProperties' in results[name][restype]:
+				hadtp = results[name][restype]['hadTemporalProperties']
+		if hadtp is None:
+			if qv >= 31300:
+				tp = layer.temporalProperties()
+				if tp.isActive():
+					hadtp = True
+				else:
+					hadtp = False
+			else:
+				hadtp = False
 		self.configTemporalProperties(layer)
 
 		for i in range(dp.datasetGroupCount()):
 			# Get result type e.g. depth, velocity, max depth
 			mdGroup = dp.datasetGroupMetadata(i)  # Group Metadata
 			id, id2 = self.getResultTypeNames(mdGroup, ext, resultTypes)
+
+			# special case for minimum dt
+			if 'minimum dt' in id.lower():
+				if TuResults.isMaximumResultType(id, dp, i):
+					if '/Maximum' not in id:
+						id = f'{id}/Maximums'
 
 			# add to temporal result type list
 			resultTypes.append(id)
@@ -322,6 +343,8 @@ class TuResults2D():
 			                     'isMin':TuResults.isMinimumResultType(id, dp, i),
 			                     'isStatic': TuResults.isStatic(id, dp, i),
 			                     'isTemporal': TuResults.isTemporal(id, dp, i),
+			                     'hadTemporalProperties': hadtp,
+			                     'ext': ext,
 			                     }  # add result type to results dictionary
 			if id2 is not None:
 				results[name][id2] = {'times': {},
@@ -332,6 +355,8 @@ class TuResults2D():
 				                      'isMin':TuResults.isMinimumResultType(id, dp, i),
 				                      'isStatic': TuResults.isStatic(id, dp, i),
 				                      'isTemporal': TuResults.isTemporal(id, dp, i),
+				                      'hadTemporalProperties': hadtp,
+				                      'ext': ext,
 				                      }  # add result type to results dictionary
 
 			# apply any default rendering styles to datagroup
@@ -417,14 +442,25 @@ class TuResults2D():
 		date2time = self.tuView.tuResults.date2time  # dict
 		zeroTime = self.tuView.tuOptions.zeroTime
 
+		# t = md.time() - (zeroTime - qdt2dt(layer.temporalProperties().referenceTime())).total_seconds() / 60. / 60.
 		t = md.time()
-		if self.getReferenceTime(layer) != self.tuView.tuOptions.zeroTime:
-			dt = self.getReferenceTime(layer) - self.tuView.tuOptions.zeroTime
-			if self.tuView.tuOptions.timeUnits == 'h':
+		# if self.getReferenceTime(layer) != self.tuView.tuOptions.zeroTime:
+		if self.getReferenceTime(layer) != \
+				datetime2timespec(self.tuView.tuOptions.zeroTime,
+				                  self.tuView.tuResults.loadedTimeSpec,
+				                  1):
+			# dt = self.getReferenceTime(layer) - self.tuView.tuOptions.zeroTime
+			if self.tuView.tuOptions.timeUnits == 's':
 				factor = 60. * 60.
-			else:  # 's'
+			else:  # 'h'
 				factor = 1.
-			t += dt.total_seconds() / factor
+			# t += dt.total_seconds() / factor
+			t /= factor
+
+			t += (self.getReferenceTime(layer)
+			      - datetime2timespec(self.tuView.tuOptions.zeroTime,
+			                          self.tuView.tuResults.loadedTimeSpec,
+			                          1)).total_seconds() / 60. / 60.
 
 		for k, x in enumerate([id, id2]):
 			if x is not None:
@@ -442,16 +478,41 @@ class TuResults2D():
 				timekey2time['{0:.6f}'.format(t)] = t
 				if self.tuView.tuOptions.timeUnits == 's':
 					date = zeroTime + timedelta(seconds=t)
+					#date = self.getReferenceTime(layer) + timedelta(seconds=t)
+					# date = datetime2timespec(self.tuView.tuOptions.zeroTime,
+					#                          self.tuView.tuResults.loadedTimeSpec,
+					#                          self.tuView.tuResults.timeSpec) \
+					#        + timedelta(seconds=t)
 				else:
 					try:
 						date = zeroTime + timedelta(hours=t)
+						#date = datetime2timespec(self.tuView.tuOptions.zeroTime,
+			            #              self.tuView.tuResults.loadedTimeSpec,
+			            #              self.tuView.tuResults.timeSpec)\
+						#       + timedelta(hours=t)
 					except OverflowError:
 						date = zeroTime + timedelta(seconds=t)
-				date = roundSeconds(date)
+						# date = datetime2timespec(self.tuView.tuOptions.zeroTime,
+						#                          self.tuView.tuResults.loadedTimeSpec,
+						#                          self.tuView.tuResults.timeSpec) \
+						#        + timedelta(seconds=t)
+				date = roundSeconds(date, 2)
 				timekey2date['{0:.6f}'.format(t)] = date
 				time2date[t] = date
 				date2timekey[date] = '{0:.6f}'.format(t)
 				date2time[date] = t
+
+				if qv >= 31300:
+					# date_tspec = datetime2timespec(date, self.tuView.tuResults.loadedTimeSpec, 1)
+					date_tspec = datetime2timespec(date, self.tuView.tuResults.loadedTimeSpec, 1)
+				else:
+					date_tspec = date
+				self.tuView.tuResults.timekey2date_tspec['{0:.6f}'.format(t)] = date_tspec
+				self.tuView.tuResults.time2date_tspec[t] = date_tspec
+				self.tuView.tuResults.date_tspec2timekey[date_tspec] = '{0:.6f}'.format(t)
+				self.tuView.tuResults.date_tspec2time[date_tspec] =  t
+				self.tuView.tuResults.date2date_tspec[date] = date_tspec
+				self.tuView.tuResults.date_tspec2date[date_tspec] = date
 
 	def recordSpecialTime(self, name, t, id, id2, i, j, ext):
 		"""
@@ -898,37 +959,38 @@ class TuResults2D():
 							break
 
 			if firstTime is not None:
-				if firstTime == 0:
-					continue  # move onto next result dataset
-				else:  # find time 0 values and change to firstTime
-					for resultType in results[result]:
-						#if '_ts' not in resultType and '_lp' not in resultType:
-						if TuResults.isMapOutputType(resultType):
-							if len(results[result][resultType]['times']) == 1:
-								for i in results[result][resultType]['times']:
-									if results[result][resultType]['times'][i][0] == 0:
-										timeKey = '{0:.6f}'.format(firstTime)
-										dataType = results[result][resultType]['times'][i][1]
-										meshIndex = results[result][resultType]['times'][i][2]
-										results[result][resultType]['times'][timeKey] = (firstTime, dataType, meshIndex)
-										del results[result][resultType]['times'][i]
+				#if firstTime == 0:
+				#	continue  # move onto next result dataset
+				#else:  # find time 0 values and change to firstTime
+				for resultType in results[result]:
+					#if '_ts' not in resultType and '_lp' not in resultType:
+					if TuResults.isMapOutputType(resultType):
+						if len(results[result][resultType]['times']) == 1:
+							for i in list(results[result][resultType]['times'].keys())[:]:
+								#if results[result][resultType]['times'][i][0] == 0:
+								timeKey = '{0:.6f}'.format(firstTime)
+								dataType = results[result][resultType]['times'][i][1]
+								meshIndex = results[result][resultType]['times'][i][2]
+								if timeKey != i:
+									results[result][resultType]['times'][timeKey] = (firstTime, dataType, meshIndex)
+									del results[result][resultType]['times'][i]
 
-										# also delete from dicts
-										a = sorted([x for x in self.tuView.tuResults.time2date.keys()])
-										if a[0] != firstTime:
-											del self.tuView.tuResults.time2date[a[0]]
+								# also delete from dicts
+								a = sorted([x for x in self.tuView.tuResults.time2date.keys()])
+								if a[0] != firstTime:
+									del self.tuView.tuResults.time2date[a[0]]
 
-											a = sorted([x for x in self.tuView.tuResults.timekey2date.keys()])
-											del self.tuView.tuResults.timekey2date[a[0]]
+									a = sorted([x for x in self.tuView.tuResults.timekey2date.keys()])
+									del self.tuView.tuResults.timekey2date[a[0]]
 
-											a = sorted([x for x in self.tuView.tuResults.timekey2time.keys()])
-											del self.tuView.tuResults.timekey2time[a[0]]
+									a = sorted([x for x in self.tuView.tuResults.timekey2time.keys()])
+									del self.tuView.tuResults.timekey2time[a[0]]
 
-											a = sorted([x for x in self.tuView.tuResults.date2time.keys()])
-											del self.tuView.tuResults.date2time[a[0]]
+									a = sorted([x for x in self.tuView.tuResults.date2time.keys()])
+									del self.tuView.tuResults.date2time[a[0]]
 
-											a = sorted([x for x in self.tuView.tuResults.date2timekey.keys()])
-											del self.tuView.tuResults.date2timekey[a[0]]
+									a = sorted([x for x in self.tuView.tuResults.date2timekey.keys()])
+									del self.tuView.tuResults.date2timekey[a[0]]
 
 	@staticmethod
 	def meshRenderVersion(rs):
@@ -973,8 +1035,7 @@ class TuResults2D():
 
 		rt = None
 		if qv >= 31300:
-			rt = layer.temporalProperties().referenceTime()
-			rt = rt.toTimeSpec(self.tuView.tuResults.timeSpec)
+			rt = layer.temporalProperties().referenceTime()  # assume reference time is always timespec 1
 		else:
 			try:  # unclear what version this was introduced
 				rt = layer.timeSettings().absoluteTimeReferenceTime()
@@ -985,9 +1046,11 @@ class TuResults2D():
 			return qdt2dt(rt)
 		else:
 			if defaultZeroTime is not None:
+				# return datetime2timespec(defaultZeroTime, 1, self.tuView.tuResults.timeSpec)
 				return defaultZeroTime
 			else:
-				return self.tuView.tuOptions.zeroTime
+				# return datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, self.tuView.tuResults.timeSpec)
+				return datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
 
 	def configTemporalProperties(self, layer):
 		"""
@@ -1000,6 +1063,5 @@ class TuResults2D():
 			if not tp.isActive():
 				tp.setIsActive(True)
 
-			if not tp.referenceTime().isValid():
-				layer.setReferenceTime(dt2qdt(self.getReferenceTime(layer),
-				                              self.tuView.tuResults.timeSpec))
+			if not tp.referenceTime().isValid() or self.tuView.tuResults.loadedTimeSpec != self.tuView.tuResults.timeSpec:
+				layer.setReferenceTime(dt2qdt(self.getReferenceTime(layer), 1))

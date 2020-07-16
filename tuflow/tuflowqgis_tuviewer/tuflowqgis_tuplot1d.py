@@ -266,7 +266,7 @@ class TuPlot1D():
 
 			if result in tuResults1D.results1d.keys():
 				res = tuResults1D.results1d[result]
-				
+
 				# get result types for all selected types
 				rtypes = tuResults1D.typesTS[:]
 				#for rtype in tuResults1D.typesTS:

@@ -959,7 +959,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 						   -2: set to first time
 		:return:
 		"""
-		
+
 		if enum == 0:  # set to slider position
 			i = self.sliderTime.sliderPosition()
 			self.cboTime.setCurrentIndex(i)
@@ -1033,7 +1033,10 @@ class TuView(QDockWidget, Ui_Tuplot):
 			if self.tuOptions.xAxisDates:
 				tf = self.tuResults._dateFormat.format(t)  # time formatted
 			else:
-				t = self.tuResults.date2time[t]
+				if t in self.tuResults.date2time:
+					t = self.tuResults.date2time[t]
+				elif t in self.tuResults.date_tspec2date:
+					t = self.tuResults.date_tspec2time[t]
 		if tf is None:
 			tf = convertTimeToFormattedTime(t, unit=self.tuOptions.timeUnits)  # time formatted
 		for i in range(self.cboTime.count()):

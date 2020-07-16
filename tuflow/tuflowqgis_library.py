@@ -49,6 +49,7 @@ from matplotlib.collections import PolyCollection
 from matplotlib import cm
 import inspect
 import xml.etree.ElementTree as ET
+import colorsys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tuflowqgis_styles
@@ -3550,13 +3551,37 @@ def interpolate(a, b, c, d, e):
 	return (e - d) / (c - b) * (a - b) + d
 
 
-def roundSeconds(dateTimeObject):
+def roundSeconds(dateTimeObject, prec):
+	"""rounds datetime object to nearest second"""
+
 	newDateTime = dateTimeObject
-	
-	if newDateTime.microsecond >= 500000:
-		newDateTime = newDateTime + timedelta(seconds=1)
+
+	a = 500000  # 0.5s
+	b = 1000000  # 1.0s
+	if prec > 0:
+		a = a / (10 ** prec)
+		b = b / (10 ** prec)
+	ms = newDateTime.microsecond - floor(newDateTime.microsecond / b) * b
+	if ms >= a:
+		newDateTime = newDateTime + timedelta(microseconds=b)
 		
-	return newDateTime.replace(microsecond=0)
+	return newDateTime - timedelta(microseconds=ms)
+
+
+def roundSeconds2(t, prec):
+	"""Takes float input in hours and rounds to prec (no. of decimal places of seconds component)"""
+	dt = timedelta(hours=t)
+	a = 500000   # 0.5s
+	b = 1000000  # 1.0s
+	if prec > 0:
+		a = a / (10 ** prec)
+		b = b / (10 ** prec)
+	ms = dt.microseconds - floor(dt.microseconds / b) * b
+	# if dt.microseconds - ms >= a:
+	if ms >= a:
+		dt = dt + timedelta(microseconds=b)
+	#ms = dt.microseconds - floor(dt.microseconds / b) * b
+	return (dt - timedelta(microseconds=ms)).total_seconds()
 
 
 def convertStrftimToTuviewftim(strftim):
@@ -5849,6 +5874,67 @@ def generateRandomMatplotColours(n):
 
 	return colours
 
+
+def colour_distance(rgb1, rgb2):
+	"""
+	Distance between 2 colours
+	"""
+
+	rm = 0.5*(rgb1[0]+rgb2[0])
+	d = sum((2+rm,4,3-rm)*(rgb1-rgb2)**2)**0.5
+	return d
+
+
+def generateRandomMatplotColours2(nColours, type_='bright', tol=2):
+	"""
+	Creates a random colormap to be used together with matplotlib. Useful for segmentation tasks
+	:param nlabels: Number of labels (size of colormap)
+	:param type: 'bright' for strong colors, 'soft' for pastel colors
+	"""
+
+	if type_ not in ('bright', 'soft'):
+		print ('Please choose "bright" or "soft" for type')
+		return
+
+	# Generate color map for bright colors, based on hsv
+	randRGBcolors = []
+	n = 1
+	if type_ == 'bright':
+		while n <= nColours:
+			randHSVcolor = [numpy.random.uniform(low=0.0, high=1),
+							numpy.random.uniform(low=0.2, high=1),
+							numpy.random.uniform(low=0.9, high=1)]
+
+			# Convert HSV list to RGB
+			rgb = numpy.array(colorsys.hsv_to_rgb(randHSVcolor[0], randHSVcolor[1], randHSVcolor[2]))
+			if n > 1:
+				for rgb2 in randRGBcolors[max(n - 10, 0):]:
+					if colour_distance(rgb, rgb2) > tol:
+						randRGBcolors.append(rgb)
+						n += 1
+			else:
+				randRGBcolors.append(rgb)
+				n += 1
+
+	# Generate soft pastel colors, by limiting the RGB spectrum
+	if type_ == 'soft':
+		low = 0.6
+		high = 0.95
+		rgb = [numpy.random.uniform(low=low, high=high),
+				numpy.random.uniform(low=low, high=high),
+				numpy.random.uniform(low=low, high=high)]
+		if n > 1:
+			for rgb2 in randRGBcolors[max(n - 10, 0):]:
+				if colour_distance(rgb, rgb2) > tol:
+					randRGBcolors.append(rgb)
+					n += 1
+		else:
+			randRGBcolors.append(rgb)
+			n += 1
+
+	return randRGBcolors
+
+
 def meshToPolygon(mesh: QgsMesh, face: int) -> QgsFeature:
 	"""
 	converts a mesh to QgsFeature polygon
@@ -6321,6 +6407,12 @@ def dt2qdt(dt, timeSpec):
 	                 Qt.TimeSpec(timeSpec))
 
 
+def datetime2timespec(dt, timespec1, timespec2):
+	"""converts datetime object from timespec1 to timespec2"""
+
+	return qdt2dt(dt2qdt(dt, timespec1).toTimeSpec(timespec2))
+
+
 def regex_dict_val(d: dict, key):
 	"""return dictionary value when dict keys use re"""
 
@@ -6419,6 +6511,5 @@ def qgsxml_as_mpl_cdict(fpath):
 
 
 if __name__ == '__main__':
-	a = r"C:\Users\Ellis.Symons\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\tuflow\layer_labelling"
-	labelProperties = glob.glob(os.path.join(a, "*.txt"))
-	print(labelProperties)
+	a = float('{0:.6f}'.format(2. / 60. / 60.))
+	print(roundSeconds2(a, 2))
