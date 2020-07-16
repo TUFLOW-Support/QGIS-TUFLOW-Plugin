@@ -2612,9 +2612,12 @@ from ui_tuflowqgis_TuOptionsDialog import *
 
 class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 	def __init__(self, TuOptions):
+		qv = Qgis.QGIS_VERSION_INT
+
 		QDialog.__init__(self)
 		self.setupUi(self)
 		self.tuOptions = TuOptions
+
 		
 		# mesh rendering
 		if self.tuOptions.showGrid:
@@ -2631,7 +2634,7 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 			self.rbTimeUnitsSeconds.setChecked(True)
 		else:
 			self.rbTimeUnitsHours.setChecked(True)
-		
+
 		# plot live cursor tracking
 		if self.tuOptions.liveMapTracking:
 			self.rbLiveCursorTrackingOn.setChecked(True)
@@ -2642,9 +2645,14 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		self.cbDates.setChecked(self.tuOptions.xAxisDates)
 		
 		# zero date
-		d = QDate(self.tuOptions.zeroTime.year, self.tuOptions.zeroTime.month, self.tuOptions.zeroTime.day)
-		t = QTime(self.tuOptions.zeroTime.hour, self.tuOptions.zeroTime.minute, self.tuOptions.zeroTime.second)
-		dt = QDateTime(d, t)
+		#d = QDate(self.tuOptions.zeroTime.year, self.tuOptions.zeroTime.month, self.tuOptions.zeroTime.day)
+		#t = QTime(self.tuOptions.zeroTime.hour, self.tuOptions.zeroTime.minute, self.tuOptions.zeroTime.second)
+		#dt = QDateTime(d, t)
+		dt = dt2qdt(self.tuOptions.zeroTime, 1)
+		if qv >= 31300:
+			dt.setTimeSpec(self.tuOptions.timeSpec)
+			dt = dt.toTimeSpec(1)
+
 		self.dteZeroDate.setDateTime(dt)
 		
 		# date format
@@ -2726,6 +2734,7 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		return
 	
 	def run(self):
+		qv = Qgis.QGIS_VERSION_INT
 		settings = QSettings()
 		# mesh rendering
 		if self.cbShowGrid.isChecked():
@@ -2753,9 +2762,12 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		self.tuOptions.xAxisDates = self.cbDates.isChecked()
 		
 		# zero time
-		d = [self.dteZeroDate.date().year(), self.dteZeroDate.date().month(), self.dteZeroDate.date().day()]
-		t = [self.dteZeroDate.time().hour(), self.dteZeroDate.time().minute(), self.dteZeroDate.time().second()]
-		self.tuOptions.zeroTime = datetime(d[0], d[1], d[2], t[0], t[1], t[2])
+		#d = [self.dteZeroDate.date().year(), self.dteZeroDate.date().month(), self.dteZeroDate.date().day()]
+		#t = [self.dteZeroDate.time().hour(), self.dteZeroDate.time().minute(), self.dteZeroDate.time().second()]
+		#self.tuOptions.zeroTime = datetime(d[0], d[1], d[2], t[0], t[1], t[2])
+		self.tuOptions.zeroTime = qdt2dt(self.dteZeroDate)
+		if qv >= 31300:
+			self.tuOptions.zeroTime = datetime2timespec(self.tuOptions.zeroTime, 1, self.tuOptions.timeSpec)
 		settings.setValue('TUFLOW/tuview_zeroTime', self.tuOptions.zeroTime)
 		
 		# format time

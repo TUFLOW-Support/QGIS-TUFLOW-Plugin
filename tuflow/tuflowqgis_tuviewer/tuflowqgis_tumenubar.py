@@ -251,6 +251,7 @@ class TuMenuBar():
 			self.resetDefaultStyles_action = QAction('Reset Default Styles', self.window)
 			self.options_action = QAction(iconOptions, 'Options', self.window)
 			self.addPlotColourRamp_action = QAction("Add Colour Ramp to Plot", self.window)
+			self.resetPlotColours_action = QAction("Reset Plotting Colours", self.window)
 			self.settingsMenu.addAction(self.userPlotDataManager_action)
 			self.settingsMenu.addSeparator()
 			self.settingsMenu.addAction(toolbar[7])
@@ -264,6 +265,8 @@ class TuMenuBar():
 			self.settingsMenu.addAction(self.resetDefaultStyles_action)
 			self.settingsMenu.addSeparator()
 			self.settingsMenu.addAction(self.addPlotColourRamp_action)
+			self.settingsMenu.addSeparator()
+			self.settingsMenu.addAction(self.resetPlotColours_action)
 			self.settingsMenu.addSeparator()
 			self.settingsMenu.addAction(self.options_action)
 
@@ -282,6 +285,7 @@ class TuMenuBar():
 			self.resetDefaultStyles_action.triggered.connect(self.tuMenuFunctions.resetDefaultStyles)
 			self.options_action.triggered.connect(self.tuMenuFunctions.options)
 			self.addPlotColourRamp_action.triggered.connect(self.tuMenuFunctions.addColourRampFromXML)
+			self.resetPlotColours_action.triggered.connect(self.tuMenuFunctions.resetMatplotColours)
 		else:
 			self.settingsMenu.addAction(self.menu.userPlotDataManager_action)
 			self.settingsMenu.addSeparator()
@@ -296,6 +300,8 @@ class TuMenuBar():
 			self.settingsMenu.addAction(self.menu.resetDefaultStyles_action)
 			self.settingsMenu.addSeparator()
 			self.settingsMenu.addAction(self.menu.addPlotColourRamp_action)
+			self.settingsMenu.addSeparator()
+			self.settingsMenu.addAction(self.menu.resetPlotColours_action)
 			self.settingsMenu.addSeparator()
 			self.settingsMenu.addAction(self.menu.options_action)
 		

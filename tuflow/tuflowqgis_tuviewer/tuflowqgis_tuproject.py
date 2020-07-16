@@ -6,6 +6,7 @@ from qgis.gui import QgsVertexMarker, QgsRubberBand
 from tuflow.tuflowqgis_library import tuflowqgis_find_layer
 
 
+
 class TuProject():
 	"""
 	Class for saving and loading dock settings to / from project
@@ -373,7 +374,9 @@ class TuProject():
 
 	def processMeshStyles(self, call_type):
 		"""Project settings for scalar and vector mesh styles."""
-		
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+
+
 		results = self.tuView.tuResults.results
 		menuFunctions = self.tuView.tuMenuBar.tuMenuFunctions
 		results2D = self.tuView.tuResults.tuResults2D
@@ -383,9 +386,11 @@ class TuProject():
 				# result -> 'M03_5m_001'
 				# rtype -> 'Depth' or 'point_ts'
 				for rtype, timeDict in rtypeDict.items():
-					if '_ts' not in rtype and '_lp' not in rtype:
-						if type(timeDict) is dict:  # make sure we're looking at 2d results
-							for time, items in timeDict.items():  # just do first timestep
+					#if '_ts' not in rtype and '_lp' not in rtype and '_particles' not in rtype:
+					if TuResults.isMapOutputType(rtype):
+						if 'times' in timeDict and type(timeDict['times']) is dict:
+						# if type(timeDict) is dict:  # make sure we're looking at 2d results
+							for time, items in timeDict['times'].items():  # just do first timestep
 								# time -> '0.0000'
 								# items -> ( timestep, type, QgsMeshDatasetIndex )
 								dtype = items[1]  # data type e.g. scalar or vector
@@ -421,9 +426,11 @@ class TuProject():
 				# rtype -> 'Depth' or 'point_ts'
 				layer = tuflowqgis_find_layer(result)
 				for rtype, timeDict in rtypeDict.items():
-					if '_ts' not in rtype and '_lp' not in rtype:
-						if type(timeDict) is dict:  # make sure we're looking at 2d results
-							for time, items in timeDict.items():  # just do first timestep
+					#if '_ts' not in rtype and '_lp' not in rtype and '_particles' not in rtype:
+					if TuResults.isMapOutputType(rtype):
+						if 'times' in timeDict and type(timeDict['times']) is dict:
+						# if type(timeDict) is dict:  # make sure we're looking at 2d results
+							for time, items in timeDict['times'].items():  # just do first timestep
 								# time -> '0.0000'
 								# items -> ( timestep, type, QgsMeshDatasetIndex )
 								rtypeFormatted = rtype.replace('/', '_')

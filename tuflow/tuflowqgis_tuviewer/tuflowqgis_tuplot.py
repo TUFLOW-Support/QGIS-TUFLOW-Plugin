@@ -41,8 +41,8 @@ from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot2d import TuPlot2D
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot1d import TuPlot1D
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuuserplotdata import TuUserPlotDataManager
 from tuflow.tuflowqgis_library import (applyMatplotLibArtist, getMean, roundSeconds, convert_datetime_to_float,
-                                       generateRandomMatplotColours, saveMatplotLibArtist,
-                                       polyCollectionPathIndexFromXY, regex_dict_val)
+                                       generateRandomMatplotColours2, saveMatplotLibArtist,
+                                       polyCollectionPathIndexFromXY, regex_dict_val, datetime2timespec)
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot3d import (TuPlot3D, ColourBar)
 
 
@@ -264,6 +264,12 @@ class TuPlot():
 			TuPlot.DataVerticalProfile,
 		]
 
+		self.plotDataTemporalPlottingTypes = [
+			TuPlot.DataTimeSeries2D,
+			TuPlot.DataFlow2D,
+			TuPlot.DataTimeSeriesDepAv,
+		]
+
 		# Draw Plots
 		self.initialisePlot(TuPlot.TimeSeries, TuPlot.DataTimeSeriesStartLine)  # time series
 		
@@ -332,7 +338,7 @@ class TuPlot():
 		self.verticalMesh_action.triggered.connect(self.vmeshToggled)
 
 		# plot colours
-		self.colours = generateRandomMatplotColours(100)
+		self.colours = generateRandomMatplotColours2(100)
 
 		self.cax = None  # axes object for colourbar
 		self.qk = None  # artist object for vector arrow legend
@@ -732,6 +738,10 @@ class TuPlot():
 					subplot.collections.remove(artist)
 				if subplot2 is not None and artist in subplot2.collections:
 					subplot2.collections.remove(artist)
+				if artist in subplot.patches:
+					subplot.patches.remove(artist)
+				if subplot2 is not None and artist in subplot2.patches:
+					subplot2.patches.remove(artist)
 				self.plotData[clearType].remove(line)
 				if clearSelection:
 					self.tuPlotSelection.clearSelection(clearType)
@@ -1979,7 +1989,7 @@ class TuPlot():
 				if isSecondaryAxis[0]:
 					ci += len(subplot2.lines)
 				while ci + 1 > len(self.colours):
-					self.colours += generateRandomMatplotColours(100)
+					self.colours += generateRandomMatplotColours2(100)
 				colour = self.colours[ci]
 
 				# data
@@ -2219,10 +2229,26 @@ class TuPlot():
 
 		try:
 			if not self.lockAxis(plotNo, showCurrentTime):
-				subplot.autoscale(True)
 				subplot.relim()
+				if self.checkPlotForInconsistentUnits(subplot):
+					subplot.xaxis.set_major_locator(matplotlib.ticker.AutoLocator())
+					if not self.tuView.tuOptions.xAxisDates:
+						subplot.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
+					subplot.relim()
+					subplot.autoscale(True)
+					subplot.relim()
+
+
 			if isSecondaryAxis[0]:
 				subplot2.relim()
+				if self.checkPlotForInconsistentUnits(subplot2):
+					subplot2.xaxis.set_major_locator(matplotlib.ticker.AutoLocator())
+					if not self.tuView.tuOptions.xAxisDates:
+						subplot2.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
+					subplot2.relim()
+					subplot2.autoscale(True)
+					subplot2.relim()
+
 		except:
 			pass
 		if self.tuView.tuMenuBar.freezeAxisXLimits_action.isChecked():
@@ -2249,9 +2275,12 @@ class TuPlot():
 			#if isSecondaryAxis[0]:
 			#	subplot2.relim()
 			figure.tight_layout()
+			skipDraw = False
 		except ValueError:  # something has gone wrong and trying to plot time (hrs) on a date formatted x axis
+			skipDraw = True
 			pass
 		except Exception as e:
+			skipDraw = True
 			pass
 			
 		if export:
@@ -3079,14 +3108,21 @@ class TuPlot():
 		:param data: list -> float
 		:return: list -> datetime
 		"""
-		
+
 		x = []
 		for datum in data:
-			if datum in self.tuView.tuResults.time2date.keys():
-				time = self.tuView.tuResults.time2date[datum]
+			# if datum in self.tuView.tuResults.time2date.keys():
+			if datum in self.tuView.tuResults.time2date_tspec.keys():
+				# time = self.tuView.tuResults.time2date[datum]
+				time = self.tuView.tuResults.time2date_tspec[datum]
+			elif '{0:.6f}'.format(datum) in self.tuView.tuResults.timekey2date_tspec.keys():
+				time = self.tuView.tuResults.timekey2date_tspec['{0:.6f}'.format(datum)]
 			else:
-				time = self.tuView.tuOptions.zeroTime + timedelta(hours=datum)
-				time = roundSeconds(time)
+				time = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1) \
+				       + timedelta(hours=datum)
+				time = roundSeconds(time, 2)
+				modelDates = sorted([x for x in self.tuView.tuResults.date_tspec2time.keys()])
+				time = self.tuView.tuResults.findTimeClosest(None, None, time, modelDates, True, 'closest')
 			x.append(time)
 			
 		return x
@@ -3099,7 +3135,16 @@ class TuPlot():
 		:return: float time
 		"""
 
-		date = datetime.strptime(data, self.tuView.tuResults.dateFormat)
+		if type(data) is str:
+			date = datetime.strptime(data, self.tuView.tuResults.dateFormat)
+		else:
+			date = data
+		if date in self.tuView.tuResults.date_tspec2time:
+			return self.tuView.tuResults.date_tspec2time[date]
+		modelDates = sorted([x for x in self.tuView.tuResults.date_tspec2time.keys()])
+		dateClosest = self.tuView.tuResults.findTimeClosest(None, None, date, modelDates, True, 'closest')
+		if dateClosest in self.tuView.tuResults.date_tspec2time:
+			return self.tuView.tuResults.date_tspec2time[dateClosest]
 		if date in self.tuView.tuResults.date2time:
 			return self.tuView.tuResults.date2time[date]
 		else:
@@ -3187,3 +3232,27 @@ class TuPlot():
 			return True
 
 		return False
+
+	def checkPlotForInconsistentUnits(self, ax):
+		inconsistent = False
+		dates = False
+		time = False
+		for line in ax.lines:
+			if type(line) is plt.Line2D:
+				x, y = line.get_data()
+				if len(x) and type(x[0]) is datetime:
+					dates = True
+				else:
+					time = True
+		if dates and time:
+			for line in ax.lines:
+				if type(line) is plt.Line2D:
+					x, y = line.get_data()
+					if self.tuView.tuOptions.xAxisDates and len(x) and type(x[0]) is not datetime:
+						xnew = self.convertTimeToDate(x)
+						line.set_data(xnew, y)
+					elif not self.tuView.tuOptions.xAxisDates and len(x) and type(x[0]) is datetime:
+						xnew = [self.convertDateToTime(x) for x in x]
+						line.set_data(xnew, y)
+
+		return dates and time

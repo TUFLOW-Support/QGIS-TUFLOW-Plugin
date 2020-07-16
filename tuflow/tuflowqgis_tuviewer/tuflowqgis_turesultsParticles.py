@@ -4,8 +4,8 @@ import re
 from datetime import timedelta, datetime
 from qgis.core import *
 from PyQt5.QtCore import Qt, QVariant
-from qgis.core import QgsVectorLayer, QgsFeature, QgsPointXY, QgsGeometry, QgsField
-from tuflow.tuflowqgis_library import isSame_float, roundSeconds
+from qgis.core import QgsVectorLayer, QgsFeature, QgsPointXY, QgsGeometry, QgsField, Qgis
+from tuflow.tuflowqgis_library import isSame_float, roundSeconds, datetime2timespec
 
 try:
 	from tuflow.TUFLOW_particles_data_provider import TuParticlesDataProvider
@@ -44,12 +44,11 @@ class TuResultsParticles():
 
 		for j, f in enumerate(inFileNames):
 			# Load Particles
-			defaultRefTime = self.tuView.tuOptions.zeroTime
 			if type(inFileNames) is dict:
 				m = inFileNames[f]['particles']
-				mLayer, name = self._load_file(m, defaultRefTime)
+				mLayer, name = self._load_file(m)
 			else:
-				mLayer, name = self._load_file(f, defaultRefTime)
+				mLayer, name = self._load_file(f)
 
 			if mLayer is None or name is None:
 				if not skipConnect:
@@ -78,11 +77,18 @@ class TuResultsParticles():
 
 		return True
 
-	def _load_file(self, filename, defaultRefTime=None):
+	def _load_file(self, filename):
+		qv = Qgis.QGIS_VERSION_INT
+
 		if not filename:
 			return None, None
 
 		self.debug = self.tuView.tuOptions.particlesWriteDebugInfo  # ES
+
+		if self.tuView.OpenResults.count() == 0:
+			defaultRefTime = self.tuView.tuOptions.defaultZeroTime
+		else:
+			defaultRefTime = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
 
 		particles_data_provider = TuParticlesDataProvider()
 		if particles_data_provider.load_file(filename, defaultRefTime):
@@ -123,15 +129,29 @@ class TuResultsParticles():
 			time2date = self.tuView.tuResults.time2date  # dict
 			date2timekey = self.tuView.tuResults.date2timekey
 			date2time = self.tuView.tuResults.date2time
-			zeroTime = self.tuView.tuOptions.zeroTime  # datetime
-			if not zeroTime or self.tuView.OpenResults.count() == 0:
-				zeroTime = particles_data_provider.getReferenceTime()
-				self.tuView.tuOptions.zeroTime = zeroTime  # ES
+			#zeroTime = self.tuView.tuOptions.zeroTime  # datetime
+			zeroTime = particles_data_provider.getReferenceTime()  # this is timespec(1)
+			if self.tuView.OpenResults.count() == 0:
+				if qv >= 31300:
+					self.tuView.tuOptions.zeroTime = datetime2timespec(zeroTime, 1, self.tuView.tuResults.timeSpec)
+					self.tuView.tuOptions.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+					self.tuView.tuResults.loadedTimeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+				else:
+					self.tuView.tuOptions.zeroTime = zeroTime  # ES
+			# if self.tuView.tuResults.timeSpec != self.tuView.tuResults.loadedTimeSpec:
+			# 	particles_data_provider.set_reference_time(datetime2timespec(particles_data_provider.reference_time,
+			# 	                                                             self.tuView.tuResults.timeSpec,
+			# 	                                                             self.tuView.tuResults.loadedTimeSpec))
 
-			timesteps = particles_data_provider.timeSteps(zeroTime)
+			timesteps = particles_data_provider.timeSteps(datetime2timespec(self.tuView.tuOptions.zeroTime,
+			                                                                self.tuView.tuResults.loadedTimeSpec, 1))
 			for t in timesteps:
-				date = zeroTime + timedelta(hours=t)
-				date = roundSeconds(date)
+				date = self.tuView.tuOptions.zeroTime + timedelta(hours=t)
+				# date = datetime2timespec(self.tuView.tuOptions.zeroTime,
+				#                          self.tuView.tuResults.loadedTimeSpec,
+				#                          self.tuView.tuResults.timeSpec) \
+				#        + timedelta(hours=t)
+				date = roundSeconds(date, 2)
 				timekey2time['{0:.6f}'.format(t)] = t
 				# timekey2date['{0:.6f}'.format(t)] = zeroTime + timedelta(hours=t)
 				timekey2date['{0:.6f}'.format(t)] = date
@@ -141,6 +161,17 @@ class TuResultsParticles():
 				date2timekey[date] = '{0:.6f}'.format(t)
 				# date2time[zeroTime + timedelta(hours=t)] = t
 				date2time[date] = t
+
+				if qv >= 31300:
+					date_tspec = datetime2timespec(date, self.tuView.tuResults.loadedTimeSpec, 1)
+				else:
+					date_tspec = date
+				self.tuView.tuResults.timekey2date_tspec['{0:.6f}'.format(t)] = date_tspec
+				self.tuView.tuResults.time2date_tspec[t] = date_tspec
+				self.tuView.tuResults.date_tspec2timekey[date_tspec] = '{0:.6f}'.format(t)
+				self.tuView.tuResults.date_tspec2time[date_tspec] =  t
+				self.tuView.tuResults.date2date_tspec[date] = date_tspec
+				self.tuView.tuResults.date_tspec2date[date_tspec] = date
 
 			self.tuView.tuResults.results[displayname]["_particles"] = [timesteps]
 
@@ -260,7 +291,7 @@ class TuResultsParticles():
 			absTime = particles_data_provider.timeSteps(particles_data_provider.getReferenceTime())[time_index]
 			relTime = particles_data_provider.timeSteps(self.tuView.tuOptions.zeroTime)[time_index]
 			dt = particles_data_provider.getReferenceTime() + timedelta(hours=absTime)
-			dt = roundSeconds(dt)
+			dt = roundSeconds(dt, 2)
 		else:
 			x = data.pop('x')
 			y = data.pop('y')
@@ -333,3 +364,50 @@ class TuResultsParticles():
 
 		if changed:
 			vlayer.commitChanges()
+
+	def reloadTimesteps(self, resname):
+		qv = Qgis.QGIS_VERSION_INT
+
+		if resname not in self.resultsParticles:
+			return
+		particles_data_provider = self.resultsParticles[resname][0]
+
+		if not particles_data_provider.has_reference_time:
+			particles_data_provider.default_reference_time = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
+			particles_data_provider._fill_times_arr()
+
+		zeroTime = particles_data_provider.getReferenceTime()  # this is timespec(1)
+		timekey2time = self.tuView.tuResults.timekey2time  # dict
+		timekey2date = self.tuView.tuResults.timekey2date  # dict
+		time2date = self.tuView.tuResults.time2date  # dict
+		date2timekey = self.tuView.tuResults.date2timekey
+		date2time = self.tuView.tuResults.date2time
+
+		timesteps = particles_data_provider.timeSteps(datetime2timespec(self.tuView.tuOptions.zeroTime,
+		                                                                self.tuView.tuResults.loadedTimeSpec, 1))
+		for t in timesteps:
+			date = self.tuView.tuOptions.zeroTime + timedelta(hours=t)
+			#date = datetime2timespec(self.tuView.tuOptions.zeroTime,
+			#                         self.tuView.tuResults.loadedTimeSpec,
+			#                         self.tuView.tuResults.timeSpec) \
+			#       + timedelta(hours=t)
+			date = roundSeconds(date, 2)
+			timekey2time['{0:.6f}'.format(t)] = t
+			timekey2date['{0:.6f}'.format(t)] = date
+			time2date[t] = date
+			date2timekey[date] = '{0:.6f}'.format(t)
+			date2time[date] = t
+
+			if qv >= 31300:
+				date_tspec = datetime2timespec(date, self.tuView.tuResults.loadedTimeSpec, 1)
+			else:
+				date_tspec = date
+			self.tuView.tuResults.timekey2date_tspec['{0:.6f}'.format(t)] = date_tspec
+			self.tuView.tuResults.time2date_tspec[t] = date_tspec
+			self.tuView.tuResults.date_tspec2timekey[date_tspec] = '{0:.6f}'.format(t)
+			self.tuView.tuResults.date_tspec2time[date_tspec] = t
+			self.tuView.tuResults.date2date_tspec[date] = date_tspec
+			self.tuView.tuResults.date_tspec2date[date_tspec] = date
+
+		self.tuView.tuResults.results[resname]["_particles"] = [timesteps]
+		self.resultsParticles[resname][2] = timesteps

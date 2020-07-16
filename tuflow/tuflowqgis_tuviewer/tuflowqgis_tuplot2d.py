@@ -525,10 +525,10 @@ class TuPlot2D():
 			for key, item in velRes.items():
 				gmd = layer.dataProvider().datasetGroupMetadata(item[-1].group())
 				break
-			inters, ch, faces = findMeshIntersects(si, dp, mesh, feat, crs,
+			inters, ch, fcs = findMeshIntersects(si, dp, mesh, feat, crs,
 			                                             self.tuView.project)
 			if gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices:
-				points = inters[:]
+				# points = inters[:]
 				points = inters[0:1]
 				points.extend([calcMidPoint(inters[i], inters[i + 1], crs) for i in range(len(inters) - 1)])
 				points.append(inters[-1])
@@ -540,8 +540,10 @@ class TuPlot2D():
 					writeTempPoints(inters, self.tuView.project, crs, chainages, 'Chainage',
 					                QVariant.Double)
 			else:
-				points = faces[:]
+				# points = faces[:]
+				points = inters[:]
 				chainages = ch[:]
+				faces = fcs[:]
 				if debug:
 					polys = [meshToPolygon(mesh, mesh.face(x)) for x in faces]
 					writeTempPolys(polys, self.tuView.project, crs)
@@ -593,7 +595,8 @@ class TuPlot2D():
 				
 				# iterate across line to get flow
 				sumFlow = 0
-				for i, point in enumerate(points):
+				#for i, point in enumerate(points):
+				for i in range(len(faces)):
 					#if not meshRendered:
 					#	# pre-render means that we need to
 					#	# manually go get mesh face indexes
@@ -615,18 +618,18 @@ class TuPlot2D():
 					# get depth - either directly or through water level and bed elevation
 					if depth is not None:
 						depthMag = self.datasetValue(layer, dp, si, mesh, results[layer.name()][depth]['times'][key][-1],
-						                           meshRendered, point, 0, TuPlot.DataFlow2D, None, faces[i])
+						                           meshRendered, points[i], 0, TuPlot.DataFlow2D, None, faces[i])
 					else:
 						wlMag = self.datasetValue(layer, dp, si, mesh, results[layer.name()][waterLevel]['times'][key][-1],
-						                          meshRendered, point, 0, TuPlot.DataFlow2D, None, faces[i])
+						                          meshRendered, points[i], 0, TuPlot.DataFlow2D, None, faces[i])
 						bedMag = self.datasetValue(layer, dp, si, mesh, results[layer.name()][bedElevation]['times'][key][-1],
-						                           meshRendered, point, 0, TuPlot.DataFlow2D, None, faces[i])
+						                           meshRendered, points[i], 0, TuPlot.DataFlow2D, None, faces[i])
 						depthMag = wlMag - bedMag
 					if qIsNaN(depthMag):
 						depthMag = 0
 						
 					if depthMag > 0:
-						velDataValue = self.datasetValue(layer, dp, si, mesh, velItem[-1], meshRendered, point, 0,
+						velDataValue = self.datasetValue(layer, dp, si, mesh, velItem[-1], meshRendered, points[i], 0,
 						                                 TuPlot.DataFlow2D, None, faces[i], value='vector')
 						velMag = velDataValue[0]
 						velX = velDataValue[1]
@@ -1206,6 +1209,8 @@ class TuPlot2D():
 					return mdb.values()[0]
 				elif restype == 'y':
 					return mdb.values()[1]
+				elif restype == 'vector':
+					return [(mdb.values()[0] ** 2 + mdb.values()[1] ** 2) ** 0.5] + mdb.values()[:2]  # [mag, x, y]
 			else:
 				return mdb.values()[0]
 		else:  # probably 2d result

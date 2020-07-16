@@ -304,11 +304,52 @@ class tuflowqgis_menu:
 		self.textquit1 = "Select the polyline in a vector layer (Right click to quit)"
 
 	def unload(self):
+		# tuflow viewer
+		self.removeTuview(no_popup=True)
+		# integrity tool
+		try:
+			self.integrityTool.close()
+		except:
+			pass
+		# refh2
+		try:
+			self.refh2Dock.close()
+		except:
+			pass
+
+		self.iface.removeToolBarIcon(self.reload_data_action)
+		self.iface.removeToolBarIcon(self.view_results_action)
+		self.iface.removeToolBarIcon(self.integrity_tool_action)
+		self.iface.removeToolBarIcon(self.import_empty_tf_action)
+		self.iface.removeToolBarIcon(self.insert_TUFLOW_attributes_action)
+		self.iface.removeToolBarIcon(self.load_tuflowFiles_from_TCF_action)
+		self.iface.removeToolBarIcon(self.filterAndSortLayersAction)
+		self.iface.removeToolBarIcon(self.increment_action)
+		self.iface.removeToolBarIcon(self.import_chk_action)
+		self.iface.removeToolBarIcon(self.apply_chk_action)
+		self.iface.removeToolBarIcon(self.apply_chk_cLayer_action)
+		self.iface.removeToolBarIcon(self.autoLabelMenu.menuAction())
+		self.iface.removeToolBarIcon(self.extract_arr2016_action)
+		self.iface.removeToolBarIcon(self.extractRefh2Action)
+		self.iface.removeToolBarIcon(self.tuflowUtilitiesAction)
 		self.iface.removePluginMenu("&TUFLOW", self.about_menu.menuAction())
 		self.iface.removePluginMenu("&TUFLOW", self.editing_menu.menuAction())
 		self.iface.removePluginMenu("&TUFLOW", self.run_menu.menuAction())
-
-		del self.import_chk_action
+		self.iface.removePluginMenu("&TUFLOW", self.clear_menu.menuAction())
+		self.iface.removePluginMenu("&TUFLOW", self.reload_data_action)
+		self.iface.removePluginMenu("&TUFLOW", self.view_results_action)
+		self.iface.removePluginMenu("&TUFLOW", self.integrity_tool_action)
+		self.iface.removePluginMenu("&TUFLOW", self.import_empty_tf_action)
+		self.iface.removePluginMenu("&TUFLOW", self.insert_TUFLOW_attributes_action)
+		self.iface.removePluginMenu("&TUFLOW", self.load_tuflowFiles_from_TCF_action)
+		self.iface.removePluginMenu("&TUFLOW", self.filterAndSortLayersAction)
+		self.iface.removePluginMenu("&TUFLOW", self.increment_action)
+		self.iface.removePluginMenu("&TUFLOW", self.import_chk_action)
+		self.iface.removePluginMenu("&TUFLOW", self.apply_chk_action)
+		self.iface.removePluginMenu("&TUFLOW", self.apply_chk_cLayer_action)
+		self.iface.removePluginMenu("&TUFLOW", self.extract_arr2016_action)
+		self.iface.removePluginMenu("&TUFLOW", self.extractRefh2Action)
+		self.iface.removePluginMenu("&TUFLOW", self.tuflowUtilitiesAction)
 
 	def configure_tf(self):
 		project = QgsProject.instance()
@@ -381,6 +422,7 @@ class tuflowqgis_menu:
 			self.resultsPlottingDockOpened = True
 			
 	def removeTuview(self, **kwargs):
+		no_popup = kwargs['no_popup'] if 'no_popup' in kwargs else False
 		resetQgisSettings(scope='Project', tuviewer=True, feedback=False)
 		try:
 			self.resultsPlottingDock.tuPlot.clearAllPlots()
@@ -391,12 +433,14 @@ class tuflowqgis_menu:
 			if 'feedback' in kwargs:
 				if not kwargs['feedback']:
 					return
-			QMessageBox.information(self.iface.mainWindow(), "TUFLOW", "Completely Closed TUFLOW Viewer")
+			if not no_popup:
+				QMessageBox.information(self.iface.mainWindow(), "TUFLOW", "Completely Closed TUFLOW Viewer")
 		except:
 			if 'feedback' in kwargs:
 				if not kwargs['feedback']:
 					return
-			QMessageBox.information(self.iface.mainWindow(), "TUFLOW", "TUFLOW Viewer Not Open")
+			if not no_popup:
+				QMessageBox.information(self.iface.mainWindow(), "TUFLOW", "TUFLOW Viewer Not Open")
 		
 	def reloadTuview(self):
 		self.removeTuview(feedback=False)

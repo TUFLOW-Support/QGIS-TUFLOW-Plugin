@@ -2,6 +2,7 @@ from datetime import datetime
 from PyQt5.QtCore import *
 
 
+
 class TuOptions():
 	
 	def __init__(self):
@@ -20,6 +21,7 @@ class TuOptions():
 		self.writeMeshIntersects = False
 		self.particlesWriteDebugInfo = False
 		self.verticalProfileInterpolated = False
+		self.timeSpec = 1
 		if settings.contains("TUFLOW/tuview_defaultlayout"):
 			self.defaultLayout = settings.value('TUFLOW/tuview_defaultlayout')
 		else:
@@ -40,6 +42,7 @@ class TuOptions():
 			self._dateFormat = _dateFormat
 		else:
 			self._dateFormat = '{0:%H}:{0:%M}'
+
 	
 	def saveProject(self, project):
 		project.writeEntry("TUVIEW", "livemaptracking", str(self.liveMapTracking))

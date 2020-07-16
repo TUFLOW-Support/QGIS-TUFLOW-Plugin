@@ -886,17 +886,18 @@ class XS():
 		self.xsLayer = XS_layer(xsLayer)
 
 	@staticmethod
-	def getAllSourcesForType(lyr, t):
+	def getAllSourcesForType(lyr, t, null=None):
 		"""
 		Gets all source names for type e.g. 'XZ'
 		"""
 
-		return [x.attributes()[0].lower() for x in list(filter(lambda x: x.attributes()[1].lower() == t.lower(), lyr.getFeatures()))]
+		#return [x.attributes()[0].lower() for x in list(filter(lambda x: x.attributes()[1].lower() == t.lower(), lyr.getFeatures()))]
+		return [x.attributes()[0].lower() for x in [x for x in [x for x in lyr.getFeatures() if x.attributes()[1] != null] if x.attributes()[0] != null] if x.attributes()[1].lower() == t.lower()]
 
 	@staticmethod
-	def getAllTypes(lyr):
+	def getAllTypes(lyr, null=None):
 		"""
 
 		"""
 
-		return list(set([x.attributes()[1].upper() for x in lyr.getFeatures()]))
+		return list(set([x.attributes()[1].upper() for x in lyr.getFeatures() if x.attributes()[1] != null]))

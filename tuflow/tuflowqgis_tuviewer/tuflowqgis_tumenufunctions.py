@@ -16,7 +16,7 @@ from matplotlib import cm
 from matplotlib.colors import LinearSegmentedColormap
 from tuflow.tuflowqgis_library import loadLastFolder, getResultPathsFromTCF, getScenariosFromTcf, getEventsFromTCF, \
 	tuflowqgis_find_layer, getUnit, getCellSizeFromTCF, getOutputZonesFromTCF, getPathFromRel, convertTimeToFormattedTime, \
-	convertFormattedTimeToTime, getResultPathsFromTLF, browse, qgsxml_as_mpl_cdict
+	convertFormattedTimeToTime, getResultPathsFromTLF, browse, qgsxml_as_mpl_cdict, generateRandomMatplotColours2
 from tuflow.tuflowqgis_dialog import tuflowqgis_scenarioSelection_dialog, tuflowqgis_eventSelection_dialog, \
 	TuOptionsDialog, TuSelectedElementsDialog, tuflowqgis_meshSelection_dialog, TuBatchPlotExportDialog, \
 	TuUserPlotDataManagerDialog, tuflowqgis_outputZoneSelection_dialog, tuflowqgis_brokenLinks_dialog
@@ -423,6 +423,7 @@ class TuMenuFunctions():
 		
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+		qv = Qgis.QGIS_VERSION_INT
 		
 		xAxisDatesPrev = self.tuView.tuOptions.xAxisDates
 		showGridPrev = self.tuView.tuOptions.showGrid
@@ -441,9 +442,10 @@ class TuMenuFunctions():
 			self.tuView.tuResults.updateTimeUnits()
 		if self.tuView.tuOptions.timeUnits != timeUnitsPrev:
 			self.tuView.tuResults.updateTimeUnits()
-		if self.tuView.tuOptions.xAxisDates:
-			if self.tuView.tuOptions.zeroTime != zeroDatePrev:
-				self.tuView.tuResults.updateDateTimes()
+		# if self.tuView.tuOptions.xAxisDates:
+		if self.tuView.tuOptions.zeroTime != zeroDatePrev:
+			#self.tuView.tuResults.updateDateTimes()
+			self.tuView.tuResults.updateDateTimes2()
 
 		self.tuView.tuPlot.updateCurrentPlot(self.tuView.tabWidget.currentIndex(), update='1d and 2d only')
 		self.tuView.tuPlot.tuPlotToolbar.cursorTrackingButton.setChecked(self.tuView.tuOptions.liveMapTracking)
@@ -685,8 +687,12 @@ class TuMenuFunctions():
 		timeColumns = []
 		for i in range(1, data.shape[1]):
 			if i % 2 == 0:
-				if np.allclose(data[:, i - 2], data[:, i], equal_nan=True):		# avoid nan == nan not being True
-					timeColumns.append(i)
+				if data[:, i - 2].dtype == np.object and data[:, i].dtype == np.object:  # probably datetime objects
+					if not np.any((data[:, i - 2].astype(np.datetime64) == data[:, i].astype(np.datetime64)) == False):  # allclose doesn't seem to work with datetime
+						timeColumns.append(i)
+				else:
+					if np.allclose(data[:, i - 2], data[:, i], equal_nan=True):		# avoid nan == nan not being True
+						timeColumns.append(i)
 		data = np.delete(data, timeColumns, axis=1)
 		# keep data headers only for remaining arrays
 		dataHeader = dataHeader.split(',')
@@ -1195,7 +1201,7 @@ class TuMenuFunctions():
 			## get color ramp properties
 			shader = rsScalar.colorRampShader()
 			file = os.path.join(os.path.dirname(__file__), '_saved_styles', '{0}.xml'.format(activeScalarType))
-			doc = QDomDocument(activeScalarType.replace(' ', '_'))
+			doc = QDomDocument(activeScalarType.replace(' ', '_').replace('(', '').replace(')', ''))
 			element = shader.writeXml(doc)
 			doc.appendChild(element)
 			fo = open(file, 'w')
@@ -1371,18 +1377,31 @@ class TuMenuFunctions():
 			# get active dataset and check if it is scalar
 			if useClicked:
 				resultType = self.tuView.tuContextMenu.resultTypeContextItem.ds_name
-				for i in range(dp.datasetGroupCount()):
-					# is the datasetGroup a maximum?
-					isDatasetMax = TuResults.isMaximumResultType(dp.datasetGroupMetadata(i).name(),
-					                                             dp=dp, groupIndex=i)
-					if self.tuView.tuContextMenu.resultTypeContextItem.isMax and isDatasetMax:
-						if TuResults.stripMaximumName(dp.datasetGroupMetadata(i).name()) == resultType:
-							activeScalarGroupIndex = i
-							break
-					else:
-						if dp.datasetGroupMetadata(i).name() == resultType and not isDatasetMax:
-							activeScalarGroupIndex = i
-							break
+				# for i in range(dp.datasetGroupCount()):
+				if layer.name() in self.tuView.tuResults.results:
+					for rtype in self.tuView.tuResults.results[layer.name()]:
+						if TuResults.isMapOutputType(rtype):
+							# is the datasetGroup a maximum?
+							isDatasetMax = TuResults.isMaximumResultType(rtype)
+							isDatasetMin = TuResults.isMinimumResultType(rtype)
+							if self.tuView.tuContextMenu.resultTypeContextItem.isMax and isDatasetMax:
+								if TuResults.stripMaximumName(rtype) == resultType:
+									mdis = [y[2] for x, y in self.tuView.tuResults.results[layer.name()][rtype]['times'].items()]
+									if mdis:
+										activeScalarGroupIndex = mdis[0].group()
+									break
+							elif self.tuView.tuContextMenu.resultTypeContextItem.isMin and isDatasetMin:
+								if TuResults.stripMaximumName(rtype) == resultType:
+									mdis = [y[2] for x, y in self.tuView.tuResults.results[layer.name()][rtype]['times'].items()]
+									if mdis:
+										activeScalarGroupIndex = mdis[0].group()
+									break
+							else:
+								if rtype == resultType:
+									mdis = [y[2] for x, y in self.tuView.tuResults.results[layer.name()][rtype]['times'].items()]
+									if mdis:
+										activeScalarGroupIndex = mdis[0].group()
+									break
 						
 			else:
 				activeScalar = rs.activeScalarDataset()
@@ -1393,18 +1412,18 @@ class TuMenuFunctions():
 
 			# get the name and try and apply default styling
 			mdGroup = dp.datasetGroupMetadata(activeScalarGroupIndex)
-			if mdGroup.isScalar():  # should be scalar considering we used activeScalarDataset
-				resultType = TuResults.stripMaximumName(mdGroup.name())
-				# try finding if style has been saved as a ramp first
-				key = 'TUFLOW_scalarRenderer/{0}_ramp'.format(resultType)
-				file = QSettings().value(key)
-				if file:
-					self.tuView.tuResults.tuResults2D.applyScalarRenderSettings(layer, activeScalarGroupIndex, file, type='ramp')
-				# else try map
-				key = 'TUFLOW_scalarRenderer/{0}_map'.format(resultType)
-				file = QSettings().value(key)
-				if file:
-					self.tuView.tuResults.tuResults2D.applyScalarRenderSettings(layer, activeScalarGroupIndex, file, type='map')
+			# if mdGroup.isScalar():  # should be scalar considering we used activeScalarDataset
+			resultType = TuResults.stripMaximumName(mdGroup.name())
+			# try finding if style has been saved as a ramp first
+			key = 'TUFLOW_scalarRenderer/{0}_ramp'.format(resultType)
+			file = QSettings().value(key)
+			if file:
+				self.tuView.tuResults.tuResults2D.applyScalarRenderSettings(layer, activeScalarGroupIndex, file, type='ramp')
+			# else try map
+			key = 'TUFLOW_scalarRenderer/{0}_map'.format(resultType)
+			file = QSettings().value(key)
+			if file:
+				self.tuView.tuResults.tuResults2D.applyScalarRenderSettings(layer, activeScalarGroupIndex, file, type='map')
 					
 		return True
 	
@@ -1732,3 +1751,11 @@ class TuMenuFunctions():
 				cm.register_cmap(name=name, cmap=lcm)
 
 			QMessageBox.information(self.tuView, "Add Colour Ramp to Plot", "Successfully imported colour ramp(s)")
+
+	def resetMatplotColours(self):
+		"""
+
+		"""
+
+		self.tuView.tuPlot.colours = generateRandomMatplotColours2(100)
+		self.tuView.tuPlot.updateAllPlots()

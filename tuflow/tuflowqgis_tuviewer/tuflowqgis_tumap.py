@@ -80,8 +80,9 @@ def getTimes(results, layer, stype, vtype, units='h', xAxisDates=False, tuResult
 							#time = '{0:02d}:{1:02.0f}:{2:05.2f}'.format(int(x), (x - int(x)) * 60, (x - int(x) - (x - int(x))) * 3600)
 							if xAxisDates:
 								if tuResults is not None:
-									if x in tuResults.time2date:
-										time = tuResults.time2date[x]
+									# if x in tuResults.time2date:
+									if x in tuResults.time2date_tspec:
+										time = tuResults.time2date_tspec[x]
 										time = tuResults._dateFormat.format(time)
 							else:
 								time = convertTimeToFormattedTime(x, unit=units)
@@ -151,8 +152,9 @@ def makeMap(cfg, iface, progress_fn=None, dialog=None, preview=False, iteration=
 	timetext = convertTimeToFormattedTime(time, unit=dialog.tuView.tuOptions.timeUnits)
 	if dialog is not None:
 		if dialog.tuView.tuOptions.xAxisDates:
-			if time in dialog.tuView.tuResults.time2date:
-				timetext = dialog.tuView.tuResults.time2date[time]
+			# if time in dialog.tuView.tuResults.time2date:
+			if time in dialog.tuView.tuResults.time2date_tspec:
+				timetext = dialog.tuView.tuResults.time2date_tspec[time]
 				timetext = dialog.tuView.tuResults._dateFormat.format(timetext)
 	cfg['time text'] = timetext
 	

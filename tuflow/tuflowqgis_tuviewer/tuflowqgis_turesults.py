@@ -8,8 +8,9 @@ import tuflowqgis_turesults1d
 import tuflowqgis_turesults2d
 import tuflowqgis_turesultsParticles
 from tuflow.dataset_view import DataSetModel
-from tuflow.tuflowqgis_library import tuflowqgis_find_layer, convertFormattedTimeToTime, convertTimeToFormattedTime, \
-	findAllMeshLyrs, roundSeconds, isSame_float, dt2qdt
+from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, convertFormattedTimeToTime,
+                                       convertTimeToFormattedTime, findAllMeshLyrs, roundSeconds,
+                                       isSame_float, dt2qdt, roundSeconds2, datetime2timespec)
 from tuflow.dataset_menu import DatasetMenuDepAv
 from tuflow.TUFLOW_XS import XS
 
@@ -26,7 +27,7 @@ class TuResults():
 	OtherTypes = ['_ts', '_lp', '_particles', '_cs']
 
 	def __init__(self, TuView=None):
-		qv = qv = Qgis.QGIS_VERSION_INT
+		qv = Qgis.QGIS_VERSION_INT
 		if TuView is not None:
 			self.tuView = TuView
 			self.iface = TuView.iface
@@ -37,6 +38,14 @@ class TuResults():
 			self.time2date = {}
 			self.date2timekey = {}
 			self.date2time = {}
+			# date stuff with timespec for display purposes
+			self.timekey2date_tspec = {}
+			self.time2date_tspec = {}
+			self.date_tspec2timekey = {}
+			self.date_tspec2time = {}
+			self.date2date_tspec = {}
+			self.date_tspec2date = {}
+
 			self.secondaryAxisTypes = []
 			self.maxResultTypes = []
 			self.minResultTypes = []
@@ -50,7 +59,9 @@ class TuResults():
 			if qv >= 31300:
 				self.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
 			else:
-				self.timeSpec = None
+				self.timeSpec = 1
+			self.defaultTimeSpec = 1
+			self.loadedTimeSpec = 1
 			
 			# 1D results
 			self.tuResults1D = tuflowqgis_turesults1d.TuResults1D(TuView)
@@ -109,8 +120,12 @@ class TuResults():
 					unit = self.tuView.tuOptions.timeUnits
 					self.activeTime = '{0:.6f}'.format(convertFormattedTimeToTime(self.activeTime, unit=unit))
 			else:
+				# modelDates = sorted([x for x in self.date2time.keys()])
+				modelDates = sorted([x for x in self.date_tspec2time.keys()])
 				self.activeTime = datetime.strptime(self.activeTime, self.dateFormat)
-				self.activeTime = self.date2timekey[self.activeTime]
+				self.activeTime = self.findTimeClosest(None, None, self.activeTime, modelDates, True, 'higher')
+				# self.activeTime = self.date2timekey[self.activeTime]
+				self.activeTime = self.date_tspec2timekey[self.activeTime]
 
 		self.updateQgsTime()
 		self.tuResultsParticles.updateActiveTime()
@@ -356,9 +371,17 @@ class TuResults():
 
 		# apply active time
 		if time is not None:
-			date = self.timekey2date[time]
+			if time not in self.timekey2date:
+				if self.timekey2date:
+					time = [x for x in self.timekey2date.keys()][0]
+		if time is not None:
+			#if time in self.timekey2date:
+			#	date = self.timekey2date[time]
+			if time in self.timekey2date_tspec:
+				date = self.timekey2date_tspec[time]
 			#dateProper = datetime.strptime(date, self.tuView.tuOptions.dateFormat)  # datetime object
-			timeProper = self.timekey2time[time]
+			if time in self.timekey2time:
+				timeProper = self.timekey2time[time]
 			if not self.tuView.tuOptions.xAxisDates:
 				unit = self.tuView.tuOptions.timeUnits
 				timeFormatted = convertTimeToFormattedTime(timeProper, unit=unit)
@@ -471,7 +494,7 @@ class TuResults():
 						mapOutputs.append(info)
 					else:
 						break
-				self.tuView.tuPlot.tuPlotToolbar.addItemToPlotOptions(rtype)
+				self.tuView.tuPlot.tuPlotToolbar.addItemToPlotOptions(rtype, static=self.results[result.text()][rtype]['isStatic'])
 
 				#mcboResultType.addItem(type)
 			for rtype in maxResultTypes:  # check - there may be results that only have maximums
@@ -529,7 +552,8 @@ class TuResults():
 						cboTime.addItem(timeformatted)
 						self.cboTime2timekey[timeformatted] = '{0:.6f}'.format(x)
 			else:  # use datetime format
-				cboTime.addItems([self._dateFormat.format(self.time2date[x]) for x in timesteps])
+				# cboTime.addItems([self._dateFormat.format(self.time2date[x]) for x in timesteps])
+				cboTime.addItems([self._dateFormat.format(self.time2date_tspec[x]) for x in timesteps])
 			sliderTime.setMaximum(len(timesteps) - 1)  # slider
 		if connected:
 			self.tuView.cboTime.currentIndexChanged.connect(self.tuView.timeSliderChanged)
@@ -917,7 +941,7 @@ class TuResults():
 		# return time prev if higher is never found
 		return timePrev
 
-	def findTimeNext(self, key1, key2, key3, times=(), is_date=False):
+	def findTimeClosest(self, key1, key2, key3, times=(), is_date=False, method='lower'):
 		"""
 		Finds the next available time after specified time
 		"""
@@ -937,9 +961,33 @@ class TuResults():
 			times = [y for x, y in self.results[key1][key2]['times'].items()]
 
 		assert(len(times) > 0)
-		for time in times:
-			if time >= rt:
-				return time
+		if method == 'higher':
+			for time in times:
+				if time >= rt:
+					return time
+		elif method == 'lower':
+			i = 1
+			for time in times[1:]:
+				if time == rt:
+					return time
+				elif time > rt:
+					return times[i-1]
+				else:
+					i += 1
+		else:  #  closest
+			for i, time in enumerate(times):
+				if time == rt:
+					return time
+				if i == 0:
+					diff = abs((time - rt).total_seconds())
+				elif time > rt:
+					diff2 = abs((time - rt).total_seconds())
+					if diff <= diff2:
+						return times[i-1]
+					else:
+						return time
+				else:
+					diff = abs((time - rt).total_seconds())
 
 		return time
 
@@ -1257,6 +1305,30 @@ class TuResults():
 
 		return not TuResults.isStatic(resultType, dp, groupIndex)
 	
+	def updateDateTimes2(self):
+		"""Supersedes updateDateTimes"""
+		qv = Qgis.QGIS_VERSION_INT
+
+		for resname, res in self.results.items():
+			meshprocessed = False
+			tsprocessed = False
+			for restype, resinfo in res.items():
+				if TuResults.isMapOutputType(restype):
+					layer = tuflowqgis_find_layer(resname)
+					if layer is not None:
+						if not meshprocessed:
+							if qv >= 31300 and not resinfo['hadTemporalProperties']:
+								layer.setReferenceTime(dt2qdt(datetime2timespec(self.tuView.tuOptions.zeroTime, self.loadedTimeSpec, 1), 1))
+							self.tuResults2D.getResultMetaData(resname, layer, resinfo['ext'], resinfo['hadTemporalProperties'])
+							meshprocessed = True
+				elif TuResults.isParticleType(restype):
+					self.tuResultsParticles.reloadTimesteps(resname)
+				elif TuResults.isTimeSeriesType(restype):
+					if not tsprocessed:
+						self.tuResults1D.reloadTimesteps(resname)
+						tsprocessed = True
+		self.updateResultTypes()
+
 	def updateDateTimes(self):
 		"""
 		Updates date2time dictionary and time2date dictionary
@@ -1264,9 +1336,18 @@ class TuResults():
 		:return: None
 		"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		self.date2timekey.clear()
 		self.date2time.clear()
 		self.timekey2date.clear()
+
+		self.timekey2date_tspec.clear()
+		self.time2date_tspec.clear()
+		self.date_tspec2timekey.clear()
+		self.date_tspec2time.clear()
+		self.date2date_tspec.clear()
+		self.date_tspec2date.clear()
 		
 		zeroDate = self.tuView.tuOptions.zeroTime
 		for t in self.time2date:
@@ -1275,6 +1356,11 @@ class TuResults():
 				self.timekey2date[t] = -99999
 				self.date2time[-99999] = t
 				self.date2timekey[-99999] = t
+
+				self.time2date_tspec[t] = -99999
+				self.timekey2date_tspec[t] = -99999
+				self.date_tspec2time[-99999] = t
+				self.date_tspec2timekey[-99999] = t
 			else:
 				if self.tuView.tuOptions.timeUnits == 's':
 					date = zeroDate + timedelta(seconds=t)
@@ -1282,43 +1368,81 @@ class TuResults():
 					date = zeroDate + timedelta(hours=t)
 				
 				# format date to 2 decimal places i.e. dd/mm/yyyy hh:mm:ss.ms
-				date = roundSeconds(date)
-				
+				date = roundSeconds(date, 2)
 				self.time2date[t] = date
 				self.timekey2date['{0:.6f}'.format(t)] = date
 				self.date2time[date] = t
 				self.date2timekey[date] = '{0:.6f}'.format(t)
+
+				if qv >= 31300:
+					date_tspec = datetime2timespec(date, self.iface.mapCanvas().temporalRange().begin().timeSpec(), 1)
+				else:
+					date_tspec = date
+				self.time2date_tspec[t] = date_tspec
+				self.timekey2date_tspec['{0:.6f}'.format(t)] = date_tspec
+				self.date_tspec2time[date_tspec] = t
+				self.date_tspec2timekey[date_tspec] = '{0:.6f}'.format(t)
+				self.date2date_tspec[date] = date_tspec
+				self.date_tspec2date[date_tspec] = date
 			
 		self.tuView.cboTime.clear()
-		timeCopy = [x for x in self.time2date.keys()]
+		# timeCopy = [x for x in self.time2date.keys()]
+		timeCopy = [x for x in self.time2date_tspec.keys()]
 		if '-99999' in timeCopy:
 			timeCopy.remove('-99999')
 		if -99999 in timeCopy:
 			timeCopy.remove(-99999)
 
-		self.tuView.cboTime.addItems([self._dateFormat.format(self.time2date[x]) for x in timeCopy])
+		# self.tuView.cboTime.addItems([self._dateFormat.format(self.time2date[x]) for x in timeCopy])
+		self.tuView.cboTime.addItems([self._dateFormat.format(self.time2date_tspec[x]) for x in timeCopy])
 
 	def updateQgsTime(self, time=None, qgsObject=None, timeSpec=None):
 		"""
 
 		"""
-
+		#import pydevd_pycharm
+		#pydevd_pycharm.settrace('localhost', port=53100, stdoutToServer=True, stderrToServer=True)
 		qv = Qgis.QGIS_VERSION_INT
+		tt = 0.01  # tiny time (seconds)
 
 		if qv >= 31300:
+			TuResults.layersToMethodLower(self.tuResults2D.activeMeshLayers)
 			if time is None:
-				time = float(self.activeTime)
+				if self.activeTime is None:
+					return
+				try:
+					time = self.timekey2time[self.activeTime]
+					# maybe can delete this later - but at the moment last dataset isn't rendered
+					# if qgs temporal range is outside layer temporal range - so switch the lookup method
+					for resname, res in self.results.items():
+						for restype in res:
+							if restype in self.activeResults:
+								if self.results[resname][restype]['isTemporal']:
+									if TuResults.isMapOutputType(restype):
+										if 'times' in self.results[resname][restype]:
+											a = [self.timekey2time[x] for x in self.results[resname][restype]['times'].keys()]
+											if time >= max(a):
+											# if sorted([x for x in self.results[resname][restype]['times'].keys()]).index(self.activeTime) == len(self.results[resname][restype]['times']) - 1:
+												TuResults.layersToMethodHigher(self.tuResults2D.activeMeshLayers)
+												if tt > 0:
+													tt *= -1
+												break
+				except:
+					time = float(self.activeTime)
 			if qgsObject is None:
 				qgsObject = self.iface.mapCanvas()
 			if timeSpec is None:
 				timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
 			zt = self.tuView.tuOptions.zeroTime
-			rt = dt2qdt(zt, self.iface.mapCanvas().temporalRange().begin().timeSpec())
+			#rt = dt2qdt(zt, self.iface.mapCanvas().temporalRange().begin().timeSpec())
+			rt = dt2qdt(zt, self.loadedTimeSpec)
 			rt = rt.toTimeSpec(timeSpec)
 			# rt = QDateTime(QDate(zt.year, zt.month, zt.day),
 			#                QTime(zt.hour, zt.minute, zt.second, zt.microsecond / 1000.))
 			# rt.setTimeSpec(self.iface.mapCanvas().temporalRange().begin().timeSpec())
-			begin = rt.addSecs(time * 60. * 60 - 1)
+			secs = roundSeconds2(time, 2)
+			# begin = rt.addSecs(time * 60. * 60 - tt)
+			begin = rt.addMSecs((secs + tt) * 1000)
 			end = begin.addSecs(60.*60.)
 			dtr = QgsDateTimeRange(begin, end)
 
@@ -1340,7 +1464,10 @@ class TuResults():
 			if not qdt.isValid():
 				return float(self.activeTime)
 			else:
-				modelDates = sorted([x for x in self.date2time.keys()])
+				if self.timeSpec > 0:
+					modelDates = sorted([x for x in self.date_tspec2time.keys()])
+				else:
+					modelDates = sorted([x for x in self.date2time.keys()])
 				if modelDates:
 					# fdt = modelDates[0]  # first datetime
 					# ldt = modelDates[-1]  # last datetime
@@ -1355,9 +1482,11 @@ class TuResults():
 					pdt = datetime(qdt.date().year(), qdt.date().month(), qdt.date().day(),     # python datetime
 					               qdt.time().hour(), qdt.time().minute(), qdt.time().second(),
 					               int(round(qdt.time().msec(), -1) * 1000.))
+					if self.loadedTimeSpec > 0:
+						pdt = datetime2timespec(pdt, self.timeSpec, self.loadedTimeSpec)
 					# qgsEnd = self.iface.mapCanvas().temopralRange().end()
 
-					return self.findTimeNext(None, None, pdt, modelDates, True)
+					return self.findTimeClosest(None, None, pdt, modelDates, True, 'closest')
 				else:
 					return 0
 
@@ -1365,7 +1494,8 @@ class TuResults():
 		"""
 
 		"""
-
+		#import pydevd_pycharm
+		#pydevd_pycharm.settrace('localhost', port=53100, stdoutToServer=True, stderrToServer=True)
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 		updateOpenResults = False
@@ -1376,10 +1506,10 @@ class TuResults():
 			self.results[lyr.name()]['line_cs'] = {}
 
 		for t in XS.getAllTypes(lyr):
-			self.results[lyr.name()]['line_cs'][t] = XS.getAllSourcesForType(lyr, t)
+			self.results[lyr.name()]['line_cs'][t] = XS.getAllSourcesForType(lyr, t, NULL)
 
 		if updateOpenResults:
-			self.updateOpenResults(lyr.name())
+			self.updateOpenResults(lyr.name(), NULL)
 		else:
 			self.tuView.tuPlot.updateCurrentPlot(TuPlot.CrossSection, plot='1d only')
 
@@ -1417,16 +1547,49 @@ class TuResults():
 		a = [True for x in TuResults.OtherTypes if x in resultType]
 		return len(a) == 0
 
+	@staticmethod
+	def isParticleType(resultType):
+		"""Returns true if resultType is a ptm output"""
+
+		return '_particles' in resultType
+
+	@staticmethod
+	def isTimeSeriesType(resultType):
+		"""Returns true if resultType is a Map Output"""
+
+		a = [True for x in [x for x in TuResults.OtherTypes if '_particles' not in x] if x in resultType]
+		return len(a) > 0
+
 	def updateTemporalProperties(self):
-		for res, val in self.results.items():
-			for restype in val:
-				if TuResults.isMapOutputType(restype):
-					layer = tuflowqgis_find_layer(res)
-					layer.setReferenceTime(dt2qdt(self.tuResults2D.getReferenceTime(layer),
-				                                  self.iface.mapCanvas().temporalRange().begin().timeSpec()))
-					break
+		#for res, val in self.results.items():
+		#	for restype in val:
+		#		if TuResults.isMapOutputType(restype):
+		#			layer = tuflowqgis_find_layer(res)
+		#			layer.setReferenceTime(dt2qdt(self.tuResults2D.getReferenceTime(layer),
+		#		                                  self.iface.mapCanvas().temporalRange().begin().timeSpec()))
+		#			break
 		self.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
 		self.updateQgsTime()
+
+	@staticmethod
+	def layersToMethodLower(layers):
+		"""turns layers to find next lower timestep"""
+
+		for lyr in layers:
+			if type(lyr) is str:
+				lyr = tuflowqgis_find_layer(lyr)
+			lyr.setTemporalMatchingMethod(QgsMeshDataProviderTemporalCapabilities.FindClosestDatasetBeforeStartRangeTime)
+
+	@staticmethod
+	def layersToMethodHigher(layers):
+		"""turns layers to find next lower timestep"""
+
+		for lyr in layers:
+			if type(lyr) is str:
+				lyr = tuflowqgis_find_layer(lyr)
+			if lyr is None:
+				return
+			lyr.setTemporalMatchingMethod(QgsMeshDataProviderTemporalCapabilities.FindClosestDatasetFromStartRangeTime)
 
 
 

@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.1.0
+version=3.1.1.23
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,24 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=Compatible with QGIS temporal controller
+changelog=###  3.1.2  ###
+          XS viewer will now load null or blank entries
+          Depth time series added
+          Added reset all plot colours to settings menu
+          Fixed issue with unloading plugin
+          Fixed qgs temporal controller interaction
+          Fixed errors when saving and loading project settings
+          Fixed bug when plotting flow from cell centred netcdf results
+          Fixed bug for QGIS 3.14+ when using small output intervals
+          Fixed a couple of errors with loading default styles
+          Fixed bug in animation tool when adding a plot with a secondary axis
+          Fixed issue when loading in time series results with '[' in run name
+
+          ###  3.1.1  ###
+          Fixed backward compatibility
+
+          ###  3.1.0  ###
+          Compatible with QGIS temporal controller
           Added new plotting types for 3D datasets
           Added Cross section viewing capabilities
           Added ability to load 1D hydraulic check files
