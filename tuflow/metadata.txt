@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.1.1.23
+version=3.1.2
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -32,6 +32,7 @@ changelog=###  3.1.2  ###
           Fixed a couple of errors with loading default styles
           Fixed bug in animation tool when adding a plot with a secondary axis
           Fixed issue when loading in time series results with '[' in run name
+          TUFLOW styling will check style folder first before applying any defaults
 
           ###  3.1.1  ###
           Fixed backward compatibility

@@ -245,7 +245,7 @@ class TuRubberBand():
 		# unpress button
 		self.unpressButton()
 
-		if not rubberBand.asGeometry().isNull():
+		if not rubberBand.asGeometry().isNull() and len(self.points) > 1:
 			# create memory polyline layer
 			self.createMemoryLayer()
 		else:

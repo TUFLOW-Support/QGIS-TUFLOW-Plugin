@@ -343,8 +343,10 @@ class TuMenuFunctions():
 		self.tuView.tuResults.removeResults(results)
 		for result in results:
 			layer = tuflowqgis_find_layer(result)
-			self.tuView.project.removeMapLayer(layer)
-		
+			# self.tuView.project.removeMapLayer(layer)
+			if layer is not None:
+				self.tuView.project.removeMapLayer(layer.id())
+
 		self.tuView.canvas.refresh()
 		self.tuView.resultsChanged()
 		
@@ -361,7 +363,7 @@ class TuMenuFunctions():
 		for item in self.tuView.OpenResults.selectedItems():
 			if self.tuView.hydTables.getData(item.text()) is None:
 				layer = tuflowqgis_find_layer(item.text())
-				self.tuView.project.removeMapLayer(layer)
+				self.tuView.project.removeMapLayer(layer.id())
 			
 		self.tuView.canvas.refresh()
 		self.tuView.resultsChanged()
@@ -410,7 +412,7 @@ class TuMenuFunctions():
 
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		self.tuView.renderMap()
 		
 		self.tuView.tuPlot.updateCurrentPlot(self.tuView.tabWidget.currentIndex())

@@ -338,7 +338,7 @@ class TuPlot():
 		self.verticalMesh_action.triggered.connect(self.vmeshToggled)
 
 		# plot colours
-		self.colours = generateRandomMatplotColours2(100)
+		self.colours = generateRandomMatplotColours2(20)
 
 		self.cax = None  # axes object for colourbar
 		self.qk = None  # artist object for vector arrow legend
@@ -1337,11 +1337,16 @@ class TuPlot():
 		# 		del subplot.lines[j]
 		# 		subplot.legend_ = None
 		if self.plotData[TuPlot.DataCurrentTime]:
-			if self.plotData[TuPlot.DataCurrentTime][0] in subplot.lines:
-				subplot.lines.remove(self.plotData[TuPlot.DataCurrentTime][0])
+			for line in subplot.lines:
+				if line._label.lower() == 'current time':
+					subplot.lines.remove(line)
+			if self.plotData[TuPlot.DataCurrentTime]:
 				del self.plotData[TuPlot.DataCurrentTime][0]
-			else:
-				del self.plotData[TuPlot.DataCurrentTime][0]
+			#if self.plotData[TuPlot.DataCurrentTime][0] in subplot.lines:
+			#	subplot.lines.remove(self.plotData[TuPlot.DataCurrentTime][0])
+			#	del self.plotData[TuPlot.DataCurrentTime][0]
+			#else:
+			#	del self.plotData[TuPlot.DataCurrentTime][0]
 
 		
 		if self.tuView.cbShowCurrentTime.isChecked() or showCurrentTime:
@@ -1551,6 +1556,7 @@ class TuPlot():
 		# Units  (SI, Imperial, ..place holders.. , blank)
 		# can use regular expressions
 		units = {
+			r'Time of Peak.*': ('hrs', 'hrs', ''),
 			r'.*elevation.*': ('m RL', 'ft RL', ''),
 			r'level': ('m RL', 'ft RL', ''),
 			r'obvert': ('m RL', 'ft RL', ''),
@@ -1596,6 +1602,7 @@ class TuPlot():
 		}
 		
 		shortNames = {
+			r'Time of Peak.*': 't',
 			r'.*elevation.*': 'h',
 			r'flow': 'Q',
 			r'2d flow': 'Q',
@@ -1989,7 +1996,7 @@ class TuPlot():
 				if isSecondaryAxis[0]:
 					ci += len(subplot2.lines)
 				while ci + 1 > len(self.colours):
-					self.colours += generateRandomMatplotColours2(100)
+					self.colours += generateRandomMatplotColours2(10)
 				colour = self.colours[ci]
 
 				# data
@@ -2331,6 +2338,7 @@ class TuPlot():
 		# 		self.clearPlot(0, retain_flow=True)
 		# 	else:
 		# 		self.clearPlot(0, retain_flow=retainFlow)
+
 		self.clearPlot2(TuPlot.TimeSeries, clearType, clear_rubberband=False, clear_selection=False)
 		
 		if plot.lower() != '1d only' and plot.lower() != 'flow only' and update != '1d only':

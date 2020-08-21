@@ -567,7 +567,7 @@ class TuResults():
 		
 		return True
 	
-	def updateActiveResultTypes(self, resultIndex, geomType=None, skip_already_selected=False):
+	def updateActiveResultTypes(self, resultIndex, geomType=None, skip_already_selected=False, force_selection=None):
 		"""
 		Updates the active results based on the selected result types in DataSetView
 
@@ -608,7 +608,15 @@ class TuResults():
 			parent = item.parentItem
 			if parent.ds_name != 'Map Outputs':
 				skip = True  # click occured on a time series result not map output
-			
+
+			nameAppend = ''
+			if item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6:
+				nameAppend = '_TS'
+			elif item.ds_type == 7:
+				nameAppend = '_LP'
+			elif item.ds_type == 8:
+				nameAppend = '_CS'
+
 			# update active result type lists - start by figuring out what type it is and add to specific lists
 			if item not in self.activeResultsItems:
 				if item.ds_type == 1:  # scalar
@@ -653,33 +661,51 @@ class TuResults():
 					#	self.tuResults1D.typesLP.append(item.ds_name)
 				# if result type is vector or scalar, need to remove previous vector or scalar results
 				if item.ds_type == 1 or item.ds_type == 2:
-					for i, result in enumerate(self.activeResults):
-						if item.ds_type == self.activeResultsTypes[i]:
-							self.activeResults.pop(i)
-							self.activeResultsTypes.pop(i)
-							if self.activeResultsIndexes:
-								self.activeResultsIndexes.pop(i)
-								self.activeResultsItems.pop(i)
-							break  # there will only be one to remove
+					while item.ds_type in self.activeResultsTypes:
+						i_item = self.activeResultsTypes.index(item.ds_type)
+						if len(self.activeResults) + 1 >= i_item:
+							self.activeResults.pop(i_item)
+						if len(self.activeResultsIndexes) + 1 >= i_item:
+							self.activeResultsIndexes.pop(i_item)
+						if len(self.activeResultsItems) + 1 >= i_item:
+							self.activeResultsItems.pop(i_item)
+						self.activeResultsTypes.remove(item.ds_type)  # should only be one
+					#if resultIndex in self.activeResultsIndexes:
+					#	self.activeResultsIndexes.remove(resultIndex)
+					#if item in self.activeResultsItems:
+					#	self.activeResultsItems.remove(item)
+					#for i, result in enumerate(self.activeResults):
+					#	if item.ds_type == self.activeResultsTypes[i]:
+					#		self.activeResults.pop(i)
+					#		self.activeResultsTypes.pop(i)
+					#		if self.activeResultsIndexes:
+					#			self.activeResultsIndexes.pop(i)
+					#			self.activeResultsItems.pop(i)
+					#		break  # there will only be one to remove
 				# finally add clicked result type to generic active lists - applicable regardless of result type
-				nameAppend = ''
-				if item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6:
-					nameAppend = '_TS'
-				elif item.ds_type == 7:
-					nameAppend = '_LP'
-				elif item.ds_type == 8:
-					nameAppend = '_CS'
 				self.activeResults.append(item.ds_name + nameAppend)
 				self.activeResultsTypes.append(item.ds_type)
 				self.activeResultsIndexes.append(resultIndex)
 				self.activeResultsItems.append(item)
 			elif not skip_already_selected:  # already in lists so click is a deselect and types need to be removed from lists
 				# remove 2D from lists
-				i = self.activeResultsItems.index(item)
-				self.activeResults.pop(i)
-				self.activeResultsTypes.pop(i)
-				self.activeResultsIndexes.pop(i)
-				self.activeResultsItems.pop(i)
+				i = -1
+				if item in self.activeResultsItems:
+					i = self.activeResultsItems.index(item)
+				# self.activeResults.pop(i)
+				# self.activeResultsTypes.pop(i)
+				# self.activeResultsIndexes.pop(i)
+				# self.activeResultsItems.pop(i)
+
+				if item.ds_name + nameAppend in self.activeResults:
+					self.activeResults.remove(item.ds_name + nameAppend)
+				if i > 0 and len(self.activeResultsTypes) >= i + 1:
+					self.activeResultsTypes.pop(i)
+				if resultIndex in self.activeResultsIndexes:
+					self.activeResultsIndexes.remove(resultIndex)
+				if i > 0:
+					self.activeResultsItems.pop(i)
+
 				if item.ds_type == 1:
 					self.tuResults2D.activeScalar = None
 				elif item.ds_type == 2:
@@ -704,6 +730,16 @@ class TuResults():
 				elif item.ds_name in self.tuResults1D.lineXS:
 					self.tuResults1D.lineXS.remove(item.ds_name)
 
+			# double check active results vs selected results
+			if force_selection == '1D': return
+			count = 0
+			for itm in openResultTypes.model().timeSeriesItem.children():
+				index = openResultTypes.model().item2index(itm)
+				if openResultTypes.selectionModel().isSelected (index):
+					count += 1
+			if count != len(self.tuResults1D.items1d):
+				self.forceSelection1D()
+
 		if not skip:
 			# rerender map
 			if layer is not None:
@@ -715,6 +751,18 @@ class TuResults():
 				# if self.tuResults2D.activeVector is None:
 				# 	rs.setActiveVectorDataset(QgsMeshDatasetIndex(-1, -1))
 				# 	layer.setRendererSettings(rs)
+
+				# double check active results vs selected results
+				count = 0
+				for itm in openResultTypes.model().mapOutputsItem.children():
+					index = openResultTypes.model().item2index(itm)
+					if openResultTypes.selectionModel().isSelected(index):
+						count += 1
+				if count > 2 or count != self.activeResultsTypes.count(1) + self.activeResultsTypes.count(2) \
+						or len(self.activeResults) != len(self.activeResultsTypes) != len(self.activeResultsIndexes) \
+						!= len(self.activeResultsItems):
+					self.forceSelection2D()
+
 				self.tuView.renderMap()
 
 				# update default item in the depth averaging methods
@@ -735,6 +783,66 @@ class TuResults():
 				
 		return True
 	
+	def forceSelection1D(self):
+		"""
+		Force active 1D types to match selection (opposite to 2D results)
+
+		Untested - hard to replicate when this needs to happen
+		"""
+
+		openResultTypes = self.tuView.OpenResultTypes
+
+		for item in openResultTypes.model().timeSeriesItem.children():
+			index = openResultTypes.model().item2index(item)
+			if openResultTypes.selectionModel().isSelected (index):
+				if item not in self.tuResults1D.items1d:
+					if item in self.activeResultsItems:
+						self.activeResultsItems.remove(item)
+					self.updateActiveResultTypes(index, force_selection='1D')
+			else:
+				if item in self.tuResults1D.items1d:
+					if item not in self.activeResultsItems:
+						self.activeResultsItems.append(item)
+					self.updateActiveResultTypes(index, force_selection='1D')
+
+	def forceSelection2D(self):
+		"""
+		Force selection to match active 2D types (opposite to 1D results)
+
+		Untested - hard to replicate when this needs to happen
+		"""
+
+		openResultTypes = self.tuView.OpenResultTypes
+
+		for item in openResultTypes.model().mapOutputsItem.children():
+			index = openResultTypes.model().item2index(item)
+			if openResultTypes.selectionModel().isSelected (index):
+				if item.ds_type == 1 and not self.tuResults2D.activeScalar:
+					# deselect
+					openResultTypes.selectionModel().select(index, QItemSelectionModel.Deselect)
+				if item.ds_type == 2 and not self.tuResults2D.activeVector:
+					# deselect
+					openResultTypes.selectionModel().select(index, QItemSelectionModel.Deselect)
+
+		# force lists
+		self.activeResults = [x for x in self.activeResults if not TuResults.isMapOutputType(x)]
+		if self.tuResults2D.activeScalar:
+			self.activeResults.append(self.tuResults2D.activeScalar)
+		if self.tuResults2D.activeVector:
+			self.activeResults.append(self.tuResults2D.activeVector)
+		self.activeResultsItems = [x for x in
+		                           sum([x.children() for x in openResultTypes.model().rootItem.children()], [])
+		                           if
+		                           openResultTypes.selectionModel().isSelected(openResultTypes.model().item2index(x))]
+		self.activeResultsIndexes = [openResultTypes.model().item2index(x) for x in
+		                             sum([x.children() for x in openResultTypes.model().rootItem.children()], [])
+		                             if
+		                             openResultTypes.selectionModel().isSelected(openResultTypes.model().item2index(x))]
+		self.activeResultsTypes = [x.ds_type for x in
+		                           sum([x.children() for x in openResultTypes.model().rootItem.children()], [])
+		                           if
+		                           openResultTypes.selectionModel().isSelected(openResultTypes.model().item2index(x))]
+
 	def updateSecondaryAxisTypes(self, clickedItem):
 		"""
 		Updates the list of result types to be plotted on the secondary axis.
@@ -1038,6 +1146,8 @@ class TuResults():
 		results1d = self.tuView.tuResults.tuResults1D.results1d
 		resultsParticles = self.tuView.tuResults.tuResultsParticles.resultsParticles
 
+		self.tuResultsParticles.removeResults(resList)
+
 		for res in resList:
 			if res in results.keys():
 				# remove from indexed results
@@ -1046,8 +1156,8 @@ class TuResults():
 					del results2d[res]
 				if res in results1d:
 					del results1d[res]
-				if res in resultsParticles:
-					del resultsParticles[res]
+				# if res in resultsParticles:
+				#	del resultsParticles[res]
 
 				#layer = tuflowqgis_find_layer(res)
 				#self.tuView.project.removeMapLayer(layer)

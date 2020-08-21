@@ -197,11 +197,27 @@ class TuResultsParticles():
 
 		results = self.tuView.tuResults.results
 
+		try:
+			self.tuView.project.layersWillBeRemoved.disconnect(self.tuView.layersRemoved)
+		except:
+			pass
+
 		for res in resList:
 			if res in results:
 				del results[res]
 
 			if res in self.resultsParticles:
+				vlayer = self.resultsParticles[res][1]
+				try:
+					self.tuView.project.removeMapLayer(vlayer.id())
+					del vlayer
+				except:
+					pass
+
+				try:
+					self.resultsParticles[res][0].nc.close()
+				except:
+					pass
 				del self.resultsParticles[res]
 
 			for i in range(self.tuView.OpenResults.count()):
@@ -209,6 +225,10 @@ class TuResultsParticles():
 				if item is not None and item.text() == res:
 					if res not in results:
 						self.tuView.OpenResults.takeItem(i)
+
+		self.tuView.canvas.refresh()
+		self.tuView.tuResults.updateResultTypes()
+		self.tuView.project.layersWillBeRemoved.connect(self.tuView.layersRemoved)
 
 		return True
 
