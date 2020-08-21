@@ -90,15 +90,19 @@ class XS_Data():
 		with open(self.fullpath, 'r') as csvfile:
 			reader = csv.reader(csvfile, delimiter=',', quotechar='"')
 			nheader = 0
+			bHeader = True
 			for line in reader:
 				try:
 					for i in line[0:3]:
 						if len(i) > 0:
 							float(i)
+							bHeader = False  # can't have a header after data
 					break
 				except:
-					nheader = nheader + 1
-					header = line
+					if bHeader:
+						nheader = nheader + 1
+						header = line
+
 		csvfile.close()
 		header = [element.upper() for element in header]
 

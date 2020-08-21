@@ -412,7 +412,7 @@ class TuMenuBar():
 		else:
 			resultsMenu.addAction(self.menu.showSelectedElements_action)
 			resultsMenu.addSeparator()
-			arrMenu = resultsMenu.addMenu('&ARR2016')
+			arrMenu = resultsMenu.addMenu('&ARR2019')
 			arrMenu.addAction(self.menu.showMedianEvent_action)
 			arrMenu.addAction(self.menu.showMeanEvent_action)
 		

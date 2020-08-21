@@ -355,22 +355,24 @@ class TuPlotToolbar():
 				menu.addAction(action)
 	
 	def getItemsFromPlotOptions(self, plotNo):
-		if plotNo == 0:
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+		if plotNo == TuPlot.TimeSeries:
 			menu = self.plotTSMenu
-		elif plotNo == 1:
+		elif plotNo == TuPlot.CrossSection:
 			menu = self.plotLPMenu
 		else:
 			return []
 		
-		actions = []
-		for action in menu.actions():
-			actions.append(action.text())
-		
-		return actions
-	
+		return [x.text() for x in menu.actions()]
+
 	def getCheckedItemsFromPlotOptions(self, dataType, *args, **kwargs):
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+		if dataType not in self.plotDataToPlotMenu:
+			return False
 
 		menu = self.plotDataToPlotMenu[dataType]
 		if isinstance(menu, QAction):

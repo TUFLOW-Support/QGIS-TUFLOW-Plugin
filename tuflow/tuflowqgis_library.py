@@ -50,6 +50,8 @@ from matplotlib import cm
 import inspect
 import xml.etree.ElementTree as ET
 import colorsys
+import locale
+import codecs
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tuflowqgis_styles
@@ -766,16 +768,21 @@ def tuflowqgis_apply_check_tf(qgis):
 		if layer.type() == QgsMapLayer.VectorLayer:
 			layer_fname = os.path.split(layer.source())[1][:-4]
 			#QMessageBox.information(qgis.mainWindow(), "DEBUG", "shp layer name = "+layer.name())
-			renderer = region_renderer(layer)
-			if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
-				layer.setRenderer(renderer)
+			#renderer = region_renderer(layer)
+			#if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
+			#	layer.setRenderer(renderer)
+			#	layer.triggerRepaint()
+			#else: # use .qml style using tf_styles
+			error, message, slyr = tf_styles.Find(layer_fname, layer) #use tuflow styles to find longest matching
+			if error:
+				return error, message
+			if slyr: #style layer found:
+				layer.loadNamedStyle(slyr)
 				layer.triggerRepaint()
-			else: # use .qml style using tf_styles
-				error, message, slyr = tf_styles.Find(layer_fname, layer) #use tuflow styles to find longest matching 
-				if error:
-					return error, message
-				if slyr: #style layer found:
-					layer.loadNamedStyle(slyr)
+			else:
+				renderer = region_renderer(layer)
+				if renderer:  # if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
+					layer.setRenderer(renderer)
 					layer.triggerRepaint()
 	return error, message
 	
@@ -808,16 +815,21 @@ def tuflowqgis_apply_check_tf_clayer(qgis, **kwargs):
 
 	if cLayer.type() == QgsMapLayer.VectorLayer:
 		layer_fname = os.path.split(cLayer.source())[1][:-4]
-		renderer = region_renderer(cLayer)
-		if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
-			cLayer.setRenderer(renderer)
+		# renderer = region_renderer(cLayer)
+		# if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
+		# 	cLayer.setRenderer(renderer)
+		# 	cLayer.triggerRepaint()
+		# else: # use .qml style using tf_styles
+		error, message, slyr = tf_styles.Find(layer_fname, cLayer) #use tuflow styles to find longest matching
+		if error:
+			return error, message
+		if slyr: #style layer found:
+			cLayer.loadNamedStyle(slyr)
 			cLayer.triggerRepaint()
-		else: # use .qml style using tf_styles
-			error, message, slyr = tf_styles.Find(layer_fname, cLayer) #use tuflow styles to find longest matching 
-			if error:
-				return error, message
-			if slyr: #style layer found:
-				cLayer.loadNamedStyle(slyr)
+		else:
+			renderer = region_renderer(cLayer)
+			if renderer:  # if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
+				cLayer.setRenderer(renderer)
 				cLayer.triggerRepaint()
 	else:
 		error = True
@@ -4780,17 +4792,26 @@ def downloadBinPackage(packageUrl, destinationFileName):
 
 
 def downloadUtility(utility, parent_widget=None):
-	latestUtilities = {'asc_to_asc': 'asc_to_asc.2019-05-AA.zip', 'tuflow_to_gis': 'TUFLOW_to_GIS.2018-05-AA.zip',
-	                   'res_to_res': '2016-10-AA.zip', '12da_to_from_gis': '12da_to_from_gis.zip',
-	                   'convert_to_ts1': 'convert_to_ts1.2018-05-AA.zip', 'tin_to_tin': 'tin_to_tin.zip',
-	                   'xsgenerator': 'xsGenerator.zip'}
+	latestUtilities = {
+       'asc_to_asc': 'asc_to_asc.zip',
+       'tuflow_to_gis': 'TUFLOW_to_GIS.zip',
+       'res_to_res': 'res_to_res.zip',
+       '12da_to_from_gis': '12da_to_from_gis.zip',
+       'convert_to_ts1': 'convert_to_ts1.zip',
+       'tin_to_tin': 'tin_to_tin.zip',
+       'xsgenerator': 'xsGenerator.zip',
+	}
 	exe = latestUtilities[utility.lower()]
 	name = os.path.splitext(exe)[0]
-	utilityNames = {'asc_to_asc': 'asc_to_asc_w64.exe'.format(name),
-	                'tuflow_to_gis': '{0}/TUFLOW_to_GIS_w64.exe'.format(name),
-	                'res_to_res': '{0}/res_to_res_w64.exe'.format(name), '12da_to_from_gis': '12da_to_from_gis.exe',
-	                'convert_to_ts1': 'convert_to_ts1.exe', 'tin_to_tin': 'tin_to_tin.exe',
-	                'xsgenerator': 'xsGenerator.exe'}
+	utilityNames = {
+        'asc_to_asc': '{0}/asc_to_asc_w64.exe'.format(name),
+        'tuflow_to_gis': '{0}/TUFLOW_to_GIS_w64.exe'.format(name),
+        'res_to_res': '{0}/res_to_res_w64.exe'.format(name),
+        '12da_to_from_gis': '12da_to_from_gis.exe',
+        'convert_to_ts1': 'convert_to_ts1.exe',
+        'tin_to_tin': 'tin_to_tin.exe',
+        'xsgenerator': 'xsGenerator.exe',
+	}
 	
 	downloadBaseUrl = 'https://www.tuflow.com/Download/TUFLOW/Utilities/'
 	
@@ -5463,7 +5484,7 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
 		if action is not None:
 			action()
 		
-def getResultPathsFromTLF(fpath: str) -> (list, list, list):
+def getResultPathsFromTLF(fpath: str, read_method: int = 0) -> (list, list, list):
 	"""
 	Gets result paths from TLF file
 	
@@ -5477,33 +5498,53 @@ def getResultPathsFromTLF(fpath: str) -> (list, list, list):
 	secondaryExt = os.path.splitext(os.path.splitext(fpath)[0])[1]
 	if secondaryExt != '':
 		return [], [], ['Please Make Sure Selecting .tlf Not {0}.tlf'.format(secondaryExt)]
-	
+
+	li = 0
 	res1D = []
 	res2D = []
 	try:
-		with open(fpath, 'r') as fo:
-			for line in fo:
-				if '.xmdf' in line.lower():
-					if line.count('"') >= 2:
-						res = line.split('"')[1]
-						if res not in res2D:
-							if os.path.exists(res):
-								res2D.append(res)
-				elif 'opening gis layer:' in line.lower() and '_PLOT' in line:
-					if len(line) > 20:
-						path = line[19:].strip()
-						basename = os.path.splitext(os.path.basename(path))[0][:-5]
-						if re.findall(r"_[PLR]$", basename, flags=re.IGNORECASE):
-							basename = basename[:-2]
-						dir = os.path.dirname(os.path.dirname(path))
-						res = '{0}.tpc'.format(os.path.join(dir, basename))
-						if res not in res1D:
-							if os.path.exists(res):
-								res1D.append(res)
+		if read_method == 0:
+			#with open(fpath, 'r') as fo:
+			fo = open(fpath, 'r')
+		else:
+			fo = codecs.open(fpath, 'r', locale.getpreferredencoding())
+		while True:
+			try:
+				line = fo.readline()  # changed to this so i can use try/except
+				x = fo.tell()
+				li += 1
+			except:
+				if read_method == 0:
+					fo.close()
+					return getResultPathsFromTLF(fpath, 1)
+				else:
+					raise Exception(f"Error reading file - encoding error - line {li+1}\n"
+						            "Try converting file to UTF-8 (e.g. in Notepad++)\n"
+					                "https://wiki.tuflow.com/index.php?title=TUFLOW_Message_0060")
+			if line == "":
+				break
+			#for line in fo:
+			if '.xmdf' in line.lower():
+				if line.count('"') >= 2:
+					res = line.split('"')[1]
+					if res not in res2D:
+						if os.path.exists(res):
+							res2D.append(res)
+			elif 'opening gis layer:' in line.lower() and '_PLOT' in line:
+				if len(line) > 20:
+					path = line[19:].strip()
+					basename = os.path.splitext(os.path.basename(path))[0][:-5]
+					if re.findall(r"_[PLR]$", basename, flags=re.IGNORECASE):
+						basename = basename[:-2]
+					dir = os.path.dirname(os.path.dirname(path))
+					res = '{0}.tpc'.format(os.path.join(dir, basename))
+					if res not in res1D:
+						if os.path.exists(res):
+							res1D.append(res)
 	except IOError:
 		return [], [], ['Unexpected Error Opening File: {0}'.format(fpath)]
-	except:
-		return [], [], ['Unexpected Error']
+	except Exception as e:
+		return [], [], [f'Unexpected Error: {e}']
 	
 	return res1D, res2D, []
 
@@ -5885,7 +5926,7 @@ def colour_distance(rgb1, rgb2):
 	return d
 
 
-def generateRandomMatplotColours2(nColours, type_='bright', tol=2):
+def generateRandomMatplotColours2(nColours, type_='bright', tol=2, tol_reduction=0.1, count_reduction=50, neighbour_tol=10):
 	"""
 	Creates a random colormap to be used together with matplotlib. Useful for segmentation tasks
 	:param nlabels: Number of labels (size of colormap)
@@ -5896,10 +5937,12 @@ def generateRandomMatplotColours2(nColours, type_='bright', tol=2):
 		print ('Please choose "bright" or "soft" for type')
 		return
 
+	tol_og = tol
 	# Generate color map for bright colors, based on hsv
 	randRGBcolors = []
 	n = 1
 	if type_ == 'bright':
+		count = 0
 		while n <= nColours:
 			randHSVcolor = [numpy.random.uniform(low=0.0, high=1),
 							numpy.random.uniform(low=0.2, high=1),
@@ -5908,10 +5951,20 @@ def generateRandomMatplotColours2(nColours, type_='bright', tol=2):
 			# Convert HSV list to RGB
 			rgb = numpy.array(colorsys.hsv_to_rgb(randHSVcolor[0], randHSVcolor[1], randHSVcolor[2]))
 			if n > 1:
-				for rgb2 in randRGBcolors[max(n - 10, 0):]:
-					if colour_distance(rgb, rgb2) > tol:
-						randRGBcolors.append(rgb)
-						n += 1
+				add_colour = True
+				for rgb2 in randRGBcolors[max(n - neighbour_tol, 0):]:
+					if colour_distance(rgb, rgb2) <= tol:
+						add_colour = False
+						break
+				if add_colour:
+					randRGBcolors.append(rgb)
+					n += 1
+					tol = tol_og
+				else:  # don't want infinite loop or for this to take too long, reduce tolerance at a certain point
+					count += 1
+					if count > count_reduction:
+						tol -= tol_reduction
+						count = 0
 			else:
 				randRGBcolors.append(rgb)
 				n += 1

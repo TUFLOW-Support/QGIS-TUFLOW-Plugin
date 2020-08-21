@@ -351,6 +351,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 					itemName = item.text()
 					if itemName == layer.name():
 						self.tuResults.tuResults2D.removeResults([itemName])
+			elif layer is not None and layer.name() in self.tuResults.tuResultsParticles.resultsParticles:
+				self.tuResults.tuResultsParticles.removeResults([layer.name()])
 
 		self.resultsChanged('force refresh')
 				
@@ -994,7 +996,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# update red time slider on plot
 		# if not self.tuPlot.timeSeriesPlotFirst:
 		if self.cbShowCurrentTime.isChecked():
-			self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataCurrentTime)
+			self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataCurrentTime, clear_selection=False)
 			# self.tuPlot.drawPlot(TuPlot.TimeSeries, [], [], [], [], refresh_only=True)
 		# update long profile / cross section plots with new timestep
 		if not self.tuPlot.profilePlotFirst:

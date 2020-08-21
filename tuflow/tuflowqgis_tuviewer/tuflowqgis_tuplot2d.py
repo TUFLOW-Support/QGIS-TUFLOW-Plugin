@@ -337,8 +337,18 @@ class TuPlot2D():
 				avgmethods = self.getAveragingMethods(dataType, gmd, resultTypes)
 				am = avgmethods[j]
 
-				if j == 0 or onVertices != (gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices):
-					onVertices = gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices
+				onVertices = None
+				try:
+					onVerticesCurr = gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices
+				except:  # versions earlier than ~ 3.8
+					onVerticesCurr = True  # on vertices current
+
+				# if j == 0 or onVertices != (gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices):
+				if j == 0 or onVertices is None or onVerticesCurr != onVertices:
+					try:
+						onVertices = gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices
+					except:    # versions earlier than ~ 3.8
+						onVertices = True
 					if j == 0:
 						inters, ch, fcs = findMeshIntersects(si, dp, mesh, feat, crs,
 						                                             self.tuView.project)
@@ -527,7 +537,14 @@ class TuPlot2D():
 				break
 			inters, ch, fcs = findMeshIntersects(si, dp, mesh, feat, crs,
 			                                             self.tuView.project)
-			if gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices:
+
+			try:
+				onVertices = gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices
+			except:  # versions earlier than ~ 3.8
+				onVertices = True
+
+			# if gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices:
+			if onVertices:
 				# points = inters[:]
 				points = inters[0:1]
 				points.extend([calcMidPoint(inters[i], inters[i + 1], crs) for i in range(len(inters) - 1)])

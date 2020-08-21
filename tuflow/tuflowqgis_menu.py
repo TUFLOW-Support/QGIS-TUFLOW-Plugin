@@ -309,11 +309,15 @@ class tuflowqgis_menu:
 		# integrity tool
 		try:
 			self.integrityTool.close()
+			self.iface.removeDockWidget(self.integrityTool)
+			del self.integrityTool
 		except:
 			pass
 		# refh2
 		try:
 			self.refh2Dock.close()
+			self.iface.removeDockWidget(self.refh2Dock)
+			del self.refh2Dock
 		except:
 			pass
 
@@ -428,6 +432,7 @@ class tuflowqgis_menu:
 			self.resultsPlottingDock.tuPlot.clearAllPlots()
 			self.resultsPlottingDock.qgisDisconnect(completely_remove=True)
 			self.resultsPlottingDock.close()
+			self.iface.removeDockWidget(self.resultsPlottingDock)
 			del self.resultsPlottingDock
 			self.resultsPlottingDockOpened = False
 			if 'feedback' in kwargs:

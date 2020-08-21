@@ -352,10 +352,16 @@ class TuPlot3D(TuPlot2D):
                     continue
                 meshDatasetIndex = meshDatasetIndex[-1]
                 gmd = dp.datasetGroupMetadata(meshDatasetIndex.group())
-                if gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices:
+
+                try:
+                    onFaces = gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnFaces
+                except:  # versions earlier than ~ 3.8
                     onFaces = False
-                else:
-                    onFaces = True
+
+                # if gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices:
+                #     onFaces = False
+                # else:
+                #     onFaces = True
 
                 # get mesh intersects
                 if not update:
