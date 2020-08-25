@@ -402,7 +402,7 @@ class TuMenuBar():
 			self.showMeanEvent_action.setCheckable(True)
 			resultsMenu.addAction(self.showSelectedElements_action)
 			resultsMenu.addSeparator()
-			arrMenu = resultsMenu.addMenu('&ARR2016')
+			arrMenu = resultsMenu.addMenu('&ARR2019')
 			arrMenu.addAction(self.showMedianEvent_action)
 			arrMenu.addAction(self.showMeanEvent_action)
 

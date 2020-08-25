@@ -22,7 +22,8 @@ from image_properties import Ui_ImageProperties
 from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, applyMatplotLibArtist, convertTimeToFormattedTime,
                                        convertFormattedTimeToTime, getPolyCollectionExtents, getQuiverExtents,
                                        convertTimeToDate, convertFormattedDateToTime, addColourBarAxes,
-                                       addLegend, addQuiverKey, datetime2timespec)
+                                       addLegend, addQuiverKey, datetime2timespec, convert_datetime_to_float,
+                                       convert_float_to_datetime)
 import matplotlib
 import numpy as np
 try:
@@ -262,7 +263,7 @@ def addLineToPlot(fig, ax, line, label, bLegend=False, ax2=None, polyCollAndQuiv
 		y = [x.vertices[:,1] for x in xy]
 		xy = np.dstack((x, y))
 		values = line.get_array()
-		lab = re.sub(r' \[curtain]', '', label, flags=re.IGNORECASE)
+		lab = re.sub(r'(\s-\sloc\s\d)?\s\[curtain]', '', label, flags=re.IGNORECASE)
 		colSpec = dict(cmap=line.cmap, clim=line.get_clim(), norm=line.norm)
 		polyCol = PolyCollection(xy, array=values, edgecolor='face', label=lab, **colSpec)
 		ax.add_collection(polyCol, autolim=True)
@@ -1761,7 +1762,8 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		
 		lines, labs = subplot.get_legend_handles_labels()
 		ct = [PolyCollection, Quiver]  # curtain types
-		labs = [labs[x] + '{0}'.format(' [Curtain]' if type(lines[x]) in ct else "") for x in range(len(labs))]
+		# labs = [labs[x] + '{0}'.format(' [Curtain]' if type(lines[x]) in ct else "") for x in range(len(labs))]
+		labs = [labels[0][x] + '{0}'.format(' [Curtain]' if type(lines[x]) in ct else "") for x in range(len(labs))]
 		axis = ['axis 1' for x in range(len(lines))]
 		if isSecondaryAxis[0]:
 			subplot2 = self.tuView.tuPlot.getSecondaryAxis(plotNo)
@@ -3129,14 +3131,16 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 								x = lines[i].get_xdata()
 								xmin2, xmax2 = np.nanmin(x), np.nanmax(x)
 								if self.animationDialog.tuView.tuOptions.xAxisDates:
-									if xmin2 in self.animationDialog.tuView.tuResults.date2time:
-										xmin2 = self.animationDialog.tuView.tuResults.date2time[xmin2]
-									else:
-										xmin2 = 999999
-									if xmax2 in self.animationDialog.tuView.tuResults.date2time:
-										xmax2 = self.animationDialog.tuView.tuResults.date2time[xmax2]
-									else:
-										xmax2 = -999999
+									# if xmin2 in self.animationDialog.tuView.tuResults.date2time:
+									# 	xmin2 = self.animationDialog.tuView.tuResults.date2time[xmin2]
+									# else:
+									# 	xmin2 = 999999
+									# if xmax2 in self.animationDialog.tuView.tuResults.date2time:
+									# 	xmax2 = self.animationDialog.tuView.tuResults.date2time[xmax2]
+									# else:
+									# 	xmax2 = -999999
+									xmin2 = convert_datetime_to_float(xmin2)
+									xmax2 = convert_datetime_to_float(xmax2)
 							xmin = min(xmin, xmin2)
 							xmax = max(xmax, xmax2)
 							margin = (xmax - xmin) * 0.05
@@ -3146,10 +3150,12 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 								self.sbXmin.setValue(xmin)
 								self.sbXMax.setValue(xmax)
 							else:
-								xmin = convertTimeToDate(self.animationDialog.tuView.tuOptions.zeroTime, xmin,
-								                         self.animationDialog.tuView.tuOptions.timeUnits)
-								xmax = convertTimeToDate(self.animationDialog.tuView.tuOptions.zeroTime, xmax,
-								                         self.animationDialog.tuView.tuOptions.timeUnits)
+								# xmin = convertTimeToDate(self.animationDialog.tuView.tuOptions.zeroTime, xmin,
+								#                          self.animationDialog.tuView.tuOptions.timeUnits)
+								# xmax = convertTimeToDate(self.animationDialog.tuView.tuOptions.zeroTime, xmax,
+								#                          self.animationDialog.tuView.tuOptions.timeUnits)
+								xmin = convert_float_to_datetime(xmin)
+								xmax = convert_float_to_datetime(xmax)
 								self.dteXmin.setDateTime(xmin)
 								self.dteXMax.setDateTime(xmax)
 							break
@@ -3275,12 +3281,13 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 					for i in range(animation.tuView.cboTime.count()):
 						timeFormatted = animation.tuView.cboTime.itemText(i)
 						unit = self.animationDialog.tuView.tuOptions.timeUnits
-						if self.animationDialog.tuView.tuOptions.xAxisDates:
-							time = convertFormattedDateToTime(timeFormatted,
-							                                  self.animationDialog.tuView.tuResults.dateFormat,
-							                                  self.animationDialog.tuView.tuResults.date2time)
-						else:
-							time = convertFormattedTimeToTime(timeFormatted, unit=unit)
+						# if self.animationDialog.tuView.tuOptions.xAxisDates:
+						# 	time = convertFormattedDateToTime(timeFormatted,
+						# 	                                  self.animationDialog.tuView.tuResults.dateFormat,
+						# 	                                  self.animationDialog.tuView.tuResults.date2time)
+						# else:
+						# 	time = convertFormattedTimeToTime(timeFormatted, unit=unit)
+						time = self.animationDialog.tuView.tuResults.timeFromString(timeFormatted)
 						if plotType == 'CS / LP':
 							animation.tuView.tuPlot.updateCurrentPlot(TuPlot.CrossSection, draw=False, time=time)
 						else:

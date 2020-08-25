@@ -451,7 +451,7 @@ class TuMenuFunctions():
 
 		self.tuView.tuPlot.updateCurrentPlot(self.tuView.tabWidget.currentIndex(), update='1d and 2d only')
 		self.tuView.tuPlot.tuPlotToolbar.cursorTrackingButton.setChecked(self.tuView.tuOptions.liveMapTracking)
-		
+
 		return True
 	
 	def exportCSV(self):
@@ -1542,6 +1542,8 @@ class TuMenuFunctions():
 		mLayers = []
 		for mesh in resultMesh:
 			mLayers.append(tuflowqgis_find_layer(mesh))
+		if not mLayers:
+			return False
 			
 		# get attribute field index for name
 		if nameField is not None and nameField != '-None-':
@@ -1574,12 +1576,13 @@ class TuMenuFunctions():
 		for f in featIterator:
 			if vLayer.geometryType() == QgsWkbTypes.PointGeometry:
 				if nameIndex is not None:
-					name = '{0}'.format(f.attributes()[nameIndex])
+					name = '{1}_{0}'.format(f.attributes()[nameIndex], mLayers[0].name())
 				else:
-					name = 'Time_Series_{0}'.format(f.id())
+					name = '{1}_{0}_TS'.format(f.id(), mLayers[0].name())
 				self.tuView.tuPlot.tuPlot2D.plotTimeSeriesFromMap(
 					vLayer, f, bypass=True, mesh=mLayers, types=resultTypes, export=format,
-					export_location=outputFolder, name=name, export_format=imageFormat)
+					export_location=outputFolder, name=name, export_format=imageFormat,
+					mesh_rendered=False)
 			elif vLayer.geometryType() == QgsWkbTypes.LineGeometry:
 				if nameIndex is not None:
 					name = '{0}'.format(f.attributes()[nameIndex])
@@ -1587,7 +1590,8 @@ class TuMenuFunctions():
 					name = 'Cross_Section_{0}'.format(f.id())
 				self.tuView.tuPlot.tuPlot2D.plotCrossSectionFromMap(
 					vLayer, f, bypass=True, mesh=mLayers, types=resultTypes, export=format,
-					export_location=outputFolder, name=name, time=timestepKey, time_formatted=timestep, export_format=imageFormat)
+					export_location=outputFolder, name=name, time=timestepKey, time_formatted=timestep, export_format=imageFormat,
+					mesh_rendered=False)
 			else:
 				return False
 			complete += 1
