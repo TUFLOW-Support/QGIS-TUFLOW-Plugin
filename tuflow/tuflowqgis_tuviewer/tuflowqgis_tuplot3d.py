@@ -304,6 +304,7 @@ class TuPlot3D(TuPlot2D):
         exportOut = kwargs['export_location'] if 'export_location' in kwargs.keys() else None
         exportFormat = kwargs['export_format'] if 'export_format' in kwargs.keys() else None
         plotActiveScalar = kwargs['plot_active_scalar'] if 'plot_active_scalar' in kwargs else False
+        lineNo = kwargs['lineNo'] if 'lineNo' in kwargs else 0
 
         # clear the plot based on kwargs
         if not bypass:
@@ -330,7 +331,7 @@ class TuPlot3D(TuPlot2D):
                 resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(TuPlot.DataCurtainPlot)
             key = lambda x: 1 if 'vector' in x.lower() else 0
             resultTypes = sorted(resultTypes, key=key)
-            for rtype in resultTypes:
+            for j, rtype in enumerate(resultTypes):
                 # time
                 if not timestep:
                     timestep = self.tuView.tuResults.activeTime
@@ -354,7 +355,8 @@ class TuPlot3D(TuPlot2D):
                 gmd = dp.datasetGroupMetadata(meshDatasetIndex.group())
 
                 try:
-                    onFaces = gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnFaces
+                    # onFaces = gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnFaces
+                    onFaces = gmd.dataType() != QgsMeshDatasetGroupMetadata.DataOnVertices
                 except:  # versions earlier than ~ 3.8
                     onFaces = False
 
@@ -364,10 +366,11 @@ class TuPlot3D(TuPlot2D):
                 #     onFaces = True
 
                 # get mesh intersects
+                update = False
                 if not update:
                     self.inters, self.chainages, self.faces = findMeshIntersects(si, dp, mesh, feat, crs,
                                                                                  self.tuView.project)
-                    update = True  # turn on update now - allow only one line at the moment
+                    # update = True  # turn on update now - allow only one line at the moment
                     if not onFaces:
                         self.points = [calcMidPoint(self.inters[i], self.inters[i+1], crs) for i in range(len(self.inters) - 1)]
                         if debug:
@@ -390,13 +393,15 @@ class TuPlot3D(TuPlot2D):
                     plotAsCollection.append(False)
                     plotAsQuiver.append(True)
                 else:
-                    self.getScalarDataCurtain(layer, dp, si, mesh, meshDatasetIndex, self.points,
-                                              self.chainages, update, rtype, onFaces, isMax, isMin)
-                    data.append(self.collection)
+                    collection = self.getScalarDataCurtain(layer, dp, si, mesh, meshDatasetIndex, self.points,
+                                                           self.chainages, update, rtype, onFaces, isMax, isMin)
+                    data.append(collection)
                     plotAsCollection.append(True)
                     plotAsQuiver.append(False)
 
-                labels.append(rtype)
+                label = self.generateLabel(layer, layer, rtype, lineNo, featName,
+                                           activeMeshLayers, None, export, bypass, j, TuPlot.DataCurtainPlot)
+                labels.append(label)
                 types.append(rtype)
                 plotAsPatch.append(True)
 
@@ -519,7 +524,8 @@ class TuPlot3D(TuPlot2D):
         #    self.co_stuff += datetime.now() - pf  # profiling
         #else:
         self.colSpec['clim'] = self.getMinMaxValue(dp, mdi.group())
-        self.collection = PolyCollection(xy, array=values, edgecolor=edgecolour, label=rtype, **self.colSpec)
+        # self.collection = PolyCollection(xy, array=values, edgecolor=edgecolour, label=rtype, **self.colSpec)
+        return PolyCollection(xy, array=values, edgecolor=edgecolour, label=rtype, **self.colSpec)
 
     def getVectorDataCurtain(self, layer, dp, si, mesh, mdi, faces, ch, points, update, onFaces, isMax, isMin):
         """

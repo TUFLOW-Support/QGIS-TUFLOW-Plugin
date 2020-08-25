@@ -130,6 +130,38 @@ class TuResults():
 		self.updateQgsTime()
 		self.tuResultsParticles.updateActiveTime()
 
+	def timeFromString(self, time, return_rel_time=True):
+		"""
+		Takes a time string and returns model time, considering
+		such things as timespec.
+		"""
+
+		return_time = None
+		if not self.tuView.tuOptions.xAxisDates:
+			if time in self.cboTime2timekey:
+				return_time = self.cboTime2timekey[time]
+			else:
+				unit = self.tuView.tuOptions.timeUnits
+				return_time = '{0:.6f}'.format(convertFormattedTimeToTime(time, unit=unit))
+		else:
+			modelDates = sorted([x for x in self.date_tspec2time.keys()])
+			return_time = datetime.strptime(time, self.dateFormat)
+			return_time = self.findTimeClosest(None, None, return_time, modelDates, True, 'higher')
+			return_time = self.date_tspec2timekey[return_time]
+
+		if return_rel_time:
+			if return_time in self.timekey2time:
+				return_time = self.timekey2time[return_time]
+			else:
+				return_time = 0
+		else:
+			if return_time in self.timekey2date:
+				return_time = self.timekey2date[return_time]
+			else:
+				return_time = 0
+
+		return return_time
+
 	def updateOpenResults(self, *args):
 		"""
 
@@ -1510,8 +1542,7 @@ class TuResults():
 		"""
 
 		"""
-		#import pydevd_pycharm
-		#pydevd_pycharm.settrace('localhost', port=53100, stdoutToServer=True, stderrToServer=True)
+
 		qv = Qgis.QGIS_VERSION_INT
 		tt = 0.01  # tiny time (seconds)
 
@@ -1604,8 +1635,7 @@ class TuResults():
 		"""
 
 		"""
-		#import pydevd_pycharm
-		#pydevd_pycharm.settrace('localhost', port=53100, stdoutToServer=True, stderrToServer=True)
+
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 		updateOpenResults = False

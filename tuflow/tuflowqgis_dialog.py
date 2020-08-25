@@ -27,6 +27,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from qgis.core import *
 import glob
+import logging
 import processing
 from .tuflowqgis_library import *
 from PyQt5.QtWidgets import *
@@ -2877,7 +2878,11 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 		self.project = TuView.project
 		self.canvas = TuView.canvas
 		folderIcon = QgsApplication.getThemeIcon('/mActionFileOpen.svg')
+		addIcon = QgsApplication.getThemeIcon('mActionAdd.svg')
+		# removeIcon = QgsApplication.getThemeIcon('symbologyRemove.svg')
 		self.btnBrowse.setIcon(folderIcon)
+		self.btnAddRes.setIcon(addIcon)
+		# self.btnRemRes.setIcon(removeIcon)
 		self.populateGISLayers()
 		self.populateNameAttributes()
 		self.populateResultMesh()
@@ -2900,6 +2905,8 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 		# self.mcbResultTypes.checkedItemsChanged.connect(self.populateTimeSteps)
 		self.btnBrowse.clicked.connect(lambda: browse(self, 'existing folder', 'TUFLOW/batch_export', 'Ouput Folder',
 		                                              "", self.outputFolder))
+		self.btnAddRes.clicked.connect(lambda: browse(self, 'existing files', 'TUFLOW/batch_export_res', 'TUFLOW Results',
+		                                              "XMDF (*.xmdf *.XMDF)", self.lwResultMesh))
 		self.buttonBox.accepted.connect(self.check)
 		self.buttonBox.rejected.connect(self.reject)
 		
@@ -2925,73 +2932,81 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 					break
 	
 	def populateResultTypes(self):
-		self.mcbResultTypes.clear()
-		layer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
-		resultTypes = []
-		# meshes = [self.mcbResultMesh.currentText()]
-		# meshes = self.mcbResultMesh.checkedItems()
-		meshes = [x.text() for x in self.lwResultMesh.selectedItems()]
-		if layer is not None:
-			for mesh in meshes:
-			#for mesh in self.mcbResultMesh.checkedItems():
-				r = self.tuView.tuResults.results[mesh]
-				for type, t in r.items():
-					if (layer.geometryType() == QgsWkbTypes.LineGeometry or ('isTemporal' in t
-							and t['isTemporal'] and layer.geometryType() == QgsWkbTypes.PointGeometry)) \
-							and ('isMax' in t and not t['isMax'] and 'isMin' in t and not t['isMin']):
-						if type not in resultTypes:
-							resultTypes.append(type)
-
-		self.mcbResultTypes.addItems(resultTypes)
-		
-	def populateTimeSteps(self, *args):
-
-		self.cbTimesteps.clear()
-		self.cbTimesteps.setEnabled(False)
-		timesteps = []
-		timestepsFormatted = []
-		maximum = False
-		minimum = False
-		layer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
-		if layer is not None:
-			if layer.geometryType() == QgsWkbTypes.PointGeometry:
-				self.cbTimesteps.setEnabled(False)
-			elif layer.geometryType() == QgsWkbTypes.LineGeometry:
-				self.cbTimesteps.setEnabled(True)
+		firstFound = True
+		for res in self.lwResultMesh.selectedItems():
+			layer = tuflowqgis_find_layer(res)
+			if layer is not None:
+				if firstFound:
+					self.mcbResultTypes.clear()
+					firstFound = False
+				resultTypes = []
 				# meshes = [self.mcbResultMesh.currentText()]
 				# meshes = self.mcbResultMesh.checkedItems()
 				meshes = [x.text() for x in self.lwResultMesh.selectedItems()]
-				rts = [x.lower() for x in self.mcbResultTypes.checkedItems()]
-				for mesh in meshes:
-				# for mesh in self.mcbResultMesh.checkedItems():
-					r = self.tuView.tuResults.results[mesh]
-					for rtype, t in r.items():
-						if type(t) is dict:  # map outputs results stored in dict, time series results stored as tuple
+				if layer is not None:
+					for mesh in meshes:
+					#for mesh in self.mcbResultMesh.checkedItems():
+						r = self.tuView.tuResults.results[mesh]
+						for type, t in r.items():
 							if (layer.geometryType() == QgsWkbTypes.LineGeometry or ('isTemporal' in t
 									and t['isTemporal'] and layer.geometryType() == QgsWkbTypes.PointGeometry)) \
 									and ('isMax' in t and not t['isMax'] and 'isMin' in t and not t['isMin']):
-								if 'times' in t:
-									for time, items in t['times'].items():
-										if time == '99999' or time == '-99999':
-											continue
-										elif items[0] not in timesteps:
-											timesteps.append(items[0])
-							elif 'isMax' in t and t['isMax']:
-								maximum = True
-							elif 'isMin' in t and t['isMin']:
-								minimum = True
+								if type not in resultTypes:
+									resultTypes.append(type)
 
-				timesteps = sorted(timesteps)
-				if timesteps:
-					if timesteps[-1] < 100:
-						timestepsFormatted = [convertTimeToFormattedTime(x) for x in timesteps]
-					else:
-						timestepsFormatted = [convertTimeToFormattedTime(x, hour_padding=3) for x in timesteps]
-					if maximum:
-						timestepsFormatted.insert(0, 'Maximum')
-					if minimum:
-						timestepsFormatted.insert(0, 'Minimum')
-		self.cbTimesteps.addItems(timestepsFormatted)
+				self.mcbResultTypes.addItems(resultTypes)
+		
+	def populateTimeSteps(self, *args):
+		firstFound = True
+		for res in self.lwResultMesh.selectedItems():
+			layer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
+			if layer is not None:
+				if firstFound:
+					self.cbTimesteps.clear()
+					self.cbTimesteps.setEnabled(False)
+					timesteps = []
+					timestepsFormatted = []
+					maximum = False
+					minimum = False
+					firstFound = False
+				if layer.geometryType() == QgsWkbTypes.PointGeometry:
+					self.cbTimesteps.setEnabled(False)
+				elif layer.geometryType() == QgsWkbTypes.LineGeometry:
+					self.cbTimesteps.setEnabled(True)
+					# meshes = [self.mcbResultMesh.currentText()]
+					# meshes = self.mcbResultMesh.checkedItems()
+					meshes = [x.text() for x in self.lwResultMesh.selectedItems()]
+					rts = [x.lower() for x in self.mcbResultTypes.checkedItems()]
+					for mesh in meshes:
+					# for mesh in self.mcbResultMesh.checkedItems():
+						r = self.tuView.tuResults.results[mesh]
+						for rtype, t in r.items():
+							if type(t) is dict:  # map outputs results stored in dict, time series results stored as tuple
+								if (layer.geometryType() == QgsWkbTypes.LineGeometry or ('isTemporal' in t
+										and t['isTemporal'] and layer.geometryType() == QgsWkbTypes.PointGeometry)) \
+										and ('isMax' in t and not t['isMax'] and 'isMin' in t and not t['isMin']):
+									if 'times' in t:
+										for time, items in t['times'].items():
+											if time == '99999' or time == '-99999':
+												continue
+											elif items[0] not in timesteps:
+												timesteps.append(items[0])
+								elif 'isMax' in t and t['isMax']:
+									maximum = True
+								elif 'isMin' in t and t['isMin']:
+									minimum = True
+
+					timesteps = sorted(timesteps)
+					if timesteps:
+						if timesteps[-1] < 100:
+							timestepsFormatted = [convertTimeToFormattedTime(x) for x in timesteps]
+						else:
+							timestepsFormatted = [convertTimeToFormattedTime(x, hour_padding=3) for x in timesteps]
+						if maximum:
+							timestepsFormatted.insert(0, 'Maximum')
+						if minimum:
+							timestepsFormatted.insert(0, 'Minimum')
+				self.cbTimesteps.addItems(timestepsFormatted)
 	
 	def populateImageFormats(self):
 		formats = plt.gcf().canvas.get_supported_filetypes()
@@ -3022,22 +3037,24 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 			settings.setValue('TUFLOW/batch_export', outFolder)
 			
 	def check(self):
-		if not self.cbGISLayer.currentText():
-			QMessageBox.information(self, 'Missing Data', 'Missing GIS Layer')
-		elif not self.lwResultMesh.selectedItems():
-			QMessageBox.information(self, 'Missing Data', 'Missing Result Mesh')
-		elif not self.mcbResultTypes.checkedItems():
-			QMessageBox.information(self, 'Missing Data', 'Missing Result Types')
-		elif self.cbTimesteps.isEnabled() and not self.cbTimesteps.currentText():
-			QMessageBox.information(self, 'Missing Data', 'Missing Time Step')
-		elif not self.outputFolder.text():
-			QMessageBox.information(self, 'Missing Data', 'Missing Output Folder')
-		elif not os.path.exists(self.outputFolder.text()):
-			QMessageBox.information(self, 'Missing Data', 'Output Folder Does Not Exist')
-		else:  # made it through the checks :)
-			self.run()
+		self.run()
+		# if not self.cbGISLayer.currentText():
+		# 	QMessageBox.information(self, 'Missing Data', 'Missing GIS Layer')
+		# elif not self.lwResultMesh.selectedItems():
+		# 	QMessageBox.information(self, 'Missing Data', 'Missing Result Mesh')
+		# elif not self.mcbResultTypes.checkedItems():
+		# 	QMessageBox.information(self, 'Missing Data', 'Missing Result Types')
+		# elif self.cbTimesteps.isEnabled() and not self.cbTimesteps.currentText():
+		# 	QMessageBox.information(self, 'Missing Data', 'Missing Time Step')
+		# elif not self.outputFolder.text():
+		# 	QMessageBox.information(self, 'Missing Data', 'Missing Output Folder')
+		# elif not os.path.exists(self.outputFolder.text()):
+		# 	QMessageBox.information(self, 'Missing Data', 'Output Folder Does Not Exist')
+		# else:  # made it through the checks :)
+		# 	self.run()
 		
 	def run(self):
+
 		# first save output folder directory - can have changed if they edit through line edit not browser
 		settings = QSettings()
 		settings.setValue('TUFLOW/batch_export', self.outputFolder.text())
@@ -3048,20 +3065,65 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 		# resultMesh = self.mcbResultMesh.checkedItems()  # list -> str
 		resultMesh = [x.text() for x in self.lwResultMesh.selectedItems()]
 		resultTypes = self.mcbResultTypes.checkedItems()  # list -> str
+		if not resultTypes:
+			resultTypes = self.mcbResultTypes.currentText().split(';;')
 		timestep = self.cbTimesteps.currentText()  # str
 		features = 'all' if self.rbAllFeatures.isChecked() else 'selection'  # str
 		format = 'csv' if self.rbCSV.isChecked() else 'image'  # str
 		imageFormat = self.cbImageFormat.currentText()
 		outputFolder = self.outputFolder.text()  # str
-		
+
+		# setup logger
+		logger = logging.getLogger('BatchExport')
+		logger.setLevel(logging.INFO)
+		fh = logging.FileHandler('{0}'.format(os.path.join(outputFolder, 'batch_export.log')), mode='w')
+		fh.setLevel(logging.INFO)
+		ch = logging.StreamHandler()
+		ch.setLevel(logging.ERROR)
+		fmt = logging.Formatter('%(message)s')
+		fh.setFormatter(fmt)
+		ch.setFormatter(fmt)
+		logger.addHandler(fh)
+		logger.addHandler(ch)
+
 		# run process
-		successful = self.tuView.tuMenuBar.tuMenuFunctions.batchPlotExport(gisLayer, resultMesh, resultTypes, timestep, features, format, outputFolder, nameField, imageFormat)
+		errorsOccured = False
+		for r in resultMesh:
+			neededLoading = False
+			if r not in self.tuView.tuResults.results and \
+					os.path.splitext(os.path.basename(r))[0] not in self.tuView.tuResults.results:
+				imported = self.tuView.tuMenuBar.tuMenuFunctions.load2dResults(result_2D=[[r]])
+				if not imported:
+					logger.info('Error loading result: {0}'.format(r))
+					errorsOccured = True
+					continue
+				neededLoading = True
+
+			if neededLoading:
+				r2 = os.path.basename(os.path.splitext(r)[0])
+			else:
+				r2 = r
+
+			successful = self.tuView.tuMenuBar.tuMenuFunctions.batchPlotExport(gisLayer, [r2], resultTypes, timestep, features, format, outputFolder, nameField, imageFormat)
+			if not successful:
+				logger.info('Error creating plots for result: {0}'.format(r))
+				errorsOccured = True
+
+			if neededLoading:
+				layer = tuflowqgis_find_layer(r2)
+				if layer is not None:
+					self.tuView.project.removeMapLayer(layer.id())
 		
-		if successful:
+		if not errorsOccured:
 			QMessageBox.information(self, 'Batch Export', 'Successfully Exported Data')
+			logger.info('Successfully exported plots')
 		else:
-			QMessageBox.information(self, 'Batch Export', 'Error Exporting Data')
-		
+			QMessageBox.information(self, 'Batch Export', 'Export process finished. Errors occured:\n{0}'.format('{0}'.format(os.path.join(outputFolder, 'batch_export.log'))))
+
+		# close logger
+		logger.info('Finished')
+		logging.shutdown()
+
 		# finally destroy dialog
 		self.accept()
 

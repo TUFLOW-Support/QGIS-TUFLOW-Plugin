@@ -1589,8 +1589,8 @@ class TuPlot2D():
 		else:
 			if featName is None:
 				if bypass or self.tuView.cboSelectType.currentText() == 'From Map Multi' and markerNo > 0:
-					label = '{0} - point {1}'.format(rtype, markerNo) if len(
-						activeMeshLayers) < 2 else '{0} - {1} - point {2}'.format(layer.name(), rtype,
+					label = '{0} - loc {1}'.format(rtype, markerNo) if len(
+						activeMeshLayers) < 2 else '{0} - {1} - loc {2}'.format(layer.name(), rtype,
 					                                                              markerNo)
 				# normal single point click
 				else:

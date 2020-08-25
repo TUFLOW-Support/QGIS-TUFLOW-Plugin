@@ -5475,6 +5475,13 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
 				lineEdit.setText(f)
 			elif type(lineEdit) is QModelIndex:
 				lineEdit.model().setData(lineEdit, f, Qt.EditRole)
+			elif type(lineEdit) is QListWidget:
+				for f2 in f.split(';;'):
+					lineEdit.addItem(f2)
+				for i in range(lineEdit.count()):
+					item = lineEdit.item(i)
+					if item.text() in f.split(';;'):
+						item.setSelected(True)
 		else:
 			if browseType == 'existing files':
 				return f.split(';;')
@@ -5763,6 +5770,19 @@ def convert_datetime_to_float(dt_time):
 	t0 = datetime(1, 1, 1, 0, 0, 0)
 	dt = dt_time - t0
 	return (dt.total_seconds() / 60 / 60 / 24) + 1
+
+
+def convert_float_to_datetime(time):
+	"""
+	How Matplotlib interprets dates: days since 0001-01-01 00:00:00 UTC + 1 day
+	https://matplotlib.org/gallery/text_labels_and_annotations/date.html
+
+	:param dt_time: datetime.datetime
+	:return: float
+	"""
+
+	t0 = datetime(1, 1, 1, 0, 0, 0)
+	return t0 + timedelta(days=time) - timedelta(days=1)
 
 
 def getNetCDFLibrary():
@@ -6388,7 +6408,7 @@ def convertTimeToDate(refTime, t, unit):
 		except OverflowError:
 			date = refTime + timedelta(seconds=t)
 
-	return roundSeconds(date)
+	return roundSeconds(date, 2)
 
 
 def findPlotLayers(geom=''):
