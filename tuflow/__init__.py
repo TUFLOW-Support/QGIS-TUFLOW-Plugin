@@ -53,14 +53,14 @@ def openTuview(event, tuflowqgis):
     if Qgis.QGIS_VERSION_INT >= 30400:
         tuviewOpen = QgsProject().instance().readEntry("TUVIEW", "dock_opened")[0]
         if tuviewOpen == 'Open':
-            tuflowqgis.openResultsPlottingWindow()
+            tuflowqgis.openResultsPlottingWindow(showmessage=False)
             tuflowqgis.resultsPlottingDock.loadProject()
             tuflowqgis.resultsPlottingDock.canvas.mapCanvasRefreshed.connect(
                 tuflowqgis.resultsPlottingDock.tuResults.tuResults2D.renderMap)
             tuflowqgis.resultsPlottingDock.canvas.mapCanvasRefreshed.connect(
                 tuflowqgis.resultsPlottingDock.tuPlot.updateCurrentPlot)
         elif tuviewOpen == 'Close':
-            tuflowqgis.openResultsPlottingWindow()
+            tuflowqgis.openResultsPlottingWindow(showmessage=False)
             tuflowqgis.resultsPlottingDock.setVisible(False)
             tuflowqgis.resultsPlottingDock.loadProject()
             tuflowqgis.resultsPlottingDock.canvas.mapCanvasRefreshed.connect(
@@ -78,6 +78,8 @@ def classFactory(iface):
     openTuview(None, menu)
     
     # setup signal to capture project opens so tuview can be opened if needed
-    QgsProject.instance().readProject.connect(lambda event: openTuview(event, menu))
+    conn = QgsProject.instance().readProject.connect(lambda event: openTuview(event, menu))
+
+    menu.addLambdaConnection(conn)
     
     return menu

@@ -15,6 +15,7 @@ class TuProject():
 	def __init__(self, TuView):
 		self.tuView = TuView
 		self.project = TuView.project
+		self.hastp = {}
 		
 	def save(self):
 		"""Saves settings to project"""
@@ -80,7 +81,7 @@ class TuProject():
 			self.tuView.setVisible(visible)
 		
 			# 2D results
-			#self.processResults2d('load')
+			self.processResults2d('load')
 		
 			# 1D results
 			self.processResults1d('load')
@@ -130,24 +131,39 @@ class TuProject():
 		
 	def processResults2d(self, call_type):
 		"""Project settings for 2d results"""
-		
+
 		if call_type == 'save':
-			results2d = self.tuView.tuResults.tuResults2D.results2d
-			results = ''
-			for i, result in enumerate(results2d):
+			# results2d = self.tuView.tuResults.tuResults2D.results2d
+			results = self.tuView.tuResults.results
+			# results = ''
+			hastp = ''
+			# for i, result in enumerate(results2d):
+			for i, res in enumerate(results):
 				if i == 0:
-					results += results2d[result]['path']
+					#results += results2d[result]['path']
+					restype = [x for x in results[res].keys()]
+					for r in restype:
+						if 'isMesh' in results[res][r]:
+							if results[res][r]['isMesh']:
+								hastp += "{0}:{1}".format(res, results[res][r]['hadTemporalProperties'])
+								break
 				else:
-					results += '~~{0}'.format(results2d[result]['path'])
-			self.project.writeEntry("TUVIEW", "results2d", results)
+					# results += '~~{0}'.format(results2d[result]['path'])
+					restype = [x for x in results[res].keys()]
+					for r in restype:
+						if 'isMesh' in results[res][r]:
+							if results[res][r]['isMesh']:
+								hastp += "~~{0}:{1}".format(res, results[res][r]['hadTemporalProperties'])
+			self.project.writeEntry("TUVIEW", "results2d", hastp)
 		else:  # load
 			results = self.project.readEntry("TUVIEW", "results2d")[0]
 			if results:
 				results = results.split('~~')
-				try:
-					self.tuView.tuMenuBar.tuMenuFunctions.load2dResults(result_2D=[results])
-				except:
-					pass
+				# try:
+				# 	self.tuView.tuMenuBar.tuMenuFunctions.load2dResults(result_2D=[results])
+				# except:
+				# 	pass
+				self.hastp = {x.split(':')[0]: True if x.split(':')[1] == 'True' else False for x in results}
 			
 	def processResults1d(self, call_type):
 		"""Project settings for 1d results"""

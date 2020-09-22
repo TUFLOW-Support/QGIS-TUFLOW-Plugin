@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.1.2.3
+version=3.1.3
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,14 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=###  3.1.2.3 ###
+changelog=###  3.1.3 ###
+          Fixed 'Close TUFLOW Viewer completely
+          Fixed bug in curtain plots with quadtree results
+          Further plugin unloading improvements
+          Fixed a few bugs in batch export
+          Fixed bug where saving a project would stop user from being able to change zero time (tuflow classic)
+
+          ###  3.1.2.3 ###
           Mulitple curtain plots (lines and result types) now supported - useful for animations
 
           ###  3.1.2.2 ###

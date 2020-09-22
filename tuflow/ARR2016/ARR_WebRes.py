@@ -2231,7 +2231,10 @@ class Arr:
         rareMag2Name = {'0.5%': '1 in 200', '0.2%': '1 in 500', '0.1%': '1 in 1000',
                         '0.05%': '1 in 2000'}
         # write trd losses file
-        trd = os.path.join(fpath, 'rainfall_losses.trd')
+        if tuflow_loss_method == 'infiltration':
+            trd = os.path.join(fpath, 'soil_infiltration.trd')
+        else:
+            trd = os.path.join(fpath, 'rainfall_losses.trd')
         if catch_no == 0:  # write new file
             try:
                 trd_open = open(trd, 'w')

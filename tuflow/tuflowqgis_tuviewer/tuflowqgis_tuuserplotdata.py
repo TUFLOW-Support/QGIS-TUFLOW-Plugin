@@ -12,7 +12,7 @@ class TuUserPlotDataManager():
 		self.datasets = {}  # dict - { dataset name: TuUserPlotDataSet }
 		self.count = 0
 		
-	def addDataSet(self, name, data, plotType, dates=None):
+	def addDataSet(self, name, data, plotType, dates=None, referenceTime=None):
 		"""
 		
 		:param name:
@@ -24,7 +24,7 @@ class TuUserPlotDataManager():
 		if name in self.datasets.keys():
 			self.error = 'Dataset Name Already Exists'
 			return False
-		dataset = TuUserPlotDataSet(name, data, plotType, True, self.count, dates)
+		dataset = TuUserPlotDataSet(name, data, plotType, True, self.count, dates, referenceTime)
 		self.count += 1
 		self.datasets[name] = dataset
 		if dataset.error:
@@ -112,10 +112,13 @@ class TuUserPlotDataSet():
 	
 	"""
 	
-	def __init__(self, name=None, data=[], plotType=None, status=False, number=-1, dates=None):
+	def __init__(self, name=None, data=[], plotType=None, status=False, number=-1, dates=None, referenceTime=None):
 		self.error = ''
 		self.number = number
 		self.status = status
+		self.hasReferenceTime = False
+		self.referenceTime = None
+		self.dates = []
 
 		if name is not None:
 			self.name = '{0}'.format(name)
@@ -151,6 +154,8 @@ class TuUserPlotDataSet():
 				if dates:
 					if len(dates) == len(self.x):
 						self.dates = dates
+						self.referenceTime = referenceTime
+						self.hasReferenceTime = True
 					else:
 						self.error = 'Date data length does not match Y data'
 		
@@ -290,7 +295,17 @@ class TuUserPlotDataSet():
 			
 			# number
 			project.writeEntry("TUVIEW", "userplotdata{0}number".format(no), str(self.number))
-			
+
+			# reference time
+			project.writeEntry("TUVIEW", "userplotdata{0}hasreferencetime".format(no), str(self.hasReferenceTime))
+			if self.hasReferenceTime and self.referenceTime is not None:
+				project.writeEntry("TUVIEW", "userplotdata{0}referencetimeyear".format(no), str(self.referenceTime.year))
+				project.writeEntry("TUVIEW", "userplotdata{0}referencetimemonth".format(no), str(self.referenceTime.month))
+				project.writeEntry("TUVIEW", "userplotdata{0}referencetimeday".format(no), str(self.referenceTime.day))
+				project.writeEntry("TUVIEW", "userplotdata{0}referencetimehour".format(no), str(self.referenceTime.hour))
+				project.writeEntry("TUVIEW", "userplotdata{0}referencetimeminute".format(no), str(self.referenceTime.minute))
+				project.writeEntry("TUVIEW", "userplotdata{0}referencetimesecond".format(no), str(self.referenceTime.second))
+
 	def loadProject(self, project, no):
 		"""
 		
@@ -339,3 +354,18 @@ class TuUserPlotDataSet():
 		
 		# number
 		self.number = int(project.readEntry("TUVIEW", "userplotdata{0}number".format(no))[0])
+
+		# reference time
+		self.hasReferenceTime = True if project.readEntry("TUVIEW", "userplotdata{0}hasreferencetime".format(no))[0] == 'True' else False
+		if self.hasReferenceTime:
+			try:
+				year = int(project.readEntry("TUVIEW", "userplotdata{0}referencetimeyear".format(no))[0])
+				month = int(project.readEntry("TUVIEW", "userplotdata{0}referencetimemonth".format(no))[0])
+				day = int(project.readEntry("TUVIEW", "userplotdata{0}referencetimeday".format(no))[0])
+				hour = int(project.readEntry("TUVIEW", "userplotdata{0}referencetimehour".format(no))[0])
+				minute = int(project.readEntry("TUVIEW", "userplotdata{0}referencetimeminute".format(no))[0])
+				second = int(project.readEntry("TUVIEW", "userplotdata{0}referencetimesecond".format(no))[0])
+				self.referenceTime = datetime(year, month, day, hour, minute, second)
+			except:
+				self.referenceTime = None
+				self.hasReferenceTime = False

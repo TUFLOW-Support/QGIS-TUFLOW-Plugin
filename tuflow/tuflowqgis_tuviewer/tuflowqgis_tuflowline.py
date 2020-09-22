@@ -16,7 +16,7 @@ class TuFlowLine(TuRubberBand):
 		# check for velocity and one of depth or water level - to see if it is possible to get flow
 		if not self.checkIsPossible():
 			QMessageBox.information(self.tuView, "Flux Calculation",
-			                        "Flux Calculation Requires Depth and Velocity Results.")
+			                        "Flux Calculation Requires Temporal Depth and Velocity Results.")
 			return False
 		else:
 			TuRubberBand.startRubberBand(self)
@@ -140,7 +140,7 @@ class TuFlowLine2():
 
 		# check for velocity and one of depth or water level - to see if it is possible to get flow
 		if not self.checkIsPossible():
-			QMessageBox.information(self.tuView, "Flux Calculation", "Flux Calculation Requires Depth and Velocity Results.")
+			QMessageBox.information(self.tuView, "Flux Calculation", "Flux Calculation Requires Temporal Depth and Velocity Results.")
 			return False
 		
 		# determine if multi select

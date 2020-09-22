@@ -1599,6 +1599,7 @@ class TuPlot():
 			r'wave direction.*': ('$^o$C', '$^o$C', ''),
 			r'wave force': ('N/m$^2$', 'N/A', ''),
 			r'wave peak period': ('s', 's', ''),
+			r'minimum dt': ('s', 's', ''),
 		}
 		
 		shortNames = {
@@ -1644,6 +1645,7 @@ class TuPlot():
 			r'wave force': 'Wvstr',
 			r'wave peak period': 'Wvper',
 			r'wind velocity': 'W10',
+			r'minimum dt': 'dt',
 		}
 
 		# clear existing values
@@ -2291,8 +2293,9 @@ class TuPlot():
 			pass
 			
 		if export:
-			figure.suptitle(os.path.splitext(os.path.basename(export))[0])
-			figure.savefig(export)
+			# figure.suptitle(os.path.splitext(os.path.basename(export))[0])
+			subplot.set_title(os.path.splitext(os.path.basename(export))[0])
+			figure.savefig(export, bbox_inches='tight')
 			if subplot2 is not None:
 				subplot2.cla()
 		else:

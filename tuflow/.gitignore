@@ -1,0 +1,14 @@
+*.exe
+.idea*
+.vscode*
+__pycache__*
+_utilities*
+ARR2016/__pycache__*
+forms/__pycache__*
+integrity_tool/__pycache__*
+ReFH2/__pycache__*
+resources/__pycache__*
+TFV*
+tuflowqgis_tuviewer/__pycache__*
+tuflowqgis_tuviewer/_saved_styles*
+utm/utm/__pycache__*

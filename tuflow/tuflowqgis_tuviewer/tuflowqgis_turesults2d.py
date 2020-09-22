@@ -316,6 +316,9 @@ class TuResults2D():
 					hadtp = False
 			else:
 				hadtp = False
+		if self.tuView.tuProject is not None:
+			if name in self.tuView.tuProject.hastp:
+				hadtp = self.tuView.tuProject.hastp[name]  # override hadtp with this
 		self.configTemporalProperties(layer)
 
 		for i in range(dp.datasetGroupCount()):
@@ -345,6 +348,7 @@ class TuResults2D():
 			                     'isTemporal': TuResults.isTemporal(id, dp, i),
 			                     'hadTemporalProperties': hadtp,
 			                     'ext': ext,
+			                     'isMesh': True,
 			                     }  # add result type to results dictionary
 			if id2 is not None:
 				results[name][id2] = {'times': {},
@@ -357,6 +361,7 @@ class TuResults2D():
 				                      'isTemporal': TuResults.isTemporal(id, dp, i),
 				                      'hadTemporalProperties': hadtp,
 				                      'ext': ext,
+				                      'isMesh': True,
 				                      }  # add result type to results dictionary
 
 			# apply any default rendering styles to datagroup

@@ -87,6 +87,46 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         # what happend when the Run button is pressed
         self.pbRun.clicked.connect(self.check)
 
+    def qgisDisconnect(self):
+        """Disconnect signals"""
+
+        try:
+            QgsProject.instance().layersAdded.disconnect(self.layersAdded)
+        except:
+            pass
+        try:
+            QgsProject.instance().layersRemoved.disconnect(self.layersRemoved)
+        except:
+            pass
+        try:
+            self.btnAddLines.clicked.disconnect()
+        except:
+            pass
+        try:
+            self.btnAddPoints.clicked.disconnect()
+        except:
+            pass
+        try:
+            self.btnAddTables.clicked.disconnect()
+        except:
+            pass
+        try:
+            self.btnRemoveLines.clicked.disconnect()
+        except:
+            pass
+        try:
+            self.btnRemovePoints.clicked.disconnect()
+        except:
+            pass
+        try:
+            self.btnRemoveTables.clicked.disconnect()
+        except:
+            pass
+        try:
+            self.pbRun.clicked.disconnect(self.check)
+        except:
+            pass
+
     def check(self):
         """
         Perform some checks prior to trying to run
@@ -332,6 +372,19 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         self.progressBar.setValue(100)
         self.progressBar.setRange(0, 100)
         self.plot.show()
+
+        try:
+            self.plot.finished.disconnect(self.showPlot)
+        except:
+            pass
+        try:
+            self.plot.updated.disconnect(self.updateStatusBar)
+        except:
+            pass
+        try:
+            self.plot.updateMessage.disconnect(self.updateMessage)
+        except:
+            pass
         
     def updateStatusBar(self):
         self.dotCount += 1

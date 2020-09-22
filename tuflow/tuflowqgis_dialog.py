@@ -2932,9 +2932,17 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 					break
 	
 	def populateResultTypes(self):
+		from tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+
+		onlyTemporal = False
+		gisLayer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
+		if gisLayer is not None:
+			if gisLayer.geometryType() == QgsWkbTypes.PointGeometry:
+				onlyTemporal == True
+
 		firstFound = True
 		for res in self.lwResultMesh.selectedItems():
-			layer = tuflowqgis_find_layer(res)
+			layer = tuflowqgis_find_layer(res.text())
 			if layer is not None:
 				if firstFound:
 					self.mcbResultTypes.clear()
@@ -2942,24 +2950,33 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 				resultTypes = []
 				# meshes = [self.mcbResultMesh.currentText()]
 				# meshes = self.mcbResultMesh.checkedItems()
-				meshes = [x.text() for x in self.lwResultMesh.selectedItems()]
-				if layer is not None:
-					for mesh in meshes:
+				# meshes = [x.text() for x in self.lwResultMesh.selectedItems()]
+				# if layer is not None:
+					#for mesh in meshes:
 					#for mesh in self.mcbResultMesh.checkedItems():
-						r = self.tuView.tuResults.results[mesh]
-						for type, t in r.items():
-							if (layer.geometryType() == QgsWkbTypes.LineGeometry or ('isTemporal' in t
-									and t['isTemporal'] and layer.geometryType() == QgsWkbTypes.PointGeometry)) \
-									and ('isMax' in t and not t['isMax'] and 'isMin' in t and not t['isMin']):
-								if type not in resultTypes:
-									resultTypes.append(type)
+				if layer.name() in self.tuView.tuResults.results:
+					r = self.tuView.tuResults.results[layer.name()]
+					for type, t in r.items():
+						# if (layer.geometryType() == QgsWkbTypes.LineGeometry or ('isTemporal' in t
+						# 		and t['isTemporal'] and layer.geometryType() == QgsWkbTypes.PointGeometry)) \
+						# 		and ('isMax' in t and not t['isMax'] and 'isMin' in t and not t['isMin']):
+						if not onlyTemporal or 'isTemporal' not in t or t['isTemporal']:
+							type = TuResults.stripMaximumName(type)
+							if type not in resultTypes:
+								resultTypes.append(type)
 
 				self.mcbResultTypes.addItems(resultTypes)
 		
 	def populateTimeSteps(self, *args):
+		enableTimesteps = False
+		gisLayer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
+		if gisLayer is not None:
+			enableTimesteps = True
+
+		timestepsFormatted = []
 		firstFound = True
 		for res in self.lwResultMesh.selectedItems():
-			layer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
+			layer = tuflowqgis_find_layer(res.text())
 			if layer is not None:
 				if firstFound:
 					self.cbTimesteps.clear()
@@ -2969,21 +2986,22 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 					maximum = False
 					minimum = False
 					firstFound = False
-				if layer.geometryType() == QgsWkbTypes.PointGeometry:
+				if not enableTimesteps:
 					self.cbTimesteps.setEnabled(False)
-				elif layer.geometryType() == QgsWkbTypes.LineGeometry:
+				else:
 					self.cbTimesteps.setEnabled(True)
 					# meshes = [self.mcbResultMesh.currentText()]
 					# meshes = self.mcbResultMesh.checkedItems()
-					meshes = [x.text() for x in self.lwResultMesh.selectedItems()]
-					rts = [x.lower() for x in self.mcbResultTypes.checkedItems()]
-					for mesh in meshes:
+					# meshes = [x.text() for x in self.lwResultMesh.selectedItems()]
+					# rts = [x.lower() for x in self.mcbResultTypes.checkedItems()]
+					# for mesh in meshes:
 					# for mesh in self.mcbResultMesh.checkedItems():
-						r = self.tuView.tuResults.results[mesh]
+					if layer.name() in self.tuView.tuResults.results:
+						r = self.tuView.tuResults.results[layer.name()]
 						for rtype, t in r.items():
 							if type(t) is dict:  # map outputs results stored in dict, time series results stored as tuple
-								if (layer.geometryType() == QgsWkbTypes.LineGeometry or ('isTemporal' in t
-										and t['isTemporal'] and layer.geometryType() == QgsWkbTypes.PointGeometry)) \
+								if (gisLayer.geometryType() == QgsWkbTypes.LineGeometry or ('isTemporal' in t
+										and t['isTemporal'] and gisLayer.geometryType() == QgsWkbTypes.PointGeometry)) \
 										and ('isMax' in t and not t['isMax'] and 'isMin' in t and not t['isMin']):
 									if 'times' in t:
 										for time, items in t['times'].items():
@@ -2998,10 +3016,19 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 
 					timesteps = sorted(timesteps)
 					if timesteps:
-						if timesteps[-1] < 100:
-							timestepsFormatted = [convertTimeToFormattedTime(x) for x in timesteps]
-						else:
-							timestepsFormatted = [convertTimeToFormattedTime(x, hour_padding=3) for x in timesteps]
+						# if timesteps[-1] < 100:
+						# 	timestepsFormatted = [convertTimeToFormattedTime(x) for x in timesteps]
+						# else:
+						# 	timestepsFormatted = [convertTimeToFormattedTime(x, hour_padding=3) for x in timesteps]
+						if not self.tuView.tuOptions.xAxisDates:  # use Time (hrs)
+							unit = self.tuView.tuOptions.timeUnits
+							if (unit == 'h' and timesteps[-1] < 100) or (unit == 's' and timesteps[-1] / 3600 < 100):
+								pad = 2
+							else:
+								pad = 3
+							timestepsFormatted = [convertTimeToFormattedTime(x, unit=unit, hour_padding=pad) for x in timesteps]
+						else:  # use datetime format
+							timestepsFormatted = [self.tuView.tuResults._dateFormat.format(self.tuView.tuResults.time2date_tspec[x]) for x in timesteps]
 						if maximum:
 							timestepsFormatted.insert(0, 'Maximum')
 						if minimum:
@@ -3577,7 +3604,7 @@ class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
 			self.run()
 		
 	def run(self):
-
+		dateTime = None
 		self.names = []  # str data series names
 		self.data = []  # tuple -> list x data, y data -> float
 		x = []  # assumed all data share x axis
@@ -3653,6 +3680,10 @@ class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
 							y[j].append('')
 
 		self.data = list(zip(x, y))
+		if self.gbUseDates.isChecked():
+			self.referenceTime = dateTime
+		else:
+			self.referenceTime = None
 		
 		# finally destroy dialog box
 		self.ok = True
@@ -3716,7 +3747,7 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 				while name in self.tuUserPlotDataManager.datasets.keys():
 					name = '{0}_{1}'.format(name, counter)
 					counter += 1
-				self.tuUserPlotDataManager.addDataSet(name, self.addDataDialog.data[i], 'time series', self.addDataDialog.dates[i])
+				self.tuUserPlotDataManager.addDataSet(name, self.addDataDialog.data[i], 'time series', self.addDataDialog.dates[i], self.addDataDialog.referenceTime)
 				if not self.tuUserPlotDataManager.datasets[name].error:
 					# add data to dialog
 					self.UserPlotDataTable.setRowCount(self.UserPlotDataTable.rowCount() + 1)

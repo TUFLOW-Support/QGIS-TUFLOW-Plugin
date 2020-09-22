@@ -1556,7 +1556,17 @@ class TuMenuFunctions():
 			if timestep == 'Maximum':
 				timestepKey = timestep
 			else:
-				timestepKey = '{0:.6f}'.format(convertFormattedTimeToTime(timestep))
+				if self.tuView.tuOptions.xAxisDates:
+					pdt = datetime.datetime.strptime(timestep, self.tuView.tuResults.dateFormat)
+					modelDates = self.tuView.tuResults.date_tspec2time
+					if timestep in modelDates:
+						timestepKey = modelDates[timestep]
+					else:
+						modelDates2 = sorted([x for x in modelDates.keys()])
+						timestepKey = self.tuView.tuResults.findTimeClosest(None, None, pdt, modelDates2, True, 'closest')
+						timestepKey = modelDates[timestepKey]
+				else:
+					timestepKey = convertFormattedTimeToTime(timestep)
 			
 		# setup progress bar
 		if featureCount:
