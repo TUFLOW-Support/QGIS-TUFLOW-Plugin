@@ -205,3 +205,61 @@ class ViewToolbar():
 
 		self.tuPlot.manageMatplotlibAxe(subplot)
 		plotWidget.draw()
+
+	def qgisDisconnect(self):
+		try:
+			self.refreshPlotButton.released.disconnect(self.tuView.refreshCurrentPlot)
+		except:
+			pass
+		try:
+			self.clearPlotButton.released.disconnect()
+		except:
+			pass
+		try:
+			self.freezeXYAxisButton.released.disconnect(self.freezeXYAxis)
+		except:
+			pass
+		try:
+			self.freezeXAxisButton.released.disconnect(self.freezeXAxis)
+		except:
+			pass
+		try:
+			self.freezeYAxisButton.released.disconnect(self.freezeYAxis)
+		except:
+			pass
+		try:
+			self.legendMenu.menuAction().triggered.disconnect()
+		except:
+			pass
+		try:
+			self.legendAuto.triggered.disconnect()
+		except:
+			pass
+		try:
+			self.legendUL.triggered.disconnect()
+		except:
+			pass
+		try:
+			self.legendLL.triggered.disconnect()
+		except:
+			pass
+		try:
+			self.legendUR.triggered.disconnect()
+		except:
+			pass
+		try:
+			self.legendLR.triggered.disconnect()
+		except:
+			pass
+		try:
+			self.userPlotDataManagerAction.triggered.disconnect(self.tuMenuFunctions.openUserPlotDataManager)
+		except:
+			pass
+		try:
+			self.hGridLines_action.triggered.disconnect(self.gridLines_toggled)
+		except:
+			pass
+		try:
+			self.vGridLines_action.triggered.disconnect(self.gridLines_toggled)
+		except:
+			pass

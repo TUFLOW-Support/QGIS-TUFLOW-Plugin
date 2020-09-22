@@ -44,6 +44,9 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.resultChangeSignalCount = 0
 		self.progressBar.setVisible(False)
 
+		# project
+		self.tuProject = None
+
 		# options
 		self.tuOptions = tuflowqgis_tuoptions.TuOptions()
 
@@ -365,8 +368,9 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:return:
 		"""
 
-		tuProject = TuProject(self)
-		tuProject.load()
+		self.tuProject = TuProject(self)
+		self.tuProject.load()
+		self.tuResults.updateTimeUnits()
 	
 	def maxResultTypesChanged(self, event):
 		"""
@@ -648,7 +652,12 @@ class TuView(QDockWidget, Ui_Tuplot):
 		"""
 
 		qv = Qgis.QGIS_VERSION_INT
-		
+
+		if completely_remove:
+			self.tuMenuBar.qgisDisconnect()
+			self.tuContextMenu.qgisDisconnect()
+			self.tuPlot.tuPlotToolbar.qgisDisconnect()
+
 		if self.connected or completely_remove:
 			
 			# time
@@ -780,6 +789,12 @@ class TuView(QDockWidget, Ui_Tuplot):
 						layer.dataProvider().datasetGroupsAdded.disconnect(self.datasetGroupsAdded)
 					except:
 						pass
+
+			# plotting
+			try:
+				self.tuPlot.verticalMesh_action.triggered.disconnect(self.tuPlot.vmeshToggled)
+			except:
+				pass
 			
 			self.connected = False
 	

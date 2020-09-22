@@ -79,7 +79,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         self.btnOutfile.clicked.connect(lambda: browse(self, "output file", "TUFLOW/refh2_outfile",
                                                        "ReFH2 Output CSV File", "CSV (*.csv *.CSV)",
                                                        self.leOutfile, rf2Icon))
-    
+
     def run(self) -> None:
         """
         Run the tool
@@ -1028,3 +1028,151 @@ class Refh2Dock(QDockWidget, Ui_refh2):
                     return
 
         self.run()
+
+    def qgisDisconnect(self):
+        """disconnect signals"""
+
+        try:
+            self.leInputXML.editingFinished.disconnect(self.inputCatchmentChanged)
+        except:
+            pass
+        try:
+            self.rbUserArea.toggled.disconnect(self.checkAreaInput)
+        except:
+            pass
+        try:
+            self.sbArea.valueChanged.disconnect(self.checkAreaInput)
+        except:
+            pass
+        try:
+            self.cboInputGIS.currentIndexChanged.disconnect(self.checkAreaInput)
+        except:
+            pass
+        try:
+            self.leDuration.editingFinished.disconnect(self.durationChanged)
+        except:
+            pass
+        try:
+            self.leTimestep.editingFinished.disconnect(self.durationChanged)
+        except:
+            pass
+        try:
+            self.gbOutRainfall.toggled.disconnect(self.rainfallOutputChanged)
+        except:
+            pass
+        try:
+            self.rbGrossRainfall.toggled.disconnect(self.rainfallOutputChanged)
+        except:
+            pass
+        try:
+            self.rbNetRainfall.toggled.disconnect(self.rainfallOutputChanged)
+        except:
+            pass
+        try:
+            self.gbOutHydrograph.toggled.disconnect(self.hydrographOutputChanged)
+        except:
+            pass
+        try:
+            self.rbDirectRunoff.toggled.disconnect(self.hydrographOutputChanged)
+        except:
+            pass
+        try:
+            self.rbBaseFlow.toggled.disconnect(self.hydrographOutputChanged)
+        except:
+            pass
+        try:
+            self.rbTotalRunoff.toggled.disconnect(self.hydrographOutputChanged)
+        except:
+            pass
+        try:
+            self.gbRainToGis.toggled.disconnect(self.outputToTuflowGisToggled_Rainfall)
+        except:
+            pass
+        try:
+            self.cboInputGIS.currentIndexChanged.disconnect(self.outputToTuflowGisToggled_Rainfall)
+        except:
+            pass
+        try:
+            self.gbOutRainfall.toggled.disconnect(self.outputToTuflowGisToggled_Rainfall)
+        except:
+            pass
+        try:
+            self.rb2dRf.toggled.disconnect(self.outputToTuflowGisToggled_Rainfall)
+        except:
+            pass
+        try:
+            self.gbHydToGis.toggled.disconnect(self.outputToTuflowGisToggled_Runoff)
+        except:
+            pass
+        try:
+            self.cboInputGIS.currentIndexChanged.disconnect(self.outputToTuflowGisToggled_Runoff)
+        except:
+            pass
+        try:
+            self.gbOutHydrograph.toggled.disconnect(self.outputToTuflowGisToggled_Runoff)
+        except:
+            pass
+        try:
+            self.rb2dSa.toggled.disconnect(self.outputToTuflowGisToggled_Runoff)
+        except:
+            pass
+        try:
+            self.rb1dBc.toggled.disconnect(self.outputToTuflowGisToggled_Runoff)
+        except:
+            pass
+        try:
+            self.rb2dBc.toggled.disconnect(self.outputToTuflowGisToggled_Runoff)
+        except:
+            pass
+        try:
+            QgsProject.instance().layersAdded.disconnect(self.addGIS)
+        except:
+            pass
+        try:
+            QgsProject.instance().layersRemoved.disconnect(self.addGIS)
+        except:
+            pass
+        try:
+            self.cboInputGIS.currentIndexChanged.disconnect(self.populateCboFields)
+        except:
+            pass
+        try:
+            self.cboInputGIS.currentIndexChanged.disconnect(self.populateCboFeatures)
+        except:
+            pass
+        try:
+            self.cboFields.currentIndexChanged.disconnect(self.populateCboFeatures)
+        except:
+            pass
+        try:
+            self.cbSelectAll.clicked.disconnect(self.toggleSelectAll)
+        except:
+            pass
+        try:
+            self.btnAddRP.clicked.disconnect(self.addReturnPeriod)
+        except:
+            pass
+        try:
+            self.btnRemoveRP.clicked.disconnect(self.removeReturnPeriods)
+        except:
+            pass
+        try:
+            self.btnAddDur.clicked.disconnect(self.addDurTimestep)
+        except:
+            pass
+        try:
+            self.btnRemDur.clicked.disconnect(self.removeDurTimestep)
+        except:
+            pass
+        try:
+            self.pbRun.clicked.disconnect(self.check)
+        except:
+            pass
+        try:
+            self.btnInputXML.clicked.disconnect()
+        except:
+            pass
+        try:
+            self.btnOutfile.clicked.disconnect()
+        except:
+            pass

@@ -616,6 +616,87 @@ class TuPlotToolbar():
 
 		return None
 
+	def qgisDisconnect(self):
+		# mpl toolbar
+		try:
+			self.plotTSMenu.menuAction().triggered.disconnect()
+		except:
+			pass
+		try:
+			self.plotLPMenu.menuAction().triggered.disconnect()
+		except:
+			pass
+		try:
+			self.plotFluxButton.released.disconnect()
+		except:
+			pass
+		try:
+			self.cursorTrackingButton.released.disconnect(self.cursorTrackingToggled)
+		except:
+			pass
+		try:
+			self.meshGridAction.triggered.disconnect(self.tuMenuFunctions.toggleMeshRender)
+		except:
+			pass
+		try:
+			self.curtainPlotMenu.menuAction().triggered.disconnect()
+		except:
+			pass
+		try:
+			self.averageMethodTSMenu.menuAction().triggered.disconnect()
+		except:
+			pass
+		try:
+			self.averageMethodCSMenu.menuAction().triggered.disconnect()
+		except:
+			pass
+		try:
+			self.plotVPMenu.menuAction().triggered.disconnect()
+		except:
+			pass
+		# view toolbars
+		self.viewToolbarTimeSeries.qgisDisconnect()
+		self.viewToolbarLongPlot.qgisDisconnect()
+		self.viewToolbarCrossSection.qgisDisconnect()
+		self.viewToolbarVerticalProfile.qgisDisconnect()
+		# map plotting toolbar
+		try:
+			self.plotTSMenu.menuAction().triggered.disconnect()
+		except:
+			pass
+		try:
+			self.plotLPMenu.menuAction().triggered.disconnect()
+		except:
+			pass
+		try:
+			self.plotFluxButton.released.disconnect()
+		except:
+			pass
+		try:
+			self.cursorTrackingButton.released.disconnect(self.cursorTrackingToggled)
+		except:
+			pass
+		try:
+			self.meshGridAction.triggered.disconnect(self.tuMenuFunctions.toggleMeshRender)
+		except:
+			pass
+		try:
+			self.curtainPlotMenu.menuAction().triggered.disconnect()
+		except:
+			pass
+		try:
+			self.averageMethodTSMenu.menuAction().triggered.disconnect()
+		except:
+			pass
+		try:
+			self.averageMethodCSMenu.menuAction().triggered.disconnect()
+		except:
+			pass
+		try:
+			self.plotVPMenu.menuAction().triggered.disconnect()
+		except:
+			pass
+
 
 
 

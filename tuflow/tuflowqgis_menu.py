@@ -61,6 +61,7 @@ class tuflowqgis_menu:
 		self.refh2DockOpen = False
 		self.defaultPath = 'C:\\'
 		self.integrityToolOpened = False
+		self.lambdaConnections = []
 
 	def initGui(self):
 		dir = os.path.dirname(__file__)
@@ -304,9 +305,16 @@ class tuflowqgis_menu:
 		self.textquit1 = "Select the polyline in a vector layer (Right click to quit)"
 
 	def unload(self):
+		# signals
+		self.qgisDisconnect()
+
 		# tuflow viewer
 		self.removeTuview(no_popup=True)
 		# integrity tool
+		try:
+			self.integrityTool.qgisDisconnect()
+		except:
+			pass
 		try:
 			self.integrityTool.close()
 			self.iface.removeDockWidget(self.integrityTool)
@@ -314,6 +322,10 @@ class tuflowqgis_menu:
 		except:
 			pass
 		# refh2
+		try:
+			self.refh2Dock.qgisDisconnect()
+		except:
+			pass
 		try:
 			self.refh2Dock.close()
 			self.iface.removeDockWidget(self.refh2Dock)
@@ -401,12 +413,12 @@ class tuflowqgis_menu:
 #			self.iface.addDockWidget( Qt.RightDockWidgetArea, self.dock )
 #			self.dockOpened = True
 	
-	def openResultsPlottingWindow(self):
+	def openResultsPlottingWindow(self, showmessage=True):
 		if self.resultsPlottingDockOpened:
 			if not self.resultsPlottingDock.isVisible():
 				self.resultsPlottingDock.show()
 				self.resultsPlottingDock.qgisConnect()
-			else:
+			elif showmessage:
 				bRedock = QMessageBox.question(self.iface.mainWindow(), "TUFLOW Viewer",
 				                               "Would you like to redock TUFLOW Viewer?",
 				                               QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
@@ -445,7 +457,7 @@ class tuflowqgis_menu:
 				if not kwargs['feedback']:
 					return
 			if not no_popup:
-				QMessageBox.information(self.iface.mainWindow(), "TUFLOW", "TUFLOW Viewer Not Open")
+				QMessageBox.information(self.iface.mainWindow(), "TUFLOW", "ERROR closing TUFLOW Viewer. Please email support@tuflow.com")
 		
 	def reloadTuview(self):
 		self.removeTuview(feedback=False)
@@ -652,3 +664,118 @@ class tuflowqgis_menu:
 			self.refh2Dock = Refh2Dock(self.iface)
 			self.iface.addDockWidget(Qt.RightDockWidgetArea, self.refh2Dock)
 			self.refh2DockOpen = True
+
+	def addLambdaConnection(self, conn):
+		self.lambdaConnections.append(conn)
+
+	def qgisDisconnect(self):
+		for conn in self.lambdaConnections:
+			try:
+				QgsProject.instance().readProject.disconnect(conn)
+			except:
+				pass
+		try:
+			self.about_action.triggered.disconnect(self.about_tuflowqgis)
+		except:
+			pass
+		try:
+			self.check_dependancy_action.triggered.disconnect(self.check_dependencies)
+		except:
+			pass
+		try:
+			self.configure_tf_action.triggered.disconnect(self.configure_tf)
+		except:
+			pass
+		try:
+			self.import_empty_tf_action.triggered.disconnect(self.import_empty_tf)
+		except:
+			pass
+		try:
+			self.insert_TUFLOW_attributes_action.triggered.disconnect(self.insert_TUFLOW_attributes)
+		except:
+			pass
+		try:
+			self.increment_action.triggered.disconnect(self.increment_layer)
+		except:
+			pass
+		try:
+			self.run_tuflow_action.triggered.disconnect(self.run_tuflow)
+		except:
+			pass
+		try:
+			self.clearGlobalSettingsAction.triggered.disconnect()
+		except:
+			pass
+		try:
+			self.clearProjectSettingsAction.triggered.disconnect()
+		except:
+			pass
+		try:
+			self.removeTuviewAction.triggered.disconnect(self.removeTuview)
+		except:
+			pass
+		try:
+			self.reloadTuviewAction.triggered.disconnect(self.reloadTuview)
+		except:
+			pass
+		try:
+			self.reload_data_action.triggered.disconnect(self.reload_data)
+		except:
+			pass
+		try:
+			self.view_results_action.triggered.disconnect(self.openResultsPlottingWindow)
+		except:
+			pass
+		try:
+			self.integrity_tool_action.triggered.disconnect(self.integrityToolWindow)
+		except:
+			pass
+		try:
+			self.import_empty_tf_action.triggered.disconnect(self.import_empty_tf)
+		except:
+			pass
+		try:
+			self.load_tuflowFiles_from_TCF_action.triggered.disconnect(self.loadTuflowLayersFromTCF)
+		except:
+			pass
+		try:
+			self.filterAndSortLayersAction.triggered.disconnect(self.filterAndSortLayers)
+		except:
+			pass
+		try:
+			self.increment_action.triggered.disconnect(self.increment_layer)
+		except:
+			pass
+		try:
+			self.import_chk_action.triggered.disconnect(self.import_check)
+		except:
+			pass
+		try:
+			self.apply_chk_action.triggered.disconnect(self.apply_check)
+		except:
+			pass
+		try:
+			self.apply_chk_cLayer_action.triggered.disconnect(self.apply_check_cLayer)
+		except:
+			pass
+		try:
+			self.autoLabelMenu.menuAction().triggered.disconnect(self.apply_label_cLayer)
+		except:
+			pass
+		try:
+			self.autoLabelSettingLocAction.triggered.disconnect(self.openLabelSettingLoc)
+		except:
+			pass
+		try:
+			self.extract_arr2016_action.triggered.disconnect(self.extract_arr2016)
+		except:
+			pass
+		try:
+			self.extractRefh2Action.triggered.disconnect(self.extractRefh2)
+		except:
+			pass
+		try:
+			self.tuflowUtilitiesAction.triggered.disconnect(self.tuflowUtilities)
+		except:
+			pass
+

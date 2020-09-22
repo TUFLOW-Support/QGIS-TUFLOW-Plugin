@@ -9,7 +9,7 @@ from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
 from tuflow.tuflowqgis_library import (lineToPoints, getDirection, doLinesIntersect,
                                        intersectionPoint, calculateLength, getFaceIndexes3,
                                        findMeshIntersects, writeTempPoints, writeTempPolys,
-                                       meshToPolygon, calcMidPoint)
+                                       meshToPolygon, calcMidPoint, calcMidPoint2)
 import inspect
 from datetime import datetime, timedelta
 
@@ -221,6 +221,7 @@ class TuPlot2D():
 		"""
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 
 		debug = self.tuView.tuOptions.writeMeshIntersects
 		activeMeshLayers = self.tuResults.tuResults2D.activeMeshLayers  # list
@@ -325,15 +326,19 @@ class TuPlot2D():
 					continue
 				types.append(rtype)
 				meshDatasetIndex = self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower')[-1]
-				if self.tuView.tuResults.isMax(rtype):
+				gmd = dp.datasetGroupMetadata(meshDatasetIndex.group())
+				# if self.tuView.tuResults.isMax(rtype):
+				# if self.tuView.tuResults.isMax(gmd.name()):
+				if TuResults.isMaximumResultType(gmd.name()):
 					if rtype.lower() == 'minimum dt':
 						rtype = '{0}/Final'.format(rtype)
 					else:
 						rtype = '{0}/Maximums'.format(rtype)
-				elif self.tuView.tuResults.isMin(rtype):
+				# elif self.tuView.tuResults.isMin(rtype):
+				elif TuResults.isMinimumResultType(gmd.name()):
 					rtype = '{0}/Minimums'.format(rtype)
 
-				gmd = dp.datasetGroupMetadata(meshDatasetIndex.group())
+				# gmd = dp.datasetGroupMetadata(meshDatasetIndex.group())
 				avgmethods = self.getAveragingMethods(dataType, gmd, resultTypes)
 				am = avgmethods[j]
 
@@ -356,7 +361,7 @@ class TuPlot2D():
 					if onVertices:
 						#points = inters[:]
 						points = inters[0:1]
-						points.extend([calcMidPoint(inters[i], inters[i + 1], crs) for i in range(len(inters) - 1)])
+						points.extend([calcMidPoint2(inters[i], inters[i + 1], crs) for i in range(len(inters) - 1)])
 						points.append(inters[-1])
 						chainage = ch[0:1]
 						chainage.extend([(ch[i] + ch[i+1]) / 2. for i in range(len(ch) - 1)])
@@ -382,7 +387,7 @@ class TuPlot2D():
 				for i in range(len(faces)):
 					x.append(chainage[i])
 					v = self.datasetValue(layer, dp, si, mesh, meshDatasetIndex, meshRendered,
-					                      points[i], j, dataType, am, faces[i])
+					                      points[i], 0, dataType, am, faces[i])
 					y.append(v)
 
 					if faces[i] is not None:
@@ -547,7 +552,7 @@ class TuPlot2D():
 			if onVertices:
 				# points = inters[:]
 				points = inters[0:1]
-				points.extend([calcMidPoint(inters[i], inters[i + 1], crs) for i in range(len(inters) - 1)])
+				points.extend([calcMidPoint2(inters[i], inters[i + 1], crs) for i in range(len(inters) - 1)])
 				points.append(inters[-1])
 				chainages = ch[0:1]
 				chainages.extend([(ch[i] + ch[i + 1]) / 2. for i in range(len(ch) - 1)])
@@ -1379,12 +1384,16 @@ class TuPlot2D():
 		for j in range(2):
 			v = tri[i]
 			if j == 0:
-				db = dp.datasetValues(result, v, 2)
+				if tri[0] + 1 != tri[1]:  # have to extract each point individually - happens with QPC
+					db = [dp.datasetValue(result, tri[0]), dp.datasetValue(result, tri[1])]
+				else:
+					db = dp.datasetValues(result, v, 2)
+					db = [db.value(x) for x in range(2)]
 				for k in range(2):
 					if value == 'scalar':
-						z += db.value(k).scalar() * w[i]
+						z += db[k].scalar() * w[i]
 					elif value == 'vector':
-						res = db.value(k)
+						res = db[k]
 						z += res.scalar() * w[i]
 						x += res.x() * w[i]
 						y += res.y() * w[i]

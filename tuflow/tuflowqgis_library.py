@@ -6091,13 +6091,53 @@ def findMeshFaceIntersects(p1: QgsPointXY, p2: QgsPointXY, si: QgsMeshSpatialInd
 	return si.intersects(rect)
 
 
+
+def sameFace(v, v2, v_used, mesh):
+	"""Checks v -> v2 direction against v_used pairs. v is common vertex"""
+
+	for vu in v_used:
+		if v in vu:
+			i = vu.index(v)
+			v3 = vu[1-i]  # the other vertex of the pair
+			p = mesh.vertex(v)
+			p2 = mesh.vertex(v2)
+			p3 = mesh.vertex(v3)
+			if abs(atan2(p2.y() - p.y(), p2.x() - p.x()) - atan2(p3.y() - p.y(), p3.x() - p.x())) <= 0.1:
+				return True
+
+
+def intersectAlreadyFound(v1, v2, v_used, v2_used, mesh):
+	"""
+	v1 and v2 are vertexes with intersect,
+	v_used are already used vertex pairs,
+	v2_used are used vetexes
+
+	If v1 and v2 are already a vertex pair, then intercept already found.
+	Quadtree can have 2 faces connected to a single adjacent face
+	"""
+
+	if sorted([v1, v2]) in v_used:
+		return True
+
+	if v1 not in v2_used and v2 not in v2_used:
+		return False
+
+	if v1 in v2_used:
+		if sameFace(v1, v2, v_used, mesh):
+			return True
+
+	if v2 in v2_used:
+		return sameFace(v2, v1, v_used, mesh)
+
+
 FaceList = List[int]
 def findMeshSideIntersects(p1: QgsPointXY, p2: QgsPointXY, faces: FaceList, mesh: QgsMesh, allFaces) -> PointList:
 	"""
 
 	"""
 
-	v_used = []
+	v_used = []  # vertex pairs
+	v2_used = []  # individual vertex
 	m_used = []
 	p_intersects = [p1]
 	for f in faces:
@@ -6110,10 +6150,15 @@ def findMeshSideIntersects(p1: QgsPointXY, p2: QgsPointXY, faces: FaceList, mesh
 				p4 = mesh.vertex(v)
 				b = doLinesIntersect(p1, p2, p3, p4)
 				if b:
-					if sorted([vs[i-1], v]) not in v_used:
+					# if sorted([vs[i-1], v]) not in v_used:
+					if not intersectAlreadyFound(vs[i-1], v, v_used, v2_used, mesh):
 						newPoint = intersectionPoint(p1, p2, p3, p4)
 						p_intersects.append(newPoint)
 						v_used.append(sorted([vs[i-1], v]))
+						if vs[i-1] not in v2_used:
+							v2_used.append(vs[i-1])
+						if v not in v2_used:
+							v2_used.append(v)
 					if f not in m_used and f not in allFaces:
 						m_used.append(f)
 				if i + 1 == len(vs):
@@ -6121,10 +6166,15 @@ def findMeshSideIntersects(p1: QgsPointXY, p2: QgsPointXY, faces: FaceList, mesh
 					p4 = mesh.vertex(f1)
 					b = doLinesIntersect(p1, p2, p3, p4)
 					if b:
-						if sorted([f1, v]) not in v_used:
+						# if sorted([f1, v]) not in v_used:
+						if not intersectAlreadyFound(f1, v, v_used, v2_used, mesh):
 							newPoint = intersectionPoint(p1, p2, p3, p4)
 							p_intersects.append(newPoint)
 							v_used.append(sorted([f1, v]))
+							if f1 not in v2_used:
+								v2_used.append(f1)
+							if v not in v2_used:
+								v2_used.append(v)
 						if f not in m_used and f not in allFaces:
 							m_used.append(f)
 
@@ -6233,7 +6283,7 @@ def calcMidPoint(p1, p2, crs):
 	y = p1.y() + cos(a) * h
 	return QgsPointXY(x, y)
 
-def calcMidPoint2(p1, p2):
+def calcMidPoint2(p1, p2, crs=None):
 	"""
 	Calculates a point halfway between p1 and p2
 	"""
