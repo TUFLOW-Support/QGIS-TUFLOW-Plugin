@@ -1,0 +1,8 @@
+base_url == https://downloads.tuflow.com/Utilities
+asc_to_asc == ASC_to_ASC/asc_to_asc.zip
+tuflow_to_gis == TUFLOW_to_GIS/TUFLOW_to_GIS.zip
+res_to_res == RES_to_RES/res_to_res.zip
+convert_to_ts1 == Convert_to_TS1/convert_to_ts1.zip
+12da_to_from_gis == 12DA/12da_to_from_gis.zip
+tin_to_tin == TIN_to_TIN/tin_to_tin.zip
+xsgenerator == xsGenerator/xsGenerator.zip

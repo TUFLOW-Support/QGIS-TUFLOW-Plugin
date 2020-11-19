@@ -63,17 +63,17 @@ class TuProject():
 		self.processPlotConfiguration('save')
 		
 		# graphic objects
-		self.processGraphics('save')
+		# self.processGraphics('save')
 		
 		# user plot data
 		self.processUserPlotData('save')
 		
 		# show active time
-		self.processShowActiveTime('save')
+		# self.processShowActiveTime('save')
 		
 	def load(self):
 		"""Loads settings for project"""
-		
+
 		if Qgis.QGIS_VERSION_INT >= 30400:
 
 			# should dock be visible?
@@ -118,13 +118,13 @@ class TuProject():
 			self.processPlotConfiguration('load')
 			
 			# graphic objects
-			self.processGraphics('load')
+			# self.processGraphics('load')
 			
 			# user plot data
 			self.processUserPlotData('load')
 			
 			# show active time
-			self.processShowActiveTime('load')
+			# self.processShowActiveTime('load')
 			
 			# after all said and done.. render
 			#self.tuView.tuResults.tuResults2D.renderMap()
@@ -662,7 +662,7 @@ class TuProject():
 			
 	def processPlotConfiguration(self, call_type):
 		"""Project settings for plot configurations"""
-		
+
 		frozenTSProperties = self.tuView.tuPlot.frozenTSProperties
 		frozenLPProperties = self.tuView.tuPlot.frozenLPProperties
 		frozenCSProperties = self.tuView.tuPlot.frozenCSProperties
@@ -713,54 +713,55 @@ class TuProject():
 			if i == 0:
 				autoLabels += '{0}'.format(autoLabel)
 				userLabels += '{0}'.format(property[0])
-				if type(property[1]) is dict:
-					color = property[1]['color']
-					if type(color) is str:
-						userColorTypes += 'string'  # either name or hex
+				if '__curtain_plot__' not in autoLabel:
+					if type(property[1]) is dict:
+						color = property[1]['color']
+						if type(color) is str:
+							userColorTypes += 'string'  # either name or hex
+						else:
+							userColorTypes += 'tuple'  # rgba
+						userColors += '{0}'.format(color)
+						userLineWidths += '{0}'.format(property[1]['linewidth'])
+						userLineStyles += '{0}'.format(property[1]['linestyle'])
+						userDrawStyles += '{0}'.format(property[1]['drawstyle'])
+						userMarkers += '{0}'.format(property[1]['marker'])
+						userMarkerSizes += '{0}'.format(property[1]['markersize'])
+						edgeColor = property[1]['markeredgecolor']
+						if type(edgeColor) is str:
+							userMarkerEdgeColorTypes += 'string'  # either name or hex
+						else:
+							userMarkerEdgeColorTypes += 'tuple'  # rgba
+						userMarkerEdgeColors += '{0}'.format(edgeColor)
+						faceColor = property[1]['markerfacecolor']
+						if type(faceColor) is str:
+							userMarkerFaceColorTypes += 'string'  # either name or hex
+						else:
+							userMarkerFaceColorTypes += 'tuple'  # rgba
+						userMarkerFaceColors += '{0}'.format(faceColor)
 					else:
-						userColorTypes += 'tuple'  # rgba
-					userColors += '{0}'.format(color)
-					userLineWidths += '{0}'.format(property[1]['linewidth'])
-					userLineStyles += '{0}'.format(property[1]['linestyle'])
-					userDrawStyles += '{0}'.format(property[1]['drawstyle'])
-					userMarkers += '{0}'.format(property[1]['marker'])
-					userMarkerSizes += '{0}'.format(property[1]['markersize'])
-					edgeColor = property[1]['markeredgecolor']
-					if type(edgeColor) is str:
-						userMarkerEdgeColorTypes += 'string'  # either name or hex
-					else:
-						userMarkerEdgeColorTypes += 'tuple'  # rgba
-					userMarkerEdgeColors += '{0}'.format(edgeColor)
-					faceColor = property[1]['markerfacecolor']
-					if type(faceColor) is str:
-						userMarkerFaceColorTypes += 'string'  # either name or hex
-					else:
-						userMarkerFaceColorTypes += 'tuple'  # rgba
-					userMarkerFaceColors += '{0}'.format(faceColor)
-				else:
-					color = property[1].get_color()
-					if type(color) is str:
-						userColorTypes += 'string'  # either name or hex
-					else:
-						userColorTypes += 'tuple'  # rgba
-					userColors += '{0}'.format(color)
-					userLineWidths += '{0}'.format(property[1].get_linewidth())
-					userLineStyles += '{0}'.format(property[1].get_linestyle())
-					userDrawStyles += '{0}'.format(property[1].get_drawstyle())
-					userMarkers += '{0}'.format(property[1].get_marker())
-					userMarkerSizes += '{0}'.format(property[1].get_markersize())
-					edgeColor = property[1].get_markeredgecolor()
-					if type(edgeColor) is str:
-						userMarkerEdgeColorTypes += 'string'  # either name or hex
-					else:
-						userMarkerEdgeColorTypes += 'tuple'  # rgba
-					userMarkerEdgeColors += '{0}'.format(edgeColor)
-					faceColor = property[1].get_markerfacecolor()
-					if type(faceColor) is str:
-						userMarkerFaceColorTypes += 'string'  # either name or hex
-					else:
-						userMarkerFaceColorTypes += 'tuple'  # rgba
-					userMarkerFaceColors += '{0}'.format(faceColor)
+						color = property[1].get_color()
+						if type(color) is str:
+							userColorTypes += 'string'  # either name or hex
+						else:
+							userColorTypes += 'tuple'  # rgba
+						userColors += '{0}'.format(color)
+						userLineWidths += '{0}'.format(property[1].get_linewidth())
+						userLineStyles += '{0}'.format(property[1].get_linestyle())
+						userDrawStyles += '{0}'.format(property[1].get_drawstyle())
+						userMarkers += '{0}'.format(property[1].get_marker())
+						userMarkerSizes += '{0}'.format(property[1].get_markersize())
+						edgeColor = property[1].get_markeredgecolor()
+						if type(edgeColor) is str:
+							userMarkerEdgeColorTypes += 'string'  # either name or hex
+						else:
+							userMarkerEdgeColorTypes += 'tuple'  # rgba
+						userMarkerEdgeColors += '{0}'.format(edgeColor)
+						faceColor = property[1].get_markerfacecolor()
+						if type(faceColor) is str:
+							userMarkerFaceColorTypes += 'string'  # either name or hex
+						else:
+							userMarkerFaceColorTypes += 'tuple'  # rgba
+						userMarkerFaceColors += '{0}'.format(faceColor)
 			else:
 				autoLabels += '~~{0}'.format(autoLabel)
 				userLabels += '~~{0}'.format(property[0])

@@ -519,6 +519,26 @@ class TuResults2D():
 				self.tuView.tuResults.date2date_tspec[date] = date_tspec
 				self.tuView.tuResults.date_tspec2date[date_tspec] = date
 
+	def copyResults2dDict(self, d1):
+		"""copy dictionary values from d1 to d2"""
+
+		return {k: v for k, v in d1.items()}
+
+	def defaultResults2dDict(self):
+
+		return {'times': {},
+		        'is3dDataset': False,
+		        'timeUnit': 'h',
+		        'referenceTime': self.tuView.tuOptions.zeroTime,
+		        'isMax': False,
+		        'isMin': False,
+		        'isStatic': False,
+		        'isTemporal': False,
+		        'hadTemporalProperties': False,
+		        'ext': '.dat',
+		        'isMesh': True,
+		        }
+
 	def recordSpecialTime(self, name, t, id, id2, i, j, ext):
 		"""
 
@@ -534,16 +554,28 @@ class TuResults2D():
 				self.checkRecordSpecialTime(t, specialName)
 				if self.bRecordSpecialTime:
 					if id in results[name]:
+						results[name][specialName] = self.copyResults2dDict(results[name][id])
 						del results[name][id]
-					results[name][specialName] = {'times': {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}}
+					else:
+						results[name][specialName] = self.defaultResults2dDict()
+					# results[name][specialName] = {'times': {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}}
+					results[name][specialName]['times'] = {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}
+					results[name][specialName]['isTemporal'] = False
+					results[name][specialName]['isStatic'] = True
 					return True
 			elif t == 900002.0 and timeUnits == 'h':  # time of peak V
 				specialName = 'Time of Peak V'
 				self.checkRecordSpecialTime(t, specialName)
 				if self.bRecordSpecialTime:
 					if id in results[name]:
+						results[name][specialName] = self.copyResults2dDict(results[name][id])
 						del results[name][id]
-					results[name][specialName] = {'times': {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}}
+					else:
+						results[name][specialName] = self.defaultResults2dDict()
+					# results[name][specialName] = {'times': {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}}
+					results[name][specialName]['times'] = {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}
+					results[name][specialName]['isTemporal'] = False
+					results[name][specialName]['isStatic'] = True
 					return True
 			elif 100000 < t < 200000 and t != 111111.0 and timeUnits == 'h':
 				value = t - 100000.0
@@ -551,8 +583,14 @@ class TuResults2D():
 				self.checkRecordSpecialTime(t, specialName)
 				if self.bRecordSpecialTime:
 					if id in results[name]:
+						results[name][specialName] = self.copyResults2dDict(results[name][id])
 						del results[name][id]
-					results[name][specialName] = {'times': {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}}
+					else:
+						results[name][specialName] = self.defaultResults2dDict()
+					# results[name][specialName] = {'times': {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}}
+					results[name][specialName]['times'] = {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}
+					results[name][specialName]['isTemporal'] = False
+					results[name][specialName]['isStatic'] = True
 					return True
 			elif 200000 < t < 300000 and t != 222222.0 and timeUnits == 'h':
 				value = t - 200000.0
@@ -560,9 +598,32 @@ class TuResults2D():
 				self.checkRecordSpecialTime(t, specialName)
 				if self.bRecordSpecialTime:
 					if id in results[name]:
+						results[name][specialName] = self.copyResults2dDict(results[name][id])
 						del results[name][id]
+					else:
+						results[name][specialName] = self.defaultResults2dDict()
 					value = t - 200000.0
-					results[name][specialName] = {'times': {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}}
+					# results[name][specialName] = {'times': {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}}
+					results[name][specialName]['times'] = {'0.000000': (0, 1, QgsMeshDatasetIndex(i, j))}
+					results[name][specialName]['isTemporal'] = False
+					results[name][specialName]['isStatic'] = True
+					return True
+			elif int(t) == 99999 and timeUnits == 'h':
+				if not TuResults.isMaximumResultType(id):
+					specialName = '{0}/Maximums'.format(id)
+					results[name][specialName] = self.copyResults2dDict(results[name][id])
+					results[name][specialName]['times'] = {'99999.000000': (99999, 1, QgsMeshDatasetIndex(i, j))}
+					results[name][specialName]['isTemporal'] = False
+					results[name][specialName]['isStatic'] = True
+					results[name][specialName]['isMax'] = True
+					if id2 is not None:
+						if not TuResults.isMaximumResultType(id2):
+							specialName = '{0}/Maximums'.format(id2)
+							results[name][specialName] = self.copyResults2dDict(results[name][id2])
+							results[name][specialName]['times'] = {'99999.000000': (99999, 2, QgsMeshDatasetIndex(i, j))}
+							results[name][specialName]['isTemporal'] = False
+							results[name][specialName]['isStatic'] = True
+							results[name][specialName]['isMax'] = True
 					return True
 
 		return False

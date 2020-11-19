@@ -52,6 +52,7 @@ import xml.etree.ElementTree as ET
 import colorsys
 import locale
 import codecs
+from shutil import copyfile
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tuflowqgis_styles
@@ -224,7 +225,15 @@ def tuflowqgis_duplicate_file(qgis, layer, savename, keepform):
 		fields=layer.dataProvider().fields(), geometryType=layer.wkbType(), srs=layer.dataProvider().sourceCrs(), driverName="ESRI Shapefile")
 	
 	if (outfile.hasError() != QgsVectorFileWriter.NoError):
-		return "Failure creating output shapefile: " + unicode(outfile.errorMessage())	
+		return "Failure creating output shapefile: " + unicode(outfile.errorMessage())
+
+	# delete prj file and replace with empty prj - ensures it is exactly the same
+	correct_prj = '{0}.prj'.format(os.path.splitext(layer.dataProvider().dataSourceUri())[0])
+	new_prj = '{0}.prj'.format(os.path.splitext(savename)[0])
+	try:
+		copyfile(correct_prj, new_prj)
+	except:
+		pass
 		
 	# Iterate through each feature in the source layer
 	feature_count = layer.dataProvider().featureCount()
@@ -373,6 +382,15 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 				if (outfile.hasError() != QgsVectorFileWriter.NoError):
 					QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: "+savename))
 				del outfile
+
+				# delete prj file and replace with empty prj - ensures it is exactly the same
+				correct_prj = '{0}.prj'.format(os.path.splitext(fpath)[0])
+				new_prj = '{0}.prj'.format(os.path.splitext(savename)[0])
+				try:
+					copyfile(correct_prj, new_prj)
+				except:
+					pass
+
 				qgis.addVectorLayer(savename, name[:-4], "ogr")
 
 	return None
@@ -928,6 +946,15 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
 			QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: {0}".format(savename)))
 			message = 'Error writing output file. Check output location and output file.'
 			return message
+
+		# delete prj file and replace with empty prj - ensures it is exactly the same
+		correct_prj = '{0}.prj'.format(os.path.splitext(inputLayer.dataProvider().dataSourceUri())[0])
+		new_prj = '{0}.prj'.format(os.path.splitext(savename)[0])
+		try:
+			copyfile(correct_prj, new_prj)
+		except:
+			pass
+
 		outfile = QgsVectorLayer(savename, name[:-4], "ogr")
 		outfile.dataProvider().addAttributes(inputLayer.dataProvider().fields())
 		
@@ -4791,17 +4818,39 @@ def downloadBinPackage(packageUrl, destinationFileName):
 		raise IOError("{} {}".format(ret_code, packageUrl))
 
 
+def getUtilityDownloadPaths(util_dict, util_path_file):
+	# util_path_file = os.path.join(os.path.dirname(__file__), "__utilities__.txt")
+	if not os.path.exists(util_path_file):
+		return ""
+
+	file_contents = numpy.loadtxt(util_path_file, dtype=numpy.str, delimiter="==")
+	d = {x[0].lower().strip(): x[1].strip() for x in file_contents}
+	for key in util_dict:
+		if key.lower() in d:
+			util_dict[key] = d[key.lower()]
+
+	if 'base_url' in d:
+		return d['base_url']
+
+
 def downloadUtility(utility, parent_widget=None):
+	util_path_file = os.path.join(os.path.dirname(__file__), "__utilities__.txt")
 	latestUtilities = {
-       'asc_to_asc': 'asc_to_asc.zip',
-       'tuflow_to_gis': 'TUFLOW_to_GIS.zip',
-       'res_to_res': 'res_to_res.zip',
-       '12da_to_from_gis': '12da_to_from_gis.zip',
-       'convert_to_ts1': 'convert_to_ts1.zip',
-       'tin_to_tin': 'tin_to_tin.zip',
-       'xsgenerator': 'xsGenerator.zip',
+		'asc_to_asc': '',
+		'tuflow_to_gis': '',
+		'res_to_res': '',
+		'12da_to_from_gis': '',
+		'convert_to_ts1': '',
+		'tin_to_tin': '',
+		'xsGenerator': '',
 	}
-	exe = latestUtilities[utility.lower()]
+	downloadBaseUrl = getUtilityDownloadPaths(latestUtilities, util_path_file)
+	if not downloadBaseUrl:
+		QMessageBox.critical(parent_widget,
+		                     'Could Not Download Utilities',
+		                     'Please check the following setting file exists and is correct:\n{0}'.format(util_path_file))
+		return
+	exe = os.path.basename(latestUtilities[utility])
 	name = os.path.splitext(exe)[0]
 	utilityNames = {
         'asc_to_asc': '{0}/asc_to_asc_w64.exe'.format(name),
@@ -4810,16 +4859,17 @@ def downloadUtility(utility, parent_widget=None):
         '12da_to_from_gis': '12da_to_from_gis.exe',
         'convert_to_ts1': 'convert_to_ts1.exe',
         'tin_to_tin': 'tin_to_tin.exe',
-        'xsgenerator': 'xsGenerator.exe',
+        'xsGenerator': 'xsGenerator.exe',
 	}
 	
-	downloadBaseUrl = 'https://www.tuflow.com/Download/TUFLOW/Utilities/'
+	# downloadBaseUrl = 'https://www.tuflow.com/Download/TUFLOW/Utilities/'
 	
 	destFolder = os.path.join(os.path.dirname(__file__), '_utilities')
 	if not os.path.exists(destFolder):
 		os.mkdir(destFolder)
 	exePath = os.path.join(destFolder, exe)
-	url = downloadBaseUrl + exe
+	# url = downloadBaseUrl + exe
+	url = downloadBaseUrl + "/" + latestUtilities[utility]
 
 	qApp.setOverrideCursor(QCursor(Qt.WaitCursor))
 	try:
@@ -4829,11 +4879,11 @@ def downloadUtility(utility, parent_widget=None):
 		z.close()
 		os.unlink(exePath)
 		qApp.restoreOverrideCursor()
-		return os.path.join(destFolder, utilityNames[utility.lower()])
+		return os.path.join(destFolder, utilityNames[utility])
 	except IOError as err:
 		qApp.restoreOverrideCursor()
 		QMessageBox.critical(parent_widget,
-		                     'Could Not Download {0}',
+		                     'Could Not Download {0}'.format(utility),
 		                     "Download of {0} failed. Please try again or contact support@tuflow.com for "
 		                     "further assistance.\n\n(Error: {1})".format(utility, err))
 

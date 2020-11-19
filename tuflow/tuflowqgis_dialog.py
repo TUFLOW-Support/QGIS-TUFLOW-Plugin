@@ -2090,7 +2090,7 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 		# Set up Input Catchment File ComboBox
 		for name, layer in QgsProject.instance().mapLayers().items():
 			if layer.type() == QgsMapLayer.VectorLayer:
-				self.comboBox_inputLayer.addItem(layer.name())						
+				self.comboBox_inputLayer.addItem(layer.name())
 		
 		# load stored settings
 		error, message = self.tfsettings.Load()

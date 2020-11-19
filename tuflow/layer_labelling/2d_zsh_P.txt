@@ -1,6 +1,6 @@
 Buffer == ON
 Box == OFF
-Attribute Name == ON
+Attribute Name == OFF
 Label Attributes == 1  ! attribute indexing starts at 1
 Point Placement == Cartographic  ! only available option at the moment
 Line Placement == Parallel  ! Parallel or Horizontal
