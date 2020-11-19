@@ -382,7 +382,6 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
-
 		# update list of types with max activated
 		self.tuResults.updateMinMaxTypes(event, 'max')
 
@@ -396,6 +395,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		# redraw plot and re-render map
 		self.tuPlot.updateCrossSectionPlot()
+		self.tuPlot.updateTimeSeriesPlot()
 		self.renderMap()
 
 	def minResultTypesChanged(self, event):

@@ -1552,11 +1552,11 @@ class Arr:
             # complete loss array to include all aeps (with nans)
             ilb_complete = extend_array_aep(b_com_aep, bom.aep_names, ilb_complete)
 
-            # extend pb array to all durations/AEP by reversing the calculation
-            pb_dep_final_complete = numpy.add(float(self.Losses.ils), -ilb_complete)
+        # extend pb array to all durations/AEP by reversing the calculation
+        pb_dep_final_complete = numpy.add(float(self.Losses.ils), -ilb_complete)
 
-            # copy ilb_complete incase complete storm is used later on - change values in routine further down as required
-            il_complete = numpy.copy(ilb_complete)
+        # copy ilb_complete incase complete storm is used later on - change values in routine further down as required
+        il_complete = numpy.copy(ilb_complete)
 
         # set up negative entry and perc neg entry calculations
         shape_ilb_complete = ilb_complete.shape  # array dimensions of preburst depths
