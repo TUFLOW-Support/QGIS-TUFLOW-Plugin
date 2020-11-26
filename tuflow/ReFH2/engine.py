@@ -9,10 +9,26 @@ from PyQt5.QtWidgets import QMessageBox
 from qgis.core import QgsVectorFileWriter, QgsFields, QgsField, QgsWkbTypes, QgsFeature, NULL
 from tuflow.tuflowqgis_library import convertFormattedTimeToTime
 
-try:
-    from .checksum import checkSum
-except ImportError:
-    pass
+# try:
+    # from .checksum import checkSum
+# except ImportError:
+    # pass
+
+
+def getCheckSum(descriptor):
+    try:
+        from .checksum import checkSum
+    except ImportError:
+        return None
+
+    try:
+        cs = checkSum(descriptor)
+        del checkSum
+        # del checksum
+        del sys.modules['checksum']
+    except:
+        return None
+    return cs
 
 
 class Refh2(QObject):
@@ -78,7 +94,11 @@ class Refh2(QObject):
         exe = self.inputs['exe']
         infile = '--infile={0}'.format(self.inputs['descriptor'])
         #outfile = '--outfile={0}'.format(self.inputs['output file'])
-        checksum = '--checksum={0}'.format(checkSum(self.inputs['descriptor']))
+        #checksum = '--checksum={0}'.format(checkSum(self.inputs['descriptor']))
+        cs = getCheckSum(self.inputs['descriptor'])
+        if cs is None:
+            self.finished.emit("Could not import checkSum.pyd")
+        checksum = '--checksum={0}'.format(cs)
         vendor = '--vendor=bmt'
         mode = '--mode=HYDROGRAPH'
         returnperiods = '--returnperiods={0}'.format(','.join([str(x) for x in self.inputs['return periods']]))
