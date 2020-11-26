@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.1.4
+version=3.1.4.1
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,10 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=### 3.1.4 ###
+changelog=### 3.1.4.1 ###
+          Uninstalling plugin should now work unless the ReFH2 tool has been run
+
+          ### 3.1.4 ###
           Prj string for shp files are retained with increment and import empty tools
           Maximums in TUFLOWFV dat files now handled
           Fixed bug that would cause python error when saving project after updating colour ramp options for curtain plots

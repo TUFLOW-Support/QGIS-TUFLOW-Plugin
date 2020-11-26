@@ -980,6 +980,10 @@ class Refh2Dock(QDockWidget, Ui_refh2):
             QMessageBox.critical(self, "ReFH2 to TUFLOW", "No Return Period(s) Selected")
             return
 
+        if not self.gbOutRainfall.isChecked() and not self.gbOutHydrograph.isChecked():
+            QMessageBox.critical(self, "ReFH2 to TUFLOW", "No Output (Rainfall or Hydrograph) Selected")
+            return
+
         # output
         #if self.gbOutRainfall.isChecked() and self.gbRainToGis.isChecked():
         #    if not self.cboInputGIS.currentText() or not self.cboFields.currentText() \
