@@ -42,6 +42,8 @@ class TuResults2D():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		# disconnect incoming signals for load step
 		skipConnect = False
 		try:
@@ -54,6 +56,10 @@ class TuResults2D():
 			layer = tuflowqgis_find_layer(ml)
 			try:
 				layer.dataProvider().datasetGroupsAdded.disconnect(self.datasetGroupsAdded)
+			except:
+				pass
+			try:
+				layer.repaintRequested.disconnect(self.repaintRequested)
 			except:
 				pass
 
@@ -103,6 +109,9 @@ class TuResults2D():
 				if not skipConnect:
 					self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
 				return False
+
+			if qv >= 31600:
+				self.tuView.tuResults.updateDateTimes()
 			
 			# add to result list widget
 			names = []
@@ -127,6 +136,7 @@ class TuResults2D():
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml)
 			layer.dataProvider().datasetGroupsAdded.connect(self.datasetGroupsAdded)
+			layer.repaintRequested.connect(self.repaintRequested)
 
 			
 		return True
@@ -433,6 +443,14 @@ class TuResults2D():
 		return False
 
 	def recordTime(self, layer, mdg, md, name, id, id2, i, j):
+		qv = Qgis.QGIS_VERSION_INT
+
+		if qv < 31600:
+			self.recordTime_old(layer, mdg, md, name, id, id2, i, j)
+		else:
+			self.recordTime_31600(layer, mdg, md, name, id, id2, i, j)
+
+	def recordTime_old(self, layer, mdg, md, name, id, id2, i, j):
 		"""
 
 		"""
@@ -518,6 +536,36 @@ class TuResults2D():
 				self.tuView.tuResults.date_tspec2time[date_tspec] =  t
 				self.tuView.tuResults.date2date_tspec[date] = date_tspec
 				self.tuView.tuResults.date_tspec2date[date_tspec] = date
+
+	def recordTime_31600(self, layer, mdg, md, name, id, id2, i, j):
+		"""
+
+		"""
+
+		results = self.tuView.tuResults.results  # dict
+		timekey2time = self.tuView.tuResults.timekey2time  # dict
+
+		t = md.time()
+		if self.tuView.tuOptions.timeUnits == 's':
+			factor = 60. * 60.
+		else:  # 'h'
+			factor = 1.
+		t /= factor
+
+		for k, x in enumerate([id, id2]):
+			if x is not None:
+				if id and id2 and k == 0:
+					v = 1
+				elif id and id2 and k == 1:
+					v = 2
+				elif mdg.isScalar():
+					v = 1
+				elif mdg.isVector():
+					v = 2
+				else:
+					v = 1
+				results[name][x]['times']['{0:.6f}'.format(t)] = (t, v, QgsMeshDatasetIndex(i, j))
+				timekey2time['{0:.6f}'.format(t)] = t
 
 	def copyResults2dDict(self, d1):
 		"""copy dictionary values from d1 to d2"""
@@ -735,10 +783,10 @@ class TuResults2D():
 			else:
 				activeScalarIndex = TuResultsIndex(layer.name(), self.activeScalar,
 				                                   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('scalar'),
-				                                   self.tuView.tuResults.isMin('scalar'))
+				                                   self.tuView.tuResults.isMin('scalar'), self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
 				activeVectorIndex = TuResultsIndex(layer.name(), self.activeVector,
 				                                   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('vector'),
-				                                   self.tuView.tuResults.isMin('vector'))
+				                                   self.tuView.tuResults.isMin('vector'), self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
 			activeScalarMeshIndex = self.tuView.tuResults.getResult(activeScalarIndex, force_get_time='next lower',
 			                                                        mesh_index_only=True)
 			activeVectorMeshIndex = self.tuView.tuResults.getResult(activeVectorIndex, force_get_time='next lower',
@@ -842,6 +890,31 @@ class TuResults2D():
 				elif layer.dataProvider().datasetGroupCount() > 0:
 					self.getResultMetaData(ml, layer)
 					self.tuView.tuResults.updateResultTypes()
+
+	def repaintRequested(self, *args, **kwargs):
+		"""
+		Redoes all the dates.
+		"""
+
+		qv = Qgis.QGIS_VERSION_INT
+		results = self.tuView.tuResults.results
+
+		updated = False
+		for r in results:
+			if tuflowqgis_find_layer(r) is not None:
+				layer = tuflowqgis_find_layer(r)
+				for restype in results[r]:
+					if TuResults.isMapOutputType(restype):
+						# see if reference time has been changed
+						if qv >= 31600:
+							if 'referenceTime' in results[r][restype]:
+								if results[r][restype]['referenceTime'] != self.getReferenceTime(layer):
+									updated = True
+									results[r][restype]['referenceTime'] = self.getReferenceTime(layer)
+
+		if updated:
+			self.tuView.tuResults.updateDateTimes()
+			self.tuView.tuResults.updateResultTypes()
 
 	def applyScalarRenderSettings(self, layer, datasetGroupIndex, file, type, save_type='xml'):
 		"""
@@ -1006,6 +1079,8 @@ class TuResults2D():
 		:return:
 		"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 
 		results = self.tuView.tuResults.results
@@ -1042,21 +1117,26 @@ class TuResults2D():
 									del results[result][resultType]['times'][i]
 
 								# also delete from dicts
-								a = sorted([x for x in self.tuView.tuResults.time2date.keys()])
-								if a[0] != firstTime:
-									del self.tuView.tuResults.time2date[a[0]]
+								if qv < 31600:
+									a = sorted([x for x in self.tuView.tuResults.time2date.keys()])
+									if a[0] != firstTime:
+										del self.tuView.tuResults.time2date[a[0]]
 
-									a = sorted([x for x in self.tuView.tuResults.timekey2date.keys()])
-									del self.tuView.tuResults.timekey2date[a[0]]
+										a = sorted([x for x in self.tuView.tuResults.timekey2date.keys()])
+										del self.tuView.tuResults.timekey2date[a[0]]
 
+										a = sorted([x for x in self.tuView.tuResults.timekey2time.keys()])
+										del self.tuView.tuResults.timekey2time[a[0]]
+
+										a = sorted([x for x in self.tuView.tuResults.date2time.keys()])
+										del self.tuView.tuResults.date2time[a[0]]
+
+										a = sorted([x for x in self.tuView.tuResults.date2timekey.keys()])
+										del self.tuView.tuResults.date2timekey[a[0]]
+								else:
 									a = sorted([x for x in self.tuView.tuResults.timekey2time.keys()])
-									del self.tuView.tuResults.timekey2time[a[0]]
-
-									a = sorted([x for x in self.tuView.tuResults.date2time.keys()])
-									del self.tuView.tuResults.date2time[a[0]]
-
-									a = sorted([x for x in self.tuView.tuResults.date2timekey.keys()])
-									del self.tuView.tuResults.date2timekey[a[0]]
+									if a[0] != timeKey:
+										del self.tuView.tuResults.timekey2time[a[0]]
 
 	@staticmethod
 	def meshRenderVersion(rs):

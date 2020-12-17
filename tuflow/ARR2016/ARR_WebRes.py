@@ -1527,6 +1527,12 @@ class Arr:
             pb_dep_final = pb_dep_com
 
             # calculate burst intial loss (storm il minus preburst depth)
+            if type(self.Losses.ils) is str and 'nan' in self.Losses.ils.lower():
+                self.logger.warning('WARNING: Initial loss value from Datahub is NaN')
+                self.Losses.ils = 0
+            if type(self.Losses.cls) is str and 'nan' in self.Losses.cls.lower():
+                self.logger.warning('WARNING: Continuing loss value from Datahub is NaN')
+                self.Losses.cls = 0
             if float(self.Losses.ils) == 0 and float(self.Losses.cls) == 0:
                 # print('WARNING: No rainfall losses found.')
                 self.logger.warning('WARNING: No rainfall losses found.')

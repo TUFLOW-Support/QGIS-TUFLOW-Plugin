@@ -10,7 +10,8 @@ import tuflowqgis_turesultsParticles
 from tuflow.dataset_view import DataSetModel
 from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, convertFormattedTimeToTime,
                                        convertTimeToFormattedTime, findAllMeshLyrs, roundSeconds,
-                                       isSame_float, dt2qdt, roundSeconds2, datetime2timespec)
+                                       isSame_float, dt2qdt, roundSeconds2, datetime2timespec, qdt2dt,
+                                       isSame_time)
 from tuflow.dataset_menu import DatasetMenuDepAv
 from tuflow.TUFLOW_XS import XS
 
@@ -18,7 +19,7 @@ from tuflow.TUFLOW_XS import XS
 class TuResults():
 	"""
 	Parent class for handling 1D, 2D and Particles results classes.
-	
+
 	"""
 
 	Results2D = [1, 2]
@@ -62,10 +63,10 @@ class TuResults():
 				self.timeSpec = 1
 			self.defaultTimeSpec = 1
 			self.loadedTimeSpec = 1
-			
+
 			# 1D results
 			self.tuResults1D = tuflowqgis_turesults1d.TuResults1D(TuView)
-			
+
 			# 2D results
 			self.tuResults2D = tuflowqgis_turesults2d.TuResults2D(TuView)
 
@@ -75,12 +76,12 @@ class TuResults():
 	def importResults(self, type, inFileNames):
 		"""
 		Import results 1D or 2D or Particles
-		
+
 		:param type: str -> 'mesh' or 'timeseries' or 'particles'
 		:param inFileNames: list -> str file path
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		result = False
 		if type.lower() == 'mesh':
 			result = self.tuResults2D.importResults(inFileNames)
@@ -92,22 +93,29 @@ class TuResults():
 			return False
 
 		update = self.updateResultTypes()
-		
+
 		if not update:
 			return False
-		
+
 		return True
-	
+
 	def updateActiveTime(self):
+		qv = Qgis.QGIS_VERSION_INT
+		if qv < 31600:
+			self.updateActiveTime_old()
+		else:
+			self.updateActiveTime_31600()
+
+	def updateActiveTime_old(self):
 		"""
 		Updates the active time based on the time in the ui.
-		
+
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
 		i = self.tuView.cboTime.currentIndex()
 		self.tuView.sliderTime.setSliderPosition(i)
-		
+
 		self.activeTime = None
 		if i != -1:
 			self.activeTime = self.tuView.cboTime.currentText()
@@ -126,6 +134,32 @@ class TuResults():
 				self.activeTime = self.findTimeClosest(None, None, self.activeTime, modelDates, True, 'higher')
 				# self.activeTime = self.date2timekey[self.activeTime]
 				self.activeTime = self.date_tspec2timekey[self.activeTime]
+
+		self.updateQgsTime()
+		self.tuResultsParticles.updateActiveTime()
+
+	def updateActiveTime_31600(self):
+		"""
+		Updates the active time based on the time in the ui.
+		"""
+
+		i = self.tuView.cboTime.currentIndex()
+		self.tuView.sliderTime.setSliderPosition(i)
+
+		self.activeTime = None
+		if i != -1:
+			self.activeTime = self.tuView.cboTime.currentText()
+			if not self.tuView.tuOptions.xAxisDates:
+				if self.activeTime in self.cboTime2timekey:
+					self.activeTime = self.cboTime2timekey[self.activeTime]
+					self.activeTime = self.timekey2time[self.activeTime]
+				else:
+					unit = self.tuView.tuOptions.timeUnits
+					self.activeTime = convertFormattedTimeToTime(self.activeTime, unit=unit)
+				zt = self.tuView.tuOptions.zeroTime
+				self.activeTime = zt + timedelta(hours=self.activeTime)
+			else:
+				self.activeTime = datetime.strptime(self.activeTime, self.dateFormat)
 
 		self.updateQgsTime()
 		self.tuResultsParticles.updateActiveTime()
@@ -209,7 +243,7 @@ class TuResults():
 			menu.clear()
 
 		return True
-	
+
 	def getDataFromResultsDict(self, resultName):
 		"""
 		Returns list of meta data available in the results dictionary
@@ -223,6 +257,8 @@ class TuResults():
 		:return: list -> tuple -> ( str type, int type, bool hasMax ) region time series type  e.g. ( 'volume', 6, False )
 		:return: list -> tuple -> ( str type, int type, bool hasMax ) line long plot type  e.g. ( 'water level', 7, True )
 		"""
+
+		qv = Qgis.QGIS_VERSION_INT
 
 		timesteps, minResultTypes, maxResultTypes, temporalResultTypes, pTypeTS, lTypeTS, rTypeTS, lTypeLP, csTypes = [], [], [], [], [], [], [], [], []
 		timestepsTS = []
@@ -241,9 +277,23 @@ class TuResults():
 					rt = TuResults.stripMinimumName(type)
 					minResultTypes.append(rt)
 			elif '_ts' in type:
-				timestepsTS = t[-1]
+				if qv < 31600:
+					timestepsTS = t[-1]
+				else:
+					timestepsTS = sorted(y[0] for x, y in t['times'].items())
+					refTime = t['referenceTime'] if 'referenceTime' in t else self.tuView.tuOptions.zeroTime
+					if self.tuView.tuOptions.timeUnits == 's':
+						timestepsTS = [refTime + timedelta(seconds=x) for x in timestepsTS]
+					else:
+						try:
+							timestepsTS = [refTime + timedelta(hours=x) for x in timestepsTS]
+						except OverflowError:
+							timestepsTS = [refTime + timedelta(seconds=x) for x in timestepsTS]
 				if type == 'point_ts':
-					pTypeTS = [[x, 4, True] for x in t[0]]
+					if qv < 31600:
+						pTypeTS = [[x, 4, True] for x in t[0]]
+					else:
+						pTypeTS = [[x, 4, True] for x in t['metadata'][0]]
 					if ['MB', 4, True] in pTypeTS:
 						index = pTypeTS.index(['MB', 4, True])
 						info = pTypeTS[index]
@@ -253,7 +303,10 @@ class TuResults():
 						info = pTypeTS[index]
 						info[2] = False
 				elif type == 'line_ts':
-					lTypeTS = [[x, 5, True] for x in t[0]]
+					if qv < 31600:
+						lTypeTS = [[x, 5, True] for x in t[0]]
+					else:
+						lTypeTS = [[x, 5, True] for x in t['metadata'][0]]
 					if ['Flow Area', 5, True] in lTypeTS:
 						index = lTypeTS.index(['Flow Area', 5, True])
 						info = lTypeTS[index]
@@ -265,32 +318,73 @@ class TuResults():
 					if ['Flow Regime', 4, False] in pTypeTS and ['Flow Regime', 5, True] in lTypeTS:
 						lTypeTS.remove(['Flow Regime', 5, True])
 				elif type == 'region_ts':
-					rTypeTS = [(x, 6, True) for x in t[0]]
+					if qv < 31600:
+						rTypeTS = [(x, 6, True) for x in t[0]]
+					else:
+						rTypeTS = [(x, 6, True) for x in t['metadata'][0]]
 			elif '_lp' in type:
-				timestepsLP = t[-1]
-				for x in t[0]:
-					#if x == 'Water Level' or x == 'Energy Level':
-					#	lTypeLP.append((x, 7, True))
-					#else:
-					lTypeLP.append((x, 7, False))
+				if qv < 31600:
+					timestepsLP = t[-1]
+				else:
+					timestepsLP = sorted(y[0] for x, y in t['times'].items())
+					refTime = t['referenceTime'] if 'referenceTime' in t else self.tuView.tuOptions.zeroTime
+					if self.tuView.tuOptions.timeUnits == 's':
+						timestepsLP = [refTime + timedelta(seconds=x) for x in timestepsLP]
+					else:
+						try:
+							timestepsLP = [refTime + timedelta(hours=x) for x in timestepsLP]
+						except OverflowError:
+							timestepsLP = [refTime + timedelta(seconds=x) for x in timestepsLP]
+				# for x in t[0]:
+				# 	#if x == 'Water Level' or x == 'Energy Level':
+				# 	#	lTypeLP.append((x, 7, True))
+				# 	#else:
+				# 	lTypeLP.append((x, 7, False))
+				if qv < 31600:
+					lTypeLP = [(x, 7, False) for x in t[0]]
+				else:
+					lTypeLP = [(x, 7, False) for x in t['metadata'][0]]
 			elif '_cs' in type:
 				if type == 'line_cs':
 					for x in t:
 						csTypes.append((x, 8, False))
 			elif '_particles' in type:
-				timestepsParticles = t[0]
+				if qv < 31600:
+					timestepsParticles = t[0]
+				else:
+					timestepsParticles = sorted(y[0] for x, y in t['times'].items())
+					refTime = t['referenceTime'] if 'referenceTime' in t else self.tuView.tuOptions.zeroTime
+					if self.tuView.tuOptions.timeUnits == 's':
+						timestepsParticles = [refTime + timedelta(seconds=x) for x in timestepsParticles]
+					else:
+						try:
+							timestepsParticles = [refTime + timedelta(hours=x) for x in timestepsParticles]
+						except OverflowError:
+							timestepsParticles = [refTime + timedelta(seconds=x) for x in timestepsParticles]
 			else:
 				temporalResultTypes.append(type)
+				refTime = t['referenceTime'] if 'referenceTime' in t else self.tuView.tuOptions.zeroTime
 				for i, (time, values) in enumerate(t['times'].items()):
 					if values[0] != 9999.0:
-						if values[0] not in timesteps:
-							timesteps.append(float(values[0]))
-		
+						if qv < 31600:
+							ts = values[0]
+						else:
+							if self.tuView.tuOptions.timeUnits == 's':
+								ts = refTime + timedelta(seconds=values[0])
+							else:
+								try:
+									ts = refTime + timedelta(hours=values[0])
+								except OverflowError:
+									ts = refTime + timedelta(seconds=values[0])
+						if ts not in timesteps:
+							timesteps.append(ts)
+
+
 		if not self.tuView.lock2DTimesteps:
 			timesteps = self.joinResultTypes(timesteps, timestepsTS, timestepsLP, timestepsParticles, type='time')
-		
+
 		return timesteps, minResultTypes, maxResultTypes, temporalResultTypes, pTypeTS, lTypeTS, rTypeTS, lTypeLP, csTypes
-	
+
 	def joinResultTypes(self, *args, **kwargs):
 		"""
 		Joins open result type lists so that there is no duplicates
@@ -299,25 +393,30 @@ class TuResults():
 		:param kwargs: dict
 		:return: list
 		"""
-		
+
+		qv = Qgis.QGIS_VERSION_INT
 		final = []
-		
+
 		for arg in args:
 			for item in arg:
 				if 'type' in kwargs.keys() and kwargs['type'] == 'time':
 					# if float('{0:.6f}'.format(item)) not in [float('{0:.6f}'.format(x)) for x in final]:
-					if not [item for x in final if isSame_float(item, x, prec=TuResults.TimePrecision)]:
-						final.append(item)
+					if qv < 31600:
+						if not [item for x in final if isSame_float(item, x, prec=TuResults.TimePrecision)]:
+							final.append(item)
+					else:
+						if not [item for x in final if isSame_time(item, x, prec=0.01)]:
+							final.append(item)
 				else:
 					if item not in final:
 						final.append(item)
-		
+
 		# make sure times are sorted ascendingly
 		if 'type' in kwargs.keys() and kwargs['type'] == 'time':
 			final = sorted(final)
-		
+
 		return final
-	
+
 	def applyPreviousResultTypeSelections(self, currentPlotData, time):
 		"""
 		Applies the previously selected result types to updated DataSetView.
@@ -327,10 +426,12 @@ class TuResults():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		openResultTypes = self.tuView.OpenResultTypes  # DataSetView
 		#mcboResultType = self.tuView.mcboResultType  # QgsCheckableComboBox
 		cboTime = self.tuView.cboTime  # QgsComboBox
-		
+
 		# repopulate active results with new model indexes
 		self.activeResultsIndexes = []  # QModelIndex
 		self.activeResultsItems = []  # DataSetTreeNode
@@ -359,7 +460,7 @@ class TuResults():
 				openResultTypes.selectionModel().select(index, QItemSelectionModel.Select)
 				self.activeResultsItems.append(item)
 				self.activeResultsIndexes.append(openResultTypes.model().item2index(item))
-		
+
 		# if there are no active results assume first dataset and select first result
 		if not self.activeResults:
 			openResultTypes = self.tuView.OpenResultTypes
@@ -379,7 +480,7 @@ class TuResults():
 					self.tuResults2D.activeVector = index.internalPointer().ds_name
 					openResultTypes.activeVectorIdx = index
 					openResultTypes.activeVectorName = index.internalPointer().ds_name
-			
+
 		self.updateActiveResultTypes(None)
 
 		# apply max and secondary axis toggle to result types
@@ -393,7 +494,7 @@ class TuResults():
 				item.toggleSecondaryActive()
 			if '{0}_1d'.format(item.ds_name) in self.maxResultTypes:
 				item.toggleMaxActive()
-		
+
 		# apply selection to plotting result types
 		#mcboResultType.setCheckedItems(names)
 		#self.tuView.tuPlot.tuPlotToolbar.setCheckedItemsPlotOptions(namesTS, 0)
@@ -402,72 +503,92 @@ class TuResults():
 			self.tuView.tuPlot.tuPlotToolbar.setCheckedItemsPlotOptions(dataType, plotData)
 
 		# apply active time
-		if time is not None:
-			if time not in self.timekey2date:
-				if self.timekey2date:
-					time = [x for x in self.timekey2date.keys()][0]
-		if time is not None:
-			#if time in self.timekey2date:
-			#	date = self.timekey2date[time]
-			if time in self.timekey2date_tspec:
-				date = self.timekey2date_tspec[time]
-			#dateProper = datetime.strptime(date, self.tuView.tuOptions.dateFormat)  # datetime object
-			if time in self.timekey2time:
-				timeProper = self.timekey2time[time]
-			if not self.tuView.tuOptions.xAxisDates:
-				unit = self.tuView.tuOptions.timeUnits
-				timeFormatted = convertTimeToFormattedTime(timeProper, unit=unit)
-				closestTimeDiff = 99999
-			else:
-				timeFormatted = self.tuView.tuOptions.dateFormat.format(date)
-				closestTimeDiff = timedelta(days=99999)
-			timeFound = False
-			closestTimeIndex = None
-			for i in range(cboTime.count()):
-				if cboTime.itemText(i) == timeFormatted:
-					cboTime.setCurrentIndex(i)
-					timeFound = True
-					break
-				else:
-					# record the closest time index so it can be applied if no exact match is found
-					if not self.tuView.tuOptions.xAxisDates:
-						unit = self.tuView.tuOptions.timeUnits
-						timeConverted = convertFormattedTimeToTime(cboTime.itemText(i), unit=unit)
-						timeDiff = abs(timeConverted - timeProper)
-					else:
-						timeConverted = datetime.strptime(cboTime.itemText(i), self.dateFormat)
-						timeDiff = abs(timeConverted - date)
-					closestTimeDiff = min(closestTimeDiff, timeDiff)
-					if closestTimeDiff == timeDiff:
-						closestTimeIndex = i
-			if not timeFound and closestTimeIndex is not None:
-				cboTime.setCurrentIndex(closestTimeIndex)
-			else:
+		if qv >= 31600:
+			if time is not None:
 				self.activeTime = time
+			else:
+				if cboTime.count():
+					self.activeTime = [x for x in sorted(self.cboTime2timekey)][0]
+					self.updateActiveTime()
+			# set closest time in combobox
+			time2, closestTimeIndex = self.dateToTimeInCombobox(self.activeTime)
+			cboTime.setCurrentIndex(closestTimeIndex)
 		else:
-			if cboTime.count():
-				#self.activeTime = '{0:.6f}'.format(convertFormattedTimeToTime(cboTime.currentText()))
-				if cboTime.currentText() in self.cboTime2timekey:
-					self.activeTime = self.cboTime2timekey[cboTime.currentText()]
+			if time is not None:
+				if time not in self.timekey2date:
+					if self.timekey2date:
+						time = [x for x in self.timekey2date.keys()][0]
+			if time is not None:
+				#if time in self.timekey2date:
+				#	date = self.timekey2date[time]
+				if time in self.timekey2date_tspec:
+					date = self.timekey2date_tspec[time]
+				#dateProper = datetime.strptime(date, self.tuView.tuOptions.dateFormat)  # datetime object
+				if time in self.timekey2time:
+					timeProper = self.timekey2time[time]
+				if not self.tuView.tuOptions.xAxisDates:
+					unit = self.tuView.tuOptions.timeUnits
+					timeFormatted = convertTimeToFormattedTime(timeProper, unit=unit)
+					closestTimeDiff = 99999
 				else:
-					# if self.cboTime2timekey is empty reset active time to none
-					if not self.cboTime2timekey:
-						self.activeTime = None
-					else:  # set it to the first value
-						self.activeTime = self.cboTime2timekey[[x for x in sorted(self.cboTime2timekey)][0]]
-		
+					timeFormatted = self.tuView.tuOptions.dateFormat.format(date)
+					closestTimeDiff = timedelta(days=99999)
+				timeFound = False
+				closestTimeIndex = None
+				for i in range(cboTime.count()):
+					if cboTime.itemText(i) == timeFormatted:
+						cboTime.setCurrentIndex(i)
+						timeFound = True
+						break
+					else:
+						# record the closest time index so it can be applied if no exact match is found
+						if not self.tuView.tuOptions.xAxisDates:
+							unit = self.tuView.tuOptions.timeUnits
+							timeConverted = convertFormattedTimeToTime(cboTime.itemText(i), unit=unit)
+							timeDiff = abs(timeConverted - timeProper)
+						else:
+							timeConverted = datetime.strptime(cboTime.itemText(i), self.dateFormat)
+							timeDiff = abs(timeConverted - date)
+						closestTimeDiff = min(closestTimeDiff, timeDiff)
+						if closestTimeDiff == timeDiff:
+							closestTimeIndex = i
+				if not timeFound and closestTimeIndex is not None:
+					cboTime.setCurrentIndex(closestTimeIndex)
+				else:
+					self.activeTime = time
+			else:
+				if cboTime.count():
+					#self.activeTime = '{0:.6f}'.format(convertFormattedTimeToTime(cboTime.currentText()))
+					if cboTime.currentText() in self.cboTime2timekey:
+						self.activeTime = self.cboTime2timekey[cboTime.currentText()]
+					else:
+						# if self.cboTime2timekey is empty reset active time to none
+						if not self.cboTime2timekey:
+							self.activeTime = None
+						else:  # set it to the first value
+							self.activeTime = self.cboTime2timekey[[x for x in sorted(self.cboTime2timekey)][0]]
+
 		changed = self.updateActiveResultTypes(None)
 		if not changed:
 			return False
-		
+
 		return True
-	
+
 	def updateResultTypes(self):
+		qv = Qgis.QGIS_VERSION_INT
+		if qv < 31600:
+			self.updateResultTypes_old()
+		else:
+			self.updateResultTypes_31600()
+
+	def updateResultTypes_old(self):
 		"""
 		Populates the plotting ui with available result types in the selected open mesh results
 
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+
+		qv = Qgis.QGIS_VERSION_INT
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
@@ -476,7 +597,7 @@ class TuResults():
 		#mcboResultType = self.tuView.mcboResultType  # QgsCheckableComboBox
 		openResults = self.tuView.OpenResults  # QListWidget
 		openResultTypes = self.tuView.OpenResultTypes  # DataSetView
-		
+
 		# record existing plotting 2D result types and time so it can be re-applied after the update
 		#currentNames = mcboResultType.checkedItems()
 		#currentNamesTS = self.tuView.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(TuPlot.DataTimeSeries2D)
@@ -486,8 +607,12 @@ class TuResults():
 			plotData = self.tuView.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(dataType, all_details=True)
 			if plotData:
 				currentPlotData[dataType] = plotData
-		currentTime = str(self.activeTime) if self.activeTime is not None else None
-		
+
+		if qv < 31600:
+			currentTime = str(self.activeTime) if self.activeTime is not None else None
+		else:
+			currentTime = self.activeTime
+
 		# reset types
 		reset = self.resetResultTypes()  # reset result types
 		if not reset:
@@ -549,14 +674,14 @@ class TuResults():
 							break
 		if not mapOutputs:
 			mapOutputs = [("None", 3, False)]
-			
+
 		timeSeries = []
 		timeSeries = timeSeries + pointTypesTS + lineTypesTS + regionTypesTS + lineTypesLP + crossSectionTypes
 		if not timeSeries:
 			timeSeries = [("None", 3, False, False)]
 		openResultTypes.setModel(DataSetModel(mapOutputs, timeSeries))
 		openResultTypes.expandAll()
-		
+
 		# timesteps
 		connected = True
 		try:
@@ -589,16 +714,155 @@ class TuResults():
 			sliderTime.setMaximum(len(timesteps) - 1)  # slider
 		if connected:
 			self.tuView.cboTime.currentIndexChanged.connect(self.tuView.timeSliderChanged)
-		
+
 		# Apply selection
 		self.applyPreviousResultTypeSelections(currentPlotData, currentTime)
-		
+
 		# Update viewport with enabled / disabled items
 		# self.tuView.currentLayerChanged()
 		self.tuView.setTsTypesEnabled()
-		
+
 		return True
-	
+
+	def updateResultTypes_31600(self):
+		"""
+		Populates the plotting ui with available result types in the selected open mesh results
+
+		:return: bool -> True for successful, False for unsuccessful
+		"""
+
+		qv = Qgis.QGIS_VERSION_INT
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+		sliderTime = self.tuView.sliderTime  # QSlider
+		cboTime = self.tuView.cboTime  # QComboBox
+		#mcboResultType = self.tuView.mcboResultType  # QgsCheckableComboBox
+		openResults = self.tuView.OpenResults  # QListWidget
+		openResultTypes = self.tuView.OpenResultTypes  # DataSetView
+
+		# record existing plotting 2D result types and time so it can be re-applied after the update
+		#currentNames = mcboResultType.checkedItems()
+		#currentNamesTS = self.tuView.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(TuPlot.DataTimeSeries2D)
+		#currentNamesLP = self.tuView.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(TuPlot.DataCrossSection2D)
+		currentPlotData = {}
+		for dataType in self.tuView.tuPlot.plotDataPlottingTypes:
+			plotData = self.tuView.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(dataType, all_details=True)
+			if plotData:
+				currentPlotData[dataType] = plotData
+
+		if qv < 31600:
+			currentTime = str(self.activeTime) if self.activeTime is not None else None
+		else:
+			currentTime = self.activeTime
+
+		# reset types
+		reset = self.resetResultTypes()  # reset result types
+		if not reset:
+			return False
+		timesteps, minResultTypes, maxResultTypes, temporalResultTypes = [], [], [], []
+		pointTypesTS, lineTypesTS, regionTypesTS, lineTypesLP, crossSectionTypes = [], [], [], [], []
+		for result in openResults.selectedItems():
+			# Populate metadata lists
+			ts, minResTypes, maxResTypes, tResTypes, pTypesTS, lTypesTS, rTypesTS, lTypesLP, csTypes = self.getDataFromResultsDict(result.text())
+
+			# Join already open result types with new types
+			timesteps = self.joinResultTypes(timesteps, ts, type='time')
+			minResultTypes = self.joinResultTypes(minResultTypes, minResTypes)
+			maxResultTypes = self.joinResultTypes(maxResultTypes, maxResTypes)
+			temporalResultTypes = self.joinResultTypes(temporalResultTypes, tResTypes)
+			pointTypesTS = self.joinResultTypes(pointTypesTS, pTypesTS)
+			lineTypesTS = self.joinResultTypes(lineTypesTS, lTypesTS)
+			regionTypesTS = self.joinResultTypes(regionTypesTS, rTypesTS)
+			lineTypesLP = self.joinResultTypes(lineTypesLP, lTypesLP)
+			crossSectionTypes = self.joinResultTypes(crossSectionTypes, csTypes)
+
+		# Populate tuview interface
+		mapOutputs = []
+		if openResults.selectedItems():
+			result = openResults.selectedItems()[0]  # just take the first selection
+			for rtype in temporalResultTypes:
+				if rtype not in self.results[result.text()].keys():
+					# find the selected result that has it
+					for result in openResults.selectedItems():
+						if rtype in self.results[result.text()].keys():
+							break
+				t = self.results[result.text()][rtype]
+				for i, (time, values) in enumerate(t['times'].items()):
+					if i == 0:  # get the data type from the first timestep i.e. scalar or vector
+						info = (rtype, values[1], rtype in maxResultTypes, rtype in minResultTypes)
+						mapOutputs.append(info)
+					else:
+						break
+				self.tuView.tuPlot.tuPlotToolbar.addItemToPlotOptions(rtype, static=self.results[result.text()][rtype]['isStatic'])
+
+				#mcboResultType.addItem(type)
+			for rtype in maxResultTypes:  # check - there may be results that only have maximums
+				if rtype not in temporalResultTypes:
+					mrtype = self.findMaxResultType(result.text(), rtype)
+					if not mrtype:
+						# find the selected result that has it
+						for result in openResults.selectedItems():
+							mrtype = self.findMaxResultType(result.text(), rtype)
+							if mrtype:
+								break
+					if not mrtype:  # couldn't be found - hopefully not the case!
+						continue
+					t = self.results[result.text()][mrtype]
+					for i, (time, values) in enumerate(t['times'].items()):
+						if i == 0:  # get the data type from the first timestep i.e. scalar or vector
+							info = (rtype, values[1], True, False)
+							mapOutputs.append(info)
+						else:
+							break
+		if not mapOutputs:
+			mapOutputs = [("None", 3, False)]
+
+		timeSeries = []
+		timeSeries = timeSeries + pointTypesTS + lineTypesTS + regionTypesTS + lineTypesLP + crossSectionTypes
+		if not timeSeries:
+			timeSeries = [("None", 3, False, False)]
+		openResultTypes.setModel(DataSetModel(mapOutputs, timeSeries))
+		openResultTypes.expandAll()
+
+		# timesteps
+		connected = True
+		try:
+			self.tuView.cboTime.currentIndexChanged.disconnect(self.tuView.timeSliderChanged)
+		except:
+			# if dock is closed cboTime will already be disconnected
+			# record this fact so we don't connect it back up after this
+			# function when we don't want to
+			connected = False
+		cboTime.clear()
+		self.cboTime2timekey.clear()
+		self.cboTime2timekey.clear()
+		self.timekey2time.clear()
+		if timesteps:
+			if not self.tuView.tuOptions.xAxisDates:  # use Time (hrs)
+				timesteps = [(x - self.tuView.tuOptions.zeroTime).total_seconds() / 60. / 60. for x in timesteps]
+				pad = 2 if timesteps[-1] < 100 else 3
+				for x in timesteps:
+					timeformatted = convertTimeToFormattedTime(x, unit='h', hour_padding=pad)
+					cboTime.addItem(timeformatted)
+					self.cboTime2timekey[timeformatted] = '{0:.6f}'.format(x)
+					self.timekey2time['{0:.6f}'.format(x)] = x
+			else:  # use datetime format
+				#cboTime.addItems([self._dateFormat.format(self.time2date_tspec[x]) for x in timesteps])
+				cboTime.addItems([self._dateFormat.format(x) for x in timesteps])
+			sliderTime.setMaximum(len(timesteps) - 1)  # slider
+		if connected:
+			self.tuView.cboTime.currentIndexChanged.connect(self.tuView.timeSliderChanged)
+
+		# Apply selection
+		self.applyPreviousResultTypeSelections(currentPlotData, currentTime)
+
+		# Update viewport with enabled / disabled items
+		# self.tuView.currentLayerChanged()
+		self.tuView.setTsTypesEnabled()
+
+		return True
+
 	def updateActiveResultTypes(self, resultIndex, geomType=None, skip_already_selected=False, force_selection=None):
 		"""
 		Updates the active results based on the selected result types in DataSetView
@@ -609,7 +873,7 @@ class TuResults():
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 		openResultTypes = self.tuView.OpenResultTypes
-		
+
 		# if geomtype then change the TS result options
 		if geomType is not None:
 			if geomType == QgsWkbTypes.PointGeometry:
@@ -623,10 +887,10 @@ class TuResults():
 				self.tuResults1D.typesXS = self.tuResults1D.lineXS[:]
 			else:
 				self.tuResults1D.typesTS = []
-				
+
 			return True
-				
-		
+
+
 		# if not a map output item there is no need to rerender the map
 		layer = self.tuResults2D.activeMeshLayers[0] if self.tuResults2D.activeMeshLayers else None
 		skip = False
@@ -812,9 +1076,9 @@ class TuResults():
 			else:
 				self.tuView.tuPlot.updateCurrentPlot(self.tuView.tabWidget.currentIndex(), update='1d only')
 
-				
+
 		return True
-	
+
 	def forceSelection1D(self):
 		"""
 		Force active 1D types to match selection (opposite to 2D results)
@@ -878,23 +1142,23 @@ class TuResults():
 	def updateSecondaryAxisTypes(self, clickedItem):
 		"""
 		Updates the list of result types to be plotted on the secondary axis.
-		
+
 		:param clickedItem: dict -> { 'parent': DataSetTreeNode, 'index': DataSetTreeNode }
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		openResultTypes = self.tuView.OpenResultTypes
-		
+
 		if clickedItem is not None:
 			openResultTypes.model().setActiveSecondaryIndex(clickedItem['parent'], clickedItem['index'])
-		
+
 		self.secondaryAxisTypes = []
 		for i in range(openResultTypes.model().mapOutputsItem.childCount()):
 			item = openResultTypes.model().dsindex2item[i]
 			if item.enabled:
 				if item.secondaryActive:
 					self.secondaryAxisTypes.append(item.ds_name)
-		
+
 		for item in openResultTypes.model().timeSeriesItem.children():
 			if item.enabled:
 				if item.secondaryActive:
@@ -902,28 +1166,28 @@ class TuResults():
 						self.secondaryAxisTypes.append('{0}_CS'.format(item.ds_name))
 					else:
 						self.secondaryAxisTypes.append('{0}_1d'.format(item.ds_name))
-					
+
 		if self.tuView.tuPlot.tuPlotToolbar.fluxSecAxisButton.isChecked():
 			self.secondaryAxisTypes.append('2D Flow')
-					
+
 		return True
-		
+
 	def updateMinMaxTypes(self, clickedItem, mtype):
 		"""
 		Updates the list of result types that should plot max.
-		
+
 		:param clickedItem: dict -> { 'parent': DataSetTreeNode, 'index': DataSetTreeNode }
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		openResultTypes = self.tuView.OpenResultTypes
-		
+
 		if clickedItem is not None:
 			if mtype == 'max':
 				openResultTypes.model().setActiveMax(clickedItem['parent'], clickedItem['index'])
 			elif  mtype == 'min':
 				openResultTypes.model().setActiveMin(clickedItem['parent'], clickedItem['index'])
-		
+
 		self.maxResultTypes = []
 		for item in openResultTypes.model().mapOutputsItem.children():
 			if item.enabled:
@@ -964,23 +1228,23 @@ class TuResults():
 				return QgsMeshDatasetIndex(-1, -1)
 			else:
 				return -1
-		
+
 		key1 = index.result if 'result_name' not in kwargs else kwargs['result_name']
 		key2 = index.resultType if 'result_type' not in kwargs else kwargs['result_type']
 		key3 = index.timestep if 'timestep' not in kwargs else kwargs['timestep']
-		
+
 		if key1 not in results.keys():
 			if qv < 31300:
 				return QgsMeshDatasetIndex(-1, -1)
 			else:
 				return -1
-		
+
 		if key2 not in results[key1].keys():
 			if qv < 31300:
 				return QgsMeshDatasetIndex(-1, -1)
 			else:
 				return -1
-		
+
 		if key3 is not None:
 			if key3 not in results[key1][key2]['times'].keys():
 				if len(results[key1][key2]['times']) == 1:
@@ -988,7 +1252,7 @@ class TuResults():
 						key3 = k
 				elif forceGetTime == 'next lower':
 					key3 = self.findTimeNextLower(key1, key2, key3)
-		
+
 		if key3 is not None:
 			res = results[key1][key2]['times'][key3]
 			if qv < 31300:
@@ -1047,7 +1311,7 @@ class TuResults():
 			return 'h'
 
 		return results[key1][key2]['timeUnit']
-	
+
 	def findTimeNextLower(self, key1, key2, key3):
 		"""
 		Finds the previous available 2D timestep.
@@ -1057,29 +1321,14 @@ class TuResults():
 		:param key3: str -> time e.g. '1.0000'
 		:return: str -> next lower time
 		"""
-		
-		timePrev = None
-		higher = False
-		for i, (timekey, time) in enumerate(self.results[key1][key2]['times'].items()):
-			# timekey -> str e.g. '1.0000'
-			# time -> dict e.g. ( timestep, type, QgsMeshDatasetIndex )}
-			
-			if i == 0:
-				# if first time step is not lower than requested then return None because there is no next lower
-				if time[0] < float(key3):
-					timePrev = timekey
-				else:
-					return None
-			else:
-				if time[0] > float(key3):
-					higher = True  # found point where overlap occurs
-				else:
-					timePrev = timekey
-			if higher:
-				return timePrev
-		
-		# return time prev if higher is never found
-		return timePrev
+
+		times = sorted(y[0] for x, y in self.results[key1][key2]['times'].items())
+		timekeys = sorted(x for x in self.results[key1][key2]['times'])
+		for i, time in enumerate(times):
+			if time > key3:
+				return timekeys[max(0, i-1)]
+
+		return timekeys[-1]
 
 	def findTimeClosest(self, key1, key2, key3, times=(), is_date=False, method='lower'):
 		"""
@@ -1131,6 +1380,126 @@ class TuResults():
 
 		return time
 
+	@staticmethod
+	def findTimeClosest_31600(tuResults, key1, key2, key3, times=(), method='lower', units='h'):
+		"""
+		Finds the next available time after specified time
+		"""
+
+		# for 1d results change key2 so it can be found in results dict
+		if key1 is not None and key2 is not None:
+			if key1 in tuResults.results:
+				if '_1d' in key2:
+					for type_1d in ['point_ts', 'line_ts', 'region_ts', 'line_lp']:
+						if type_1d in tuResults.results[key1]:
+							if 'times' in tuResults.results[key1][type_1d]:
+								key2 = type_1d
+								break
+
+		if not times:
+			if key1 not in tuResults.results:
+				return
+			if key2 not in tuResults.results[key1]:
+				return
+		if key3 is None:
+			return
+
+		if not times:
+			if 'times' not in tuResults.results[key1][key2]:
+				return
+			times = sorted(y[0] for x, y in tuResults.results[key1][key2]['times'].items())
+
+		if 'referenceTime' not in tuResults.results[key1][key2]:
+			return
+		rt = tuResults.results[key1][key2]['referenceTime']
+		for i, time in enumerate(times):
+			if units == 's':
+				date = rt + timedelta(seconds=time)
+			else:
+				try:
+					date = rt + timedelta(hours=time)
+				except OverflowError:
+					date = rt + timedelta(seconds=time)
+			if method == 'higher':
+				if date >= key3:
+					return time
+			elif method == 'lower':
+				if date == key3:
+					return time
+				elif date > key3:
+					return times[max(0,i-1)]
+			else:  # closest
+				if date == key3:
+					return time
+				if i == 0:
+					diff = abs((date - key3).total_seconds())
+				if time > key3:
+					diff2 = abs((date - key3).total_seconds())
+					if diff <= diff2:
+						return times[max(0, i-1)]
+					else:
+						return time
+				else:
+					diff = abs((date - key3).total_seconds())
+
+		return time
+
+	@staticmethod
+	def findDateClosest_31600(tuResults, key1, key2, key3, dates=(), method='lower', units='h'):
+		"""
+        Finds the next available time after specified time
+        """
+
+		if not dates:
+			if key1 not in tuResults.results:
+				return
+			if key2 not in tuResults.results[key1]:
+				return
+		if key3 is None:
+			return
+
+		if not dates:
+			if 'times' not in tuResults.results[key1][key2]:
+				return
+			times = sorted(y[0] for x, y in tuResults.results[key1][key2]['times'].items())
+			if 'referenceTime' not in tuResults.results[key1][key2]:
+				return
+			rt = tuResults.results[key1][key2]['referenceTime']
+			dates = []
+			for t in times:
+				if units == 's':
+					dates.append(rt + timedelta(seconds=t))
+				else:
+					try:
+						dates.append(rt + timedelta(hours=t))
+					except OverflowError:
+						dates.append(rt + timedelta(seconds=t))
+
+		for i, date in enumerate(dates):
+			if method == 'higher':
+				if date >= key3:
+					return date
+			elif method == 'lower':
+				if date == key3:
+					return date
+				elif date > key3:
+					return dates[max(0, i - 1)]
+			else:  # closest
+				if date == key3:
+					return date
+				if i == 0:
+					diff = abs((date - key3).total_seconds())
+				if date > key3:
+					diff2 = abs((date - key3).total_seconds())
+					if diff <= diff2:
+						return dates[max(0, i - 1)]
+					else:
+						return date
+				else:
+					diff = abs((date - key3).total_seconds())
+
+		return date
+
 	def isMax(self, typ):
 		"""
 		Returns whether the result type is max or not. Can put 'scalar' or 'vector' to auto get active scalar or vector.
@@ -1138,9 +1507,9 @@ class TuResults():
 		:param type: str
 		:return: bool -> True for max, False for not max
 		"""
-		
+
 		maxResultTypes = self.tuView.tuResults.maxResultTypes  # list -> str
-		
+
 		if typ == 'scalar':
 			return True if self.tuResults2D.activeScalar in maxResultTypes else False
 		elif typ == 'vector':
@@ -1164,7 +1533,7 @@ class TuResults():
 			return True if self.tuResults2D.activeVector in minResultTypes else False
 		else:
 			return True if typ in minResultTypes else False
-	
+
 	def removeResults(self, resList):
 		"""
 		Removes the results from the indexed results and ui.
@@ -1194,29 +1563,29 @@ class TuResults():
 				#layer = tuflowqgis_find_layer(res)
 				#self.tuView.project.removeMapLayer(layer)
 				#self.tuView.canvas.refresh()
-				
+
 			# remove from ui
 			for i in range(self.tuView.OpenResults.count()):
 				item = self.tuView.OpenResults.item(i)
 				if item is not None and item.text() == res:
 					if res not in results:
 						self.tuView.OpenResults.takeItem(i)
-		
+
 		return True
-	
+
 	def updateActiveResults(self):
 		"""
 		Updates the list of selected 2D results.
 
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		self.activeMeshLayers = []
 		openResults = self.tuView.OpenResults  # QListWidget
-		
+
 		for r in range(openResults.count()):
 			item = openResults.item(r)
-			
+
 			# find selected layer
 			layer = tuflowqgis_find_layer(item.text())
 			if layer is not None:
@@ -1229,7 +1598,7 @@ class TuResults():
 						layer.setRendererSettings(rs)
 						rs.setActiveVectorDataset(QgsMeshDatasetIndex(-1, -1))
 						layer.setRendererSettings(rs)
-		
+
 		return True
 
 	def updateTimeUnits(self):
@@ -1242,17 +1611,17 @@ class TuResults():
 			layer = tuflowqgis_find_layer(ml)
 			self.tuResults2D.getResultMetaData(ml, layer)
 		self.updateResultTypes()
-	
+
 	def checkSelectedResults(self):
 		"""
 		Checks the selected results match active result types.
-		
+
 		:return:
 		"""
-		
+
 		openResultTypes = self.tuView.OpenResultTypes
 		selectedIndexes = sorted(openResultTypes.selectedIndexes())
-		
+
 		if selectedIndexes != sorted(self.activeResultsIndexes[:]):
 			# Reset active results so it matches selection
 			self.tuResults2D.activeScalar = None
@@ -1302,19 +1671,19 @@ class TuResults():
 		"""
 		Find maximum result type in results.
 		Used when only maximum result type exists (no temporal results)
-		
+
 		It is assumed that there is no temporal output for result type.
-		
+
 		:param result: str result name e.g. 'M03_5m_001'
 		:param resultType: str result type e.g. 'depth'
 		:return: str max result type e.g. 'depth/Maximums'
 		"""
-		
+
 		for rtype in self.results[result]:
 			if TuResults.isMaximumResultType(rtype):
 				if TuResults.stripMaximumName(rtype) == resultType:
 					return rtype
-				
+
 		return ''
 
 	@staticmethod
@@ -1357,21 +1726,21 @@ class TuResults():
 	                        groupIndex: int = -1) -> bool:
 		"""
 		Determines if the result type is a maximum or not.
-		
+
 		e.g. Depth/Maximums will return True
-		
+
 		:param resultType: str
 		:param dp: QgsMeshDataProvider
 		:param groupIndex: int
 		:return: bool
 		"""
-		
+
 		if '/Maximums' in resultType or ('max_' in resultType and 'time' not in resultType):
 			return True
-		
+
 		if '/Final' in resultType:
 			return True
-		
+
 		# special case for 'Minimum dt'
 		# this is recorded as 'Final/Minimum dt' in xmdf - MDAL does not retain folder name
 		# will treat this as 'max'
@@ -1381,7 +1750,7 @@ class TuResults():
 				if dp.isValid():
 					if dp.datasetCount(groupIndex) == 1:
 						return True
-		
+
 		return False
 
 	@staticmethod
@@ -1446,7 +1815,7 @@ class TuResults():
         """
 
 		return not TuResults.isStatic(resultType, dp, groupIndex)
-	
+
 	def updateDateTimes2(self):
 		"""Supersedes updateDateTimes"""
 		qv = Qgis.QGIS_VERSION_INT
@@ -1472,9 +1841,17 @@ class TuResults():
 		self.updateResultTypes()
 
 	def updateDateTimes(self):
+		qv = Qgis.QGIS_VERSION_INT
+
+		if qv < 31600:
+			self.updateDateTimes2()
+		else:
+			self.updateDateTimes_31600()
+
+	def updateDateTimes_old(self):
 		"""
 		Updates date2time dictionary and time2date dictionary
-		
+
 		:return: None
 		"""
 
@@ -1490,7 +1867,7 @@ class TuResults():
 		self.date_tspec2time.clear()
 		self.date2date_tspec.clear()
 		self.date_tspec2date.clear()
-		
+
 		zeroDate = self.tuView.tuOptions.zeroTime
 		for t in self.time2date:
 			if t == '-99999' or t == -99999:
@@ -1508,7 +1885,7 @@ class TuResults():
 					date = zeroDate + timedelta(seconds=t)
 				else:
 					date = zeroDate + timedelta(hours=t)
-				
+
 				# format date to 2 decimal places i.e. dd/mm/yyyy hh:mm:ss.ms
 				date = roundSeconds(date, 2)
 				self.time2date[t] = date
@@ -1526,7 +1903,7 @@ class TuResults():
 				self.date_tspec2timekey[date_tspec] = '{0:.6f}'.format(t)
 				self.date2date_tspec[date] = date_tspec
 				self.date_tspec2date[date_tspec] = date
-			
+
 		self.tuView.cboTime.clear()
 		# timeCopy = [x for x in self.time2date.keys()]
 		timeCopy = [x for x in self.time2date_tspec.keys()]
@@ -1538,7 +1915,60 @@ class TuResults():
 		# self.tuView.cboTime.addItems([self._dateFormat.format(self.time2date[x]) for x in timeCopy])
 		self.tuView.cboTime.addItems([self._dateFormat.format(self.time2date_tspec[x]) for x in timeCopy])
 
+	def updateDateTimes_31600(self):
+		"""update the dates of results for qgis 3.16 +"""
+
+		self.timekey2date.clear()
+		self.time2date.clear()
+		self.date2timekey.clear()
+		self.date2time.clear()
+
+		self.timekey2date_tspec.clear()
+		self.time2date_tspec.clear()
+		self.date_tspec2timekey.clear()
+		self.date_tspec2time.clear()
+		self.date2date_tspec.clear()
+		self.date_tspec2date.clear()
+
+		for result in self.results:
+			for restype in self.results[result]:
+				rt = None
+				if 'referenceTime' in self.results[result][restype]:
+					rt = self.results[result][restype]['referenceTime']
+				if rt is not None:
+					if 'times' in self.results[result][restype]:
+						for timeKey in self.results[result][restype]['times']:
+							time = self.results[result][restype]['times'][timeKey][0]
+							if self.tuView.tuOptions.timeUnits == 's':
+								date = rt + timedelta(seconds=time)
+							else:
+								try:
+									date = rt + timedelta(hours=time)
+								except OverflowError:
+									date = rt + timedelta(seconds=time)
+							date = roundSeconds(date, 2)
+							self.timekey2date[timeKey] = date
+							self.time2date[time] = date
+							self.date2timekey[date] = timeKey
+							self.date2time[date] = time
+							date_tspec = datetime2timespec(date, 1, 1)
+							self.timekey2date_tspec[timeKey] = date_tspec
+							self.time2date_tspec[time] = date_tspec
+							self.date_tspec2timekey[date_tspec] = '{0:.6f}'.format(time)
+							self.date_tspec2time[date_tspec] = time
+							self.date2date_tspec[date] = date_tspec
+							self.date_tspec2date[date_tspec] = date
+
 	def updateQgsTime(self, time=None, qgsObject=None, timeSpec=None):
+
+		qv = Qgis.QGIS_VERSION_INT
+
+		if qv < 31600:
+			self.updateQgsTime_old(time, qgsObject, timeSpec)
+		else:
+			self.updateQgsTime_31600(time, qgsObject, timeSpec)
+
+	def updateQgsTime_old(self, time=None, qgsObject=None, timeSpec=None):
 		"""
 
 		"""
@@ -1593,7 +2023,38 @@ class TuResults():
 			qgsObject.setTemporalRange(dtr)
 			qgsObject.refresh()
 
+	def updateQgsTime_31600(self, time=None, qgsObject=None, timeSpec=None):
+		"""
+
+		"""
+
+		qv = Qgis.QGIS_VERSION_INT
+		tt = 0.01  # tiny time (seconds)
+
+		TuResults.layersToMethodHigher(self.tuResults2D.activeMeshLayers)
+		if time is None:
+			if self.activeTime is None:
+				return
+			time = self.activeTime
+
+		if qgsObject is None:
+			qgsObject = self.iface.mapCanvas()
+		if timeSpec is None:
+			timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+		begin = dt2qdt(time, 1)
+		end = begin.addSecs(60.*60.)
+		dtr = QgsDateTimeRange(begin, end)
+		qgsObject.setTemporalRange(dtr)
+		qgsObject.refresh()
+
 	def getTuViewTimeFromQgsTime(self):
+		qv = Qgis.QGIS_VERSION_INT
+		if qv < 31600:
+			return self.getTuViewTimeFromQgsTime_old()
+		else:
+			return self.getTuViewTimeFromQgsTime_31600()
+
+	def getTuViewTimeFromQgsTime_old(self):
 		"""
 
 		"""
@@ -1630,6 +2091,18 @@ class TuResults():
 					return self.findTimeClosest(None, None, pdt, modelDates, True, 'closest')
 				else:
 					return 0
+
+	def getTuViewTimeFromQgsTime_31600(self):
+		qdt = self.iface.mapCanvas().temporalRange().begin()  # QDateTime
+		if not qdt.isValid():
+			return self.activeTime
+		modelDates = sorted([x for x in self.date2time.keys()])
+		if not modelDates:
+			return self.activeTime
+		pdt = qdt2dt(qdt)
+		if self.loadedTimeSpec > 0:
+			pdt = datetime2timespec(pdt, self.timeSpec, self.loadedTimeSpec)
+		return TuResults.findDateClosest_31600(self, None, None, pdt, modelDates, 'closest', self.tuView.tuOptions.timeUnits)
 
 	def addCrossSectionLayerToResults(self, lyr):
 		"""
@@ -1730,6 +2203,61 @@ class TuResults():
 			if lyr is None:
 				return
 			lyr.setTemporalMatchingMethod(QgsMeshDataProviderTemporalCapabilities.FindClosestDatasetFromStartRangeTime)
+
+	def dateToTimeInCombobox(self, inputDate):
+		rt = self.tuView.tuOptions.zeroTime
+		dateFormat = self.tuView.tuOptions.xAxisDates
+		time = 0
+		for i in range(self.tuView.cboTime.count()):  # find closest
+			item = self.tuView.cboTime.itemText(i)
+			if dateFormat:
+				date = datetime.strptime(item, self.dateFormat)
+			else:
+				timeKey = convertFormattedTimeToTime(item)
+				t = self.tuView.tuResults.timekey2time[timeKey] if timeKey in self.tuView.tuResults.timekey2time else float(
+					timeKey)
+				if self.tuView.tuOptions.timeUnits == 's':
+					date = rt + timedelta(seconds=t)
+				else:
+					try:
+						date = rt + timedelta(hours=t)
+					except OverflowError:
+						date = rt + timedelta(seconds=t)
+			if date == inputDate:
+				if dateFormat:
+					return date, i
+				else:
+					return t, i
+			if i == 0:
+				diff = abs((date - inputDate).total_seconds())
+			if date > inputDate:
+				diff2 = abs((date - inputDate).total_seconds())
+				if diff <= diff2:
+					item = self.tuView.cboTime.itemText(max(0, i - 1))
+					if dateFormat:
+						return datetime.strptime(item, self.dateFormat), max(0, i-1)
+					else:
+						timeKey = convertFormattedTimeToTime(item)
+						time = self.tuView.tuResults.timekey2time[
+							timeKey] if timeKey in self.tuView.tuResults.timekey2time else float(timeKey)
+						return time, max(0, i-1)
+				else:
+					if dateFormat:
+						return date, i
+					else:
+						return t, i
+			else:
+				diff = abs((date - inputDate).total_seconds())
+
+		i = 0
+		item = self.tuView.cboTime.itemText(i)
+		if dateFormat:
+			date = datetime.strptime(item, self.dateFormat)
+			return date, i
+		timeKey = convertFormattedTimeToTime(item)
+		time = self.tuView.tuResults.timekey2time[timeKey] if timeKey in self.tuView.tuResults.timekey2time else float(
+			timeKey)
+		return time, 0
 
 
 

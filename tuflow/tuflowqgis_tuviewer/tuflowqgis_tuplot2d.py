@@ -139,7 +139,7 @@ class TuPlot2D():
 			
 			for i, rtype in enumerate(resultTypes):
 				# get result data for open mesh results and selected scalar dataset
-				tuResultsIndex = TuResultsIndex(layer.name(), rtype, None, False)
+				tuResultsIndex = TuResultsIndex(layer.name(), rtype, None, False, False, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
 				r = self.tuView.tuResults.getResult(tuResultsIndex)  # r = dict - { str time: [ float time, QgsMeshDatasetIndex ] }
 				if not r:
 					continue
@@ -319,7 +319,7 @@ class TuPlot2D():
 				else:
 					isMin = self.tuView.tuResults.isMin(rtype)
 				# get result data for open mesh results, selected scalar datasets, and active time
-				tuResultsIndex = TuResultsIndex(layer.name(), rtype, timestep, isMax, isMin)
+				tuResultsIndex = TuResultsIndex(layer.name(), rtype, timestep, isMax, isMin, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
 				if not self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower'):
 					continue
 				elif type(self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower')) is dict:
@@ -496,7 +496,7 @@ class TuPlot2D():
 				if TuResults.isMapOutputType(resultType) and not TuResults.isMaximumResultType(resultType) \
 						and not TuResults.isMinimumResultType(resultType):
 					if 'vel' in resultType.lower() and 'time' not in resultType.lower() and 'dur' not in resultType.lower():  # make sure it's vector dataset
-						velocityTRI = TuResultsIndex(layer.name(), resultType, None, False)
+						velocityTRI = TuResultsIndex(layer.name(), resultType, None, False, False, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
 						velRes = self.tuView.tuResults.getResult(velocityTRI)
 						for t in velRes:
 							mdGroup = layer.dataProvider().datasetGroupMetadata(velRes[t][-1])
@@ -505,7 +505,7 @@ class TuPlot2D():
 							velocity = resultType
 					elif resultType[0].lower() == 'v' and 'time' not in resultType.lower() and 'dur' not in resultType.lower():
 						velRes = resultType
-						velocityTRI = TuResultsIndex(layer.name(), resultType, None, False)
+						velocityTRI = TuResultsIndex(layer.name(), resultType, None, False, False, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
 						velRes = self.tuView.tuResults.getResult(velocityTRI)
 						for t in velRes:
 							mdGroup = layer.dataProvider().datasetGroupMetadata(velRes[t][-1])
@@ -524,15 +524,15 @@ class TuPlot2D():
 						bedElevation = resultType
 			
 			# get results using index
-			velocityTRI = TuResultsIndex(layer.name(), velocity, None, False)  # velocity TuResultsIndex
+			velocityTRI = TuResultsIndex(layer.name(), velocity, None, False, False, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)  # velocity TuResultsIndex
 			velRes = self.tuView.tuResults.getResult(velocityTRI)  # r = dict - { str time: [ float time, QgsMeshDatasetIndex ] }
 			if depth is not None:
-				depthTRI = TuResultsIndex(layer.name(), depth, None, False)
+				depthTRI = TuResultsIndex(layer.name(), depth, None, False, False, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
 				depthRes = self.tuView.tuResults.getResult(depthTRI)
 			else:
-				wlTRI = TuResultsIndex(layer.name(), waterLevel, None, False)
+				wlTRI = TuResultsIndex(layer.name(), waterLevel, None, False, False, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
 				wlRes = self.tuView.tuResults.getResult(wlTRI)
-				bedTRI = TuResultsIndex(layer.name(), bedElevation, None, False)
+				bedTRI = TuResultsIndex(layer.name(), bedElevation, None, False, False, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
 				bedRes = self.tuView.tuResults.getResult(bedTRI)
 
 			# get mesh intercepts and faces
@@ -589,7 +589,7 @@ class TuPlot2D():
 				# if '_ts' not in resultType and '_lp' not in resultType and 'Maximum' not in resultType and \
 				# 		'bed elevation' not in resultType.lower() and 'time' not in resultType and \
 				# 		'dur' not in resultType:
-					tuResultsIndex = TuResultsIndex(layer.name(), resultType, None, False)
+					tuResultsIndex = TuResultsIndex(layer.name(), resultType, None, False, False, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
 					res = self.tuView.tuResults.getResult(tuResultsIndex)
 					if len(res) > 1:
 						noTimesteps.append(len(res))

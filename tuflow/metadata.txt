@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.1.4.1
+version=3.1.4.5
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,16 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=### 3.1.4.1 ###
+changelog=### 3.1.4.4 ###
+          For QGIS 3.16+ TUFLOW viewer now adopts absolute time as default
+
+          ### 3.1.4.3 ###
+          Reload layer tool no longer produces an error for non-vector layers - it still only works for vector layers
+
+          ### 3.1.4.2 ###
+          ARR tool now recognises NaN rainfall loss values from the dataub and sets losses to zero
+
+          ### 3.1.4.1 ###
           Uninstalling plugin should now work unless the ReFH2 tool has been run
 
           ### 3.1.4 ###

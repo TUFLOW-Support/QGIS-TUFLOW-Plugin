@@ -2654,7 +2654,16 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 			dt.setTimeSpec(self.tuOptions.timeSpec)
 			dt = dt.toTimeSpec(1)
 
-		self.dteZeroDate.setDateTime(dt)
+		if qv >= 31600:
+			self.tpLabel.setVisible(True)
+			self.dteZeroDate.setDateTime(dt)
+			# self.dteZeroDate.setVisible(False)
+			# self.zeroDateLabel.setVisible(False)
+		else:
+			# self.dteZerodate.setVisible(True)
+			# self.zeroDateLabel.setVisible(True)
+			self.dteZeroDate.setDateTime(dt)
+			self.tpLabel.setVisible(False)
 		
 		# date format
 		self.leDateFormat.setText(convertStrftimToTuviewftim(self.tuOptions.dateFormat))

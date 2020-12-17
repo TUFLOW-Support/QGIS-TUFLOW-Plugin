@@ -6,7 +6,7 @@ import tempfile
 import zipfile
 import subprocess
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
@@ -23,7 +23,7 @@ from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, applyMatplotLibArt
                                        convertFormattedTimeToTime, getPolyCollectionExtents, getQuiverExtents,
                                        convertTimeToDate, convertFormattedDateToTime, addColourBarAxes,
                                        addLegend, addQuiverKey, datetime2timespec, convert_datetime_to_float,
-                                       convert_float_to_datetime)
+                                       convert_float_to_datetime, qdt2dt)
 import matplotlib
 import numpy as np
 try:
@@ -384,6 +384,8 @@ def transformMapCoordToLayout(layout, extent, point, margin):
 def composition_set_plots(dialog, cfg, time, layout, dir, layout_type, showCurrentTime, retainFlow):
 	from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
+	qv = Qgis.QGIS_VERSION_INT
+
 	layoutcfg = cfg['layout']
 	l = cfg['layer']
 	margin = cfg['page margin'] if 'page margin' in cfg else None
@@ -466,7 +468,10 @@ def composition_set_plots(dialog, cfg, time, layout, dir, layout_type, showCurre
 			addLegend(fig, ax, ax2, properties.cboLegendPos.currentIndex())
 		fig.tight_layout()
 		datetimestr = '{0}'.format(datetime.now()).replace(':', '-')
-		fname = os.path.join('{0}'.format(cfg['tmpdir']), '{0}-{1}-{2}-{3}.svg'.format(l.name(), plot, time, datetimestr))
+		if qv < 31600:
+			fname = os.path.join('{0}'.format(cfg['tmpdir']), '{0}-{1}-{2}-{3}.svg'.format(l.name(), plot, time, datetimestr))
+		else:
+			fname = os.path.join('{0}'.format(cfg['tmpdir']), '{0}-{1}-{2}.svg'.format(l.name(), plot, datetimestr))
 		fig.savefig(fname)
 		layoutcfg['plots'][plot]['source'] = fname
 		
@@ -718,14 +723,21 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 		#	                          tuResults.timeSpec)).total_seconds() / 60. / 60.
 		if time < time_from or time > time_to:
 			continue
-		timetext = convertTimeToFormattedTime(time, unit=dialog.tuView.tuOptions.timeUnits)
-		if dialog is not None:
+		if qv < 31600:
+			timetext = convertTimeToFormattedTime(time, unit=dialog.tuView.tuOptions.timeUnits)
+			if dialog is not None:
+				if dialog.tuView.tuOptions.xAxisDates:
+					# if time in dialog.tuView.tuResults.time2date:
+					if time in dialog.tuView.tuResults.time2date_tspec:
+						# timetext = dialog.tuView.tuResults.time2date[time]
+						timetext = dialog.tuView.tuResults.time2date_tspec[time]
+						timetext = dialog.tuView.tuResults._dateFormat.format(timetext)
+		else:
 			if dialog.tuView.tuOptions.xAxisDates:
-				# if time in dialog.tuView.tuResults.time2date:
-				if time in dialog.tuView.tuResults.time2date_tspec:
-					# timetext = dialog.tuView.tuResults.time2date[time]
-					timetext = dialog.tuView.tuResults.time2date_tspec[time]
-					timetext = dialog.tuView.tuResults._dateFormat.format(timetext)
+				timetext = dialog.tuView.tuResults._dateFormat.format(time)
+			else:
+				hrs = (time - cfg['reference_time']).total_seconds() / 60. / 60.
+				timetext = convertTimeToFormattedTime(hrs, unit='h')
 		cfg['time text'] = timetext
 
 		# Set to render next timesteps
@@ -2574,6 +2586,8 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		:return: void
 		"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		if not preview:
 			self.buttonBox.setEnabled(False)  # disable button box so users know something is happening
 			QApplication.setOverrideCursor(Qt.WaitCursor)
@@ -2613,16 +2627,45 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 					ptm_res.append(self.tuView.tuResults.tuResultsParticles.resultsParticles[ptm])
 
 		# Get start and end time
-		if self.tuView.tuOptions.xAxisDates:
-			tStart = self.tuView.tuPlot.convertDateToTime(self.cboStart.currentText(),
-			                                              unit=self.tuView.tuOptions.timeUnits)
-			tEnd = self.tuView.tuPlot.convertDateToTime(self.cboEnd.currentText(),
-			                                            unit=self.tuView.tuOptions.timeUnits)
+		if qv >= 31600:
+			if asd != -1:
+				resultType = self.layer.dataProvider().datasetGroupMetadata(asd).name()
+			elif avd != -1:
+				resultType = self.layer.dataProvider().datasetGroupMetadata(avd).name()
+			else:
+				resultType = 'Bed Elevation'
+		rt = self.tuView.tuResults.results[self.layer.name()][
+			'referenceTime'] if 'referenceTime' in self.tuView.tuResults.results else self.tuView.tuOptions.zeroTime
+		if qv < 31600:
+			if self.tuView.tuOptions.xAxisDates:
+				tStart = self.tuView.tuPlot.convertDateToTime(self.cboStart.currentText(),
+				                                              unit=self.tuView.tuOptions.timeUnits)
+				tEnd = self.tuView.tuPlot.convertDateToTime(self.cboEnd.currentText(),
+				                                            unit=self.tuView.tuOptions.timeUnits)
+			else:
+				tStart = convertFormattedTimeToTime(self.cboStart.currentText(),
+				                                    unit=self.tuView.tuOptions.timeUnits)
+				tEnd = convertFormattedTimeToTime(self.cboEnd.currentText(),
+				                                  unit=self.tuView.tuOptions.timeUnits)
 		else:
-			tStart = convertFormattedTimeToTime(self.cboStart.currentText(),
-			                                    unit=self.tuView.tuOptions.timeUnits)
-			tEnd = convertFormattedTimeToTime(self.cboEnd.currentText(),
-			                                  unit=self.tuView.tuOptions.timeUnits)
+			if self.tuView.tuOptions.xAxisDates:
+				tStart = datetime.strptime(self.cboStart.currentText(), self.tuView.tuResults.dateFormat)
+				tEnd = datetime.strptime(self.cboEnd.currentText(), self.tuView.tuResults.dateFormat)
+			else:
+				tStart = convertFormattedTimeToTime(self.cboStart.currentText(),
+				                                    unit=self.tuView.tuOptions.timeUnits)
+				tEnd = convertFormattedTimeToTime(self.cboEnd.currentText(),
+				                                  unit=self.tuView.tuOptions.timeUnits)
+				if self.tuView.tuOptions.timeUnits == 's':
+					tStart = rt + timedelta(seconds=tStart)
+					tEnd = rt + timedelta(seconds=tEnd)
+				else:
+					try:
+						tStart = rt + timedelta(hours=tStart)
+						tEnd = rt + timedelta(hours=tEnd)
+					except OverflowError:
+						tStart = rt + timedelta(seconds=tStart)
+						tEnd = rt + timedelta(seconds=tEnd)
 		#tStart = self.cboStart.currentText().split(':')
 		#tStart = float(tStart[0]) + float(tStart[1]) / 60 + float(tStart[2]) / 3600
 		#tStartKey = '{0:.4f}'.format(tStart)
@@ -2755,20 +2798,39 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		prog = lambda i, count: self.updateProgress(i, count)  # progress bar
 
 		timesteps = []
-		for i in range(self.cboStart.count()):
-			if self.tuView.tuOptions.xAxisDates:
-				timeconverted = self.tuView.tuPlot.convertDateToTime(self.cboStart.itemText(i),
-				                                                          unit=self.tuView.tuOptions.timeUnits)
-				if timeconverted == -99999.:
-					QMessageBox.information(self, 'Input Error', 'Error converting input start date')
-					return
-			else:
-				timeconverted = convertFormattedTimeToTime(self.cboStart.itemText(i),
-				                                                unit=self.tuView.tuOptions.timeUnits)
-				if timeconverted == -99999.:
-					QMessageBox.information(self, 'Input Error', 'Error converting input start date')
-					return
-			timesteps.append(timeconverted)
+		if qv < 31600:
+			for i in range(self.cboStart.count()):
+				if self.tuView.tuOptions.xAxisDates:
+					timeconverted = self.tuView.tuPlot.convertDateToTime(self.cboStart.itemText(i),
+					                                                          unit=self.tuView.tuOptions.timeUnits)
+					if timeconverted == -99999.:
+						QMessageBox.information(self, 'Input Error', 'Error converting input start date')
+						return
+				else:
+					timeconverted = convertFormattedTimeToTime(self.cboStart.itemText(i),
+					                                                unit=self.tuView.tuOptions.timeUnits)
+					if timeconverted == -99999.:
+						QMessageBox.information(self, 'Input Error', 'Error converting input start date')
+						return
+				timesteps.append(timeconverted)
+		else:
+			for i in range(self.cboStart.count()):
+				if self.tuView.tuOptions.xAxisDates:
+					date = datetime.strptime(self.cboStart.itemText(i), self.tuView.tuResults.dateFormat)
+				else:
+					timeconverted = convertFormattedTimeToTime(self.cboStart.itemText(i),
+					                                           unit=self.tuView.tuOptions.timeUnits)
+					if timeconverted == -99999.:
+						QMessageBox.information(self, 'Input Error', 'Error converting input start date')
+						return
+					if self.tuView.tuOptions.timeUnits == 's':
+						date = rt + timedelta(seconds=timeconverted)
+					else:
+						try:
+							date = rt + timedelta(hours=timeconverted)
+						except OverflowError:
+							date = rt + timedelta(seconds=timeconverted)
+				timesteps.append(date)
 
 		# put collected data into dictionary for easy access later
 		d = {'layer': self.layer,
@@ -2787,6 +2849,8 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		     'turesults': self.tuView.tuResults,
 		     'timesteps': timesteps,
 			 }
+		if qv >= 31600:
+			d['reference_time'] = rt
 		
 		for pb, dialog in self.pbDialogs.items():
 			dialog.setDefaults(self, self.dialog2Plot[dialog][0].text(), self.dialog2Plot[dialog][1].text().split(';;'),

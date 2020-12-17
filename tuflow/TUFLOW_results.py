@@ -2008,7 +2008,6 @@ class ResData():
 		return error, message
 
 	def LP_getData(self,dat_type,time,dt_tol):
-
 		error = False
 		message = None
 		dt_abs = abs(self.times - time)
@@ -3708,7 +3707,144 @@ class ResData():
 			return self.Data_2D.D.Values[:,1]
 		else:
 			return []
-		
+
+	def timeSteps_relative(self):
+		"""
+		Returns a list of the available time steps. Assumes all time series results have the same timesteps.
+
+		timesteps will be return in respect to zero_time:
+			if results have reference time: relative times will be updated
+			if results do not have reference time: absolute times will be updated (i.e. reference time will be updated)
+
+		:return: list -> float time (hr)
+		"""
+
+		rt = self.reference_time
+
+		if self.Data_1D.H.loaded:
+			return self.Data_1D.H.Values[:, 1]
+		elif self.Data_1D.V.loaded:
+			return self.Data_1D.V.Values[:, 1]
+		elif self.Data_1D.E.loaded:
+			return self.Data_1D.E.Values[:, 1]
+		elif self.Data_1D.Q.loaded:
+			return self.Data_1D.Q.Values[:, 1]
+		elif self.Data_1D.A.loaded:
+			return self.Data_1D.A.Values[:, 1]
+		elif self.Data_2D.H.loaded:
+			return self.Data_2D.H.Values[:, 1]
+		elif self.Data_2D.V.loaded:
+			return self.Data_2D.V.Values[:, 1]
+		elif self.Data_2D.Q.loaded:
+			return self.Data_2D.Q.Values[:, 1]
+		elif self.Data_2D.GL.loaded:
+			return self.Data_2D.GL.Values[:, 1]
+		elif self.Data_2D.QA.loaded:
+			return self.Data_2D.QA.Values[:, 1]
+		elif self.Data_2D.QI.loaded:
+			return self.Data_2D.QI.Values[:, 1]
+		elif self.Data_2D.Vx.loaded:
+			return self.Data_2D.Vx.Values[:, 1]
+		elif self.Data_2D.Vy.loaded:
+			return self.Data_2D.Vy.Values[:, 1]
+		elif self.Data_2D.QS.loaded:
+			return self.Data_2D.QS.Values[:, 1]
+		elif self.Data_2D.HUS.loaded:
+			return self.Data_2D.HUS.Values[:, 1]
+		elif self.Data_2D.HDS.loaded:
+			return self.Data_2D.HDS.Values[:, 1]
+		elif self.Data_2D.HAvg.loaded:
+			return self.Data_2D.HAvg.Values[:, 1]
+		elif self.Data_2D.HMax.loaded:
+			return self.Data_2D.HMax.Values[:, 1]
+		elif self.Data_2D.QIn.loaded:
+			return self.Data_2D.QIn.Values[:, 1]
+		elif self.Data_2D.QOut.loaded:
+			return self.Data_2D.QOut.Values[:, 1]
+		elif self.Data_2D.SS.loaded:
+			return self.Data_2D.SS.Values[:, 1]
+		elif self.Data_2D.Vol.loaded:
+			return self.Data_2D.Vol.Values[:, 1]
+		elif self.Data_RL.H_P.loaded:
+			return self.Data_RL.H_P.Values[:, 1]
+		elif self.Data_RL.Q_L.loaded:
+			return self.Data_RL.Q_L.Values[:, 1]
+		elif self.Data_RL.Vol_R.loaded:
+			return self.Data_RL.Vol_R.Values[:, 1]
+		elif self.Data_2D.D.loaded:
+			return self.Data_2D.D.Values[:, 1]
+		else:
+			return []
+
+	def timeSteps_absolute(self):
+		"""
+		Returns a list of the available time steps. Assumes all time series results have the same timesteps.
+
+		timesteps will be return in respect to zero_time:
+			if results have reference time: relative times will be updated
+			if results do not have reference time: absolute times will be updated (i.e. reference time will be updated)
+
+		:return: list -> float time (hr)
+		"""
+
+		rt = self.reference_time
+
+		timesteps = []
+		if self.Data_1D.H.loaded:
+			timesteps = self.Data_1D.H.Values[:, 1]
+		elif self.Data_1D.V.loaded:
+			timesteps = self.Data_1D.V.Values[:, 1]
+		elif self.Data_1D.E.loaded:
+			timesteps = self.Data_1D.E.Values[:, 1]
+		elif self.Data_1D.Q.loaded:
+			timesteps = self.Data_1D.Q.Values[:, 1]
+		elif self.Data_1D.A.loaded:
+			timesteps = self.Data_1D.A.Values[:, 1]
+		elif self.Data_2D.H.loaded:
+			timesteps = self.Data_2D.H.Values[:, 1]
+		elif self.Data_2D.V.loaded:
+			timesteps = self.Data_2D.V.Values[:, 1]
+		elif self.Data_2D.Q.loaded:
+			timesteps = self.Data_2D.Q.Values[:, 1]
+		elif self.Data_2D.GL.loaded:
+			timesteps = self.Data_2D.GL.Values[:, 1]
+		elif self.Data_2D.QA.loaded:
+			timesteps = self.Data_2D.QA.Values[:, 1]
+		elif self.Data_2D.QI.loaded:
+			timesteps = self.Data_2D.QI.Values[:, 1]
+		elif self.Data_2D.Vx.loaded:
+			timesteps = self.Data_2D.Vx.Values[:, 1]
+		elif self.Data_2D.Vy.loaded:
+			timesteps = self.Data_2D.Vy.Values[:, 1]
+		elif self.Data_2D.QS.loaded:
+			timesteps = self.Data_2D.QS.Values[:, 1]
+		elif self.Data_2D.HUS.loaded:
+			timesteps = self.Data_2D.HUS.Values[:, 1]
+		elif self.Data_2D.HDS.loaded:
+			timesteps = self.Data_2D.HDS.Values[:, 1]
+		elif self.Data_2D.HAvg.loaded:
+			timesteps = self.Data_2D.HAvg.Values[:, 1]
+		elif self.Data_2D.HMax.loaded:
+			timesteps = self.Data_2D.HMax.Values[:, 1]
+		elif self.Data_2D.QIn.loaded:
+			timesteps = self.Data_2D.QIn.Values[:, 1]
+		elif self.Data_2D.QOut.loaded:
+			timesteps = self.Data_2D.QOut.Values[:, 1]
+		elif self.Data_2D.SS.loaded:
+			timesteps = self.Data_2D.SS.Values[:, 1]
+		elif self.Data_2D.Vol.loaded:
+			timesteps = self.Data_2D.Vol.Values[:, 1]
+		elif self.Data_RL.H_P.loaded:
+			timesteps = self.Data_RL.H_P.Values[:, 1]
+		elif self.Data_RL.Q_L.loaded:
+			timesteps = self.Data_RL.Q_L.Values[:, 1]
+		elif self.Data_RL.Vol_R.loaded:
+			timesteps = self.Data_RL.Vol_R.Values[:, 1]
+		elif self.Data_2D.D.loaded:
+			timesteps = self.Data_2D.D.Values[:, 1]
+
+		return [rt + timedelta(hours=x) for x in timesteps]
+
 	def getLongPlotXY(self, type, time):
 		"""
 		Generates long plot X, Y coordinates
@@ -3722,14 +3858,14 @@ class ResData():
 		message = ''
 		
 		if 'water level' in type.lower():
-			if time == -99999:
+			if int(time) == 99999:
 				return (self.LP.dist_chan_inverts, self.LP.Hmax)
 			else:
 				error, message = self.LP_getData('Water Level', time, 0.01)
 				return (self.LP.dist_chan_inverts, self.LP.Hdata)
 		
 		elif 'energy level' in type.lower():
-			if time == -99999:
+			if int(time) == 99999:
 				return (self.LP.dist_chan_inverts, self.LP.Emax)
 			else:
 				error, message = self.LP_getData('Energy Level', time, 0.01)

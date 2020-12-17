@@ -4932,6 +4932,8 @@ def convertFormattedTimeToTime(formatted_time, hour_padding=2, unit='h'):
 	"""
 
 	t = formatted_time.split(':')
+	if len(t) < 3:
+		return 0
 	h = int(t[0]) if t[0] != '' else 0
 	m = int(t[1]) if t[1] != '' else 0
 	s = float(t[2]) if t[2] != '' else 0
@@ -6561,6 +6563,16 @@ def isSame_float(a, b, prec=None):
 		prec = abs(sys.float_info.epsilon * max(a, b) * 2.)
 
 	return abs(a - b) <= prec
+
+def isSame_time(a, b, prec=None):
+	"""
+
+	"""
+
+	if prec is None:
+		prec = abs(sys.float_info.epsilon * max(a, b) * 2.)
+
+	return abs((a - b).total_seconds()) <= prec
 
 
 def qdt2dt(dt):
