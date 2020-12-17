@@ -3,6 +3,8 @@ import numpy as np
 from PyQt5.QtWidgets import QMessageBox
 from tuflow.tuflowqgis_library import (findPlotLayers, findIntersectFeat, is1dTable, is1dNetwork)
 from tuflow.TUFLOW_XS import XS_results
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
+from qgis.core import Qgis
 
 
 class TuPlot1D():
@@ -390,6 +392,8 @@ class TuPlot1D():
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		activeMeshLayers = self.tuView.tuResults.tuResults2D.activeMeshLayers  # list
 		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
 		
@@ -429,23 +433,43 @@ class TuPlot1D():
 					# get result types for all selected types
 					for type in tuResults1D.typesLP:
 						types.append('{0}_1d'.format(type))
-						
-						if '{0}_1d'.format(type) in self.tuView.tuResults.maxResultTypes:
-							type = '{0}/Maximums'.format(type)
-							time = -99999
-						if 'max' in type.lower():
-							time = -99999
+
+						if qv < 31600:
+							if '{0}_1d'.format(type) in self.tuView.tuResults.maxResultTypes:
+								type = '{0}/Maximums'.format(type)
+								time = 99999
+							if 'max' in type.lower():
+								time = -99999
+							else:
+								if timestep is None:
+									timestep = self.tuView.tuResults.activeTime
+								if timestep not in self.tuView.tuResults.timekey2time.keys():
+									xAll.append([])
+									yAll.append([])
+									labels.append('')
+									plotAsPatch.append(False)
+									plotAsPoints.append(False)
+									continue
+								time = self.tuView.tuResults.timekey2time[timestep]
 						else:
 							if timestep is None:
 								timestep = self.tuView.tuResults.activeTime
-							if timestep not in self.tuView.tuResults.timekey2time.keys():
+							isMin = False
+							isMax = False
+							if '{0}_1d'.format(type) in self.tuView.tuResults.maxResultTypes:
+								isMax = True
+							elif 'max' in type.lower():
+								isMax = True
+							tuResultsIndex = TuResultsIndex(result, '{0}_1d'.format(type), timestep, isMax, isMin,
+							                                self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
+							time = tuResultsIndex.timestep
+							if time is None:
 								xAll.append([])
 								yAll.append([])
 								labels.append('')
 								plotAsPatch.append(False)
 								plotAsPoints.append(False)
 								continue
-							time = self.tuView.tuResults.timekey2time[timestep]
 
 						x, y = res.getLongPlotXY(type, time)
 						

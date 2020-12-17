@@ -42,7 +42,8 @@ from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot1d import TuPlot1D
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuuserplotdata import TuUserPlotDataManager
 from tuflow.tuflowqgis_library import (applyMatplotLibArtist, getMean, roundSeconds, convert_datetime_to_float,
                                        generateRandomMatplotColours2, saveMatplotLibArtist,
-                                       polyCollectionPathIndexFromXY, regex_dict_val, datetime2timespec)
+                                       polyCollectionPathIndexFromXY, regex_dict_val, datetime2timespec,
+                                       convertFormattedTimeToTime)
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot3d import (TuPlot3D, ColourBar)
 
 
@@ -1306,6 +1307,8 @@ class TuPlot():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		# deal with kwargs
 		time = kwargs['time'] if 'time' in kwargs.keys() else None
 		showCurrentTime = kwargs['show_current_time'] if 'show_current_time' in kwargs.keys() else False
@@ -1352,23 +1355,60 @@ class TuPlot():
 		if self.tuView.cbShowCurrentTime.isChecked() or showCurrentTime:
 
 			# get current Time
-			if time is not None:  # use input time not current time
-				x = [time] * 2
-			else:
-				try:
-					x = [float(self.tuView.tuResults.activeTime)] * 2
-				except TypeError:  # probably no times available
-					return False
+			if qv < 31600:
+				if time is not None:  # use input time not current time
+					x = [time] * 2
+				else:
+					try:
+						x = [float(self.tuView.tuResults.activeTime)] * 2
+					except TypeError:  # probably no times available
+						return False
 
-			# check time units
-			if self.tuView.tuOptions.timeUnits == 's':
-				if x:
-					for i in range(len(x)):
-						x[i] = x[i] / 60. / 60.
-			
-			# convert to date if needed
-			if self.tuView.tuOptions.xAxisDates:
-				x = self.convertTimeToDate(x)
+				# check time units
+				if self.tuView.tuOptions.timeUnits == 's':
+					if x:
+						for i in range(len(x)):
+							x[i] = x[i] / 60. / 60.
+
+				# convert to date if needed
+				if self.tuView.tuOptions.xAxisDates:
+					x = self.convertTimeToDate(x)
+			else:
+				if time is None:
+					time = self.tuView.tuResults.activeTime
+				if not self.tuView.tuOptions.xAxisDates:
+					time, ind = self.tuView.tuResults.dateToTimeInCombobox(time)
+					# rt = self.tuView.tuOptions.zeroTime
+					# for i in range(self.tuView.cboTime.count()):  # find closest
+					# 	item = self.tuView.cboTime.itemText(i)
+					# 	timeKey = convertFormattedTimeToTime(item)
+					# 	t = self.tuView.tuResults.timekey2time[timeKey] if timeKey in self.tuView.tuResults.timekey2time else float(timeKey)
+					# 	if self.tuView.tuOptions.timeUnits == 's':
+					# 		date = rt + timedelta(seconds=t)
+					# 	else:
+					# 		try:
+					# 			date = rt + timedelta(hours=t)
+					# 		except OverflowError:
+					# 			date = rt + timedelta(seconds=t)
+					# 	if date == time:
+					# 		time = t
+					# 		break
+					# 	if i == 0:
+					# 		diff = abs((date - time).total_seconds())
+					# 	if date > time:
+					# 		diff2 = abs((date - time).total_seconds())
+					# 		if diff <= diff2:
+					# 			item = self.tuView.cboTime.itemText(max(0, i-1))
+					# 			timeKey = convertFormattedTimeToTime(item)
+					# 			time = self.tuView.tuResults.timekey2time[timeKey] if timeKey in self.tuView.tuResults.timekey2time else float(timeKey)
+					# 			break
+					# 		else:
+					# 			time = t
+					# 			break
+					# 	else:
+					# 		diff = abs((date - time).total_seconds())
+
+				x = [time, time]
 			
 			# get current Y-Axis limits
 			if not self.tuView.tuMenuBar.freezeAxisYLimits_action.isChecked():
@@ -3085,6 +3125,8 @@ class TuPlot():
 										 2: cross section plot
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+
+		qv = Qgis.QGIS_VERSION_INT
 		
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.plotEnumerator(plotNo)
@@ -3097,12 +3139,23 @@ class TuPlot():
 					labelOriginal = 'User Plot Data: {0}'.format(data.name)
 					label, artistTemplates = self.getNewPlotProperties(plotNo, [labelOriginal], None, rtype='lines')
 					if labelOriginal not in labels[0]:
-						x = data.x[:]
-						if self.tuView.tuOptions.xAxisDates and plotNo == 0:
-							if data.dates is None:
-								x = self.convertTimeToDate(x)
+						if qv < 31600:
+							x = data.x[:]
+							if self.tuView.tuOptions.xAxisDates and plotNo == TuPlot.TimeSeries:
+								if data.dates is None:
+									x = self.convertTimeToDate(x)
+								else:
+									x = data.dates[:]
+						else:
+							rt = data.referenceTime if data.referenceTime is not None else self.tuView.tuOptions.zeroTime
+							if self.tuView.tuOptions.xAxisDates and plotNo == TuPlot.TimeSeries:
+								if data.dates:
+									x = data.dates[:]
+								else:
+									x = [rt + timedelta(hours=x) for x in data.x]
 							else:
-								x = data.dates[:]
+								x = data.x[:]
+
 						y = data.y[:]
 						a, = subplot.plot(x, y, label=label[0])
 						self.plotData[TuPlot.DataUserData].append(a)

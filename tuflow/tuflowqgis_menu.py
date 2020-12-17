@@ -624,8 +624,9 @@ class tuflowqgis_menu:
 	def reload_data(self):
 		layer = self.iface.mapCanvas().currentLayer()
 		if layer is not None:
-			layer.dataProvider().forceReload()
-			layer.triggerRepaint()
+			if isinstance(layer, QgsVectorLayer):
+				layer.dataProvider().forceReload()
+				layer.triggerRepaint()
 
 	def filterAndSortLayers(self):
 		self.filterSortLayerDialog = FilterSortLayersDialog(self.iface)
@@ -652,14 +653,14 @@ class tuflowqgis_menu:
 			self.refh2Dock.show()
 		else:
 			# test if checksum.pyd can be imported
-			try:
-				from tuflow.ReFH2.checksum import checkSum
-			except ImportError:
-				QMessageBox.critical(self.iface.mainWindow(), "ReFH2",
-				                     "Could not import checksum from checksum.pyd. This can be caused by an "
-				                     "organisation's 'Group Policy' as part of IT security. "
-				                     "Please contact your system administrator.")
-				return
+			# try:
+			# 	from tuflow.ReFH2.checksum import checkSum
+			# except ImportError:
+			# 	QMessageBox.critical(self.iface.mainWindow(), "ReFH2",
+			# 	                     "Could not import checksum from checksum.pyd. This can be caused by an "
+			# 	                     "organisation's 'Group Policy' as part of IT security. "
+			# 	                     "Please contact your system administrator.")
+			# 	return
 
 			self.refh2Dock = Refh2Dock(self.iface)
 			self.iface.addDockWidget(Qt.RightDockWidgetArea, self.refh2Dock)

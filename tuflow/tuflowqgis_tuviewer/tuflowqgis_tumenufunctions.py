@@ -441,13 +441,31 @@ class TuMenuFunctions():
 			self.tuView.renderMap()
 		if self.tuView.tuOptions.xAxisDates != xAxisDatesPrev:
 			#self.tuView.tuResults.updateResultTypes()
-			self.tuView.tuResults.updateTimeUnits()
+			self.tuView.cbShowAsDates.setChecked(self.tuView.tuOptions.xAxisDates)
+			# self.tuView.tuResults.updateTimeUnits()
 		if self.tuView.tuOptions.timeUnits != timeUnitsPrev:
 			self.tuView.tuResults.updateTimeUnits()
 		# if self.tuView.tuOptions.xAxisDates:
 		if self.tuView.tuOptions.zeroTime != zeroDatePrev:
-			#self.tuView.tuResults.updateDateTimes()
-			self.tuView.tuResults.updateDateTimes2()
+			# if qv >= 31600:
+			# 	times = []
+			# 	diff = (self.tuView.tuOptions.zeroTime - zeroDatePrev).total_seconds() / 60. / 60.
+			# 	for i in range(self.tuView.cboTime.count()):
+			# 		if self.tuView.tuOptions.xAxisDates:
+			# 			time = self.tuView.tuResults.date2time[datetime.strptime(item, self.tuView.tuResults.dateFormat)]
+			# 		else:
+			# 			item = self.tuView.cboTime.itemText(i)
+			# 			timeKey = self.tuView.tuResults.cboTime2timekey[item]
+			# 			time = self.tuView.tuResults.timekey2time[timeKey]
+			# 		times.append(time + diff)
+			# 	self.tuView.tuResults.timekey2time.clear()
+			# 	self.tuView.tuResults.timekey2time = {'{0:.6f}'.format(x): x for x in times}
+
+			self.tuView.tuResults.updateDateTimes()
+
+			if qv >= 31600:
+				self.tuView.tuResults.updateResultTypes()
+			#self.tuView.tuResults.updateDateTimes2()
 
 		self.tuView.tuPlot.updateCurrentPlot(self.tuView.tabWidget.currentIndex(), update='1d and 2d only')
 		self.tuView.tuPlot.tuPlotToolbar.cursorTrackingButton.setChecked(self.tuView.tuOptions.liveMapTracking)

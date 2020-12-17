@@ -32,6 +32,8 @@ class TuResultsParticles():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		if not have_netCDF4:
 			return False
 
@@ -49,6 +51,9 @@ class TuResultsParticles():
 				mLayer, name = self._load_file(m)
 			else:
 				mLayer, name = self._load_file(f)
+
+			if qv >= 31600:
+				self.tuView.tuResults.updateDateTimes()
 
 			if mLayer is None or name is None:
 				if not skipConnect:
@@ -78,6 +83,13 @@ class TuResultsParticles():
 		return True
 
 	def _load_file(self, filename):
+		qv = Qgis.QGIS_VERSION_INT
+		if qv < 31600:
+			return self._load_file_old(filename)
+		else:
+			return self._load_file_31600(filename)
+
+	def _load_file_old(self, filename):
 		qv = Qgis.QGIS_VERSION_INT
 
 		if not filename:
@@ -187,6 +199,80 @@ class TuResultsParticles():
 		# Failure
 		return None, None
 
+	def _load_file_31600(self, filename):
+		qv = Qgis.QGIS_VERSION_INT
+
+		if not filename:
+			return None, None
+
+		self.debug = self.tuView.tuOptions.particlesWriteDebugInfo  # ES
+
+		if self.tuView.OpenResults.count() == 0:
+			defaultRefTime = self.tuView.tuOptions.defaultZeroTime
+		else:
+			defaultRefTime = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
+
+		particles_data_provider = TuParticlesDataProvider()
+		if particles_data_provider.load_file(filename, defaultRefTime):
+			# create vector layer with correct attributes
+			displayname = os.path.basename(filename)
+			self.tuView.tuResults.results[displayname] = {}
+			# ES added CRS
+			if particles_data_provider.crs is None:
+				crs = self.tuView.project.crs()
+			else:
+				crs = particles_data_provider.crs
+			uri = "pointZ?crs={0}".format(crs.authid().lower())
+			# vlayer = QgsVectorLayer("PointZ", displayname, "memory")
+			vlayer = QgsVectorLayer(uri, displayname, "memory")
+			vlayer.dataProvider().addAttributes(self._get_attributes_list(particles_data_provider))
+			vlayer.updateFields()
+
+			# add styles
+			dir_path = os.path.dirname(os.path.realpath(__file__))
+			styles_folder = os.path.join(dir_path, os.pardir, "QGIS_Styles", "particles", "*.qml")
+			styles = glob.glob(styles_folder)
+			# ES make sure default.qml is last otherwise default style is overwritten by each subsequent style
+			styles = sorted(styles, key=lambda x: 1 if re.findall(r'default.qml$', x, flags=re.IGNORECASE) else 0)
+			style_manager = vlayer.styleManager()
+			for style in styles:
+				# style_name = os.path.basename(style).strip('.qml')
+				style_name = os.path.splitext(os.path.basename(style))[0]  # ES
+				(_, success) = vlayer.loadNamedStyle(style)
+				if not success:
+					style_manager.removeStyle(style)
+
+				style_manager.addStyleFromLayer(style_name)
+			style_manager.setCurrentStyle("default")
+
+			# populate resdata
+			timekey2time = self.tuView.tuResults.timekey2time  # dict
+			zeroTime = particles_data_provider.getReferenceTime()  # this is timespec(1)
+			if self.tuView.OpenResults.count() == 0:
+				self.tuView.tuOptions.zeroTime = datetime2timespec(zeroTime, 1, self.tuView.tuResults.timeSpec)
+				self.tuView.tuOptions.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+				self.tuView.tuResults.loadedTimeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+
+			timesteps = particles_data_provider.timeSteps(datetime2timespec(self.tuView.tuOptions.zeroTime, 1, 1))
+			for t in timesteps:
+				timekey2time['{0:.6f}'.format(t)] = t
+
+			self.tuView.tuResults.results[displayname]["_particles"] = {'times': {'{0:.6f}'.format(x): [x] for x in timesteps},
+			                                                            'referenceTime': particles_data_provider.reference_time}
+
+
+			# add to internal storage
+			self.resultsParticles[displayname] = [particles_data_provider, vlayer, timesteps]
+
+			# load first step
+			self.updateActiveTime()
+
+			# Return
+			return vlayer, displayname
+
+		# Failure
+		return None, None
+
 	def removeResults(self, resList):
 		"""
 		Removes the Particles results from the indexed results and ui.
@@ -233,6 +319,13 @@ class TuResultsParticles():
 		return True
 
 	def updateActiveTime(self, time=None):
+		qv = Qgis.QGIS_VERSION_INT
+		if qv < 31600:
+			self.updateActiveTime_old(time)
+		else:
+			self.updateActiveTime_31600(time)
+
+	def updateActiveTime_old(self, time=None):
 		"""
 		Loads a new set of particles for next timestep
 		"""
@@ -274,6 +367,49 @@ class TuResultsParticles():
 				vlayer.updateExtents()
 				vlayer.triggerRepaint()
 
+	def updateActiveTime_31600(self, date=None):
+		"""
+		Loads a new set of particles for next timestep
+		"""
+
+		self.debug = self.tuView.tuOptions.particlesWriteDebugInfo  # ES
+
+		if date is None:
+			active_date = self.tuView.tuResults.activeTime
+		else:
+			active_date = date
+
+		for _, data in self.resultsParticles.items():
+			particles_data_provider = data[0]
+			vlayer = data[1]
+
+			if active_date is None:
+				time_index = 0
+			else:
+				# find closest
+				for time_index, date in enumerate(particles_data_provider.times):
+					if date == active_date:
+						break
+					if time_index == 0:
+						diff = abs((date - active_date).total_seconds())
+					if date > active_date:
+						diff2 = abs((date - active_date).total_seconds())
+						if diff <= diff2:
+							time_index = max(0, time_index - 1)
+							break
+						else:
+							break
+					else:
+						diff = abs((date - active_date).total_seconds())
+
+			# re-populate particles
+			if vlayer is not None:
+				self._updateVectorLayerAttributes(vlayer, self.debug)
+				points = self._get_features(particles_data_provider, vlayer, time_index)
+				vlayer.dataProvider().truncate()
+				vlayer.dataProvider().addFeatures(points)
+				vlayer.updateExtents()
+				vlayer.triggerRepaint()
 
 	def _get_attributes_list(self, particles_data_provider):
 		attrs = []

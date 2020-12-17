@@ -22,6 +22,7 @@ from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, findAllMeshLyrs, c
 from tuflow.tuflowqgis_dialog import tuflowqgis_meshSelection_dialog
 from tuflow.TUFLOW_XS import XS
 from tuflow.TUFLOW_1dTa import HydTables
+from datetime import timedelta
 
 class TuView(QDockWidget, Ui_Tuplot):
 	
@@ -114,6 +115,9 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.setTabVisible(TuPlot.CrossSection1D, False)
 
 		self.SecondMenu.setVisible(False)
+
+		# show as dates
+		self.cbShowAsDates.setChecked(self.tuOptions.xAxisDates)
 
 		narrowWidth = self.pbShowPlotWindow.minimumSizeHint().width() + \
 		              self.mainMenuSecond_2.minimumSizeHint().width()
@@ -602,6 +606,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.btnLast.clicked.connect(lambda: self.timeComboChanged(2))
 			self.btnTimePlay.clicked.connect(self.playThroughTimesteps)
 			self.btn2dLock.clicked.connect(self.timestepLockChanged)
+			self.cbShowAsDates.clicked.connect(self.showAsDatesToggled)
 
 			# qgis time controller
 			if qv >= 31300:
@@ -1003,7 +1008,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		:return:
 		"""
-		
+
 		self.tuResults.updateActiveTime()
 		
 		self.renderMap()
@@ -1036,6 +1041,13 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.tuResults.updateResultTypes()
 
 	def qgsTimeChanged(self):
+		qv = Qgis.QGIS_VERSION_INT
+		if qv < 31600:
+			self.qgsTimeChanged_old()
+		else:
+			self.qgsTimeChanged_31600()
+
+	def qgsTimeChanged_old(self):
 		"""
 
 		"""
@@ -1061,3 +1073,50 @@ class TuView(QDockWidget, Ui_Tuplot):
 				self.cboTime.setCurrentIndex(i)
 				return
 
+	def qgsTimeChanged_31600(self):
+		"""
+
+		"""
+
+		if self.tuResults.timeSpec != self.iface.mapCanvas().temporalRange().begin().timeSpec():
+			self.tuResults.updateTemporalProperties()
+			return
+
+		t = self.tuResults.getTuViewTimeFromQgsTime()
+		tf = None
+		if type(t) is datetime:
+			if self.tuOptions.xAxisDates:
+				tf = self.tuResults._dateFormat.format(t)  # time formatted
+			else:
+				for i, (cboTime, timeKey) in enumerate(self.tuResults.cboTime2timekey.items()):
+					time = self.tuResults.timekey2time[timeKey]
+					tf = cboTime
+					if self.tuOptions.timeUnits == 's':
+						date = self.tuOptions.zeroTime + timedelta(seconds=time)
+					else:
+						try:
+							date = self.tuOptions.zeroTime + timedelta(hours=time)
+						except OverflowError:
+							date = self.tuOptions.zeroTime + timedelta(seconds=time)
+					if t == date:
+						break
+					if i == 0:
+						diff = abs((t - date).total_seconds())
+					if date > t:
+						diff2 = abs((t - date).total_seconds())
+						if diff < diff2:
+							tf = [x for x in self.tuResults.cboTime2timekey][max(0, i-1)]
+							break
+						else:
+							break
+					else:
+						diff = abs((t - date).total_seconds())
+
+		for i in range(self.cboTime.count()):
+			if self.cboTime.itemText(i) == tf:
+				self.cboTime.setCurrentIndex(i)
+				return
+
+	def showAsDatesToggled(self):
+		self.tuOptions.xAxisDates = self.cbShowAsDates.isChecked()
+		self.tuResults.updateTimeUnits()

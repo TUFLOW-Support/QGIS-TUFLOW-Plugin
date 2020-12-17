@@ -200,7 +200,7 @@ class TuPlot3D(TuPlot2D):
                     isMin = self.tuView.tuResults.isMin(rtype)
 
                 # get QgsMeshDatasetIndex
-                tuResultsIndex = TuResultsIndex(layer.name(), rtype, timestep, isMax, isMin)
+                tuResultsIndex = TuResultsIndex(layer.name(), rtype, timestep, isMax, isMin, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
                 meshDatasetIndex = self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower')
                 if not meshDatasetIndex:
                     continue
@@ -345,7 +345,7 @@ class TuPlot3D(TuPlot2D):
                     isMin = self.tuView.tuResults.isMin(rtype)
 
                 # get QgsMeshDatasetIndex
-                tuResultsIndex = TuResultsIndex(layer.name(), rtype, timestep, isMax, isMin)
+                tuResultsIndex = TuResultsIndex(layer.name(), rtype, timestep, isMax, isMin, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
                 meshDatasetIndex = self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower')
                 if not meshDatasetIndex:
                     continue

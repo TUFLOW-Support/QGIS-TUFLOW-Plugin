@@ -42,6 +42,8 @@ class TuResults1D():
 		:param inFileNames: list -> str tpc file paths
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+
+		qv = Qgis.QGIS_VERSION_INT
 		
 		openResults = self.tuView.OpenResults  # QListWidget
 		results = self.tuView.tuResults.results  # dict of indexed results
@@ -71,6 +73,9 @@ class TuResults1D():
 			# index results
 			index = self.getResultMetaData(res)
 			self.results1d[res.displayname] = res
+
+			if qv >= 31600:
+				self.tuView.tuResults.updateDateTimes()
 			
 			# add result to list widget
 			openResultNames = []
@@ -155,8 +160,15 @@ class TuResults1D():
 		layer = QgsVectorLayer(fpath, basename, 'ogr')
 		
 		return layer, basename
-	
+
 	def getResultMetaData(self, result):
+		qv = Qgis.QGIS_VERSION_INT
+		if qv < 31600:
+			self.getResultMetaData_old(result)
+		else:
+			self.getResultMetaData_31600(result)
+	
+	def getResultMetaData_old(self, result):
 		"""
 		Get result types and timesteps for 1D results
 		
@@ -231,6 +243,65 @@ class TuResults1D():
 		metadata1d = (resultTypes, timesteps)
 		results[result.displayname]['line_lp'] = metadata1d
 		
+		return True
+
+	def getResultMetaData_31600(self, result):
+		"""
+		Get result types and timesteps for 1D results
+
+		:param result: TUFLOW_results.ResData
+		:return: bool -> True for successful, False for unsuccessful
+		"""
+		qv = Qgis.QGIS_VERSION_INT
+
+		results = self.tuView.tuResults.results  # dict
+		timekey2time = self.tuView.tuResults.timekey2time  # dict
+		zeroTime = self.tuView.tuOptions.zeroTime  # datetime
+
+		if result.displayname not in results.keys():
+			results[result.displayname] = {}
+
+		if self.tuView.OpenResults.count() == 0:
+			self.tuView.tuOptions.zeroTime = datetime2timespec(self.getReferenceTime(result, defaultZeroTime=zeroTime),
+			                                                   1, self.tuView.tuResults.timeSpec)
+			if qv >= 31300:
+				self.tuView.tuOptions.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+				self.tuView.tuResults.loadedTimeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+		self.configTemporalProperties(result)
+
+		timesteps = result.timeSteps()
+		for t in timesteps:
+			timekey2time['{0:.6f}'.format(t)] = t
+		results[result.displayname]['point_ts'] = {'times': {'{0:.6}'.format(x): [x] for x in timesteps},
+		                                           'referenceTime': result.reference_time}
+		results[result.displayname]['line_ts'] = {'times': {'{0:.6}'.format(x): [x] for x in timesteps},
+		                                          'referenceTime': result.reference_time}
+		results[result.displayname]['region_ts'] = {'times': {'{0:.6}'.format(x): [x] for x in timesteps},
+		                                            'referenceTime': result.reference_time}
+		results[result.displayname]['line_lp'] = {'times': {'{0:.6}'.format(x): [x] for x in timesteps},
+		                                          'referenceTime': result.reference_time}
+
+		resultTypes = result.pointResultTypesTS()
+		metadata1d = [resultTypes]
+		results[result.displayname]['point_ts']['metadata'] = metadata1d
+
+		# if 'line_ts' not in results[result.displayname].keys():
+		resultTypes = result.lineResultTypesTS()
+		if 'Velocity' in resultTypes and 'Velocity' in result.pointResultTypesTS():
+			resultTypes.remove('Velocity')
+		metadata1d = [resultTypes]
+		results[result.displayname]['line_ts']['metadata'] = metadata1d
+
+		# if 'region_ts' not in results[result.displayname].keys():
+		resultTypes = result.regionResultTypesTS()
+		metadata1d = [resultTypes]
+		results[result.displayname]['region_ts']['metadata'] = metadata1d
+
+		# if 'line_lp' not in results[result.displayname].keys():
+		resultTypes = result.lineResultTypesLP()
+		metadata1d = [resultTypes]
+		results[result.displayname]['line_lp']['metadata'] = metadata1d
+
 		return True
 	
 	def updateSelectedResults(self, layer):
