@@ -23,12 +23,40 @@ def getCheckSum(descriptor):
 
     try:
         cs = checkSum(descriptor)
-        del checkSum
-        # del checksum
-        del sys.modules['checksum']
     except:
         return None
     return cs
+
+
+def refh2Version(exe):
+    """Returns refh2 version."""
+
+    args = [exe, '--version']
+    CREATE_NO_WINDOW = 0x08000000
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            creationflags=CREATE_NO_WINDOW)
+    proc.wait()
+    out, err = proc.communicate()
+    return out.decode('utf-8').strip()
+
+
+def isBFIHOST19Descriptor(descriptor) -> bool:
+    """
+
+    :param descriptor: str
+    :return: bool
+    """
+
+    isBFIHOST19Descriptor = False
+
+    try:
+        text = ''.join(open(descriptor, "r").readlines())
+        if re.findall(r"<bfihost19.*>", text, flags=re.IGNORECASE):
+            isBFIHOST19Descriptor = True
+    except:
+        pass
+
+    return isBFIHOST19Descriptor
 
 
 class Refh2(QObject):
@@ -81,7 +109,7 @@ class Refh2(QObject):
         
         :return: None
         """
-        
+
         if 'exe' not in self.inputs:
             exeLoc = self.findExe()
             if 'error' in exeLoc:
@@ -107,8 +135,27 @@ class Refh2(QObject):
         seasonality = '--seasonality={0}'.format(self.inputs['season'])
         plotscale = '--plotscale=NO'
         area = '--area={0}'.format(self.inputs['area'])
+        urbanArea = '--urbanarea={0}'.format(self.inputs['urban area'])
         reportoutputfolder = '--reportoutputfolder={0}'.format(os.path.dirname(self.inputs['output file']))
         rainModel = '--rainmodel={0}'.format(self.inputs['rain model'])
+        engine = '--engine={0}'.format(self.inputs['engine version'])
+
+        # version check
+        refv = refh2Version(exe)
+        refv_list = refv.split('.')
+        refv_float = float('{0}.{1}'.format(*refv_list[:2]))
+        isBFIHOST19 = isBFIHOST19Descriptor(self.inputs['descriptor'])
+        msg = None
+        if refv_float < 3.0 and isBFIHOST19:
+            msg = f"Installed ReFH2 version ({refv}) does not support BFIHOST19 Descriptors\n" \
+                  f"Please download and install the latest from the WHS Website."
+            self.finished.emit(msg)
+            return
+        if refv_float < 3.2 and self.inputs['engine version'] > 2.2:
+            msg = f"Installed ReFH2 version ({refv}) does not support engine version 2.3\n" \
+                  f"Please download and install the latest from the WHS Website or choose engine version 2.2."
+            self.finished.emit(msg)
+            return
 
         durations = self.inputs['durations']
         timesteps = self.inputs['timesteps']
@@ -125,7 +172,7 @@ class Refh2(QObject):
                 self.inputs['output file final'] = outfile[10:]
                 args = [exe, infile, outfile, checksum, vendor, mode, returnperiods,
                         country, model, seasonality, plotscale, area, reportoutputfolder,
-                        rainModel]
+                        rainModel, engine, urbanArea]
 
                 if dur is not None:
                     outfile = '--outfile={0}_{1}_{2}.csv'.format(self.inputs['output file'], m, dur.replace(':', '-'))
@@ -164,7 +211,7 @@ class Refh2(QObject):
         
         :return: None
         """
-        
+
         self.tuflowProcessingStart.emit()
 
         mIter = len(set([x for k, x in self.inputs['output hydrograph type'].items()]))
@@ -296,6 +343,7 @@ class Refh2(QObject):
         except Exception as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             self.finished.emit(f"{traceback.print_exception(exc_type, exc_value, exc_traceback)}")
+            return
         try:
             #with open(outfile, 'w') as fo:
             #    fo.write('! {0} Processed into TUFLOW Format by ReFH2 to TUFLOW QGIS Plugin Tool\n'.format(self.inputs['output file']))
@@ -385,7 +433,7 @@ class Refh2(QObject):
         
         :return: None
         """
-        
+
         # TEF file path
         tef = os.path.join(os.path.dirname(self.inputs['output file']), 'event_file.tef')
         
@@ -393,20 +441,37 @@ class Refh2(QObject):
         # all other return periods will be padded accordingly
         # e.g. 010y
         if self.inputs['zero padding'] == Refh2.AutoPad:
-            pad = len(str(max(self.inputs['return periods'])))
+            # pad = len(str(max(self.inputs['return periods'])))
+            pad = len(max([x.split('CC')[0] for x in self.inputs['return periods']]))
         elif self.inputs['zero padding'] == Refh2.NoPad:
             pad = 0
         else:
             pad = self.inputs['number zero padding']
-        rps = ['{0:0{1}d}'.format(x, pad) for x in sorted(self.inputs['return periods'])]  # sorted list with padding
-        
+        # rps = ['{0:0{1}d}'.format(x, pad) for x in sorted(self.inputs['return periods'])]  # sorted list with padding
+        rps = []
+        for rp in sorted(self.inputs['return periods'], key=lambda x: int(x.split('CC')[0]) if len(x.split('CC')) == 1 else int(x.split('CC')[0]) + 100000):
+            x = rp.split('CC')
+            if len(x) == 1:
+                rpf = '{0:0{1}d}'.format(int(x[0]), pad)  # rp formatted
+            else:
+                rpf = '{0:0{1}d}CC{2}'.format(int(x[0]), pad, x[1])  # rp formatted
+            rps.append(rpf)
+
         try:
             with open(tef, 'w') as fo:
                 fo.write('! TEF Written by ReFH2 to TUFLOW QGIS Plugin Tool\n\n')
                 fo.write('!! RAINFALL EVENTS !!\n')
                 for rp in rps:
-                    fo.write('Define Event == {0}yr\n'.format(rp))
-                    fo.write('    BC Event Source == ~ARI~ | {0} year\n'.format(int(rp)))
+                    if 'CC' in rp:
+                        x = rp.split('CC')
+                        fo.write('Define Event == {0}yrCC{1}\n'.format(*x))
+                        if float(x[1]) - float(int(float(x[1]))) != 0:
+                            fo.write('    BC Event Source == ~ARI~ | {0} year {1:.1f} CC\n'.format(int(x[0]), float(x[1])))
+                        else:
+                            fo.write('    BC Event Source == ~ARI~ | {0} year {1} CC\n'.format(int(x[0]), int(float(x[1]))))
+                    else:
+                        fo.write('Define Event == {0}yr\n'.format(rp))
+                        fo.write('    BC Event Source == ~ARI~ | {0} year\n'.format(int(rp)))
                     fo.write('End Define\n')
                     fo.write('!-------------------------------------\n')
                 if self.inputs['durations'][0] is not None:

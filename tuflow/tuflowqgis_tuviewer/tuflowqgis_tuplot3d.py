@@ -218,7 +218,7 @@ class TuPlot3D(TuPlot2D):
                 x, y, vm = self.getScalarDataPoint(point, layer, dp, si, mesh, meshDatasetIndex, meshRendered, onFaces,
                                                    isMax, isMin)
                 xMagnitudes.append(x)
-                data.append((x, y))
+                data.append([x, y])
                 plotAsCollection.append(False)
                 plotAsQuiver.append(False)
                 plotAsPatch.append(False)
@@ -235,7 +235,7 @@ class TuPlot3D(TuPlot2D):
                     labels.append('')
 
                 # vertical mesh - dummy x values (only concerned with y values)
-                data.append(([1, 2, 3], vm))
+                data.append([[1, 2, 3], vm])
                 labels.append('{0} - Vertical Mesh'.format(layer.name()))
                 plotVertMesh.append(True)
                 plotAsCollection.append(False)

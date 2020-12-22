@@ -7,7 +7,9 @@ from qgis.gui import QgisInterface
 from PyQt5.QtCore import *
 from PyQt5.QtGui import QIcon, QRegExpValidator, QPalette
 from PyQt5.QtWidgets import (QDockWidget, QLineEdit, QFileDialog,
-                             QComboBox, QMessageBox, QLabel)
+                             QComboBox, QMessageBox, QLabel, QListWidgetItem,
+                             QWidget, QCheckBox, QHBoxLayout, QSpacerItem, QSizePolicy,
+                             QLayout)
 from tuflow.forms.refh2_dock import Ui_refh2
 from .engine import Refh2
 from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, browse, convertFormattedTimeToTime,
@@ -22,12 +24,14 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         QDockWidget.__init__(self)
         self.setupUi(self)
         self.iface = iface
+        self.connections = []
         
         self.applyIcons()
         self.setupTimeLineEdits()
         self.addGIS()
         self.populateCboFeatures()
         self.populateCboFields()
+        self.cbCCAllActive.setLayoutDirection(Qt.RightToLeft)
 
         # input checking - add red text if an error is flagged
         self.flags = []
@@ -55,6 +59,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         self.rb1dBc.toggled.connect(self.outputToTuflowGisToggled_Runoff)
         self.rb2dBc.toggled.connect(self.outputToTuflowGisToggled_Runoff)
 
+        # other signals
         QgsProject.instance().layersAdded.connect(self.addGIS)
         QgsProject.instance().layersRemoved.connect(self.addGIS)
         self.cboInputGIS.currentIndexChanged.connect(self.populateCboFields)
@@ -65,6 +70,11 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         self.btnRemoveRP.clicked.connect(self.removeReturnPeriods)
         self.btnAddDur.clicked.connect(self.addDurTimestep)
         self.btnRemDur.clicked.connect(self.removeDurTimestep)
+        self.connectEventCheckBoxes()
+        self.cbCCAllActive.clicked.connect(self.toggleClimChangeAllActive)
+        self.connectClimChangeCheckBoxes()
+        self.rbEngine23.clicked.connect(self.toggleEngine23Enabled)
+        self.rbEngine22.clicked.connect(self.toggleEngine23Enabled)
         # self.rbRural.clicked.connect(lambda e: self.radioButtonClones(button=self.rbRural))
         # self.rbUrban.clicked.connect(lambda e: self.radioButtonClones(button=self.rbUrban))
         # self.rbRuralClone.clicked.connect(lambda e: self.radioButtonClones(button=self.rbRuralClone))
@@ -113,6 +123,8 @@ class Refh2Dock(QDockWidget, Ui_refh2):
             'gis geometry': None,
             'zero padding': Refh2.AutoPad,
             'number zero padding': 3,
+            'engine version': 2.3 if self.rbEngine23.isChecked() else 2.2,
+            'urban area': 0,
         }
         
         # populate rest with real values
@@ -151,6 +163,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
                     inputs['rainfall name'] = bname
         
         # area
+        urbanArea = self.sbAreaUrban.value()
         if self.rbUserArea.isChecked():
             area = self.sbArea.value()
         elif layerUnits is not None and feat is not None and fid is not None:
@@ -194,16 +207,29 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         if area <= 0:
             area = 0.001
         inputs['area'] = area
+        inputs['urban area'] = urbanArea
         
         # return periods
         rps = []
         aris = [1, 2, 5, 10, 30, 50, 75, 100, 200, 1000]
+        f = self.sbCCFactor.value()  # climate change factor
         for ari in aris:
             cb = eval("self.cb{0:04d}y".format(ari))
+            cb_cc = eval("self.cb{0:04d}y_CC".format(ari))  # climate change
             if cb.isChecked():
-                rps.append(ari)
+                rps.append(str(ari))
+                if cb_cc.isChecked() and cb_cc.isEnabled():
+                    rps.append("{0}CC{1:.1f}".format(ari, f))
         for i in range(self.lwRP.count()):
-            rps.append(int(self.lwRP.item(i).text().strip('year').strip()))
+            item = self.lwRP.item(i)
+            widget = self.lwRP.itemWidget(item)
+            labelRp = widget.layout().itemAt(0).widget()
+            cb = widget.layout().itemAt(2).widget()  # climate change
+            rp = labelRp.text().strip('year').strip()
+            rps.append(rp)
+            if cb.isChecked() and cb.isEnabled():
+                rp = "{0}CC{1:.1f}".format(rp, f)
+                rps.append(rp)
         inputs['return periods'] = rps
 
         # duration(s)
@@ -356,7 +382,29 @@ class Refh2Dock(QDockWidget, Ui_refh2):
             self.progressBarLabel.setText("Finished Successfully")
         self.thread.terminate()
         self.thread.wait()
-        
+
+    def returnPeriodWidget(self, rp):
+        """
+
+        """
+
+        widget = QWidget()
+        label = QLabel(rp)
+        cb = QCheckBox("CC")
+        cb.setLayoutDirection(Qt.RightToLeft)
+        if self.cbCCAllActive.isChecked():
+            cb.setChecked(True)
+        cb.stateChanged.connect(self.reAssessAllActiveCheckBox)
+        spacerItem = QSpacerItem(40, 0, QSizePolicy.Expanding, QSizePolicy.Expanding)
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 10, 0)
+        layout.addWidget(label)
+        layout.addItem(spacerItem)
+        layout.addWidget(cb)
+        widget.setLayout(layout)
+
+        return widget, layout
+
     def addReturnPeriod(self) -> None:
         """
         Adds return period in spinbox to list widget.
@@ -368,10 +416,21 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         
         rps = []
         for i in range(self.lwRP.count()):
-            rps.append(self.lwRP.item(i).text())
-        
-        if rp not in rps:
-            self.lwRP.addItem(rp)
+            item = self.lwRP.item(i)
+            widget = self.lwRP.itemWidget(item)
+            rps.append(widget.layout().itemAt(0).widget().text())
+
+        if rp in rps:
+            return
+
+        item = QListWidgetItem()
+        widget, layout = self.returnPeriodWidget(rp)
+        self.lwRP.addItem(item)
+        self.lwRP.setItemWidget(item, widget)
+
+        enabled = True if self.rbEngine23.isChecked() else False
+        cb = layout.itemAt(2).widget()
+        cb.setEnabled(enabled)
             
     def removeReturnPeriods(self) -> None:
         """
@@ -535,12 +594,159 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         
         :return: None
         """
+
+        if self.cbSelectAll.checkState() == Qt.PartiallyChecked:
+            self.cbSelectAll.setCheckState(Qt.Checked)
         
-        select = True if self.cbSelectAll.isChecked() else False
+        select = True if self.cbSelectAll.checkState() == Qt.Checked else False
         
         aris = [1, 2, 5, 10, 30, 50, 75, 100, 200, 1000]
         for ari in aris:
             eval("self.cb{0:04d}y".format(ari)).setChecked(select)
+
+    def reAssessSelectAllCheckBox(self) -> None:
+        """
+        Updates the check state of the select all checkbox
+        based on the new state of the event check boxes.
+        """
+
+        aris = [1, 2, 5, 10, 30, 50, 75, 100, 200, 1000]
+        checkedAll = []
+        for ari in aris:
+            checkedAll.append(eval("self.cb{0:04d}y".format(ari)).isChecked())
+
+        if self.cbSelectAll.checkState() == Qt.Unchecked and False not in checkedAll:
+            self.cbSelectAll.setCheckState(Qt.Checked)
+        elif self.cbSelectAll.checkState() == Qt.PartiallyChecked:
+            if True not in checkedAll:
+                self.cbSelectAll.setCheckState(Qt.Unchecked)
+            elif False not in checkedAll:
+                self.cbSelectAll.setCheckState(Qt.Checked)
+        elif self.cbSelectAll.checkState() == Qt.Checked:
+            if False in checkedAll:
+                self.cbSelectAll.setCheckState(Qt.PartiallyChecked)
+
+    def connectEventCheckBoxes(self) -> None:
+        """
+        Connects all checkboxes so that 'select all' check box
+        can change state appropriately
+        """
+
+        aris = [1, 2, 5, 10, 30, 50, 75, 100, 200, 1000]
+        for ari in aris:
+            eval("self.cb{0:04d}y".format(ari)).stateChanged.connect(self.reAssessSelectAllCheckBox)
+            eval("self.cb{0:04d}y".format(ari)).stateChanged.connect(self.alignClimateChangeCheckBox)
+
+    def toggleClimateChangeBoxes(self):
+        """
+
+        """
+
+        aris = [1, 2, 5, 10, 30, 50, 75, 100, 200, 1000]
+        for ari in aris:
+            if eval("self.cb{0:04d}y".format(ari)).isChecked():
+                eval("self.cb{0:04d}y_CC".format(ari)).setChecked(True)
+
+        for i in range(self.lwRP.count()):
+            item = self.lwRP.item(i)
+            cb = self.lwRP.itemWidget(item).layout().itemAt(2).widget()
+            cb.setChecked(True)
+
+    def toggleClimChangeAllActive(self):
+        """
+        Selects CC checkboxes for all selected events
+        """
+
+        if not self.cbCCAllActive.isChecked():
+            return
+
+        self.disconnectClimChangeCheckBoxes()
+        self.toggleClimateChangeBoxes()
+        self.connectClimChangeCheckBoxes()
+
+    def reAssessAllActiveCheckBox(self):
+        """
+
+        """
+
+        if not self.cbCCAllActive.isChecked():
+            return
+
+        aris = [1, 2, 5, 10, 30, 50, 75, 100, 200, 1000]
+        for ari in aris:
+            if eval("self.cb{0:04d}y".format(ari)).isChecked():
+                if not eval("self.cb{0:04d}y_CC".format(ari)).isChecked():
+                    self.cbCCAllActive.setChecked(False)
+                    return
+
+        for i in range(self.lwRP.count()):
+            item = self.lwRP.item(i)
+            cb = self.lwRP.itemWidget(item).layout().itemAt(2).widget()
+            if not cb.isChecked():
+                self.cbCCAllActive.setChecked(False)
+                return
+
+    def connectClimChangeCheckBoxes(self):
+        """
+
+        """
+
+        aris = [1, 2, 5, 10, 30, 50, 75, 100, 200, 1000]
+        for ari in aris:
+            eval("self.cb{0:04d}y_CC".format(ari)).stateChanged.connect(self.reAssessAllActiveCheckBox)
+
+        for i in range(self.lwRP.count()):
+            item = self.lwRP.item(i)
+            cb = self.lwRP.itemWidget(item).layout().itemAt(2).widget()
+            cb.stateChanged.connect(self.reAssessAllActiveCheckBox)
+
+    def disconnectClimChangeCheckBoxes(self):
+        """
+
+        """
+
+        aris = [1, 2, 5, 10, 30, 50, 75, 100, 200, 1000]
+        for ari in aris:
+            eval("self.cb{0:04d}y_CC".format(ari)).stateChanged.disconnect(self.reAssessAllActiveCheckBox)
+
+        for i in range(self.lwRP.count()):
+            item = self.lwRP.item(i)
+            cb = self.lwRP.itemWidget(item).layout().itemAt(2).widget()
+            cb.stateChanged.connect(self.reAssessAllActiveCheckBox)
+
+    def alignClimateChangeCheckBox(self):
+        """
+
+        """
+
+        if not self.cbCCAllActive.isChecked():
+            return
+
+        self.toggleClimateChangeBoxes()
+
+    def toggleEngine23Enabled(self):
+        """
+
+        """
+
+        enabled = True if self.rbEngine23.isChecked() else False
+
+        # urban area
+        self.label_22.setEnabled(enabled)
+        self.sbAreaUrban.setEnabled(enabled)
+
+        # climate change heading
+        self.cbCCAllActive.setEnabled(enabled)
+        self.label_20.setEnabled(enabled)
+
+        aris = [1, 2, 5, 10, 30, 50, 75, 100, 200, 1000]
+        for ari in aris:
+            eval("self.cb{0:04d}y_CC".format(ari)).setEnabled(enabled)
+
+        for i in range(self.lwRP.count()):
+            item = self.lwRP.item(i)
+            cb = self.lwRP.itemWidget(item).layout().itemAt(2).widget()
+            cb.setEnabled(enabled)
 
     def getCartesian(self, x):
         """
