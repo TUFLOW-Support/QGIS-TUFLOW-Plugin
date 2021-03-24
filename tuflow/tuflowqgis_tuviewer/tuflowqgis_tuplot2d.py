@@ -1288,9 +1288,9 @@ class TuPlot2D():
 				# one result - don't need to do this step again
 				success = self.getFaceIndexes2(si, dp, [QgsPointXY(point)], mesh)
 				if not success:
-					return
+					return [np.nan]
 				if len(self.faceIndexes) != 1:
-					return
+					return [np.nan]
 			return self.preRenderDatasetValue(mesh, layer, si, mdi, self.faceIndexes[0], QgsPointXY(point), dataType, value)
 
 	def preRenderDatasetValue(self, mesh, layer, si, result, faceIndex, point, dataType, value='scalar', avgmethod=None):

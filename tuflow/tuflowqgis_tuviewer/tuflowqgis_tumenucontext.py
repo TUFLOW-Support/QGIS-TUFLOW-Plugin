@@ -137,6 +137,7 @@ class TuContextMenu():
 		self.load1d2dResults_action = QAction('Load Results', self.resultsMenu)
 		self.load2dResults_action = QAction('Load Results - Map Outputs', self.resultsMenu)
 		self.load1dResults_action = QAction('Load Results - Time Series', self.resultsMenu)
+		self.loadFMResults_action = QAction('Load Results - Time Series FM', self.resultsMenu)
 		self.loadParticlesResults_action = QAction('Load Results - Particles', self.resultsMenu)
 		self.loadHydraulicTable_action = QAction("Import 1D Hydraulic Tables", self.resultsMenu)
 		self.remove1d2dResults_action = QAction(closeResultsIcon, 'Close Results', self.resultsMenu)
@@ -148,6 +149,7 @@ class TuContextMenu():
 		self.resultsMenu.addAction(self.load1d2dResults_action)
 		self.resultsMenu.addAction(self.load2dResults_action)
 		self.resultsMenu.addAction(self.load1dResults_action)
+		self.resultsMenu.addAction(self.loadFMResults_action)
 		self.resultsMenu.addAction(self.loadParticlesResults_action)
 		self.resultsMenu.addAction(self.loadHydraulicTable_action)
 		self.resultsMenu.addSeparator()
@@ -159,6 +161,7 @@ class TuContextMenu():
 
 		self.load2dResults_action.triggered.connect(self.tuMenuFunctions.load2dResults)
 		self.load1dResults_action.triggered.connect(self.tuMenuFunctions.load1dResults)
+		self.loadFMResults_action.triggered.connect(self.tuMenuFunctions.loadFMResults)
 		self.loadParticlesResults_action.triggered.connect(self.tuMenuFunctions.loadParticlesResults)
 		self.load1d2dResults_action.triggered.connect(self.tuMenuFunctions.load1d2dResults)
 		self.loadHydraulicTable_action.triggered.connect(self.tuMenuFunctions.loadHydraulicTables)

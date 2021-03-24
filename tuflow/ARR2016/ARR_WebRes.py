@@ -172,7 +172,7 @@ class ArrLosses:
                         self.ils = data[1]
                     if data[0].lower() == 'storm continuing losses (mm/h)':
                         self.cls_datahub = data[1]
-                        self.cls = data[1]
+                        self.cls = float(data[1].strip())
                 if finished:
                     break
         if self.ils is None or self.cls is None:
@@ -183,6 +183,10 @@ class ArrLosses:
         fi.seek(0)  # rewind file
 
         self.loadProbabilityNeutralLosses(fi)
+        if self.existsPNLosses:
+            self.logger.info("Catchment is in NSW, multiplying Datahub continuing loss by 0.4")
+            self.cls *= 0.4
+            self.cls = float(f'{self.cls:.2f}')
 
         self.loaded = True
         #print('Finished reading file.')
@@ -1113,6 +1117,7 @@ class Arr:
         preburst_pattern_dur = kwargs['preburst_pattern_dur'] if 'preburst_pattern_dur' else None
         preburst_pattern_tp = kwargs['preburst_pattern_tp'] if 'preburst_pattern_tp' else None
         bpreburst_dur_proportional = kwargs['preburst_dur_proportional'] if 'preburst_dur_proportional' else False
+        use_global_continuing_loss = kwargs['use_global_continuing_loss'] if 'use_global_continuing_loss' else False
 
         # convert input RCP if 'all' is specified
         if str(cc_RCP).lower() == 'all':
@@ -2210,7 +2215,10 @@ class Arr:
                 increment = 2
                 if catch_no == 0:
                     tsoilf_open.write('1, ILCL, {0}, {1},  ! Impervious Area Rainfall Losses\n'.format(urban_initial_loss, urban_continuing_loss))
-            tsoilf_open.write('{1:.0f}, ILCL, <<IL_{0}>>, <<CL_{0}>>  ! Design ARR2016 Losses For Catchment {0}\n'.format(site_name, catch_no + increment))
+            if use_global_continuing_loss:
+                tsoilf_open.write('{1:.0f}, ILCL, <<IL_{0}>>, {2}  ! Design ARR2016 Losses For Catchment {0}\n'.format(site_name, catch_no + increment, self.Losses.cls))
+            else:
+                tsoilf_open.write('{1:.0f}, ILCL, <<IL_{0}>>, <<CL_{0}>>  ! Design ARR2016 Losses For Catchment {0}\n'.format(site_name, catch_no + increment))
             
             tsoilf_open.close()
         else:
@@ -2231,7 +2239,10 @@ class Arr:
                 increment = 2
                 if catch_no == 0:
                     materials_open.write('1,,"{0}, {1}",,! Impervious Area Rainfall Losses\n'.format(urban_initial_loss, urban_continuing_loss))
-            materials_open.write('{1:.0f},,"<<IL_{0}>>, <<CL_{0}>>",,! Design ARR2016 Losses for catchment {0}\n'.format(site_name, catch_no + increment))
+            if use_global_continuing_loss:
+                materials_open.write('{1:.0f},,"<<IL_{0}>>, {2}",,! Design ARR2016 Losses for catchment {0}\n'.format(site_name, catch_no + increment, self.Losses.cls))
+            else:
+                materials_open.write('{1:.0f},,"<<IL_{0}>>, <<CL_{0}>>",,! Design ARR2016 Losses for catchment {0}\n'.format(site_name, catch_no + increment))
             materials_open.close()
         
         rareMag2Name = {'0.5%': '1 in 200', '0.2%': '1 in 500', '0.1%': '1 in 1000',
@@ -2274,7 +2285,8 @@ class Arr:
                     if np.isnan(il):
                         il = 0
                     trd_open.write("        Set Variable IL_{1} == {0:.1f}\n".format(il, site_name))
-                    trd_open.write("        Set Variable CL_{1} == {0:.1f}\n".format(float(self.Losses.cls), site_name))
+                    if not use_global_continuing_loss:
+                        trd_open.write("        Set Variable CL_{1} == {0:.1f}\n".format(float(self.Losses.cls), site_name))
                 trd_open.write("    Else\n")
                 trd_open.write("        Pause == Event Not Recognised\n")
                 trd_open.write("    End If\n")
@@ -2341,7 +2353,8 @@ class Arr:
                 for i, j in enumerate(reversed(insert_index)):
                     j = int(j)
                     k = int(len(insert_index) - 1 - i)
-                    trd_text.insert(j, '        Set Variable CL_{0} == {1:.1f}\n'.format(site_name, float(self.Losses.cls)))
+                    if not use_global_continuing_loss:
+                        trd_text.insert(j, '        Set Variable CL_{0} == {1:.1f}\n'.format(site_name, float(self.Losses.cls)))
                     trd_text.insert(j, '        Set Variable IL_{0} == {1:.1f}\n'.format(site_name, insert_il[k]))
                 text = ''
                 for t in trd_text:

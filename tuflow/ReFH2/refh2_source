@@ -1,0 +1,5 @@
+refh2.py has been compiled to hide a vendor key required to access an external tool
+(ReFH2 - https://www.hydrosolutions.co.uk/software/refh-2/).
+The source code can be found at the below repository with the vendor key value changed.
+
+source code: https://github.com/TUFLOW-Support/QGIS-TUFLOW-Plugin

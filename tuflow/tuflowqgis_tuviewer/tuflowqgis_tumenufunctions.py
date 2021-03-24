@@ -17,9 +17,11 @@ from matplotlib.colors import LinearSegmentedColormap
 from tuflow.tuflowqgis_library import loadLastFolder, getResultPathsFromTCF, getScenariosFromTcf, getEventsFromTCF, \
 	tuflowqgis_find_layer, getUnit, getCellSizeFromTCF, getOutputZonesFromTCF, getPathFromRel, convertTimeToFormattedTime, \
 	convertFormattedTimeToTime, getResultPathsFromTLF, browse, qgsxml_as_mpl_cdict, generateRandomMatplotColours2
-from tuflow.tuflowqgis_dialog import tuflowqgis_scenarioSelection_dialog, tuflowqgis_eventSelection_dialog, \
-	TuOptionsDialog, TuSelectedElementsDialog, tuflowqgis_meshSelection_dialog, TuBatchPlotExportDialog, \
-	TuUserPlotDataManagerDialog, tuflowqgis_outputZoneSelection_dialog, tuflowqgis_brokenLinks_dialog
+from tuflow.tuflowqgis_dialog import (tuflowqgis_scenarioSelection_dialog, tuflowqgis_eventSelection_dialog,
+									  TuOptionsDialog, TuSelectedElementsDialog, tuflowqgis_meshSelection_dialog,
+									  TuBatchPlotExportDialog, TuUserPlotDataManagerDialog,
+									  tuflowqgis_outputZoneSelection_dialog, tuflowqgis_brokenLinks_dialog,
+                                      FloodModellerResultImportDialog)
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuanimation import TuAnimationDialog
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumap import TuMapDialog
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
@@ -159,6 +161,29 @@ class TuMenuFunctions():
 		settings.setValue("TUFLOW_Results/lastFolder", fpath)
 		
 		return True
+
+	def loadFMResults(self, **kwargs):
+		"""
+		Loads 1D FM results into ui.
+
+		:return: bool -> True for successful, False for unsuccessful
+		"""
+
+		unlock = kwargs['unlock'] if 'unlock' in kwargs else True
+
+		self.fmResultsDialog = FloodModellerResultImportDialog()
+		self.fmResultsDialog.exec_()
+
+		# check file paths exist
+		# done in dialog class
+
+		# import results
+		self.tuView.tuResults.importResults('timeseries FM', [self.fmResultsDialog.gxy, self.fmResultsDialog.dat] + self.fmResultsDialog.results)
+
+		# unlock map output timesteps only
+		if unlock:
+			if self.tuView.lock2DTimesteps:
+				self.tuView.timestepLockChanged()
 
 	def loadParticlesResults(self, **kwargs):
 		"""
@@ -1545,6 +1570,8 @@ class TuMenuFunctions():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		# get features to iterate through
 		vLayer = tuflowqgis_find_layer(gisLayer)
 		if features == 'all':
@@ -1574,17 +1601,30 @@ class TuMenuFunctions():
 			if timestep == 'Maximum':
 				timestepKey = timestep
 			else:
-				if self.tuView.tuOptions.xAxisDates:
-					pdt = datetime.datetime.strptime(timestep, self.tuView.tuResults.dateFormat)
-					modelDates = self.tuView.tuResults.date_tspec2time
-					if timestep in modelDates:
-						timestepKey = modelDates[timestep]
+				if qv < 31600:
+					if self.tuView.tuOptions.xAxisDates:
+						pdt = datetime.datetime.strptime(timestep, self.tuView.tuResults.dateFormat)
+						modelDates = self.tuView.tuResults.date_tspec2time
+						if timestep in modelDates:
+							timestepKey = modelDates[timestep]
+						else:
+							modelDates2 = sorted([x for x in modelDates.keys()])
+							timestepKey = self.tuView.tuResults.findTimeClosest(None, None, pdt, modelDates2, True, 'closest')
+							timestepKey = modelDates[timestepKey]
 					else:
-						modelDates2 = sorted([x for x in modelDates.keys()])
-						timestepKey = self.tuView.tuResults.findTimeClosest(None, None, pdt, modelDates2, True, 'closest')
-						timestepKey = modelDates[timestepKey]
+						timestepKey = convertFormattedTimeToTime(timestep)
 				else:
-					timestepKey = convertFormattedTimeToTime(timestep)
+					if not self.tuView.tuOptions.xAxisDates:
+						if timestep in self.tuView.tuResults.cboTime2timekey:
+							timestepKey = self.tuView.tuResults.cboTime2timekey[timestep]
+							timestepKey = self.tuView.tuResults.timekey2time[timestepKey]
+						else:
+							unit = self.tuView.tuOptions.timeUnits
+							timestepKey = convertFormattedTimeToTime(timestep, unit=unit)
+						zt = self.tuView.tuOptions.zeroTime
+						timestepKey = zt + datetime.timedelta(hours=timestepKey)
+					else:
+						timestepKey = datetime.datetime.strptime(timestep, self.tuView.tuResults.dateFormat)
 			
 		# setup progress bar
 		if featureCount:
@@ -1791,5 +1831,14 @@ class TuMenuFunctions():
 
 		"""
 
+		self.tuView.tuPlot.clearFrozenPlotProperties(rtype='lines')
 		self.tuView.tuPlot.colours = generateRandomMatplotColours2(100)
+		self.tuView.tuPlot.updateAllPlots()
+
+	def resetPlotAxisNames(self):
+		"""
+
+		"""
+
+		self.tuView.tuPlot.clearFrozenPlotProperties(rtype='axis labels')
 		self.tuView.tuPlot.updateAllPlots()

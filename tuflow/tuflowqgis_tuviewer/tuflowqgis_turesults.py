@@ -85,6 +85,8 @@ class TuResults():
 		result = False
 		if type.lower() == 'mesh':
 			result = self.tuResults2D.importResults(inFileNames)
+		elif type.lower() == 'timeseries fm':
+			result = self.tuResults1D.importResultsFM(inFileNames[0], inFileNames[1], inFileNames[2:])
 		elif type.lower() == 'timeseries':
 			result = self.tuResults1D.importResults(inFileNames)
 		elif type.lower() == 'particles':
@@ -293,7 +295,8 @@ class TuResults():
 					if qv < 31600:
 						pTypeTS = [[x, 4, True] for x in t[0]]
 					else:
-						pTypeTS = [[x, 4, True] for x in t['metadata'][0]]
+						hasMax = self.results[resultName][type]['hasMax'] if 'hasMax' in self.results[resultName][type] else True
+						pTypeTS = [[x, 4, hasMax] for x in t['metadata'][0]]
 					if ['MB', 4, True] in pTypeTS:
 						index = pTypeTS.index(['MB', 4, True])
 						info = pTypeTS[index]
@@ -959,11 +962,11 @@ class TuResults():
 				if item.ds_type == 1 or item.ds_type == 2:
 					while item.ds_type in self.activeResultsTypes:
 						i_item = self.activeResultsTypes.index(item.ds_type)
-						if len(self.activeResults) + 1 >= i_item:
+						if len(self.activeResults) >= i_item + 1:
 							self.activeResults.pop(i_item)
-						if len(self.activeResultsIndexes) + 1 >= i_item:
+						if len(self.activeResultsIndexes) >= i_item + 1:
 							self.activeResultsIndexes.pop(i_item)
-						if len(self.activeResultsItems) + 1 >= i_item:
+						if len(self.activeResultsItems) >= i_item + 1:
 							self.activeResultsItems.pop(i_item)
 						self.activeResultsTypes.remove(item.ds_type)  # should only be one
 					#if resultIndex in self.activeResultsIndexes:
@@ -1550,11 +1553,16 @@ class TuResults():
 		self.tuResultsParticles.removeResults(resList)
 
 		for res in resList:
+			self.tuView.crossSectionsFM.delByLayername(res)
+
+		for res in resList:
 			if res in results.keys():
 				# remove from indexed results
 				del results[res]
+			if res in results2d.keys():
 				if res in results2d:
 					del results2d[res]
+			if res in results1d.keys():
 				if res in results1d:
 					del results1d[res]
 				# if res in resultsParticles:
@@ -2252,6 +2260,8 @@ class TuResults():
 		i = 0
 		item = self.tuView.cboTime.itemText(i)
 		if dateFormat:
+			if item == '':
+				return self.tuView.tuOptions.zeroTime, i
 			date = datetime.strptime(item, self.dateFormat)
 			return date, i
 		timeKey = convertFormattedTimeToTime(item)

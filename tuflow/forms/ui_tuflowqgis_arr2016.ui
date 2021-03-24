@@ -73,10 +73,10 @@
      <widget class="QWidget" name="scrollAreaWidgetContents">
       <property name="geometry">
        <rect>
-        <x>-60</x>
+        <x>0</x>
         <y>0</y>
-        <width>785</width>
-        <height>964</height>
+        <width>750</width>
+        <height>962</height>
        </rect>
       </property>
       <layout class="QGridLayout" name="gridLayout_7">
@@ -91,10 +91,10 @@
          <property name="checked">
           <bool>false</bool>
          </property>
-         <property name="collapsed" stdset="0">
+         <property name="collapsed">
           <bool>true</bool>
          </property>
-         <property name="saveCollapsedState" stdset="0">
+         <property name="saveCollapsedState">
           <bool>false</bool>
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_11">
@@ -4973,6 +4973,89 @@
             </widget>
            </item>
            <item>
+            <widget class="QGroupBox" name="groupBox_5">
+             <property name="palette">
+              <palette>
+               <active>
+                <colorrole role="Base">
+                 <brush brushstyle="SolidPattern">
+                  <color alpha="255">
+                   <red>255</red>
+                   <green>255</green>
+                   <blue>255</blue>
+                  </color>
+                 </brush>
+                </colorrole>
+                <colorrole role="Window">
+                 <brush brushstyle="SolidPattern">
+                  <color alpha="255">
+                   <red>255</red>
+                   <green>255</green>
+                   <blue>255</blue>
+                  </color>
+                 </brush>
+                </colorrole>
+               </active>
+               <inactive>
+                <colorrole role="Base">
+                 <brush brushstyle="SolidPattern">
+                  <color alpha="255">
+                   <red>255</red>
+                   <green>255</green>
+                   <blue>255</blue>
+                  </color>
+                 </brush>
+                </colorrole>
+                <colorrole role="Window">
+                 <brush brushstyle="SolidPattern">
+                  <color alpha="255">
+                   <red>255</red>
+                   <green>255</green>
+                   <blue>255</blue>
+                  </color>
+                 </brush>
+                </colorrole>
+               </inactive>
+               <disabled>
+                <colorrole role="Base">
+                 <brush brushstyle="SolidPattern">
+                  <color alpha="255">
+                   <red>255</red>
+                   <green>255</green>
+                   <blue>255</blue>
+                  </color>
+                 </brush>
+                </colorrole>
+                <colorrole role="Window">
+                 <brush brushstyle="SolidPattern">
+                  <color alpha="255">
+                   <red>255</red>
+                   <green>255</green>
+                   <blue>255</blue>
+                  </color>
+                 </brush>
+                </colorrole>
+               </disabled>
+              </palette>
+             </property>
+             <property name="autoFillBackground">
+              <bool>true</bool>
+             </property>
+             <property name="title">
+              <string>Continuing Loss</string>
+             </property>
+             <layout class="QVBoxLayout" name="verticalLayout_19">
+              <item>
+               <widget class="QCheckBox" name="cbGlobalCL">
+                <property name="text">
+                 <string>Use Event Independent Continuing Loss</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
             <widget class="QGroupBox" name="groupBox_3">
              <property name="palette">
               <palette>
@@ -5461,7 +5544,7 @@
                  <item>
                   <widget class="QComboBox" name="cboPreburstDurUnits">
                    <property name="currentText">
-                    <string>Proportional</string>
+                    <string>min</string>
                    </property>
                    <item>
                     <property name="text">
@@ -5536,7 +5619,7 @@
                      <item>
                       <widget class="QComboBox" name="cboDurTP">
                        <property name="currentText">
-                        <string>10 min</string>
+                        <string>Proportional</string>
                        </property>
                        <item>
                         <property name="text">

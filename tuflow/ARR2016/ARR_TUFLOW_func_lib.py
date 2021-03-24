@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 import matplotlib.ticker as ticker
 import warnings
+import logging
 warnings.filterwarnings("ignore", category =RuntimeWarning)
 
 
@@ -346,36 +347,10 @@ def arf_eqn241(area, duration, aep):
     return min(1.0, arf)
 
 
-def arf_eqn242(duration, arf12h, arf24h):
-    """Short duration ARF equation 2.4.2
-
-    duration: min
-    arf12h (ARF 10km2 12h): fraction
-    arf24h (ARF 10km2 24h): fraction"""
-
-    duration = float(duration)
-    arf12h = float(arf12h)
-    arf24h = float(arf24h)
-
-    arf = arf12h + (arf24h - arf12h) * ((duration - 720.0) / 720.0)
-    return arf
-
-
-def arf_eqn243(area, arf10k):
-    """Short duration ARF equation 2.4.3
-
-    area: km2
-    arf10k (ARF 10km2): fraction"""
-
-    area = float(area)
-    arf10k = float(arf10k)
-
-    arf = 1.0 - 0.6614 * (1.0 - arf10k) * (area ** 0.4 - 1.0)
-    return arf
-
-
-def arf_eqn244(area, duration, aep, a, b, c, d, e, f, g, h, i):
+def arf_eqn242(area, duration, aep, a, b, c, d, e, f, g, h, i):
     """Long duration ARF equation ARR2016
+
+     - Formally eqn244 in the plugin prior to 3.1.4.33
 
     area: km2
     duration: mins
@@ -401,12 +376,46 @@ def arf_eqn244(area, duration, aep, a, b, c, d, e, f, g, h, i):
     return min(1.0, arf)
 
 
+def arf_eqn243(duration, arf12h, arf24h):
+    """Short duration ARF equation 2.4.2
+
+    - Formally eqn242 in the plugin prior to 3.1.4.33
+
+    duration: min
+    arf12h (ARF 10km2 12h): fraction
+    arf24h (ARF 10km2 24h): fraction"""
+
+    duration = float(duration)
+    arf12h = float(arf12h)
+    arf24h = float(arf24h)
+
+    arf = arf12h + (arf24h - arf12h) * ((duration - 720.0) / 720.0)
+    return arf
+
+
+def arf_eqn244(area, arf10k):
+    """Short duration ARF equation 2.4.3
+
+    - Formally eqn243 in the plugin prior to 3.1.4.33
+
+    area: km2
+    arf10k (ARF 10km2): fraction"""
+
+    area = float(area)
+    arf10k = float(arf10k)
+
+    arf = 1.0 - 0.6614 * (1.0 - arf10k) * (area ** 0.4 - 1.0)
+    return arf
+
+
 def short_arf(area, duration_list, aep_list, ARF_frequent, min_ARF):
     """Short duration ARF equation ARR2016
 
     area: km2
     duration: mins
     AEP(%): 50 and 0.05)"""
+
+    logger = logging.getLogger('ARR2019')
 
     AEP_max = 100 if ARF_frequent == True else 50
 
@@ -419,8 +428,11 @@ def short_arf(area, duration_list, aep_list, ARF_frequent, min_ARF):
             arf_row = []  # ARF row (create a list of lists so can be converted to numpy array)
             for aep in aep_list:
                 if 0.05 <= aep <= AEP_max:
-                    arf10km2 = arf_eqn242(duration, arf_eqn241(10, 720, (aep / 100)), arf_eqn241(10, 1440, (aep / 100)))
-                    arf = arf_eqn243(area, arf10km2)
+                    # arf10km2 = arf_eqn242(duration, arf_eqn241(10, 720, (aep / 100)), arf_eqn241(10, 1440, (aep / 100)))
+                    # arf = arf_eqn243(area, arf10km2)
+                    # 3.1.4.33 - changed above 2 lines to the below
+                    arf10km2 = arf_eq241(10, duration, (aep / 100))
+                    arf = arf_eqn244(area, arf10km2)
                     if arf >= min_ARF:
                         arf_row.append(arf)
                     else:
@@ -449,9 +461,12 @@ def short_arf(area, duration_list, aep_list, ARF_frequent, min_ARF):
         arf_array = np.array(arf_list)
 
     else:
-        print('WARNING: {0:.0f}km2 out of range of generalised equations for short duration ARF factors. '
-              'Applying method for 1000km2, however this may not be applicable for cathcment. '
-              'Please consult ARR2016'.format(area))
+        # print('WARNING: {0:.0f}km2 out of range of generalised equations for short duration ARF factors. '
+        #       'Applying method for 1000km2, however this may not be applicable for catchment. '
+        #       'Please consult ARR2016'.format(area))
+        logger.warning('WARNING: {0:.0f}km2 out of range of generalised equations for short duration ARF factors. '
+                       'Applying method for 1000km2, however this may not be applicable for catchment. '
+                       'Please consult ARR'.format(area))
         arf_list = []  # ARF list that will be converted to numpy array
         for duration in duration_list:
             arf_row = []  # ARF row (create a list of lists so can be converted to numpy array)
@@ -478,6 +493,8 @@ def medium_arf(area, duration_list, aep_list, a, b, c, d, e, f, g, h, i, ARF_fre
     duration: mins
     AEP(%): between 50 and 0.05"""
 
+    logger = logging.getLogger('ARR2019')
+
     AEP_max = 100 if ARF_frequent == True else 50
 
     if area <= 1:
@@ -489,10 +506,17 @@ def medium_arf(area, duration_list, aep_list, a, b, c, d, e, f, g, h, i, ARF_fre
             arf_row = []  # ARF row (create a list of lists so can be converted to numpy array)
             for aep in aep_list:
                 if 0.05 <= aep <= AEP_max:
-                    arf10km2 = arf_eqn242(duration,
-                                          arf_eqn241(10, 720, (aep / 100)),
-                                          arf_eqn244(10, 1440, (aep / 100), a, b, c, d, e, f, g, h, i))
-                    arf = arf_eqn243(area, arf10km2)
+                    # arf10km2 = arf_eqn242(duration,
+                    #                       arf_eqn241(10, 720, (aep / 100)),
+                    #                       arf_eqn244(10, 1440, (aep / 100), a, b, c, d, e, f, g, h, i))
+                    # arf = arf_eqn243(area, arf10km2)
+
+                    # 3.1.4.33 - same process as above but with new eqn names.
+                    # ARR still seems to ref incorrect equations - no doubt will be fixing this again in the future
+                    arf10km24h = arf_eqn242(10, 1440, (aep / 100), a, b, c, d, e, f, g, h, i)
+                    arf10km12h = arf_eqn241(10, 720, (aep / 100))
+                    arf10km = eqn_243(duration, arf10km12h, arf10km24h)  # in ARR they say use eqn 2.4.4
+                    arf = eqn_244(area, arf10km)  # in ARR they say use eqn 2.4.3
                     if arf >= min_ARF:
                         arf_row.append(arf)
                     else:
@@ -509,9 +533,15 @@ def medium_arf(area, duration_list, aep_list, a, b, c, d, e, f, g, h, i, ARF_fre
             arf_row = []  # ARF row (create a list of lists so can be converted to numpy array)
             for aep in aep_list:
                 if 0.05 <= aep <= AEP_max:
-                    arf = arf_eqn242(duration,
-                                     arf_eqn241(area, 720, (aep / 100)),
-                                     arf_eqn244(area, 1440, (aep / 100), a, b, c, d, e, f, g, h, i))
+                    # arf = arf_eqn242(duration,
+                    #                  arf_eqn241(area, 720, (aep / 100)),
+                    #                  arf_eqn244(area, 1440, (aep / 100), a, b, c, d, e, f, g, h, i))
+
+                    # 3.1.4.33 - same process as above but with new eqn names.
+                    arf24h = arf_eqn242(area, 1440, (aep / 100), a, b, c, d, e, f, g, h, i)
+                    arf12h = arf_eqn241(area, 720, (aep / 100))
+                    arf = arf_eqn243(duration, arf12h, arf24h)
+
                     if arf >= min_ARF:
                         arf_row.append(arf)
                     else:
@@ -523,17 +553,26 @@ def medium_arf(area, duration_list, aep_list, a, b, c, d, e, f, g, h, i, ARF_fre
         arf_array = np.array(arf_list)
 
     else:
-        print('WARNING: {0:.0f}km2 out of range of generalised equations for medium duration ARF factors. ' \
-              'Applying method for 30,000km2, however this may not be applicable for cathcment. ' \
-              'Please consult ARR2016.'.format(area))
+        # print('WARNING: {0:.0f}km2 out of range of generalised equations for medium duration ARF factors. ' \
+        #       'Applying method for 30,000km2, however this may not be applicable for cathcment. ' \
+        #       'Please consult ARR2016.'.format(area))
+        logger.warning('WARNING: {0:.0f}km2 out of range of generalised equations for medium duration ARF factors. ' \
+                       'Applying method for 30,000km2, however this may not be applicable for cathcment. ' \
+                       'Please consult ARR.'.format(area))
         arf_list = []  # ARF list that will be converted to numpy array
         for duration in duration_list:
             arf_row = []  # ARF row (create a list of lists so can be converted to numpy array)
             for aep in aep_list:
                 if 0.05 <= aep <= AEP_max:
-                    arf = arf_eqn242(duration,
-                                     arf_eqn241(area, 720, (aep / 100)),
-                                     arf_eqn244(area, 1440, (aep / 100), a, b, c, d, e, f, g, h, i))
+                    # arf = arf_eqn242(duration,
+                    #                  arf_eqn241(area, 720, (aep / 100)),
+                    #                  arf_eqn244(area, 1440, (aep / 100), a, b, c, d, e, f, g, h, i))
+
+                    # 3.1.4.33 - same process as above but with new eqn names.
+                    arf24h = arf_eqn242(area, 1440, (aep / 100), a, b, c, d, e, f, g, h, i)
+                    arf12h = arf_eqn241(area, 720, (aep / 100))
+                    arf = arf_eqn243(duration, arf12h, arf24h)
+
                     if arf >= min_ARF:
                         arf_row.append(arf)
                     else:
@@ -556,6 +595,8 @@ def long_arf(area, duration_list, aep_list, a, b, c, d, e, f, g, h, i, ARF_frequ
     duration: mins
     AEP(%): between 50 and 0.05"""
 
+    logger = logging.getLogger('ARR2019')
+
     AEP_max = 100 if ARF_frequent == True else 50
 
     if area <= 1:
@@ -567,8 +608,13 @@ def long_arf(area, duration_list, aep_list, a, b, c, d, e, f, g, h, i, ARF_frequ
             arf_row = []  # ARF row (create a list of lists so can be converted to numpy array)
             for aep in aep_list:
                 if 0.05 <= aep <= AEP_max:
-                    arf10km2 = arf_eqn244(10, duration, (aep / 100), a, b, c, d, e, f, g, h, i)
-                    arf = arf_eqn243(area, arf10km2)
+                    # arf10km2 = arf_eqn244(10, duration, (aep / 100), a, b, c, d, e, f, g, h, i)
+                    # arf = arf_eqn243(area, arf10km2)
+
+                    # 3.1.4.33 - same process as above but with new eqn names.
+                    arf10km2 = arf_eqn242(10, duration, (aep / 100), a, b, c, d, e, f, g, h, i)
+                    arf = arf_eqn244(area, arf10km2)
+
                     if arf >= min_ARF:
                         arf_row.append(arf)
                     else:
@@ -585,7 +631,11 @@ def long_arf(area, duration_list, aep_list, a, b, c, d, e, f, g, h, i, ARF_frequ
             arf_row = []  # ARF row (create a list of lists so can be converted to numpy array)
             for aep in aep_list:
                 if 0.05 <= aep <= AEP_max:
-                    arf = arf_eqn244(area, duration, (aep / 100), a, b, c, d, e, f, g, h, i)
+                    # arf = arf_eqn244(area, duration, (aep / 100), a, b, c, d, e, f, g, h, i)
+
+                    # 3.1.4.33 - same process as above but with new eqn names.
+                    arf = arf_eqn242(area, duration, (aep / 100), a, b, c, d, e, f, g, h, i)
+
                     if arf >= min_ARF:
                         arf_row.append(arf)
                     else:
@@ -597,15 +647,22 @@ def long_arf(area, duration_list, aep_list, a, b, c, d, e, f, g, h, i, ARF_frequ
         arf_array = np.array(arf_list)
 
     else:
-        print('WARNING: {0:.0f}km2 out of range of generalised equations for long duration ARF factors. '
-              'Applying method for 30,000km2, however this may not be applicable for cathcment. '
-              'Please consult ARR2016.'.format(area))
+        # print('WARNING: {0:.0f}km2 out of range of generalised equations for long duration ARF factors. '
+        #       'Applying method for 30,000km2, however this may not be applicable for cathcment. '
+        #       'Please consult ARR2016.'.format(area))
+        logger.warning('WARNING: {0:.0f}km2 out of range of generalised equations for long duration ARF factors. '
+                       'Applying method for 30,000km2, however this may not be applicable for cathcment. '
+                       'Please consult ARR2016.'.format(area))
         arf_list = []  # ARF list that will be converted to numpy array
         for duration in duration_list:
             arf_row = []  # ARF row (create a list of lists so can be converted to numpy array)
             for aep in aep_list:
                 if aep <= AEP_max and aep >= 0.05:
-                    arf = arf_eqn244(area, duration, (aep / 100), a, b, c, d, e, f, g, h, i)
+                    # arf = arf_eqn244(area, duration, (aep / 100), a, b, c, d, e, f, g, h, i)
+
+                    # 3.1.4.33 - same process as above but with new eqn names.
+                    arf = arf_eqn242(area, duration, (aep / 100), a, b, c, d, e, f, g, h, i)
+
                     if arf >= min_ARF:
                         arf_row.append(arf)
                     else:

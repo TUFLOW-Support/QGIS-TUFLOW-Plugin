@@ -63,6 +63,7 @@ class TuMenuBar():
 			self.load1d2dResults_action = QAction('Load Results', self.window)
 			self.load2dResults_action = QAction('Load Results - Map Outputs', self.window)
 			self.load1dResults_action = QAction('Load Results - Time Series', self.window)
+			self.loadFMResults_action = QAction('Load Results - Time Series FM', self.window)
 			self.loadParticlesResults_action = QAction('Load Results - Particles', self.window)
 			self.loadHydraulicTable_action = QAction("Import 1D Hydraulic Tables", self.window)
 			self.remove1d2dResults_action = QAction(closeResultsIcon, 'Close Results', self.window)
@@ -73,6 +74,7 @@ class TuMenuBar():
 			self.fileMenu.addAction(self.load1d2dResults_action)
 			self.fileMenu.addAction(self.load2dResults_action)
 			self.fileMenu.addAction(self.load1dResults_action)
+			self.fileMenu.addAction(self.loadFMResults_action)
 			self.fileMenu.addAction(self.loadParticlesResults_action)
 			self.fileMenu.addAction(self.loadHydraulicTable_action)
 			self.fileMenu.addSeparator()
@@ -89,6 +91,7 @@ class TuMenuBar():
 
 			self.load2dResults_action.triggered.connect(self.tuMenuFunctions.load2dResults)
 			self.load1dResults_action.triggered.connect(self.tuMenuFunctions.load1dResults)
+			self.loadFMResults_action.triggered.connect(self.tuMenuFunctions.loadFMResults)
 			self.loadParticlesResults_action.triggered.connect(self.tuMenuFunctions.loadParticlesResults)
 			self.load1d2dResults_action.triggered.connect(self.tuMenuFunctions.load1d2dResults)
 			self.loadHydraulicTable_action.triggered.connect(self.tuMenuFunctions.loadHydraulicTables)
@@ -101,6 +104,7 @@ class TuMenuBar():
 			self.fileMenu.addAction(self.menu.load1d2dResults_action)
 			self.fileMenu.addAction(self.menu.load2dResults_action)
 			self.fileMenu.addAction(self.menu.load1dResults_action)
+			self.fileMenu.addAction(self.menu.loadFMResults_action)
 			self.fileMenu.addAction(self.menu.loadParticlesResults_action)
 			self.fileMenu.addSeparator()
 			self.fileMenu.addAction(self.menu.remove1d2dResults_action)
@@ -252,6 +256,7 @@ class TuMenuBar():
 			self.options_action = QAction(iconOptions, 'Options', self.window)
 			self.addPlotColourRamp_action = QAction("Add Colour Ramp to Plot", self.window)
 			self.resetPlotColours_action = QAction("Reset Plotting Colours", self.window)
+			self.resetAxisNames_action = QAction("Reset Plot Axis Names", self.window)
 			self.settingsMenu.addAction(self.userPlotDataManager_action)
 			self.settingsMenu.addSeparator()
 			self.settingsMenu.addAction(toolbar[7])
@@ -267,6 +272,7 @@ class TuMenuBar():
 			self.settingsMenu.addAction(self.addPlotColourRamp_action)
 			self.settingsMenu.addSeparator()
 			self.settingsMenu.addAction(self.resetPlotColours_action)
+			self.settingsMenu.addAction(self.resetAxisNames_action)
 			self.settingsMenu.addSeparator()
 			self.settingsMenu.addAction(self.options_action)
 
@@ -286,6 +292,7 @@ class TuMenuBar():
 			self.options_action.triggered.connect(self.tuMenuFunctions.options)
 			self.addPlotColourRamp_action.triggered.connect(self.tuMenuFunctions.addColourRampFromXML)
 			self.resetPlotColours_action.triggered.connect(self.tuMenuFunctions.resetMatplotColours)
+			self.resetAxisNames_action.triggered.connect(self.tuMenuFunctions.resetPlotAxisNames)
 		else:
 			self.settingsMenu.addAction(self.menu.userPlotDataManager_action)
 			self.settingsMenu.addSeparator()
@@ -302,6 +309,7 @@ class TuMenuBar():
 			self.settingsMenu.addAction(self.menu.addPlotColourRamp_action)
 			self.settingsMenu.addSeparator()
 			self.settingsMenu.addAction(self.menu.resetPlotColours_action)
+			self.settingsMenu.addAction(self.menu.resetAxisNames_action)
 			self.settingsMenu.addSeparator()
 			self.settingsMenu.addAction(self.menu.options_action)
 		

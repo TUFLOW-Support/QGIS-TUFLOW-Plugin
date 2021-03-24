@@ -9,6 +9,8 @@ import tuflow.TUFLOW_results as TuflowResults
 import tuflow.TUFLOW_results2013 as TuflowResults2013
 from tuflow.tuflowqgis_library import (getPathFromRel, tuflowqgis_apply_check_tf_clayer, datetime2timespec,
                                        datetime2timespec, roundSeconds)
+import re
+from tuflow.TUFLOW_FM_data_provider import TuFloodModellerDataProvider
 
 
 class TuResults1D():
@@ -87,7 +89,162 @@ class TuResults1D():
 			k.setSelected(True)
 			
 		return True
-		
+
+	def importResultsFM(self, gxy, dat, inFilePaths):
+		"""
+		Import flood modeller results using a .gxy file and any number of
+		result csv files
+
+		"""
+
+		qv = Qgis.QGIS_VERSION_INT
+
+		openResults = self.tuView.OpenResults  # QListWidget
+		results = self.tuView.tuResults.results  # dict of indexed results
+		crs = QgsProject.instance().crs()
+
+		for i, filePath in enumerate(inFilePaths):
+
+			simname = TuFloodModellerDataProvider.getSimulationName(filePath)
+			if simname in self.results1d:
+				res = self.results1d[simname]
+			else:
+				res = TuFloodModellerDataProvider()
+
+			# gxy/section - only load gxy and section data once
+			if i == 0:
+				err, msg = res.load_gxy(gxy)
+				if res.isgxyValid:
+					# load into qgis
+					# nodes
+					uri = "point?crs={0}&field=ID:string&field=Type:string&field=Source:string&field=Unit_Type:string(20)&field=Full_Type:string(20)".format(crs.authid())
+					fmNodesLayer = QgsVectorLayer(uri, '{0}_FM_PLOT_P'.format(res.gxyname), 'memory')
+					feats = []
+					for node in res.nodes.nodes:
+						feat = QgsFeature()
+						feat.setGeometry(QgsPoint(node.x, node.y))
+						feat.setFields(fmNodesLayer.fields())
+						feat['ID'] = node.id
+						feat['Type'] = 'Node'
+						feat['Source'] = 'H_V_Q_'
+						feat['Unit_Type'] = node.type
+						feat['Full_Type'] = node.sub_type
+						feats.append(feat)
+					fmNodesLayer.dataProvider().truncate()
+					fmNodesLayer.dataProvider().addFeatures(feats)
+					fmNodesLayer.updateExtents()
+					fmNodesLayer.triggerRepaint()
+					# links
+					uri = "linestring?crs={0}&field=ID:string&field=Type:string&field=Source:string&field=Upstrm_Type:string(20)&field=Dnstrm_Type:string(20)".format(crs.authid())
+					fmLinksLayer = QgsVectorLayer(uri, '{0}_FM_PLOT_L'.format(res.gxyname), 'memory')
+					feats = []
+					for link in res.links:
+						feat = QgsFeature()
+						feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(link.x[i], link.y[i]) for i in range(len(link.x))]))
+						feat.setFields(fmLinksLayer.fields())
+						feat['ID'] = str(link.index)
+						feat['Type'] = 'Chan'
+						feat['Source'] = 'H_'
+						feat['Upstrm_Type'] = link.us_node.type
+						feat['Dnstrm_Type'] = link.ds_node.type
+						feats.append(feat)
+					fmLinksLayer.dataProvider().truncate()
+					fmLinksLayer.dataProvider().addFeatures(feats)
+					fmLinksLayer.updateExtents()
+					fmLinksLayer.triggerRepaint()
+
+					if fmLinksLayer.isValid():
+						self.tuView.project.addMapLayer(fmLinksLayer)
+						tuflowqgis_apply_check_tf_clayer(self.iface, layer=fmLinksLayer)
+					if fmNodesLayer.isValid():
+						self.tuView.project.addMapLayer(fmNodesLayer)
+						tuflowqgis_apply_check_tf_clayer(self.iface, layer=fmNodesLayer)
+				if err:
+					QMessageBox.warning(self.iface.mainWindow(), 'Import GXY File', 'WARNING: error reading {0} nodes / links:\n'.format(len(msg), msg))
+
+				if dat is not None:
+					err, msg = self.tuView.crossSectionsFM.fmLoadDat(dat)
+					res.loadBedElevations(self.tuView.crossSectionsFM)
+					if self.tuView.crossSectionsFM.fm_nXs:
+						uri = "linestring?crs={0}&field=Source:string(50)&field=Type:string(2)&field=Flags:string(8)" \
+						      "&field=Column_1:string(8)" \
+						      "&field=Column_2:string(8)" \
+						      "&field=Column_3:string(8)" \
+						      "&field=Column_4:string(8)" \
+						      "&field=Column_5:string(8)" \
+						      "&field=Column_6:string(8)" \
+						      "&field=Z_Incremen:double" \
+						      "&field=Z_Maximum:double" \
+						      "&field=Provider:string(8)" \
+						      "&field=Comments:string(100)".format(crs.authid())
+						fmXSLayer = QgsVectorLayer(uri,
+						                           '1d_xz_{0}'.format(os.path.basename(os.path.splitext(dat)[0])),
+						                           'memory')
+
+						feats = []
+						skipped_xs = []
+						for xs in self.tuView.crossSectionsFM.fm_xs:
+							if xs.FM_nxypnts == 0:
+								skipped_xs.append(xs.source)
+								continue
+							feat = QgsFeature()
+							feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(xs.FM_xloc[i], xs.FM_yloc[i]) for i in range(xs.FM_nxypnts)]))
+							feat.setFields(fmXSLayer.fields())
+							feat['Source'] = xs.source
+							feat['Type'] = xs.type
+							feat['Flags'] = ""
+							feat['Column_1'] = ""
+							feat['Column_2'] = ""
+							feat['Column_3'] = ""
+							feat['Column_4'] = ""
+							feat['Column_5'] = ""
+							feat['Column_6'] = ""
+							feat['Z_Incremen'] = 0.
+							feat['Z_Maximum'] = 0.
+							feat['Provider'] = "FM"
+							feat['Comments'] = '{0} points filtered for having coords (x,y) = (0,0)'.format(xs.FM_nFiltered_points) if xs.FM_nFiltered_points > 0 else ''
+							xs.feature = feat
+							feats.append(feat)
+						fmXSLayer.dataProvider().truncate()
+						fmXSLayer.dataProvider().addFeatures(feats)
+						fmXSLayer.updateExtents()
+						fmXSLayer.triggerRepaint()
+
+						if fmXSLayer.isValid():
+							self.tuView.project.addMapLayer(fmXSLayer)
+							tuflowqgis_apply_check_tf_clayer(self.iface, layer=fmXSLayer)
+					if err:
+						QMessageBox.warning(self.tuView, 'Import DAT File',
+						                    'WARNING: error reading {0} sections:\n'.format(len(msg), '\n'.join(msg)))
+					if skipped_xs:
+						QMessageBox.warning(self.tuView, 'Import DAT File',
+						                    'WARNING: {0} cross sections have been skipped and won\'t be displayed due to invalid spatial '
+						                    'referencing X,Y data\n\n{1}'.format(len(skipped_xs), '\n'.join(skipped_xs)))
+
+			# for filePath in inFilePaths:
+			error, message = res.Load(filePath)
+			if error:
+				QMessageBox.critical(self.tuView, "TUFLOW Viewer", 'ERROR: {0} errors occured loading in results: {1}:\n{2}'.format(len(message), filePath, '\n'.join(message)))
+				continue
+
+			# index results
+			index = self.getResultMetaData(res, hasMax=False)
+			self.results1d[res.displayname] = res
+
+			if qv >= 31600:
+				self.tuView.tuResults.updateDateTimes()
+
+			# add result to list widget
+			openResultNames = []
+			for i in range(openResults.count()):
+				openResultNames.append(openResults.item(i).text())
+			if res.displayname not in openResultNames:
+				openResults.addItem(res.displayname)  # add to widget
+			k = openResults.findItems(res.displayname, Qt.MatchRecursive)[0]
+			k.setSelected(True)
+
+		return True
+
 	def openGis(self, tpc):
 		"""
 		Opens 1D gis files. Will check if there are any features in the layer before loading into QGIS.
@@ -95,7 +252,7 @@ class TuResults1D():
 		:param tpc: str -> file path to tpc file
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		# Initialise variables
 		fpath = os.path.dirname(tpc)
 		gisPoints = None
@@ -153,20 +310,24 @@ class TuResults1D():
 		"""
 		
 		# Parse out file names
-		basepath, fext = os.path.splitext(fpath)
-		basename = os.path.basename(basepath)
+		pattern = re.escape(r'.gpkg|layername=')
+		if re.findall(pattern, fpath, re.IGNORECASE):
+			basename = re.split(pattern, fpath, re.IGNORECASE)[1]
+		else:
+			basepath, fext = os.path.splitext(fpath)
+			basename = os.path.basename(basepath)
 		
 		# Load vector
 		layer = QgsVectorLayer(fpath, basename, 'ogr')
 		
 		return layer, basename
 
-	def getResultMetaData(self, result):
+	def getResultMetaData(self, result, hasMax=True):
 		qv = Qgis.QGIS_VERSION_INT
 		if qv < 31600:
 			self.getResultMetaData_old(result)
 		else:
-			self.getResultMetaData_31600(result)
+			self.getResultMetaData_31600(result, hasMax)
 	
 	def getResultMetaData_old(self, result):
 		"""
@@ -175,6 +336,7 @@ class TuResults1D():
 		:param result: TUFLOW_results.ResData
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+
 		qv = Qgis.QGIS_VERSION_INT
 
 		results = self.tuView.tuResults.results  # dict
@@ -245,7 +407,7 @@ class TuResults1D():
 		
 		return True
 
-	def getResultMetaData_31600(self, result):
+	def getResultMetaData_31600(self, result, hasMax):
 		"""
 		Get result types and timesteps for 1D results
 
@@ -273,13 +435,17 @@ class TuResults1D():
 		for t in timesteps:
 			timekey2time['{0:.6f}'.format(t)] = t
 		results[result.displayname]['point_ts'] = {'times': {'{0:.6}'.format(x): [x] for x in timesteps},
-		                                           'referenceTime': result.reference_time}
+		                                           'referenceTime': result.reference_time,
+		                                           'hasMax': hasMax}
 		results[result.displayname]['line_ts'] = {'times': {'{0:.6}'.format(x): [x] for x in timesteps},
-		                                          'referenceTime': result.reference_time}
+		                                          'referenceTime': result.reference_time,
+		                                          'hasMax': hasMax}
 		results[result.displayname]['region_ts'] = {'times': {'{0:.6}'.format(x): [x] for x in timesteps},
-		                                            'referenceTime': result.reference_time}
+		                                            'referenceTime': result.reference_time,
+		                                            'hasMax': hasMax}
 		results[result.displayname]['line_lp'] = {'times': {'{0:.6}'.format(x): [x] for x in timesteps},
-		                                          'referenceTime': result.reference_time}
+		                                          'referenceTime': result.reference_time,
+		                                          'hasMax': hasMax}
 
 		resultTypes = result.pointResultTypesTS()
 		metadata1d = [resultTypes]
@@ -311,7 +477,7 @@ class TuResults1D():
 		:param layer: QgsVectorLayer
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		# reset variables
 		self.ids = []
 		self.domains = []
@@ -362,9 +528,10 @@ class TuResults1D():
 		:param res: TUFLOW_results or TUFLOW_results2013
 		:return: bool -> True if error has occured
 		"""
-		
+
 		# make sure there is between 1 and 2 selections
-		if len(self.ids) < 3 and self.ids:
+		# if len(self.ids) < 3 and self.ids:
+		if self.ids:
 			res.LP.connected = False
 			res.LP.static = False
 			error = False
@@ -372,18 +539,23 @@ class TuResults1D():
 			# one selection
 			if len(self.ids) == 1:
 				if res.formatVersion == 1:  # 2013 version only supports 1D
-					error, message = res.LP_getConnectivity(self.ids[0], None)
+					error, message = res.LP_getConnectivity(self.ids[0], None, *self.ids)
 				elif res.formatVersion == 2:
 					if self.domains[0] == '1D':
-						error, message = res.LP_getConnectivity(self.ids[0], None)
+						error, message = res.LP_getConnectivity(self.ids[0], None, *self.ids)
 			
 			# two selections
 			elif len(self.ids) == 2:
 				if res.formatVersion == 1:
-					error, message = res.LP_getConnectivity(self.ids[0], self.ids[1])
+					error, message = res.LP_getConnectivity(self.ids[0], self.ids[1], *self.ids)
 				elif res.formatVersion == 2:
 					if self.domains[0] == '1D' and self.domains[1] == '1D':
-						error, message = res.LP_getConnectivity(self.ids[0], self.ids[1])
+						error, message = res.LP_getConnectivity(self.ids[0], self.ids[1], *self.ids)
+
+			# more than 2 selections
+			else:
+				if res.formatVersion == 2:
+					error, message = res.LP_getConnectivity(None, None, *self.ids)  # flood modeller only
 			
 			# if error -> break
 			if not error:
@@ -402,6 +574,9 @@ class TuResults1D():
 		"""
 
 		results = self.tuView.tuResults.results
+
+		for res in resList:
+			self.tuView.crossSectionsFM.delByLayername(res)
 		
 		for res in resList:
 			if res in results.keys():
@@ -430,6 +605,8 @@ class TuResults1D():
 
 		"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		rt = result.reference_time  # assume timespec 1
 
 		if rt is not None:
@@ -438,7 +615,10 @@ class TuResults1D():
 			if defaultZeroTime is not None:
 				return defaultZeroTime
 			else:
-				return datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
+				if qv >= 31600:
+					return self.tuView.tuOptions.zeroTime
+				else:
+					return datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
 
 	def configTemporalProperties(self, result):
 		"""

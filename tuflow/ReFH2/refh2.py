@@ -1,3 +1,4 @@
+__VK__ = '0000000000-000000000000-000000000000'
 import os, sys
 import re
 from qgis.core import (QgsApplication, QgsMapLayer, QgsVectorLayer,
@@ -10,7 +11,7 @@ from PyQt5.QtWidgets import (QDockWidget, QLineEdit, QFileDialog,
                              QComboBox, QMessageBox, QLabel, QListWidgetItem,
                              QWidget, QCheckBox, QHBoxLayout, QSpacerItem, QSizePolicy,
                              QLayout)
-from tuflow.forms.refh2_dock import Ui_refh2
+from .refh2_dock import Ui_refh2
 from .engine import Refh2
 from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, browse, convertFormattedTimeToTime,
                                        makeDir, convertFormattedTimeToFormattedTime)
@@ -90,13 +91,18 @@ class Refh2Dock(QDockWidget, Ui_refh2):
                                                        "ReFH2 Output CSV File", "CSV (*.csv *.CSV)",
                                                        self.leOutfile, rf2Icon))
 
-    def run(self) -> None:
+    def run(self, vk=None) -> None:
         """
         Run the tool
         Collects inputs and passes to engine.py for processing
         
         :return: None
         """
+
+        if vk != __VK__:
+            QMessageBox.warning(self, "ReFH2 to TUFLOW",
+                                "Tool needs to be run compiled. Please contact support@tuflow.com.")
+            return
 
         # collect inputs - initialise with actual values where can
         # otherwise some dummy values
@@ -125,6 +131,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
             'number zero padding': 3,
             'engine version': 2.3 if self.rbEngine23.isChecked() else 2.2,
             'urban area': 0,
+            'arf': self.sbARF.value() if self.cbARF.isChecked() else None,
         }
         
         # populate rest with real values
@@ -318,7 +325,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         # setup run process on a separate thread
         # so that an infinite progress bar can be used
         self.thread = QThread()
-        self.refh2 = Refh2(inputs)
+        self.refh2 = Refh2(inputs, __VK__)
         self.refh2.moveToThread(self.thread)
         self.refh2.locatingExe.connect(self.findingExe)
         self.refh2.refh2Start.connect(self.refh2Started)
@@ -1176,7 +1183,11 @@ class Refh2Dock(QDockWidget, Ui_refh2):
             if cb.isChecked():
                 rps.append(ari)
         for i in range(self.lwRP.count()):
-            rp = self.lwRP.item(i).text().strip('year').strip()
+            item = self.lwRP.item(i)
+            widget = self.lwRP.itemWidget(item)
+            labelRp = widget.layout().itemAt(0).widget()
+            rp = labelRp.text().strip('year').strip()
+            rps.append(rp)
             if not 1 <= int(rp) <= 1000:
                 QMessageBox.critical(self, "ReFH2 to TUFLOW", "Return Period Not Valid: {0}".format(rp))
                 return
@@ -1237,7 +1248,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
                                                                   "of Input GIS Layer and Workspace")
                     return
 
-        self.run()
+        self.run(__VK__)
 
     def qgisDisconnect(self):
         """disconnect signals"""

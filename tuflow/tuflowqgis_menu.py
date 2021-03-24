@@ -35,7 +35,38 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 # Import the code for the 1D results viewer
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuview import TuView
 
-from tuflow.ReFH2.refh2 import Refh2Dock
+import tempfile
+import shutil
+import os
+import glob
+
+# clean up previous tempfiles
+for_deleting = glob.glob(os.path.join(tempfile.gettempdir(), "tuflow_refh2*"))
+for f in for_deleting:
+	try:
+		shutil.rmtree(f)
+	except:
+		continue
+
+refh2dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ReFH2")
+if os.path.exists(os.path.join(refh2dir, 'refh2.pyd')):
+	try:
+		tmpdir = tempfile.mkdtemp(prefix='tuflow_refh2')
+		shutil.copy(os.path.join(refh2dir, "refh2.pyd"),
+	                os.path.join(tmpdir, "refh2.pyd"))
+		sys.path.append(tmpdir)
+		from refh2 import Refh2Dock
+	except:
+		Refh2Dock = None
+else:
+	try:
+		from tuflow.ReFH2.refh2 import Refh2Dock
+	except:
+		Refh2Dock = None
+
+# from tuflow.ReFH2.refh2 import Refh2Dock
+
+from tuflow.SCS.scs import SCSDock
 
 # import for integrity tool
 from tuflow.integrity_tool.IntegrityTool import IntegrityToolDock
@@ -44,10 +75,13 @@ from tuflow.integrity_tool.IntegrityTool import IntegrityToolDock
 from .tuflowqgis_library import tuflowqgis_apply_check_tf, resetQgisSettings
 
 # remote debugging
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\debug-eggs')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\plugins\python\helpers\pydev')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\plugins\python\helpers\pydev')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\helpers\pydev')
+
 
 class tuflowqgis_menu:
 
@@ -59,6 +93,7 @@ class tuflowqgis_menu:
 		self.cLayer = None
 		self.tpExternal = None
 		self.refh2DockOpen = False
+		self.scsDockOpen = False
 		self.defaultPath = 'C:\\'
 		self.integrityToolOpened = False
 		self.lambdaConnections = []
@@ -177,7 +212,7 @@ class tuflowqgis_menu:
 		self.view_results_action.triggered.connect(self.openResultsPlottingWindow)
 		self.iface.addToolBarIcon(self.view_results_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.view_results_action)
-		
+
 		# Integrity Tool
 		icon = QIcon(os.path.join(dir, "icons", "IntegrityTool.png"))
 		self.integrity_tool_action = QAction(icon, "1D Integrity Tool", self.iface.mainWindow())
@@ -251,6 +286,12 @@ class tuflowqgis_menu:
 		self.apply_chk_cLayer_action.triggered.connect(self.apply_check_cLayer)
 		self.iface.addToolBarIcon(self.apply_chk_cLayer_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.apply_chk_cLayer_action)
+
+		if spatial_database_option:
+			icon = QIcon(os.path.join(dir, "icons", "geopackage.jpg"))
+			self.apply_gpkg_layernames_action = QAction(icon, "Apply GPKG Layer Names", self.iface.mainWindow())
+			self.apply_gpkg_layernames_action.triggered.connect(self.apply_gpkg_layername)
+			self.iface.addToolBarIcon(self.apply_gpkg_layernames_action)
 		
 		#Auto label generator ES 8/03/2018
 		icon = QIcon(os.path.join(dir, "icons", "Label_icon.PNG"))
@@ -281,10 +322,17 @@ class tuflowqgis_menu:
 
 		# ReFH2
 		icon = QIcon(os.path.join(dir, "icons", "ReFH2icon.png"))
-		self.extractRefh2Action = QAction(icon, "Extract ReFH 2 for TUFLOW (beta)", self.iface.mainWindow())
+		self.extractRefh2Action = QAction(icon, "Extract ReFH 2 for TUFLOW", self.iface.mainWindow())
 		self.extractRefh2Action.triggered.connect(self.extractRefh2)
 		self.iface.addPluginToMenu("&TUFLOW", self.extractRefh2Action)
 		self.iface.addToolBarIcon(self.extractRefh2Action)
+
+		# SCS
+		icon = QIcon(os.path.join(dir, "icons", "CNicon.png"))
+		self.extractSCSAction = QAction(icon, "Extract SCS for TUFLOW (beta)", self.iface.mainWindow())
+		self.extractSCSAction.triggered.connect(self.extractSCS)
+		self.iface.addPluginToMenu("&TUFLOW", self.extractSCSAction)
+		self.iface.addToolBarIcon(self.extractSCSAction)
 
 # ES 2019/01 TUFLOW Utilities
 		icon = QgsApplication.getThemeIcon('mActionTerminal.svg')
@@ -425,11 +473,11 @@ class tuflowqgis_menu:
 				if bRedock == QMessageBox.Yes:
 					self.resultsPlottingDock.setFloating(False)
 		else:
-			#try:
-			self.resultsPlottingDock = TuView(self.iface, removeTuview=self.removeTuviewAction,
+			try:
+				self.resultsPlottingDock = TuView(self.iface, removeTuview=self.removeTuviewAction,
 				                                  reloadTuview=self.reloadTuviewAction)
-			#except:
-			#	pass
+			except:
+				self.resultsPlottingDock = TuView(self.iface)
 			dockArea = Qt.BottomDockWidgetArea
 			if QSettings().contains("TUFLOW/tuview_defaultlayout"):
 				if QSettings().value("TUFLOW/tuview_defaultlayout", "plot") == "narrow":
@@ -561,6 +609,9 @@ class tuflowqgis_menu:
 		error, message = tuflowqgis_apply_check_tf_clayer(self.iface)
 		if error:
 			QMessageBox.critical(self.iface.mainWindow(), "Error", message)
+
+	def apply_gpkg_layername(self):
+		tuflowqgis_apply_gpkg_layername(self.iface)
 			
 	def extract_arr2016(self):
 		dialog = tuflowqgis_extract_arr2016_dialog(self.iface)
@@ -580,7 +631,7 @@ class tuflowqgis_menu:
 		dir = os.path.dirname(__file__)
 		p = os.path.join(dir, "layer_labelling")
 		os.startfile(p)
-	
+
 	def loadTuflowLayersFromTCF(self):
 		settings = QSettings()
 		lastFolder = str(settings.value("TUFLOW/load_TCF_last_folder", os.sep))
@@ -623,10 +674,7 @@ class tuflowqgis_menu:
 	
 	def reload_data(self):
 		layer = self.iface.mapCanvas().currentLayer()
-		if layer is not None:
-			if isinstance(layer, QgsVectorLayer):
-				layer.dataProvider().forceReload()
-				layer.triggerRepaint()
+		reload_data(layer)
 
 	def filterAndSortLayers(self):
 		self.filterSortLayerDialog = FilterSortLayersDialog(self.iface)
@@ -649,6 +697,10 @@ class tuflowqgis_menu:
 			QMessageBox.critical(self.iface.mainWindow(), "ReFH2", "ReFH2 tool is only available in Windows")
 			return
 
+		if Refh2Dock is None:
+			QMessageBox.critical(self.iface.mainWindow(), "ReFH2", "A problem occurred loading ReFH2 tool. Please contact support@tuflow.com")
+			return
+
 		if self.refh2DockOpen:
 			self.refh2Dock.show()
 		else:
@@ -665,6 +717,14 @@ class tuflowqgis_menu:
 			self.refh2Dock = Refh2Dock(self.iface)
 			self.iface.addDockWidget(Qt.RightDockWidgetArea, self.refh2Dock)
 			self.refh2DockOpen = True
+
+	def extractSCS(self):
+		if self.scsDockOpen:
+			self.scsDock.show()
+		else:
+			self.scsDock = SCSDock(self.iface)
+			self.iface.addDockWidget(Qt.RightDockWidgetArea, self.scsDock)
+			self.scsDockOpen = True
 
 	def addLambdaConnection(self, conn):
 		self.lambdaConnections.append(conn)

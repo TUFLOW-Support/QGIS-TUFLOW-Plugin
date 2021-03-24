@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\Ellis.Symons\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\tuflow\forms\ui_tuflowqgis_TuOptionsDialog.ui'
+# Form implementation generated from reading ui file 'C:\Users\esymons\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\tuflow\forms\ui_tuflowqgis_TuOptionsDialog.ui'
 #
 # Created by: PyQt5 UI code generator 5.11.3
 #
@@ -240,7 +240,7 @@ class Ui_TuViewOptions(object):
         self.label_8.setText(_translate("TuViewOptions", "X-Axis Label Rotation (deg):"))
         self.rbLiveCursorTrackingOff.setText(_translate("TuViewOptions", "Off"))
         self.label_11.setText(_translate("TuViewOptions", "<html><head/><body><p>*Capitals for date (DD/MM/YYYY) lower case for time (hh:mm:ss)</p><p>DD/MM/YYYY hh:mm:ss - 31/12/1988 12:00:00</p><p>MMM/YY - Dec/88</p><p>DD/MMMM hh:mm - 31/December 12:00</p></body></html>"))
-        self.tpLabel.setText(_translate("TuViewOptions", "<html><head/><body><p>For QGIS 3.16 or later, Zero Date controls referenct time for TUFLOW Viewer time slider only. To edit the reference time for results, edit the reference time in the layer properties.</p></body></html>"))
+        self.tpLabel.setText(_translate("TuViewOptions", "<html><head/><body><p>For QGIS 3.16 or later, Zero Date controls reference time for TUFLOW Viewer time slider only. To edit the reference time for results, edit the reference time in the layer properties.</p></body></html>"))
         self.groupBox_3.setTitle(_translate("TuViewOptions", "Auto Play"))
         self.label_3.setText(_translate("TuViewOptions", "Auto Play Speed (sec)"))
         self.groupBox_4.setTitle(_translate("TuViewOptions", "Map Plotting"))

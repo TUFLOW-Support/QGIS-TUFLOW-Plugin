@@ -1014,6 +1014,9 @@ class ResData():
 
 		"""
 
+		if type(time) is str:
+			time = float(time)
+
 		if time == -99999:
 			found, data, message = self.getMAXData(id, dom, res)
 			if found:
@@ -1631,11 +1634,19 @@ class ResData():
 			message = 'ERROR - Expecting model domain to be 1D.'
 			return False, [0.0], message
 
-	def LP_getConnectivity(self,id1,id2):
+	def LP_getConnectivity(self,id1,id2, *args, **kwargs):
 		#print('determining LP connectivity')
 		message = None
 		error = False
-		self.LP.chan_list = []
+
+		self.LP.chan_list.clear()
+		self.LP.chan_index.clear()
+		self.LP.node_list.clear()
+		if id1 is None and id2 is None:
+			return True, ""
+
+		if self.Channels is None:
+			return error, message
 		if (id2 == None): # only one channel selected
 			finished = False
 			i = 0

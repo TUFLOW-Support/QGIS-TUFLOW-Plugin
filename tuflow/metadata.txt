@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.1.4.9
+version=3.1.5
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,27 +20,30 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=### 3.1.4.9 ###
-          Added urban area input option to ReFH2 tool
-          Added version and BFIHOST19 input check to ReFH2 tool
-
-          ### 3.1.4.8 ###
-          Added engine version option to ReFH2 tool
-
-          ### 3.1.4.7 ###
-          Fixed vertical profile plotting - broke with new python version
-
-          ### 3.1.4.6 ###
-          Added climate change options to ReFH2 engine 2.3
-
-          ### 3.1.4.4 ###
-          For QGIS 3.16+ TUFLOW viewer now adopts absolute time as default
-
-          ### 3.1.4.3 ###
-          Reload layer tool no longer produces an error for non-vector layers - it still only works for vector layers
-
-          ### 3.1.4.2 ###
-          ARR tool now recognises NaN rainfall loss values from the dataub and sets losses to zero
+changelog=### 3.1.5 ###
+          SCS Curve number calculation and export to TUFLOW tool added (beta)
+          ReFH2 tool - ReFH2 engine 2.3 option added
+          ReFH2 tool - Added climate change options
+          ReFH2 tool - Added urban area input option
+          ReFH2 tool - Added version and BFIHOST19 input check
+          ReFH2 tool - Added engine version option
+          ARR tool - NSW datahub continuing loss multiplied by 0.4
+          ARR tool - let users set event independent continuing loss
+          ARR tool - now recognises NaN rainfall loss values from the dataub and sets losses to zero
+          ARR tool - Fixed bug that miscalculated ARF for short durations for catchments between 1 - 10km2
+          TUFLOW Viewer - Import FM timeseries results added
+          TUFLOW Viewer - Fixed bug that would incorrectly flag layers as 1D cross section and cause QGIS to hang
+          TUFLOW Viewer - Customising plot 'select axes' dialog has nicer labels 'primary axis' and 'secondary axis'
+          TUFLOW Viewer - Minimums fixed for TUFLOW Classic results when importing XMDF
+          TUFLOW Viewer - Fixed a bug in animation tool that would error when adding plots if current time was already displayed in time series plot window
+          TUFLOW Viewer - Fixed an issue with connection signals trying to persist after tuflow viewer is completely closed
+          TUFLOW Viewer - Fixed vertical profile plotting - broke with new python version
+          TUFLOW Viewer - For QGIS 3.16+ TUFLOW viewer now adopts absolute time as default (internal workings - no change for users)
+          TUFLOW Utilities tool - Fixed the downloader - exe location was not being correctly input
+          TUFLOW Utilities tool - Made further improvements to error checking
+          Import check files tool - Fixed bug in import all check files from a folder where it would duplicate layers
+          Reload layer tool -  no longer produces an error for non-vector layers - it still only works for vector layers
+          Many small bug fixes
 
           ### 3.1.4.1 ###
           Uninstalling plugin should now work unless the ReFH2 tool has been run
@@ -100,7 +103,7 @@ changelog=### 3.1.4.9 ###
 # tags are comma separated with spaces allowed
 tags=TUFLOW, simulation, flood, hydraulic modelling, MDAL, mesh, xmdf, dat, 2dm, Australian Rainfall & Runoff, ARR, ReFH2
 
-homepage=http://wiki.tuflow.com/index.php?title=TUFLOW_QGIS_Plugin
+homepage=https://wiki.tuflow.com/index.php?title=TUFLOW_QGIS_Plugin
 tracker=https://github.com/TUFLOW-Support/QGIS-TUFLOW-Plugin/issues
 repository=https://github.com/TUFLOW-Support/QGIS-TUFLOW-Plugin
 icon=tuflow.png

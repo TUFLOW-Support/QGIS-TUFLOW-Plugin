@@ -266,7 +266,7 @@
       <item row="3" column="0" colspan="5">
        <widget class="QLabel" name="tpLabel">
         <property name="text">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;For QGIS 3.16 or later, Zero Date controls referenct time for TUFLOW Viewer time slider only. To edit the reference time for results, edit the reference time in the layer properties.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;For QGIS 3.16 or later, Zero Date controls reference time for TUFLOW Viewer time slider only. To edit the reference time for results, edit the reference time in the layer properties.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
@@ -573,8 +573,8 @@
  </connections>
  <buttongroups>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="LiveCursorTracking"/>
   <buttongroup name="MeanSelection"/>
   <buttongroup name="DefaultLayout"/>
-  <buttongroup name="LiveCursorTracking"/>
  </buttongroups>
 </ui>

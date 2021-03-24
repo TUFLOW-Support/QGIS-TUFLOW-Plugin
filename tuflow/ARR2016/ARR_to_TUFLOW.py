@@ -54,6 +54,7 @@ user_initial_loss = None  # float or str or None  e.g. 10, '10', None
 user_continuing_loss = None  # float or str or None e.g. 2.5, '2.5', None
 urban_initial_loss = None
 urban_continuing_loss = None
+use_global_continuing_loss = False
 probability_neutral_losses = True
 bComplete_storm = False
 preburst_pattern_method = None
@@ -117,7 +118,8 @@ arg_map = {'name': 0, 'coords': 1, 'area': 2, 'mag': 3, 'dur': 4, 'nonstnd': 5, 
            'preburst_pattern_tp': 18.4, 'preburst_dur_proportional': 18.5,
            'user_initial_loss': 19,
            'user_continuing_loss': 20,
-           'urban_initial_loss': 21, 'urban_continuing_loss': 22, 'addtp': 23,
+           'urban_initial_loss': 21, 'urban_continuing_loss': 22,
+           'global_continuing_loss': 22.5, 'addtp': 23,
            'point_tp': 24, 'areal_tp': 25, 'arffreq': 26, 'minarf': 27, 'out': 28, 'offline_mode': 29, 'arr_file': 30,
            'bom_file': 31, 'catchment_no': 32}
 for key in sorted(args, key=lambda k: arg_map[k]):
@@ -406,6 +408,12 @@ if 'urban_continuing_loss' in args.keys():
         urban_continuing_loss = None
     else:
         urban_continuing_loss = args['urban_continuing_loss'][0]
+# global continuing loss
+if 'global_continuing_loss' in args.keys():
+    if args['global_continuing_loss'][0] == 'true':
+        use_global_continuing_loss = True
+    else:
+        use_global_continuing_loss = False
 # probability neutral losses
 if 'probability_neutral_losses' in args.keys():
     if args['probability_neutral_losses'][0] == 'false':
@@ -747,7 +755,8 @@ try:
                urban_continuing_loss=urban_continuing_loss, probability_neutral_losses=probability_neutral_losses,
                use_complete_storm=bComplete_storm, preburst_pattern_method=preburst_pattern_method,
                preburst_pattern_dur=preburst_pattern_dur, preburst_pattern_tp=preburst_pattern_tp,
-               preburst_dur_proportional=bPreburst_dur_proportional)
+               preburst_dur_proportional=bPreburst_dur_proportional,
+               use_global_continuing_loss=use_global_continuing_loss)
 except Exception as e:
     #print('ERROR: Unable to export data: {0}'.format(e))
     try:

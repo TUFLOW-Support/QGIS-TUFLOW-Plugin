@@ -1,3 +1,4 @@
+__VK__ = '0000000000-000000000000-000000000000'
 try:
     import winreg
 except:
@@ -8,6 +9,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, QVariant
 from PyQt5.QtWidgets import QMessageBox
 from qgis.core import QgsVectorFileWriter, QgsFields, QgsField, QgsWkbTypes, QgsFeature, NULL
 from tuflow.tuflowqgis_library import convertFormattedTimeToTime
+import hashlib
 
 # try:
     # from .checksum import checkSum
@@ -15,21 +17,26 @@ from tuflow.tuflowqgis_library import convertFormattedTimeToTime
     # pass
 
 
-def getCheckSum(descriptor):
-    try:
-        from .checksum import checkSum
-    except ImportError:
+def getCheckSum(descriptor, vk=None):
+
+    if vk != __VK__:
         return None
 
-    try:
-        cs = checkSum(descriptor)
-    except:
-        return None
-    return cs
+    with open(descriptor, "rb") as f:
+        bytes = f.read()  # read file as bytes
+        readable_hash = hashlib.md5(bytes).hexdigest()
+        # Combine MD5 Hash for input XML file with vendor key
+        combined = readable_hash + __VK__
+
+    # Python Script to find MD5 hash value for the combined string, this is what is used in the input file for ReFH2
+    return hashlib.md5(combined.encode('utf-8')).hexdigest()
 
 
-def refh2Version(exe):
+def refh2Version(exe, vk=None):
     """Returns refh2 version."""
+
+    if vk != __VK__:
+        return None
 
     args = [exe, '--version']
     CREATE_NO_WINDOW = 0x08000000
@@ -40,12 +47,15 @@ def refh2Version(exe):
     return out.decode('utf-8').strip()
 
 
-def isBFIHOST19Descriptor(descriptor) -> bool:
+def isBFIHOST19Descriptor(descriptor, vk=None) -> bool:
     """
 
     :param descriptor: str
     :return: bool
     """
+
+    if vk != __VK__:
+        return None
 
     isBFIHOST19Descriptor = False
 
@@ -96,8 +106,11 @@ class Refh2(QObject):
     tuflowProcessingStart = pyqtSignal()
     finished = pyqtSignal(str)
     
-    def __init__(self, inputs: dict=None) -> None:
+    def __init__(self, inputs: dict=None, vk=None) -> None:
         QObject.__init__(self)
+        if vk != __VK__:
+            self.finished.emit("Could not calculate checksum.")
+            return
         self.inputs = inputs
         self.data = None
         self.headers = []
@@ -112,7 +125,7 @@ class Refh2(QObject):
 
         if 'exe' not in self.inputs:
             exeLoc = self.findExe()
-            if 'error' in exeLoc:
+            if 'error' in exeLoc.lower():
                 self.finished.emit(exeLoc)
                 return
             else:
@@ -123,9 +136,10 @@ class Refh2(QObject):
         infile = '--infile={0}'.format(self.inputs['descriptor'])
         #outfile = '--outfile={0}'.format(self.inputs['output file'])
         #checksum = '--checksum={0}'.format(checkSum(self.inputs['descriptor']))
-        cs = getCheckSum(self.inputs['descriptor'])
+        cs = getCheckSum(self.inputs['descriptor'], __VK__)
         if cs is None:
-            self.finished.emit("Could not import checkSum.pyd")
+            self.finished.emit("Could not calculate checksum.")
+            return
         checksum = '--checksum={0}'.format(cs)
         vendor = '--vendor=bmt'
         mode = '--mode=HYDROGRAPH'
@@ -139,12 +153,19 @@ class Refh2(QObject):
         reportoutputfolder = '--reportoutputfolder={0}'.format(os.path.dirname(self.inputs['output file']))
         rainModel = '--rainmodel={0}'.format(self.inputs['rain model'])
         engine = '--engine={0}'.format(self.inputs['engine version'])
+        arf = '--arf={0}'.format(self.inputs['arf']) if self.inputs['arf'] is not None else None
 
         # version check
-        refv = refh2Version(exe)
+        refv = refh2Version(exe, __VK__)
+        if refv is None:
+            self.finished.emit("Could not calculate checksum.")
+            return
         refv_list = refv.split('.')
         refv_float = float('{0}.{1}'.format(*refv_list[:2]))
-        isBFIHOST19 = isBFIHOST19Descriptor(self.inputs['descriptor'])
+        isBFIHOST19 = isBFIHOST19Descriptor(self.inputs['descriptor'], __VK__)
+        if isBFIHOST19 is None:
+            self.finished.emit("Could not calculate checksum.")
+            return
         msg = None
         if refv_float < 3.0 and isBFIHOST19:
             msg = f"Installed ReFH2 version ({refv}) does not support BFIHOST19 Descriptors\n" \
@@ -182,6 +203,10 @@ class Refh2(QObject):
                     timestep = '--timestep={0}'.format(timesteps[j])
                     args.append(duration)
                     args.append(timestep)
+
+                if self.inputs['engine version'] > 2.2:
+                    if arf is not None:
+                        args.append(arf)
 
                 self.refh2Start.emit()
                 CREATE_NO_WINDOW = 0x08000000
@@ -487,15 +512,15 @@ class Refh2(QObject):
         except IOError:
             self.finished.emit('Error Opening {0}'.format(tef))
             return
-        
+
     def createGis(self) -> None:
         """
         Create TUFLOW GIS Layer(s)
         Use input GIS feature for data
-        
+
         :return: None
         """
-        
+
         if self.inputs['gis feature'] is not None:
             if self.inputs['output gis'] is not None:
                 for gisOutput in self.inputs['output gis']:
@@ -518,7 +543,7 @@ class Refh2(QObject):
                         fields.append(QgsField("Rain_Gauge", QVariant.Double, len=15, prec=5))
                         fields.append(QgsField("IL", QVariant.Double, len=15, prec=5))
                         fields.append(QgsField("CL", QVariant.Double, len=15, prec=5))
-                        feat.setAttributes([self.inputs['rainfall name'], self.inputs['area'], NULL, NULL, NULL])
+                        feat.setAttributes([self.inputs['rainfall name'], self.inputs['area'], 1., 0., 0.])
                     elif gisOutput == Refh2.SA:
                         outfile = os.path.join(os.path.dirname(self.inputs['output file']),
                                                '2d_sa_{0}_R.shp'.format(name))
@@ -535,7 +560,7 @@ class Refh2(QObject):
                         fields.append(QgsField("td", QVariant.Double, len=15, prec=5))
                         fields.append(QgsField("a", QVariant.Double, len=15, prec=5))
                         fields.append(QgsField("b", QVariant.Double, len=15, prec=5))
-                        feat.setAttributes(['QT', NULL, self.inputs['inflow name'], NULL, NULL, NULL, NULL, NULL])
+                        feat.setAttributes(['QT', "", self.inputs['inflow name'], 0., 0., 0., 0., 0.])
                     elif gisOutput == Refh2.BC_1d:
                         if self.inputs['gis geometry'] == QgsWkbTypes.PointGeometry:
                             outfile = os.path.join(os.path.dirname(self.inputs['output file']),
@@ -547,8 +572,9 @@ class Refh2(QObject):
                         fields.append(QgsField("Flags", QVariant.String, len=6))
                         fields.append(QgsField("Name", QVariant.String, len=50))
                         fields.append(QgsField("Descriptio", QVariant.String, len=250))
-                        feat.setAttributes(['QT', NULL, self.inputs['inflow name'], NULL])
-                    writer = QgsVectorFileWriter(outfile, "UTF-8", fields, self.inputs['gis geometry'], self.inputs['crs'], driverName="ESRI Shapefile")
+                        feat.setAttributes(['QT', "", self.inputs['inflow name'], ""])
+                    writer = QgsVectorFileWriter(outfile, "UTF-8", fields, self.inputs['gis geometry'],
+                                                 self.inputs['crs'], driverName="ESRI Shapefile")
                     if writer.hasError() != QgsVectorFileWriter.NoError:
                         self.finished.emit(writer.errorMessage())
                         return

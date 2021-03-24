@@ -50,6 +50,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from tuflow.tuflowqgis_library import interpolate, convertStrftimToTuviewftim, convertTuviewftimToStrftim, browse
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/forms")
 currentFolder = os.path.dirname(os.path.abspath(__file__))
+spatial_database_option = False
 
 
 # ----------------------------------------------------------
@@ -70,21 +71,29 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		fpath = None
 		self.fname = None
 		self.curr_file = None
-		
+		self.isgpkg = False
+		self.twTables.setHorizontalHeaderLabels(["Layer", "Incremented Layer"])
+
+		table_width = 414
+
+		self.twTables.setColumnWidth(0, table_width / 2)
+		self.twTables.setColumnWidth(1, table_width / 2)
+
+		self.sourcelayer_changed(None, cLayer)
 		if cLayer:
 			cName = cLayer.name()
-			dp = cLayer.dataProvider()
-			ds = dp.dataSourceUri()
-			fpath = os.path.dirname(unicode(ds))
-			self.fpath = fpath
-			basename = os.path.basename(unicode(ds))
-			ind = basename.find('|')
-			if (ind>0):
-				fname = basename[0:ind]
-			else:
-				fname = basename
-			self.fname = fname
-			self.curr_file = os.path.join(fpath,fname)
+			# dp = cLayer.dataProvider()
+			# ds = dp.dataSourceUri()
+			# fpath = os.path.dirname(unicode(ds))
+			# self.fpath = fpath
+			# basename = os.path.basename(unicode(ds))
+			# ind = basename.find('|')
+			# if (ind>0):
+			# 	fname = basename[0:ind]
+			# else:
+			# 	fname = basename
+			# self.fname = fname
+			# self.curr_file = os.path.join(fpath,fname)
 		else:
 			QMessageBox.information( self.iface.mainWindow(),"Information", "No layer is currently selected in the layer control")
 
@@ -92,7 +101,12 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		self.pbOk.clicked.connect(self.run)
 		self.pbCancel.clicked.connect(self.reject)
 		self.sourcelayer.currentIndexChanged[int].connect(self.sourcelayer_changed)
-		
+		self.rbDatabaseDbLayer.clicked.connect(self.toggleIncrementDatabase)
+		self.rbDatabaseLayer.clicked.connect(self.toggleIncrementDatabase)
+		self.btnBrowseDatabase.clicked.connect(lambda: browse(self, 'output database', "TUFLOW/increment_database",
+															  "Spatial Database", "GPKG (*.GPKG *.gpkg)",
+															  self.outfolder))
+
 		i = 0
 		for name, layer in QgsProject.instance().mapLayers().items():
 			if layer.type() == QgsMapLayer.VectorLayer:
@@ -100,13 +114,93 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 				if layer.name() == cName:
 					self.sourcelayer.setCurrentIndex(i)
 				i = i + 1
-		if (fpath):
-			self.outfolder.setText(fpath)
-			outfname = tuflowqgis_increment_fname(fname)
-			self.outfilename.setText(outfname)
-		else:
+		# if self.sourcelayer.currentIndex() != -1:
+		# 	self.outfolder.setText(fpath)
+		# 	outfname = tuflowqgis_increment_fname(fname)
+		# 	self.outfilename.setText(outfname)
+		if self.sourcelayer.currentIndex() == -1:
 			self.outfolder.setText('No layer currently selected!')
 			self.outfilename.setText('No layer currently selected!')
+
+		self.toggleIncrementDatabase(cLayer)
+
+	def toggleIsDatabase(self, layer):
+		# check if geopackage
+		self.isgpkg = False
+		if layer is not None:
+			dp = layer.dataProvider()
+			ds = dp.dataSourceUri()
+			pattern = re.escape(r'.gpkg|layername=')
+			fpath = os.path.dirname(unicode(ds))
+			if re.findall(pattern, ds, re.IGNORECASE):
+				self.isgpkg = True
+
+		if self.isgpkg:
+			self.label_2.setText("Output Database")
+			self.label.setText("Output Layer Name")
+			self.btnBrowseDatabase.setVisible(True)
+			self.browseoutfile.setVisible(False)
+		else:
+			self.label_2.setText("Output Folder")
+			self.label.setText("Output File")
+			self.btnBrowseDatabase.setVisible(False)
+			self.browseoutfile.setVisible(True)
+
+		self.gbSpatialDatabaseOptions.setVisible(self.isgpkg)
+		w = self.width()
+		h = self.height()
+		if not self.isgpkg:
+			h = self.height() - self.gbSpatialDatabaseOptions.sizeHint().height()
+		self.adjustSize()
+		self.resize(w, h)
+
+	def toggleIncrementDatabase(self, e=None, layer=None):
+		incrementDatabase = self.rbDatabaseDbLayer.isChecked() and self.isgpkg
+
+		if incrementDatabase:
+			self.label.setText("Output Layers: blank = same name; untick = do not copy")
+		else:
+			self.label.setText("Output Layer Name")
+
+		self.outfilename.setVisible(not incrementDatabase)
+		self.twTables.setVisible(incrementDatabase)
+
+		if incrementDatabase:
+			self.populateTableNames(layer)
+
+		w = self.width()
+		h = self.height()
+		if not incrementDatabase:
+			h = self.height() - self.twTables.sizeHint().height()
+		self.adjustSize()
+		self.resize(w, h)
+
+	def populateTableNames(self, layer=None):
+
+		if not self.isgpkg:
+			return
+
+		if layer is None:
+			layername = unicode(self.sourcelayer.currentText())
+			layer = tuflowqgis_find_layer(layername)
+
+		dbname = re.split(re.escape(r"|layername="), layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)[0]
+		dblayer = QgsVectorLayer(dbname, 'database', 'ogr')
+		if not dblayer.isValid():
+			return
+
+		tablenames = [x.split('!!::!!')[1] for x in dblayer.dataProvider().subLayers()]
+		self.twTables.setRowCount(len(tablenames))
+		for i, table in enumerate(tablenames):
+			item = QTableWidgetItem()
+			item.setCheckState(Qt.Checked)
+			item.setText(table)
+			self.twTables.setItem(i, 0, item)
+
+			if table == layername:
+				item = QTableWidgetItem()
+				item.setText(tuflowqgis_increment_fname(table))
+				self.twTables.setItem(i, 1, item)
 
 	def browse_outfile(self):
 		outfolder = unicode(self.outfolder.displayText()).strip()
@@ -117,32 +211,73 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 			outfname = tuflowqgis_increment_fname(fname)
 			self.outfilename.setText(outfname)
 
-	def sourcelayer_changed(self):
-		layername = unicode(self.sourcelayer.currentText())
-		layer = tuflowqgis_find_layer(layername)
+	def sourcelayer_changed(self, e, layer=None):
+		if layer is None:
+			layername = unicode(self.sourcelayer.currentText())
+			layer = tuflowqgis_find_layer(layername)
+		self.toggleIsDatabase(layer)
+		if layer is None:
+			return
 		try:
 			dp = layer.dataProvider()
 			ds = dp.dataSourceUri()
+
+			# check if geopackage
+			isgpkg = False
+			pattern = re.escape(r'.gpkg|layername=')
 			fpath = os.path.dirname(unicode(ds))
-			basename = os.path.basename(unicode(ds))
-			ind = basename.find('|')
-			if (ind>0):
-				fname = basename[0:ind]
+			if re.findall(pattern, ds, re.IGNORECASE):
+				layername = re.split(pattern, ds, flags=re.IGNORECASE)[1]
+				fname = os.path.basename(re.split(pattern, ds, flags=re.IGNORECASE)[0])
+				isgpkg = True
 			else:
-				fname = basename
+				layername = os.path.basename(unicode(ds))
+				fname = os.path.basename(ds)
+			# ind = basename.find('|')
+			# if (ind>0):
+			# 	fname = basename[0:ind]
+			# else:
+			# 	fname = basename
 			self.curr_file = os.path.join(fpath,fname)
+			outfname = tuflowqgis_increment_fname(layername)
+			if isgpkg:
+				# if self.rbDatabaseDbLayer.isChecked():
+				# 	outdbname = tuflowqgis_increment_fname(fname)
+				# else:
+				# 	outdbname = fname
+				outdbname = tuflowqgis_increment_fname(fname)
+				fpath = os.path.join(fpath, '{0}.gpkg'.format(outdbname))
 			self.outfolder.setText(fpath)
-			outfname = tuflowqgis_increment_fname(fname)
 			self.outfilename.setText(outfname)
 		except:
 			QMessageBox.information( self.iface.mainWindow(),"Information", "Unexpected error")
+
+	def incrementedDatabaseTableNames(self):
+
+		incrementedNames = {}
+		for i in range(self.twTables.rowCount()):
+			item1 = self.twTables.item(i, 0)
+			item2 = self.twTables.item(i, 1)
+			if item1.checkState() == Qt.Checked:
+				if item2 and item2.text().strip():
+					incrementedNames[item1.text()] = item2.text().strip()
+				else:
+					incrementedNames[item1.text()] = item1.text()
+
+		return incrementedNames
 
 	def run(self):
 		# collect information
 		layername = unicode(self.sourcelayer.currentText())
 		layer = tuflowqgis_find_layer(layername)
+		dp = layer.dataProvider()
+		ds = dp.dataSourceUri()
 		outname = unicode(self.outfilename.displayText()).strip()
-		if not outname[-4:].upper() == '.SHP':
+		if self.isgpkg:
+			filename_old, layer_old = re.split(re.escape(r"|layername="), ds, flags=re.IGNORECASE)
+		else:
+			filename_old = os.path.basename(ds)
+		if outname[-4:].upper() != '.SHP' and not self.isgpkg:
 			outname = outname+'.shp'
 			# QMessageBox.information( self.iface.mainWindow(),"Information", "Appending .shp to filename.")
 		outfolder = unicode(self.outfolder.displayText()).strip()
@@ -160,31 +295,92 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 				return
 		
 		# duplicate layer with incremented name
-		message = tuflowqgis_duplicate_file(self.iface, layer, savename, False)
+		if self.isgpkg:
+			incrementDatabase = True if self.rbDatabaseDbLayer.isChecked() else False
+			incrementDatabaseLayers = self.incrementedDatabaseTableNames()
+			message = duplicate_database(self.iface, layer, outfolder, outname, incrementDatabase, incrementDatabaseLayers)
+			savename = '{0}|layername={1}'.format(outfolder, outname)
+		else:
+			message = tuflowqgis_duplicate_file(self.iface, layer, savename, False)
 		if message != None:
 			QMessageBox.critical(self.iface.mainWindow(), "Duplicating File", message)
-		
+			return
+
 		# change existing layer datasource to incremented layer
-		changeDataSource(self.iface, layer, savename)
+		if self.isgpkg and incrementDatabase:
+			for lyrname, lyr in QgsProject.instance().mapLayers().items():
+				if re.findall(re.escape(r".gpkg|layername="), lyr.dataProvider().dataSourceUri(), re.IGNORECASE):
+					tablename = re.split(re.escape(r".gpkg|layername="), lyr.dataProvider().dataSourceUri(), flags=re.IGNORECASE)[1]
+					if tablename in incrementDatabaseLayers:
+						newtablesource = '{0}|layername={1}'.format(outfolder, incrementDatabaseLayers[tablename])
+						changeDataSource(self.iface, lyr, newtablesource, True)
+		else:
+			changeDataSource(self.iface, layer, savename, self.isgpkg)
+			QgsProject.instance().reloadAllLayers()
 		
 		# check if need to move to SS folder
 		if self.cbMoveToSS.isChecked():
-			ssFolder = os.path.join(outfolder, 'ss')
-			if not os.path.exists(ssFolder):
-				os.mkdir(ssFolder)
-			name = os.path.splitext(self.fname)[0]
-			search = os.path.join(outfolder, name) + '.*'
-			files = glob.glob(search)
-			for file in files:
-				os.rename(file, os.path.join(ssFolder, os.path.basename(file)))
+			if self.isgpkg and not incrementDatabase:
+				pass
+			else:
+				if self.isgpkg:
+					ssFolder = os.path.join(os.path.dirname(outfolder), 'ss')
+				else:
+					ssFolder = os.path.join(outfolder, 'ss')
+				if not os.path.exists(ssFolder):
+					os.mkdir(ssFolder)
+				dp = layer.dataProvider()
+				ds = dp.dataSourceUri()
+				if self.isgpkg:
+					files = [filename_old]
+				else:
+					name = os.path.splitext(filename_old)[0]
+					search = os.path.join(outfolder, name) + '.*'
+					files = glob.glob(search)
+				messages = []
+				layers_not_copied = []
+				layers_copied_orig = []
+				layers_copied_new = []
+				for file in files:
+					try:
+						os.rename(file, os.path.join(ssFolder, os.path.basename(file)))
+						layers_copied_orig.append(file)
+						layers_copied_new.append(os.path.join(ssFolder, os.path.basename(file)))
+					except Exception as e:
+						layers_not_copied.append(file)
+						messages.append(e)
+				if layers_not_copied:
+					for i, file in enumerate(layers_copied_new):  # copy back since some have failed
+						os.rename(file, layers_copied_orig[i])
+					QMessageBox.warning(self, "Copy Failed", "Warning could not copy the following layers to superseded folder:\n"
+															 "{0}\n\n"
+															 "{1}".format('\n'.join(layers_not_copied), messages[0]))
 		
 		# check if need to keep layer in workspace
 		if self.rbKeepSource.isChecked():  # remove layer
+			# work out where the old layer is
 			if self.cbMoveToSS.isChecked():
-				oldFile = os.path.join(ssFolder, self.fname)
+				if self.isgpkg:
+					name = layer_old
+					if incrementDatabase and not layers_not_copied:
+						oldFile = '{0}|layername={1}'.format(os.path.join(ssFolder, os.path.basename(filename_old)), layer_old)
+					else:
+						oldFile = '{0}|layername={1}'.format(filename_old, layer_old)
+				else:
+					name = os.path.splitext(filename_old)[0]
+					if not layers_not_copied:
+						oldFile = os.path.join(ssFolder, filename_old)
+					else:
+						oldFile = os.path.join(outfolder, filename_old)
 			else:
-				oldFile = os.path.join(outfolder, self.fname)
-			oldLayer = self.iface.addVectorLayer(oldFile, os.path.basename(oldFile)[:-4], "ogr")
+				if self.isgpkg:
+					oldFile = '{0}|layername={1}'.format(filename_old, layer_old)
+					name = layer_old
+				else:
+					name = os.path.splitext(filename_old)[0]
+					oldFile = os.path.join(outfolder, filename_old)
+			# add and style old layer
+			oldLayer = self.iface.addVectorLayer(oldFile, name, "ogr")
 			copyLayerStyle(self.iface, layer, oldLayer)
 			
 		self.accept()
@@ -206,6 +402,10 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		self.pbShowToolTip.setVisible(not showToolTip)
 		self.pbHideToolTip.setVisible(showToolTip)
 		self.teToolTip.setTabStopWidth(16)
+
+		self.sizes = self.splitter.sizes()
+		if not showToolTip:
+			self.sizes[1] = 20
 		
 		# find out which tuflow engine to use
 		self.engine = 'classic'  # set a default - other option is 'flexible mesh'
@@ -229,6 +429,9 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		self.emptyType.itemSelectionChanged.connect(self.updateToolTip)
 		self.pbOk.clicked.connect(self.run)
 		self.pbCancel.clicked.connect(self.reject)
+		self.btnDatabaseBrowse.clicked.connect(lambda: browse(self, 'output database', "TUFLOW/import_empty_database",
+													          "Spatial Database", "gpkg (*.gpkg *.GPKG)",
+													          self.leDatabaseBrowse))
 
 		if self.tfsettings.combined.base_dir:
 			subfolders = [self.parent_folder_name.lower(), 'model', 'gis', 'empty']
@@ -254,11 +457,15 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		elif not os.path.exists(self.emptydir.text()):
 			self.emptyType.addItem('Empty directory not valid')
 		else:
-			search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
-			files = glob.glob(search_string)
-			if not files:
-				search_string = '{0}{1}*.SHP'.format(self.emptydir.text(), os.path.sep)
-				files = glob.glob(search_string)
+			exts = ['shp', 'gpkg']
+			files = []
+			for ext in exts:
+				search_string = '{0}{1}*.{2}'.format(self.emptydir.text(), os.path.sep, ext)
+				f = glob.glob(search_string)
+				if not f:
+					search_string = '{0}{1}*.{2}'.format(self.emptydir.text(), os.path.sep, ext.upper())
+					f = glob.glob(search_string)
+				files += f
 			empty_list = []
 			for file in files:
 				if len(file.split('_empty')) < 2:
@@ -268,15 +475,30 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 					empty_list.append(empty_type)
 			empty_list = sorted(empty_list)
 			self.emptyType.addItems(empty_list)
+
+		self.gbSpatialDatabaseOptions.setVisible(spatial_database_option)
+		w = self.width()
+		h = self.height() - self.gbSpatialDatabaseOptions.sizeHint().height()
+		self.resize(w, h)
 		
 	def toggleToolTip(self):
+
 		showToolTip = not self.teToolTip.isVisible()
 		self.teToolTip.setVisible(showToolTip)
 		self.pbShowToolTip.setVisible(not showToolTip)
 		self.pbHideToolTip.setVisible(showToolTip)
+		dif = self.width() - sum(self.splitter.sizes())
+		if not showToolTip:
+			self.sizes = self.splitter.sizes()
+			self.splitter.setSizes([self.sizes[0], 0])
+			w = self.sizes[0] + dif
+		else:
+			self.splitter.setSizes(self.sizes)
+			w = sum(self.sizes) + dif
+		self.splitter.refresh()
 		h = self.height()
 		self.adjustSize()
-		w = self.width()
+		# w = self.width()
 		self.resize(w, h)
 		
 	def updateToolTip(self):
@@ -370,8 +592,15 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 			elif not os.path.exists(self.emptydir.text()):
 				self.emptyType.addItem('Empty directory not valid')
 			else:
-				search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
-				files = glob.glob(search_string)
+				exts = ['shp', 'gpkg']
+				files = []
+				for ext in exts:
+					search_string = '{0}{1}*.{2}'.format(self.emptydir.text(), os.path.sep, ext)
+					f = glob.glob(search_string)
+					if not f:
+						search_string = '{0}{1}*.{2}'.format(self.emptydir.text(), os.path.sep, ext.upper())
+						f = glob.glob(search_string)
+					files += f
 				empty_list = []
 				for file in files:
 					if len(file.split('_empty')) < 2:
@@ -389,11 +618,15 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		elif not os.path.exists(self.emptydir.text()):
 			self.emptyType.addItem('Empty directory not valid')
 		else:
-			search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
-			files = glob.glob(search_string)
-			if not files:
-				search_string = '{0}{1}*.SHP'.format(self.emptydir.text(), os.path.sep)
-				files = glob.glob(search_string)
+			exts = ['shp', 'gpkg']
+			files = []
+			for ext in exts:
+				search_string = '{0}{1}*.{2}'.format(self.emptydir.text(), os.path.sep, ext)
+				f = glob.glob(search_string)
+				if not f:
+					search_string = '{0}{1}*.{2}'.format(self.emptydir.text(), os.path.sep, ext.upper())
+					f = glob.glob(search_string)
+				files += f
 			empty_list = []
 			for file in files:
 				if len(file.split('_empty')) < 2:
@@ -419,8 +652,18 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		lines = self.checkLine.isChecked()
 		regions = self.checkRegion.isChecked()
 
+		# spatial database
+		databaseOption = 'separate'
+		databaseLoc = ''
+		if self.rbDatabaseGrouped.isChecked():
+			databaseOption = 'grouped'
+		elif self.rbDatabaseOne.isChecked():
+			databaseOption = 'one'
+			databaseLoc = self.leDatabaseBrowse.text() if os.path.splitext(self.leDatabaseBrowse.text().lower())[1] == '.gpkg' else ''
+		convert = True if self.cbConvertToDb.isChecked() else False
+
 		# run create dir script
-		message = tuflowqgis_import_empty_tf(self.iface, basedir, runID, empty_types, points, lines, regions, self)
+		message = tuflowqgis_import_empty_tf(self.iface, basedir, runID, empty_types, points, lines, regions, self, databaseOption, databaseLoc, convert)
 		#message = tuflowqgis_create_tf_dir(self.iface, crs, basedir)
 		if message is not None:
 			if message != 1:
@@ -828,6 +1071,8 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		self.sourcelayer.currentIndexChanged[int].connect(self.layer_changed)
 		self.buttonBox.accepted.connect(self.run)
 
+		self.gbGisFormat.setVisible(spatial_database_option)
+
 	def browse_outdir(self):
 		#newname = QFileDialog.getExistingDirectory(None, QString.fromLocal8Bit("Output Directory"))
 		newname = QFileDialog.getExistingDirectory(None, "Output Directory")
@@ -937,8 +1182,9 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		if self.cbCreate.isChecked():
 			crs = QgsCoordinateReferenceSystem()
 			crs.createFromString(tf_prj)
-	
-			message = tuflowqgis_create_tf_dir(self, crs, basedir, engine, tutorial)
+
+			gisFormat = 'GPKG' if self.rbGPKG.isChecked() else 'SHP'
+			message = tuflowqgis_create_tf_dir(self, crs, basedir, engine, tutorial, gisFormat)
 			if message != None:
 				QMessageBox.critical(self.iface.mainWindow(), "Creating TUFLOW Directory ", message)
 		
@@ -1752,6 +1998,11 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		if self.gbUrbanLosses.isChecked():
 			urbanInitialLoss = '{0}'.format(self.sbUrbanIL.value())
 			urbanContinuingLoss = '{0}'.format(self.sbUrbanCL.value())
+
+		# global continuing loss
+		globalCL = 'false'
+		if self.cbGlobalCL.isChecked():
+			globalCL = 'true'
 		
 		# Get Minimum ARF Value
 		minArf = str(self.minArf.value())
@@ -1874,7 +2125,8 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			            '-probability_neutral_losses', pnil,
 			            '-complete_storm', complete_storm, '-preburst_pattern_method', preburst_pattern,
 			            '-preburst_pattern_dur', preburst_pattern_dur, '-preburst_pattern_tp', preburst_pattern_tp,
-			            '-preburst_dur_proportional', preburst_proportional]
+			            '-preburst_dur_proportional', preburst_proportional,
+			            '-global_continuing_loss', globalCL]
 			self.arr2016.append(sys_args, name_list[i])
 			
 		self.arr2016.moveToThread(self.thread)
@@ -2776,8 +3028,10 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		#t = [self.dteZeroDate.time().hour(), self.dteZeroDate.time().minute(), self.dteZeroDate.time().second()]
 		#self.tuOptions.zeroTime = datetime(d[0], d[1], d[2], t[0], t[1], t[2])
 		self.tuOptions.zeroTime = qdt2dt(self.dteZeroDate)
-		if qv >= 31300:
+		if 31300 <= qv < 31600:
 			self.tuOptions.zeroTime = datetime2timespec(self.tuOptions.zeroTime, 1, self.tuOptions.timeSpec)
+		else:
+			self.tuOptions.zeroTime = datetime2timespec(self.tuOptions.zeroTime, 1, 1)
 		settings.setValue('TUFLOW/tuview_zeroTime', self.tuOptions.zeroTime)
 		
 		# format time
@@ -2856,7 +3110,7 @@ class TuSelectedElementsDialog(QDialog, Ui_selectedElements):
 
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		selIds = []
 		for item in self.elementList.selectedItems():
 			selIds.append(item.text())
@@ -2865,8 +3119,13 @@ class TuSelectedElementsDialog(QDialog, Ui_selectedElements):
 			if layer.type() == QgsMapLayer.VectorLayer:
 				if ' plot ' in layer.name().lower() or '_plot_' in layer.name().lower():
 					layer.removeSelection()
+					pattern = re.escape(r'.gpkg|layername=')
+					i = 0
+					if layer.dataProvider().name() != 'memory':
+						if re.findall(pattern, layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE):
+							i = 0
 					for feature in layer.getFeatures():
-						if feature.attributes()[0] in selIds:
+						if feature.attributes()[i].strip() in selIds:
 							layer.select(feature.id())
 		
 		return True
@@ -4061,6 +4320,15 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 		self.btnFindFile.clicked.connect(self.findFile)
 
 	def findFile(self):
+		if not self.leAdvWorkingDir.text():
+			QMessageBox.warning(self, "TUFLOW Utilities",
+			                    "Warning: specify a working directory before selecting a file")
+			return
+		if not os.path.exists(self.leAdvWorkingDir.text()):
+			QMessageBox.warning(self, "TUFLOW Utilities",
+			                    "Warning: working directory is not valid")
+			return
+
 		files = QFileDialog.getOpenFileNames(self, "Select File(s)", self.leAdvWorkingDir.text(), "ALL (*)")[0]
 		text = [self.teCommands.toPlainText()]
 		# for f in files:
@@ -4072,7 +4340,12 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 		# 	else:
 		# 		t = " {0}".format(name)
 		# 	text.append(t)
-		relPaths = [os.path.relpath(x, self.leAdvWorkingDir.text()) for x in files]
+
+		try:
+			relPaths = [os.path.relpath(x, self.leAdvWorkingDir.text()) for x in files]
+		except Exception as e:
+			QMessageBox.warning(self, "TUFLOW Utilities", "Warning: file is on a different drive than working directory")
+			relPaths = files
 		if text[0] and text[0][-1] == " ":
 			text[0] = text[0][:-1]
 		text.extend(relPaths)
@@ -4404,6 +4677,17 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 				return
 			if not self.teCommands.toPlainText():
 				QMessageBox.critical(self, "TUFLOW Utilities", "Must specify some flags")
+				return
+			utilities = ['Asc2Asc', 'TUFLOW2GIS', 'Res2Res', '12da2GIS', 'Convert2TS1','Tin2Tin', 'XSGenerator']
+			i = self.cboAdvancedUtility.currentIndex()
+			leutil = eval("self.le{0}".format(utilities[i]))
+			if not leutil.text():
+				QMessageBox.critical(self, "TUFLOW Utilities", "{0} path is not specified in the Executables tab".format(self.cboAdvancedUtility.currentText()))
+				return
+			if not os.path.exists(leutil.text()):
+				QMessageBox.critical(self, "TUFLOW Utilities",
+				                     "{0} path in the Executables tab is not valid:\n{1}".format(
+					                     self.cboAdvancedUtility.currentText(), leutil.text()))
 				return
 		
 		self.run()
@@ -4809,3 +5093,137 @@ class tuflowqgis_brokenLinks_dialog(QDialog, Ui_scenarioSelection):
 			self.brokenLinks_lw.addItem(brokenLink)
 		
 		self.ok_button.clicked.connect(self.accept)
+
+
+# ----------------------------------------------------------
+#    Import Flood Modeller results into tuflow viewer
+# ----------------------------------------------------------
+from FMResImport_Dialog import *
+
+
+class FloodModellerResultImportDialog(QDialog, Ui_FMResDialog):
+	def __init__(self):
+		QDialog.__init__(self)
+		self.setupUi(self)
+		self.setupButtons()
+		self.gxy = None
+		self.dat = None
+		self.results = []
+
+		# browse to files
+		self.btnBrowseGXY.clicked.connect(lambda: browse(self, 'existing file', 'TUFLOW/import_FM_Dialog',
+		                                                 'Flood Modeller GXY File', 'GXY (*.gxy *.GXY)', self.leGXY))
+		self.btnBrowseSectionData.clicked.connect(lambda: browse(self, 'existing file', 'TUFLOW/import_FM_Dialog',
+		                                                         'Flood Modeller Cross-Section DAT File', 'DAT (*.dat *.DAT)', self.leSectionData))
+		self.btnBrowseCSV.clicked.connect(lambda: browse(self, 'existing files', 'TUFLOW/import_FM_Dialog',
+		                                                 'Flood Modeller Result CSV Files', 'CSV (*.csv *.CSV)',
+		                                                 self.lwCSVFiles, allowDuplicates=False))
+
+		# other signals
+		self.btnRemCSV.clicked.connect(self.removeCSV)
+		self.pbOK.clicked.connect(self.run)
+		self.pbCancel.clicked.connect(self.reject)
+
+	def setupButtons(self):
+		folIcon = QgsApplication.getThemeIcon('/mActionFileOpen.svg')
+		remIcon = QgsApplication.getThemeIcon('/symbologyRemove.svg')
+
+		# browse icon
+		self.btnBrowseGXY.setIcon(folIcon)
+		self.btnBrowseSectionData.setIcon(folIcon)
+		self.btnBrowseCSV.setIcon(folIcon)
+
+		# add / remove icons
+		self.btnRemCSV.setIcon(remIcon)
+
+		# tooltips
+		self.btnBrowseGXY.setToolTip("Browse to GXY file location")
+		self.btnBrowseSectionData.setToolTip("Browse to section (.DAT) file location")
+		self.btnBrowseCSV.setToolTip("Browse to CSV file location")
+		self.btnRemCSV.setToolTip("Remove selected CSV from list")
+
+	def removeCSV(self):
+		selectedItems = self.lwCSVFiles.selectedItems()
+		selectedIndexes = [x for x in range(self.lwCSVFiles.count()) if self.lwCSVFiles.item(x) in selectedItems]
+		for i in reversed(selectedIndexes):
+			self.lwCSVFiles.takeItem(i)
+
+	def errorMessage_(self, message):
+		QMessageBox.critical(self, "Import FM Results", message)
+
+	def run(self):
+		if not self.leGXY.text():
+			self.errorMessage_("GXY file path not specified")
+			return
+		if not os.path.exists(self.leGXY.text()):
+			self.errorMessage_("GXY file does not exist:\n{0}".format(self.leGXY.text()))
+			return
+		self.gxy = self.leGXY.text()
+
+		if self.leSectionData.text():
+			if not os.path.exists(self.leSectionData.text()):
+				self.errorMessage_("Cross-section dat file does not exist:\n{0}".format(self.leSectionData.text()))
+				return
+			self.dat = self.leSectionData.text()
+
+		self.results = [self.lwCSVFiles.item(x).text() for x in range(self.lwCSVFiles.count())]
+		if not self.results:
+			self.errorMessage_("No result CSV files specified")
+			return
+		for res in self.results:
+			invalidFilePaths = [x for x in self.results if not os.path.exists(x)]
+			if invalidFilePaths:
+				invalidFilePaths = '\n'.join(invalidFilePaths)
+				self.errorMessage_(invalidFilePaths)
+				return
+
+		self.accept()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

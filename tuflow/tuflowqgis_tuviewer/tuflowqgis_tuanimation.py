@@ -183,7 +183,8 @@ def setPlotProperties(fig, ax, prop, ax2, layout_type, layout_item, dateTime=Fal
 		fig.set_size_inches(r.width() / 25.4, r.height() / 25.4)
 	else:
 		return
-	fig.suptitle(prop.leTitle.text())
+	# fig.suptitle(prop.leTitle.text())
+	ax.set_title(prop.leTitle.text())
 	ax.set_xlabel(prop.leXLabel.text())
 	ax.set_ylabel(prop.leYLabel.text())
 	if ax2:
@@ -382,6 +383,7 @@ def transformMapCoordToLayout(layout, extent, point, margin):
 	
 			
 def composition_set_plots(dialog, cfg, time, layout, dir, layout_type, showCurrentTime, retainFlow):
+
 	from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 	qv = Qgis.QGIS_VERSION_INT
@@ -497,8 +499,21 @@ def prepare_composition_from_template(layout, cfg, time, dialog, dir, showCurren
 	if layers is not None:
 		layout_map.setLayers(layers)
 
-	setTemporalRange(tuResults, layout_map, time, meshLayer)
-	
+	# check for 3D map
+	layout_3d = None
+	for n in range(layout.itemsModel().rowCount()):
+		for m in range(layout.itemsModel().columnCount()):
+			layoutItem = layout.itemsModel().itemFromIndex(layout.itemsModel().index(n, m))
+			if layoutItem is not None:
+				if layoutItem.displayName() == '3D Map 1':
+					layout_3d = layoutItem
+					break
+		if layout_3d is not None:
+			break
+
+	# setTemporalRange(tuResults, layout_map, time, meshLayer)
+	setTemporalRange(tuResults, layout_map, time, meshLayer, layout_3d)
+
 	composition_set_time(layout, cfg['time text'])
 	if 'plots' in layoutcfg:
 		composition_set_plots(dialog, cfg, time, layout, dir, 'template', showCurrentTime, retainFlow)
@@ -740,6 +755,7 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 				timetext = convertTimeToFormattedTime(hrs, unit='h')
 		cfg['time text'] = timetext
 
+
 		# Set to render next timesteps
 		rs = l.rendererSettings()
 		asd = cfg['scalar index']
@@ -752,6 +768,7 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 		#rs.setActiveVectorDataset(QgsMeshDatasetIndex(avd, i))
 
 		# new api for 3.14
+		#if qv < 31600:
 		setActiveScalar, setActiveVector = TuResults2D.meshRenderVersion(rs)
 		setActiveScalar(asd)
 		setActiveVector(avd)
@@ -943,7 +960,7 @@ def createDefaultSymbol(gtype):
 
 
 
-def setTemporalRange(tuResults, layout_map, time, meshLayer):
+def setTemporalRange(tuResults, layout_map, time, meshLayer, layout3d=None):
 	qv = Qgis.QGIS_VERSION_INT
 	if qv >= 31300:
 		if tuResults is not None:
@@ -951,8 +968,12 @@ def setTemporalRange(tuResults, layout_map, time, meshLayer):
 				timeSpec = None
 			else:
 				timeSpec = meshLayer.temporalProperties().referenceTime().timeSpec()
-			layout_map.setIsTemporal(True)
-			tuResults.updateQgsTime(qgsObject=layout_map, time=time, timeSpec=timeSpec)
+			if layout_map is not None:
+				layout_map.setIsTemporal(True)
+				tuResults.updateQgsTime(qgsObject=layout_map, time=time, timeSpec=timeSpec)
+			# if layout3d is not None:
+			# 	layout3d.setIsTemporal(True)
+			# 	tuResults.updateQgsTime(qgsObject=layout3d, time=time, timeSpec=timeSpec)
 
 
 def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, dialog, show_current_time=True,
@@ -2851,7 +2872,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			 }
 		if qv >= 31600:
 			d['reference_time'] = rt
-		
+
 		for pb, dialog in self.pbDialogs.items():
 			dialog.setDefaults(self, self.dialog2Plot[dialog][0].text(), self.dialog2Plot[dialog][1].text().split(';;'),
 			                   xAxisDates=self.tuView.tuOptions.xAxisDates)
@@ -3132,6 +3153,8 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 	def setDefaults(self, animation, plotType, items, recalculate='', static=False, activeScalar=None, xAxisDates=False):
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		if type(plotType) is not str:
 			if type(plotType) is QTableWidgetItem:
 				plotType = plotType.text()
@@ -3351,7 +3374,21 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 						# 	                                  self.animationDialog.tuView.tuResults.date2time)
 						# else:
 						# 	time = convertFormattedTimeToTime(timeFormatted, unit=unit)
-						time = self.animationDialog.tuView.tuResults.timeFromString(timeFormatted)
+
+						if qv < 31600:
+							time = self.animationDialog.tuView.tuResults.timeFromString(timeFormatted)
+						else:
+							if self.animationDialog.tuView.tuOptions.xAxisDates:
+								time = datetime.strptime(timeFormatted, self.animationDialog.tuView.tuResults.dateFormat)
+							else:
+								if timeFormatted in self.animationDialog.tuView.tuResults.cboTime2timekey:
+									time = self.animationDialog.tuView.tuResults.cboTime2timekey[timeFormatted]
+									time = self.animationDialog.tuView.tuResults.timekey2time[time]
+									zt = self.animationDialog.tuView.tuOptions.zeroTime
+									time = zt + timedelta(hours=time)
+								else:
+									time = convertFormattedTimeToTime(timeFormatted, unit=unit)
+
 						if plotType == 'CS / LP':
 							animation.tuView.tuPlot.updateCurrentPlot(TuPlot.CrossSection, draw=False, time=time)
 						else:

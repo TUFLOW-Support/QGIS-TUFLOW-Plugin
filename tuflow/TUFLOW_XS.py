@@ -3,7 +3,7 @@ import sys
 import os
 import csv
 import numpy.ma as ma
-from .tuflowqgis_library import interpolate
+# from .tuflowqgis_library import interpolate
 version = '2018-04-AA'
 
 
@@ -388,6 +388,13 @@ class XS_results():
 
 		"""
 
+		from .tuflowqgis_library import interpolate
+
+		x, y = [], []
+
+		if not xs.x or not xs.z:
+			return x, y
+
 		xmin, xmax = min(xs.x), max(xs.x)
 		ymin, ymax = min(xs.z), max(xs.z)
 
@@ -441,6 +448,8 @@ class XS_results():
 
 		void return:
 		"""
+
+		from .tuflowqgis_library import interpolate
 
 		for i, wl in enumerate(self.maxH):
 			if wl is not None:

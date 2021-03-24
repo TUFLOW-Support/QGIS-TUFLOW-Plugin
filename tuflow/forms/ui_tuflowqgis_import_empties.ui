@@ -2,354 +2,531 @@
 <ui version="4.0">
  <class>tuflowqgis_import_empty</class>
  <widget class="QDialog" name="tuflowqgis_import_empty">
-  <property name="windowModality">
-   <enum>Qt::ApplicationModal</enum>
-  </property>
-  <property name="enabled">
-   <bool>true</bool>
-  </property>
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>729</width>
-    <height>518</height>
+    <width>604</width>
+    <height>572</height>
    </rect>
   </property>
-  <property name="mouseTracking">
-   <bool>false</bool>
-  </property>
   <property name="windowTitle">
-   <string>Import TUFLOW Empty File</string>
+   <string>Dialog</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout_2">
-   <item row="0" column="1">
-    <widget class="QTextBrowser" name="teToolTip">
-     <property name="html">
-      <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:18pt; font-weight:600; text-decoration: underline;&quot;&gt;Tool Tip&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+  <layout class="QVBoxLayout" name="verticalLayout_3">
+   <item>
+    <widget class="QSplitter" name="splitter">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
      </property>
-     <property name="openExternalLinks">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="0">
-    <layout class="QGridLayout" name="gridLayout">
-     <item row="2" column="0">
-      <widget class="QLabel" name="label2">
-       <property name="text">
-        <string>Empty Type</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="0" colspan="3">
-      <widget class="QLineEdit" name="txtRunID">
-       <property name="text">
-        <string>RunID</string>
-       </property>
-       <property name="readOnly">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0">
-      <widget class="QLabel" name="label1">
-       <property name="text">
-        <string>Empty Directory</string>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="0" colspan="3">
-      <layout class="QHBoxLayout" name="horizontalLayout">
-       <item>
-        <widget class="QCheckBox" name="checkPoint">
-         <property name="text">
-          <string>Points</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QCheckBox" name="checkLine">
-         <property name="text">
-          <string>Lines</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QCheckBox" name="checkRegion">
-         <property name="text">
-          <string>Regions</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLineEdit" name="emptydir">
-       <property name="minimumSize">
-        <size>
-         <width>250</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="text">
-        <string>&lt;directory&gt;</string>
-       </property>
-       <property name="readOnly">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="0">
-      <widget class="QLabel" name="label4">
-       <property name="text">
-        <string>Geometry Type</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1" colspan="2">
-      <widget class="QPushButton" name="browsedir">
-       <property name="text">
-        <string>Browse...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="0" colspan="3">
-      <widget class="QListWidget" name="emptyType">
-       <property name="selectionMode">
-        <enum>QAbstractItemView::ExtendedSelection</enum>
+     <widget class="QWidget" name="verticalLayoutWidget">
+      <layout class="QVBoxLayout" name="verticalLayout">
+       <property name="spacing">
+        <number>0</number>
        </property>
        <item>
-        <property name="text">
-         <string>0d_RL</string>
-        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout">
+         <item>
+          <widget class="QLabel" name="label1">
+           <property name="text">
+            <string>Empty Directory</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pbHideToolTip">
+           <property name="text">
+            <string>&lt;&lt; Hide Tool Tip</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pbShowToolTip">
+           <property name="text">
+            <string>Show Tool Tip &gt;&gt;</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
        <item>
-        <property name="text">
-         <string>1d_bc</string>
-        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <item>
+          <widget class="QLineEdit" name="emptydir">
+           <property name="minimumSize">
+            <size>
+             <width>250</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>&lt;directory&gt;</string>
+           </property>
+           <property name="readOnly">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="browsedir">
+           <property name="text">
+            <string>Browse...</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
        <item>
-        <property name="text">
-         <string>1d_iwl</string>
-        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_3">
+         <item>
+          <widget class="QLabel" name="label2">
+           <property name="text">
+            <string>Empty Type</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
        <item>
-        <property name="text">
-         <string>1d_mh</string>
-        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_4">
+         <item>
+          <widget class="QListWidget" name="emptyType">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>250</height>
+            </size>
+           </property>
+           <property name="baseSize">
+            <size>
+             <width>0</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="selectionMode">
+            <enum>QAbstractItemView::ExtendedSelection</enum>
+           </property>
+           <item>
+            <property name="text">
+             <string>0d_RL</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>1d_bc</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>1d_iwl</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>1d_mh</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>1d_nd</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>1d_nwk</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>1d_nwkB</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>1d_nwke</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>1d_pit</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>1d_tab</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>1d_WLL</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_bc</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_code</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_fc</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_fcsh</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_glo</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_gw</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_iwl</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_lfcsh</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_loc</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_lp</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_mat</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_oz</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_po</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_rf</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_sa</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_sa_rf</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_sa_tr</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_soil</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_vzsh</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_z__</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_zsh</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2d_zshr</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+        </layout>
        </item>
        <item>
-        <property name="text">
-         <string>1d_nd</string>
-        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_6">
+         <item>
+          <widget class="QLabel" name="label3">
+           <property name="text">
+            <string>Run ID</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
        <item>
-        <property name="text">
-         <string>1d_nwk</string>
-        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_5">
+         <item>
+          <widget class="QLineEdit" name="txtRunID">
+           <property name="text">
+            <string>RunID</string>
+           </property>
+           <property name="readOnly">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
        <item>
-        <property name="text">
-         <string>1d_nwkB</string>
-        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_7">
+         <item>
+          <widget class="QGroupBox" name="groupBox_2">
+           <property name="title">
+            <string>Geometry Type</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_5">
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_8">
+              <item>
+               <widget class="QCheckBox" name="checkPoint">
+                <property name="text">
+                 <string>Points</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QCheckBox" name="checkLine">
+                <property name="text">
+                 <string>Lines</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QCheckBox" name="checkRegion">
+                <property name="text">
+                 <string>Regions</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>0</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
        </item>
        <item>
-        <property name="text">
-         <string>1d_nwke</string>
-        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_9">
+         <item>
+          <widget class="QGroupBox" name="gbSpatialDatabaseOptions">
+           <property name="title">
+            <string>Spatial Database Options:</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_4">
+            <property name="spacing">
+             <number>6</number>
+            </property>
+            <item>
+             <widget class="QCheckBox" name="cbConvertToDb">
+              <property name="text">
+               <string>Check if empty files are shp and whish to convert to gpkg</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QVBoxLayout" name="verticalLayout_2">
+              <property name="spacing">
+               <number>0</number>
+              </property>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_10">
+                <property name="spacing">
+                 <number>0</number>
+                </property>
+                <item>
+                 <widget class="QRadioButton" name="rbDatabaseSeparate">
+                  <property name="text">
+                   <string>Separate</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup</string>
+                  </attribute>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_19">
+                <property name="spacing">
+                 <number>0</number>
+                </property>
+                <item>
+                 <widget class="QRadioButton" name="rbDatabaseGrouped">
+                  <property name="text">
+                   <string>Group geometry types</string>
+                  </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup</string>
+                  </attribute>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_20">
+                <property name="spacing">
+                 <number>0</number>
+                </property>
+                <item>
+                 <widget class="QRadioButton" name="rbDatabaseOne">
+                  <property name="text">
+                   <string>All to one:</string>
+                  </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup</string>
+                  </attribute>
+                 </widget>
+                </item>
+                <item>
+                 <layout class="QHBoxLayout" name="horizontalLayout_21">
+                  <property name="spacing">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <widget class="QToolButton" name="btnDatabaseBrowse">
+                    <property name="text">
+                     <string>...</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLineEdit" name="leDatabaseBrowse">
+                    <property name="text">
+                     <string>&lt;Existing or New Database&gt;</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
        </item>
        <item>
-        <property name="text">
-         <string>1d_pit</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>1d_tab</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>1d_WLL</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_bc</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_code</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_fc</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_fcsh</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_glo</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_gw</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_iwl</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_lfcsh</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_loc</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_lp</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_mat</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_oz</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_po</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_rf</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_sa</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_sa_rf</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_sa_tr</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_soil</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_vzsh</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_z__</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_zsh</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2d_zshr</string>
-        </property>
-       </item>
-      </widget>
-     </item>
-     <item row="0" column="1" colspan="2">
-      <layout class="QHBoxLayout" name="horizontalLayout_2">
-       <item>
-        <widget class="QPushButton" name="pbHideToolTip">
-         <property name="text">
-          <string>&lt;&lt; Hide Tool Tip</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="pbShowToolTip">
-         <property name="text">
-          <string>Show Tool Tip &gt;&gt;</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="label3">
-       <property name="text">
-        <string>Run ID</string>
-       </property>
-      </widget>
-     </item>
-     <item row="8" column="0" colspan="3">
-      <layout class="QHBoxLayout" name="horizontalLayout_4">
-       <item>
-        <spacer name="horizontalSpacer">
+        <spacer name="verticalSpacer">
          <property name="orientation">
-          <enum>Qt::Horizontal</enum>
+          <enum>Qt::Vertical</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
-           <width>40</width>
-           <height>20</height>
+           <width>20</width>
+           <height>0</height>
           </size>
          </property>
         </spacer>
        </item>
        <item>
-        <widget class="QPushButton" name="pbOk">
-         <property name="text">
-          <string>OK</string>
-         </property>
-        </widget>
+        <layout class="QHBoxLayout" name="horizontalLayout_12">
+         <item>
+          <spacer name="horizontalSpacer_3">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>0</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pbOk">
+           <property name="text">
+            <string>OK</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pbCancel">
+           <property name="text">
+            <string>Cancel</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="verticalLayoutWidget_2">
+      <layout class="QHBoxLayout" name="horizontalLayout_13">
        <item>
-        <widget class="QPushButton" name="pbCancel">
-         <property name="text">
-          <string>Cancel</string>
+        <widget class="QTextBrowser" name="teToolTip">
+         <property name="html">
+          <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:18pt; font-weight:600; text-decoration: underline;&quot;&gt;Tool Tip&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+         <property name="openExternalLinks">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
       </layout>
-     </item>
-    </layout>
+     </widget>
+    </widget>
    </item>
   </layout>
  </widget>
  <resources/>
  <connections/>
+ <buttongroups>
+  <buttongroup name="buttonGroup"/>
+ </buttongroups>
 </ui>

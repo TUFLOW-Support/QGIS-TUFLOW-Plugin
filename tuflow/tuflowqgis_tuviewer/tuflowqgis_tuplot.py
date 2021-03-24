@@ -83,7 +83,7 @@ class TuPlot():
 		self.tuView = TuView
 		self.iface = self.tuView.iface
 		self.canvas = self.tuView.canvas
-		
+
 		# Initialise figures
 		# time series
 		self.layoutTimeSeries = self.tuView.TimeSeriesFrame.layout()
@@ -729,7 +729,8 @@ class TuPlot():
 				for j, a in enumerate(ax):
 					if a == artist:
 						ax.pop(j)
-						labels[k].pop(j)
+						if len(labels[k]) >= j + 1:
+							labels[k].pop(j)
 			if not last_only and not clearOnly or i + 1 >= len(self.plotData[clearType]) - remove_no + 1 or line in clearOnly:
 				if artist in subplot.lines:
 					subplot.lines.remove(artist)
@@ -1345,6 +1346,12 @@ class TuPlot():
 					subplot.lines.remove(line)
 			if self.plotData[TuPlot.DataCurrentTime]:
 				del self.plotData[TuPlot.DataCurrentTime][0]
+			for lab in labels[0][:]:
+				if lab.lower() == 'current time':
+					labels[0].remove(lab)
+			for line in artists[0][:]:
+				if line._label.lower() == 'current time':
+					artists[0].remove(line)
 			#if self.plotData[TuPlot.DataCurrentTime][0] in subplot.lines:
 			#	subplot.lines.remove(self.plotData[TuPlot.DataCurrentTime][0])
 			#	del self.plotData[TuPlot.DataCurrentTime][0]
@@ -2248,8 +2255,13 @@ class TuPlot():
 				xmax_manual = -99999
 				lines = subplot.lines
 				for l in lines:
-					xmin_manual = min(xmin_manual, min([convert_datetime_to_float(x) for x in l.get_xdata()]))
-					xmax_manual = max(xmin_manual, max([convert_datetime_to_float(x) for x in l.get_xdata()]))
+					if [x for x in l.get_xdata()]:
+						if type([x for x in l.get_xdata()]) is float:
+							xmin_manual = min(xmin_manual, min(l.get_xdata()))
+							xmax_manual = max(xmin_manual, max(l.get_xdata()))
+						else:
+							xmin_manual = min(xmin_manual, min([convert_datetime_to_float(x) for x in l.get_xdata()]))
+							xmax_manual = max(xmin_manual, max([convert_datetime_to_float(x) for x in l.get_xdata()]))
 				if xmin_manual >= 1:
 					subplot.set_xlim(xmin_manual, xmax_manual)
 				else:
@@ -2278,6 +2290,7 @@ class TuPlot():
 
 		try:
 			if not self.lockAxis(plotNo, showCurrentTime):
+				subplot.autoscale(True)
 				subplot.relim()
 				if self.checkPlotForInconsistentUnits(subplot):
 					subplot.xaxis.set_major_locator(matplotlib.ticker.AutoLocator())
@@ -2318,6 +2331,11 @@ class TuPlot():
 				subplot.set_yticks(np.arange(-4, 7, 1))
 				subplot.set_yticks([], minor=True)
 				subplot.set_yticklabels(['L', 'K', 'B', 'A', 'G', 'C', 'D', 'E', 'F', 'H', 'J'])
+
+		subplot._label = "Primary Axis"
+		if isSecondaryAxis[0]:
+			subplot2._label = "Secondary Axis"
+
 		try:
 			#subplot.autoscale(True)
 			#subplot.relim()
@@ -2491,6 +2509,8 @@ class TuPlot():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
+		qv= Qgis.QGIS_VERSION_INT
+
 		plot = kwargs['plot'] if 'plot' in kwargs.keys() else ''
 		draw = kwargs['draw'] if 'draw' in kwargs.keys() else True
 		time = kwargs['time'] if 'time' in kwargs.keys() else None
@@ -2499,7 +2519,21 @@ class TuPlot():
 		
 		if time is not None:
 			if time != 'Maximum' and time != 99999:
-				time = '{0:.6f}'.format(kwargs['time']) if 'time' in kwargs.keys() else None
+				if qv < 31600:
+					time = '{0:.6f}'.format(kwargs['time']) if 'time' in kwargs.keys() else None
+				else:
+					if type(time) is str:
+						if not self.tuView.tuOptions.xAxisDates:
+							if time in self.tuView.tuResults.cboTime2timekey:
+								time = self.tuView.tuResults.cboTime2timekey[time]
+								time = self.tuView.tuResults.timekey2time[time]
+							else:
+								unit = self.tuView.tuOptions.timeUnits
+								time = convertFormattedTimeToTime(time, unit=unit)
+							zt = self.tuView.tuOptions.zeroTime
+							time = zt + datetime.timedelta(hours=time)
+						else:
+							time = datetime.datetime.strptime(time, self.tuView.tuResults.dateFormat)
 		
 		# if not plot:
 		# 	self.clearPlot(1)
@@ -3042,6 +3076,31 @@ class TuPlot():
 						newLabels.append(label)
 			
 			return newLabels
+
+	def clearFrozenPlotProperties(self, plotNo=None, rtype=None):
+		plots = [TuPlot.TimeSeries, TuPlot.CrossSection, TuPlot.VerticalProfile]
+		if plotNo is not None:
+			if type(plotNo) is int:
+				plots = [plotNo]
+			elif type(plotNo) is list:
+				plots = plotNo
+
+		for plot in plots:
+			if plot == TuPlot.TimeSeries:
+				if rtype == 'lines' or rtype is None:
+					self.frozenTSProperties.clear()
+				if rtype == 'axis labels' or rtype is None:
+					self.frozenTSAxisLabels.clear()
+			elif plot == TuPlot.CrossSection:
+				if rtype == 'lines' or rtype is None:
+					self.frozenCSProperties.clear()
+				if rtype == 'axis labels' or rtype is None:
+					self.frozenCSAxisLabels.clear()
+			elif plot == TuPlot.VerticalProfile:
+				if rtype == 'lines' or rtype is None:
+					self.frozenVPProperties.clear()
+				if rtype == 'axis labels' or rtype is None:
+					self.frozenVPAxisLabels.clear()
 	
 	def exportCSV(self, plotNo, data, labels, types, outputFolder, fileName):
 		"""
@@ -3256,7 +3315,12 @@ class TuPlot():
 		y = y if y is not None else ' '
 		z = f', Z={z:.2f}' if z is not None else ''
 
-		return f'X={x:.2f}, Y={y:.2f}{z}'
+		try:
+			value = f'X={x:.2f}, Y={y:.2f}{z}'
+		except:
+			value = ''
+
+		# return f'X={x:.2f}, Y={y:.2f}{z}'
 
 
 	def onclick(self, e, plotNo):

@@ -197,7 +197,8 @@ class ResData():
                 return True, data, message
             except:
                 message = 'Data not found for 1D H with ID: '+id
-                return False, [0.0], message
+                # return False, [0.0], messages
+                return False, [], message
         elif(res.upper() in ("Q","Q_","FLOW","FLOWS")):
             try:
                 ind = self.Data_1D.Q.Header.index(id)
@@ -205,7 +206,8 @@ class ResData():
                 return True, data, message
             except:
                 message = 'Data not found for 1D Q with ID: '+id
-                return False, [0.0], message
+                # return False, [0.0], message
+                return False, [], message
         elif(res.upper() in ("V","V_","VELOCITY","VELOCITIES")):
             try:
                 ind = self.Data_1D.V.Header.index(id)
@@ -213,7 +215,8 @@ class ResData():
                 return True, data, message
             except:
                 message = 'Data not found for 1D V with ID: '+id
-                return False, [0.0], message
+                # return False, [0.0], message
+                return False, [], message
         elif(res.upper() in ("US_H", "US LEVELS")):
             chan_list = tuple(self.Channels.chan_name)
             ind = chan_list.index(str(id))
@@ -222,13 +225,15 @@ class ResData():
                 ind = self.Data_1D.H.Header.index(a)
             except:
                 message = 'Unable to find US node: ',+a+' for channel '+ id
-                return False, [0.0], message
+                # return False, [0.0], message
+                return False, [], message
             try:
                 data = self.Data_1D.H.Values[:,ind]
                 return True, data, message
             except:
                 message = 'Data not found for 1D H with ID: '+a
-                return False, [0.0], message
+                # return False, [0.0], message
+                return False, [], message
         elif(res.upper() in ("DS_H","DS LEVELS")):
             chan_list = tuple(self.Channels.chan_name)
             ind = chan_list.index(str(id))
@@ -237,22 +242,28 @@ class ResData():
                 ind = self.Data_1D.H.Header.index(a)
             except:
                 message = 'Unable to find DS node: ',+a+' for channel '+ id
-                return False, [0.0], message
+                # return False, [0.0], message
+                return False, [], message
             try:
                 data = self.Data_1D.H.Values[:,ind]
                 return True, data, message
             except:
                 message = 'Data not found for 1D H with ID: '+a
-                return False, [0.0], message
+                # return False, [0.0], message
+                return False, [], message
         else:
             message = 'Warning - Expecting unexpected data type for 1D: '+res
-            return False, [0.0], message
+            # return False, [0.0], message
+            return False, [], message
 
-    def LP_getConnectivity(self,id1,id2):
+    def LP_getConnectivity(self,id1,id2, *args, **kwargs):
         print('determining LP connectivity')
         message = None
         error = False
         self.LP.chan_list = []
+        if id1 is None and id2 is None:
+            return True, ""
+
         if (id2 == None): # only one channel selected
             finished = False
             i = 0

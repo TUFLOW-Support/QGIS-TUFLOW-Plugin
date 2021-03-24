@@ -132,6 +132,8 @@ class TuProject():
 	def processResults2d(self, call_type):
 		"""Project settings for 2d results"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		if call_type == 'save':
 			# results2d = self.tuView.tuResults.tuResults2D.results2d
 			results = self.tuView.tuResults.results
@@ -163,7 +165,13 @@ class TuProject():
 				# 	self.tuView.tuMenuBar.tuMenuFunctions.load2dResults(result_2D=[results])
 				# except:
 				# 	pass
-				self.hastp = {x.split(':')[0]: True if x.split(':')[1] == 'True' else False for x in results}
+				try:
+					self.hastp = {x.split(':')[0]: True if x.split(':')[1] == 'True' else False for x in results}
+				except:
+					if qv < 31600:
+						self.hastp = False
+					else:
+						self.hastp = True
 			
 	def processResults1d(self, call_type):
 		"""Project settings for 1d results"""

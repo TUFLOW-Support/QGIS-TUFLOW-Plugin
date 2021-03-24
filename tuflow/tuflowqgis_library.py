@@ -53,6 +53,7 @@ import colorsys
 import locale
 import codecs
 from shutil import copyfile
+import processing
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tuflowqgis_styles
@@ -257,7 +258,52 @@ def tuflowqgis_duplicate_file(qgis, layer, savename, keepform):
 	
 	return None
 
-def tuflowqgis_create_tf_dir(dialog, crs, basepath, engine, tutorial):
+
+def duplicate_database(iface, layer, db, layername, incrementDatabase, incrementDatabaseLayers):
+
+	if layer is None or not isinstance(layer, QgsVectorLayer):
+		name = layer.name() if layer is not None else ''
+		return 'Invalid vector layer {0}'.format(name)
+
+	if incrementDatabase:
+		# copy all layers to new database except incremented layer
+		db_old = layer.dataProvider().dataSourceUri()
+		db_old, layername_old = re.split(re.escape(r'|layername='), db_old, flags=re.IGNORECASE)
+		dbLayer = QgsVectorLayer(db_old, 'db', 'ogr')
+		if not dbLayer.isValid():
+			return 'Error opening old database - not a valid layer: {0}'.format(db_old)
+		for table in dbLayer.dataProvider().subLayers():
+			tablename = table.split('!!::!!')[1]
+			if tablename in incrementDatabaseLayers:
+			# if tablename != layername_old:
+				layername = incrementDatabaseLayers[tablename]
+				options = QgsVectorFileWriter.SaveVectorOptions()
+				if os.path.exists(db):
+					options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
+				else:
+					options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
+				options.layerName = layername
+				options.driverName = 'GPKG'
+				layer_temp = QgsVectorLayer('{0}|layername={1}'.format(db_old, tablename), 'temp', 'ogr')
+				error = QgsVectorFileWriter.writeAsVectorFormatV2(layer_temp, db, QgsCoordinateTransformContext(), options)
+				if error[0] != QgsVectorFileWriter.NoError:
+					return 'Error writing layer to database: {0} | {1}\n{2}'.format(db, tablename, error[1])
+	else:
+		options = QgsVectorFileWriter.SaveVectorOptions()
+		if os.path.exists(db):
+			options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
+		else:
+			options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
+		options.layerName = layername
+		options.driverName = 'GPKG'
+		error = QgsVectorFileWriter.writeAsVectorFormatV2(layer, db, QgsCoordinateTransformContext(), options)
+		if error[0] != QgsVectorFileWriter.NoError:
+			return 'Error creating new layer: {0} | {1}\n{2}'.format(db, layername, error[1])
+
+	return None
+
+
+def tuflowqgis_create_tf_dir(dialog, crs, basepath, engine, tutorial, gisFormat='SHP'):
 	if crs is None:
 		return "No CRS specified"
 
@@ -291,7 +337,7 @@ def tuflowqgis_create_tf_dir(dialog, crs, basepath, engine, tutorial):
 
 			
 	# Write Projection.prj Create a file ('w' for write, creates if doesnt exit)
-	prjname = os.path.join(basepath, parent_folder_name, "model", "gis", "projection.shp")
+	prjname = os.path.join(basepath, parent_folder_name, "model", "gis", "projection.{0}".format(gisFormat.lower()))
 	if len(prjname) <= 0:
 		return "Error creating projection filename"
 
@@ -300,22 +346,30 @@ def tuflowqgis_create_tf_dir(dialog, crs, basepath, engine, tutorial):
 		reply = QMessageBox.question(dialog, "Create TUFLOW Empty Files", "Projection File Already Exists\n"
 																		  "Do You Want To Overwrite The Existing File?",
 									 QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-		if reply == QMessageBox.Cancel:
+		if reply == QMessageBox.Cancel or reply == QMessageBox.No:
 			return ""
-		elif reply == QMessageBox.Yes:
-			fields = QgsFields()
-			fields.append( QgsField( "notes", QVariant.String ) )
-			outfile = QgsVectorFileWriter(prjname, "System", fields, 1, crs, "ESRI Shapefile")
-
-			if outfile.hasError() != QgsVectorFileWriter.NoError:
-				return "Failure creating output shapefile: " + outfile.errorMessage()
-	else:
+		# elif reply == QMessageBox.Yes:
+		# 	fields = QgsFields()
+		# 	fields.append( QgsField( "notes", QVariant.String ) )
+		# 	outfile = QgsVectorFileWriter(prjname, "System", fields, 1, crs, "ESRI Shapefile")
+		#
+		# 	if outfile.hasError() != QgsVectorFileWriter.NoError:
+		# 		return "Failure creating output shapefile: " + outfile.errorMessage()
+	# else:
+	if gisFormat == 'SHP':
 		fields = QgsFields()
 		fields.append( QgsField( "notes", QVariant.String ) )
 		outfile = QgsVectorFileWriter(prjname, "System", fields, 1, crs, "ESRI Shapefile")
 
 		if outfile.hasError() != QgsVectorFileWriter.NoError:
 			return "Failure creating output shapefile: " + outfile.errorMessage()
+	else:
+		uri = "point?crs={0}&field=notes:string".format(crs.authid())
+		layer = QgsVectorLayer(uri, 'projection', 'memory')
+		err, msg = QgsVectorFileWriter.writeAsVectorFormat(layer, prjname, 'SYSTEM')
+		if err != 0:
+			return msg
+
 
 	#del outfile
 
@@ -323,8 +377,11 @@ def tuflowqgis_create_tf_dir(dialog, crs, basepath, engine, tutorial):
 	ext = '.fvc' if engine == 'flexible mesh' else '.tcf'
 	runfile = os.path.join(basepath, parent_folder_name, "runs", "Create_Empties{0}".format(ext))
 	f = open(runfile, 'w')
-	f.write("GIS FORMAT == SHP\n")
-	f.write("SHP Projection == ..{0}model{0}gis{0}projection.prj\n".format(os.sep))
+	f.write("GIS FORMAT == {0}\n".format(gisFormat))
+	if gisFormat == 'SHP':
+		f.write("SHP Projection == ..{0}model{0}gis{0}projection.prj\n".format(os.sep))
+	else:
+		f.write("GPKG Projection == ..{0}model{0}gis{0}projection.gpkg\n".format(os.sep))
 	if tutorial:
 		f.write("Tutorial Model == ON\n")
 	f.write("Write Empty GIS Files == ..{0}model{0}gis{0}empty\n".format(os.sep))
@@ -333,7 +390,10 @@ def tuflowqgis_create_tf_dir(dialog, crs, basepath, engine, tutorial):
 	#QMessageBox.information(qgis.mainWindow(),"Information", "{0} folder successfully created: {1}".format(parent_folder_name, basepath))
 	return None
 
-def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines, regions, dialog):
+def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines, regions, dialog,
+							   databaseOption='separate', databaseLoc='', convert=False):
+
+
 	if (len(empty_types) == 0):
 		return "No Empty File T specified"
 
@@ -360,15 +420,44 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 		break
 	gis_folder = basepath.replace('/', os.sep).replace('{0}{1}'.format(os.sep, d), '')
 	# Create folders, ignore top level (e.g. model, as these are create when the subfolders are created)
+	i = 0
 	for type in empty_types:
 		for geom in geom_type:
-			fpath = os.path.join(basepath, "{0}_empty{1}.shp".format(type, geom))
+			search_string = os.path.join(basepath, "{0}_empty*".format(type))
+			fpaths = glob.glob(search_string)
+			if not fpaths:
+				continue
+			# fpath = os.path.join(basepath, "{0}_empty{1}.shp".format(type, geom))
+			# fpath = fpaths[0]
+			for fpath in fpaths:
+				if re.findall(r'(\.gpkg)|({0}\.shp)$'.format(geom), fpath.strip(), re.IGNORECASE):
+					break
 			#QMessageBox.information(qgis.mainWindow(),"Creating TUFLOW directory", fpath)
 			if (os.path.isfile(fpath)):
-				layer = QgsVectorLayer(fpath, "tmp", "ogr")
-				name = '{0}_{1}{2}.shp'.format(type, runID, geom)
+				isgpkg = os.path.splitext(fpath.lower())[1] == '.gpkg' \
+				         or (os.path.splitext(fpath.lower())[1] == '.shp' and convert)
+				if isgpkg:
+					uri = '{0}|layername={1}{2}'.format(fpath, os.path.splitext(os.path.basename(fpath))[0], geom)
+					ext = '.gpkg'
+				else:
+					uri = fpath
+					ext = '.shp'
+				layer = QgsVectorLayer(uri, "tmp", "ogr")
+				attributes = layer.dataProvider().fields()
+				name = '{0}_{1}{2}{3}'.format(type, runID, geom, ext)
 				savename = os.path.join(gis_folder, name)
-				if QFile(savename).exists():
+				layername = os.path.splitext(os.path.basename(savename))[0]
+				if isgpkg:
+					if databaseOption == 'grouped':
+						name = '{0}_{1}{2}'.format(type, runID, os.path.splitext(fpath)[1])
+						savename = os.path.join(gis_folder, name)
+					elif databaseOption == 'one':
+						if databaseLoc:
+							savename = databaseLoc
+						if i == 0:
+							databaseLoc = savename  # if user doesn't specify, use the first database for the rest
+
+				if QFile(savename).exists() and not isgpkg:
 					overwriteExisting = QMessageBox.question(dialog, "Import Empty",
 					                                         'Output file already exists\nOverwrite existing file?',
 					                                         QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
@@ -376,22 +465,50 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 						# QMessageBox.critical(qgis.mainWindow(),"Info", ("File Exists: {0}".format(savename)))
 						#message = 'Unable to complete utility because file already exists'
 						return 1
-				#outfile = QgsVectorFileWriter(QString(savename), QString("System"), 
-				outfile = QgsVectorFileWriter(vectorFileName=savename, fileEncoding="System", 
-					fields=layer.dataProvider().fields(), geometryType=layer.wkbType(), srs=layer.dataProvider().sourceCrs(), driverName="ESRI Shapefile")
-				if (outfile.hasError() != QgsVectorFileWriter.NoError):
-					QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: "+savename))
-				del outfile
+				#outfile = QgsVectorFileWriter(QString(savename), QString("System"),
+				if geom.upper() == '_P':
+					uri = 'point?crs={0}'.format(layer.crs().authid())
+				elif geom.upper() == '_L':
+					uri = 'linestring?crs={0}'.format(layer.crs().authid())
+				else:
+					uri = 'polygon?crs={0}'.format(layer.crs().authid())
+				outlayer = QgsVectorLayer(uri, layername, 'memory')
+				outlayer.dataProvider().addAttributes(attributes)
+				outlayer.updateFields()
+				# outfile = QgsVectorFileWriter(vectorFileName=savename, fileEncoding="System",
+				# 	fields=layer.dataProvider().fields(), geometryType=layer.wkbType(), srs=layer.dataProvider().sourceCrs(), driverName="ESRI Shapefile")
+				options = QgsVectorFileWriter.SaveVectorOptions()
+				if os.path.exists(savename):
+					options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
+				else:
+					options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
+				options.layerName = layername
+				if isgpkg:
+					options.driverName = 'GPKG'
+				else:
+					options.driverName = 'ESRI Shapefile'
+				outfile = QgsVectorFileWriter.writeAsVectorFormatV2(outlayer, savename, QgsCoordinateTransformContext(), options)
+				# if (outfile.hasError() != QgsVectorFileWriter.NoError):
+				if outfile[0] != QgsVectorFileWriter.NoError:
+				 	QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: {0}\n{1}".format(outfile[1])))
+				# del outfile
 
 				# delete prj file and replace with empty prj - ensures it is exactly the same
-				correct_prj = '{0}.prj'.format(os.path.splitext(fpath)[0])
-				new_prj = '{0}.prj'.format(os.path.splitext(savename)[0])
-				try:
-					copyfile(correct_prj, new_prj)
-				except:
-					pass
+				if not isgpkg:
+					correct_prj = '{0}.prj'.format(os.path.splitext(fpath)[0])
+					new_prj = '{0}.prj'.format(os.path.splitext(savename)[0])
+					try:
+						copyfile(correct_prj, new_prj)
+					except:
+						pass
 
-				qgis.addVectorLayer(savename, name[:-4], "ogr")
+				if isgpkg:
+					uri = '{0}|layername={1}'.format(savename, layername)
+				else:
+					uri = savename
+				qgis.addVectorLayer(uri, layername, "ogr")
+
+				i += 1
 
 	return None
 	
@@ -597,6 +714,16 @@ def tuflowqgis_import_check_tf(qgis, basepath, runID,showchecks):
 	check_files = glob.glob(basepath +  '/*'+ runID +'*.shp') + glob.glob(basepath +  '/*'+ runID +'*.mif') + \
 				  glob.glob(basepath + '/*' + runID + '*.SHP') + glob.glob(basepath + '/*' + runID + '*.MIF')
 
+	check_files_lower = [x.lower() for x in check_files]
+	check_files_temp = []
+	check_files_lower_temp = []
+	for i, cf in enumerate(check_files_lower):
+		if cf not in check_files_lower_temp:
+			check_files_lower_temp.append(cf)
+			check_files_temp.append(check_files[i])
+	check_files = check_files_temp[:]
+
+
 	if len(check_files) > 100:
 		QMessageBox.critical(qgis.mainWindow(),"Info", ("You have selected over 100 check files. You can use the RunID to reduce this selection."))
 		return "Too many check files selected"
@@ -659,6 +786,9 @@ def region_renderer(layer):
 	#check if layer needs a renderer
 	fsource = layer.source() #includes full filepath and extension
 	fname = os.path.split(fsource)[1][:-4] #without extension
+
+	if layer.dataProvider().name() == 'memory':
+		fname = layer.name()
 	
 	if '_bcc_check_R' in fname:
 		field_name = 'Source'
@@ -669,14 +799,27 @@ def region_renderer(layer):
 	elif '_sac_check_R' in fname:
 		field_name = 'BC_Name'
 	elif '2d_bc' in fname or '2d_mat' in fname or '2d_soil' in fname or '1d_bc' in fname:
-		for i, field in enumerate(layer.fields()):
+		i = 0
+		for field in layer.fields():
+			if field.name() == 'fid':
+				continue
 			if i == 0:
 				field_name = field.name()
+			i += 1
 	elif '1d_nwk' in fname or '1d_nwkb' in fname or '1d_nwke' in fname or '1d_mh' in fname or '1d_pit' in fname or \
 		 '1d_nd' in fname:
-		for i, field in enumerate(layer.fields()):
+		i = 0
+		for field in layer.fields():
+			if field.name() == 'fid':
+				continue
 			if i == 1:
 				field_name = field.name()
+			i += 1
+	elif re.findall(r'_FM_PLOT_[PLR]', fname, flags=re.IGNORECASE):
+		if layer.geometryType() == QgsWkbTypes.LineGeometry:
+			field_name = 'Upstrm_Type'
+		elif layer.geometryType() == QgsWkbTypes.PointGeometry:
+			field_name = 'Unit_Type'
 	else: #render not needed
 		return None
 
@@ -689,87 +832,261 @@ def region_renderer(layer):
 	unique_values = layer.dataProvider().uniqueValues(vals)
 	#QgsMessageLog.logMessage('These values have been identified: ' + vals, "TUFLOW")
 
-	# define categories
-	categories = []
-	for unique_value in unique_values:
-		# initialize the default symbol for this geometry type
+	if re.findall(r'_FM_PLOT_[PLR]', fname, flags=re.IGNORECASE) and layer.geometryType() == QgsWkbTypes.LineGeometry:
+		unique_values2 = [x.upper() for x in unique_values if x.upper() != 'SPILL' and x.upper() != 'JUNCTION']
+		spillExists = 'SPILL' in [x.upper() for x in unique_values]
+		junctExists = 'JUNCTION' in [x.upper() for x in unique_values]
+		intpExists = 'INTERPOLATE' in [x.upper() for x in unique_values]
+		expressions = [f'"Upstrm_Type" ILIKE \'{x}\'' for x in unique_values2]
+		if spillExists:
+			expressions = [f'{x} and "Dnstrm_Type" NOT ILIKE \'SPILL\'' for x in expressions]
+		if junctExists:
+			expressions = [f'{x} and "Dnstrm_Type" NOT ILIKE \'JUNCTION\'' for x in expressions]
+		if intpExists:
+			expressions = [f'{x} and "Dnstrm_Type" NOT ILIKE \'INTERPOLATE\'' for x in expressions]
+		# if spillExists and junctExists:
+		# 	expressions = [f'"Upstrm_Type" ILIKE \'{x}\' and  "Dnstrm_Type" NOT ILIKE \'SPILL\'' \
+		# 	               f' and "Dnstrm_Type" NOT ILIKE \'JUNCTION\'' for x in unique_values2]
+		# elif spillExists:
+		# 	expressions = [f'"Upstrm_Type" ILIKE \'{x}\' and  "Dnstrm_Type" NOT ILIKE \'SPILL\'' for x in unique_values2]
+		# elif junctExists:
+		# 	expressions = [f'"Upstrm_Type" ILIKE \'{x}\' and  "Dnstrm_Type" NOT ILIKE \'JUNCTION\'' for x in unique_values2]
+		# else:
+		# 	expressions = [f'"Upstrm_Type" ILIKE \'{x}\'' for x in unique_values2]
 		symbol = QgsSymbol.defaultSymbol(layer.geometryType())
-
-		# configure a symbol layer
-		layer_style = {}
-		color = '%d, %d, %d' % (randrange(0,256), randrange(0,256), randrange(0,256))
-		layer_style['color'] = color
-		layer_style['outline'] = '#000000'
-		symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
-		if '2d_bc' in fname:
-			if layer.geometryType() == QgsWkbTypes.LineGeometry:
-				#QMessageBox.information(qgis.mainWindow(), "DEBUG", 'line 446')
+		renderer = QgsRuleBasedRenderer(symbol)
+		root_rule = renderer.rootRule()
+		for i, exp in enumerate(expressions):
+			layer_style = {}
+			color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))
+			layer_style['color'] = color
+			layer_style['outline'] = '#000000'
+			symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+			rule = root_rule.children()[0].clone()
+			rule.setLabel(unique_values2[i])
+			rule.setFilterExpression(exp)
+			if unique_values2[i].lower() == 'lateral':
 				symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
-				symbol_layer.setWidth(1)
-			elif layer.geometryType() == QgsWkbTypes.PointGeometry:
-				symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
-				symbol_layer.setSize(2)
-				symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
-		elif '1d_nwk' in fname or '1d_nwkb' in fname or '1d_nwke' in fname or '1d_pit' in fname or '1d_nd' in fname:
-			if layer.geometryType() == QgsWkbTypes.LineGeometry:
-				#QMessageBox.information(qgis.mainWindow(), "DEBUG", 'line 446')
+				symbol_layer.setWidth(0.25)
+				color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
+				symbol_layer.setStrokeColor(color)
+				symbol_layer.setPenStyle(Qt.DotLine)
+				symbol_layer2 = None
+			elif 'bdy' in unique_values2[i].lower():
 				symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
-				symbol_layer.setWidth(1)
+				symbol_layer.setWidth(0.5)
+				symbol_layer.setStrokeColor(QColor(227, 26, 28))
+				symbol_layer.setPenStyle(Qt.DashLine)
+				symbol_layer2 = None
+			else:
+				symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+				symbol_layer.setWidth(0.5)
 				symbol_layer2 = QgsMarkerLineSymbolLayer.create({'placement': 'lastvertex'})
 				layer_style['color_border'] = color
 				markerSymbol = QgsSimpleMarkerSymbolLayer.create(layer_style)
 				markerSymbol.setShape(QgsSimpleMarkerSymbolLayerBase.ArrowHeadFilled)
-				markerSymbol.setSize(5)
-				marker =  QgsMarkerSymbol()
+				markerSymbol.setSize(4)
+				marker = QgsMarkerSymbol()
 				marker.changeSymbolLayer(0, markerSymbol)
 				symbol_layer2.setSubSymbol(marker)
-				#symbol_layer.changeSymbolLayer(0, symbol_layer2)
-				#markerMeta = registry.symbolLayerMetadata("MarkerLine")
-				#markerLayer = markerMeta.createSymbolLayer({'width': '0.26', 'color': color, 'rotate': '1', 'placement': 'lastvertex'})
-				#subSymbol = markerLayer.subSymbol()
-				#subSymbol.deleteSymbolLayer(0)
-				#triangle = registry.symbolLayerMetadata("SimpleMarker").createSymbolLayer({'name': 'filled_arrowhead', 'color': color, 'color_border': color, 'offset': '0,0', 'size': '4', 'angle': '0'})
-				#subSymbol.appendSymbolLayer(triangle)
-			elif layer.geometryType() == QgsWkbTypes.PointGeometry:
-				symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
-				symbol_layer.setSize(1.5)
-				if unique_value == 'NODE':
+			if symbol_layer is not None:
+				symbol.changeSymbolLayer(0, symbol_layer)
+				if symbol_layer2 is not None:
+					symbol.appendSymbolLayer(symbol_layer2)
+			rule.setSymbol(symbol)
+			root_rule.appendChild(rule)
+		if spillExists:
+			symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+			exp = '"Upstrm_Type" ILIKE \'SPILL\' or  "Dnstrm_Type" ILIKE \'SPILL\''
+			rule = root_rule.children()[0].clone()
+			rule.setLabel('SPILL')
+			rule.setFilterExpression(exp)
+			symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+			symbol_layer.setWidth(0.25)
+			color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
+			symbol_layer.setStrokeColor(color)
+			symbol_layer.setPenStyle(Qt.DotLine)
+			symbol_layer2 = None
+			if symbol_layer is not None:
+				symbol.changeSymbolLayer(0, symbol_layer)
+				if symbol_layer2 is not None:
+					symbol.appendSymbolLayer(symbol_layer2)
+			rule.setSymbol(symbol)
+			root_rule.appendChild(rule)
+		if junctExists:
+			symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+			exp = '"Upstrm_Type" ILIKE \'JUNCTION\' or "Dnstrm_Type" ILIKE \'JUNCTION\''
+			rule = root_rule.children()[0].clone()
+			rule.setLabel('CONN')
+			rule.setFilterExpression(exp)
+			symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+			symbol_layer.setWidth(0.25)
+			color = QColor(35, 35, 35)
+			symbol_layer.setColor(color)
+			symbol_layer2 = None
+			if symbol_layer is not None:
+				symbol.changeSymbolLayer(0, symbol_layer)
+				if symbol_layer2 is not None:
+					symbol.appendSymbolLayer(symbol_layer2)
+			rule.setSymbol(symbol)
+			root_rule.appendChild(rule)
+		if intpExists:
+			layer_style = {}
+			color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))
+			layer_style['color'] = color
+			layer_style['outline'] = '#000000'
+			symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+			exp = '"Upstrm_Type" ILIKE \'INTERPOLATE\' or "Dnstrm_Type" ILIKE \'INTERPOLATE\''
+			rule = root_rule.children()[0].clone()
+			rule.setLabel('INTERPOLATE')
+			rule.setFilterExpression(exp)
+			symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+			symbol_layer.setWidth(0.5)
+			symbol_layer2 = QgsMarkerLineSymbolLayer.create({'placement': 'lastvertex'})
+			layer_style['color_border'] = color
+			markerSymbol = QgsSimpleMarkerSymbolLayer.create(layer_style)
+			markerSymbol.setShape(QgsSimpleMarkerSymbolLayerBase.ArrowHeadFilled)
+			markerSymbol.setSize(4)
+			marker = QgsMarkerSymbol()
+			marker.changeSymbolLayer(0, markerSymbol)
+			symbol_layer2.setSubSymbol(marker)
+			if symbol_layer is not None:
+				symbol.changeSymbolLayer(0, symbol_layer)
+				if symbol_layer2 is not None:
+					symbol.appendSymbolLayer(symbol_layer2)
+			rule.setSymbol(symbol)
+			root_rule.appendChild(rule)
+		root_rule.removeChildAt(0)
+		return renderer
+	else:
+		# define categories
+		categories = []
+		for unique_value in unique_values:
+			# initialize the default symbol for this geometry type
+			symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+
+			# configure a symbol layer
+			layer_style = {}
+			color = '%d, %d, %d' % (randrange(0,256), randrange(0,256), randrange(0,256))
+			layer_style['color'] = color
+			layer_style['outline'] = '#000000'
+			symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
+			if '2d_bc' in fname:
+				if layer.geometryType() == QgsWkbTypes.LineGeometry:
+					#QMessageBox.information(qgis.mainWindow(), "DEBUG", 'line 446')
+					symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+					symbol_layer.setWidth(1)
+				elif layer.geometryType() == QgsWkbTypes.PointGeometry:
+					symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
+					symbol_layer.setSize(2)
+					symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
+			elif '1d_nwk' in fname or '1d_nwkb' in fname or '1d_nwke' in fname or '1d_pit' in fname or '1d_nd' in fname:
+				if layer.geometryType() == QgsWkbTypes.LineGeometry:
+					#QMessageBox.information(qgis.mainWindow(), "DEBUG", 'line 446')
+					symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+					symbol_layer.setWidth(1)
+					symbol_layer2 = QgsMarkerLineSymbolLayer.create({'placement': 'lastvertex'})
+					layer_style['color_border'] = color
+					markerSymbol = QgsSimpleMarkerSymbolLayer.create(layer_style)
+					markerSymbol.setShape(QgsSimpleMarkerSymbolLayerBase.ArrowHeadFilled)
+					markerSymbol.setSize(5)
+					marker =  QgsMarkerSymbol()
+					marker.changeSymbolLayer(0, markerSymbol)
+					symbol_layer2.setSubSymbol(marker)
+					#symbol_layer.changeSymbolLayer(0, symbol_layer2)
+					#markerMeta = registry.symbolLayerMetadata("MarkerLine")
+					#markerLayer = markerMeta.createSymbolLayer({'width': '0.26', 'color': color, 'rotate': '1', 'placement': 'lastvertex'})
+					#subSymbol = markerLayer.subSymbol()
+					#subSymbol.deleteSymbolLayer(0)
+					#triangle = registry.symbolLayerMetadata("SimpleMarker").createSymbolLayer({'name': 'filled_arrowhead', 'color': color, 'color_border': color, 'offset': '0,0', 'size': '4', 'angle': '0'})
+					#subSymbol.appendSymbolLayer(triangle)
+				elif layer.geometryType() == QgsWkbTypes.PointGeometry:
+					symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
+					symbol_layer.setSize(1.5)
+					if unique_value == 'NODE':
+						symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
+					else:
+						symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Square)
+			elif '2d_mat' in fname:
+				symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
+				layer.setOpacity(0.25)
+			elif '2d_soil' in fname:
+				symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
+				layer.setOpacity(0.25)
+			elif '1d_bc' in fname:
+				if layer.geometryType() == QgsWkbTypes.PointGeometry:
+					symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
+					symbol_layer.setSize(1.5)
 					symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
 				else:
-					symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Square)
-		elif '2d_mat' in fname:
-			symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
-			layer.setOpacity(0.25)
-		elif '2d_soil' in fname:
-			symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
-			layer.setOpacity(0.25)
-		elif '1d_bc' in fname:
-			if layer.geometryType() == QgsWkbTypes.PointGeometry:
-				symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
-				symbol_layer.setSize(1.5)
-				symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
+					layer_style['style'] = 'no'
+					symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
+					color = QColor(randrange(0,256), randrange(0,256), randrange(0,256))
+					symbol_layer.setStrokeColor(color)
+					symbol_layer.setStrokeWidth(1)
+			elif re.findall(r'_FM_PLOT_[PLR]', fname, flags=re.IGNORECASE):
+				if layer.geometryType() == QgsWkbTypes.LineGeometry:
+					# shouldn't get here anymore
+					if unique_value.lower() == 'lateral' or unique_value.lower() == 'spill':
+						symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+						symbol_layer.setWidth(0.25)
+						color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
+						symbol_layer.setStrokeColor(color)
+						symbol_layer.setPenStyle(Qt.DotLine)
+						symbol_layer2 = None
+					elif 'bdy' in unique_value.lower():
+						symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+						symbol_layer.setWidth(0.5)
+						symbol_layer.setStrokeColor(QColor(227, 26, 28))
+						symbol_layer.setPenStyle(Qt.DashLine)
+						symbol_layer2 = None
+					else:
+						symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+						symbol_layer.setWidth(0.5)
+						symbol_layer2 = QgsMarkerLineSymbolLayer.create({'placement': 'lastvertex'})
+						layer_style['color_border'] = color
+						markerSymbol = QgsSimpleMarkerSymbolLayer.create(layer_style)
+						markerSymbol.setShape(QgsSimpleMarkerSymbolLayerBase.ArrowHeadFilled)
+						markerSymbol.setSize(4)
+						marker =  QgsMarkerSymbol()
+						marker.changeSymbolLayer(0, markerSymbol)
+						symbol_layer2.setSubSymbol(marker)
+				elif layer.geometryType() == QgsWkbTypes.PointGeometry:
+					symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
+					if unique_value.lower() == 'river':
+						symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Diamond)
+						symbol_layer.setSize(2.5)
+						symbol_layer.setStrokeWidth(0.4)
+						symbol_layer.setStrokeColor(QColor(50, 87, 128))
+						symbol_layer.setFillColor(QColor(100, 153, 208))
+					elif 'bdy' in unique_value.lower():
+						symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Square)
+						symbol_layer.setSize(2.5)
+						symbol_layer.setStrokeWidth(0.)
+						symbol_layer.setStrokeColor(QColor(35, 35, 35))
+						symbol_layer.setFillColor(QColor(randrange(0,256), randrange(0,256), randrange(0,256)))
+					else:
+						symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
+						symbol_layer.setSize(2.0)
+						symbol_layer.setStrokeWidth(0.)
+						symbol_layer.setStrokeColor(QColor(35, 35, 35))
+						symbol_layer.setFillColor(QColor(randrange(0,256), randrange(0,256), randrange(0,256)))
 			else:
-				layer_style['style'] = 'no'
 				symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
-				color = QColor(randrange(0,256), randrange(0,256), randrange(0,256))
-				symbol_layer.setStrokeColor(color)
-				symbol_layer.setStrokeWidth(1)
-		else:
-			symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
 
-		# replace default symbol layer with the configured one
-		if symbol_layer is not None:
-			symbol.changeSymbolLayer(0, symbol_layer)
-			if symbol_layer2 is not None:
-				symbol.appendSymbolLayer(symbol_layer2)
+			# replace default symbol layer with the configured one
+			if symbol_layer is not None:
+				symbol.changeSymbolLayer(0, symbol_layer)
+				if symbol_layer2 is not None:
+					symbol.appendSymbolLayer(symbol_layer2)
+
+			# create renderer object
+			category = QgsRendererCategory(unique_value, symbol, str(unique_value))
+			# entry for the list of category items
+			categories.append(category)
 
 		# create renderer object
-		category = QgsRendererCategory(unique_value, symbol, str(unique_value))
-		# entry for the list of category items
-		categories.append(category)
-
-	# create renderer object
-	return QgsCategorizedSymbolRenderer(field_name, categories)
+		return QgsCategorizedSymbolRenderer(field_name, categories)
 	
 def tuflowqgis_apply_check_tf(qgis):
 	#apply check file styles to all open shapefiles
@@ -784,7 +1101,11 @@ def tuflowqgis_apply_check_tf(qgis):
 		
 	for layer_name, layer in QgsProject.instance().mapLayers().items():
 		if layer.type() == QgsMapLayer.VectorLayer:
-			layer_fname = os.path.split(layer.source())[1][:-4]
+			if re.findall(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE):
+				layer_fname = re.split(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)[1]
+			else:
+				layer_fname = os.path.splitext(os.path.basename(layer.dataProvider().dataSourceUri()))[0]
+			# layer_fname = os.path.split(layer.source())[1][:-4]
 			#QMessageBox.information(qgis.mainWindow(), "DEBUG", "shp layer name = "+layer.name())
 			#renderer = region_renderer(layer)
 			#if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
@@ -794,6 +1115,8 @@ def tuflowqgis_apply_check_tf(qgis):
 			error, message, slyr = tf_styles.Find(layer_fname, layer) #use tuflow styles to find longest matching
 			if error:
 				return error, message
+			if re.findall(r'_FM_PLOT_[PLR]', layer_fname, flags=re.IGNORECASE):
+				slyr = False  # flood modeller
 			if slyr: #style layer found:
 				layer.loadNamedStyle(slyr)
 				layer.triggerRepaint()
@@ -806,6 +1129,7 @@ def tuflowqgis_apply_check_tf(qgis):
 	
 
 def tuflowqgis_apply_check_tf_clayer(qgis, **kwargs):
+
 	error = False
 	message = None
 	try:
@@ -832,13 +1156,21 @@ def tuflowqgis_apply_check_tf_clayer(qgis, **kwargs):
 		
 
 	if cLayer.type() == QgsMapLayer.VectorLayer:
-		layer_fname = os.path.split(cLayer.source())[1][:-4]
+		if re.findall(re.escape(r'.gpkg|layername='), cLayer.dataProvider().dataSourceUri(), flags=re.IGNORECASE):
+			layer_fname = re.split(re.escape(r'.gpkg|layername='), cLayer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)[1]
+		else:
+			layer_fname = os.path.splitext(os.path.basename(cLayer.dataProvider().dataSourceUri()))[0]
+		if cLayer.dataProvider().name() == 'memory':
+			layer_fname = cLayer.name()
+		# layer_fname = os.path.split(cLayer.source())[1][:-4]
 		# renderer = region_renderer(cLayer)
 		# if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
 		# 	cLayer.setRenderer(renderer)
 		# 	cLayer.triggerRepaint()
 		# else: # use .qml style using tf_styles
 		error, message, slyr = tf_styles.Find(layer_fname, cLayer) #use tuflow styles to find longest matching
+		if re.findall(r'_FM_PLOT_[PLR]', layer_fname, flags=re.IGNORECASE):
+			slyr = False  # flood modeller
 		if error:
 			return error, message
 		if slyr: #style layer found:
@@ -1251,6 +1583,11 @@ def getTuflowLayerType(layerName: str) -> (str, str):
 
 				break  # just use the first matched instance
 
+		# PLOT or FM_PLOT
+		pattern = r'_FM_PLOT_[PLR]'
+		if re.findall(pattern, layerName, flags=re.IGNORECASE):
+			tuflowLayerType = '_FM_PLOT'
+
 	# get geometry type
 	if tuflowLayerType:
 		layer = tuflowqgis_find_layer(layerName)
@@ -1633,7 +1970,6 @@ def setLabelProperties(label: QgsPalLayerSettings, properties: dict, layer: QgsV
 
 
 def tuflowqgis_apply_autoLabel_clayer(qgis: QgisInterface):
-
 	error = False
 	message = None
 	canvas = qgis.mapCanvas()
@@ -4018,7 +4354,7 @@ def readBndryBin(file):
 	return headers, data
 
 
-def changeDataSource(iface, layer, newDataSource):
+def changeDataSource(iface, layer, newDataSource, isgpkg):
 	"""
 	Changes map layer datasource - like arcmap
 	
@@ -4030,7 +4366,10 @@ def changeDataSource(iface, layer, newDataSource):
 	
 	
 	name = layer.name()
-	newName = os.path.basename(os.path.splitext(newDataSource)[0])
+	if isgpkg:
+		newName = re.split(re.escape(r'.gpkg|layername='), newDataSource, flags=re.IGNORECASE)[1]
+	else:
+		newName = os.path.basename(os.path.splitext(newDataSource)[0])
 	
 	# create dom document to store layer properties
 	doc = QDomDocument("styles")
@@ -4043,6 +4382,7 @@ def changeDataSource(iface, layer, newDataSource):
 	
 	# reload layer
 	layer.reload()
+	reload_data(layer)  # force reload
 	
 	# rename layer in layers panel
 	legint = QgsProject.instance().layerTreeRoot()
@@ -4834,6 +5174,7 @@ def getUtilityDownloadPaths(util_dict, util_path_file):
 
 
 def downloadUtility(utility, parent_widget=None):
+
 	util_path_file = os.path.join(os.path.dirname(__file__), "__utilities__.txt")
 	latestUtilities = {
 		'asc_to_asc': '',
@@ -4852,15 +5193,15 @@ def downloadUtility(utility, parent_widget=None):
 		return
 	exe = os.path.basename(latestUtilities[utility])
 	name = os.path.splitext(exe)[0]
-	utilityNames = {
-        'asc_to_asc': '{0}/asc_to_asc_w64.exe'.format(name),
-        'tuflow_to_gis': '{0}/TUFLOW_to_GIS_w64.exe'.format(name),
-        'res_to_res': '{0}/res_to_res_w64.exe'.format(name),
-        '12da_to_from_gis': '12da_to_from_gis.exe',
-        'convert_to_ts1': 'convert_to_ts1.exe',
-        'tin_to_tin': 'tin_to_tin.exe',
-        'xsGenerator': 'xsGenerator.exe',
-	}
+	# utilityNames = {
+    #     'asc_to_asc': '{0}/asc_to_asc_w64.exe'.format(name),
+    #     'tuflow_to_gis': '{0}/TUFLOW_to_GIS_w64.exe'.format(name),
+    #     'res_to_res': '{0}/res_to_res_w64.exe'.format(name),
+    #     '12da_to_from_gis': '12da_to_from_gis.exe',
+    #     'convert_to_ts1': 'convert_to_ts1.exe',
+    #     'tin_to_tin': 'tin_to_tin.exe',
+    #     'xsGenerator': 'xsGenerator.exe',
+	# }
 	
 	# downloadBaseUrl = 'https://www.tuflow.com/Download/TUFLOW/Utilities/'
 	
@@ -4879,7 +5220,15 @@ def downloadUtility(utility, parent_widget=None):
 		z.close()
 		os.unlink(exePath)
 		qApp.restoreOverrideCursor()
-		return os.path.join(destFolder, utilityNames[utility])
+
+		extracted_name = [x.filename for x in z.filelist if os.path.splitext(x.filename)[1].upper() == ".EXE"]
+		if extracted_name:
+			extracted_name = extracted_name[0]
+		else:
+			extracted_name = ""
+
+		# return os.path.join(destFolder, utilityNames[utility])
+		return os.path.join(destFolder, extracted_name)
 	except IOError as err:
 		qApp.restoreOverrideCursor()
 		QMessageBox.critical(parent_widget,
@@ -5245,8 +5594,19 @@ def is1dNetwork(layer):
 	                         QVariant.String, QVariant.String, QVariant.LongLong, QVariant.Double, QVariant.Double,
 	                         QVariant.LongLong, QVariant.Double, QVariant.Double, QVariant.Double, QVariant.Double]
 
+
 	if not isinstance(layer, QgsVectorLayer):
 		return False
+
+	isgpkg = False
+	if re.findall(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), re.IGNORECASE):
+		isgpkg = True
+
+	if isgpkg:
+		correct1dNetworkType.insert(0, QVariant.LongLong)
+		count = 21
+	else:
+		count = 20
 
 	fieldTypes = []
 	for i, f in enumerate(layer.getFeatures()):
@@ -5254,16 +5614,16 @@ def is1dNetwork(layer):
 			break
 		fields = f.fields()
 		for j in range(fields.count()):
-			if j > 19:
+			if j > count - 1:
 				break
 			field = fields.field(j)
 			fieldType = field.type()
 			fieldTypes.append(fieldType)
 
-	if len(fieldTypes) < 20:
+	if len(fieldTypes) < count:
 		return False
-	if fieldTypes[:20] == correct1dNetworkType or fieldTypes[:20] == correct1dNetworkType2 or \
-		fieldTypes[:20] == correct1dNetworkType3 or fieldTypes[:20] == correct1dNetworkType4:
+	if fieldTypes[:count] == correct1dNetworkType or fieldTypes[:count] == correct1dNetworkType2 or \
+		fieldTypes[:count] == correct1dNetworkType3 or fieldTypes[:count] == correct1dNetworkType4:
 		return True
 	else:
 		return False
@@ -5280,17 +5640,30 @@ def is1dTable(layer):
 	if not isinstance(layer, QgsVectorLayer):
 		return False
 
-	correct1dTableType = [QVariant.String, QVariant.String, QVariant.String, QVariant.String, QVariant.String,
-	                      QVariant.String, QVariant.String, QVariant.String, QVariant.String]
+	if not re.findall(r'^1d_', layer.name(), flags=re.IGNORECASE):
+		return False
+
+	isgpkg = False
+	if re.findall(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), re.IGNORECASE):
+		isgpkg = True
+
+	if isgpkg:
+		correct1dTableType = [QVariant.LongLong, QVariant.String, QVariant.String, QVariant.String, QVariant.String, QVariant.String,
+							  QVariant.String, QVariant.String, QVariant.String, QVariant.String]
+		count = 10
+	else:
+		correct1dTableType = [QVariant.String, QVariant.String, QVariant.String, QVariant.String, QVariant.String,
+							  QVariant.String, QVariant.String, QVariant.String, QVariant.String]
+		count = 9
 
 	fieldTypes = []
 	for i, f in enumerate(layer.getFeatures()):
 		if i > 0:
 			break
 		fields = f.fields()
-		if fields.count() < 9:
+		if fields.count() < count:
 			return False
-		for j in range(0, 9):
+		for j in range(0, count):
 			field = fields.field(j)
 			fieldType = field.type()
 			fieldTypes.append(fieldType)
@@ -5309,22 +5682,31 @@ def isPlotLayer(layer, geom=''):
 	if not isinstance(layer, QgsVectorLayer):
 		return False
 
+	isgpkg = False
+	if re.findall(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), re.IGNORECASE):
+		isgpkg = True
+
 	if not geom:
 		geom = 'PLR'
 	s = r'[_\s]PLOT[_\s][{0}]'.format(geom)
 	if not re.findall(s, layer.name(), flags=re.IGNORECASE):
 		return False
 
-	correctPlotType = [QVariant.String, QVariant.String, QVariant.String]
+	if isgpkg:
+		correctPlotType = [QVariant.LongLong, QVariant.String, QVariant.String, QVariant.String]
+		count = 4
+	else:
+		correctPlotType = [QVariant.String, QVariant.String, QVariant.String]
+		count = 3
 
 	fieldTypes = []
 	for i, f in enumerate(layer.getFeatures()):
 		if i > 0:
 			break
 		fields = f.fields()
-		if fields.count() < 3:
+		if fields.count() < count:
 			return False
-		for j in range(0, 3):
+		for j in range(0, count):
 			field = fields.field(j)
 			fieldType = field.type()
 			fieldTypes.append(fieldType)
@@ -5444,7 +5826,7 @@ def interpolateObvert(usInv, dsInv, size, xValues):
 
 def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
            dialogName: str = "TUFLOW", fileType: str = "ALL (*)",
-           lineEdit = None, icon: QIcon = None, action=None) -> None:
+           lineEdit = None, icon: QIcon = None, action=None, allowDuplicates=True) -> None:
 	"""
 	Browse folder directory
 
@@ -5456,9 +5838,10 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
 	:param lineEdit: QLineEdit to be updated by browsing
 	:param icon: QIcon dialog window icon
 	:param action: lambda function
+	:param bool: noDuplicates - if adding to list widget, don't allow duplicate entries
 	:return: None
 	"""
-	
+
 	settings = QSettings()
 	lastFolder = settings.value(key)
 	
@@ -5470,12 +5853,25 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
 			startDir = lineEdit.currentText()
 	
 	if lastFolder:  # if outFolder no longer exists, work backwards in directory until find one that does
+		pattern = r'[a-z]\:\\$'  # windows root drive directory
+		loop_limit = 100
+		loop_count = 0
 		while lastFolder:
 			if os.path.exists(lastFolder):
 				startDir = lastFolder
 				break
+			elif not lastFolder:
+				startDir = lastFolder
+				break
+			elif re.findall(pattern, lastFolder, re.IGNORECASE):
+				startDir = ''
+				break
+			elif loop_count > loop_limit:
+				startDir = ''
+				break
 			else:
 				lastFolder = os.path.dirname(lastFolder)
+				loop_count += 1
 	dialog = QFileDialog(parent, dialogName, startDir, fileType)
 	f = []
 	if icon is not None:
@@ -5500,6 +5896,11 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
 		dialog.setAcceptMode(QFileDialog.AcceptSave)
 		dialog.setFileMode(QFileDialog.AnyFile)
 		dialog.setViewMode(QFileDialog.Detail)
+	elif browseType == 'output database':
+		dialog.setAcceptMode(QFileDialog.AcceptSave)
+		dialog.setFileMode(QFileDialog.AnyFile)
+		dialog.setViewMode(QFileDialog.Detail)
+		dialog.setOptions(QFileDialog.DontConfirmOverwrite)
 	# f = QFileDialog.getSaveFileName(parent, dialogName, startDir, fileType)[0]
 	else:
 		return
@@ -5528,8 +5929,13 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
 			elif type(lineEdit) is QModelIndex:
 				lineEdit.model().setData(lineEdit, f, Qt.EditRole)
 			elif type(lineEdit) is QListWidget:
+				items = [lineEdit.item(x).text() for x in range(lineEdit.count())]
 				for f2 in f.split(';;'):
-					lineEdit.addItem(f2)
+					if not allowDuplicates:
+						if f2 not in items:
+							lineEdit.addItem(f2)
+					else:
+						lineEdit.addItem(f2)
 				for i in range(lineEdit.count()):
 					item = lineEdit.item(i)
 					if item.text() in f.split(';;'):
@@ -6691,6 +7097,59 @@ def qgsxml_as_mpl_cdict(fpath):
 			mpl_cdicts[name] = mpl_cr
 
 	return mpl_cdicts
+
+def layoutHeight(layout):
+	total_h = 0
+	for i in range(layout.count()):
+		item = layout.itemAt(i)
+		if isinstance(item, QBoxLayout):
+			h = layoutHeight(item)
+		elif isinstance(item, QSpacerItem):
+			h = item.sizeHint().height()
+		else:
+			h = item.widget().sizeHint().height()
+		if isinstance(layout, QHBoxLayout):
+			total_h  = max(total_h, h)
+		else:
+			total_h += h
+	return total_h
+
+
+def reload_data(layer):
+	if layer is not None:
+		if isinstance(layer, QgsVectorLayer):
+			layer.dataProvider().forceReload()
+			layer.triggerRepaint()
+
+
+def tuflowqgis_apply_gpkg_layername(iface):
+	for layer_name, layer in QgsProject.instance().mapLayers().items():
+		if layer.type() == QgsMapLayer.VectorLayer:
+			layername = layer.name()
+			dp = layer.dataProvider()
+			ds = dp.dataSourceUri()
+			pattern = re.escape(r'.gpkg|layername=')
+			if re.findall(pattern, ds, re.IGNORECASE):
+				tablename = re.split(pattern, ds, flags=re.IGNORECASE)[1]
+
+				# rename layer in layers panel
+				legint = QgsProject.instance().layerTreeRoot()
+				# grab all nodes that are QgsMapLayers - get to node bed rock i.e. not a group
+				nodes = []
+				for child in legint.children():
+					children = [child]
+					while children:
+						nd = children[0]
+						if nd.children():
+							children += nd.children()
+						else:
+							nodes.append(nd)
+						children = children[1:]
+				for nd in nodes:
+					if nd.name() == layername:
+						nd.setName(tablename)
+						break
+
 
 
 

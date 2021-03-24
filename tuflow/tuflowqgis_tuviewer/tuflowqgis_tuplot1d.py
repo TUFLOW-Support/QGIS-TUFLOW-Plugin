@@ -135,21 +135,25 @@ class TuPlot1D():
 			result = result.text()
 			if result in self.tuResults.results.keys():
 				rtypes = tuResults1D.typesXS[:]
-				for xs in self.tuView.crossSections1D.data:
-					if xs.type.upper() in [x.upper() for x in rtypes]:
-						if 'line_cs' in self.tuResults.results[result] and \
-								xs.type in self.tuResults.results[result]['line_cs'] and \
-								xs.source.lower() in self.tuResults.results[result]['line_cs'][xs.type]:
-							xAll.append(xs.x)
-							yAll.append(xs.z)
-							labels.append(xs.source)
-							types.append('{0}_CS'.format(xs.type))
 
-							x, y, label, typ = self.plotResultsOnXS(xs, timestep)
-							xAll += x
-							yAll += y
-							labels += label
-							types += typ
+				crossSections = [self.tuView.crossSections1D, self.tuView.crossSectionsFM]
+
+				for crossSection in crossSections:
+					for xs in crossSection.data:
+						if xs.type.upper() in [x.upper() for x in rtypes]:
+							if 'line_cs' in self.tuResults.results[result] and \
+									xs.type in self.tuResults.results[result]['line_cs'] and \
+									xs.source.lower() in self.tuResults.results[result]['line_cs'][xs.type]:
+								xAll.append(xs.x)
+								yAll.append(xs.z)
+								labels.append(xs.source)
+								types.append('{0}_CS'.format(xs.type))
+
+								x, y, label, typ = self.plotResultsOnXS(xs, timestep)
+								xAll += x
+								yAll += y
+								labels += label
+								types += typ
 
 		data = list(zip(xAll, yAll))
 		dataTypes = [TuPlot.DataCrossSection1DViewer] * len(data)
@@ -183,16 +187,19 @@ class TuPlot1D():
 			if '{0}_1d'.format(rtype) in self.tuView.tuResults.maxResultTypes:
 				rtypeLabel = '{0}/Maximums'.format(rtype)
 				time = -99999
+				isMax = True
 			elif 'max' in rtype.lower():
 				time = -99999
 				rtypeLabel = rtype
+				isMax = True
 			else:
 				if timestep is None:
 					timestep = self.tuView.tuResults.activeTime
-				if timestep not in self.tuView.tuResults.timekey2time.keys():
-					continue
-				time = self.tuView.tuResults.timekey2time[timestep]
+				# if timestep not in self.tuView.tuResults.timekey2time.keys():
+				# 	continue
+				# time = self.tuView.tuResults.timekey2time[timestep]
 				rtypeLabel = rtype
+				isMax = False
 
 			for plyr in plyrs:
 				feat = findIntersectFeat(xs.feature, plyr)
@@ -206,6 +213,13 @@ class TuPlot1D():
 							res = self.tuResults.tuResults1D.results1d[result]
 							if id in res.nodes.node_name:
 								if res.formatVersion > 1:
+
+									tuResultsIndex = TuResultsIndex(result, '{0}_1d'.format(rtype), timestep, isMax,
+									                                False,
+									                                self.tuView.tuResults,
+									                                self.tuView.tuOptions.timeUnits)
+									time = tuResultsIndex.timestep
+
 									h = res.getResAtTime(id, '1D', rtype, time)
 									if h is None or np.isnan(h):
 										continue
@@ -327,20 +341,20 @@ class TuPlot1D():
 									typename = rtype
 							found, ydata, message = res.getTSData(id, dom, typename, 'Geom')
 							xdata = res.times
-							if type(ydata) is list:
-								if len(xdata) != len(ydata):
-									xAll.append([])
-									yAll.append([])
-									labels.append('')
-									continue
-							else:  # ndarray
-								if len(xdata) != ydata.shape[0]:
-									xAll.append([])
-									yAll.append([])
-									labels.append('')
-									continue
 						else:
 							continue
+						if type(ydata) is list:
+							if len(xdata) != len(ydata):
+								xAll.append([])
+								yAll.append([])
+								labels.append('')
+								continue
+						else:  # ndarray
+							if len(xdata) != ydata.shape[0]:
+								xAll.append([])
+								yAll.append([])
+								labels.append('')
+								continue
 						if rtype != "Losses":
 							if re.findall(r"flow regime", rtype, re.IGNORECASE):
 								rtypelab = "Flow Regime_"
@@ -372,7 +386,6 @@ class TuPlot1D():
 							irtype = [x.ds_name.lower() for x in tsResultTypes].index(rtype.lower())
 							if tsResultTypes[irtype].isFlowRegime:
 								rtypes.append('Flow Regime_{0}_{1}'.format(len(xAll) - 1, id))
-		
 		data = list(zip(xAll, yAll))
 		dataTypes = [TuPlot.DataTimeSeries1D] * len(data)
 		if data:
@@ -420,7 +433,7 @@ class TuPlot1D():
 		plotAsPoints = []
 		plotAsPatch = []
 		dataTypes = []
-		
+
 		# iterate through all selected results
 		for result in self.tuView.OpenResults.selectedItems():
 			result = result.text()

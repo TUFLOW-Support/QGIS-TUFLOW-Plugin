@@ -1,5 +1,5 @@
 Buffer == ON
-Box == OFF
+Box == ON
 Attribute Name == OFF
 Label Attributes == 1  ! attribute indexing starts at 1
 Point Placement == Cartographic  ! only available option at the moment

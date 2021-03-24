@@ -11,6 +11,7 @@ from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 from tuflow.tuflowqgis_library import tuflowqgis_find_layer, findAllMeshLyrs, loadSetting, roundSeconds, \
 	getPropertiesFrom2dm, qdt2dt, dt2qdt, datetime2timespec
+import re
 
 
 
@@ -331,10 +332,27 @@ class TuResults2D():
 				hadtp = self.tuView.tuProject.hastp[name]  # override hadtp with this
 		self.configTemporalProperties(layer)
 
+		# this is to capture minimums - loop through the result names once and figure out if there are double ups that are static
+		mdGroupNames = []
 		for i in range(dp.datasetGroupCount()):
+			mdGroupNames.append(dp.datasetGroupMetadata(i).name())
+		for i, name_ in enumerate(mdGroupNames):
+			if 'minimum dt' in name_.lower():
+				if TuResults.isMaximumResultType(name_, dp, i):
+					if '/Maximum' not in name_:
+						mdGroupNames[i] = '{0}/Maximums'.format(name_)
+						continue
+			count = mdGroupNames.count(name_)
+			if count > 1:
+				if TuResults.isStatic(name_, dp, i):
+					if ext.upper() == '.XMDF':
+						mdGroupNames[i] = '{0}/Minimums'.format(name_)
+
+		# for i in range(dp.datasetGroupCount()):
+		for i, name_ in enumerate(mdGroupNames):
 			# Get result type e.g. depth, velocity, max depth
 			mdGroup = dp.datasetGroupMetadata(i)  # Group Metadata
-			id, id2 = self.getResultTypeNames(mdGroup, ext, resultTypes)
+			id, id2 = self.getResultTypeNames(mdGroup, ext, resultTypes, name_)
 
 			# special case for minimum dt
 			if 'minimum dt' in id.lower():
@@ -376,7 +394,8 @@ class TuResults2D():
 
 			# apply any default rendering styles to datagroup
 			if id:
-				resultType = mdGroup.name()
+				resultType = TuResults.stripMaximumName(mdGroup.name())
+				resultType = TuResults.stripMaximumName(resultType)
 				# try finding if style has been saved as a ramp first
 				key = 'TUFLOW_scalarRenderer/{0}_ramp'.format(resultType)
 				file = QSettings().value(key)
@@ -698,7 +717,7 @@ class TuResults2D():
 			else:
 				self.bRecordSpecialTime = False
 
-	def getResultTypeNames(self, mdg, ext, ids):
+	def getResultTypeNames(self, mdg, ext, ids, name_=None):
 		"""
 
 		"""
@@ -708,15 +727,28 @@ class TuResults2D():
 
 		if ext.upper() != ".XMDF":
 			if mdg.isScalar():
-				id = self.addCounter(mdg.name(), ids)
+				if name_ is not None:
+					id = self.addCounter(name_, ids)
+				else:
+					id = self.addCounter(mdg.name(), ids)
 			if mdg.isVector():
 				if id is None:
-					id = self.addCounter(mdg.name(), ids)
-					id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
+					if name_ is not None:
+						id = self.addCounter(name_, ids)
+						id2 = self.addCounter('{0} Vector'.format(name_), ids)
+					else:
+						id = self.addCounter(mdg.name(), ids)
+						id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
 				else:
-					id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
+					if name_ is not None:
+						id2 = self.addCounter('{0} Vector'.format(name_), ids)
+					else:
+						id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
 		else:
-			id = self.addCounter(mdg.name(), ids)
+			if name_ is not None:
+				id = self.addCounter(name_, ids)
+			else:
+				id = self.addCounter(mdg.name(), ids)
 
 		return id, id2
 

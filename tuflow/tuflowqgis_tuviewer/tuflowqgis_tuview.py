@@ -23,11 +23,12 @@ from tuflow.tuflowqgis_dialog import tuflowqgis_meshSelection_dialog
 from tuflow.TUFLOW_XS import XS
 from tuflow.TUFLOW_1dTa import HydTables
 from datetime import timedelta
+from tuflow.TUFLOW_FM_data_provider import FM_XS
 
 class TuView(QDockWidget, Ui_Tuplot):
 	
 	def __init__(self, iface, **kwargs):
-		
+
 		# initialise the dock and ui
 		QDockWidget.__init__(self)
 		self.setupUi(self)
@@ -97,12 +98,14 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# 1D cross sections
 		self.selectionChangeConnected = False
 		self.crossSections1D = XS()
+		self.crossSectionsFM = FM_XS()
 		self.loadXSLayers()
 		self.hydTables = HydTables()
 		
 		# Activate signals
 		self.connected = False  # Signal connection
 		self.connectSave = False
+		self.firstConnection = True
 		self.qgisConnect()
 		
 		# check for already open mesh layers
@@ -216,15 +219,18 @@ class TuView(QDockWidget, Ui_Tuplot):
 		Load TUFLOW 1D cross sections from selected features
 		"""
 
+		crossSections = [self.crossSections1D, self.crossSectionsFM]
+
 		if lyr is None:
 			lyr = self.currentLayer
 		if is1dTable(lyr):
-			self.crossSections1D.removeByFeaturesNotIncluded(lyr.selectedFeatures())
-			for sel in lyr.selectedFeatures():
-				source = sel.attributes()[0]
-				if source not in self.crossSections1D.source:
-					dir = os.path.dirname(lyr.source())
-					self.crossSections1D.addFromFeature(dir, lyr.fields(), sel, lyr)
+			for crossSection in crossSections:
+				crossSection.removeByFeaturesNotIncluded(lyr.selectedFeatures())
+				for sel in lyr.selectedFeatures():
+					source = sel.attributes()[0]
+					if source not in crossSection.source:
+						dir = os.path.dirname(lyr.source())
+						crossSection.addFromFeature(dir, lyr.fields(), sel, lyr)
 
 	def setTsTypesEnabled(self):
 		"""
@@ -590,6 +596,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		"""
 
 		qv = Qgis.QGIS_VERSION_INT
+		self.firstConnection = False
 
 		if not self.connected:
 			
@@ -634,12 +641,14 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.iface.currentLayerChanged.connect(self.currentLayerChanged)
 			
 			# project
+			if self.firstConnection:
+				self.project.layersWillBeRemoved.connect(self.layersRemoved)
+				if not self.connectSave:
+					self.project.projectSaved.connect(self.projectSaved)
+					self.connectSave = True
 			self.project.layersAdded.connect(self.layersAdded)
-			self.project.layersWillBeRemoved.connect(self.layersRemoved)
 			self.project.cleared.connect(self.projectCleared)
-			if not self.connectSave:
-				self.project.projectSaved.connect(self.projectSaved)
-				self.connectSave = True
+
 			# layer
 			self.selectionChangeConnected = False
 			self.currentLayerChanged()
