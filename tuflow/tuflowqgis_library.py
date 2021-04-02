@@ -395,7 +395,7 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 
 
 	if (len(empty_types) == 0):
-		return "No Empty File T specified"
+		return "No Empty File specified"
 
 	if (basepath == None):
 		return "Invalid location specified"
@@ -478,7 +478,7 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 				# outfile = QgsVectorFileWriter(vectorFileName=savename, fileEncoding="System",
 				# 	fields=layer.dataProvider().fields(), geometryType=layer.wkbType(), srs=layer.dataProvider().sourceCrs(), driverName="ESRI Shapefile")
 				options = QgsVectorFileWriter.SaveVectorOptions()
-				if os.path.exists(savename):
+				if os.path.exists(savename) and isgpkg:
 					options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
 				else:
 					options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
@@ -490,7 +490,7 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 				outfile = QgsVectorFileWriter.writeAsVectorFormatV2(outlayer, savename, QgsCoordinateTransformContext(), options)
 				# if (outfile.hasError() != QgsVectorFileWriter.NoError):
 				if outfile[0] != QgsVectorFileWriter.NoError:
-				 	QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: {0}\n{1}".format(outfile[1])))
+				 	QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: {0}\n{1}".format(*outfile)))
 				# del outfile
 
 				# delete prj file and replace with empty prj - ensures it is exactly the same

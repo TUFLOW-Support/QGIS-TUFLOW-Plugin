@@ -1331,7 +1331,10 @@ class TuResults():
 			if time > key3:
 				return timekeys[max(0, i-1)]
 
-		return timekeys[-1]
+		if timekeys:
+			return timekeys[-1]
+		else:
+			return None
 
 	def findTimeClosest(self, key1, key2, key3, times=(), is_date=False, method='lower'):
 		"""
@@ -1444,8 +1447,10 @@ class TuResults():
 						return time
 				else:
 					diff = abs((date - key3).total_seconds())
-
-		return time
+		if not times:
+			return None
+		else:
+			return time
 
 	@staticmethod
 	def findDateClosest_31600(tuResults, key1, key2, key3, dates=(), method='lower', units='h'):

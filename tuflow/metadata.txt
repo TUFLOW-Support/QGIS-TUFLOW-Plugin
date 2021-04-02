@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.1.5
+version=3.1.5.3
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,14 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=### 3.1.5 ###
+changelog=### 3.1.5.3 ###
+          TUFLOW Viewer - Fixed bug that would cause python error when changing 'zero date'
+          TUFLOW Viewer - Fixed bug that would cause python error if 1D 'losses' plot option was selected with a 2D plot object selected
+          TUFLOW Viewer - Fixed bug that would make mesh disappear when switching between results if "show grid" was on
+          Import Empty Tool - Fixed bug that would cause error if overwriting existing file
+          Import Empty Tool - Fixed typo in error message "No Empty File T specified" should be "No Empty File specified"
+
+          ### 3.1.5 ###
           SCS Curve number calculation and export to TUFLOW tool added (beta)
           ReFH2 tool - ReFH2 engine 2.3 option added
           ReFH2 tool - Added climate change options
@@ -29,7 +36,7 @@ changelog=### 3.1.5 ###
           ReFH2 tool - Added engine version option
           ARR tool - NSW datahub continuing loss multiplied by 0.4
           ARR tool - let users set event independent continuing loss
-          ARR tool - now recognises NaN rainfall loss values from the dataub and sets losses to zero
+          ARR tool - now recognises NaN rainfall loss values from the datahub and sets losses to zero
           ARR tool - Fixed bug that miscalculated ARF for short durations for catchments between 1 - 10km2
           TUFLOW Viewer - Import FM timeseries results added
           TUFLOW Viewer - Fixed bug that would incorrectly flag layers as 1D cross section and cause QGIS to hang

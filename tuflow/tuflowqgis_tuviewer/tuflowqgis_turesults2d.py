@@ -948,6 +948,16 @@ class TuResults2D():
 			self.tuView.tuResults.updateDateTimes()
 			self.tuView.tuResults.updateResultTypes()
 
+		# for QGIS 3.18.1 hack to force mesh to show
+		meshLayers = findAllMeshLyrs()
+		for ml in meshLayers:
+			layer = tuflowqgis_find_layer(ml)
+			rs = layer.rendererSettings()
+			rsMesh = rs.nativeMeshSettings()
+			rsMesh.setEnabled(self.tuView.tuOptions.showGrid)
+			rs.setNativeMeshSettings(rsMesh)
+			layer.setRendererSettings(rs)
+
 	def applyScalarRenderSettings(self, layer, datasetGroupIndex, file, type, save_type='xml'):
 		"""
 		Applies scalar renderer settings to a datagroup based on a color ramp properties.

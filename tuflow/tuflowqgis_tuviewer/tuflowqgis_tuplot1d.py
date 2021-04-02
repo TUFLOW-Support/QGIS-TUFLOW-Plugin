@@ -305,6 +305,8 @@ class TuPlot1D():
 							else:
 								continue
 						elif rtype.lower() == "losses":
+							if id not in res.Data_1D.CL.uID:
+								continue
 							iun = res.Data_1D.CL.uID.index(id)  # index unique name
 							nCol = res.Data_1D.CL.nCols[iun]  # number of columns associated with element losses
 							for j in range(nCol):
@@ -326,11 +328,11 @@ class TuPlot1D():
 							dom = tuResults1D.domains[i]
 							source = tuResults1D.sources[i].upper()
 							if dom == '2D':
-								if rtype.upper().find('STRUCTURE FLOWS') >= 0 and source == 'QS':
+								if rtype.upper().find('STRUCTURE FLOWS') >= 0 and 'QS' in source:
 									typename = 'QS'
-								elif rtype.upper().find('STRUCTURE LEVELS') >= 0 and source == 'HU':
+								elif rtype.upper().find('STRUCTURE LEVELS') >= 0 and 'HU' in source:
 									typename = 'HU'
-								elif rtype.upper().find('STRUCTURE LEVELS') >= 0 and source == 'HD':
+								elif rtype.upper().find('STRUCTURE LEVELS') >= 0 and 'HD' in source:
 									typename = 'HD'
 								else:
 									typename = rtype
