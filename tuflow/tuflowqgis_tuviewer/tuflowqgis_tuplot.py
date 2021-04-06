@@ -1843,7 +1843,7 @@ class TuPlot():
 		
 		return xAxisLabel, yAxisLabelNewFirst, yAxisLabelNewSecond
 	
-	def getSecondaryAxis(self, plotNo):
+	def getSecondaryAxis(self, plotNo, create=True):
 		"""
 		Collect secondary Y axis. Will create the axis if it does not exist.
 
@@ -1857,16 +1857,19 @@ class TuPlot():
 			self.plotEnumerator(plotNo)
 		
 		if not isSecondaryAxis[0]:
-			isSecondaryAxis[0] = True
-			if plotNo == TuPlot.TimeSeries:
-				self.axis2TimeSeries = subplot.twinx()
-				return self.axis2TimeSeries
-			elif plotNo == TuPlot.CrossSection:
-				self.axis2LongPlot = subplot.twinx()
-				return self.axis2LongPlot
-			elif plotNo == TuPlot.VerticalProfile:
-				self.axis2VerticalPlot = subplot.twiny()
-				return self.axis2VerticalPlot
+			if create:
+				isSecondaryAxis[0] = True
+				if plotNo == TuPlot.TimeSeries:
+					self.axis2TimeSeries = subplot.twinx()
+					return self.axis2TimeSeries
+				elif plotNo == TuPlot.CrossSection:
+					self.axis2LongPlot = subplot.twinx()
+					return self.axis2LongPlot
+				elif plotNo == TuPlot.VerticalProfile:
+					self.axis2VerticalPlot = subplot.twiny()
+					return self.axis2VerticalPlot
+			else:
+				return None
 		else:
 			if plotNo == TuPlot.TimeSeries:
 				return self.axis2TimeSeries
@@ -3310,22 +3313,25 @@ class TuPlot():
 
 		return dataInt
 
-	def formatCoord(self, x, y, z):
+	def formatCoord(self, x, y, z, x2=None, y2=None):
 		x = x if x is not None else ' '
 		y = y if y is not None else ' '
-		z = f', Z={z:.2f}' if z is not None else ''
+		z = f', Z: {z:.2f}' if z is not None else ''
+		x2 = f', X2: {x2:.2f}' if x2 is not None else ''
+		y2 = f', Y2: {y2:.2f}' if y2 is not None else ''
 
 		try:
-			value = f'X={x:.2f}, Y={y:.2f}{z}'
+			value = f'X: {x:.2f}, Y: {y:.2f}{z}{x2}{y2}'
 		except:
-			value = ''
+			value = 'X: Y: Z:'
 
-		# return f'X={x:.2f}, Y={y:.2f}{z}'
-
+		return value
 
 	def onclick(self, e, plotNo):
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.plotEnumerator(plotNo)
+
+		subplot2 = self.getSecondaryAxis(plotNo, create=False)
 
 		x, y, z = None, None, None
 		if e.inaxes == subplot:
@@ -3333,12 +3339,28 @@ class TuPlot():
 			if e.guiEvent.type() == QEvent.MouseButtonPress and e.guiEvent.button() == Qt.LeftButton:
 				x = e.xdata
 				y = e.ydata
+				x2 = None
+				y2 = None
 				if PolyCollection in [type(x) for x in artists[0]]:
 					pc = [x for x in artists[0] if type(x) is PolyCollection][0]
 					pci = polyCollectionPathIndexFromXY(pc, e.xdata, e.ydata)
 					if pci is not None:
 						z = pc.get_array()[pci]
-		self.tuView.plotCoords.setText(self.formatCoord(x, y, z))
+		elif subplot2 is not None and e.inaxes == subplot2:
+			if e.guiEvent.type() == QEvent.MouseButtonPress and e.guiEvent.button() == Qt.LeftButton:
+				x2 = e.xdata
+				y2 = e.ydata
+				if PolyCollection in [type(x) for x in artists[0]]:
+					pc = [x for x in artists[0] if type(x) is PolyCollection][0]
+					pci = polyCollectionPathIndexFromXY(pc, e.xdata, e.ydata)
+					if pci is not None:
+						z = pc.get_array()[pci]
+				x, y = subplot.transData.inverted().transform([e.x, e.y])
+				if plotNo == TuPlot.VerticalProfile:
+					y2 = None
+				else:
+					x2 = None
+		self.tuView.plotCoords.setText(self.formatCoord(x, y, z, x2, y2))
 
 	def vmeshToggled(self):
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \

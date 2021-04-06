@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>762</width>
-    <height>767</height>
+    <width>778</width>
+    <height>814</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -2854,7 +2854,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QGroupBox" name="groupBox_2">
+            <widget class="QGroupBox" name="groupBox_output">
              <property name="palette">
               <palette>
                <active>
@@ -3372,7 +3372,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QGroupBox" name="groupBox">
+            <widget class="QGroupBox" name="groupBox_ARF">
              <property name="palette">
               <palette>
                <active>
@@ -4349,7 +4349,7 @@
          <item row="0" column="1" rowspan="2">
           <layout class="QVBoxLayout" name="verticalLayout_9">
            <item>
-            <widget class="QgsCollapsibleGroupBox" name="groupBox_4">
+            <widget class="QgsCollapsibleGroupBox" name="gbTemporalPatterns">
              <property name="minimumSize">
               <size>
                <width>0</width>
@@ -4775,12 +4775,15 @@
               <bool>true</bool>
              </property>
              <property name="title">
-              <string>Temporal Patterns</string>
+              <string>Temporal Patterns (expand for options)</string>
              </property>
              <property name="flat">
               <bool>false</bool>
              </property>
              <property name="checkable">
+              <bool>false</bool>
+             </property>
+             <property name="collapsed">
               <bool>false</bool>
              </property>
              <layout class="QVBoxLayout" name="verticalLayout_10">
@@ -5056,7 +5059,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QGroupBox" name="groupBox_3">
+            <widget class="QGroupBox" name="groupBox_IL">
              <property name="palette">
               <palette>
                <active>

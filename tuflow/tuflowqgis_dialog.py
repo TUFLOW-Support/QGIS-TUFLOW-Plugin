@@ -1423,6 +1423,8 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		self.tfsettings = TF_Settings()
 		icon = QIcon(os.path.join(os.path.dirname(__file__), "icons", "arr2016.PNG"))
 		self.setWindowIcon(icon)
+
+
 		
 		# Set up Input Catchment File ComboBox
 		for name, layer in QgsProject.instance().mapLayers().items():
@@ -1521,6 +1523,20 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		self.cboPreburstTPMethod.currentIndexChanged.connect(self.preburstTPMethodChanged)
 		self.cboPreburstDurUnits.currentIndexChanged.connect(self.preburstUnitsChanged)
 		self.cboDurTP.currentIndexChanged.connect(self.cboDurTPChanged)
+
+		self.sizeDialog()
+
+	def sizeDialog(self):
+		"""Resize dialog to fit contents"""
+		self.gbTemporalPatterns.setCollapsed(True)
+		w = max(self.groupBox_SAEP.sizeHint().width(), self.groupBox_RAEP.sizeHint().width(), self.groupBox_FAEP.sizeHint().width()) \
+		    + self.groupBox_Durations.sizeHint().width() \
+		    + max(self.groupBox_CC.sizeHint().width(), self.groupBox_output.sizeHint().width(), self.groupBox_ARF.sizeHint().width()) \
+		    + max(self.gbTemporalPatterns.sizeHint().width(), self.groupBox_5.sizeHint().width(),  + self.groupBox_IL.sizeHint().width()) \
+		    + (6*9 + 8*6 + 15)
+		w = max(w, self.width())
+		h = self.height()
+		self.resize(w, h)
 
 	def cboDurTPChanged(self, e=None):
 		"""

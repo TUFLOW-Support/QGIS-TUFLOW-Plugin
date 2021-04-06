@@ -431,7 +431,7 @@ def short_arf(area, duration_list, aep_list, ARF_frequent, min_ARF):
                     # arf10km2 = arf_eqn242(duration, arf_eqn241(10, 720, (aep / 100)), arf_eqn241(10, 1440, (aep / 100)))
                     # arf = arf_eqn243(area, arf10km2)
                     # 3.1.4.33 - changed above 2 lines to the below
-                    arf10km2 = arf_eq241(10, duration, (aep / 100))
+                    arf10km2 = arf_eqn241(10, duration, (aep / 100))
                     arf = arf_eqn244(area, arf10km2)
                     if arf >= min_ARF:
                         arf_row.append(arf)
@@ -515,8 +515,8 @@ def medium_arf(area, duration_list, aep_list, a, b, c, d, e, f, g, h, i, ARF_fre
                     # ARR still seems to ref incorrect equations - no doubt will be fixing this again in the future
                     arf10km24h = arf_eqn242(10, 1440, (aep / 100), a, b, c, d, e, f, g, h, i)
                     arf10km12h = arf_eqn241(10, 720, (aep / 100))
-                    arf10km = eqn_243(duration, arf10km12h, arf10km24h)  # in ARR they say use eqn 2.4.4
-                    arf = eqn_244(area, arf10km)  # in ARR they say use eqn 2.4.3
+                    arf10km = arf_eqn243(duration, arf10km12h, arf10km24h)  # in ARR they say use eqn 2.4.4
+                    arf = arf_eqn244(area, arf10km)  # in ARR they say use eqn 2.4.3
                     if arf >= min_ARF:
                         arf_row.append(arf)
                     else:
