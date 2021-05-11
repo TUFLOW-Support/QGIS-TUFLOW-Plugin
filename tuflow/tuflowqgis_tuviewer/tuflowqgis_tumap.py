@@ -17,6 +17,9 @@ from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, convertTimeToForma
                                        browse)
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults2d import TuResults2D
+from datetime import datetime, timedelta
+from matplotlib.collections import PolyCollection
+from matplotlib.quiver import Quiver
 
 
 
@@ -134,29 +137,39 @@ def makeMap(cfg, iface, progress_fn=None, dialog=None, preview=False, iteration=
 		#rs.setActiveScalarDataset(asd)
 		#if iteration == 0 or 'scalar settings' not in cfg:
 		#	cfg['scalar settings'] = rs.scalarSettings(asd.group())
-		rs.setScalarSettings(asd.group(), cfg['rendering'][cfg['active scalar']])
-		if qv >= 31300:
-			asd = asd.group()
+		if qv < 31300:
+			rs.setScalarSettings(asd.group(), cfg['rendering'][cfg['active scalar']])
+		else:
+			rs.setScalarSettings(asd, cfg['rendering'][cfg['active scalar']])
+		# if qv >= 31300:
+		# 	asd = asd.group()
 		setActiveScalar(asd)
 	avd = cfg['vector index']
 	if avd:
 		# rs.setActiveVectorDataset(avd)
 		if iteration == 0 or 'vector settings' not in cfg:
-			cfg['vector settings'] = rs.vectorSettings(avd.group())
-		rs.setVectorSettings(avd.group(), cfg['vector settings'])
-		if qv >= 31300:
-			avd = avd.group()
+			if qv < 31300:
+				cfg['vector settings'] = rs.vectorSettings(avd.group())
+			else:
+				cfg['vector settings'] = rs.vectorSettings(avd)
+		if qv < 31300:
+			rs.setVectorSettings(avd.group(), cfg['vector settings'])
+		else:
+			rs.setVectorSettings(avd, cfg['vector settings'])
+		# if qv >= 31300:
+		# 	avd = avd.group()
 		setActiveVector(avd)
 	l.setRendererSettings(rs)
 	
-	timetext = convertTimeToFormattedTime(time, unit=dialog.tuView.tuOptions.timeUnits)
+	# timetext = convertTimeToFormattedTime(time, unit=dialog.tuView.tuOptions.timeUnits)
+	timetext = cfg['time text']
 	if dialog is not None:
 		if dialog.tuView.tuOptions.xAxisDates:
 			# if time in dialog.tuView.tuResults.time2date:
 			if time in dialog.tuView.tuResults.time2date_tspec:
 				timetext = dialog.tuView.tuResults.time2date_tspec[time]
 				timetext = dialog.tuView.tuResults._dateFormat.format(timetext)
-	cfg['time text'] = timetext
+	# cfg['time text'] = timetext
 	
 	# Prepare layout
 	layout = QgsPrintLayout(QgsProject.instance())
@@ -215,7 +228,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 	INSERT_BEFORE = 0
 	INSERT_AFTER = 1
 	
-	def __init__(self, TuView):
+	def __init__(self, TuView, **kwargs):
 		QDialog.__init__(self)
 		self.setupUi(self)
 		self.tuView = TuView
@@ -278,6 +291,8 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		self.contextMenuMapTable()
 		self.contextMenuPlotTable()
 		self.contextMenuImageTable()
+
+		self.cbDynamicAxisLimits.setVisible(False)  # wasn't being used...
 		
 		self.cboPageSize.currentIndexChanged.connect(self.setPageSize)
 		self.cboUnits.currentIndexChanged.connect(self.setPageSize)
@@ -308,6 +323,77 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		
 		self.importMapTable = MapExportImportDialog(self.iface)
 		self.pbImport.clicked.connect(self.importMapTableData)
+
+		if self.tuView.iface is not None:
+			self.layers = self.canvas.layers()
+			self.extent = self.canvas.extent()
+			self.crs = self.canvas.mapSettings().destinationCrs()
+		else:
+			self.layers = []
+			self.extent = None
+			self.crs = None
+
+		self.pythonPopulateGui(**kwargs)
+
+	def pythonPopulateGui(self, **kwargs):
+		if 'layout' in kwargs:
+			layout = kwargs['layout']
+			if 'type' in layout:
+				if layout['type'].lower() == 'default':
+					self.radLayoutDefault.setChecked(True)
+				elif layout['type'].lower() == 'custom':
+					self.radLayoutCustom.setChecked(True)
+			if 'properties' in layout:
+				layout_properties = layout['properties']
+				if 'plots' in layout_properties:
+					plots = layout_properties['plots']
+					self.groupPlot.setChecked(True)
+					for i in range(len(plots)):
+						self.addPlot()
+						if 'plot_type' in plots[i]:
+							self.tablePlots.item(i, 0).setText(plots[i]['plot_type'])
+						if 'plot_items' in plots[i]:
+							if type(plots[i]['plot_items']) is list:
+								plot_items = ';;'.join(plots[i]['plot_items'])
+							else:
+								plot_items = plots[i]['plot_items']
+							self.tablePlots.item(i, 1).setText(plot_items)
+						if 'properties' in plots[i]:
+							plot_prop = plots[i]['properties']
+							p = self.pbDialogs[self.tablePlots.cellWidget(i, 3)]
+							if 'legend' in plot_prop:
+								p.cbLegend.setChecked(plot_prop['legend'])
+				if 'template' in layout_properties:
+					self.editTemplate.setText(layout_properties['template'])
+				if 'dynamic_text' in layout_properties:
+					self.groupLabel.setChecked(True)
+					text_properties = layout_properties['dynamic_text']
+					if 'text' in text_properties:
+						self.labelInput.setText(text_properties['text'])
+					if 'font_size' in text_properties:
+						font = self.fbtnLabel.currentFont()
+						font.setPointSize(text_properties['font_size'])
+						self.fbtnLabel.setCurrentFont(font)
+		if 'output' in kwargs:
+			outputs = kwargs['output']
+			for i in range(len(outputs)):
+				self.addMap()
+				if 'result' in outputs[i]:
+					self.tableMaps.item(i, 0).setText(outputs[i]['result'])
+				if 'scalar_type' in outputs[i]:
+					self.tableMaps.item(i, 1).setText(outputs[i]['scalar_type'])
+				if 'vector_type' in outputs[i]:
+					self.tableMaps.item(i, 2).setText(outputs[i]['vector_type'])
+				if 'time' in outputs[i]:
+					self.tableMaps.item(i, 3).setText(outputs[i]['time'])
+				if 'output' in outputs[i]:
+					self.tableMaps.item(i, 4).setText(outputs[i]['output'])
+		if 'layers' in kwargs:
+			self.layers = kwargs['layers']
+		if 'extent' in kwargs:
+			self.extent = kwargs['extent']
+		if 'crs' in kwargs:
+			self.crs = kwargs['crs']
 
 	def importMapTableData(self):
 		"""imports data from external file and populates map table"""
@@ -397,26 +483,47 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		:return: void
 		"""
 		
-		lines = self.tuView.tuPlot.tuCrossSection.rubberBands
-		for i, line in enumerate(lines):
+		# lines = self.tuView.tuPlot.tuCrossSection.rubberBands
+		# for i, line in enumerate(lines):
+		# 	rowNo = self.tableGraphics.rowCount()
+		# 	self.tableGraphics.setRowCount(rowNo + 1)
+		# 	self.addGraphicRowToTable('CS / LP Line {0}'.format(i + 1), rowNo)
+		# 	self.label2graphic['CS / LP Line {0}'.format(i + 1)] = line
+		#
+		# lines = self.tuView.tuPlot.tuFlowLine.rubberBands
+		# for i, line in enumerate(lines):
+		# 	rowNo = self.tableGraphics.rowCount()
+		# 	self.tableGraphics.setRowCount(rowNo + 1)
+		# 	self.addGraphicRowToTable('Flow Line {0}'.format(i + 1), rowNo)
+		# 	self.label2graphic['Flow Line {0}'.format(i + 1)] = line
+		#
+		# points = self.tuView.tuPlot.tuTSPoint.points
+		# for i, point in enumerate(points):
+		# 	rowNo = self.tableGraphics.rowCount()
+		# 	self.tableGraphics.setRowCount(rowNo + 1)
+		# 	self.addGraphicRowToTable('TS Point {0}'.format(i + 1), rowNo)
+		# 	self.label2graphic['TS Point {0}'.format(i + 1)] = point
+
+		self.populateGraphics2(self.tuView.tuPlot.tuTSPoint.points, 'TS Point')
+		self.populateGraphics2(self.tuView.tuPlot.tuCrossSection.rubberBands, 'CS / LP Line')
+		self.populateGraphics2(self.tuView.tuPlot.tuFlowLine.rubberBands, 'Flow Line')
+		self.populateGraphics2(self.tuView.tuPlot.tuCurtainLine.rubberBands, 'Curtain Line')
+		self.populateGraphics2(self.tuView.tuPlot.tuTSPointDepAv.points, 'TS DepAv Point')
+		self.populateGraphics2(self.tuView.tuPlot.tuCSLineDepAv.rubberBands, 'CS DepAv Line')
+		self.populateGraphics2(self.tuView.tuPlot.tuVPPoint.points, 'Vert Profile Point')
+
+	def populateGraphics2(self, graphics, prefix):
+		"""
+		helper for the function above to stop the need for repeated code
+		"""
+
+		for i, graphic in enumerate(graphics):
+			if type(graphic) is QgsPoint:
+				graphic = QgsPointXY(graphic)
 			rowNo = self.tableGraphics.rowCount()
 			self.tableGraphics.setRowCount(rowNo + 1)
-			self.addGraphicRowToTable('CS / LP Line {0}'.format(i + 1), rowNo)
-			self.label2graphic['CS / LP Line {0}'.format(i + 1)] = line
-		
-		lines = self.tuView.tuPlot.tuFlowLine.rubberBands
-		for i, line in enumerate(lines):
-			rowNo = self.tableGraphics.rowCount()
-			self.tableGraphics.setRowCount(rowNo + 1)
-			self.addGraphicRowToTable('Flow Line {0}'.format(i + 1), rowNo)
-			self.label2graphic['Flow Line {0}'.format(i + 1)] = line
-		
-		points = self.tuView.tuPlot.tuTSPoint.points
-		for i, point in enumerate(points):
-			rowNo = self.tableGraphics.rowCount()
-			self.tableGraphics.setRowCount(rowNo + 1)
-			self.addGraphicRowToTable('TS Point {0}'.format(i + 1), rowNo)
-			self.label2graphic['TS Point {0}'.format(i + 1)] = point
+			self.addGraphicRowToTable('{0} {1}'.format(prefix, i + 1), rowNo)
+			self.label2graphic['{0} {1}'.format(prefix, i + 1)] = graphic
 	
 	def addGraphicRowToTable(self, label, rowNo, status=True, userLabel=None):
 		"""
@@ -489,6 +596,8 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 			plotNo = 0
 		elif ptype == 'CS / LP':
 			plotNo = 1
+		elif ptype == 'Vert Profile':
+			plotNo = 3
 		else:
 			return [], [], []
 		
@@ -496,6 +605,9 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 			self.tuView.tuPlot.plotEnumerator(plotNo)
 		
 		lines, labs = subplot.get_legend_handles_labels()
+		labs = [TuResults.stripMaximumName(TuResults.stripMinimumName(x)) for x in labs]
+		ct = [PolyCollection, Quiver]  # curtain types
+		labs = [labs[x] + '{0}'.format(' [Curtain]' if type(lines[x]) in ct else "") for x in range(len(labs))]
 		axis = ['axis 1' for x in range(len(lines))]
 		if isSecondaryAxis[0]:
 			subplot2 = self.tuView.tuPlot.getSecondaryAxis(plotNo)
@@ -548,7 +660,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		pb = QPushButton(self.tablePlots)
 		pb.setText('Properties')
 		if dialog is None:
-			dialog = PlotProperties(self, item1, item2, self.tuView.tuOptions.xAxisDates)
+			dialog = PlotProperties(self, item1, item2, self.tuView.tuOptions.xAxisDates, caller='maps')
 		self.pbDialogs[pb] = dialog
 		self.dialog2Plot[dialog] = [item1, item2, item3]
 		pb.clicked.connect(lambda: dialog.setDefaults(self, item1, item2, static=True))
@@ -752,12 +864,31 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 	def plotTypeChanged(self, item=None):
 		"""Updates row in map table if one of the combo boxes is changed."""
 		
+		# if item is not None:
+		# 	if item.column() == 0:
+		# 		lines, labs, axis = self.plotItems(self.tablePlots.item(item.row(), item.column()).text())
+		# 		if labs:
+		# 			availablePlots = ['Active Dataset', 'Active Dataset [Water Level for Depth]'] + labs
+		# 			self.tablePlots.itemDelegateForColumn(1).setItems(item.row(), availablePlots)
+
+		# copied from animation tool
 		if item is not None:
 			if item.column() == 0:
 				lines, labs, axis = self.plotItems(self.tablePlots.item(item.row(), item.column()).text())
+				availablePlots = []
 				if labs:
 					availablePlots = ['Active Dataset', 'Active Dataset [Water Level for Depth]'] + labs
-					self.tablePlots.itemDelegateForColumn(1).setItems(item.row(), availablePlots)
+				self.tablePlots.itemDelegateForColumn(1).setItems(item.row(), availablePlots)
+
+				for i in range(self.tablePlots.rowCount()):
+					if self.tablePlots.item(i, 0) == item:
+						pb = self.tablePlots.cellWidget(i, 3)
+						if pb is not None:
+							dialog = self.pbDialogs[pb]
+							if self.tablePlots.item(item.row(), item.column()).text() == 'Time Series':
+								dialog.setDateTime(self.tuView.tuOptions.xAxisDates)
+							else:
+								dialog.setDateTime(False)
 
 	def addImage(self, e=False, item1=None, item2=None, dialog=None):
 		"""
@@ -932,7 +1063,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 
 	def setPlotTableProperties(self):
 		
-		plotTypes = ['Time Series', 'CS / LP']
+		plotTypes = ['Time Series', 'CS / LP', 'Vert Profile']
 		positions = ['Top-Left', 'Top-Right', 'Bottom-Left', 'Bottom-Right']
 		
 		self.tablePlots.itemDelegateForColumn(0).setItems(items=plotTypes, default='Time Series')
@@ -1437,9 +1568,11 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 	def run(self, preview):
 		"""run tool"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		self.tuView.qgisDisconnect()
 		
-		if not preview:
+		if not preview and self.tuView.iface is not None:
 			self.buttonBox.setEnabled(False)  # disable button box so users know something is happening
 			QApplication.setOverrideCursor(Qt.WaitCursor)
 			
@@ -1548,6 +1681,8 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 						graphicDict['type'] = 'marker'
 					elif 'CS' in label.text():
 						graphicDict['type'] = 'rubberband profile'
+					elif 'Vert' in label.text():
+						graphicDict['type'] = 'marker'
 					else:
 						graphicDict['type'] = 'rubberband flow'
 					graphics[graphic] = graphicDict
@@ -1574,8 +1709,10 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		              self.sbPageMarginTop.value(), self.sbPageMarginBottom.value())
 		# put collected data into dictionary for easy access later
 		d = {'img_size': (w, h),
-		     'extent': self.canvas.extent(),
-		     'crs': self.canvas.mapSettings().destinationCrs(),
+		     # 'extent': self.canvas.extent(),
+		     'extent': self.extent,
+		     # 'crs': self.canvas.mapSettings().destinationCrs(),
+		     'crs': self.crs,
 		     'layout': layout,
 		     'dpi': self.sbDpi.value(),
 		     'frame': self.cbPageFrame.isChecked(),
@@ -1613,15 +1750,37 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 					else:
 						layer = tuflowqgis_find_layer(os.path.splitext(os.path.basename(layer))[0])
 				# active scalar and vector index
-				if time.lower() != 'max':
-					if self.tuView.tuOptions.xAxisDates:
-						time = self.tuView.tuPlot.convertDateToTime(time, unit=self.tuView.tuOptions.timeUnits)
+				rt = self.tuView.tuResults.results[self.layer.name()][
+					'referenceTime'] if 'referenceTime' in self.tuView.tuResults.results else self.tuView.tuOptions.zeroTime
+				if time.lower() != 'max' and time.lower() != 'min':
+					if qv < 31600:
+						if self.tuView.tuOptions.xAxisDates:
+							timeConverted = self.tuView.tuPlot.convertDateToTime(time,
+							                                                     unit=self.tuView.tuOptions.timeUnits)
+						else:
+							timeConverted = convertFormattedTimeToTime(time,
+							                                           unit=self.tuView.tuOptions.timeUnits)
 					else:
-						time = convertFormattedTimeToTime(time, unit=self.tuView.tuOptions.timeUnits)
-					d['time'] = time
-				else:
-					d['time'] = -99999
+						if self.tuView.tuOptions.xAxisDates:
+							timeConverted = datetime.strptime(time, self.tuView.tuResults.dateFormat)
+						else:
+							timeConverted = convertFormattedTimeToTime(time,
+							                                           unit=self.tuView.tuOptions.timeUnits)
+							if self.tuView.tuOptions.timeUnits == 's':
+								timeConverted = rt + timedelta(seconds=timeConverted)
+							else:
+								try:
+									timeConverted = rt + timedelta(hours=timeConverted)
+								except OverflowError:
+									timeConverted = rt + timedelta(seconds=timeConverted)
+					d['time'] = timeConverted
+				elif time.lower() == 'max':
+					d['time'] = 99999.
 					scalar += '/Maximums'
+					time = 0.0
+				else:
+					d['time'] = -99999.
+					scalar += '/Minimums'
 					time = 0.0
 				scalarInd = -1
 				for j in range(layer.dataProvider().datasetGroupCount()):
@@ -1662,11 +1821,13 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 			
 			# iterate through layers and turn off any mesh layers not needed
 			layersToTurnOff = []
-			for mapLayer in self.canvas.layers():
+			#for mapLayer in self.canvas.layers():
+			for mapLayer in self.layers:
 				if isinstance(mapLayer, QgsMeshLayer):
 					if mapLayer != layer:
 						layersToTurnOff.append(mapLayer)
-			layers = [layer]
+			if i == 0:
+				layers = [layer]
 			legint = self.tuView.project.layerTreeRoot()
 			nodes = legint.findLayers()
 			for node in nodes:
@@ -1676,18 +1837,31 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 						node.setItemVisibilityChecked(True)
 					else:
 						node.setItemVisibilityChecked(False)
-			mapLayers = self.canvas.layers()
-			for mapLayer in mapLayers[:]:
-				if isinstance(mapLayer, QgsMeshLayer):
-					if mapLayer != layer:
-						if mapLayer in layers:
-							layers.remove(mapLayer)
+			# mapLayers = self.canvas.layers()
+			mapLayers = self.layers
+			if i == 0:
+				layerindex = -1
+				for j, mapLayer in enumerate(mapLayers[:]):
+					if isinstance(mapLayer, QgsMeshLayer):
+						if mapLayer != layer:
+							if mapLayer in layers:
+								layers.remove(mapLayer)
+						else:
+							layerindex = j
+							if mapLayer not in layers:
+								layers.append(mapLayer)
 					else:
 						if mapLayer not in layers:
-							layers.append(mapLayer)
-				else:
-					if mapLayer not in layers:
-						layers.append(mapLayer)
+							# layers.append(mapLayer)
+							layers.insert(j, mapLayer)
+			else:
+				layers = mapLayers[:]
+				for j, mapLayer in enumerate(mapLayers[:]):
+					if isinstance(mapLayer, QgsMeshLayer):
+						if mapLayer in layers:
+							layers.remove(mapLayer)
+				if layer not in layers:
+					layers.insert(layerindex, layer)
 			d['layers'] = layers
 			
 			# label text
@@ -1702,16 +1876,40 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 			d['active scalar'] = scalar
 
 			# active scalar and vector index
-			if time.lower() != 'max':
-				if self.tuView.tuOptions.xAxisDates:
-					time = self.tuView.tuPlot.convertDateToTime(time, unit=self.tuView.tuOptions.timeUnits)
+			d['time text'] = time
+			rt = self.tuView.tuResults.results[self.layer.name()][
+				'referenceTime'] if 'referenceTime' in self.tuView.tuResults.results else self.tuView.tuOptions.zeroTime
+			if time.lower() != 'max' and time.lower() != 'min':
+				if qv < 31600:
+					if self.tuView.tuOptions.xAxisDates:
+						timeConverted = self.tuView.tuPlot.convertDateToTime(time,
+						                                                     unit=self.tuView.tuOptions.timeUnits)
+					else:
+						timeConverted = convertFormattedTimeToTime(time,
+						                                           unit=self.tuView.tuOptions.timeUnits)
 				else:
-					time = convertFormattedTimeToTime(time, unit=self.tuView.tuOptions.timeUnits)
-				d['time'] = time
-			else:
-				d['time'] = -99999
+					if self.tuView.tuOptions.xAxisDates:
+						timeConverted = datetime.strptime(time, self.tuView.tuResults.dateFormat)
+					else:
+						timeConverted = convertFormattedTimeToTime(time,
+						                                           unit=self.tuView.tuOptions.timeUnits)
+						if self.tuView.tuOptions.timeUnits == 's':
+							timeConverted = rt + timedelta(seconds=timeConverted)
+						else:
+							try:
+								timeConverted = rt + timedelta(hours=timeConverted)
+							except OverflowError:
+								timeConverted = rt + timedelta(seconds=timeConverted)
+				d['time'] = timeConverted
+			elif time.lower() == 'max':
+				d['time'] = 99999.
 				scalar += '/Maximums'
 				vector += '/Maximums'
+				time = 0.0
+			else:
+				d['time'] = 99999.
+				scalar += '/Minimums'
+				vector += '/Minimums'
 				time = 0.0
 			scalarInd = -1
 			vectorInd = -1
@@ -1721,15 +1919,19 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 				if str(layer.dataProvider().datasetGroupMetadata(j).name()).lower() == vector.lower():
 					vectorInd = j
 			asd = QgsMeshDatasetIndex(-1, 0)
-			for j in range(layer.dataProvider().datasetCount(scalarInd)):
-				ind = QgsMeshDatasetIndex(scalarInd, j)
-				if '{0:.2f}'.format(layer.dataProvider().datasetMetadata(ind).time()) == '{0:.2f}'.format(time):
-					asd = ind
-			avd = QgsMeshDatasetIndex(-1, 0)
-			for j in range(layer.dataProvider().datasetCount(vectorInd)):
-				ind = QgsMeshDatasetIndex(vectorInd, j)
-				if '{0:.2f}'.format(layer.dataProvider().datasetMetadata(ind).time()) == '{0:.2f}'.format(time):
-					avd = ind
+			if qv < 31600:
+				for j in range(layer.dataProvider().datasetCount(scalarInd)):
+					ind = QgsMeshDatasetIndex(scalarInd, j)
+					if '{0:.2f}'.format(layer.dataProvider().datasetMetadata(ind).time()) == '{0:.2f}'.format(time):
+						asd = ind
+				avd = QgsMeshDatasetIndex(-1, 0)
+				for j in range(layer.dataProvider().datasetCount(vectorInd)):
+					ind = QgsMeshDatasetIndex(vectorInd, j)
+					if '{0:.2f}'.format(layer.dataProvider().datasetMetadata(ind).time()) == '{0:.2f}'.format(time):
+						avd = ind
+			else:
+				asd = scalarInd
+				avd = vectorInd
 			d['scalar index'] = asd
 			d['vector index'] = avd
 			
@@ -1740,7 +1942,8 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 					
 				dialog.setDefaults(self, self.dialog2Plot[dialog][0].text(),
 				                   self.dialog2Plot[dialog][1].text().split(';;'), static=True,
-				                   activeScalar=d['active scalar'], xAxisDates=self.tuView.tuOptions.xAxisDates)
+				                   activeScalar=d['active scalar'], xAxisDates=self.tuView.tuOptions.xAxisDates,
+				                   time=d['time'])
 
 			self.layout = makeMap(d, self.iface, prog, self, preview, i)
 			# self.tuView.renderMap()
@@ -1751,11 +1954,16 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 				return
 
 		self.tuView.qgisConnect()
-		QApplication.restoreOverrideCursor()
+		if self.tuView.iface is not None:
+			QApplication.restoreOverrideCursor()
 		self.updateProgress(0, 1)
 		self.buttonBox.setEnabled(True)
 		shutil.rmtree(tmpdir)
-		QMessageBox.information(self, "Export", "Map export was successfully!")
+		msg = "Map export was successfully!"
+		if self.tuView.iface is not None:
+			QMessageBox.information(self, "Export", msg)
+		else:
+			print(msg)
 		self.accept()
 	
 	def setPageSize(self):

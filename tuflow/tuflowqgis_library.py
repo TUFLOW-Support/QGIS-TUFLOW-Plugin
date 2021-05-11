@@ -53,7 +53,7 @@ import colorsys
 import locale
 import codecs
 from shutil import copyfile
-import processing
+# import processing
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tuflowqgis_styles
@@ -3415,7 +3415,7 @@ def getVariableNamesFromTCF(tcf, scenarios=()):
 	return variables, False
 
 
-def loadGisFile(iface, path, group, processed_paths, processed_layers, error, log):
+def loadGisFile(iface, path, group, processed_paths, processed_layers, error, log, crs):
 	"""
 	Load GIS file (vector or raster). If layer is already is processed_paths, layer won't be loaded again.
 	
@@ -3441,23 +3441,38 @@ def loadGisFile(iface, path, group, processed_paths, processed_layers, error, lo
 				group.addLayer(lyr)
 				processed_paths.append(path)
 				processed_layers.append(lyr)
+				if crs is None:
+					crs = lyr.crs()
 			else:
 				error = True
 				log += '{0}\n'.format(path)
-		except:
+		except Exception as e:
 			error = True
 			log += '{0}\n'.format(path)
 	elif ext.lower() == '.mif':
 		try:
 			if os.path.exists(path):
-				lyr = iface.addVectorLayer(path, os.path.basename(os.path.splitext(path)[0]),
-				                           'ogr')
+				# lyr = iface.addVectorLayer(path, os.path.basename(os.path.splitext(path)[0]),
+				#                            'ogr')
 				lyrName = os.path.basename(os.path.splitext(path)[0])
-				for name, layer in QgsProject.instance().mapLayers().items():
-					if lyrName in layer.name():
-						group.addLayer(layer)
-						processed_paths.append(path)
-						processed_layers.append(layer)
+				dblyr = QgsVectorLayer(path, lyrName)
+				tablenames = [x.split('!!::!!')[1:] for x in dblyr.dataProvider().subLayers()]
+				for table in tablenames:
+					if 'point' in table[2].lower():
+						lyrName_ = '{0}_P'.format(lyrName)
+					elif 'line' in table[2].lower():
+						lyrName_ = '{0}_L'.format(lyrName)
+					else:
+						lyrName_ = '{0}_R'.format(lyrName)
+					uri = "{0}|layername={1}|geometrytype={2}".format(path, table[0], table[2])
+					lyr = QgsVectorLayer(uri, lyrName_, 'ogr')
+					QgsProject.instance().addMapLayer(lyr)
+					for name, layer in QgsProject.instance().mapLayers().items():
+						# if lyrName in layer.name():
+						if lyrName_ in layer.name():
+							group.addLayer(layer)
+							processed_paths.append(path)
+							processed_layers.append(layer)
 			else:
 				error = True
 				log += '{0}\n'.format(path)
@@ -3472,6 +3487,11 @@ def loadGisFile(iface, path, group, processed_paths, processed_layers, error, lo
 				group.addLayer(lyr)
 				processed_paths.append(path)
 				processed_layers.append(lyr)
+				# check raster crs
+				lyrCrs = lyr.crs()
+				if lyrCrs.srsid() != crs.srsid():
+					if not os.path.exists("{0}.prj".format(os.path.splitext(path)[0])):
+						lyr.setCrs(crs)
 			else:
 				error = True
 				log += '{0}\n'.format(path)
@@ -3482,10 +3502,10 @@ def loadGisFile(iface, path, group, processed_paths, processed_layers, error, lo
 		error = True
 		log += '{0}\n'.format(path)
 		
-	return processed_paths, processed_layers, error, log
+	return processed_paths, processed_layers, error, log, crs
 	
 
-def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers, scenarios, variables):
+def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers, scenarios, variables, crs):
 	"""
 	Opens all vector layers from the specified tuflow control file
 
@@ -3493,7 +3513,7 @@ def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers
 	:param iface: QgisInterface
 	:return: bool, string
 	"""
-	
+
 	error = False
 	log = ''
 	dir = os.path.dirname(controlFile)
@@ -3551,15 +3571,15 @@ def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers
 							paths = getAllFolders(dir, relPath, variables, scenarios, [])
 							for path in paths:
 								if path not in processed_paths:
-									processed_paths, processed_layers, error, log = \
-										loadGisFile(iface, path, group, processed_paths, processed_layers, error, log)
+									processed_paths, processed_layers, error, log, crs = \
+										loadGisFile(iface, path, group, processed_paths, processed_layers, error, log, crs)
 							
 	lyrs = [c.layer() for c in group.children()]
 	lyrs_sorted = sorted(lyrs, key=lambda x: x.name().lower())
 	for i, lyr in enumerate(lyrs_sorted):
 		treeLyr = group.insertLayer(i, lyr)
 	group.removeChildren(len(lyrs), len(lyrs))
-	return error, log, processed_paths, processed_layers
+	return error, log, processed_paths, processed_layers, crs
 
 
 def openGisFromTcf(tcf, iface, scenarios=()):
@@ -3572,6 +3592,7 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 	"""
 
 	dir = os.path.dirname(tcf)
+	crs = None
 	
 	# get variable names and corresponding values
 	variables, error = getVariableNamesFromTCF(tcf, scenarios)
@@ -3582,8 +3603,8 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 	processed_layers = []
 	couldNotReadFile = False
 	message = 'Could not open file:\n'
-	error, log, pPaths, pLayers = loadGisFromControlFile(tcf, iface, processed_paths, processed_layers,
-	                                                     scenarios, variables)
+	error, log, pPaths, pLayers, crs = loadGisFromControlFile(tcf, iface, processed_paths, processed_layers,
+	                                                          scenarios, variables, crs)
 	processed_paths += pPaths
 	processed_layers += pLayers
 	if error:
@@ -3631,9 +3652,9 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 				if '!' not in f[:ind] and '#' not in f[:ind]:
 					if 'estry control file auto' in f.lower():
 						path = '{0}.ecf'.format(os.path.splitext(tcf)[0])
-						error, log, pPaths, pLayers = loadGisFromControlFile(path, iface, processed_paths,
-						                                                     processed_layers,
-						                                                     scenarios, variables)
+						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
+						                                                          processed_layers,
+						                                                          scenarios, variables, crs)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -3646,9 +3667,9 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 						relPath = relPath.strip()
 						paths = getAllFolders(dir, relPath, variables, scenarios, [])
 						for path in paths:
-							error, log, pPaths, pLayers = loadGisFromControlFile(path, iface, processed_paths,
-							                                                     processed_layers,
-							                                                     scenarios, variables)
+							error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
+							                                                          processed_layers,
+							                                                          scenarios, variables, crs)
 							processed_paths += pPaths
 							processed_layers += pLayers
 							if error:
@@ -3663,8 +3684,8 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						error, log, pPaths, pLayers = loadGisFromControlFile(path, iface, processed_paths, processed_layers,
-						                                                     scenarios, variables)
+						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths, processed_layers,
+						                                                          scenarios, variables, crs)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -3679,9 +3700,9 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						error, log, pPaths, pLayers = loadGisFromControlFile(path, iface, processed_paths,
-						                                                     processed_layers,
-						                                                     scenarios, variables)
+						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
+						                                                          processed_layers,
+						                                                          scenarios, variables, crs)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -3696,9 +3717,9 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						error, log, pPaths, pLayers = loadGisFromControlFile(path, iface, processed_paths,
-						                                                     processed_layers,
-						                                                     scenarios, variables)
+						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
+						                                                          processed_layers,
+						                                                          scenarios, variables, crs)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -3713,9 +3734,9 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						error, log, pPaths, pLayers = loadGisFromControlFile(path, iface, processed_paths,
-						                                                     processed_layers,
-						                                                     scenarios, variables)
+						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
+						                                                          processed_layers,
+						                                                          scenarios, variables, crs)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -3730,9 +3751,9 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						error, log, pPaths, pLayers = loadGisFromControlFile(path, iface, processed_paths,
-						                                                     processed_layers,
-						                                                     scenarios, variables)
+						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
+						                                                          processed_layers,
+						                                                          scenarios, variables, crs)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -3879,13 +3900,16 @@ def getUnit(resultType, canvas, **kwargs):
 	}
 	
 	# determine units i.e. metric, imperial, or unknown / blank
-	if canvas.mapUnits() == QgsUnitTypes.DistanceMeters or canvas.mapUnits() == QgsUnitTypes.DistanceKilometers or \
-			canvas.mapUnits() == QgsUnitTypes.DistanceCentimeters or canvas.mapUnits() == QgsUnitTypes.DistanceMillimeters:  # metric
-		u, m = 0, 'm'
-	elif canvas.mapUnits() == QgsUnitTypes.DistanceFeet  or canvas.mapUnits() == QgsUnitTypes.DistanceNauticalMiles or \
-			canvas.mapUnits() == QgsUnitTypes.DistanceYards or canvas.mapUnits() == QgsUnitTypes.DistanceMiles:  # imperial
-		u, m = 1, 'ft'
-	else:  # use blank
+	if canvas is not None:
+		if canvas.mapUnits() == QgsUnitTypes.DistanceMeters or canvas.mapUnits() == QgsUnitTypes.DistanceKilometers or \
+				canvas.mapUnits() == QgsUnitTypes.DistanceCentimeters or canvas.mapUnits() == QgsUnitTypes.DistanceMillimeters:  # metric
+			u, m = 0, 'm'
+		elif canvas.mapUnits() == QgsUnitTypes.DistanceFeet  or canvas.mapUnits() == QgsUnitTypes.DistanceNauticalMiles or \
+				canvas.mapUnits() == QgsUnitTypes.DistanceYards or canvas.mapUnits() == QgsUnitTypes.DistanceMiles:  # imperial
+			u, m = 1, 'ft'
+		else:  # use blank
+			u, m = -1, ''
+	else:
 		u, m = -1, ''
 	
 	unit = ''
@@ -4035,7 +4059,7 @@ def replaceString(string, letter, replacement):
 				newstring.append(c)
 		else:
 			if c == letter:
-				if string[i-1].lower() == 'a' or string[i-1].lower() == 'p':
+				if string[i-1].lower() == 'a' or string[i-1].lower() == 'p' or string[i-1] == '#' or string[i-1] == '%':
 					newstring.append(c)
 				else:
 					newstring.append(replacement)
@@ -5320,39 +5344,61 @@ def reSpecPlot(fig, ax, ax2, cax, bqv):
 		fig.subplotpars.top = 1  # 0.9424
 		fig.subplotpars.left = 0  # 0.085
 		fig.subplotpars.right = 1  # 0.98
-		padding = 200
-		xlabelsize = 70 if ax.get_xlabel() else ax.xaxis.get_label().get_size() + ax.xaxis.get_ticklabels()[0].get_size() + \
+		padding = 3
+		wpad = int((padding / fig.bbox.width) * 1000) + 1
+		hpad = int((padding / fig.bbox.height) * 1000) + 1
+		caxwidth = int((30 / fig.bbox.width) * 1000)
+		xlabelsize = 70 if not ax.get_xlabel() else ax.xaxis.get_label().get_size() + ax.xaxis.get_ticklabels()[0].get_size() + \
 		                 ax.xaxis.get_tick_padding()
-		ylabelsize = 70 if ax.get_ylabel() else ax.yaxis.get_label().get_size() + ax.yaxis.get_ticklabels()[0].get_size() + \
+		ylabelsize = 70 if not ax.get_ylabel() else ax.yaxis.get_label().get_size() + ax.yaxis.get_ticklabels()[0].get_size() + \
 		           ax.yaxis.get_tick_padding()
-		rei = int(1000 - (ax.xaxis.get_tightbbox(fig.canvas.get_renderer()).height +
-		                 xlabelsize +
-		                 padding) / fig.bbox.height * 100)
+		rei = int(1000 - ((ax.xaxis.get_tightbbox(fig.canvas.get_renderer()).height +
+		                 xlabelsize) / fig.bbox.height * 1000 + hpad))
 
 		csi = int((ax.yaxis.get_tightbbox(fig.canvas.get_renderer()).width +
-		           ylabelsize +
-		           padding) / fig.bbox.width * 100)
-		rsi = 60
+		           ylabelsize) / fig.bbox.width * 1000 + wpad)
+		rsi = hpad
 		if cax is not None:
+			width = int((40 / fig.bbox.width) * 1000)
 			if ax2 is not None:
-				cei = 810
-			else:
-				cei = 860
+				width = int((90 / fig.bbox.width) * 1000)
+			if cax != 1:
+				# width = int((cax.xaxis.get_tightbbox(fig.canvas.get_renderer()).width + cax.yaxis.get_tightbbox(
+				# 	fig.canvas.get_renderer()).width) / fig.bbox.width * 1000)
+				width = int((max(cax.yaxis.get_tightbbox(fig.canvas.get_renderer()).x1, cax.xaxis.get_tightbbox(fig.canvas.get_renderer()).x1)
+				                 - cax.xaxis.get_tightbbox(fig.canvas.get_renderer()).x0) / fig.bbox.width * 1000)
+				width += max(0, int(cax.yaxis.get_tightbbox(fig.canvas.get_renderer()).x1 - fig.bbox.x1))
+			cei = 1000 - width
 		else:
 			if ax2 is not None:
-				y2labelsize = 70 if ax2.get_ylabel() else ax2.yaxis.get_label().get_size() + \
+				y2labelsize = 70 if not ax2.get_ylabel() else ax2.yaxis.get_label().get_size() + \
 				                 ax2.yaxis.get_ticklabels()[0].get_size() + \
 				                 ax2.yaxis.get_tick_padding()
-				cei = int(1000 - (ax2.yaxis.get_tightbbox(fig.canvas.get_renderer()).width +
-				                 y2labelsize +
-				                 padding) / fig.bbox.width * 100)
+				cei = int(1000 - ax2.yaxis.get_tightbbox(fig.canvas.get_renderer()).width +
+				                 y2labelsize / fig.bbox.width * 1000 + wpad)
 			else:
-				cei = 960
+				cei = 1000 - wpad
+
+	if bqv:
+		rsi = rsi + int(30 / fig.bbox.height * 1000)
 
 	gs_pos = gs[rsi:rei, csi:cei]
 	pos = gs_pos.get_position(fig)
 	ax.set_position(pos)
 	ax.set_subplotspec(gs_pos)
+
+	if cax is not None:
+		if cax != 1:
+			# cax_cei = int(max(0, cax.yaxis.get_tightbbox(fig.canvas.get_renderer()).x1 - fig.bbox.width) + 1)
+			cax_cei = int(1000 - ((width + wpad) / 2) + (caxwidth / 2) - wpad)
+			cax_csi = int(1000 - ((width + wpad) / 2) - (caxwidth / 2) - wpad)
+			if bqv:
+				gs_pos = gs[rsi:rei, cax_csi:cax_cei]
+			else:
+				gs_pos = gs[rsi:rei, cax_csi:cax_cei]
+			pos = gs_pos.get_position(fig)
+			cax.set_position(pos)
+			cax.set_subplotspec(gs_pos)
 
 	if ax2 is not None:
 		ax2.set_position(pos)
@@ -5366,9 +5412,17 @@ def addColourBarAxes(fig, ax, ax2, bqv, **kwargs):
 
 	"""
 
+	padding = 3
+	wpad = int((padding / fig.bbox.width) * 1000)
+	hpad = int((padding / fig.bbox.height) * 1000)
+
 	if 'respec' in kwargs:
 		gs, rsi, rei, csi, cei = kwargs['respec']
-		gs_pos = gs[rsi:rei, 890:940]
+		width = 1000 - cei
+		caxwidth = int((30 / fig.bbox.width) * 1000)
+		cax_cei = int(1000 - (width / 2) + (caxwidth / 2))
+		cax_csi = int(1000 - (width / 2) - (caxwidth / 2))
+		gs_pos = gs[rsi:rei, cax_csi:cax_cei]
 		pos = gs_pos.get_position(fig)
 		cax = kwargs['cax']
 		cax.set_position(pos)
@@ -5376,7 +5430,11 @@ def addColourBarAxes(fig, ax, ax2, bqv, **kwargs):
 	else:
 		cax = 1  # dummy value
 		gs, rsi, rei, csi, cei = reSpecPlot(fig, ax, ax2, cax, bqv)
-		cax = fig.add_subplot(gs[rsi:rei, 890:940])
+		width = 1000 - cei
+		caxwidth = int((30 / fig.bbox.width) * 1000)
+		cax_cei = int(1000 - ((width + wpad) / 2) + (caxwidth / 2) - wpad)
+		cax_csi = int(1000 - ((width + wpad) / 2) - (caxwidth / 2) - wpad)
+		cax = fig.add_subplot(gs[rsi:rei, cax_csi:cax_cei])
 
 	return cax
 
@@ -5397,15 +5455,15 @@ def addQuiverKey(fig, ax, ax2, bqv, qv, label, max_u, **kwargs):
 	gs, rsi, rei, csi, cei = reSpecPlot(fig, ax, ax2, cax, bqv)
 
 	if cax is not None:
-		X = 0.95
-		Y = 1 - (rsi + 4) / 100 + 0.05
+		X = cei / 1000
+		Y = 1 - ((rsi/1000 + (4/fig.bbox.height)) / 100 + (20/fig.bbox.height))
 	else:
 		X = 0.95
 		Y = 0.05
 	u = max_u/4
 	qk = ax.quiverkey(qv, X=X, Y=Y, U=u, label=label, labelpos='W', coordinates='figure')
 	if cax is not None:
-		addColourBarAxes(fig, ax, ax2, bqv, respec=(gs, rsi + 4, rei, csi, cei), cax=cax)
+		addColourBarAxes(fig, ax, ax2, bqv, respec=(gs, rsi, rei, csi, cei), cax=cax, qk=qk)
 
 
 def removeDuplicateLegendItems(labels, lines):
@@ -5961,7 +6019,8 @@ def getResultPathsFromTLF(fpath: str, read_method: int = 0) -> (list, list, list
 		return [], [], ['File Does Not Exist: {0}'.format(fpath)]
 	
 	secondaryExt = os.path.splitext(os.path.splitext(fpath)[0])[1]
-	if secondaryExt != '':
+	# if secondaryExt != '':
+	if secondaryExt.upper() == '.HPC':
 		return [], [], ['Please Make Sure Selecting .tlf Not {0}.tlf'.format(secondaryExt)]
 
 	li = 0
@@ -6007,10 +6066,17 @@ def getResultPathsFromTLF(fpath: str, read_method: int = 0) -> (list, list, list
 						if os.path.exists(res):
 							res1D.append(res)
 	except IOError:
+		if not fo.closed:
+			fo.close()
 		return [], [], ['Unexpected Error Opening File: {0}'.format(fpath)]
 	except Exception as e:
+		if not fo.closed:
+			fo.close()
 		return [], [], [f'Unexpected Error: {e}']
-	
+
+	if not fo.closed:
+		fo.close()
+
 	return res1D, res2D, []
 
 
@@ -6840,6 +6906,44 @@ def writeTempPolys(polys, project, crs=None, label=(), field_id='', field_type=N
 	project.addMapLayer(lyr)
 
 
+def getPolyCollectionData(pc, axis):
+	"""
+	Return data for matplotlib PolyCollection:
+
+	axis options: 'x', 'y', 'scalar'
+	"""
+
+	assert axis.lower() in ['x', 'y', 'scalar'], "'axis' variable not one of 'x', 'y', or 'scalar'"
+
+	if axis.lower() == 'x':
+		a = numpy.array([x.vertices[:, 0] for x in pc.get_paths()])
+	elif axis.lower() == 'y':
+		a = numpy.array([x.vertices[:, 1] for x in pc.get_paths()])
+	else:
+		a = pc.get_array()
+
+	return a
+
+
+def getQuiverData(qv, axis):
+	"""
+	Return data for matplotlib Quiver
+
+	axis options: 'x', 'y', 'scalar'
+	"""
+
+	assert axis.lower() in ['x', 'y', 'scalar'], "'axis' variable not one of 'x', 'y', or 'scalar'"
+
+	if axis.lower() == 'x':
+		a = qv.X
+	elif axis.lower() == 'y':
+		a = qv.Y
+	else:
+		a = qv.U  # V component is always zero
+
+	return a
+
+
 def getPolyCollectionExtents(pc, axis, empty_return=(999999, -999999)):
 	"""
 	Return min / max extents for matplotlib PolyCollection:
@@ -7149,6 +7253,30 @@ def tuflowqgis_apply_gpkg_layername(iface):
 					if nd.name() == layername:
 						nd.setName(tablename)
 						break
+
+
+def qcolor_to_mplcolor(color):
+	"""
+	qcolor name with alpha is in form: #AARRGGBB
+	mplcolor expects #RRGGBBAA
+	"""
+
+	if len(color) == 9:
+		return color[0] + color[3:] + color[1:3]
+	else:
+		return color
+
+
+def mplcolor_to_qcolor(color):
+	"""
+	qcolor name with alpha is in form: #AARRGGBB
+	mplcolor expects #RRGGBBAA
+	"""
+
+	if len(color) == 9:
+		return color[0] + color[-2:] + color[1:-2]
+	else:
+		return color
 
 
 

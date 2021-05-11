@@ -29,7 +29,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.quiver import Quiver
 from matplotlib.collections import PolyCollection
 import matplotlib.gridspec as gridspec
-from matplotlib.pyplot import arrow
+from matplotlib.pyplot import arrow, ScalarFormatter
 from matplotlib import cm
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 # from matplotlib.backend_bases import MouseButton
@@ -512,7 +512,8 @@ class TuPlot():
 		font = {'family': 'arial', 'weight': 'normal', 'size': 12}
 		
 		rect = figure.patch
-		rect.set_facecolor((0.9, 0.9, 0.9))
+		# rect.set_facecolor((0.9, 0.9, 0.9))
+		rect.set_facecolor(self.tuView.tuOptions.plotBackgroundColour)
 		subplot.set_xbound(0, 1000)
 		subplot.set_ybound(0, 1000)
 		self.manageMatplotlibAxe(subplot)
@@ -673,7 +674,7 @@ class TuPlot():
 						bFlowRegimeTied = False
 
 			if data:
-				self.clearPlot2(plotNo, clear_rubberband=False)
+				self.clearPlot2(plotNo, clear_rubberband=False, clear_selection=False)
 				self.drawPlot(plotNo, data, labels, types, dataTypes, draw=True, plot_as_points=plotAsPoints,
 				              plot_as_patch=plotAsPatch, flow_regime=flowRegime, flow_regime_tied=flowRegimeTied)
 
@@ -705,6 +706,25 @@ class TuPlot():
 			self.plotEnumerator(plotNo)
 
 		if clearType is None:
+			# disconnect rubberbands
+			if plotNo == TuPlot.TimeSeries:
+				if self.tuTSPoint.cursorTrackingConnected:
+					self.tuTSPoint.escape(None)
+				if self.tuFlowLine.cursorTrackingConnected:
+					self.tuFlowLine.escape(None)
+				if self.tuTSPointDepAv.cursorTrackingConnected:
+					self.tuTSPointDepAv.escape(None)
+			elif plotNo == TuPlot.CrossSection:
+				if self.tuCrossSection.cursorTrackingConnected:
+					self.tuCrossSection.escape(None)
+				if self.tuCurtainLine.cursorTrackingConnected:
+					self.tuCurtainLine.escape(None)
+				if self.tuCSLineDepAv.cursorTrackingConnected:
+					self.tuCSLineDepAv.escape(None)
+			elif plotNo == TuPlot.VerticalProfile:
+				if self.tuVPPoint.cursorTrackingConnected:
+					self.tuVPPoint.escape(None)
+
 			for dpt in self.plotData:
 				if self.plotDataToPlotType[dpt] == plotNo:
 					for line in self.plotData[dpt][:]:
@@ -986,43 +1006,103 @@ class TuPlot():
 		else:
 			subplot2 = None
 
-		if self.cax is None and self.qk is None:
-			gs = gridspec.GridSpec(1, 1)
-			rsi, rei, csi, cei = 0, 1, 0, 1
-		else:
-			gs = gridspec.GridSpec(100, 100)
-			figure.subplotpars.bottom = 0  # 0.206
-			figure.subplotpars.top = 1  # 0.9424
-			figure.subplotpars.left = 0  # 0.085
-			figure.subplotpars.right = 1  # 0.98
-			padding = 20
-			xlabelsize = 7 if subplot.get_xlabel() else subplot.xaxis.get_label().get_size() + subplot.xaxis.get_ticklabels()[0].get_size() + \
-			                 subplot.xaxis.get_tick_padding()
-			ylabelsize = 7 if subplot.get_ylabel() else subplot.yaxis.get_label().get_size() + subplot.yaxis.get_ticklabels()[0].get_size() + \
-			           subplot.yaxis.get_tick_padding()
-			rei = int(100 - (subplot.xaxis.get_tightbbox(figure.canvas.get_renderer()).height +
-			                 xlabelsize +
-			                 padding) / figure.bbox.height * 100)
+		toolbar, viewToolbar, mplToolbar = self.tuPlotToolbar.plotNoToToolbar[plotNo]
 
-			csi = int((subplot.yaxis.get_tightbbox(figure.canvas.get_renderer()).width +
-			           ylabelsize +
-			           padding) / figure.bbox.width * 100)
-			rsi = 6
-			if self.cax is not None:
-				if subplot2 is not None:
-					cei = 81
-				else:
-					cei = 86
+		# if self.cax is None and self.qk is None:
+		# 	gs = gridspec.GridSpec(1, 1)
+		# 	rsi, rei, csi, cei = 0, 1, 0, 1
+		# else:
+		gs = gridspec.GridSpec(100, 100)
+		figure.subplotpars.bottom = 0  # 0.206
+		figure.subplotpars.top = 1  # 0.9424
+		figure.subplotpars.left = 0  # 0.085
+		figure.subplotpars.right = 1  # 0.98
+		padding = 20
+		xlabelsize = 7 if subplot.get_xlabel() else subplot.xaxis.get_label().get_size() + subplot.xaxis.get_ticklabels()[0].get_size() + \
+		                 subplot.xaxis.get_tick_padding()
+		ylabelsize = 7 if subplot.get_ylabel() else subplot.yaxis.get_label().get_size() + subplot.yaxis.get_ticklabels()[0].get_size() + \
+		           subplot.yaxis.get_tick_padding()
+		rei = int(100 - (subplot.xaxis.get_tightbbox(figure.canvas.get_renderer()).height +
+		                 xlabelsize +
+		                 padding) / figure.bbox.height * 100)
+
+		csi = int((subplot.yaxis.get_tightbbox(figure.canvas.get_renderer()).width +
+		           ylabelsize +
+		           padding) / figure.bbox.width * 100)
+		if subplot2 is not None and plotNo == TuPlot.VerticalProfile:
+			# x2labelsize = 10 if not subplot2.get_xlabel() else subplot2.xaxis.get_label().get_size() + \
+			#                                               subplot2.xaxis.get_ticklabels()[0].get_size() + \
+			#                                               subplot2.xaxis.get_tick_padding()
+			try:
+				x2labelsize = subplot2.xaxis.get_label().get_size() + \
+	                          subplot2.xaxis.get_ticklabels()[0].get_size() + \
+	                          subplot2.xaxis.get_tick_padding()
+			except:
+				x2labelsize = 23
+			rsi = int((subplot2.xaxis.get_tightbbox(figure.canvas.get_renderer()).height + x2labelsize + padding) / figure.bbox.height * 100)
+		else:
+			rsi = 3
+		if self.cax is not None:
+			if subplot2 is not None:
+				cei = 81
 			else:
-				if subplot2 is not None:
-					y2labelsize = 7 if subplot2.get_ylabel() else subplot2.yaxis.get_label().get_size() + \
-					                 subplot2.yaxis.get_ticklabels()[0].get_size() + \
-					                 subplot2.yaxis.get_tick_padding()
-					cei = int(100 - (subplot2.yaxis.get_tightbbox(figure.canvas.get_renderer()).width +
-					                 y2labelsize +
-					                 padding) / figure.bbox.width * 100)
-				else:
-					cei = 96
+				cei = 86
+		else:
+			if subplot2 is not None and plotNo != TuPlot.VerticalProfile:
+				y2labelsize = 7 if subplot2.get_ylabel() else subplot2.yaxis.get_label().get_size() + \
+				                 subplot2.yaxis.get_ticklabels()[0].get_size() + \
+				                 subplot2.yaxis.get_tick_padding()
+				cei = int(100 - (subplot2.yaxis.get_tightbbox(figure.canvas.get_renderer()).width +
+				                 y2labelsize +
+				                 padding) / figure.bbox.width * 100)
+			else:
+				cei = 97
+
+		# if user puts legend outside of plot, manually deal with placement otherwise margins can get really big for some reason
+		if subplot.legend_ is not None:
+			if viewToolbar.legendCustomPos.isChecked():
+				xpos, ypos = viewToolbar.legendCustomPos.values()
+				if subplot.legend_.get_window_extent().y1 > subplot.bbox.y1 and subplot.legend_.get_window_extent().height < figure.bbox.height:
+					# target = rei - rsi
+					target = rei - 3
+					height = rei - rsi
+					gap = int(height * (ypos - 1.)) + int(subplot.legend_.get_window_extent().height / figure.bbox.height * 100)
+					while height + gap > target and height > 1:
+						height -= 1
+						gap = int(height * (ypos - 1.)) + int(subplot.legend_.get_window_extent().height / figure.bbox.height * 100)
+					rsi = rei - height
+					if rsi >= rei:
+						rsi = rei - 1
+				if ypos < 0:
+					height = rei - rsi
+					gap = height * abs(ypos)
+					target = 100 - rsi - 3
+					while height + gap > target and height > 1:
+						height -= 1
+						gap = height * abs(ypos)
+					rei = height + rsi
+					if rei <= rsi:
+						rei = rsi + 1
+				if subplot.legend_.get_window_extent().x1 > subplot.bbox.x1 and subplot.legend_.get_window_extent().width < figure.bbox.width:
+					target = 100 - csi - 2
+					width = cei - csi
+					gap = int(width * (xpos - 1.)) + int(subplot.legend_.get_window_extent().width / figure.bbox.width * 100)
+					while width + gap > target and width > 1:
+						width -= 1
+						gap = int(width * (xpos - 1.)) + int(subplot.legend_.get_window_extent().width / figure.bbox.width * 100)
+					cei = width + csi
+					if cei <= csi:
+						cei = csi + 1
+				if xpos < 0:
+					width = cei - csi
+					gap = width * abs(xpos)
+					target = cei - 1
+					while width + gap > target and width > 1:
+						width -= 1
+						gap = width * abs(xpos)
+					csi = cei - width
+					if csi > cei:
+						csi = cei - 1
 
 		gs_pos = gs[rsi:rei, csi:cei]
 		pos = gs_pos.get_position(figure)
@@ -1584,7 +1664,7 @@ class TuPlot():
 			
 		return True
 
-	def setAxisNames(self, plotNo, types, plotAsCollection=(), plotAsQuiver=()):
+	def setAxisNames(self, plotNo, types, plotAsCollection=(), plotAsQuiver=(), return_unit_only=False, unit_system=None):
 		"""
 		Manages the axis labels including units and secondary axis.
 
@@ -1627,6 +1707,7 @@ class TuPlot():
 			r'stream power': ('W/m$^2$', 'lbf/ft$^2$', 'pdl/ft$^2$', ''),
 			r'sink': ('m$^3$/s', 'ft$^3$/s', ''),
 			r'source': ('m$^3$/s', 'ft$^3$/s', ''),
+			r'flow regime': ('', '', ''),
 			r'flow area': ('m$^2$', 'ft$^2$', ''),
 			r'time of max h': ('hrs', 'hrs', ''),
 			r'([^a-z]|^)sal': ('ppt', 'ppt', ''),
@@ -1695,6 +1776,28 @@ class TuPlot():
 			r'minimum dt': 'dt',
 		}
 
+		# determine units i.e. metric, imperial, or unknown / blank
+		u, m = -1, ''
+		if unit_system is None:
+			if self.canvas is not None:
+				if self.canvas.mapUnits() == QgsUnitTypes.DistanceMeters or self.canvas.mapUnits() == QgsUnitTypes.DistanceKilometers or \
+						self.canvas.mapUnits() == QgsUnitTypes.DistanceCentimeters or self.canvas.mapUnits() == QgsUnitTypes.DistanceMillimeters:  # metric
+					u, m = 0, 'm'
+				elif self.canvas.mapUnits() == QgsUnitTypes.DistanceFeet or self.canvas.mapUnits() == QgsUnitTypes.DistanceNauticalMiles or \
+						self.canvas.mapUnits() == QgsUnitTypes.DistanceYards or self.canvas.mapUnits() == QgsUnitTypes.DistanceMiles:  # imperial
+					u, m = 1, 'ft'
+		elif unit_system == 'si':
+			u, m = 0, 'm'
+		else:
+			u, m = 1, 'ft'
+
+		if return_unit_only:
+			if type(types) is list:
+				for i, name in enumerate(types):
+					return regex_dict_val(units, name)[u] if regex_dict_val(units, name) is not None else ''
+			else:
+				return regex_dict_val(units, types)[u] if regex_dict_val(units, types) is not None else ''
+
 		# clear existing values
 		yAxisLabelTypes[0].clear()
 		yAxisLabelTypes[1].clear()
@@ -1740,15 +1843,17 @@ class TuPlot():
 				yAxisLabelNewSecond = ''
 			return xAxisLabel, yAxisLabelNewFirst, yAxisLabelNewSecond
 
-		# determine units i.e. metric, imperial, or unknown / blank
-		if self.canvas.mapUnits() == QgsUnitTypes.DistanceMeters or self.canvas.mapUnits() == QgsUnitTypes.DistanceKilometers or \
-				self.canvas.mapUnits() == QgsUnitTypes.DistanceCentimeters or self.canvas.mapUnits() == QgsUnitTypes.DistanceMillimeters:  # metric
-			u, m = 0, 'm'
-		elif self.canvas.mapUnits() == QgsUnitTypes.DistanceFeet or self.canvas.mapUnits() == QgsUnitTypes.DistanceNauticalMiles or \
-				self.canvas.mapUnits() == QgsUnitTypes.DistanceYards or self.canvas.mapUnits() == QgsUnitTypes.DistanceMiles:  # imperial
-			u, m = 1, 'ft'
-		else:  # use blank
-			u, m = -1, ''
+		# # determine units i.e. metric, imperial, or unknown / blank
+		# u, m = -1, ''
+		# if self.canvas is not None:
+		# 	if self.canvas.mapUnits() == QgsUnitTypes.DistanceMeters or self.canvas.mapUnits() == QgsUnitTypes.DistanceKilometers or \
+		# 			self.canvas.mapUnits() == QgsUnitTypes.DistanceCentimeters or self.canvas.mapUnits() == QgsUnitTypes.DistanceMillimeters:  # metric
+		# 		u, m = 0, 'm'
+		# 	elif self.canvas.mapUnits() == QgsUnitTypes.DistanceFeet or self.canvas.mapUnits() == QgsUnitTypes.DistanceNauticalMiles or \
+		# 			self.canvas.mapUnits() == QgsUnitTypes.DistanceYards or self.canvas.mapUnits() == QgsUnitTypes.DistanceMiles:  # imperial
+		# 		u, m = 1, 'ft'
+		# else:  # use blank
+		# 	u, m = -1, ''
 
 		x = ''
 		y1 = ''
@@ -1879,7 +1984,7 @@ class TuPlot():
 				return self.axis2VerticalPlot
 			
 	def reorderByAxis(self, types, data, label, plotAsPoints, plotAsPatch, flowRegime, flowRegimeTied, plotAsCollection,
-	                  plotAsQuiver, plotVertMesh):
+	                  plotAsQuiver, plotVertMesh, dataTypes):
 		"""
 		Reorders the data for plotting so that it is ordered by axis - axis 1 then axis 2. This is so that is
 		consistent with how the legend is going to be plotted when freezing the plotting style.
@@ -1900,6 +2005,7 @@ class TuPlot():
 		plotAsCollection1, plotAsCollection2, plotAsCollectionOrdered = [], [], []
 		plotAsQuiver1, plotAsQuiver2, plotAsQuiverOrdered = [], [], []
 		plotVertMesh1, plotVertMesh2, plotVertMeshOrdered = [], [], []
+		dataTypes1, dataTypes2, dataTypesOrdered = [], [], []
 
 		for i, rtype in enumerate(types):
 			if plotAsCollection[i] or plotAsQuiver[i] or len(data[i][0]) > 0:
@@ -1922,6 +2028,7 @@ class TuPlot():
 					plotAsCollection2.append(plotAsCollection[i])
 					plotAsQuiver2.append(plotAsQuiver[i])
 					plotVertMesh2.append(plotVertMesh[i])
+					dataTypes2.append(dataTypes[i])
 				else:
 					types1.append(rtype)
 					data1.append(data[i])
@@ -1933,6 +2040,7 @@ class TuPlot():
 					plotAsCollection1.append(plotAsCollection[i])
 					plotAsQuiver1.append(plotAsQuiver[i])
 					plotVertMesh1.append(plotVertMesh[i])
+					dataTypes1.append(dataTypes[i])
 
 		typesOrdered = types1 + types2
 		dataOrdered = data1 + data2
@@ -1944,6 +2052,7 @@ class TuPlot():
 		plotAsCollectionOrdered = plotAsCollection1 + plotAsCollection2
 		plotAsQuiverOrdered = plotAsQuiver1 + plotAsQuiver2
 		plotVertMeshOrdered = plotVertMesh1 + plotVertMesh2
+		dataTypesOrdered = dataTypes1 + dataTypes2
 
 		# loop through a second time to fix flow regime indexes
 		for i, rtype in enumerate(typesOrdered[:]):
@@ -1957,7 +2066,8 @@ class TuPlot():
 
 		return typesOrdered, dataOrdered, labelOrdered, plotAsPointsOrdered, \
 		       plotAsPatchOrdered, flowRegimeOrdered, flowRegimeTiedOrdered, \
-			   plotAsCollectionOrdered, plotAsQuiverOrdered, plotVertMeshOrdered
+			   plotAsCollectionOrdered, plotAsQuiverOrdered, plotVertMeshOrdered, \
+			   dataTypesOrdered
 	
 	def drawPlot(self, plotNo, data, label, types, dataTypes, **kwargs):
 		"""
@@ -1973,6 +2083,8 @@ class TuPlot():
 
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.plotEnumerator(plotNo)
+		subplot2 = None
+		toolbar, viewToolbar, mplToolbar = self.tuPlotToolbar.plotNoToToolbar[plotNo]
 		isSecondaryAxisLocal = False  # local version because time series and map outputs are treated separately
 		
 		# deal with kwargs
@@ -1993,6 +2105,10 @@ class TuPlot():
 
 		yLimits2 = None
 
+		# background colour
+		rect = figure.patch
+		rect.set_facecolor(self.tuView.tuOptions.plotBackgroundColour)
+
 		# get axis limits
 		xLimits = subplot.get_xlim()
 		yLimits = subplot.get_ylim()
@@ -2009,11 +2125,12 @@ class TuPlot():
 		if data:
 			types, data, label, plotAsPoints, \
 			plotAsPatch, flowRegime, flowRegimeTied, \
-			plotAsCollection, plotAsQuiver, plotVertMesh  = self.reorderByAxis(types, data, label,
+			plotAsCollection, plotAsQuiver, plotVertMesh,\
+			dataTypes                                     = self.reorderByAxis(types, data, label,
                                                                                plotAsPoints, plotAsPatch,
                                                                                flowRegime, flowRegimeTied,
                                                                                plotAsCollection, plotAsQuiver,
-			                                                                   plotVertMesh)  # orders the data by axis (axis 1 then axis 2)
+			                                                                   plotVertMesh, dataTypes)  # orders the data by axis (axis 1 then axis 2)
 			labelsOriginal = label[:]  # save a copy as original labels so it can be referenced later
 			label, artistTemplates = self.getNewPlotProperties(plotNo, label, data, rtype='lines')  # check if there are any new names and styling
 		
@@ -2061,7 +2178,10 @@ class TuPlot():
 								else:
 									x = self.convertTimeToDate(data[i][0])
 							else:
-								x = self.convertTimeToDate(data[i][0])
+								if type(data[i][0][0]) is datetime:
+									x = data[i][0]
+								else:
+									x = self.convertTimeToDate(data[i][0])
 				else:
 					if plotAsCollection is None or not plotAsCollection[i]:
 						x = data[i][0]
@@ -2225,18 +2345,19 @@ class TuPlot():
 			if draw:
 				self.updateLegend(plotNo, redraw=False)
 		if data:
+			axisLabelFontSize = viewToolbar.axisLabelFontSize_action.value(0)
 			if xAxisLabel:
-				subplot.set_xlabel(xAxisLabel)
+				subplot.set_xlabel(xAxisLabel, fontsize=axisLabelFontSize)
 			if yAxisLabelFirst or yAxisLabelSecond:
 				if yAxisLabelFirst:
-					subplot.set_ylabel(yAxisLabelFirst)
+					subplot.set_ylabel(yAxisLabelFirst, fontsize=axisLabelFontSize)
 				if isSecondaryAxis[0]:
 					#if not isSecondaryAxisLocal:
 					#	subplot2 = self.getSecondaryAxis(plotNo)
 					if plotNo != TuPlot.VerticalProfile:
-						subplot2.set_ylabel(yAxisLabelSecond)
+						subplot2.set_ylabel(yAxisLabelSecond, fontsize=axisLabelFontSize)
 					else:
-						subplot2.set_xlabel(yAxisLabelSecond)
+						subplot2.set_xlabel(yAxisLabelSecond, fontsize=axisLabelFontSize)
 		
 		# check if there is user plot data
 		userPlotData = False
@@ -2248,27 +2369,34 @@ class TuPlot():
 		if data or userPlotData:
 			isData = True
 
-		if isData and self.tuView.tuOptions.xAxisDates and plotNo == 0:
+		if isData and self.tuView.tuOptions.xAxisDates and plotNo == TuPlot.TimeSeries:
 			fmt = mdates.DateFormatter(self.tuView.tuOptions.dateFormat)
 			subplot.xaxis.set_major_formatter(fmt)
 			if subplot.get_xlim()[0] < 1:
 				# this happens when there is an empty data set on either primary or secondary axis
 				# - causes issues with date formatting - need to correct
-				xmin_manual = 9999999999
-				xmax_manual = -99999
-				lines = subplot.lines
-				for l in lines:
-					if [x for x in l.get_xdata()]:
-						if type([x for x in l.get_xdata()]) is float:
-							xmin_manual = min(xmin_manual, min(l.get_xdata()))
-							xmax_manual = max(xmin_manual, max(l.get_xdata()))
-						else:
-							xmin_manual = min(xmin_manual, min([convert_datetime_to_float(x) for x in l.get_xdata()]))
-							xmax_manual = max(xmin_manual, max([convert_datetime_to_float(x) for x in l.get_xdata()]))
-				if xmin_manual >= 1:
-					subplot.set_xlim(xmin_manual, xmax_manual)
-				else:
-					subplot.set_xlim(1,2)  # hopefully doesn't get here
+				for ax in subplot.get_shared_x_axes().get_siblings(subplot):
+					if not ax.lines:
+						ax.autoscale(True)
+						ax.relim()
+
+				# repalced below with the above - hopefully better
+				# if subplot.get_xlim()[0] < 1:
+				# 	xmin_manual = 9999999999
+				# 	xmax_manual = -99999
+				# 	lines = subplot.lines
+				# 	for l in lines:
+				# 		if [x for x in l.get_xdata()]:
+				# 			if type([x for x in l.get_xdata()][0]) is float or type([x for x in l.get_xdata()][0]) is np.float64:
+				# 				xmin_manual = min(xmin_manual, min(l.get_xdata()))
+				# 				xmax_manual = max(xmin_manual, max(l.get_xdata()))
+				# 			else:
+				# 				xmin_manual = min(xmin_manual, min([convert_datetime_to_float(x) for x in l.get_xdata()]))
+				# 				xmax_manual = max(xmin_manual, max([convert_datetime_to_float(x) for x in l.get_xdata()]))
+				# 	if xmin_manual >= 1:
+				# 		subplot.set_xlim(xmin_manual, xmax_manual)
+				# 	else:
+				# 		subplot.set_xlim(1,2)  # hopefully doesn't get here
 			try:
 				for tick in subplot.get_xticklabels():
 					tick.set_rotation(self.tuView.tuOptions.xAxisLabelRotation)
@@ -2290,6 +2418,40 @@ class TuPlot():
 						tick.set_horizontalalignment('right')
 			except:
 				pass
+		elif self.tuView.tuOptions.xAxisDates and plotNo == TuPlot.TimeSeries:
+			formatter = subplot.xaxis.get_major_formatter()
+			if not isinstance(formatter, ScalarFormatter):
+				fmt = mdates.DateFormatter(self.tuView.tuOptions.dateFormat)
+				subplot.xaxis.set_major_formatter(fmt)
+		# 		if subplot.get_xlim()[0] < 1:
+		# 			for ax in subplot.get_shared_x_axes().get_siblings(subplot):
+		# 				ax.autoscale(True)
+		# 				ax.relim()
+		#
+		# 			if subplot.get_xlim()[0] < 1:
+		# 				for ax in subplot.get_shared_x_axes().get_siblings(subplot):
+		# 					ax.xaxis.set_major_formatter(ScalarFormatter())
+
+
+					# if subplot.get_xlim()[0] < 1:
+					# 	if subplot.get_xlim()[0] < 1:
+					# 		xmin_manual = 9999999999
+					# 		xmax_manual = -99999
+					# 		lines = subplot.lines
+					# 		for l in lines:
+					# 			if [x for x in l.get_xdata()]:
+					# 				if type([x for x in l.get_xdata()][0]) is float or type([x for x in l.get_xdata()][0]) is np.float64:
+					# 					xmin_manual = min(xmin_manual, min(l.get_xdata()))
+					# 					xmax_manual = max(xmin_manual, max(l.get_xdata()))
+					# 				else:
+					# 					xmin_manual = min(xmin_manual,
+					# 					                  min([convert_datetime_to_float(x) for x in l.get_xdata()]))
+					# 					xmax_manual = max(xmin_manual,
+					# 					                  max([convert_datetime_to_float(x) for x in l.get_xdata()]))
+					# 		if xmin_manual >= 1:
+					# 			subplot.set_xlim(xmin_manual, xmax_manual)
+					# 		else:
+					# 			subplot.set_xlim(1, 2)  # hopefully doesn't get here
 
 		try:
 			if not self.lockAxis(plotNo, showCurrentTime):
@@ -2339,6 +2501,12 @@ class TuPlot():
 		if isSecondaryAxis[0]:
 			subplot2._label = "Secondary Axis"
 
+		# axis font size
+		axisFontSize = viewToolbar.axisFontSize_action.value(0)
+		subplot.tick_params(axis='both', which='both', labelsize=axisFontSize)
+		if subplot2 is not None:
+			subplot2.tick_params(axis='both', which='both', labelsize=axisFontSize)
+
 		try:
 			#subplot.autoscale(True)
 			#subplot.relim()
@@ -2352,7 +2520,7 @@ class TuPlot():
 		except Exception as e:
 			skipDraw = True
 			pass
-			
+
 		if export:
 			# figure.suptitle(os.path.splitext(os.path.basename(export))[0])
 			subplot.set_title(os.path.splitext(os.path.basename(export))[0])
@@ -2360,7 +2528,7 @@ class TuPlot():
 			if subplot2 is not None:
 				subplot2.cla()
 		else:
-			if draw:
+			if draw and not skipDraw:
 				plotWidget.draw()
 
 			# record axis limits
@@ -2521,7 +2689,7 @@ class TuPlot():
 		plotActiveScalar = kwargs['plot_active_scalar'] if 'plot_active_scalar' in kwargs else False
 		
 		if time is not None:
-			if time != 'Maximum' and time != 99999:
+			if time != 'Maximum' and time != 99999 and time != 'Minimum' and time != -99999:
 				if qv < 31600:
 					time = '{0:.6f}'.format(kwargs['time']) if 'time' in kwargs.keys() else None
 				else:
@@ -2658,7 +2826,7 @@ class TuPlot():
 					featName = feat.attributes()[iFeatName]
 				else:
 					featName = None
-				self.tuPlot3D.plotCurtainFromMap(None, feat, bypass=multi, draw=draw, timestep=time, featName=featName, update=True)
+				self.tuPlot3D.plotCurtainFromMap(None, feat, bypass=multi, draw=draw, time=time, featName=featName, update=True)
 		
 		if plot.lower() != '2d only':
 			self.tuPlot1D.plot1dLongPlot(bypass=True, plot='1D Only', draw=draw, time=time)
@@ -2676,14 +2844,30 @@ class TuPlot():
 
 		"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		draw = kwargs['draw'] if 'draw' in kwargs.keys() else True
 		time = kwargs['time'] if 'time' in kwargs.keys() else None
 		meshRendered = kwargs['mesh_rendered'] if 'mesh_rendered' in kwargs.keys() else True
 		plotActiveScalar = kwargs['plot_active_scalar'] if 'plot_active_scalar' in kwargs else False
 
 		if time is not None:
-			if time != 'Maximum' and time != 99999:
-				time = '{0:.6f}'.format(kwargs['time']) if 'time' in kwargs.keys() else None
+			if time != 'Maximum' and time != 99999 and time != 'Minimum' and time != -99999:
+				if qv < 31600:
+					time = '{0:.6f}'.format(kwargs['time']) if 'time' in kwargs.keys() else None
+				else:
+					if type(time) is str:
+						if not self.tuView.tuOptions.xAxisDates:
+							if time in self.tuView.tuResults.cboTime2timekey:
+								time = self.tuView.tuResults.cboTime2timekey[time]
+								time = self.tuView.tuResults.timekey2time[time]
+							else:
+								unit = self.tuView.tuOptions.timeUnits
+								time = convertFormattedTimeToTime(time, unit=unit)
+							zt = self.tuView.tuOptions.zeroTime
+							time = zt + datetime.timedelta(hours=time)
+						else:
+							time = datetime.datetime.strptime(time, self.tuView.tuResults.dateFormat)
 
 		self.clearPlot2(TuPlot.VerticalProfile, clear_rubberband=False, clear_selection=False)
 
@@ -2820,6 +3004,18 @@ class TuPlot():
 			legendPos = 3
 		elif viewToolbar.legendLR.isChecked():
 			legendPos = 4
+		elif viewToolbar.legendCL.isChecked():
+			legendPos = 6
+		elif viewToolbar.legendCR.isChecked():
+			legendPos = 7
+		elif viewToolbar.legendLC.isChecked():
+			legendPos = 8
+		elif viewToolbar.legendUC.isChecked():
+			legendPos = 9
+		elif viewToolbar.legendC.isChecked():
+			legendPos = 10
+		elif viewToolbar.legendCustomPos.isChecked():
+			legendPos = 100
 		lines = uniqueLines + uniqueLines2
 		lab = uniqueNames + uniqueNames2
 		linesCopy, labCopy = [], []
@@ -2831,17 +3027,16 @@ class TuPlot():
 				# 	subplot2 = self.getSecondaryAxis(plotNo)
 				# 	divider = make_axes_locatable(subplot2)
 				# self.cax = divider.append_axes("right", "5%", pad="3%")
-				if viewToolbar.legendAuto.isChecked():
+				if viewToolbar.legendMenu.menuAction().isChecked():
 					self.addColourBarAxes(plotNo)
 					col_bar = ColourBar(l, self.cax)
 					col_bar.ax.set_xlabel(lab[i])
 					plotWidget.draw()
 				else:
 					self.removeColourBar(plotNo)
-
 			elif type(l) is Quiver:
 				# self.qk = subplot.quiverkey(l, X=0.9, Y=0.95, U=1, label=lab[i], labelpos='W', coordinates='figure')
-				if viewToolbar.legendAuto.isChecked():
+				if viewToolbar.legendMenu.menuAction().isChecked():
 					self.addQuiverLegend(plotNo, l, 'vector')
 				else:
 					self.removeQuiverKey(plotNo)
@@ -2856,11 +3051,31 @@ class TuPlot():
 		# 		subplot2 = self.getSecondaryAxis(plotNo)
 		# 		subplot2.set_position(gs[0, 0].get_position(figure))
 		# 		subplot2.set_subplotspec(gs[0, 0])
+		ncol = 1
+		if viewToolbar.legendVertical.isChecked():
+			ncol = 1
+		elif viewToolbar.legendHorizontal.isChecked():
+			ncol = max(1, len(labCopy))
+		elif viewToolbar.legendCustomOrientation.isChecked():
+			ncol = viewToolbar.legendCustomOrientation.value(0)
+		fontsize = viewToolbar.legendFontSize.value(0)
 		if linesCopy:
 			if viewToolbar.legendAuto.isChecked():
-				subplot.legend(linesCopy, labCopy)
+				subplot.legend(linesCopy, labCopy, ncol=ncol, fontsize=fontsize)
+			elif viewToolbar.legendCustomPos.isChecked():
+				xpos, ypos = viewToolbar.legendCustomPos.values()
+				subplot.legend(linesCopy, labCopy, loc=(xpos, ypos), ncol=ncol, fontsize=fontsize)
+				if subplot.legend_ is not None:
+					if subplot.legend_.get_window_extent().y1 > subplot.bbox.y1:
+						self.reSpecPlot(plotNo)
+					elif subplot.legend_.get_window_extent().y0 < subplot.bbox.y0:
+						self.reSpecPlot(plotNo)
+					elif subplot.legend_.get_window_extent().x1 > subplot.bbox.x1:
+						self.reSpecPlot(plotNo)
+					elif subplot.legend_.get_window_extent().x0 < subplot.bbox.x0:
+						self.reSpecPlot(plotNo)
 			else:
-				subplot.legend(linesCopy, labCopy, loc=legendPos)
+				subplot.legend(linesCopy, labCopy, loc=legendPos, ncol=ncol, fontsize=fontsize)
 			if redraw:
 				plotWidget.draw()
 		
@@ -3105,7 +3320,7 @@ class TuPlot():
 				if rtype == 'axis labels' or rtype is None:
 					self.frozenVPAxisLabels.clear()
 	
-	def exportCSV(self, plotNo, data, labels, types, outputFolder, fileName):
+	def exportCSV(self, plotNo, data, labels, types, outputFolder, fileName, **kwargs):
 		"""
 		Export data to CSV.
 		
@@ -3118,6 +3333,8 @@ class TuPlot():
 		:param fileName: str name for file
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+
+		overwrite = kwargs['overwrite'] if 'overwrite' in kwargs else False
 
 		# convert labels to user defined dataset labels (or default label if user has not changed it)
 		newLabels, newArtists = self.getNewPlotProperties(plotNo, labels, None, rtype='lines')  # newArtists not used for csv
@@ -3167,9 +3384,10 @@ class TuPlot():
 		# unique output file name
 		outFile = '{0}.csv'.format(os.path.join(outputFolder, fileName))
 		iterator = 1
-		while os.path.exists(outFile):
-			outFile = '{0}_{1}.csv'.format(os.path.join(outputFolder, fileName), iterator)
-			iterator += 1
+		if not overwrite:
+			while os.path.exists(outFile):
+				outFile = '{0}_{1}.csv'.format(os.path.join(outputFolder, fileName), iterator)
+				iterator += 1
 			
 		# write data
 		with open(outFile, 'w') as fo:
@@ -3197,7 +3415,7 @@ class TuPlot():
 		for name in [k for k, v in sorted(self.userPlotData.datasets.items(), key=lambda x: x[-1].number)]:
 			data = self.userPlotData.datasets[name]
 			if data.status:
-				if (data.plotType == 'time series' and plotNo == 0) or (data.plotType == 'long plot' and plotNo == 1):
+				if (data.plotType == 'Time Series Plot' and plotNo == TuPlot.TimeSeries) or (data.plotType == 'Cross Section / Long Plot' and plotNo == TuPlot.CrossSection):
 					labelOriginal = 'User Plot Data: {0}'.format(data.name)
 					label, artistTemplates = self.getNewPlotProperties(plotNo, [labelOriginal], None, rtype='lines')
 					if labelOriginal not in labels[0]:

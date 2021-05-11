@@ -1,16 +1,180 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Bed_Elevation>
-<colorrampshader colorRampType="INTERPOLATED" classificationMode="1" clip="0">
+<colorrampshader classificationMode="1" maximumValue="55.514" colorRampType="INTERPOLATED" minimumValue="35.975" clip="0" labelPrecision="6">
  <colorramp type="gradient" name="[source]">
-  <prop v="43,131,186,255" k="color1"/>
-  <prop v="215,25,28,255" k="color2"/>
+  <Option type="Map">
+   <Option type="QString" name="color1" value="250,250,250,255"/>
+   <Option type="QString" name="color2" value="5,5,5,255"/>
+   <Option type="QString" name="discrete" value="0"/>
+   <Option type="QString" name="rampType" value="gradient"/>
+  </Option>
+  <prop v="250,250,250,255" k="color1"/>
+  <prop v="5,5,5,255" k="color2"/>
   <prop v="0" k="discrete"/>
   <prop v="gradient" k="rampType"/>
-  <prop v="0.25;171,221,164,255:0.5;255,255,191,255:0.75;253,174,97,255" k="stops"/>
  </colorramp>
- <item value="36.001" color="#2b83ba" alpha="255" label="36.001"/>
- <item value="40.87925" color="#abdda4" alpha="255" label="40.87925"/>
- <item value="45.7575" color="#ffffbf" alpha="255" label="45.7575"/>
- <item value="50.63575" color="#fdae61" alpha="255" label="50.63575"/>
- <item value="55.514" color="#d7191c" alpha="255" label="55.514"/>
+ <item color="#fafafa" label="36" value="35.975" alpha="255"/>
+ <item color="#f9f9f9" label="36.1" value="36.1059113" alpha="255"/>
+ <item color="#f7f7f7" label="36.2" value="36.2348687" alpha="255"/>
+ <item color="#f6f6f6" label="36.4" value="36.36578" alpha="255"/>
+ <item color="#f4f4f4" label="36.5" value="36.4966913" alpha="255"/>
+ <item color="#f2f2f2" label="36.6" value="36.6256487" alpha="255"/>
+ <item color="#f1f1f1" label="36.8" value="36.75656" alpha="255"/>
+ <item color="#efefef" label="36.9" value="36.8874713" alpha="255"/>
+ <item color="#ededed" label="37" value="37.0164287" alpha="255"/>
+ <item color="#ececec" label="37.1" value="37.14734" alpha="255"/>
+ <item color="#eaeaea" label="37.3" value="37.2782513" alpha="255"/>
+ <item color="#e8e8e8" label="37.4" value="37.4072087" alpha="255"/>
+ <item color="#e7e7e7" label="37.5" value="37.53812" alpha="255"/>
+ <item color="#e5e5e5" label="37.7" value="37.6690313" alpha="255"/>
+ <item color="#e4e4e4" label="37.8" value="37.797988700000005" alpha="255"/>
+ <item color="#e2e2e2" label="37.9" value="37.9289" alpha="255"/>
+ <item color="#e0e0e0" label="38.1" value="38.0598113" alpha="255"/>
+ <item color="#dfdfdf" label="38.2" value="38.188768700000004" alpha="255"/>
+ <item color="#dddddd" label="38.3" value="38.31968" alpha="255"/>
+ <item color="#dbdbdb" label="38.5" value="38.4505913" alpha="255"/>
+ <item color="#dadada" label="38.6" value="38.579548700000004" alpha="255"/>
+ <item color="#d8d8d8" label="38.7" value="38.710460000000005" alpha="255"/>
+ <item color="#d6d6d6" label="38.8" value="38.8413713" alpha="255"/>
+ <item color="#d5d5d5" label="39" value="38.9703287" alpha="255"/>
+ <item color="#d3d3d3" label="39.1" value="39.101240000000004" alpha="255"/>
+ <item color="#d1d1d1" label="39.2" value="39.2321513" alpha="255"/>
+ <item color="#d0d0d0" label="39.4" value="39.3611087" alpha="255"/>
+ <item color="#cecece" label="39.5" value="39.492020000000004" alpha="255"/>
+ <item color="#cdcdcd" label="39.6" value="39.622931300000005" alpha="255"/>
+ <item color="#cbcbcb" label="39.8" value="39.7518887" alpha="255"/>
+ <item color="#c9c9c9" label="39.9" value="39.8828" alpha="255"/>
+ <item color="#c8c8c8" label="40" value="40.013711300000004" alpha="255"/>
+ <item color="#c6c6c6" label="40.1" value="40.1426687" alpha="255"/>
+ <item color="#c4c4c4" label="40.3" value="40.27358" alpha="255"/>
+ <item color="#c3c3c3" label="40.4" value="40.404491300000004" alpha="255"/>
+ <item color="#c1c1c1" label="40.5" value="40.5334487" alpha="255"/>
+ <item color="#bfbfbf" label="40.7" value="40.66436" alpha="255"/>
+ <item color="#bebebe" label="40.8" value="40.7952713" alpha="255"/>
+ <item color="#bcbcbc" label="40.9" value="40.9242287" alpha="255"/>
+ <item color="#bbbbbb" label="41.1" value="41.05514" alpha="255"/>
+ <item color="#b9b9b9" label="41.2" value="41.1860513" alpha="255"/>
+ <item color="#b7b7b7" label="41.3" value="41.3150087" alpha="255"/>
+ <item color="#b6b6b6" label="41.4" value="41.44592" alpha="255"/>
+ <item color="#b4b4b4" label="41.6" value="41.5768313" alpha="255"/>
+ <item color="#b2b2b2" label="41.7" value="41.7057887" alpha="255"/>
+ <item color="#b1b1b1" label="41.8" value="41.8367" alpha="255"/>
+ <item color="#afafaf" label="42" value="41.9676113" alpha="255"/>
+ <item color="#adadad" label="42.1" value="42.096568700000006" alpha="255"/>
+ <item color="#acacac" label="42.2" value="42.22748" alpha="255"/>
+ <item color="#aaaaaa" label="42.4" value="42.3583913" alpha="255"/>
+ <item color="#a9a9a9" label="42.5" value="42.4873487" alpha="255"/>
+ <item color="#a7a7a7" label="42.6" value="42.61826" alpha="255"/>
+ <item color="#a5a5a5" label="42.7" value="42.7491713" alpha="255"/>
+ <item color="#a4a4a4" label="42.9" value="42.878128700000005" alpha="255"/>
+ <item color="#a2a2a2" label="43" value="43.00904" alpha="255"/>
+ <item color="#a0a0a0" label="43.1" value="43.1399513" alpha="255"/>
+ <item color="#9f9f9f" label="43.3" value="43.268908700000004" alpha="255"/>
+ <item color="#9d9d9d" label="43.4" value="43.399820000000005" alpha="255"/>
+ <item color="#9b9b9b" label="43.5" value="43.5307313" alpha="255"/>
+ <item color="#9a9a9a" label="43.7" value="43.659688700000004" alpha="255"/>
+ <item color="#989898" label="43.8" value="43.790600000000005" alpha="255"/>
+ <item color="#969696" label="43.9" value="43.921511300000006" alpha="255"/>
+ <item color="#959595" label="44.1" value="44.0504687" alpha="255"/>
+ <item color="#939393" label="44.2" value="44.181380000000004" alpha="255"/>
+ <item color="#929292" label="44.3" value="44.3122913" alpha="255"/>
+ <item color="#909090" label="44.4" value="44.4412487" alpha="255"/>
+ <item color="#8e8e8e" label="44.6" value="44.572160000000004" alpha="255"/>
+ <item color="#8d8d8d" label="44.7" value="44.703071300000005" alpha="255"/>
+ <item color="#8b8b8b" label="44.8" value="44.8320287" alpha="255"/>
+ <item color="#898989" label="45" value="44.96294" alpha="255"/>
+ <item color="#888888" label="45.1" value="45.093851300000004" alpha="255"/>
+ <item color="#868686" label="45.2" value="45.2228087" alpha="255"/>
+ <item color="#848484" label="45.4" value="45.35372" alpha="255"/>
+ <item color="#838383" label="45.5" value="45.484631300000004" alpha="255"/>
+ <item color="#818181" label="45.6" value="45.6135887" alpha="255"/>
+ <item color="#808080" label="45.7" value="45.7445" alpha="255"/>
+ <item color="#7e7e7e" label="45.9" value="45.8754113" alpha="255"/>
+ <item color="#7c7c7c" label="46" value="46.0043687" alpha="255"/>
+ <item color="#7b7b7b" label="46.1" value="46.13528" alpha="255"/>
+ <item color="#797979" label="46.3" value="46.2661913" alpha="255"/>
+ <item color="#777777" label="46.4" value="46.3951487" alpha="255"/>
+ <item color="#767676" label="46.5" value="46.52606" alpha="255"/>
+ <item color="#747474" label="46.7" value="46.6569713" alpha="255"/>
+ <item color="#727272" label="46.8" value="46.7859287" alpha="255"/>
+ <item color="#717171" label="46.9" value="46.91684000000001" alpha="255"/>
+ <item color="#6f6f6f" label="47" value="47.0477513" alpha="255"/>
+ <item color="#6d6d6d" label="47.2" value="47.176708700000006" alpha="255"/>
+ <item color="#6c6c6c" label="47.3" value="47.30762" alpha="255"/>
+ <item color="#6a6a6a" label="47.4" value="47.4385313" alpha="255"/>
+ <item color="#696969" label="47.6" value="47.567488700000006" alpha="255"/>
+ <item color="#676767" label="47.7" value="47.6984" alpha="255"/>
+ <item color="#656565" label="47.8" value="47.8293113" alpha="255"/>
+ <item color="#646464" label="48" value="47.958268700000005" alpha="255"/>
+ <item color="#626262" label="48.1" value="48.08918" alpha="255"/>
+ <item color="#606060" label="48.2" value="48.22009130000001" alpha="255"/>
+ <item color="#5f5f5f" label="48.3" value="48.349048700000004" alpha="255"/>
+ <item color="#5d5d5d" label="48.5" value="48.479960000000005" alpha="255"/>
+ <item color="#5b5b5b" label="48.6" value="48.6108713" alpha="255"/>
+ <item color="#5a5a5a" label="48.7" value="48.739828700000004" alpha="255"/>
+ <item color="#585858" label="48.9" value="48.870740000000005" alpha="255"/>
+ <item color="#565656" label="49" value="49.001651300000006" alpha="255"/>
+ <item color="#555555" label="49.1" value="49.1306087" alpha="255"/>
+ <item color="#535353" label="49.3" value="49.261520000000004" alpha="255"/>
+ <item color="#525252" label="49.4" value="49.3924313" alpha="255"/>
+ <item color="#505050" label="49.5" value="49.5213887" alpha="255"/>
+ <item color="#4e4e4e" label="49.7" value="49.652300000000004" alpha="255"/>
+ <item color="#4d4d4d" label="49.8" value="49.783211300000005" alpha="255"/>
+ <item color="#4b4b4b" label="49.9" value="49.9121687" alpha="255"/>
+ <item color="#494949" label="50" value="50.04308" alpha="255"/>
+ <item color="#484848" label="50.2" value="50.173991300000004" alpha="255"/>
+ <item color="#464646" label="50.3" value="50.3029487" alpha="255"/>
+ <item color="#444444" label="50.4" value="50.43386" alpha="255"/>
+ <item color="#434343" label="50.6" value="50.564771300000004" alpha="255"/>
+ <item color="#414141" label="50.7" value="50.6937287" alpha="255"/>
+ <item color="#404040" label="50.8" value="50.82464" alpha="255"/>
+ <item color="#3e3e3e" label="51" value="50.9555513" alpha="255"/>
+ <item color="#3c3c3c" label="51.1" value="51.0845087" alpha="255"/>
+ <item color="#3b3b3b" label="51.2" value="51.21542" alpha="255"/>
+ <item color="#393939" label="51.3" value="51.3463313" alpha="255"/>
+ <item color="#373737" label="51.5" value="51.4752887" alpha="255"/>
+ <item color="#363636" label="51.6" value="51.6062" alpha="255"/>
+ <item color="#343434" label="51.7" value="51.7371113" alpha="255"/>
+ <item color="#323232" label="51.9" value="51.8660687" alpha="255"/>
+ <item color="#313131" label="52" value="51.99698" alpha="255"/>
+ <item color="#2f2f2f" label="52.1" value="52.1278913" alpha="255"/>
+ <item color="#2e2e2e" label="52.3" value="52.256848700000006" alpha="255"/>
+ <item color="#2c2c2c" label="52.4" value="52.38776" alpha="255"/>
+ <item color="#2a2a2a" label="52.5" value="52.5186713" alpha="255"/>
+ <item color="#292929" label="52.6" value="52.6476287" alpha="255"/>
+ <item color="#272727" label="52.8" value="52.77854000000001" alpha="255"/>
+ <item color="#252525" label="52.9" value="52.9094513" alpha="255"/>
+ <item color="#242424" label="53" value="53.038408700000005" alpha="255"/>
+ <item color="#222222" label="53.2" value="53.16932" alpha="255"/>
+ <item color="#202020" label="53.3" value="53.30023130000001" alpha="255"/>
+ <item color="#1f1f1f" label="53.4" value="53.4291887" alpha="255"/>
+ <item color="#1d1d1d" label="53.6" value="53.560100000000006" alpha="255"/>
+ <item color="#1b1b1b" label="53.7" value="53.6910113" alpha="255"/>
+ <item color="#1a1a1a" label="53.8" value="53.819968700000004" alpha="255"/>
+ <item color="#181818" label="54" value="53.950880000000005" alpha="255"/>
+ <item color="#171717" label="54.1" value="54.081791300000006" alpha="255"/>
+ <item color="#151515" label="54.2" value="54.2107487" alpha="255"/>
+ <item color="#131313" label="54.3" value="54.341660000000005" alpha="255"/>
+ <item color="#121212" label="54.5" value="54.4725713" alpha="255"/>
+ <item color="#101010" label="54.6" value="54.6015287" alpha="255"/>
+ <item color="#0e0e0e" label="54.7" value="54.73244" alpha="255"/>
+ <item color="#0d0d0d" label="54.9" value="54.863351300000005" alpha="255"/>
+ <item color="#0b0b0b" label="55" value="54.9923087" alpha="255"/>
+ <item color="#090909" label="55.1" value="55.12322" alpha="255"/>
+ <item color="#080808" label="55.3" value="55.254131300000005" alpha="255"/>
+ <item color="#060606" label="55.4" value="55.3830887" alpha="255"/>
+ <item color="#050505" label="55.5" value="55.514" alpha="255"/>
+ <rampLegendSettings maximumLabel="" prefix="" direction="0" minimumLabel="" suffix="" orientation="2" useContinuousLegend="1">
+  <numericFormat id="basic">
+   <Option type="Map">
+    <Option type="QChar" name="decimal_separator" value=""/>
+    <Option type="int" name="decimals" value="6"/>
+    <Option type="int" name="rounding_type" value="0"/>
+    <Option type="bool" name="show_plus" value="false"/>
+    <Option type="bool" name="show_thousand_separator" value="true"/>
+    <Option type="bool" name="show_trailing_zeros" value="false"/>
+    <Option type="QChar" name="thousand_separator" value=""/>
+   </Option>
+  </numericFormat>
+ </rampLegendSettings>
 </colorrampshader>

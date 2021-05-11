@@ -44,6 +44,8 @@ class TuMenuFunctions():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		result2D = kwargs['result_2D'] if 'result_2D' in kwargs.keys() else None  # list of xmdfs or dats
 		
 		if not result2D:
@@ -69,19 +71,28 @@ class TuMenuFunctions():
 			filename = os.path.basename(filename)
 			res = {'path': file}
 			self.tuView.tuResults.tuResults2D.results2d[filename] = res
-		if ext.upper() == '.SUP':
-			sups, engine, build = self.resultsFromSuperFiles(inFileNames[0])
-			if engine == 'FV':
-				self.tuView.tuOptions.timeUnits = 's'
+
+			if ext.upper() == '.SUP':
+				# sups, engine, build = self.resultsFromSuperFiles(inFileNames[0])
+				sups, engine, build = self.resultsFromSuperFiles([file])
+				# # did xmdf always get written in hrs? should i use build instead of ext?
+				# dsext = '.dat'
+				# if sups:
+				# 	if sups[list(sups.keys())[0]]['datasets']:
+				# 		dsext = os.path.splitext(sups[list(sups.keys())[0]]['datasets'][0])[1]
+				# if engine == 'FV' and dsext.lower() == '.dat':
+				if engine == 'FV' and qv < 31300:
+					self.tuView.tuOptions.timeUnits = 's'
+				else:
+					self.tuView.tuOptions.timeUnits = 'h'
+
+			# import into qgis
+			if ext.upper() == '.SUP':
+				loaded = self.tuView.tuResults.importResults('mesh', sups)
 			else:
-				self.tuView.tuOptions.timeUnits = 'h'
-		
-		# import into qgis
-		if ext.upper() == '.SUP':
-			loaded = self.tuView.tuResults.importResults('mesh', sups)
-		else:
-			loaded = self.tuView.tuResults.importResults('mesh', inFileNames[0])
-		
+				# loaded = self.tuView.tuResults.importResults('mesh', inFileNames[0])
+				loaded = self.tuView.tuResults.importResults('mesh', [file])
+
 		# finally save the last folder location
 		fpath = os.path.dirname(inFileNames[0][0])
 		settings = QSettings()
@@ -102,6 +113,11 @@ class TuMenuFunctions():
 		result1D = kwargs['result_1D'] if 'result_1D' in kwargs.keys() else None
 		unlock = kwargs['unlock'] if 'unlock' in kwargs else True
 		askGis = kwargs['ask_gis'] if 'ask_gis' in kwargs else True
+		openGis = kwargs['open_gis'] if 'open_gis' in kwargs else None
+
+		success = False
+		if openGis is not None:
+			askGis = False
 		
 		if not result1D:
 			# Get last loaded settings
@@ -141,6 +157,9 @@ class TuMenuFunctions():
 					alsoOpenGis = QMessageBox.question(self.iface.mainWindow(),
 					                                   "TUFLOW Viewer", 'Do you also want to open result GIS layer?',
 					                                   QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+				else:
+					if openGis is not None:
+						alsoOpenGis = QMessageBox.Yes if openGis else QMessageBox.No
 			break  # only need to ask once
 		if alsoOpenGis == QMessageBox.Yes:
 			self.tuView.tuResults.tuResults1D.openGis(inFileNames[0][0])
@@ -148,7 +167,7 @@ class TuMenuFunctions():
 			return False
 		
 		# import results
-		self.tuView.tuResults.importResults('timeseries', inFileNames[0])
+		success = self.tuView.tuResults.importResults('timeseries', inFileNames[0])
 		
 		# unlock map output timesteps only
 		if unlock:
@@ -160,7 +179,7 @@ class TuMenuFunctions():
 		settings = QSettings()
 		settings.setValue("TUFLOW_Results/lastFolder", fpath)
 		
-		return True
+		return success
 
 	def loadFMResults(self, **kwargs):
 		"""
@@ -170,20 +189,31 @@ class TuMenuFunctions():
 		"""
 
 		unlock = kwargs['unlock'] if 'unlock' in kwargs else True
+		gxy = kwargs['gxy'] if 'gxy' in kwargs else None
+		dat = kwargs['dat'] if 'dat' in kwargs else None
+		result_FM = kwargs['result_FM'] if 'result_FM' in kwargs else None
 
+		success = False
 		self.fmResultsDialog = FloodModellerResultImportDialog()
-		self.fmResultsDialog.exec_()
+		if gxy is not None and result_FM is not None:
+			self.fmResultsDialog.gxy = gxy
+			self.fmResultsDialog.dat = dat
+			self.fmResultsDialog.results = result_FM
+		else:
+			self.fmResultsDialog.exec_()
 
 		# check file paths exist
 		# done in dialog class
 
 		# import results
-		self.tuView.tuResults.importResults('timeseries FM', [self.fmResultsDialog.gxy, self.fmResultsDialog.dat] + self.fmResultsDialog.results)
+		success = self.tuView.tuResults.importResults('timeseries FM', [self.fmResultsDialog.gxy, self.fmResultsDialog.dat] + self.fmResultsDialog.results)
 
 		# unlock map output timesteps only
 		if unlock:
 			if self.tuView.lock2DTimesteps:
 				self.tuView.timestepLockChanged()
+
+		return success
 
 	def loadParticlesResults(self, **kwargs):
 		"""
@@ -254,20 +284,23 @@ class TuMenuFunctions():
 
 		return True
 
-	def load1d2dResults(self):
+	def load1d2dResults(self, **kwargs):
 		"""
 		Loads 1D and 2D reuslts from TCF file.
 		
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
+		inFileNames = kwargs['files'] if 'files' in kwargs else None
+
 		# Get last loaded settings
 		fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_Results/lastFolder")
 		
 		# User get TCF file
-		inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW results file',
-		                                           fpath,
-		                                           "All Available (*.tcf *.tlf *.TCF *.TLF);;TUFLOW Control File (*.tcf *.TCF);;TUFLOW Log File (*.tlf *.TLF)")
+		if inFileNames is None:
+			inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW results file',
+			                                           fpath,
+			                                           "All Available (*.tcf *.tlf *.TCF *.TLF);;TUFLOW Control File (*.tcf *.TCF);;TUFLOW Log File (*.tlf *.TLF)")
 		
 		if not inFileNames[0]:  # empty list
 			return False
@@ -328,14 +361,20 @@ class TuMenuFunctions():
 			if mess:
 				messages += mess
 
+		kwargs['result_2D'] = results2D
+		kwargs['result_1D'] = results1D
+		kwargs['unlock'] = False
+
 		# load 2D results
 		if results2D:
-			self.load2dResults(result_2D=results2D)
-		
+			# self.load2dResults(result_2D=results2D)
+			self.load2dResults(**kwargs)
+
 		# load 1D results
 		if results1D:
-			self.load1dResults(result_1D=results1D, unlock=False)
-			
+			# self.load1dResults(result_1D=results1D, unlock=False)
+			self.load1dResults(**kwargs)
+
 		# if no results found
 		if not results2D and not results1D:
 			mes = ''
@@ -372,7 +411,8 @@ class TuMenuFunctions():
 			if layer is not None:
 				self.tuView.project.removeMapLayer(layer.id())
 
-		self.tuView.canvas.refresh()
+		if self.tuView.canvas is not None:
+			self.tuView.canvas.refresh()
 		self.tuView.resultsChanged()
 		
 		return True
@@ -389,8 +429,9 @@ class TuMenuFunctions():
 			if self.tuView.hydTables.getData(item.text()) is None:
 				layer = tuflowqgis_find_layer(item.text())
 				self.tuView.project.removeMapLayer(layer.id())
-			
-		self.tuView.canvas.refresh()
+
+		if self.tuView.canvas is not None:
+			self.tuView.canvas.refresh()
 		self.tuView.resultsChanged()
 		
 		return True
@@ -457,6 +498,7 @@ class TuMenuFunctions():
 		showTrianglesPrev = self.tuView.tuOptions.showTriangles
 		timeUnitsPrev = self.tuView.tuOptions.timeUnits
 		zeroDatePrev = self.tuView.tuOptions.zeroTime
+		plotBackgroundColorPrev = self.tuView.tuOptions.plotBackgroundColour
 		self.tuOptionsDialog = TuOptionsDialog(self.tuView.tuOptions)
 		self.tuOptionsDialog.exec_()
 
@@ -492,21 +534,32 @@ class TuMenuFunctions():
 				self.tuView.tuResults.updateResultTypes()
 			#self.tuView.tuResults.updateDateTimes2()
 
+		if self.tuView.tuOptions.plotBackgroundColour != plotBackgroundColorPrev:
+			for plotNo in range(4):
+				parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+					self.tuView.tuPlot.plotEnumerator(plotNo)
+				rect = figure.patch
+				rect.set_facecolor(self.tuView.tuOptions.plotBackgroundColour)
+				plotWidget.draw()
+
 		self.tuView.tuPlot.updateCurrentPlot(self.tuView.tabWidget.currentIndex(), update='1d and 2d only')
 		self.tuView.tuPlot.tuPlotToolbar.cursorTrackingButton.setChecked(self.tuView.tuOptions.liveMapTracking)
 
 		return True
 	
-	def exportCSV(self):
+	def exportCSV(self, plot_no=None, save_file=None, **kwargs):
 		"""
 		Export the data as a CSV.
 
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		plotNo = self.tuView.tabWidget.currentIndex()
+		if plot_no is None:
+			plotNo = self.tuView.tabWidget.currentIndex()
+		else:
+			plotNo = plot_no
 		
-		dataHeader, data = self.getPlotData(plotNo)
+		dataHeader, data = self.getPlotData(plotNo, **kwargs)
 		
 		if dataHeader is None or data is None:
 			QMessageBox.critical(self.iface.mainWindow(), 'TUFLOW Viewer', 'Error exporting file')
@@ -514,15 +567,17 @@ class TuMenuFunctions():
 		
 		fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_Results/export_csv")
 		
-		saveFile = QFileDialog.getSaveFileName(self.iface.mainWindow(), 'Save File', fpath)[0]
-		if len(saveFile) < 2:
-			return
+		if save_file is None:
+			saveFile = QFileDialog.getSaveFileName(self.iface.mainWindow(), 'Save File', fpath)[0]
+			if len(saveFile) < 2:
+				return
+			else:
+				if saveFile != os.sep and saveFile.lower() != 'c:\\' and saveFile != '':
+					QSettings().setValue("TUFLOW_Results/export_csv", saveFile)
+				if not os.path.splitext(saveFile)[-1]:  # no extension specified - default to csv
+					saveFile = '{0}.csv'.format(saveFile)
 		else:
-			if saveFile != os.sep and saveFile.lower() != 'c:\\' and saveFile != '':
-				QSettings().setValue("TUFLOW_Results/export_csv", saveFile)
-			if not os.path.splitext(saveFile)[-1]:  # no extension specified - default to csv
-				saveFile = '{0}.csv'.format(saveFile)
-
+			saveFile = save_file
 		
 		if saveFile is not None:
 			retry = True
@@ -543,24 +598,41 @@ class TuMenuFunctions():
 						line += '\n'
 						file.write(line)
 					file.close()
-					QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'Successfully exported data.')
+					msg = 'Successfully exported data.'
+					if self.iface is not None:
+						QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', msg)
+					else:
+						print(msg)
 					retry = False
 				except IOError:
-					questionRetry = QMessageBox.question(self.iface.mainWindow(),
-						                                 "TUFLOW Viewer", 'Could not access {0}. Check file is not open.'.format(saveFile),
-						                                 QMessageBox.Retry | QMessageBox.Cancel)
-					if questionRetry == QMessageBox.Cancel:
-						retry = False
-						return False
+					msg = 'Could not access {0}. Check file is not open.'.format(saveFile)
+					if self.iface is not None:
+						questionRetry = QMessageBox.question(self.iface.mainWindow(),
+							                                 "TUFLOW Viewer", msg,
+							                                 QMessageBox.Retry | QMessageBox.Cancel)
+						if questionRetry == QMessageBox.Cancel:
+							retry = False
+							return False
+					else:
+						print(msg)
+						retry = input('Retry? (Y/N)\n')
+						if retry.lower() == 'n':
+							retry = False
+						else:
+							retry = True
 						
 				except:
-					QMessageBox.critical(self.iface.mainWindow(), 'TUFLOW Viewer', 'Error exporting file')
+					msg = 'Error exporting file'
+					if self.iface is not None:
+						QMessageBox.critical(self.iface.mainWindow(), 'TUFLOW Viewer', msg)
+					else:
+						print(msg)
 					retry = False
 					return False
 		
 		return True
 	
-	def exportDataToClipboard(self):
+	def exportDataToClipboard(self, **kwargs):
 		"""
 		Export plot data to clipboard
 		
@@ -569,7 +641,7 @@ class TuMenuFunctions():
 
 		plotNo = self.tuView.tabWidget.currentIndex()
 		
-		dataHeader, data = self.getPlotData(plotNo)
+		dataHeader, data = self.getPlotData(plotNo, **kwargs)
 		
 		if dataHeader is None or data is None:
 			QMessageBox.critical(self.iface.mainWindow(), 'TUFLOW Viewer', 'Error exporting data')
@@ -616,7 +688,7 @@ class TuMenuFunctions():
 		
 		return True
 		
-	def getPlotData(self, plotNo):
+	def getPlotData(self, plotNo, **kwargs):
 		"""
 		Collects all the plot data into one numpy array.
 		
@@ -722,9 +794,9 @@ class TuMenuFunctions():
 					data = np.delete(data, 0, 1)  # delete initialised row of zeros
 
 		if plotNo == 0:
-			dataHeader = self.getTimeSeriesPlotHeaders(labels, labels2)
+			dataHeader = self.getTimeSeriesPlotHeaders(labels, labels2, **kwargs)
 		elif plotNo == 1:
-			dataHeader = self.getLongPlotHeaders(labels, labels2)
+			dataHeader = self.getLongPlotHeaders(labels, labels2, **kwargs)
 		else:
 			dataHeader = ''
 
@@ -749,7 +821,7 @@ class TuMenuFunctions():
 
 		return dataHeader, data
 
-	def getTimeSeriesPlotHeaders(self, labels, labels2):
+	def getTimeSeriesPlotHeaders(self, labels, labels2, **kwargs):
 		"""
 		Returns column headings in comma delimiter format for time series export to csv.
 		
@@ -761,7 +833,8 @@ class TuMenuFunctions():
 		# get labels into one big comma delimiter string
 		dataHeader = None
 		for i, label in enumerate(labels):
-			labelUnit = getUnit(label, self.tuView.canvas)
+			# labelUnit = getUnit(label, self.tuView.canvas)
+			labelUnit = self.tuView.tuPlot.setAxisNames(0, label, return_unit_only=True, **kwargs)
 			if i == 0:
 				dataHeader = 'Time (hr)'
 				dataHeader = '{0},{1} ({2})'.format(dataHeader, label, labelUnit) if labelUnit else '{0},{1}'.format(dataHeader, label)
@@ -769,7 +842,8 @@ class TuMenuFunctions():
 				dataHeader = '{0},Time (hr)'.format(dataHeader)
 				dataHeader = '{0},{1} ({2})'.format(dataHeader, label, labelUnit) if labelUnit else '{0},{1}'.format(dataHeader, label)
 		for i, label in enumerate(labels2):
-			labelUnit = getUnit(label, self.tuView.canvas)
+			# labelUnit = getUnit(label, self.tuView.canvas)
+			labelUnit = self.tuView.tuPlot.setAxisNames(0, label, return_unit_only=True, **kwargs)
 			if i == 0:
 				if not labels:
 					dataHeader = 'Time (hr)'
@@ -796,7 +870,8 @@ class TuMenuFunctions():
 		dataHeader = None
 		xAxisUnit = getUnit(None, self.tuView.canvas, return_map_units=True)
 		for i, label in enumerate(labels):
-			labelUnit = getUnit(label, self.tuView.canvas)
+			# labelUnit = getUnit(label, self.tuView.canvas)
+			labelUnit = self.tuView.tuPlot.setAxisNames(1, label, return_unit_only=True, **kwargs)
 			if i == 0:
 				dataHeader = 'Offset ({0})'.format(xAxisUnit)
 				dataHeader = '{0},{1} ({2})'.format(dataHeader, label, labelUnit) if labelUnit else '{0},{1}'.format(dataHeader, label)
@@ -804,7 +879,8 @@ class TuMenuFunctions():
 				dataHeader = '{0},Offset ({1})'.format(dataHeader, xAxisUnit)
 				dataHeader = '{0},{1} ({2})'.format(dataHeader, label, labelUnit) if labelUnit else '{0},{1}'.format(dataHeader, label)
 		for i, label in enumerate(labels2):
-			labelUnit = getUnit(label, self.tuView.canvas)
+			# labelUnit = getUnit(label, self.tuView.canvas)
+			labelUnit = self.tuView.tuPlot.setAxisNames(1, label, return_unit_only=True, **kwargs)
 			if i == 0:
 				if not labels:
 					dataHeader = 'Offset ({0})'.format(xAxisUnit)
@@ -991,8 +1067,9 @@ class TuMenuFunctions():
 		shpLayer = QgsVectorLayer(uri, os.path.splitext(os.path.basename(saveFile))[0], 'memory')
 		dp = shpLayer.dataProvider()
 		dp.addAttributes([
-			QgsField('Name', QVariant.String, len=10),
-			QgsField('Type', QVariant.String, len=50)
+			QgsField('Type', QVariant.String, len=20),
+			QgsField('Label', QVariant.String, len=30),
+			QgsField('Comment', QVariant.String, len=250),
 		])
 		shpLayer.updateFields()
 		feats = []  # list of QgsFeature objects
@@ -1008,8 +1085,9 @@ class TuMenuFunctions():
 				except:
 					feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in geom]))
 				feat.setAttributes([
+					"",
 					'Line {0}'.format(i),
-					type_
+					"source: TUFLOW Viewer - {0}".format(type_)
 				])
 				feats.append(feat)
 		# for i, line in enumerate(self.tuView.tuPlot.tuFlowLine.rubberBands):
@@ -1059,8 +1137,9 @@ class TuMenuFunctions():
 		shpLayer = QgsVectorLayer(uri, os.path.splitext(os.path.basename(saveFile))[0], 'memory')
 		dp = shpLayer.dataProvider()
 		dp.addAttributes([
-			QgsField('Name', QVariant.String, len=10),
-			QgsField('Type', QVariant.String, len=50)
+			QgsField('Type', QVariant.String, len=20),
+			QgsField('Label', QVariant.String, len=30),
+			QgsField('Comment', QVariant.String, len=250)
 		])
 		shpLayer.updateFields()
 		feats = []  # list of QgsFeature objects
@@ -1072,8 +1151,9 @@ class TuMenuFunctions():
 				feat = QgsFeature()
 				feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
 				feat.setAttributes([
+					"",
 					'Point {0}'.format(i),
-					type_
+					"source: TUFLOW Viewer - {0}".format(type_)
 				])
 				feats.append(feat)
 		error = dp.addFeatures(feats)
@@ -1542,7 +1622,7 @@ class TuMenuFunctions():
 				
 		return True
 
-	def batchPlotExportInitialise(self):
+	def batchPlotExportInitialise(self, **kwargs):
 		"""
 		Initiates the dialog - automatically loops through all features in shape file (or selection of features in
 		shape file) and exports set results to CSV or Image.
@@ -1550,10 +1630,12 @@ class TuMenuFunctions():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 		
-		self.batchPlotExportDialog = TuBatchPlotExportDialog(self.tuView)
-		self.batchPlotExportDialog.exec_()
+		self.batchPlotExportDialog = TuBatchPlotExportDialog(self.tuView, **kwargs)
+		headless = kwargs['headless'] if 'headless' in kwargs else False
+		if not headless:
+			self.batchPlotExportDialog.exec_()
 		
-	def batchPlotExport(self, gisLayer, resultMesh, resultTypes, timestep, features, format, outputFolder, nameField, imageFormat):
+	def batchPlotExport(self, gisLayer, resultMesh, resultTypes, timestep, features, format, outputFolder, nameField, imageFormat, **kwargs):
 		"""
 		Automatically loops through all features in shape file (or selection of features in
 		shape file) and exports set results to CSV or Image.
@@ -1629,15 +1711,16 @@ class TuMenuFunctions():
 		# setup progress bar
 		if featureCount:
 			complete = 0
-			self.iface.messageBar().clearWidgets()
-			progressWidget = self.iface.messageBar().createMessage("TUFLOW Viewer",
-			                                                       " Exporting {0}s . . .".format(format))
-			messageBar = self.iface.messageBar()
-			progress = QProgressBar()
-			progress.setMaximum(100)
-			progressWidget.layout().addWidget(progress)
-			messageBar.pushWidget(progressWidget, duration=1)
-			self.iface.mainWindow().repaint()
+			if self.iface is not None:
+				self.iface.messageBar().clearWidgets()
+				progressWidget = self.iface.messageBar().createMessage("TUFLOW Viewer",
+				                                                       " Exporting {0}s . . .".format(format))
+				messageBar = self.iface.messageBar()
+				progress = QProgressBar()
+				progress.setMaximum(100)
+				progressWidget.layout().addWidget(progress)
+				messageBar.pushWidget(progressWidget, duration=1)
+				self.iface.mainWindow().repaint()
 			pComplete = 0
 			complete = 0
 		# loop through features and output
@@ -1650,7 +1733,7 @@ class TuMenuFunctions():
 				self.tuView.tuPlot.tuPlot2D.plotTimeSeriesFromMap(
 					vLayer, f, bypass=True, mesh=mLayers, types=resultTypes, export=format,
 					export_location=outputFolder, name=name, export_format=imageFormat,
-					mesh_rendered=False)
+					mesh_rendered=False, **kwargs)
 			elif vLayer.geometryType() == QgsWkbTypes.LineGeometry:
 				if nameIndex is not None:
 					name = '{0}'.format(f.attributes()[nameIndex])
@@ -1659,16 +1742,17 @@ class TuMenuFunctions():
 				self.tuView.tuPlot.tuPlot2D.plotCrossSectionFromMap(
 					vLayer, f, bypass=True, mesh=mLayers, types=resultTypes, export=format,
 					export_location=outputFolder, name=name, time=timestepKey, time_formatted=timestep, export_format=imageFormat,
-					mesh_rendered=False)
+					mesh_rendered=False, **kwargs)
 			else:
 				return False
 			complete += 1
 			pComplete = complete / featureCount * 100
-			progress.setValue(pComplete)
+			if self.iface is not None:
+				progress.setValue(pComplete)
 
 		return True
 	
-	def openUserPlotDataManager(self):
+	def openUserPlotDataManager(self, **kwargs):
 		"""
 		Opens the user plot data manage dialog
 		
@@ -1677,9 +1761,14 @@ class TuMenuFunctions():
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 		
-		self.userPlotDataDialog = TuUserPlotDataManagerDialog(self.iface, self.tuView.tuPlot.userPlotData)
-		self.userPlotDataDialog.exec_()
+		self.userPlotDataDialog = TuUserPlotDataManagerDialog(self.iface, self.tuView.tuPlot.userPlotData, **kwargs)
+		if 'add_data' not in kwargs:
+			self.userPlotDataDialog.exec_()
 		# self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), retain_1d=True, retain_2d=True, retain_flow=True)
+		for i in range(self.userPlotDataDialog.UserPlotDataTable.rowCount()):
+			name_ = self.userPlotDataDialog.UserPlotDataTable.item(i, 0).text()
+			plotType = self.userPlotDataDialog.UserPlotDataTable.item(i, 1).text()
+			self.tuView.tuPlot.userPlotData.editDataSet(name_, plotType=plotType)
 		self.tuView.tuPlot.clearPlot2(self.tuView.tabWidget.currentIndex(), TuPlot.DataUserData)
 
 		return True
@@ -1698,25 +1787,31 @@ class TuMenuFunctions():
 			
 		self.tuView.renderMap()
 		
-	def exportAnimation(self):
+	def exportAnimation(self, **kwargs):
 		"""
 		Export animation dialog
 		
 		:return:
 		"""
+
+		headless = kwargs['headless'] if 'headless' in kwargs else False
 		
-		self.animationDialog = TuAnimationDialog(self.tuView)
-		self.animationDialog.show()
+		self.animationDialog = TuAnimationDialog(self.tuView, **kwargs)
+		if not headless:
+			self.animationDialog.show()
 		
-	def exportMaps(self):
+	def exportMaps(self, **kwargs):
 		"""
 		Export maps dialog
 		
 		:return:
 		"""
+
+		headless = kwargs['headless'] if 'headless' in kwargs else False
 		
-		self.mapDialog = TuMapDialog(self.tuView)
-		self.mapDialog.show()
+		self.mapDialog = TuMapDialog(self.tuView, **kwargs)
+		if not headless:
+			self.mapDialog.show()
 		
 	def resultsFromSuperFiles(self, files):
 		"""

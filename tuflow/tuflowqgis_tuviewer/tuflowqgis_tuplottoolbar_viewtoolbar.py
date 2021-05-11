@@ -8,6 +8,8 @@ from qgis.core import *
 from qgis.gui import *
 from PyQt5.QtWidgets import *
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumenufunctions import TuMenuFunctions
+from tuflow.dataset_menu import DatasetMenu
+from tuflow.spinbox_action import SingleSpinBoxAction, DoubleSpinBoxAction
 
 
 class ViewToolbar():
@@ -76,11 +78,46 @@ class ViewToolbar():
 		self.vGridLines_action = QAction('Vertical Grid Lines', None)
 		self.vGridLines_action.setCheckable(True)
 		self.vGridLines_action.setChecked(True)
-		
-		self.legendMenu = QMenu('Legend')
+
+		# axis font size
+		# fontsize = self.tuPlot.subplotTimeSeries.xaxis.get_label().get_size()
+		fontsize = self.tuView.tuOptions.defaultFontSize
+		self.axisFontSize_action = SingleSpinBoxAction(None, False, "Axis Font Size: ",
+		                                               range=(1, 128),
+		                                               value=(fontsize), set_cbo_visible=False,
+		                                               enable_menu_highlighting=True)
+
+		# axis label font size
+		self.axisLabelFontSize_action = SingleSpinBoxAction(None, False, "Axis Label Font Size: ",
+		                                                    range=(1, 128),
+		                                                    value=(fontsize), set_cbo_visible=False,
+		                                                    enable_menu_highlighting=True)
+
+		# self.legendMenu = QMenu('Legend')
+		self.legendMenu = DatasetMenu('Legend')
 		self.legendMenu.menuAction().setIcon(legendIcon)
 		self.legendMenu.menuAction().setCheckable(True)
 		self.legendMenu.menuAction().setChecked(True)
+		self.legendFontSize = SingleSpinBoxAction(self.legendMenu, False, "Font Size: ",
+		                                          range=(1, 128),
+		                                          value=(fontsize), set_cbo_visible=False,
+		                                          enable_menu_highlighting=True)
+		self.legendMenu.addAction(self.legendFontSize)
+		self.legendMenu.addSeparator()
+		self.legendVertical = QAction('Vertical Legend', self.legendMenu)
+		self.legendVertical.setCheckable(True)
+		self.legendVertical.setChecked(True)
+		self.legendMenu.addAction(self.legendVertical)
+		self.legendHorizontal = QAction('Horizontal Legend', self.legendMenu)
+		self.legendHorizontal.setCheckable(True)
+		self.legendMenu.addAction(self.legendHorizontal)
+		self.legendCustomOrientation = SingleSpinBoxAction(self.legendMenu, True, "No. Columns: ",
+		                                                   range=(0, 10),
+		                                                   value=(1), set_cbo_visible=False, cb_setChecked=False,
+		                                                   enable_menu_highlighting=True)
+		self.legendCustomOrientation.setCheckable(True)
+		self.legendMenu.addAction(self.legendCustomOrientation)
+		self.legendMenu.addSeparator()
 		self.legendAuto = QAction('Auto', self.legendMenu)
 		self.legendAuto.setCheckable(True)
 		self.legendAuto.setChecked(True)
@@ -91,12 +128,33 @@ class ViewToolbar():
 		self.legendLL = QAction('Lower Left', self.legendMenu)
 		self.legendLL.setCheckable(True)
 		self.legendMenu.addAction(self.legendLL)
+		self.legendCL = QAction('Centre Left', self.legendMenu)
+		self.legendCL.setCheckable(True)
+		self.legendMenu.addAction(self.legendCL)
 		self.legendUR = QAction('Upper Right', self.legendMenu)
 		self.legendUR.setCheckable(True)
 		self.legendMenu.addAction(self.legendUR)
 		self.legendLR = QAction('Lower Right', self.legendMenu)
 		self.legendLR.setCheckable(True)
 		self.legendMenu.addAction(self.legendLR)
+		self.legendCR = QAction('Centre Right', self.legendMenu)
+		self.legendCR.setCheckable(True)
+		self.legendMenu.addAction(self.legendCR)
+		self.legendLC = QAction('Lower Centre', self.legendMenu)
+		self.legendLC.setCheckable(True)
+		self.legendMenu.addAction(self.legendLC)
+		self.legendUC = QAction('Upper Centre', self.legendMenu)
+		self.legendUC.setCheckable(True)
+		self.legendMenu.addAction(self.legendUC)
+		self.legendC = QAction('Centre', self.legendMenu)
+		self.legendC.setCheckable(True)
+		self.legendMenu.addAction(self.legendC)
+		self.legendCustomPos = DoubleSpinBoxAction(self.legendMenu, True, "Custom Pos X:", "Y:",
+		                                           range=(-10, 10), decimals=2, single_step=0.1,
+		                                           value=(0, 0), set_cbo_visible=False, cb_setChecked=False,
+		                                           enable_menu_highlighting=True)
+		self.legendCustomPos.setCheckable(True)
+		self.legendMenu.addAction(self.legendCustomPos)
 		
 		self.userPlotDataManagerButton = QToolButton(self.viewToolbar)
 		self.userPlotDataManagerAction = QAction(userPlotDataIcon, 'User Plot Data Manager', self.userPlotDataManagerButton)
@@ -123,15 +181,29 @@ class ViewToolbar():
 		self.freezeXYAxisButton.released.connect(self.freezeXYAxis)
 		self.freezeXAxisButton.released.connect(self.freezeXAxis)
 		self.freezeYAxisButton.released.connect(self.freezeYAxis)
+		self.legendFontSize.sbValueChanged.connect(self.legendFontSizeChanged)
+		self.legendVertical.triggered.connect(lambda: self.legendOrientationChanged(self.legendVertical))
+		self.legendHorizontal.triggered.connect(lambda: self.legendOrientationChanged(self.legendHorizontal))
+		self.legendCustomOrientation.triggered.connect(lambda: self.legendOrientationChanged(self.legendCustomOrientation))
+		self.legendCustomOrientation.sbValueChanged.connect(lambda: self.legendOrientationChanged(self.legendCustomOrientation))
 		self.legendMenu.menuAction().triggered.connect(lambda: self.legendPosChanged(None))
 		self.legendAuto.triggered.connect(lambda: self.legendPosChanged(self.legendAuto))
 		self.legendUL.triggered.connect(lambda: self.legendPosChanged(self.legendUL))
 		self.legendLL.triggered.connect(lambda: self.legendPosChanged(self.legendLL))
 		self.legendUR.triggered.connect(lambda: self.legendPosChanged(self.legendUR))
 		self.legendLR.triggered.connect(lambda: self.legendPosChanged(self.legendLR))
+		self.legendCL.triggered.connect(lambda: self.legendPosChanged(self.legendCL))
+		self.legendCR.triggered.connect(lambda: self.legendPosChanged(self.legendCR))
+		self.legendLC.triggered.connect(lambda: self.legendPosChanged(self.legendLC))
+		self.legendUC.triggered.connect(lambda: self.legendPosChanged(self.legendUC))
+		self.legendC.triggered.connect(lambda: self.legendPosChanged(self.legendC))
+		self.legendCustomPos.triggered.connect(lambda: self.legendPosChanged(self.legendCustomPos))
+		self.legendCustomPos.sbValueChanged.connect(lambda: self.legendPosChanged(self.legendCustomPos))
 		self.userPlotDataManagerAction.triggered.connect(self.tuMenuFunctions.openUserPlotDataManager)
 		self.hGridLines_action.triggered.connect(self.gridLines_toggled)
 		self.vGridLines_action.triggered.connect(self.gridLines_toggled)
+		self.axisFontSize_action.sbValueChanged.connect(self.axisFontSizeChanged)
+		self.axisLabelFontSize_action.sbValueChanged.connect(self.axisLabelFontSizeChanged)
 
 	def freezeXYAxis(self):
 		
@@ -163,10 +235,33 @@ class ViewToolbar():
 			self.viewToolbar.setVisible(True)
 		else:
 			self.viewToolbar.setVisible(False)
+
+	def legendOrientationChanged(self, orienAction):
+		actions = [self.legendVertical, self.legendHorizontal, self.legendCustomOrientation]
+
+		if orienAction is not None:
+			for action in actions:
+				if action == orienAction:
+					if not orienAction.isChecked():
+						orienAction.setChecked(True)
+				else:
+					action.setChecked(False)
+
+		# self.tuView.refreshCurrentPlot()
+		plotNo = self.tuView.tabWidget.currentIndex()
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.tuPlot.plotEnumerator(plotNo)
+		self.tuPlot.updateLegend(plotNo)
+		figure.tight_layout()
+		plotWidget.draw()
+
+		return True
 			
 	def legendPosChanged(self, posAction, index=None):
-		actions = {self.legendAuto: 0, self.legendUL: 2, self.legendLL: 3, self.legendUR: 1, self.legendLR: 4}
-		
+		actions = {self.legendAuto: 0, self.legendUL: 2, self.legendLL: 3, self.legendUR: 1, self.legendLR: 4,
+		           self.legendCL: 6, self.legendCR: 7, self.legendLC: 8, self.legendUC: 9, self.legendC: 10,
+		           self.legendCustomPos: 100}
+
 		if posAction is not None:
 			for action in actions:
 				if action == posAction:
@@ -181,9 +276,23 @@ class ViewToolbar():
 				else:
 					action.setChecked(False)
 		
-		self.tuView.refreshCurrentPlot()
-				
+		# self.tuView.refreshCurrentPlot()
+		plotNo = self.tuView.tabWidget.currentIndex()
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.tuPlot.plotEnumerator(plotNo)
+		self.tuPlot.updateLegend(plotNo)
+		figure.tight_layout()
+		plotWidget.draw()
+
 		return True
+
+	def legendFontSizeChanged(self):
+		plotNo = self.tuView.tabWidget.currentIndex()
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.tuPlot.plotEnumerator(plotNo)
+		self.tuPlot.updateLegend(plotNo)
+		figure.tight_layout()
+		plotWidget.draw()
 		
 	def legendCurrentIndex(self):
 		if self.legendUR.isChecked():
@@ -198,12 +307,40 @@ class ViewToolbar():
 			return 0
 
 	def gridLines_toggled(self):
-
 		plotNo = self.tuView.tabWidget.currentIndex()
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.tuPlot.plotEnumerator(plotNo)
-
 		self.tuPlot.manageMatplotlibAxe(subplot)
+		plotWidget.draw()
+
+	def axisFontSizeChanged(self):
+		plotNo = self.tuView.tabWidget.currentIndex()
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.tuPlot.plotEnumerator(plotNo)
+		subplot2 = self.tuPlot.getSecondaryAxis(plotNo, create=False)
+
+		axisFontSize = self.axisFontSize_action.value(0)
+		subplot.tick_params(axis='both', which='both', labelsize=axisFontSize)
+		if subplot2 is not None:
+			subplot2.tick_params(axis='both', which='both', labelsize=axisFontSize)
+		figure.tight_layout()
+		plotWidget.draw()
+
+	def axisLabelFontSizeChanged(self):
+		plotNo = self.tuView.tabWidget.currentIndex()
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.tuPlot.plotEnumerator(plotNo)
+		subplot2 = self.tuPlot.getSecondaryAxis(plotNo, create=False)
+
+		axisLabelFontSize = self.axisLabelFontSize_action.value(0)
+		subplot.xaxis.label.set_size(axisLabelFontSize)
+		subplot.yaxis.label.set_size(axisLabelFontSize)
+		if subplot2 is not None:
+			if plotNo == 3:  # vertical profile
+				subplot2.xaxis.label.set_size(axisLabelFontSize)
+			else:
+				subplot2.yaxis.label.set_size(axisLabelFontSize)
+		figure.tight_layout()
 		plotWidget.draw()
 
 	def qgisDisconnect(self):

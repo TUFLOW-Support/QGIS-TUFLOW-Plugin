@@ -11,7 +11,7 @@ class TuPlotSelection():
 		self.tuPlot = TuPlot
 		self.iface = TuPlot.iface
 	
-	def plotTimeSeries(self, layer):
+	def plotTimeSeries(self, layer, **kwargs):
 		"""
 		Plot time series from selected points
 
@@ -40,10 +40,10 @@ class TuPlotSelection():
 				self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataTimeSeries2D)  # clear plot
 				self.tuPlot.tuPlot2D.resetMultiPointCount()
 				self.tuPlot.tuPlot2D.plotTimeSeriesFromMap(layer, f.geometry().asPoint(), bypass=multi,
-				                                           featName=featName, markerNo=i+1)
+				                                           featName=featName, markerNo=i+1, **kwargs)
 			else:
 				self.tuPlot.tuPlot2D.plotTimeSeriesFromMap(layer, f.geometry().asPoint(), bypass=multi,
-				                                           featName=featName, markerNo=i+1)
+				                                           featName=featName, markerNo=i+1, **kwargs)
 			self.tuPlot.tuPlot2D.plotSelectionPointFeat.append(f)
 		
 		self.tuPlot.tuPlot2D.reduceMultiPointCount(1)  # have to minus 1 off to make it count properly
@@ -55,7 +55,7 @@ class TuPlotSelection():
 		
 		return True
 
-	def plotTimeSeriesDepAv(self, layer):
+	def plotTimeSeriesDepAv(self, layer, **kwargs):
 		"""
 		Plot time series from selected points
 
@@ -85,11 +85,11 @@ class TuPlotSelection():
 				self.tuPlot.tuPlot3D.resetMultiPointCount()
 				self.tuPlot.tuPlot3D.plotTimeSeriesFromMap(layer, f.geometry().asPoint(), bypass=multi,
 				                                           featName=featName, markerNo=i + 1,
-				                                           data_type=TuPlot.DataTimeSeriesDepAv)
+				                                           data_type=TuPlot.DataTimeSeriesDepAv, **kwargs)
 			else:
 				self.tuPlot.tuPlot3D.plotTimeSeriesFromMap(layer, f.geometry().asPoint(), bypass=multi,
 				                                           featName=featName, markerNo=i + 1,
-				                                            data_type=TuPlot.DataTimeSeriesDepAv)
+				                                            data_type=TuPlot.DataTimeSeriesDepAv, **kwargs)
 			self.tuPlot.tuPlot3D.plotSelectionPointFeat.append(f)
 
 		self.tuPlot.tuPlot3D.reduceMultiPointCount(1)  # have to minus 1 off to make it count properly
@@ -101,7 +101,7 @@ class TuPlotSelection():
 
 		return True
 	
-	def plotCrossSection(self, layer):
+	def plotCrossSection(self, layer, **kwargs):
 		"""
 		Plot cross section or long profile from selected polyline
 
@@ -129,9 +129,9 @@ class TuPlotSelection():
 				# self.tuPlot.clearPlot(1, retain_1d=True, retain_flow=True)  # clear plot
 				self.tuPlot.clearPlot2(TuPlot.CrossSection, TuPlot.DataCrossSection2D)  # clear plot
 				self.tuPlot.tuPlot2D.resetMultiLineCount()
-				self.tuPlot.tuPlot2D.plotCrossSectionFromMap(layer, f, bypass=multi, featName=featName, lineNo=i+1)
+				self.tuPlot.tuPlot2D.plotCrossSectionFromMap(layer, f, bypass=multi, featName=featName, lineNo=i+1, **kwargs)
 			else:
-				self.tuPlot.tuPlot2D.plotCrossSectionFromMap(layer, f, bypass=multi, featName=featName, lineNo=i+1)
+				self.tuPlot.tuPlot2D.plotCrossSectionFromMap(layer, f, bypass=multi, featName=featName, lineNo=i+1, **kwargs)
 			self.tuPlot.tuPlot2D.plotSelectionLineFeat.append(f)
 
 		self.tuPlot.tuPlot2D.reduceMultiLineCount(1)  # have to minus 1 off to make it count properly
@@ -142,7 +142,7 @@ class TuPlotSelection():
 
 		return True
 
-	def plotCrossSectionDepAv(self, layer):
+	def plotCrossSectionDepAv(self, layer, **kwargs):
 		"""
 		Plot cross section or long profile from selected polyline
 
@@ -171,10 +171,10 @@ class TuPlotSelection():
 				self.tuPlot.clearPlot2(TuPlot.CrossSection, TuPlot.DataCrossSectionDepAv)  # clear plot
 				self.tuPlot.tuPlot3D.resetMultiLineCount()
 				self.tuPlot.tuPlot3D.plotCrossSectionFromMap(layer, f, bypass=multi, featName=featName, lineNo=i + 1,
-				                                             data_type=TuPlot.DataCrossSectionDepAv)
+				                                             data_type=TuPlot.DataCrossSectionDepAv, **kwargs)
 			else:
 				self.tuPlot.tuPlot3D.plotCrossSectionFromMap(layer, f, bypass=multi, featName=featName, lineNo=i + 1,
-				                                             data_type=TuPlot.DataCrossSectionDepAv)
+				                                             data_type=TuPlot.DataCrossSectionDepAv, **kwargs)
 			self.tuPlot.tuPlot3D.plotSelectionLineFeat.append(f)
 
 		self.tuPlot.tuPlot3D.reduceMultiLineCount(1)  # have to minus 1 off to make it count properly
@@ -185,7 +185,7 @@ class TuPlotSelection():
 
 		return True
 	
-	def plotFlow(self, layer):
+	def plotFlow(self, layer, **kwargs):
 		"""
 		Plot flow from selected line.
 		
@@ -217,9 +217,9 @@ class TuPlotSelection():
 					# self.tuPlot.clearPlot(0, retain_1d=True, retain_2d=True)  # clear plot
 					self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataFlow2D)
 				self.tuPlot.tuPlot2D.resetMultiFlowLineCount()
-				self.tuPlot.tuPlot2D.plotFlowFromMap(layer, f, bypass=multi, featName=featName)
+				self.tuPlot.tuPlot2D.plotFlowFromMap(layer, f, bypass=multi, featName=featName, **kwargs)
 			else:
-				self.tuPlot.tuPlot2D.plotFlowFromMap(layer, f, bypass=multi, featName=featName)
+				self.tuPlot.tuPlot2D.plotFlowFromMap(layer, f, bypass=multi, featName=featName, **kwargs)
 			self.tuPlot.tuPlot2D.plotSelectionFlowFeat.append(f)
 		
 		self.tuPlot.tuPlot2D.reduceMultiFlowLineCount(1)  # have to minus 1 off to make it count properly
@@ -230,7 +230,7 @@ class TuPlotSelection():
 		
 		return True
 
-	def plotCurtain(self, layer):
+	def plotCurtain(self, layer, **kwargs):
 		"""
 		Plot flow from selected line.
 
@@ -257,7 +257,7 @@ class TuPlotSelection():
 			if i == 0:
 				self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataFlow2D)
 
-			self.tuPlot.tuPlot3D.plotCurtainFromMap(layer, f, bypass=multi, featName=featName)
+			self.tuPlot.tuPlot3D.plotCurtainFromMap(layer, f, bypass=multi, featName=featName, **kwargs)
 			self.tuPlot.tuPlot3D.plotSelectionCurtainFeat.append(f)
 
 		self.tuPlot.profilePlotFirst = False
@@ -267,7 +267,7 @@ class TuPlotSelection():
 
 		return True
 
-	def plotVerticalProfile(self, layer):
+	def plotVerticalProfile(self, layer, **kwargs):
 		"""
 
 		"""
@@ -291,7 +291,7 @@ class TuPlotSelection():
 			if i == 0:
 				self.tuPlot.clearPlot2(TuPlot.VerticalProfile, TuPlot.DataVerticalProfile)
 
-			self.tuPlot.tuPlot3D.plotVerticalProfileFromMap(layer, f, bypass=multi, featName=featName)
+			self.tuPlot.tuPlot3D.plotVerticalProfileFromMap(layer, f, bypass=multi, featName=featName, **kwargs)
 			self.tuPlot.tuPlot3D.plotSelectionVPFeat.append(f)
 
 		self.tuPlot.verticalProfileFirst = False
@@ -310,10 +310,17 @@ class TuPlotSelection():
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 		
 		plotType = kwargs['type'] if 'type' in kwargs.keys() else 'standard'
+		layer = kwargs['layer'] if 'layer' in kwargs else None
 		
 		plot = False
-		layer = self.iface.activeLayer()
-		
+
+		if layer is None:
+			if self.iface is not None:
+				layer = self.iface.activeLayer()
+
+		if 'layer' in kwargs:  # otherwise doubling up layer arguments
+			del kwargs['layer']
+
 		# check that there is an active layer
 		if layer is not None:
 			
@@ -323,25 +330,25 @@ class TuPlotSelection():
 				# check geometry type i.e. point, line
 				if dataType == TuPlot.DataTimeSeries2D:
 					if layer.geometryType() == QgsWkbTypes.PointGeometry:
-						plot = self.plotTimeSeries(layer)
+						plot = self.plotTimeSeries(layer, **kwargs)
 				elif dataType == TuPlot.DataCrossSection2D:
 					if layer.geometryType() == QgsWkbTypes.LineGeometry:
-						plot = self.plotCrossSection(layer)
+						plot = self.plotCrossSection(layer, **kwargs)
 				elif dataType == TuPlot.DataFlow2D:
 					if layer.geometryType() == QgsWkbTypes.LineGeometry:
-						plot = self.plotFlow(layer)
+						plot = self.plotFlow(layer, **kwargs)
 				elif dataType == TuPlot.DataCurtainPlot:
 					if layer.geometryType() == QgsWkbTypes.LineGeometry:
-						plot = self.plotCurtain(layer)
+						plot = self.plotCurtain(layer, **kwargs)
 				elif dataType == TuPlot.DataTimeSeriesDepAv:
 					if layer.geometryType() == QgsWkbTypes.PointGeometry:
-						plot = self.plotTimeSeriesDepAv(layer)
+						plot = self.plotTimeSeriesDepAv(layer, **kwargs)
 				elif dataType == TuPlot.DataCrossSectionDepAv:
 					if layer.geometryType() == QgsWkbTypes.LineGeometry:
-						plot = self.plotCrossSectionDepAv(layer)
+						plot = self.plotCrossSectionDepAv(layer, **kwargs)
 				elif dataType == TuPlot.DataVerticalProfile:
 					if layer.geometryType() == QgsWkbTypes.PointGeometry:
-						plot = self.plotVerticalProfile(layer)
+						plot = self.plotVerticalProfile(layer, **kwargs)
 		
 		self.tuPlot.plotSelectionPoint = True
 		

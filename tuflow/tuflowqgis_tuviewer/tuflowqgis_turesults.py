@@ -58,7 +58,10 @@ class TuResults():
 			self.dateFormat = '%d/%m/%Y %H:%M:%S'  # for time combobox not plotting
 			self._dateFormat = '{0:%d}/{0:%m}/{0:%Y} {0:%H}:{0:%M}:{0:%S}'  # for time combobox not plotting
 			if qv >= 31300:
-				self.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+				if self.iface is not None:
+					self.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+				else:
+					self.timeSpec = 1
 			else:
 				self.timeSpec = 1
 			self.defaultTimeSpec = 1
@@ -428,6 +431,7 @@ class TuResults():
 		:param time: str -> time key
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 		qv = Qgis.QGIS_VERSION_INT
 
@@ -503,7 +507,8 @@ class TuResults():
 		#self.tuView.tuPlot.tuPlotToolbar.setCheckedItemsPlotOptions(namesTS, 0)
 		#self.tuView.tuPlot.tuPlotToolbar.setCheckedItemsPlotOptions(namesLP, 1)
 		for dataType, plotData in currentPlotData.items():
-			self.tuView.tuPlot.tuPlotToolbar.setCheckedItemsPlotOptions(dataType, plotData)
+			if dataType != TuPlot.DataTimeSeriesDepAv and dataType != TuPlot.DataCrossSectionDepAv:
+				self.tuView.tuPlot.tuPlotToolbar.setCheckedItemsPlotOptions(dataType, plotData)
 
 		# apply active time
 		if qv >= 31600:
@@ -511,7 +516,8 @@ class TuResults():
 				self.activeTime = time
 			else:
 				if cboTime.count():
-					self.activeTime = [x for x in sorted(self.cboTime2timekey)][0]
+					# self.activeTime = [x for x in sorted(self.cboTime2timekey)][0]
+					self.activeTime = cboTime.itemText(0)
 					self.updateActiveTime()
 			# set closest time in combobox
 			time2, closestTimeIndex = self.dateToTimeInCombobox(self.activeTime)
@@ -580,9 +586,9 @@ class TuResults():
 	def updateResultTypes(self):
 		qv = Qgis.QGIS_VERSION_INT
 		if qv < 31600:
-			self.updateResultTypes_old()
+			return self.updateResultTypes_old()
 		else:
-			self.updateResultTypes_31600()
+			return self.updateResultTypes_31600()
 
 	def updateResultTypes_old(self):
 		"""
@@ -1710,7 +1716,11 @@ class TuResults():
 		:return: str
 		"""
 
-		rtype = resultType.split('/')[0]
+		if '/Maximums' in resultType:
+			rtype = ''.join(resultType.split('/Maximums'))
+		else:
+			# rtype = resultType.split('/')[0]
+			rtype = resultType
 		if 'max_' in rtype and 'time' not in rtype:
 			rtype = rtype.split('max_')[1]
 
@@ -1727,7 +1737,11 @@ class TuResults():
 		:return: str
 		"""
 
-		rtype = resultType.split('/')[0]
+		if '/Minimums' in resultType:
+			rtype = ''.join(resultType.split('/Minimums'))
+		else:
+			# rtype = resultType.split('/')[0]
+			rtype = resultType
 		if 'min_' in rtype and 'time' not in rtype:
 			rtype = rtype.split('min_')[1]
 
@@ -1907,7 +1921,10 @@ class TuResults():
 				self.date2timekey[date] = '{0:.6f}'.format(t)
 
 				if qv >= 31300:
-					date_tspec = datetime2timespec(date, self.iface.mapCanvas().temporalRange().begin().timeSpec(), 1)
+					if self.iface is not None:
+						date_tspec = datetime2timespec(date, self.iface.mapCanvas().temporalRange().begin().timeSpec(), 1)
+					else:
+						date_tspec = 1
 				else:
 					date_tspec = date
 				self.time2date_tspec[t] = date_tspec
@@ -2014,9 +2031,15 @@ class TuResults():
 				except:
 					time = float(self.activeTime)
 			if qgsObject is None:
-				qgsObject = self.iface.mapCanvas()
+				if self.iface is not None:
+					qgsObject = self.iface.mapCanvas()
+				else:
+					qgsObject = None
 			if timeSpec is None:
-				timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+				if self.iface is not None:
+					timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+				else:
+					timeSpec = 1
 			zt = self.tuView.tuOptions.zeroTime
 			#rt = dt2qdt(zt, self.iface.mapCanvas().temporalRange().begin().timeSpec())
 			rt = dt2qdt(zt, self.loadedTimeSpec)
@@ -2033,8 +2056,9 @@ class TuResults():
 
 			#self.iface.mapCanvas().setTemporalRange(dtr)
 			#self.iface.mapCanvas().refresh()
-			qgsObject.setTemporalRange(dtr)
-			qgsObject.refresh()
+			if qgsObject is not None:
+				qgsObject.setTemporalRange(dtr)
+				qgsObject.refresh()
 
 	def updateQgsTime_31600(self, time=None, qgsObject=None, timeSpec=None):
 		"""
@@ -2051,14 +2075,49 @@ class TuResults():
 			time = self.activeTime
 
 		if qgsObject is None:
-			qgsObject = self.iface.mapCanvas()
+			if self.iface is not None:
+				qgsObject = self.iface.mapCanvas()
 		if timeSpec is None:
-			timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+			if self.iface is not None:
+				timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+			else:
+				timeSpec = 1
 		begin = dt2qdt(time, 1)
 		end = begin.addSecs(60.*60.)
 		dtr = QgsDateTimeRange(begin, end)
-		qgsObject.setTemporalRange(dtr)
-		qgsObject.refresh()
+		if qgsObject is not None:
+			qgsObject.setTemporalRange(dtr)
+			qgsObject.refresh()
+
+	def initialiseTemporalController(self, qgsObject=None, timeSpec=None):
+		if qgsObject is None:
+			if self.iface is not None:
+				qgsObject = self.iface.mapCanvas()
+		if timeSpec is None:
+			if self.iface is not None:
+				timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+			else:
+				timeSpec = 1
+
+		# check if temporal controller has already been initialised
+		if self.iface is not None:
+			if timeSpec == 0 or not qgsObject.temporalRange().begin().isValid() or not qgsObject.temporalRange().end().isValid():
+				wasConnected = False
+				try:
+					self.iface.mapCanvas().temporalRangeChanged.disconnect(self.qgsTimeChanged)
+					wasConnected = True
+				except:
+					pass
+				begin = datetime.now()
+				end = begin + timedelta(seconds=1)
+				begin = dt2qdt(begin, 1)
+				end = dt2qdt(end, 1)
+				dtr = QgsDateTimeRange(begin, end)
+				qgsObject.setTemporalRange(dtr)
+				qgsObject.refresh()
+				if wasConnected:
+					if self.iface is not None:
+						self.iface.mapCanvas().temporalRangeChanged.connect(self.qgsTimeChanged)
 
 	def getTuViewTimeFromQgsTime(self):
 		qv = Qgis.QGIS_VERSION_INT
@@ -2075,7 +2134,10 @@ class TuResults():
 		qv = Qgis.QGIS_VERSION_INT
 
 		if qv >= 31300:
-			qdt = self.iface.mapCanvas().temporalRange().begin()  # QDateTime
+			if self.iface is not None:
+				qdt = self.iface.mapCanvas().temporalRange().begin()  # QDateTime
+			else:
+				qdt = QgsDateTimeRange()
 			if not qdt.isValid():
 				return float(self.activeTime)
 			else:
@@ -2106,7 +2168,10 @@ class TuResults():
 					return 0
 
 	def getTuViewTimeFromQgsTime_31600(self):
-		qdt = self.iface.mapCanvas().temporalRange().begin()  # QDateTime
+		if self.iface is not None:
+			qdt = self.iface.mapCanvas().temporalRange().begin()  # QDateTime
+		else:
+			qdt = QgsDateTimeRange()
 		if not qdt.isValid():
 			return self.activeTime
 		modelDates = sorted([x for x in self.date2time.keys()])
@@ -2194,7 +2259,10 @@ class TuResults():
 		#			layer.setReferenceTime(dt2qdt(self.tuResults2D.getReferenceTime(layer),
 		#		                                  self.iface.mapCanvas().temporalRange().begin().timeSpec()))
 		#			break
-		self.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+		if self.iface is not None:
+			self.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+		else:
+			self.timeSpec = 1
 		self.updateQgsTime()
 
 	@staticmethod

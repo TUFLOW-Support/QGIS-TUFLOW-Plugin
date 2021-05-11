@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\Ellis.Symons\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\tuflow\forms\ui_UserPlotDataImportDialog.ui'
+# Form implementation generated from reading ui file 'C:\Users\esymons\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\tuflow\forms\ui_UserPlotDataImportDialog.ui'
 #
 # Created by: PyQt5 UI code generator 5.11.3
 #
@@ -35,7 +35,7 @@ class Ui_UserPlotDataImportDialog(object):
         self.horizontalLayout_5.addWidget(self.inFile)
         self.verticalLayout_2.addLayout(self.horizontalLayout_5)
         self.grouBox = QtWidgets.QGroupBox(UserPlotDataImportDialog)
-        self.grouBox.setMinimumSize(QtCore.QSize(0, 50))
+        self.grouBox.setMinimumSize(QtCore.QSize(0, 0))
         self.grouBox.setObjectName("grouBox")
         self.horizontalLayout_6 = QtWidgets.QHBoxLayout(self.grouBox)
         self.horizontalLayout_6.setObjectName("horizontalLayout_6")

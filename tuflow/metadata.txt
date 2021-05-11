@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.1.5.5
+version=3.1.6
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,20 +20,50 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=### 3.1.5.5 ###
+changelog=--- 3.1.6 ---
+          ARR tool - Fix bug that would not calculate burst initial loss correctly with user specified loss and probability neutral loss
+          ARR tool - Probability neutral losses and complete storm check boxes are now mutually exclusive options in dialog
+          Load TUFLOW Layers from TCF - MIF layers will automatically open all geometry types without user prompt
+          Load TUFLOW Layers from TCF - Raster layers will be automatically be given the projection of first loaded vector layer if it doesn't have one
+          TUFLOW Viewer - Load FM time series results will now create cross-sections based on gxy file if not already georeferenced
+          TUFLOW Viewer - Load FM time series results corrected fixed field error in reading dat file that would cause incorrect unit names
+          TUFLOW Viewer - Fixed vertical profile plotting when adding to an animation
+          TUFLOW Viewer - Fixed a few bugs in batch map export tool, mainly fixes for latest QGIS API
+          TUFLOW Viewer - Fixed dat file loading
+          TUFLOW Viewer - Fixed TUFLOW FV xmdf loading
+          TUFLOW Viewer - Narrow view will now remember last docked location (if set as default layout)
+          TUFLOW Viewer - Fixed bug - first time results are loaded, the times are offset by user's time zone
+          TUFLOW Viewer - Batch export plots will now remove any mesh results when finished plotting from them that were loaded by the tool
+          TUFLOW Viewer - Plot right-click context menu will no longer appear if plot pan or zoom tools are in use
+          TUFLOW Viewer - Re-organised 'Settings >> Options' dialog box in a new tab layout
+          TUFLOW Viewer - Added legend font size option, axis font size option, axis label font size option
+          TUFLOW Viewer - Added option to set a default plot font size
+          TUFLOW Viewer - Fixed a bug that would cause python error when user selected 'Show as dates' when 'show current time' was on and secondary axis was also in use
+          TUFLOW Viewer - Fixed bug that would cause python error if user 'cleared plot' while in the middle of drawing a plot location
+          TUFLOW Viewer - Added user defined plot background colour (in settings >> options)
+          TUFLOW Viewer - Added more customisable legend options (position, orientation)
+          TUFLOW Viewer - Exporting drawn plot lines / points to shp is now exported to a 2d_po format
+          TUFLOW Viewer - Fixed axis mis-naming when plotting flow regime (was incorrectly using flow units)
+          TUFLOW Viewer - Fixed bug when trying to plot with dates after toggling on/off secondary axis
+          TUFLOW Viewer - Fixed bug in User Plot Data Manager that would cause issues if user changed dataset name
+          TUFLOW Viewer - Fixed bug that would only display User Plot Data on time series plot (regardless of selected 'plot type')
+          TUFLOW Viewer - Fixed bug that would cause python error when trying to view user plot data in manager if selection was on the 'plot type'
+          TUFLOW Viewer - Fixed bug when loading from TLF that would prevent load if there were periods in file name
+
+          --- 3.1.5.5 ---
           TUFLOW Viewer - Added plot value display when plot is clicked
 
-          ### 3.1.5.4 ###
+          --- 3.1.5.4 ---
           ARR tool - fixed ARF for catchments less than 10km2 that caused python error (introduced in 3.1.5)
 
-          ### 3.1.5.3 ###
+          --- 3.1.5.3 ---
           TUFLOW Viewer - Fixed bug that would cause python error when changing 'zero date'
           TUFLOW Viewer - Fixed bug that would cause python error if 1D 'losses' plot option was selected with a 2D plot object selected
           TUFLOW Viewer - Fixed bug that would make mesh disappear when switching between results if "show grid" was on
           Import Empty Tool - Fixed bug that would cause error if overwriting existing file
           Import Empty Tool - Fixed typo in error message "No Empty File T specified" should be "No Empty File specified"
 
-          ### 3.1.5 ###
+          --- 3.1.5 ---
           SCS Curve number calculation and export to TUFLOW tool added (beta)
           ReFH2 tool - ReFH2 engine 2.3 option added
           ReFH2 tool - Added climate change options
@@ -58,34 +88,34 @@ changelog=### 3.1.5.5 ###
           Reload layer tool -  no longer produces an error for non-vector layers - it still only works for vector layers
           Many small bug fixes
 
-          ### 3.1.4.1 ###
+          --- 3.1.4.1 ---
           Uninstalling plugin should now work unless the ReFH2 tool has been run
 
-          ### 3.1.4 ###
+          --- 3.1.4 ---
           Prj string for shp files are retained with increment and import empty tools
           Maximums in TUFLOWFV dat files now handled
           Fixed bug that would cause python error when saving project after updating colour ramp options for curtain plots
           Utility download links updated to reflect new website
           Fixed bug in ARR tool that would cause tool to crash when using probability neutral losses
 
-          ###  3.1.3 ###
+          ---  3.1.3 ---
           Fixed 'Close TUFLOW Viewer completely
           Fixed bug in curtain plots with quadtree results
           Further plugin unloading improvements
           Fixed a few bugs in batch export
           Fixed bug where saving a project would stop user from being able to change zero time (tuflow classic)
 
-          ###  3.1.2.3 ###
+          ---  3.1.2.3 ---
           Mulitple curtain plots (lines and result types) now supported - useful for animations
 
-          ###  3.1.2.2 ###
+          ---  3.1.2.2 ---
           Batch export plot now supports selecting results not yet loaded into QGIS
 
-          ###  3.1.2.1  ###
+          ---  3.1.2.1  ---
           Fixed bug when curtain plotting TUFLOW FV results
           Fixed datetime bug in animation tool
 
-          ###  3.1.2  ###
+          ---  3.1.2  ---
           XS viewer will now load null or blank entries
           Depth time series added
           Added reset all plot colours to settings menu
@@ -99,10 +129,10 @@ changelog=### 3.1.5.5 ###
           Fixed issue when loading in time series results with '[' in run name
           TUFLOW styling will check style folder first before applying any defaults
 
-          ###  3.1.1  ###
+          ---  3.1.1  ---
           Fixed backward compatibility
 
-          ###  3.1.0  ###
+          ---  3.1.0  ---
           Compatible with QGIS temporal controller
           Added new plotting types for 3D datasets
           Added Cross section viewing capabilities

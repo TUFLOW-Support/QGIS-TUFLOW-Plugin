@@ -78,6 +78,8 @@ class TuContextMenu():
 		self.plotMenu.addSeparator()
 		self.plotMenu.addAction(viewToolbar.hGridLines_action)
 		self.plotMenu.addAction(viewToolbar.vGridLines_action)
+		self.plotMenu.addAction(viewToolbar.axisFontSize_action)
+		self.plotMenu.addAction(viewToolbar.axisLabelFontSize_action)
 		self.plotMenu.addSeparator()
 		self.plotMenu.addAction(self.refreshCurrentPlotWindow_action)
 		self.plotMenu.addAction(self.clearPlotWindow_action)
@@ -118,10 +120,16 @@ class TuContextMenu():
 
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.tuPlot.plotEnumerator(plotNo)
-		
+
+		toolbar, viewToolbar, mplToolbar = self.plotNoToToolbar[plotNo]
+
+		if toolbar[4].isChecked():
+			return True
+		if toolbar[5].isChecked():
+			return True
+
 		self.plotMenu.popup(plotWidget.mapToGlobal(pos))
 
-		
 		return True
 	
 	def loadResultsMenu(self):

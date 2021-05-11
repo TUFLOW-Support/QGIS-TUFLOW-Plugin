@@ -77,6 +77,7 @@ class TuPlot2D():
 		featName = kwargs['featName'] if 'featName' in kwargs else None
 		markerNo = kwargs['markerNo'] if 'markerNo' in kwargs else 0
 		dataType = kwargs['data_type'] if 'data_type' in kwargs else TuPlot.DataTimeSeries2D
+		overwrite = kwargs['overwrite'] if 'overwrite' in kwargs else False
 		
 		# clear the plot based on kwargs
 		if bypass:
@@ -141,7 +142,7 @@ class TuPlot2D():
 				# get result data for open mesh results and selected scalar dataset
 				tuResultsIndex = TuResultsIndex(layer.name(), rtype, None, False, False, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
 				r = self.tuView.tuResults.getResult(tuResultsIndex)  # r = dict - { str time: [ float time, QgsMeshDatasetIndex ] }
-				if not r:
+				if not r or r == -1:
 					continue
 				gmd = None
 				for key, item in r.items():
@@ -199,12 +200,15 @@ class TuPlot2D():
 				# unique output file name
 				outFile = '{0}{1}'.format(os.path.join(exportOut, name), exportFormat)
 				iterator = 1
-				while os.path.exists(outFile):
-					outFile = '{0}_{2}{1}'.format(os.path.join(exportOut, name), exportFormat, iterator)
-					iterator += 1
+				if not overwrite:
+					while os.path.exists(outFile):
+						outFile = '{0}_{2}{1}'.format(os.path.join(exportOut, name), exportFormat, iterator)
+						iterator += 1
 				self.tuPlot.drawPlot(TuPlot.TimeSeries, data, labels, types, dataTypes, export=outFile)
 			elif export == 'csv':  # export to csv, don't plot
-				self.tuPlot.exportCSV(TuPlot.TimeSeries, data, labels, types, exportOut, name)
+				if 'types' in kwargs:
+					del kwargs['types']
+				self.tuPlot.exportCSV(TuPlot.TimeSeries, data, labels, types, exportOut, name, **kwargs)
 			else:  # catch all other cases and just do normal, although should never be triggered
 				self.tuPlot.drawPlot(TuPlot.TimeSeries, data, labels, types, dataTypes, draw=draw, time=time, show_current_time=showCurrentTime)
 			
@@ -252,6 +256,7 @@ class TuPlot2D():
 		featName = kwargs['featName'] if 'featName' in kwargs else None
 		lineNo = kwargs['lineNo'] if 'lineNo' in kwargs else 0
 		dataType = kwargs['data_type'] if 'data_type' in kwargs else TuPlot.DataCrossSection2D
+		overwrite = kwargs['overwrite'] if 'overwrite' in kwargs else False
 
 		# clear the plot based on kwargs
 		if bypass:
@@ -323,6 +328,8 @@ class TuPlot2D():
 				if not self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower'):
 					continue
 				elif type(self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower')) is dict:
+					continue
+				elif self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower') == -1:
 					continue
 				types.append(rtype)
 				meshDatasetIndex = self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower')[-1]
@@ -415,12 +422,15 @@ class TuPlot2D():
 				# unique output file name
 				outFile = '{0}{1}'.format(os.path.join(exportOut, name), exportFormat)
 				iterator = 1
-				while os.path.exists(outFile):
-					outFile = '{0}_{2}{1}'.format(os.path.join(exportOut, name), exportFormat, iterator)
-					iterator += 1
+				if not overwrite:
+					while os.path.exists(outFile):
+						outFile = '{0}_{2}{1}'.format(os.path.join(exportOut, name), exportFormat, iterator)
+						iterator += 1
 				self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes, export=outFile)
 			elif export == 'csv':  # export to csv, don't plot
-				self.tuPlot.exportCSV(TuPlot.CrossSection, data, labels, types, exportOut, name)
+				if 'types' in kwargs:
+					del kwargs['types']
+				self.tuPlot.exportCSV(TuPlot.CrossSection, data, labels, types, exportOut, name, **kwargs)
 			else:  # catch all other cases and just do normal, although should never be triggered
 				self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes, draw=draw)
 		
@@ -1253,7 +1263,13 @@ class TuPlot2D():
 				mdb = avgmethod.calculate(dataset3d)  # mesh data block
 			else:
 				mdb = self.calculateAverage(dataType, avgmethod, dataset3d)
-			if not mdb.isValid(): return
+			if not mdb.isValid():
+				if restype == 'scalar':
+					return dp.datasetValue(res, f).scalar()
+				elif restype == 'x':
+					return dp.datasetValue(res, f).x()
+				elif restype == 'y':
+					return dp.datasetValue(res, f).y()
 			if len(mdb.values()) > 1:
 				if restype == 'scalar':
 					return (mdb.values()[0] ** 2 + mdb.values()[1] ** 2) ** 0.5
@@ -1291,7 +1307,7 @@ class TuPlot2D():
 					return [np.nan]
 				if len(self.faceIndexes) != 1:
 					return [np.nan]
-			return self.preRenderDatasetValue(mesh, layer, si, mdi, self.faceIndexes[0], QgsPointXY(point), dataType, value)
+			return self.preRenderDatasetValue(mesh, layer, si, mdi, self.faceIndexes[0], QgsPointXY(point), dataType, value, avgmethod)
 
 	def preRenderDatasetValue(self, mesh, layer, si, result, faceIndex, point, dataType, value='scalar', avgmethod=None):
 		"""

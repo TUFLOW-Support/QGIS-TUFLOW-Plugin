@@ -138,6 +138,7 @@ class TuPlot3D(TuPlot2D):
         else:
             if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
                 resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(dataType)
+
             if not resultMesh:  # specified result meshes can be passed through kwargs (used for batch export not normal plotting)
                 resultMesh = activeMeshLayers
             self.tuPlot.clearPlot2(TuPlot.VerticalProfile, dataType,
@@ -168,21 +169,21 @@ class TuPlot3D(TuPlot2D):
             if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
                 resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(dataType)
 
-                # deal with active scalar plotting
-                if plotActiveScalar:
-                    if plotActiveScalar == 'active scalar':
-                        if self.tuView.tuResults.tuResults2D.activeScalar not in resultTypes:
-                            resultTypes += [self.tuView.tuResults.tuResults2D.activeScalar]
-                    else:  # do both active scalar and [depth for water level] - tumap specific
-                        if plotActiveScalar not in resultTypes:
-                            resultTypes.append(plotActiveScalar)
-                        if plotActiveScalar == 'Depth' or plotActiveScalar == 'D':
-                            if 'Water Level' in self.tuResults.results[layer.name()]:
-                                if 'Water Level' not in resultTypes:
-                                    resultTypes.append('Water Level')
-                            elif 'H' in self.tuResults.results[layer.name()]:
-                                if 'H' not in resultTypes:
-                                    resultTypes.append('H')
+            # deal with active scalar plotting
+            if plotActiveScalar:
+                if plotActiveScalar == 'active scalar':
+                    if self.tuView.tuResults.tuResults2D.activeScalar not in resultTypes:
+                        resultTypes += [self.tuView.tuResults.tuResults2D.activeScalar]
+                else:  # do both active scalar and [depth for water level] - tumap specific
+                    if plotActiveScalar not in resultTypes:
+                        resultTypes.append(plotActiveScalar)
+                    if plotActiveScalar == 'Depth' or plotActiveScalar == 'D':
+                        if 'Water Level' in self.tuResults.results[layer.name()]:
+                            if 'Water Level' not in resultTypes:
+                                resultTypes.append('Water Level')
+                        elif 'H' in self.tuResults.results[layer.name()]:
+                            if 'H' not in resultTypes:
+                                resultTypes.append('H')
 
             key = lambda x: 1 if 'vector' in x.lower() else 0
             resultTypes = sorted(resultTypes, key=key)
@@ -190,11 +191,11 @@ class TuPlot3D(TuPlot2D):
                 # time
                 if not timestep:
                     timestep = self.tuView.tuResults.activeTime
-                if timestep == 'Maximum' or timestep == -99999 or timestep == '-99999.000000':
+                if timestep == 'Maximum' or timestep == 99999 or timestep == '99999.000000':
                     isMax = True
                 else:
                     isMax = self.tuView.tuResults.isMax(rtype)
-                if timestep == 'Minimum' or timestep == 99999 or timestep == '99999.000000':
+                if timestep == 'Minimum' or timestep == -99999 or timestep == '-99999.000000':
                     isMin = True
                 else:
                     isMin = self.tuView.tuResults.isMin(rtype)
@@ -205,6 +206,8 @@ class TuPlot3D(TuPlot2D):
                 if not meshDatasetIndex:
                     continue
                 elif type(meshDatasetIndex) is dict:
+                    continue
+                elif meshDatasetIndex == -1:
                     continue
                 meshDatasetIndex = meshDatasetIndex[-1]
                 gmd = dp.datasetGroupMetadata(meshDatasetIndex.group())
@@ -335,11 +338,11 @@ class TuPlot3D(TuPlot2D):
                 # time
                 if not timestep:
                     timestep = self.tuView.tuResults.activeTime
-                if timestep == 'Maximum' or timestep == -99999 or timestep == '-99999.000000':
+                if timestep == 'Maximum' or timestep == 99999 or timestep == '99999.000000':
                     isMax = True
                 else:
                     isMax = self.tuView.tuResults.isMax(rtype)
-                if timestep == 'Minimum' or timestep == 99999 or timestep == '99999.000000':
+                if timestep == 'Minimum' or timestep == -99999 or timestep == '-99999.000000':
                     isMin = True
                 else:
                     isMin = self.tuView.tuResults.isMin(rtype)
@@ -350,6 +353,8 @@ class TuPlot3D(TuPlot2D):
                 if not meshDatasetIndex:
                     continue
                 elif type(meshDatasetIndex) is dict:
+                    continue
+                elif meshDatasetIndex == -1:
                     continue
                 meshDatasetIndex = meshDatasetIndex[-1]
                 gmd = dp.datasetGroupMetadata(meshDatasetIndex.group())
@@ -395,6 +400,8 @@ class TuPlot3D(TuPlot2D):
                 else:
                     collection = self.getScalarDataCurtain(layer, dp, si, mesh, meshDatasetIndex, self.points,
                                                            self.chainages, update, rtype, onFaces, isMax, isMin)
+                    if collection is None:
+                        continue
                     data.append(collection)
                     plotAsCollection.append(True)
                     plotAsQuiver.append(False)
@@ -514,6 +521,12 @@ class TuPlot3D(TuPlot2D):
                     else:
                         d.append(v[j])
             xi += 1
+
+        if len(x) != len(y):
+            return None
+
+        if not x or not y:
+            return None
 
         xy = np.dstack((np.array(x), np.array(y)))
         values = np.array(d)

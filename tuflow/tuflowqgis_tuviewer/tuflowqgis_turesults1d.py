@@ -11,6 +11,7 @@ from tuflow.tuflowqgis_library import (getPathFromRel, tuflowqgis_apply_check_tf
                                        datetime2timespec, roundSeconds)
 import re
 from tuflow.TUFLOW_FM_data_provider import TuFloodModellerDataProvider
+from math import atan2, sin, cos, pi
 
 
 class TuResults1D():
@@ -184,27 +185,68 @@ class TuResults1D():
 						feats = []
 						skipped_xs = []
 						for xs in self.tuView.crossSectionsFM.fm_xs:
-							if xs.FM_nxypnts == 0:
+							if xs.FM_nxypnts > 0:
+								# skipped_xs.append(xs.source)
+								# continue
+								feat = QgsFeature()
+								feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(xs.FM_xloc[i], xs.FM_yloc[i]) for i in range(xs.FM_nxypnts)]))
+								feat.setFields(fmXSLayer.fields())
+								feat['Source'] = xs.source
+								feat['Type'] = xs.type
+								feat['Flags'] = ""
+								feat['Column_1'] = ""
+								feat['Column_2'] = ""
+								feat['Column_3'] = ""
+								feat['Column_4'] = ""
+								feat['Column_5'] = ""
+								feat['Column_6'] = ""
+								feat['Z_Incremen'] = 0.
+								feat['Z_Maximum'] = 0.
+								feat['Provider'] = "FM"
+								feat['Comments'] = '{0} points filtered for having coords (x,y) = (0,0)'.format(xs.FM_nFiltered_points) if xs.FM_nFiltered_points > 0 else ''
+								xs.feature = feat
+								feats.append(feat)
+							elif xs.source.lower() in [x.id.lower() for x in res.nodes.nodes]:
+								inode = [x.id.lower() for x in res.nodes.nodes].index(xs.source.lower())
+								node = res.nodes.nodes[inode]
+								feat = QgsFeature()
+								link_upn = [x.us_node for x in res.links]
+								link_dnn = [x.ds_node for x in res.links]
+								if node in link_dnn:
+									x = res.links[link_dnn.index(node)].x
+									y = res.links[link_dnn.index(node)].y
+								elif node in link_upn:
+									x = res.links[link_dnn.index(node)].x
+									y = res.links[link_dnn.index(node)].y
+								else:
+									x = [node.x - 1, node.x]
+									y = [node.y, node.y]
+								# line perpendicular link running through node
+								length = 20.
+								ang = atan2((y[1] - y[0]), (x[1] - x[0]))
+								rx = [node.x + cos(ang + pi / 2.) * length / 2., node.x, node.x + cos(ang - pi / 2.) * length / 2.]
+								ry = [node.y + sin(ang + pi / 2.) * length / 2., node.y, node.y + sin(ang - pi / 2.) * length / 2.]
+								feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(rx[i], ry[i]) for i in range(3)]))
+								feat.setFields(fmXSLayer.fields())
+								feat['Source'] = xs.source
+								feat['Type'] = xs.type
+								feat['Flags'] = ""
+								feat['Column_1'] = ""
+								feat['Column_2'] = ""
+								feat['Column_3'] = ""
+								feat['Column_4'] = ""
+								feat['Column_5'] = ""
+								feat['Column_6'] = ""
+								feat['Z_Incremen'] = 0.
+								feat['Z_Maximum'] = 0.
+								feat['Provider'] = "FM"
+								feat['Comments'] = '{0} points filtered for having coords (x,y) = (0,0)'.format(
+									xs.FM_nFiltered_points) if xs.FM_nFiltered_points > 0 else ''
+								xs.feature = feat
+								feats.append(feat)
+							else:
 								skipped_xs.append(xs.source)
-								continue
-							feat = QgsFeature()
-							feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(xs.FM_xloc[i], xs.FM_yloc[i]) for i in range(xs.FM_nxypnts)]))
-							feat.setFields(fmXSLayer.fields())
-							feat['Source'] = xs.source
-							feat['Type'] = xs.type
-							feat['Flags'] = ""
-							feat['Column_1'] = ""
-							feat['Column_2'] = ""
-							feat['Column_3'] = ""
-							feat['Column_4'] = ""
-							feat['Column_5'] = ""
-							feat['Column_6'] = ""
-							feat['Z_Incremen'] = 0.
-							feat['Z_Maximum'] = 0.
-							feat['Provider'] = "FM"
-							feat['Comments'] = '{0} points filtered for having coords (x,y) = (0,0)'.format(xs.FM_nFiltered_points) if xs.FM_nFiltered_points > 0 else ''
-							xs.feature = feat
-							feats.append(feat)
+
 						fmXSLayer.dataProvider().truncate()
 						fmXSLayer.dataProvider().addFeatures(feats)
 						fmXSLayer.updateExtents()
@@ -427,8 +469,12 @@ class TuResults1D():
 			self.tuView.tuOptions.zeroTime = datetime2timespec(self.getReferenceTime(result, defaultZeroTime=zeroTime),
 			                                                   1, self.tuView.tuResults.timeSpec)
 			if qv >= 31300:
-				self.tuView.tuOptions.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
-				self.tuView.tuResults.loadedTimeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+				if self.iface is not None:
+					self.tuView.tuOptions.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+					self.tuView.tuResults.loadedTimeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+				else:
+					self.tuView.tuOptions.timeSpec = 1
+					self.tuView.tuResults.loadedTimeSpec = 1
 		self.configTemporalProperties(result)
 
 		timesteps = result.timeSteps()

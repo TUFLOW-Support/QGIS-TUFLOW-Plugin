@@ -264,7 +264,7 @@ class TuRubberBand():
 		rubberBand = self.rubberBands[-1]
 
 		# if key is escape draw line up to last locked in point and disconnect
-		if key.key() == Qt.Key_Escape:  # Escape key
+		if key is None or key.key() == Qt.Key_Escape:  # Escape key
 			self.canvas.scene().removeItem(rubberBand)  # Remove previous temp layer
 			self.mouseTrackDisconnect()
 
@@ -374,7 +374,10 @@ class TuMarker():
 		self.canvas = tuPlot.canvas
 		self.point = None  # single point for time series
 		self.points = []  # list of x, y coords of line
-		self.marker = QgsVertexMarker(self.canvas)
+		if self.canvas is not None:
+			self.marker = QgsVertexMarker(self.canvas)
+		else:
+			self.marker = None
 		self.markers = []  # list -> QgsMarkers
 		self.cursorTrackingConnected = False
 		self.prevMapTool = None
@@ -651,7 +654,7 @@ class TuMarker():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		if key['key'] == Qt.Key_Escape:
+		if key is None or key['key'] == Qt.Key_Escape:
 			# clear last plot location so that cursor tracking plot is not kept
 			if self.tuView.tuOptions.liveMapTracking and self.allowLiveTracking:
 				# self.tuPlot.clearPlotLastDatasetOnly(self.plotNo)

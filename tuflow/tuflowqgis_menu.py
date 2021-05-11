@@ -462,6 +462,7 @@ class tuflowqgis_menu:
 #			self.dockOpened = True
 	
 	def openResultsPlottingWindow(self, showmessage=True):
+		qv = Qgis.QGIS_VERSION_INT
 		if self.resultsPlottingDockOpened:
 			if not self.resultsPlottingDock.isVisible():
 				self.resultsPlottingDock.show()
@@ -479,10 +480,35 @@ class tuflowqgis_menu:
 			except:
 				self.resultsPlottingDock = TuView(self.iface)
 			dockArea = Qt.BottomDockWidgetArea
+			isTabified = False
+			tabifiedWith = []
 			if QSettings().contains("TUFLOW/tuview_defaultlayout"):
 				if QSettings().value("TUFLOW/tuview_defaultlayout", "plot") == "narrow":
 					dockArea = Qt.RightDockWidgetArea
-			self.iface.addDockWidget(dockArea, self.resultsPlottingDock)
+					if QSettings().contains("TUFLOW/tuview_docklocation"):
+						dockArea = QSettings().value("TUFLOW/tuview_docklocation", Qt.RightDockWidgetArea)
+						if type(dockArea) is str:
+							try:
+								dockArea = int(dockArea)
+							except ValueError:
+								dockArea = Qt.RightDockWidgetArea
+					isTabified = QSettings().value("TUFLOW/tuview_isdocktabified", False)
+					if type(isTabified) is str:
+						try:
+							isTabified = bool(isTabified)
+						except ValueError:
+							isTabified = False
+					if isTabified:
+						tabifiedWith = QSettings().value("TUFLOW/tuview_tabifiedwith", [])
+						if type(isTabified) is str:
+							tabifiedWith = tabifiedWith.split(",")
+						if not tabifiedWith:
+							isTabified = False
+
+			if isTabified and qv >= 31400:
+				self.iface.addTabifiedDockWidget(dockArea, self.resultsPlottingDock, tabifiedWith, True)
+			else:
+				self.iface.addDockWidget(dockArea, self.resultsPlottingDock)
 			self.resultsPlottingDockOpened = True
 			
 	def removeTuview(self, **kwargs):

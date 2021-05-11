@@ -1485,11 +1485,12 @@ class Arr:
 
             # apply user IL
             if self.Losses.ils_user is not None:
-                if float(self.Losses.ils) < 0:
-                    ilb_complete = ilb_complete * (self.Losses.ils_user / self.Losses.ils)
+                # if float(self.Losses.ils) < 0:
+                if float(self.Losses.ils) > 0:
+                    ilb_complete = ilb_complete * (float(self.Losses.ils_user) / float(self.Losses.ils))
                 else:
                     self.logger.warning(
-                        "WARNING: Cannot calculate initial losses from user input because Storm Initial is zero")
+                        "WARNING: Cannot calculate initial losses from user input because Storm Initial loss is zero")
 
         else:  # original method of using preburst and storm loss
             # write out burst initial loss

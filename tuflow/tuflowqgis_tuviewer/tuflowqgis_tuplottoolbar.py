@@ -58,8 +58,6 @@ class TuPlotToolbar():
 			                         self.viewToolbarVerticalProfile,
 			                         self.mpltoolbarVerticalProfile]
 		}
-
-
 		
 	def initialiseMplToolbars(self):
 		"""
@@ -293,7 +291,7 @@ class TuPlotToolbar():
 
 		return True
 	
-	def mapOutputPlottingButtonClicked(self, dataType):
+	def mapOutputPlottingButtonClicked(self, dataType, **kwargs):
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
@@ -312,7 +310,7 @@ class TuPlotToolbar():
 			if self.getCheckedItemsFromPlotOptions(dataType):
 				self.tuView.tabWidget.setCurrentIndex(self.tuPlot.plotDataToPlotType[dataType])
 				if self.tuView.cboSelectType.currentText() == 'Layer Selection':
-					self.tuPlot.tuPlotSelection.useSelection(dataType)
+					self.tuPlot.tuPlotSelection.useSelection(dataType, **kwargs)
 				else:
 					graphic.startRubberBand()
 			else:
@@ -354,17 +352,36 @@ class TuPlotToolbar():
 			else:
 				menu.addAction(action)
 	
-	def getItemsFromPlotOptions(self, plotNo):
+	def getItemsFromPlotOptions(self, plotNo, method='plot'):
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
-		if plotNo == TuPlot.TimeSeries:
-			menu = self.plotTSMenu
-		elif plotNo == TuPlot.CrossSection:
-			menu = self.plotLPMenu
-		else:
-			return []
-		
+		if method == 'plot':
+			if plotNo == TuPlot.TimeSeries:
+				menu = self.plotTSMenu
+			elif plotNo == TuPlot.CrossSection:
+				menu = self.plotLPMenu
+			else:
+				return []
+		elif method == 'data type':
+			if plotNo == TuPlot.DataTimeSeries2D:
+				menu = self.plotTSMenu
+			elif plotNo == TuPlot.DataCrossSection2D:
+				menu = self.plotLPMenu
+			elif plotNo == TuPlot.DataCurtainPlot:
+				menu = self.curtainPlotMenu
+			elif plotNo == TuPlot.DataTimeSeriesDepAv:
+				menu = self.averageMethodTSMenu
+			elif plotNo == TuPlot.DataCrossSectionDepAv:
+				menu = self.averageMethodCSMenu
+			elif plotNo == TuPlot.DataVerticalProfile:
+				menu = self.plotVPMenu
+			else:
+				return []
+
+		if method == 'data type' and (plotNo == TuPlot.DataTimeSeriesDepAv or plotNo == TuPlot.DataCrossSectionDepAv):
+			return [x for x in menu.resultTypes()]
+
 		return [x.text() for x in menu.actions()]
 
 	def getCheckedItemsFromPlotOptions(self, dataType, *args, **kwargs):
@@ -432,6 +449,47 @@ class TuPlotToolbar():
 
 			parentMenu.addAction(menu.menuAction())
 			self.averageMethodActions.append(menu)
+
+	def generateDepthAveragingAction(self, avType, parentMenu, bAdd=False):
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+		if not [x for x in parentMenu.menu().actions() if avType.lower() in x.text().lower()]:
+			return None
+		menu = [x for x in parentMenu.menu().actions() if avType.lower() in x.text().lower()][0]
+		if 'single vertical level' in avType.lower():
+			action = SingleSpinBoxAction(menu, bAdd, "Vertical Layer Index", range=(1, 99999))
+		elif 'multi vertical level' in avType.lower():
+			action = SingleSpinBoxAction(menu, bAdd, "Start Vertical Layer Index", "End Vertical Layer Index",
+			                             range=(1, 99999))
+		elif 'sigma' in avType.lower():
+			action = DoubleSpinBoxAction(menu, bAdd, "Start Fraction", "End Fraction",
+			                             range=(0, 99999), decimals=2, single_step=0.1,
+			                             value=(0, 1))
+		elif 'relative to' in avType.lower():
+			action = DoubleSpinBoxAction(menu, bAdd, "Start Depth", "End Depth",
+			                             range=(0, 99999), decimals=2, single_step=1.0,
+			                             value=(0, 10))
+		elif 'absolute to' in avType.lower():
+			action = DoubleSpinBoxAction(menu, bAdd, "Start Elevation", "End Elevation",
+			                             range=(-99999, 99999), decimals=2, single_step=1.0,
+			                             value=(0, -10))
+
+		items = []
+		while parentMenu.parentWidget() is not None:
+			parentMenu = parentMenu.parentWidget()
+		if isinstance(parentMenu, QMenu):
+			if 'time series' in parentMenu.menuAction().text().lower():
+				items = self.getItemsFromPlotOptions(TuPlot.DataTimeSeries2D, 'data type')
+			else:
+				items = self.getItemsFromPlotOptions(TuPlot.DataCrossSection2D, 'data type')
+		elif isinstance(parentMenu, QAction):
+			if 'time series' in parentMenu.text().lower():
+				items = self.getItemsFromPlotOptions(TuPlot.DataTimeSeries2D, 'data type')
+			else:
+				items = self.getItemsFromPlotOptions(TuPlot.DataCrossSection2D, 'data type')
+
+		action.cboSetItems(items)
+		return action
 
 	def singleVerticalLevelMethod(self, menu: QMenu, bAdd: bool) -> None:
 		if bAdd:

@@ -208,7 +208,8 @@ class TuResultsParticles():
 		self.debug = self.tuView.tuOptions.particlesWriteDebugInfo  # ES
 
 		if self.tuView.OpenResults.count() == 0:
-			defaultRefTime = self.tuView.tuOptions.defaultZeroTime
+			# defaultRefTime = self.tuView.tuOptions.defaultZeroTime
+			defaultRefTime = self.tuView.tuOptions.zeroTime
 		else:
 			defaultRefTime = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
 
@@ -250,8 +251,12 @@ class TuResultsParticles():
 			zeroTime = particles_data_provider.getReferenceTime()  # this is timespec(1)
 			if self.tuView.OpenResults.count() == 0:
 				self.tuView.tuOptions.zeroTime = datetime2timespec(zeroTime, 1, self.tuView.tuResults.timeSpec)
-				self.tuView.tuOptions.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
-				self.tuView.tuResults.loadedTimeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+				if self.iface is not None:
+					self.tuView.tuOptions.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+					self.tuView.tuResults.loadedTimeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+				else:
+					self.tuView.tuOptions.timeSpec = 1
+					self.tuView.tuResults.loadedTimeSpec = 1
 
 			timesteps = particles_data_provider.timeSteps(datetime2timespec(self.tuView.tuOptions.zeroTime, 1, 1))
 			for t in timesteps:
@@ -312,7 +317,8 @@ class TuResultsParticles():
 					if res not in results:
 						self.tuView.OpenResults.takeItem(i)
 
-		self.tuView.canvas.refresh()
+		if self.tuView.canvas is not None:
+			self.tuView.canvas.refresh()
 		self.tuView.tuResults.updateResultTypes()
 		self.tuView.project.layersWillBeRemoved.connect(self.tuView.layersRemoved)
 

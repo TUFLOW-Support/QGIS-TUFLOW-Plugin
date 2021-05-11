@@ -28,7 +28,7 @@ from PyQt5.QtGui import *
 from qgis.core import *
 import glob
 import logging
-import processing
+# import processing
 from .tuflowqgis_library import *
 from PyQt5.QtWidgets import *
 from qgis.gui import QgsProjectionSelectionWidget
@@ -1523,6 +1523,8 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		self.cboPreburstTPMethod.currentIndexChanged.connect(self.preburstTPMethodChanged)
 		self.cboPreburstDurUnits.currentIndexChanged.connect(self.preburstUnitsChanged)
 		self.cboDurTP.currentIndexChanged.connect(self.cboDurTPChanged)
+		self.cbPNIL.clicked.connect(self.probabilityNeutralLosses)
+		self.cbCompleteStorm.clicked.connect(self.toggleCompleteStorm)
 
 		self.sizeDialog()
 
@@ -1537,6 +1539,14 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		w = max(w, self.width())
 		h = self.height()
 		self.resize(w, h)
+
+	def probabilityNeutralLosses(self):
+		if self.cbPNIL.isChecked():
+			self.cbCompleteStorm.setChecked(False)
+
+	def toggleCompleteStorm(self):
+		if self.cbCompleteStorm.isChecked():
+			self.cbPNIL.setChecked(False)
 
 	def cboDurTPChanged(self, e=None):
 		"""
@@ -1932,6 +1942,7 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		self.saveDefaults()
 	
 	def run(self):
+		import processing
 		
 		# get layer
 		layerName = self.comboBox_inputCatchment.currentText()
@@ -2098,7 +2109,8 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		preburst_pattern = 'none'
 		preburst_pattern_dur = 'none'
 		preburst_pattern_tp = 'none'
-		if self.cbCompleteStorm.isChecked():
+		# if self.cbCompleteStorm.isChecked():
+		if complete_storm:
 			if self.cboPreburstTPMethod.currentIndex() == 0:
 				preburst_pattern = 'constant'
 				if self.cboPreburstDurUnits.currentIndex() == 0:
@@ -2967,6 +2979,19 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		else:
 			self.rbDeafultLayoutNarrowView.setChecked(True)
 
+		self.colourButtonPlotBackground.setAllowOpacity(True)
+		if self.tuOptions.plotBackgroundColour == '#e5e5e5':
+			self.cbPlotBackgroudGrey.setChecked(True)
+		elif self.tuOptions.plotBackgroundColour == '#ffffff':
+			self.cbPlotBackgroudWhite.setChecked(True)
+		else:
+			self.cbPlotBackgroudCustom.setChecked(True)
+			color = QColor(mplcolor_to_qcolor(self.tuOptions.plotBackgroundColour))
+			self.colourButtonPlotBackground.setColor(color)
+
+		# default font size
+		self.sbDefaultFontSize.setValue(self.tuOptions.defaultFontSize)
+
 		# debug - check files
 		if self.tuOptions.writeMeshIntersects:
 			self.cbMeshIntCheck.setChecked(True)
@@ -2979,11 +3004,17 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		self.leDateFormat.textChanged.connect(self.updatePreview)
 		self.rbDefaultLayoutPlotView.clicked.connect(lambda: self.saveDefaultLayout("plot"))
 		self.rbDeafultLayoutNarrowView.clicked.connect(lambda: self.saveDefaultLayout("narrow"))
+		self.sbDefaultFontSize.valueChanged.connect(self.saveDefaultFontSize)
 		self.buttonBox.rejected.connect(self.cancel)
 		self.buttonBox.accepted.connect(self.run)
+		self.colourButtonPlotBackground.colorChanged.connect(lambda e: self.cbPlotBackgroudCustom.setChecked(True))
 		
 	def saveDefaultLayout(self, layoutType):
 		QSettings().setValue("TUFLOW/tuview_defaultlayout", layoutType)
+
+	def saveDefaultFontSize(self, value):
+		size = self.sbDefaultFontSize.value()
+		QSettings().setValue("TUFLOW/tuview_defaultfontsize", size)
 
 	def updatePreview(self):
 		self.tuOptions.dateFormat, self.tuOptions._dateFormat = convertTuviewftimToStrftim(self.leDateFormat.text())
@@ -3082,6 +3113,15 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		else:
 			self.tuOptions.defaultLayout = "narrow"
 
+		if self.cbPlotBackgroudGrey.isChecked():
+			self.tuOptions.plotBackgroundColour = '#e5e5e5'
+		elif self.cbPlotBackgroudWhite.isChecked():
+			self.tuOptions.plotBackgroundColour = '#ffffff'
+		else:
+			color = self.colourButtonPlotBackground.color()
+			self.tuOptions.plotBackgroundColour = qcolor_to_mplcolor(color.name(QColor.HexArgb))
+		settings.setValue("TUFLOW/tuview_plotbackgroundcolour", self.tuOptions.plotBackgroundColour)
+
 		# debug - check files
 		if self.cbMeshIntCheck.isChecked():
 			self.tuOptions.writeMeshIntersects = True
@@ -3154,7 +3194,7 @@ from ui_BatchExportPlotDialog import *
 
 
 class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
-	def __init__(self, TuView):
+	def __init__(self, TuView, **kwargs):
 		QDialog.__init__(self)
 		self.setupUi(self)
 		self.tuView = TuView
@@ -3174,8 +3214,9 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 		self.populateTimeSteps()
 		self.populateImageFormats()
 		self.selectionEnabled()
-		
-		self.canvas.selectionChanged.connect(self.selectionEnabled)
+
+		if self.canvas is not None:
+			self.canvas.selectionChanged.connect(self.selectionEnabled)
 		self.project.layersAdded.connect(self.populateGISLayers)
 		self.cbGISLayer.currentIndexChanged.connect(self.populateTimeSteps)
 		self.cbGISLayer.currentIndexChanged.connect(self.populateNameAttributes)
@@ -3193,6 +3234,44 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 		                                              "XMDF (*.xmdf *.XMDF)", self.lwResultMesh))
 		self.buttonBox.accepted.connect(self.check)
 		self.buttonBox.rejected.connect(self.reject)
+
+		self.pythonPopulateGui(**kwargs)
+		self.kwargs = kwargs
+
+	def pythonPopulateGui(self, **kwargs):
+		if 'gis_layer' in kwargs:
+			self.cbGISLayer.setCurrentText(kwargs['gis_layer'])
+		if 'name_attribute_field' in kwargs:
+			self.cbNameAttribute.setCurrentText(kwargs['name_attribute_field'])
+		if 'result_meshes' in kwargs:
+			if type(kwargs['result_meshes']) is  List:
+				self.lwResultMesh.addItems(kwargs['result_meshes'])
+			else:
+				self.lwResultMesh.addItem(kwargs['result_meshes'])
+			for i in range(self.lwResultMesh.count()):
+				item = self.lwResultMesh.item(i)
+				item.setSelected(True)
+		if 'result_types' in kwargs:
+			if type(kwargs['result_types']) is list:
+				rts = ';;'.join(kwargs['result_types'])
+			else:
+				rts = kwargs['result_types']
+			self.mcbResultTypes.setCurrentText(rts)
+		if 'timestep' in kwargs:
+			self.cbTimesteps.setCurrentText(kwargs['timestep'])
+		if 'export' in kwargs:
+			if kwargs['export'] == 'selected':
+				self.rbSelectedFeatures.setChecked(True)
+			else:
+				self.rbAllFeatures.setChecked(True)
+		if 'format' in kwargs:
+			if kwargs['format'] == 'csv':
+				self.rbCSV.setChecked(True)
+			else:
+				self.rbImage.setChecked(True)
+				self.cbImageFormat.setCurrentText('.{0}'.format(kwargs['format']))
+		if 'output_folder' in kwargs:
+			self.outputFolder.setText(kwargs['output_folder'])
 		
 	def populateGISLayers(self):
 		for name, layer in QgsProject.instance().mapLayers().items():
@@ -3384,6 +3463,11 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 		imageFormat = self.cbImageFormat.currentText()
 		outputFolder = self.outputFolder.text()  # str
 
+		if 'timestep' in self.kwargs:
+			del self.kwargs['timestep']
+		if 'format' in self.kwargs:
+			del self.kwargs['format']
+
 		# setup logger
 		logger = logging.getLogger('BatchExport')
 		logger.setLevel(logging.INFO)
@@ -3415,7 +3499,9 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 			else:
 				r2 = r
 
-			successful = self.tuView.tuMenuBar.tuMenuFunctions.batchPlotExport(gisLayer, [r2], resultTypes, timestep, features, format, outputFolder, nameField, imageFormat)
+			successful = self.tuView.tuMenuBar.tuMenuFunctions.batchPlotExport(gisLayer, [r2], resultTypes, timestep,
+			                                                                   features, format, outputFolder,
+			                                                                   nameField, imageFormat, **self.kwargs)
 			if not successful:
 				logger.info('Error creating plots for result: {0}'.format(r))
 				errorsOccured = True
@@ -3423,13 +3509,22 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 			if neededLoading:
 				layer = tuflowqgis_find_layer(r2)
 				if layer is not None:
+					self.tuView.layersRemoved([layer.id()])
 					self.tuView.project.removeMapLayer(layer.id())
 		
 		if not errorsOccured:
-			QMessageBox.information(self, 'Batch Export', 'Successfully Exported Data')
+			msg = 'Successfully Exported Data'
+			if self.iface is not None:
+				QMessageBox.information(self, 'Batch Export', msg)
+			else:
+				print(msg)
 			logger.info('Successfully exported plots')
 		else:
-			QMessageBox.information(self, 'Batch Export', 'Export process finished. Errors occured:\n{0}'.format('{0}'.format(os.path.join(outputFolder, 'batch_export.log'))))
+			msg = 'Export process finished. Errors occured:\n{0}'.format('{0}'.format(os.path.join(outputFolder, 'batch_export.log')))
+			if self.iface is not None:
+				QMessageBox.information(self, 'Batch Export', msg)
+			else:
+				print(msg)
 
 		# close logger
 		logger.info('Finished')
@@ -3657,7 +3752,7 @@ class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
 		self.ok = False
 		self.message = ''
 		self._dateFormat = '{0:%d}/{0:%m}/{0:%Y} {0:%H}:{0:%M}:{0:%S}'
-		self.dteZeroTime.setDisplayFormat('d/M/yyyy h:mm AP')
+		# self.dteZeroTime.setDisplayFormat('d/M/yyyy h:mm AP')
 		
 		self.btnBrowse.clicked.connect(lambda: browse(self, 'existing file', 'TUFLOW/import_user_data',
 		                                              'Import Delimited File', lineEdit=self.inFile))
@@ -3965,7 +4060,8 @@ class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
 
 		self.data = list(zip(x, y))
 		if self.gbUseDates.isChecked():
-			self.referenceTime = dateTime
+			# self.referenceTime = dateTime
+			self.referenceTime = self.zeroDate
 		else:
 			self.referenceTime = None
 		
@@ -3983,7 +4079,7 @@ from ui_UserPlotDataManagerDialog import *
 
 class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 	
-	def __init__(self, iface, TuUserPlotDataManager):
+	def __init__(self, iface, TuUserPlotDataManager, **kwargs):
 		QDialog.__init__(self)
 		self.setupUi(self)
 		self.tuUserPlotDataManager = TuUserPlotDataManager
@@ -3997,10 +4093,20 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 		self.pbViewPlot.clicked.connect(self.showDataPlot)
 		self.pbRemoveData.clicked.connect(self.removeData)
 		self.pbOK.clicked.connect(self.accept)
+
+		if 'add_data' in kwargs:
+			self.addData(**kwargs)
+		if 'remove_data' in kwargs:
+			if type(kwargs['remove_data']) is list:
+				for item in kwargs['remove_data']:
+					self.removeData(kwargs['remove_data'])
+			else:
+				self.removeData(kwargs['remove_data'])
 		
 	def loadData(self):
 		# load data in correct order.. for dict means a little bit of manipulation
-		for userData in [k for k, v in sorted(self.tuUserPlotDataManager.datasets.items(), key=lambda x: x[-1].number)]:
+
+		for i, userData in enumerate([k for k, v in sorted(self.tuUserPlotDataManager.datasets.items(), key=lambda x: x[-1].number)]):
 			name = self.tuUserPlotDataManager.datasets[userData].name
 			plotType = self.tuUserPlotDataManager.datasets[userData].plotType
 			status = Qt.Checked if self.tuUserPlotDataManager.datasets[userData].status else Qt.Unchecked
@@ -4010,7 +4116,7 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 			item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 			item.setCheckState(status)
 			item2 = QTableWidgetItem(0)
-			if plotType == 'long plot':
+			if plotType == 'Cross Section / Long Plot':
 				item2.setText('Cross Section / Long Plot')
 			else:
 				item2.setText('Time Series Plot')
@@ -4021,9 +4127,12 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 			self.UserPlotDataTable.itemClicked.connect(lambda: self.editData(item=item))
 			self.UserPlotDataTable.itemChanged.connect(lambda item: self.editData(item=item))
 		
-	def addData(self):
+	def addData(self, **kwargs):
 		self.addDataDialog = TuUserPlotDataImportDialog(self.iface)
-		self.addDataDialog.exec_()
+		if 'add_data' in kwargs:
+			self.pythonPopulateGui(**kwargs)
+		else:
+			self.addDataDialog.exec_()
 		if self.addDataDialog.ok:
 			for i, name in enumerate(self.addDataDialog.names):
 				# add data to class
@@ -4031,7 +4140,8 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 				while name in self.tuUserPlotDataManager.datasets.keys():
 					name = '{0}_{1}'.format(name, counter)
 					counter += 1
-				self.tuUserPlotDataManager.addDataSet(name, self.addDataDialog.data[i], 'time series', self.addDataDialog.dates[i], self.addDataDialog.referenceTime)
+				# self.tuUserPlotDataManager.addDataSet(name, self.addDataDialog.data[i], 'time series', self.addDataDialog.dates[i], self.addDataDialog.referenceTime)
+				self.tuUserPlotDataManager.addDataSet(name, self.addDataDialog.data[i], 'time series plot', self.addDataDialog.dates[i], self.addDataDialog.referenceTime)
 				if not self.tuUserPlotDataManager.datasets[name].error:
 					# add data to dialog
 					self.UserPlotDataTable.setRowCount(self.UserPlotDataTable.rowCount() + 1)
@@ -4053,11 +4163,50 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 					self.loadedData[name] = [item2, item]
 					
 					#combobox.currentIndexChanged.connect(lambda: self.editData(combobox=combobox))
-					#self.UserPlotDataTable.itemClicked.connect(lambda item: self.editData(item=item))
-					#self.UserPlotDataTable.itemChanged.connect(lambda item: self.editData(item=item))
+					self.UserPlotDataTable.itemClicked.connect(lambda item: self.editData(item=item))
+					self.UserPlotDataTable.itemChanged.connect(lambda item: self.editData(item=item))
 				else:
 					QMessageBox.information(self.iface.mainWindow(), 'Import User Plot Data', self.tuUserPlotDataManager.datasets[name].error)
-					
+
+	def pythonPopulateGui(self, **kwargs):
+		if 'add_data' in kwargs:
+			self.addDataDialog.inFile.setText(str(kwargs['add_data']))
+			self.addDataDialog.populateDataColumns()
+		if 'delim' in kwargs:
+			if kwargs['delim'] == 'csv' or kwargs['delim'] == ',':
+				self.addDataDialog.rbCSV.setChecked(True)
+			elif kwargs['delim'] == 'space' or kwargs['delim'] == ' ':
+				self.addDataDialog.rbSpace.setChecked(True)
+			elif kwargs['delim'] == 'tab' or kwargs['delim'] == '\t':
+				self.addDataDialog.rbTab.setChecked(True)
+			else:
+				self.addDataDialog.rbOther.setChecked(True)
+				self.addDataDialog.delimiter.setText(str(kwargs['delim']))
+		if 'header_rows' in kwargs:
+			self.addDataDialog.sbLines2Discard.setValue(int(kwargs['header_rows']))
+		if 'user_header_rows_as_labels' in kwargs:
+			self.addDataDialog.cbHeadersAsLabels.setChecked(bool(kwargs['user_header_rows_as_labels']))
+		if 'header_row_index' in kwargs:
+			self.addDataDialog.sbLabelRow.setValue(int(kwargs['header_row_index']))
+		if 'x_column' in kwargs:
+			self.addDataDialog.cbXColumn.setCurrentText(str(kwargs['x_column']))
+		if 'y_columns' in kwargs:
+			if type(kwargs['y_columns']) is str:
+				kwargs['y_columns'] = [kwargs['y_columns']]
+			self.addDataDialog.mcbYColumn.setCheckedItems(kwargs['y_columns'])
+		if 'null_value' in kwargs:
+			self.addDataDialog.nullValue.setText(str(kwargs['null_value']))
+		if 'dates' in kwargs:
+			self.addDataDialog.gbUseDates.setChecked(kwargs['dates'])
+		if 'date_format' in kwargs:
+			self.addDataDialog.cbUSDateFormat.setChecked(True) if kwargs['date_format'].lower() == 'us' else self.addDataDialog.cbUSDateFormat.setChecked(False)
+		if 'reference_time' in kwargs:
+			if self.addDataDialog.gbUseDates.isChecked():
+				self.addDataDialog.dteZeroTime.setDateTime(kwargs['reference_time'])
+				self.addDataDialog.cbManualZeroTime.setChecked(True)
+
+		self.addDataDialog.run()
+
 	def editData(self, **kwargs):
 		combobox = kwargs['combobox'] if 'combobox' in kwargs.keys() else None
 		item = kwargs['item'] if 'item' in kwargs.keys() else None
@@ -4065,7 +4214,8 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 		if combobox is not None:
 			for name, widgets in self.loadedData.items():
 				if widgets[0] == combobox:
-					plotType = 'time series' if combobox.currentText() == 'Time Series Plot' else 'long plot'
+					# plotType = 'time series plot' if combobox.currentText() == 'Time Series Plot' else 'cross section / long plot'
+					plotType = combobox.currentText()
 					self.tuUserPlotDataManager.editDataSet(name, plotType=plotType)
 	
 		elif item is not None:
@@ -4077,6 +4227,8 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 	def showDataTable(self):
 		selectedItems = self.UserPlotDataTable.selectedItems()
 		for item in selectedItems:
+			row = self.UserPlotDataTable.row(item)
+			item = self.UserPlotDataTable.item(row, 0)
 			data = self.tuUserPlotDataManager.datasets[item.text()]
 			self.tableDialog = TuUserPlotDataTableView(self.iface, data)
 			self.tableDialog.exec_()
@@ -4085,18 +4237,23 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 	def showDataPlot(self):
 		selectedItems = self.UserPlotDataTable.selectedItems()
 		for item in selectedItems:
+			row = self.UserPlotDataTable.row(item)
+			item = self.UserPlotDataTable.item(row, 0)
 			data = self.tuUserPlotDataManager.datasets[item.text()]
 			self.tableDialog = TuUserPlotDataPlotView(self.iface, data)
 			self.tableDialog.exec_()
 			break  # just do first selection only
 			
-	def removeData(self):
-		selectedItems = self.UserPlotDataTable.selectedItems()
-		for item in selectedItems:
-			name = item.text()
-			self.tuUserPlotDataManager.removeDataSet(name)
-			#self.UserPlotDataTable.itemClicked.disconnect()
-			#self.UserPlotDataTable.itemChanged.disconnect()
+	def removeData(self, e=None, item_name=None):
+		if item_name is None:
+			selectedItems = self.UserPlotDataTable.selectedItems()
+			for item in selectedItems:
+				name = item.text()
+				self.tuUserPlotDataManager.removeDataSet(name)
+				#self.UserPlotDataTable.itemClicked.disconnect()
+				#self.UserPlotDataTable.itemChanged.disconnect()
+		else:
+			self.tuUserPlotDataManager.removeDataSet(item_name)
 		self.UserPlotDataTable.setRowCount(0)
 		self.loadData()
 		

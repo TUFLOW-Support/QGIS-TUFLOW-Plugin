@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\Ellis.Symons\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\tuflow\forms\ui_map_dialog.ui'
+# Form implementation generated from reading ui file 'C:\Users\esymons\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\tuflow\forms\ui_map_dialog.ui'
 #
 # Created by: PyQt5 UI code generator 5.11.3
 #
@@ -31,7 +31,7 @@ class Ui_MapDialog(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName("scrollArea")
         self.scrollAreaWidgetContents = QtWidgets.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, -1222, 591, 1635))
+        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 591, 1636))
         self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
         self.gridLayout_12 = QtWidgets.QGridLayout(self.scrollAreaWidgetContents)
         self.gridLayout_12.setObjectName("gridLayout_12")
@@ -509,7 +509,7 @@ class Ui_MapDialog(object):
         self.colorPageFrame.setObjectName("colorPageFrame")
         self.gridLayout.addWidget(self.colorPageFrame, 5, 4, 1, 1)
         self.groupBox = QtWidgets.QGroupBox(self.mGroupBox)
-        self.groupBox.setMinimumSize(QtCore.QSize(0, 100))
+        self.groupBox.setMinimumSize(QtCore.QSize(0, 0))
         self.groupBox.setObjectName("groupBox")
         self.gridLayout_13 = QtWidgets.QGridLayout(self.groupBox)
         self.gridLayout_13.setObjectName("gridLayout_13")

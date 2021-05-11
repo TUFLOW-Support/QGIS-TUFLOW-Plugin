@@ -46,9 +46,9 @@
           <property name="geometry">
            <rect>
             <x>0</x>
-            <y>-1222</y>
+            <y>0</y>
             <width>591</width>
-            <height>1635</height>
+            <height>1636</height>
            </rect>
           </property>
           <layout class="QGridLayout" name="gridLayout_12">
@@ -1447,7 +1447,7 @@
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>100</height>
+                    <height>0</height>
                    </size>
                   </property>
                   <property name="title">

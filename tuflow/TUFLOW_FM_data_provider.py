@@ -884,6 +884,8 @@ class FM_XS(XS):
                         section = fo.readline().strip()  # SECTION line
                         i += 1
                         label = fo.readline().split(' ')[0].strip()  # label line
+                        if len(label) > 12:
+                            label = label[:12]  # fixed field format
                         i += 1
                         chainage = fo.readline().strip()  # chainage line
                         i += 1

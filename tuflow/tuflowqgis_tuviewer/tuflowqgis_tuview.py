@@ -27,16 +27,24 @@ from tuflow.TUFLOW_FM_data_provider import FM_XS
 
 class TuView(QDockWidget, Ui_Tuplot):
 	
-	def __init__(self, iface, **kwargs):
+	def __init__(self, iface=None, **kwargs):
+
+		qv = Qgis.QGIS_VERSION_INT
 
 		# initialise the dock and ui
 		QDockWidget.__init__(self)
 		self.setupUi(self)
 		self.wdg = Ui_Tuplot.__init__(self)  # Initialise tuplot dock ui
 		self.iface = iface  # QgsInterface
-		self.canvas = self.iface.mapCanvas()  # QgsMapCanvas
+		if self.iface is not None:
+			self.canvas = self.iface.mapCanvas()  # QgsMapCanvas
+		else:
+			self.canvas = None
 		self.project = QgsProject().instance()  # QgsProject
-		self.currentLayer = self.iface.activeLayer()
+		if self.iface is not None:
+			self.currentLayer = self.iface.activeLayer()
+		else:
+			self.currentLayer = None
 		self.doubleClickEvent = False
 		playIcon = QIcon(os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons", "play_button.png"))
 		self.btnTimePlay.setIcon(playIcon)
@@ -59,8 +67,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.tuPlot = tuflowqgis_tuplot.TuPlot(self)
 		
 		# main menu bar
-		removeTuview = kwargs['removeTuview'] if 'removeTuview' else None
-		reloadTuview = kwargs['reloadTuview'] if 'reloadTuview' else None
+		removeTuview = kwargs['removeTuview'] if 'removeTuview' in kwargs else None
+		reloadTuview = kwargs['reloadTuview'] if 'reloadTuview' in kwargs else None
 		self.tuMenuBar = tuflowqgis_tumenubar.TuMenuBar(self, removeTuview=removeTuview, reloadTuview=reloadTuview,
 		                                                layout=self.mainMenu)
 		self.tuMenuBar.loadFileMenu()
@@ -126,6 +134,9 @@ class TuView(QDockWidget, Ui_Tuplot):
 		              self.mainMenuSecond_2.minimumSizeHint().width()
 		self.dockWidgetContents.setMinimumWidth(narrowWidth)
 
+		if qv >= 31600:
+			self.tuResults.initialiseTemporalController()
+
 		if QSettings().contains("TUFLOW/tuview_defaultlayout"):
 			if QSettings().value("TUFLOW/tuview_defaultlayout", "plot") == "narrow":
 				self.plotWindowVisibilityToggled(initialisation=True)
@@ -164,13 +175,15 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# disconnect layer
 		if self.selectionChangeConnected:
 			try:
-				self.currentLayer.selectionChanged.disconnect(self.selectionChanged)
+				if self.currentLayer is not None:
+					self.currentLayer.selectionChanged.disconnect(self.selectionChanged)
 			except:
 				pass
 			self.selectionChangeConnected = False
 		
 		# get the active layer
-		self.currentLayer = self.iface.activeLayer()
+		if self.iface is not None:
+			self.currentLayer = self.iface.activeLayer()
 		
 		if self.currentLayer is not None:
 			self.setTsTypesEnabled()
@@ -244,7 +257,10 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		if isinstance(self.currentLayer, QgsVectorLayer):
 			self.OpenResultTypes.model().setEnabled(4, 5, 6, 7, 8)
-			self.tuResults.tuResults1D.activeType = self.currentLayer.geometryType()
+			try:
+				self.tuResults.tuResults1D.activeType = self.currentLayer.geometryType()
+			except:
+				pass
 		else:
 			return
 
@@ -253,8 +269,9 @@ class TuView(QDockWidget, Ui_Tuplot):
 			#self.tuResults.tuResults1D.activeType = 3
 			self.tuResults.updateActiveResultTypes(None, geomType=self.currentLayer.geometryType())
 			if not self.selectionChangeConnected:
-				self.currentLayer.selectionChanged.connect(self.selectionChanged)
-				self.selectionChangeConnected = True
+				if self.currentLayer is not None:
+					self.currentLayer.selectionChanged.connect(self.selectionChanged)
+					self.selectionChangeConnected = True
 
 
 		## Change the enabled/disabled status based on selected layer
@@ -482,7 +499,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# update the enabled result types
 		# self.currentLayerChanged()
 		self.setTsTypesEnabled()
-		self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), plot='1d only')
+		# self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), plot='1d only')
 
 	def moveOpenResults(self, layoutType):
 		"""
@@ -500,6 +517,43 @@ class TuView(QDockWidget, Ui_Tuplot):
 		elif layoutType.lower() == "plot":
 			self.PlotOptionSplitter.insertWidget(0, self.OpenResultsLayout)
 
+	def onDockLocationChange(self, area=None):
+		"""
+		Saves the new location of TUFLOW Viewer dock. Only used, however, if
+		the default layout is "narrow", otherwise initial location is the bottom.
+		"""
+
+		if area is None:
+			return
+
+		if self.PlotLayout.isVisible():
+			return
+
+		QSettings().setValue("TUFLOW/tuview_docklocation", area)
+
+		if self.iface is not None:
+			if self.iface.mainWindow().tabifiedDockWidgets(self):
+				QSettings().setValue("TUFLOW/tuview_isdocktabified", True)
+				tabifiedWith = [x.windowTitle() for x in self.iface.mainWindow().tabifiedDockWidgets(self)]
+				QSettings().setValue("TUFLOW/tuview_tabifiedwith", tabifiedWith)
+			else:
+				QSettings().setValue("TUFLOW/tuview_isdocktabified", False)
+				QSettings().setValue("TUFLOW/tuview_tabifiedwith", [])
+
+	def onTopLevelChange(self, topLevel=None):
+		"""
+		Saves the location of TUFLOW Viewer if the dock is floating
+		or not.
+		"""
+
+		if topLevel is None:
+			return
+
+		if self.PlotLayout.isVisible():
+			return
+
+		QSettings().setValue("TUFLOW/tuview_isdockfloating", topLevel)
+
 	def plotWindowVisibilityToggled(self, initialisation=False):
 		"""
 		Sets the plot window visible / not visible
@@ -515,9 +569,10 @@ class TuView(QDockWidget, Ui_Tuplot):
 			              self.mainMenuSecond_2.minimumSizeHint().width()
 			self.dockWidgetContents.setMinimumWidth(narrowWidth)
 			self.label_5.setMinimumWidth(self.label_5.minimumSizeHint().width())
-			docks = [x.windowTitle() for x in self.iface.mainWindow().findChildren(QDockWidget)]
-			if "TUFLOW Viewer" in docks:
-				self.iface.mainWindow().resizeDocks([self], [narrowWidth], Qt.Horizontal)
+			if self.iface is not None:
+				docks = [x.windowTitle() for x in self.iface.mainWindow().findChildren(QDockWidget)]
+				if "TUFLOW Viewer" in docks:
+					self.iface.mainWindow().resizeDocks([self], [narrowWidth], Qt.Horizontal)
 
 			return
 
@@ -530,9 +585,10 @@ class TuView(QDockWidget, Ui_Tuplot):
 			              self.mainMenuSecond_2.minimumSizeHint().width()
 			self.dockWidgetContents.setMinimumWidth(narrowWidth)
 			self.label_5.setMinimumWidth(self.label_5.minimumSizeHint().width())
-			docks = [x.windowTitle() for x in self.iface.mainWindow().findChildren(QDockWidget)]
-			if "TUFLOW Viewer" in docks:
-				self.iface.mainWindow().resizeDocks([self], [narrowWidth], Qt.Horizontal)
+			if self.iface is not None:
+				docks = [x.windowTitle() for x in self.iface.mainWindow().findChildren(QDockWidget)]
+				if "TUFLOW Viewer" in docks:
+					self.iface.mainWindow().resizeDocks([self], [narrowWidth], Qt.Horizontal)
 		else:
 			self.PlotLayout.setVisible(True)
 			self.SecondMenu.setVisible(False)
@@ -541,7 +597,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 			# self.dockWidgetContents.setMinimumWidth(self.originalWidth)
 			# self.iface.mainWindow().resizeDocks([self], [self.originalWidth], Qt.Horizontal)
 			plotWidth = self.PlotLayout.minimumSizeHint().width() + self.ResultLayout.minimumSizeHint().width()
-			self.iface.mainWindow().resizeDocks([self], [plotWidth], Qt.Horizontal)
+			if self.iface is not None:
+				self.iface.mainWindow().resizeDocks([self], [plotWidth], Qt.Horizontal)
 		
 	def projectCleared(self):
 		"""
@@ -563,8 +620,9 @@ class TuView(QDockWidget, Ui_Tuplot):
 		
 		:return:
 		"""
-		
-		self.iface.mainWindow().findChild(QAction, 'mActionSaveProject').trigger()
+
+		if self.iface is not None:
+			self.iface.mainWindow().findChild(QAction, 'mActionSaveProject').trigger()
 		self.project.projectSaved.connect(self.projectSaved)
 	
 	def projectSaved(self):
@@ -599,6 +657,10 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.firstConnection = False
 
 		if not self.connected:
+
+			# dock widget location changed
+			self.dockLocationChanged.connect(self.onDockLocationChange)
+			self.topLevelChanged.connect(self.onTopLevelChange)
 			
 			# hide/show plot window
 			self.pbHidePlotWindow.clicked.connect(self.plotWindowVisibilityToggled)
@@ -617,7 +679,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 			# qgis time controller
 			if qv >= 31300:
-				self.iface.mapCanvas().temporalRangeChanged.connect(self.qgsTimeChanged)
+				if self.iface is not None:
+					self.iface.mapCanvas().temporalRangeChanged.connect(self.qgsTimeChanged)
 			
 			# results
 			self.OpenResults.itemClicked.connect(lambda: self.resultsChanged('item clicked'))
@@ -638,7 +701,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.tabWidget.currentChanged.connect(self.plottingViewChanged)
 			
 			# interface
-			self.iface.currentLayerChanged.connect(self.currentLayerChanged)
+			if self.iface is not None:
+				self.iface.currentLayerChanged.connect(self.currentLayerChanged)
 			
 			# project
 			if self.firstConnection:
@@ -673,7 +737,17 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.tuPlot.tuPlotToolbar.qgisDisconnect()
 
 		if self.connected or completely_remove:
-			
+
+			# dock widget location changed
+			try:
+				self.dockLocationChanged.disconnect(self.onDockLocationChange)
+			except:
+				pass
+			try:
+				self.topLevelChanged.disconnect(self.onTopLevelChange)
+			except:
+				pass
+
 			# time
 			try:
 				self.cboTime.currentIndexChanged.disconnect()
@@ -711,7 +785,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 			# qgis time controller
 			if qv >= 31300:
 				try:
-					self.iface.mapCanvas().temporalRangeChanged.connect(self.qgsTimeChanged)
+					if self.iface is not None:
+						self.iface.mapCanvas().temporalRangeChanged.disconnect(self.qgsTimeChanged)
 				except:
 					pass
 			
@@ -761,7 +836,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 			
 			# interface
 			try:
-				self.iface.currentLayerChanged.disconnect(self.currentLayerChanged)
+				if self.iface is not None:
+					self.iface.currentLayerChanged.disconnect(self.currentLayerChanged)
 			except:
 				pass
 			
@@ -877,7 +953,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			if not self.OpenResults.selectedItems():
 				self.resultChangeSignalCount = 0
 			if args:
-				if args[0] == 'item clicked':
+				if args[0] == 'item clicked' or self.iface == None:
 					self.resultChangeSignalCount = 0
 		else:
 			if args:
@@ -922,10 +998,11 @@ class TuView(QDockWidget, Ui_Tuplot):
 		
 		# what happens if there is more than one active mesh layer
 		if len(self.tuResults.tuResults2D.activeMeshLayers) > 1:
-			self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuResults.tuResults2D.activeMeshLayers)
-			self.meshDialog.exec_()
-			if self.meshDialog.selectedMesh is None:
-				return False
+			if self.iface is not None:
+				self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuResults.tuResults2D.activeMeshLayers)
+				self.meshDialog.exec_()
+				if self.meshDialog.selectedMesh is None:
+					return False
 			else:
 				meshLayer = tuflowqgis_find_layer(self.meshDialog.selectedMesh)
 		else:
@@ -933,10 +1010,12 @@ class TuView(QDockWidget, Ui_Tuplot):
 		
 		if event is not None:
 			if event['parent'].ds_name == 'Map Outputs':
-				self.iface.showLayerProperties(meshLayer)
+				if self.iface is not None:
+					self.iface.showLayerProperties(meshLayer)
 		else:  # context menu
 			if self.tuContextMenu.resultTypeContextItem.parentItem.ds_name == 'Map Outputs':
-				self.iface.showLayerProperties(meshLayer)
+				if self.iface is not None:
+					self.iface.showLayerProperties(meshLayer)
 		
 		return True
 	
@@ -1061,35 +1140,37 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		"""
 
-		if self.tuResults.timeSpec != self.iface.mapCanvas().temporalRange().begin().timeSpec():
-			self.tuResults.updateTemporalProperties()
-			return
-
-		t = self.tuResults.getTuViewTimeFromQgsTime()
-		tf = None
-		if type(t) is datetime:
-			if self.tuOptions.xAxisDates:
-				tf = self.tuResults._dateFormat.format(t)  # time formatted
-			else:
-				if t in self.tuResults.date2time:
-					t = self.tuResults.date2time[t]
-				elif t in self.tuResults.date_tspec2date:
-					t = self.tuResults.date_tspec2time[t]
-		if tf is None:
-			tf = convertTimeToFormattedTime(t, unit=self.tuOptions.timeUnits)  # time formatted
-		for i in range(self.cboTime.count()):
-			if self.cboTime.itemText(i) == tf:
-				self.cboTime.setCurrentIndex(i)
+		if self.iface is not None:
+			if self.tuResults.timeSpec != self.iface.mapCanvas().temporalRange().begin().timeSpec():
+				self.tuResults.updateTemporalProperties()
 				return
+
+			t = self.tuResults.getTuViewTimeFromQgsTime()
+			tf = None
+			if type(t) is datetime:
+				if self.tuOptions.xAxisDates:
+					tf = self.tuResults._dateFormat.format(t)  # time formatted
+				else:
+					if t in self.tuResults.date2time:
+						t = self.tuResults.date2time[t]
+					elif t in self.tuResults.date_tspec2date:
+						t = self.tuResults.date_tspec2time[t]
+			if tf is None:
+				tf = convertTimeToFormattedTime(t, unit=self.tuOptions.timeUnits)  # time formatted
+			for i in range(self.cboTime.count()):
+				if self.cboTime.itemText(i) == tf:
+					self.cboTime.setCurrentIndex(i)
+					return
 
 	def qgsTimeChanged_31600(self):
 		"""
 
 		"""
 
-		if self.tuResults.timeSpec != self.iface.mapCanvas().temporalRange().begin().timeSpec():
-			self.tuResults.updateTemporalProperties()
-			return
+		if self.iface is not None:
+			if self.tuResults.timeSpec != self.iface.mapCanvas().temporalRange().begin().timeSpec():
+				self.tuResults.updateTemporalProperties()
+				return
 
 		t = self.tuResults.getTuViewTimeFromQgsTime()
 		tf = None

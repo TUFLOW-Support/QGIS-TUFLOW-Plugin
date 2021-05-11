@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\Ellis.Symons\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\tuflow\forms\MapExportImportDialog.ui'
+# Form implementation generated from reading ui file 'C:\Users\esymons\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\tuflow\forms\MapExportImportDialog.ui'
 #
 # Created by: PyQt5 UI code generator 5.11.3
 #
@@ -46,7 +46,7 @@ class Ui_MapExportImportDialog(object):
         self.inFile.setObjectName("inFile")
         self.gridLayout.addWidget(self.inFile, 1, 1, 1, 4)
         self.grouBox = QtWidgets.QGroupBox(MapExportImportDialog)
-        self.grouBox.setMinimumSize(QtCore.QSize(0, 50))
+        self.grouBox.setMinimumSize(QtCore.QSize(0, 0))
         self.grouBox.setObjectName("grouBox")
         self.gridLayout_3 = QtWidgets.QGridLayout(self.grouBox)
         self.gridLayout_3.setObjectName("gridLayout_3")

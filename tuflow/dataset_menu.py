@@ -32,6 +32,21 @@ class DatasetMenu(QMenu):
 		for action in self.actions():
 			if action.text() in items:
 				action.setChecked(True)
+			else:
+				action.setChecked(False)
+
+
+class DepthAveragedItem():
+
+	def __init__(self, method, params, resultType, action):
+		self.method = method
+		if type(params) is list:
+			self.params = params
+		else:
+			self.params = [params]
+		self.resultType = resultType
+		self.action = action
+
 
 class DatasetMenuDepAv(DatasetMenu):
 
@@ -65,6 +80,19 @@ class DatasetMenuDepAv(DatasetMenu):
 							else:
 								a2.cboSetValue(item)
 
+	def clearCheckedActions(self):
+		for a in self.actions():
+			a.setChecked(False)
+			if isinstance(a.parentWidget(), DatasetMenu):
+				i = 0
+				for a2 in a.parentWidget().actions():
+					if isinstance(a2, SingleSpinBoxAction):
+						a2.setChecked(False)
+						if i > 0:
+							self.removeAction(a2)
+						else:
+							i += 1
+
 	def checkedActions(self, *args, **kwargs):
 		allDetails = kwargs['all_details'] if 'all_details' in kwargs else False
 		actions = []
@@ -81,12 +109,33 @@ class DatasetMenuDepAv(DatasetMenu):
 		return actions
 
 	def setCheckedActions(self, items):
-		ams = [x.split("_")[0] for x in items]
-		rts = [x.split("_")[2] for x in items]
+		ams = [x.method for x in items]  # depth average methods
+		pms = [x.params for x in items]  # depth average parameters
+		rts = [x.resultType for x in items]  # depth average result types
+		act = [x.action for x in items]
+		self.clearCheckedActions()
 		for a in self.actions():
 			if a.text() in ams:
-				for i in range(ams.count(a.text())):
-					pass
+				a.setChecked(True)
+				if isinstance(a.parentWidget(), DatasetMenu):
+					counter = 0
+					for i, am in enumerate(ams):
+						if am == a.text():
+							if counter == 0 or not a.parentWidget().actions():
+								if isinstance(a.parentWidget().actions()[0], SingleSpinBoxAction):
+									a2 = a.parentWidget().actions()[0]
+								else:
+									a2 = act[i]
+									lastAction = a.parentWidget().actions()[-2]  # insert before separator
+									a.parentWidget().insertAction(lastAction, a2)
+							else:
+								a2 = act[i]
+								lastAction = a.parentWidget().actions()[-2]  # insert before separator
+								a.parentWidget().insertAction(lastAction, a2)
+							a2.setChecked(True)
+							a2.setValues(pms[i])
+							a2.cboSetValue(rts[i])
+							counter += 1
 
 	def checkedActionsParamsToText(self):
 		actions = []
@@ -98,3 +147,16 @@ class DatasetMenuDepAv(DatasetMenu):
 							if a2.isChecked():
 								actions.append(a2.paramToText())
 		return actions
+
+	def resultTypes(self):
+		resultTypes = []
+		for a in self.actions():
+			if isinstance(a.parentWidget(), DatasetMenu):
+				for a2 in a.parentWidget().actions():
+					if isinstance(a2, SingleSpinBoxAction):
+						for i in range(a2.cbo.count()):
+							itemText = a2.cbo.itemText(i)
+							if itemText not in resultTypes:
+								resultTypes.append(itemText)
+
+		return resultTypes

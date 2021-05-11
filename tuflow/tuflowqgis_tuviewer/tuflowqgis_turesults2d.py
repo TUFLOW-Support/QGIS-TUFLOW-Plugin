@@ -174,8 +174,11 @@ class TuResults2D():
 		elif fext.lower() == '.nc':
 			mesh = fpath
 		else:
-			QMessageBox.information(self.iface.mainWindow(), "TUFLOW Viewer",
-			                        "Must select a .xmdf .dat .sup .nc or .2dm file type")
+			if self.iface is not None:
+				QMessageBox.information(self.iface.mainWindow(), "TUFLOW Viewer",
+				                        "Must select a .xmdf .dat .sup .nc or .2dm file type")
+			else:
+				print("Must select a .xmdf .dat .sup .nc or .2dm file type")
 			return None, None, False
 
 		basename_copy = basename
@@ -196,7 +199,10 @@ class TuResults2D():
 				if os.path.exists(inFileNames[0][0]):
 					mesh = inFileNames[0][0]
 				else:
-					QMessageBox.information(self.iface, "TUFLOW Viewer", "Could not find mesh file")
+					if self.iface is not None:
+						QMessageBox.information(self.iface, "TUFLOW Viewer", "Could not find mesh file")
+					else:
+						print("Could not find mesh file")
 					return None, None, False
 
 			
@@ -217,8 +223,11 @@ class TuResults2D():
 				self.meshProperties[name] = prop
 				self.tuView.tuOptions.resolution = cellSize
 				return layer, name, False
-		
-		QMessageBox.information(self.iface.mainWindow(), "TUFLOW Viewer", "Could not load mesh file. Please check validity of this file (e.g. not empty):\n {0}".format(mesh))
+
+		if self.iface is not None:
+			QMessageBox.information(self.iface.mainWindow(), "TUFLOW Viewer", "Could not load mesh file. Please check validity of this file (e.g. not empty):\n {0}".format(mesh))
+		else:
+			print("Could not load mesh file. Please check validity of this file (e.g. not empty):\n {0}".format(mesh))
 		return None, None, False
 	
 	def loadDataGroup(self, fpath, layer, preExisting):
@@ -310,8 +319,12 @@ class TuResults2D():
 			self.tuView.tuOptions.zeroTime = datetime2timespec(self.getReferenceTime(layer, self.tuView.tuOptions.defaultZeroTime),
 			                                                   1, self.tuView.tuResults.timeSpec)
 			if qv >= 31300:
-				self.tuView.tuOptions.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
-				self.tuView.tuResults.loadedTimeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+				if self.iface is not None:
+					self.tuView.tuOptions.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+					self.tuView.tuResults.loadedTimeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
+				else:
+					self.tuView.tuOptions.timeSpec = 1
+					self.tuView.tuResults.loadedTimeSpec = 1
 
 		# turn on temporal properties - record whether original layer had a reference time
 		if name in results and [x for x in results[name].keys()]:
@@ -426,7 +439,7 @@ class TuResults2D():
 		# bed elevation has timestep 0 hrs by default
 		# 0 hrs will show up in the time slider which is not ideal (that isn't when the output starts)
 		# change all instances of this to the first temporal output
-		self.alignFirstTimestepValues()
+		self.alignFirstTimestepValues(name)
 
 		return True
 	
@@ -614,7 +627,8 @@ class TuResults2D():
 		results = self.tuView.tuResults.results  # dict
 
 		if ext.upper() == '.DAT':
-			ri = TuResultsIndex(name, id)
+			# ri = TuResultsIndex(name, id)
+			ri = TuResultsIndex(name, id, None, False, False, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
 			timeUnits = self.tuView.tuResults.getTimeUnit(ri)  # is the same for the whole layer
 			if t == 900001.0 and timeUnits == 'h':  # time of peak h
 				specialName = 'Time of Peak h'
@@ -952,11 +966,18 @@ class TuResults2D():
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml)
-			rs = layer.rendererSettings()
-			rsMesh = rs.nativeMeshSettings()
-			rsMesh.setEnabled(self.tuView.tuOptions.showGrid)
-			rs.setNativeMeshSettings(rsMesh)
-			layer.setRendererSettings(rs)
+			if layer in self.activeMeshLayers:
+				rs = layer.rendererSettings()
+				rsMesh = rs.nativeMeshSettings()
+				rsMesh.setEnabled(self.tuView.tuOptions.showGrid)
+				rs.setNativeMeshSettings(rsMesh)
+				layer.setRendererSettings(rs)
+			else:
+				rs = layer.rendererSettings()
+				rsMesh = rs.nativeMeshSettings()
+				rsMesh.setEnabled(False)
+				rs.setNativeMeshSettings(rsMesh)
+				layer.setRendererSettings(rs)
 
 	def applyScalarRenderSettings(self, layer, datasetGroupIndex, file, type, save_type='xml'):
 		"""
@@ -1113,7 +1134,7 @@ class TuResults2D():
 				
 		return True
 	
-	def alignFirstTimestepValues(self):
+	def alignFirstTimestepValues(self, result):
 		"""
 		If first temporal output is not zero, change all single
 		datatimesteps with zero value to first timestep
@@ -1129,56 +1150,56 @@ class TuResults2D():
 		firstTime = None
 		
 		# iterate through each result set
-		for result in results:
-			# find temporal data and get first timestep
-			for resultType in results[result]:
-				if firstTime is not None:
-					break
-				if TuResults.isMapOutputType(resultType):
-				# elif '_ts' not in resultType and '_lp' not in resultType and '_particles' not in resultType:
-					if len(results[result][resultType]['times']) > 1:
-						for i in results[result][resultType]['times']:
-							firstTime = results[result][resultType]['times'][i][0]
-							break
-
+		# for result in results:
+		# find temporal data and get first timestep
+		for resultType in results[result]:
 			if firstTime is not None:
-				#if firstTime == 0:
-				#	continue  # move onto next result dataset
-				#else:  # find time 0 values and change to firstTime
-				for resultType in results[result]:
-					#if '_ts' not in resultType and '_lp' not in resultType:
-					if TuResults.isMapOutputType(resultType):
-						if len(results[result][resultType]['times']) == 1:
-							for i in list(results[result][resultType]['times'].keys())[:]:
-								#if results[result][resultType]['times'][i][0] == 0:
-								timeKey = '{0:.6f}'.format(firstTime)
-								dataType = results[result][resultType]['times'][i][1]
-								meshIndex = results[result][resultType]['times'][i][2]
-								if timeKey != i:
-									results[result][resultType]['times'][timeKey] = (firstTime, dataType, meshIndex)
-									del results[result][resultType]['times'][i]
+				break
+			if TuResults.isMapOutputType(resultType):
+			# elif '_ts' not in resultType and '_lp' not in resultType and '_particles' not in resultType:
+				if len(results[result][resultType]['times']) > 1:
+					for i in results[result][resultType]['times']:
+						firstTime = results[result][resultType]['times'][i][0]
+						break
 
-								# also delete from dicts
-								if qv < 31600:
-									a = sorted([x for x in self.tuView.tuResults.time2date.keys()])
-									if a[0] != firstTime:
-										del self.tuView.tuResults.time2date[a[0]]
+		if firstTime is not None:
+			#if firstTime == 0:
+			#	continue  # move onto next result dataset
+			#else:  # find time 0 values and change to firstTime
+			for resultType in results[result]:
+				#if '_ts' not in resultType and '_lp' not in resultType:
+				if TuResults.isMapOutputType(resultType):
+					if len(results[result][resultType]['times']) == 1:
+						for i in list(results[result][resultType]['times'].keys())[:]:
+							#if results[result][resultType]['times'][i][0] == 0:
+							timeKey = '{0:.6f}'.format(firstTime)
+							dataType = results[result][resultType]['times'][i][1]
+							meshIndex = results[result][resultType]['times'][i][2]
+							if timeKey != i:
+								results[result][resultType]['times'][timeKey] = (firstTime, dataType, meshIndex)
+								del results[result][resultType]['times'][i]
 
-										a = sorted([x for x in self.tuView.tuResults.timekey2date.keys()])
-										del self.tuView.tuResults.timekey2date[a[0]]
+							# also delete from dicts
+							if qv < 31600:
+								a = sorted([x for x in self.tuView.tuResults.time2date.keys()])
+								if a[0] != firstTime:
+									del self.tuView.tuResults.time2date[a[0]]
 
-										a = sorted([x for x in self.tuView.tuResults.timekey2time.keys()])
-										del self.tuView.tuResults.timekey2time[a[0]]
+									a = sorted([x for x in self.tuView.tuResults.timekey2date.keys()])
+									del self.tuView.tuResults.timekey2date[a[0]]
 
-										a = sorted([x for x in self.tuView.tuResults.date2time.keys()])
-										del self.tuView.tuResults.date2time[a[0]]
-
-										a = sorted([x for x in self.tuView.tuResults.date2timekey.keys()])
-										del self.tuView.tuResults.date2timekey[a[0]]
-								else:
 									a = sorted([x for x in self.tuView.tuResults.timekey2time.keys()])
-									if a[0] != timeKey:
-										del self.tuView.tuResults.timekey2time[a[0]]
+									del self.tuView.tuResults.timekey2time[a[0]]
+
+									a = sorted([x for x in self.tuView.tuResults.date2time.keys()])
+									del self.tuView.tuResults.date2time[a[0]]
+
+									a = sorted([x for x in self.tuView.tuResults.date2timekey.keys()])
+									del self.tuView.tuResults.date2timekey[a[0]]
+							else:
+								a = sorted([x for x in self.tuView.tuResults.timekey2time.keys()])
+								if a[0] != timeKey:
+									del self.tuView.tuResults.timekey2time[a[0]]
 
 	@staticmethod
 	def meshRenderVersion(rs):
@@ -1203,17 +1224,29 @@ class TuResults2D():
 
 		"""
 
-		if rs.nativeMeshSettings().isEnabled() != self.tuView.tuOptions.showGrid:
-			rsMesh = rs.nativeMeshSettings()
-			rsMesh.setEnabled(self.tuView.tuOptions.showGrid)
-			rs.setNativeMeshSettings(rsMesh)
-			layer.setRendererSettings(rs)
-		self.tuView.tuPlot.tuPlotToolbar.meshGridAction.setChecked(self.tuView.tuOptions.showGrid)
-		if rs.triangularMeshSettings().isEnabled() != self.tuView.tuOptions.showTriangles:
-			rsTriangles = rs.triangularMeshSettings()
-			rsTriangles.setEnabled(self.tuView.tuOptions.showTriangles)
-			rs.setTriangularMeshSettings(rsTriangles)
-			layer.setRendererSettings(rs)
+		if layer not in self.activeMeshLayers:
+			if rs.nativeMeshSettings().isEnabled() or self.tuView.tuOptions.showGrid:
+				rsMesh = rs.nativeMeshSettings()
+				rsMesh.setEnabled(False)
+				rs.setNativeMeshSettings(rsMesh)
+				layer.setRendererSettings(rs)
+			if rs.triangularMeshSettings().isEnabled() or self.tuView.tuOptions.showTriangles:
+				rsTriangles = rs.triangularMeshSettings()
+				rsTriangles.setEnabled(False)
+				rs.setTriangularMeshSettings(rsTriangles)
+				layer.setRendererSettings(rs)
+		else:
+			if rs.nativeMeshSettings().isEnabled() != self.tuView.tuOptions.showGrid:
+				rsMesh = rs.nativeMeshSettings()
+				rsMesh.setEnabled(self.tuView.tuOptions.showGrid)
+				rs.setNativeMeshSettings(rsMesh)
+				layer.setRendererSettings(rs)
+			self.tuView.tuPlot.tuPlotToolbar.meshGridAction.setChecked(self.tuView.tuOptions.showGrid)
+			if rs.triangularMeshSettings().isEnabled() != self.tuView.tuOptions.showTriangles:
+				rsTriangles = rs.triangularMeshSettings()
+				rsTriangles.setEnabled(self.tuView.tuOptions.showTriangles)
+				rs.setTriangularMeshSettings(rsTriangles)
+				layer.setRendererSettings(rs)
 
 	def getReferenceTime(self, layer, defaultZeroTime=None):
 		"""

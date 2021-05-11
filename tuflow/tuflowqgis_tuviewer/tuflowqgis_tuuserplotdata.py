@@ -45,7 +45,7 @@ class TuUserPlotDataManager():
 			
 			if newname is not None:
 				if newname != dataset.name:
-					copyDataset = TuUserPlotDataSet(newname, [dataset.x, dataset.y], dataset.plotType, dataset.status, dataset.number)
+					copyDataset = TuUserPlotDataSet(newname, [dataset.x, dataset.y], dataset.plotType, dataset.status, dataset.number, dataset.dates, dataset.referenceTime)
 					self.datasets[newname] = copyDataset
 					del self.datasets[name]
 					dataset = self.datasets[newname]
@@ -126,7 +126,7 @@ class TuUserPlotDataSet():
 			self.name = name
 		
 		if plotType is not None:
-			if plotType.lower() == 'time series' or plotType.lower() == 'long plot':
+			if plotType.lower() == 'time series plot' or plotType.lower() == 'cross section / long plot':
 				self.plotType = plotType
 			else:
 				plotType = None
@@ -158,6 +158,29 @@ class TuUserPlotDataSet():
 						self.hasReferenceTime = True
 					else:
 						self.error = 'Date data length does not match Y data'
+
+	def __eq__(self, other):
+		eq = False
+		if isinstance(other, TuUserPlotDataSet):
+			if self.error != other.error:
+				return eq
+			if self.number != other.number:
+				return eq
+			if self.status != other.status:
+				return eq
+			if self.hasReferenceTime != other.hasReferenceTime:
+				return eq
+			if self.referenceTime != other.referenceTime:
+				return eq
+			if self.dates != other.dates:
+				return eq
+			if self.x != other.x:
+				return eq
+			if self.y != other.y:
+				return eq
+			eq = True
+
+		return eq
 		
 	def setPlotType(self, plotType):
 		"""
@@ -168,7 +191,7 @@ class TuUserPlotDataSet():
 		
 		self.error = ''
 		
-		if plotType.lower() == 'time series' or plotType.lower() == 'long plot':
+		if plotType.lower() == 'time series plot' or plotType.lower() == 'cross section / long plot':
 			self.plotType = plotType
 		else:
 			self.plotType = None

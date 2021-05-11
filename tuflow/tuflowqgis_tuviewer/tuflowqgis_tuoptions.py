@@ -42,8 +42,19 @@ class TuOptions():
 			self._dateFormat = _dateFormat
 		else:
 			self._dateFormat = '{0:%H}:{0:%M}'
+		if settings.contains("TUFLOW/tuview_plotbackgroundcolour"):
+			self.plotBackgroundColour = settings.value("TUFLOW/tuview_plotbackgroundcolour")
+		else:
+			self.plotBackgroundColour = '#e5e5e5'
 
-	
+		if settings.contains("TUFLOW/tuview_defaultfontsize"):
+			try:
+				self.defaultFontSize = int(settings.value("TUFLOW/tuview_defaultfontsize"))
+			except ValueError:
+				self.defaultFontSize = 10
+		else:
+			self.defaultFontSize = 10
+
 	def saveProject(self, project):
 		project.writeEntry("TUVIEW", "livemaptracking", str(self.liveMapTracking))
 		
