@@ -266,7 +266,10 @@ class ViewToolbar():
 			for action in actions:
 				if action == posAction:
 					if not posAction.isChecked():
-						posAction.setChecked(True)  # cannot toggle off position - must choose a new one
+						# posAction.setChecked(True)  # cannot toggle off position - must choose a new one
+						self.legendMenu.menuAction().setChecked(False)
+					else:
+						self.legendMenu.menuAction().setChecked(True)
 				else:
 					action.setChecked(False)
 		elif index is not None:
@@ -275,7 +278,7 @@ class ViewToolbar():
 					action.setChecked(True)
 				else:
 					action.setChecked(False)
-		
+
 		# self.tuView.refreshCurrentPlot()
 		plotNo = self.tuView.tabWidget.currentIndex()
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \

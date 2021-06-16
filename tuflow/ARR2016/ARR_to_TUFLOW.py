@@ -17,9 +17,14 @@ import traceback
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from __version__ import version
 
+
 # remote debugging
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\debug-eggs')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\plugins\python\helpers\pydev')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\plugins\python\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\debug-eggs')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\helpers\pydev')
 
 build_type, version = version()
 now = datetime.now()
@@ -64,7 +69,7 @@ bPreburst_dur_proportional = False
 add_tp = []  # additional temporal patterns to include in the extract
 ARF_frequent = False  # Set to true if you want to ignore ARF limits and apply to frequent events (>50% AEP)
 min_ARF = 0.2  # minimum ARF factor
-export_path = r'C:\Users\Ellis.Symons\Desktop\arr_debugging'  # Export path
+export_path = r'E:\ARR_tool_debugging'  # Export path
 access_web = True  # once the .html files have been read, they are saved and you can set this to false for debugging
 bom_raw_fname = None  # str or None
 arr_raw_fname = None  # str or None
@@ -451,10 +456,11 @@ else:
     logger.info("Using user specified BOM IFD file: {0}".format(bom_raw_fname))
 if not os.path.exists(os.path.dirname(bom_raw_fname)):  # check output directory exists
     os.mkdir(os.path.dirname(bom_raw_fname))
+
 if access_web:
-    opener = urllib2.build_opener()
-    opener.addheaders.append(('Cookie',
-                              'acknowledgedConditions=true;acknowledgedCoordinateCaveat=true;ifdCookieTest=true'))
+    # opener = urllib2.build_opener()
+    # opener.addheaders.append(('Cookie',
+    #                           'acknowledgedConditions=true;acknowledgedCoordinateCaveat=true;ifdCookieTest=true'))
     if len(non_stnd_dur) > 0:  # if any non-standard durations, make sure included in web address
         nsd = ''
         for dur, unit in non_stnd_dur.items():
@@ -471,24 +477,49 @@ if access_web:
     url_rare = 'http://www.bom.gov.au/water/designRainfalls/revised-ifd/?design=rare&sdmin=true&sdhr=true&sdday=true' \
                '&{0}&coordinate_type=dd&latitude={1}&longitude={2}&user_label=brisbane&values=depths&update=&year=2016'\
                .format(nsd, abs(latitude), longitude)
-    urlRequest = urllib2.Request(url, headers={'User-Agent': 'Magic Browser'})
-    urlRequest_frequent = urllib2.Request(url_frequent, headers={'User-Agent': 'Magic Browser'})
-    urlRequest_rare = urllib2.Request(url_rare, headers={'User-Agent': 'Magic Browser'})
+    # urlRequest = urllib2.Request(url, headers={'User-Agent': 'Magic Browser'})
+    # urlRequest_frequent = urllib2.Request(url_frequent, headers={'User-Agent': 'Magic Browser'})
+    # urlRequest_rare = urllib2.Request(url_rare, headers={'User-Agent': 'Magic Browser'})
+    headers = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,  image/apng,*/*;q=0.8,application/signed-exchange;v=b3',
+        'Accept-Encoding': 'gzip', 'Accept-Language': 'en-US,en;q=0.9,es;q=0.8', 'Upgrade-Insecure-Requests': '1',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36'}
     try:
         #print('Attempting to access BOM: {0}'.format(url))
         logger.info('Attempting to access BOM: {0}'.format(url))
-        f = opener.open(urlRequest)
-        page = f.read()
+        # f = opener.open(urlRequest)
+        # page = f.read()
+        r = requests.get(url, headers=headers)
+        if not r.ok:
+            logger.error('Failed to get data from BOM website')
+            logger.error('HTTP error {0}'.format(r.status_code))
+            logger.error(r.text)
+            raise SystemExit('Failed to get data from BOM website. Please check logfile for more details.')
+        page = r.text
         if frequent_events:
             #print('Attempting to access BOM frequent events: {0}'.format(url_frequent))
             logger.info('Attempting to access BOM frequent events: {0}'.format(url_frequent))
-            f_frequent = opener.open(urlRequest_frequent)
-            page_frequent = f_frequent.read()
+            # f_frequent = opener.open(urlRequest_frequent)
+            # page_frequent = f_frequent.read()
+            r = requests.get(url_frequent, headers=headers)
+            if not r.ok:
+                logger.error('Failed to get data from BOM website')
+                logger.error('HTTP error {0}'.format(r.status_code))
+                logger.error(r.text)
+                raise SystemExit('Failed to get data from BOM website. Please check logfile for more details.')
+            page_frequent = r.text
         if rare_events:
             #print('Attempting to access BOM rare events: {0}'.format(url_rare))
             logger.info('Attempting to access BOM rare events: {0}'.format(url_rare))
-            f_rare = opener.open(urlRequest_rare)
-            page_rare = f_rare.read()
+            # f_rare = opener.open(urlRequest_rare)
+            # page_rare = f_rare.read()
+            r = requests.get(url_rare, headers=headers)
+            if not r.ok:
+                logger.error('Failed to get data from BOM website')
+                logger.error('HTTP error {0}'.format(r.status_code))
+                logger.error(r.text)
+                raise SystemExit('Failed to get data from BOM website. Please check logfile for more details.')
+            page_rare = r.text
     except:
         #print('Failed to get data from BOM website')
         logger.error('Failed to get data from BOM website')
@@ -498,7 +529,8 @@ if access_web:
     #print('Saving: {0}'.format(bom_raw_fname))
     logger.info('Saving: {0}'.format(bom_raw_fname))
     try:
-        fo = open(bom_raw_fname, 'wb')
+        # fo = open(bom_raw_fname, 'wb')
+        fo = open(bom_raw_fname, 'w')
     except PermissionError:
         #print("File is locked for editing: {0}".format(bom_raw_fname))
         logger.error("File is locked for editing: {0}".format(bom_raw_fname))
@@ -514,7 +546,7 @@ if access_web:
         fo.write(page_frequent)
     if rare_events:
         fo.write(page_rare)
-    fo.flush()
+    # fo.flush()
     fo.close()
     #print('Done saving file.')
     logger.info('Done saving file.')

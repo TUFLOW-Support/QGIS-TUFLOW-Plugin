@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.1.6
+version=3.1.7
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,11 +20,24 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=--- 3.1.6 ---
+changelog=--- 3.1.7 ---
+          Auto Label - Added auto label rules for the _messages GIS layer
+          TUFLOW Viewer - Fixed a bug that could occur when exporting plot to csv
+          TUFLOW Viewer - Now catch issue when plot is empty when exporting or copying data - also added more messaging
+          TUFLOW Viewer - Fixed a bug that could occur if more than 6 results were loaded at once that would cause TUFLOW Viewer to hang indefinitely
+          TUFLOW Viewer - Fixed bug that would cause problems if mesh layer was renamed in QGIS layer panel
+          TUFLOW Viewer - Fixed bug with map output cross-section plotting that could occur when output timesteps precision was finer than 1 second
+          TUFLOW Viewer - Changed behaviour of plot when using 'show current time' - the vertical bar no longer affects plot extents and won't force plot to refresh
+          TUFLOW Viewer - Unchecking legend position will also turn plot legend off
+          ARR to TUFLOW - Updated routine that collects rainfall data from BOM
+          ARR to TUFLOW - Added all column headers to output bc_dbase.csv
+
+          --- 3.1.6 ---
           ARR tool - Fix bug that would not calculate burst initial loss correctly with user specified loss and probability neutral loss
           ARR tool - Probability neutral losses and complete storm check boxes are now mutually exclusive options in dialog
           Load TUFLOW Layers from TCF - MIF layers will automatically open all geometry types without user prompt
           Load TUFLOW Layers from TCF - Raster layers will be automatically be given the projection of first loaded vector layer if it doesn't have one
+          TUFLOW Viewer - Fixed bug in 'Remove - Map Outputs' that would remove the layer from QGIS but not from TUFLOW Viewer
           TUFLOW Viewer - Load FM time series results will now create cross-sections based on gxy file if not already georeferenced
           TUFLOW Viewer - Load FM time series results corrected fixed field error in reading dat file that would cause incorrect unit names
           TUFLOW Viewer - Fixed vertical profile plotting when adding to an animation

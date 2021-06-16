@@ -654,7 +654,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		"""
 
 		qv = Qgis.QGIS_VERSION_INT
-		self.firstConnection = False
+		# self.firstConnection = False
 
 		if not self.connected:
 
@@ -684,7 +684,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			
 			# results
 			self.OpenResults.itemClicked.connect(lambda: self.resultsChanged('item clicked'))
-			self.OpenResults.itemSelectionChanged.connect(lambda: self.resultsChanged('selection changed'))
+			self.resultSelectionChangeSignal = self.OpenResults.itemSelectionChanged.connect(lambda: self.resultsChanged('selection changed'))
 			
 			# result types
 			self.OpenResultTypes.secondAxisClicked.connect(self.secondaryAxisResultTypesChanged)
@@ -694,7 +694,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.OpenResultTypes.leftClicked.connect(self.resultTypesChanged)
 			
 			# Plotting buttons
-			self.cbShowCurrentTime.clicked.connect(lambda: self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataCurrentTime))
+			self.cbShowCurrentTime.stateChanged.connect(lambda: self.tuPlot.clearPlot2(TuPlot.TimeSeries, TuPlot.DataCurrentTime))
 			self.tuPlot.tuPlotToolbar.fluxSecAxisButton.released.connect(lambda: self.secondaryAxisResultTypesChanged(None))
 			
 			# switching between plots
@@ -720,6 +720,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.xsConnectedLayers = []
 			
 			self.connected = True
+
+		self.firstConnection = False
 	
 	def qgisDisconnect(self, completely_remove=False):
 		"""

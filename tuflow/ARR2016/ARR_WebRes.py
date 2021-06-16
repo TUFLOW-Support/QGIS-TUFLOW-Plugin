@@ -713,7 +713,9 @@ class ArrTemporal:
         :param tp: str full file path to csv
         :return: void
         """
-    
+
+        self.logger.info('Loading Areal Temporal Pattern from CSV: {0}'.format(tp))
+
         if os.path.exists(tp):
             try:
                 with open(tp, 'r') as tp_open:
@@ -2045,7 +2047,7 @@ class Arr:
                 #print('Unexpected error opening file {0}'.format(bc_fname))
                 self.logger.error('Unexpected error opening file {0}'.format(bc_fname))
                 raise SystemExit('ERROR: Unexpected error opening file {0}'.format(bc_fname))
-            bcdb.write('Name,Source,Column 1, Column 2\n')
+            bcdb.write('Name,Source,Column 1,Column 2,Add Col 1,Mult Col 2,Add Col 2,Column 3,Column 4\n')
             if out_form == 'ts1':
                 bcdb.write('{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~\n'.format(site_name,
                                                                                            out_notation.upper(),

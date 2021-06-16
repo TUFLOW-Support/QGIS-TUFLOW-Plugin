@@ -769,7 +769,8 @@ class TuPlot():
 					self.tuPlotSelection.clearSelection(clearType)
 
 		# some lines that are always removed
-		showCurrentTime = clearType == TuPlot.DataCurrentTime
+		# showCurrentTime = clearType == TuPlot.DataCurrentTime
+		showCurrentTime = clearType == TuPlot.DataCurrentTime and self.tuView.cbShowCurrentTime.isChecked()
 		if plotNo == TuPlot.TimeSeries:
 			for line in self.plotData[TuPlot.DataCurrentTime]:
 				if type(line) is dict:
@@ -875,7 +876,11 @@ class TuPlot():
 		self.removeColourBar(plotNo)
 		self.removeQuiverKey(plotNo)
 
-		self.drawPlot(plotNo, [], [], [], [], refreshOnly=True, draw=True, showCurrentTime=showCurrentTime)
+		# self.drawPlot(plotNo, [], [], [], [], refreshOnly=True, draw=True, showCurrentTime=showCurrentTime)
+		if clearType == TuPlot.DataCurrentTime and not showCurrentTime:
+			plotWidget.draw()
+		else:
+			self.drawPlot(plotNo, [], [], [], [], draw=True, show_current_time=showCurrentTime)
 
 	def addColourBarAxes(self, plotNo, **kwargs):
 
@@ -1499,6 +1504,8 @@ class TuPlot():
 			
 			# get current Y-Axis limits
 			if not self.tuView.tuMenuBar.freezeAxisYLimits_action.isChecked():
+				ylim = subplot.get_ylim()
+				xlim = subplot.get_xlim()
 				subplot.relim()
 				subplot.autoscale()
 				y = subplot.get_ylim()
@@ -1517,7 +1524,9 @@ class TuPlot():
 			if self.tuView.tuMenuBar.freezeAxisYLimits_action.isChecked():
 				subplot.set_ybound(yAxisLimits[0][0])
 			else:
-				subplot.set_ybound(y)
+				# subplot.set_ybound(y)
+				subplot.set_ybound(ylim)
+				subplot.set_xbound(xlim)
 			subplot.legend_ = None
 			
 		return True
@@ -2996,6 +3005,7 @@ class TuPlot():
 		#lines = [uniqueLines, uniqueLines2]
 	
 		# apply
+		legendPos = -1
 		if viewToolbar.legendUR.isChecked():
 			legendPos = 1
 		elif viewToolbar.legendUL.isChecked():
@@ -3016,6 +3026,8 @@ class TuPlot():
 			legendPos = 10
 		elif viewToolbar.legendCustomPos.isChecked():
 			legendPos = 100
+		if legendPos == -1 and not viewToolbar.legendAuto.isChecked():
+			viewToolbar.legendAuto.setChecked(True)
 		lines = uniqueLines + uniqueLines2
 		lab = uniqueNames + uniqueNames2
 		linesCopy, labCopy = [], []

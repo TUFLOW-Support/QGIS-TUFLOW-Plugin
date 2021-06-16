@@ -1621,7 +1621,7 @@ def findLabelPropertyMatch(files: list, layerType: str, geomType: str, layerName
 	match = ''
 
 	# if layer is a check layer or not a tuflow layer loop through file and just find first name match
-	if layerType == 'check' or '':
+	if layerType == 'check' or layerType == '':
 		for labelProperty in files:
 			if os.path.splitext(os.path.basename(labelProperty))[0].lower() in name.lower():
 				match = labelProperty
@@ -1970,6 +1970,8 @@ def setLabelProperties(label: QgsPalLayerSettings, properties: dict, layer: QgsV
 
 
 def tuflowqgis_apply_autoLabel_clayer(qgis: QgisInterface):
+	import pydevd_pycharm
+	pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
 	error = False
 	message = None
 	canvas = qgis.mapCanvas()

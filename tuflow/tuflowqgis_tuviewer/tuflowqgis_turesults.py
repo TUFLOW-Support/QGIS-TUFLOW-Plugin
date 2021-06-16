@@ -14,6 +14,7 @@ from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, convertFormattedTi
                                        isSame_time)
 from tuflow.dataset_menu import DatasetMenuDepAv
 from tuflow.TUFLOW_XS import XS
+import numpy as np
 
 
 class TuResults():
@@ -864,7 +865,24 @@ class TuResults():
 			self.tuView.cboTime.currentIndexChanged.connect(self.tuView.timeSliderChanged)
 
 		# Apply selection
+		try:
+			self.tuView.OpenResults.itemSelectionChanged.disconnect(self.tuView.resultSelectionChangeSignal)
+		except:
+			pass
+		meshLayers = findAllMeshLyrs()
+		for ml in meshLayers:
+			layer = tuflowqgis_find_layer(ml)
+			try:
+				layer.repaintRequested.disconnect(self.tuResults2D.repaintRequested)
+			except:
+				pass
 		self.applyPreviousResultTypeSelections(currentPlotData, currentTime)
+		self.tuResults2D.repaintRequested()  # this is the step that changes the 'reference time' property in the result dict
+		self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
+			lambda: self.tuView.resultsChanged('selection changed'))
+		for ml in meshLayers:
+			layer = tuflowqgis_find_layer(ml)
+			layer.repaintRequested.connect(self.tuResults2D.repaintRequested)
 
 		# Update viewport with enabled / disabled items
 		# self.tuView.currentLayerChanged()
@@ -1254,16 +1272,26 @@ class TuResults():
 			else:
 				return -1
 
+		roundedTimes = [np.round(float(x), 4) for x in results[key1][key2]['times'].keys()]
 		if key3 is not None:
-			if key3 not in results[key1][key2]['times'].keys():
+			roundedKey3 = np.round(float(key3), 4)
+
+		if key3 is not None:
+			# if key3 not in results[key1][key2]['times'].keys():
+			if roundedKey3 not in roundedTimes:
 				if len(results[key1][key2]['times']) == 1:
 					for k in results[key1][key2]['times']:
 						key3 = k
+						roundedKey3 = np.round(float(key3), 4)
 				elif forceGetTime == 'next lower':
 					key3 = self.findTimeNextLower(key1, key2, key3)
+					roundedKey3 = np.round(float(key3), 4)
 
 		if key3 is not None:
-			res = results[key1][key2]['times'][key3]
+			i = roundedTimes.index(roundedKey3)
+			time = list(results[key1][key2]['times'].keys())[i]
+			# res = results[key1][key2]['times'][key3]
+			res = results[key1][key2]['times'][time]
 			if qv < 31300:
 				if meshIndexOnly:
 					if res and type(res) is tuple:
@@ -1867,13 +1895,13 @@ class TuResults():
 						tsprocessed = True
 		self.updateResultTypes()
 
-	def updateDateTimes(self):
+	def updateDateTimes(self, **kwargs):
 		qv = Qgis.QGIS_VERSION_INT
 
 		if qv < 31600:
 			self.updateDateTimes2()
 		else:
-			self.updateDateTimes_31600()
+			self.updateDateTimes_31600(**kwargs)
 
 	def updateDateTimes_old(self):
 		"""
@@ -1945,8 +1973,10 @@ class TuResults():
 		# self.tuView.cboTime.addItems([self._dateFormat.format(self.time2date[x]) for x in timeCopy])
 		self.tuView.cboTime.addItems([self._dateFormat.format(self.time2date_tspec[x]) for x in timeCopy])
 
-	def updateDateTimes_31600(self):
+	def updateDateTimes_31600(self, **kwargs):
 		"""update the dates of results for qgis 3.16 +"""
+
+		get_metadata = kwargs['get_metadata'] if 'get_metadata' in kwargs else True
 
 		self.timekey2date.clear()
 		self.time2date.clear()
@@ -1961,6 +1991,10 @@ class TuResults():
 		self.date_tspec2date.clear()
 
 		for result in self.results:
+			# if get_metadata:
+			# 	layer = tuflowqgis_find_layer(result)
+			# 	if layer is not None and layer.dataProvider().datasetGroupCount() > 0:
+			# 		self.tuResults2D.getResultMetaData(result, layer)
 			for restype in self.results[result]:
 				rt = None
 				if 'referenceTime' in self.results[result][restype]:

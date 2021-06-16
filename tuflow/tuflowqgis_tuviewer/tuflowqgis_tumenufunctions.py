@@ -383,7 +383,10 @@ class TuMenuFunctions():
 					mes += m
 				else:
 					mes += '\n\n{0}'.format(m)
-			QMessageBox.information(self.iface.mainWindow(), "TUFLOW Viewer", "Failed to load results from {1}\n\n{0}".format(mes, ext.upper()[1:]))
+			if self.iface is not None:
+				QMessageBox.information(self.iface.mainWindow(), "TUFLOW Viewer", "Failed to load results from {1}\n\n{0}".format(mes, ext.upper()[1:]))
+			else:
+				print("Failed to load results from {1}\n\n{0}".format(mes, ext.upper()[1:]))
 			
 		# finally save the last folder location
 		fpath = os.path.dirname(inFileNames[0][0])
@@ -547,7 +550,7 @@ class TuMenuFunctions():
 
 		return True
 	
-	def exportCSV(self, plot_no=None, save_file=None, **kwargs):
+	def exportCSV(self, e=None, plot_no=None, save_file=None, **kwargs):
 		"""
 		Export the data as a CSV.
 
@@ -560,9 +563,15 @@ class TuMenuFunctions():
 			plotNo = plot_no
 		
 		dataHeader, data = self.getPlotData(plotNo, **kwargs)
-		
+
 		if dataHeader is None or data is None:
-			QMessageBox.critical(self.iface.mainWindow(), 'TUFLOW Viewer', 'Error exporting file')
+			# QMessageBox.critical(self.iface.mainWindow(), 'TUFLOW Viewer', 'Error exporting data')
+			if self.iface is not None:
+				QMessageBox.warning(self.iface.mainWindow(), 'TUFLOW Viewer',
+				                    'No data on plot or an error occured - note curtain plots aren\'t able to be exported or copied yet')
+			else:
+				print(
+					'No data on plot or an error occured - note curtain plots aren\'t able to be exported or copied yet')
 			return False
 		
 		fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_Results/export_csv")
@@ -604,7 +613,7 @@ class TuMenuFunctions():
 					else:
 						print(msg)
 					retry = False
-				except IOError:
+				except (IOError, PermissionError):
 					msg = 'Could not access {0}. Check file is not open.'.format(saveFile)
 					if self.iface is not None:
 						questionRetry = QMessageBox.question(self.iface.mainWindow(),
@@ -621,8 +630,8 @@ class TuMenuFunctions():
 						else:
 							retry = True
 						
-				except:
-					msg = 'Error exporting file'
+				except Exception as e:
+					msg = 'Unexpected error exporting file\n\n{0}'.format(e)
 					if self.iface is not None:
 						QMessageBox.critical(self.iface.mainWindow(), 'TUFLOW Viewer', msg)
 					else:
@@ -644,7 +653,11 @@ class TuMenuFunctions():
 		dataHeader, data = self.getPlotData(plotNo, **kwargs)
 		
 		if dataHeader is None or data is None:
-			QMessageBox.critical(self.iface.mainWindow(), 'TUFLOW Viewer', 'Error exporting data')
+			# QMessageBox.critical(self.iface.mainWindow(), 'TUFLOW Viewer', 'Error exporting data')
+			if self.iface is not None:
+				QMessageBox.warning(self.iface.mainWindow(), 'TUFLOW Viewer', 'No data on plot or an error occured - note curtain plots aren\'t able to be exported or copied yet')
+			else:
+				print('No data on plot or an error occured - note curtain plots aren\'t able to be exported or copied yet')
 			return False
 		
 		copyData = '{0}\n'.format(dataHeader.replace(',', '\t'))
@@ -800,17 +813,21 @@ class TuMenuFunctions():
 		else:
 			dataHeader = ''
 
+		if dataHeader == '' or data is None:
+			return dataHeader, [[]]
+
 		# delete duplicate Time arrays
 		timeColumns = []
-		for i in range(1, data.shape[1]):
-			if i % 2 == 0:
-				if data[:, i - 2].dtype == np.object and data[:, i].dtype == np.object:  # probably datetime objects
-					if not np.any((data[:, i - 2].astype(np.datetime64) == data[:, i].astype(np.datetime64)) == False):  # allclose doesn't seem to work with datetime
-						timeColumns.append(i)
-				else:
-					if np.allclose(data[:, i - 2], data[:, i], equal_nan=True):		# avoid nan == nan not being True
-						timeColumns.append(i)
-		data = np.delete(data, timeColumns, axis=1)
+		if data is not None:
+			for i in range(1, data.shape[1]):
+				if i % 2 == 0:
+					if data[:, i - 2].dtype == np.object and data[:, i].dtype == np.object:  # probably datetime objects
+						if not np.any((data[:, i - 2].astype(np.datetime64) == data[:, i].astype(np.datetime64)) == False):  # allclose doesn't seem to work with datetime
+							timeColumns.append(i)
+					else:
+						if np.allclose(data[:, i - 2], data[:, i], equal_nan=True):		# avoid nan == nan not being True
+							timeColumns.append(i)
+			data = np.delete(data, timeColumns, axis=1)
 		# keep data headers only for remaining arrays
 		dataHeader = dataHeader.split(',')
 		remainingHeader = []
@@ -818,6 +835,8 @@ class TuMenuFunctions():
 			if i not in timeColumns:
 				remainingHeader.append(dataHeader[i])
 		dataHeader = ','.join(remainingHeader)
+		if data is None:
+			data = [[]]
 
 		return dataHeader, data
 
@@ -857,7 +876,7 @@ class TuMenuFunctions():
 				
 		return dataHeader
 	
-	def getLongPlotHeaders(self, labels, labels2):
+	def getLongPlotHeaders(self, labels, labels2, **kwargs):
 		"""
 		Return column headings in comma delimiter format for long plot export to csv.
 		

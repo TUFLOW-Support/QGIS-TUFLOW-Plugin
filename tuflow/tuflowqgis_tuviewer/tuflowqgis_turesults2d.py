@@ -52,6 +52,11 @@ class TuResults2D():
 		except:
 			skipConnect = True
 			pass
+		skipConnect2 = False
+		try:
+			self.tuView.OpenResults.itemSelectionChanged.disconnect(self.tuView.resultSelectionChangeSignal)
+		except:
+			pass
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml)
@@ -109,10 +114,12 @@ class TuResults2D():
 			if not index:
 				if not skipConnect:
 					self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
+				self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
+					lambda: self.tuView.resultsChanged('selection changed'))
 				return False
 
 			if qv >= 31600:
-				self.tuView.tuResults.updateDateTimes()
+				self.tuView.tuResults.updateDateTimes(get_metadata=False)
 			
 			# add to result list widget
 			names = []
@@ -133,6 +140,8 @@ class TuResults2D():
 		# connect load signals
 		if not skipConnect:
 			self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
+		self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
+			lambda: self.tuView.resultsChanged('selection changed'))
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml)
@@ -382,7 +391,8 @@ class TuResults2D():
 			results[name][id] = {'times': {},
 			                     'is3dDataset': self.is3dDataset(i, dp),
 			                     'timeUnit': self.getTimeUnit(layer),
-			                     'referenceTime': self.tuView.tuOptions.zeroTime,
+			                     # 'referenceTime': self.tuView.tuOptions.zeroTime,
+			                     'referenceTime': self.getReferenceTime(layer, self.tuView.tuOptions.zeroTime),
 			                     'isMax': TuResults.isMaximumResultType(id, dp, i),
 			                     'isMin':TuResults.isMinimumResultType(id, dp, i),
 			                     'isStatic': TuResults.isStatic(id, dp, i),
@@ -395,7 +405,8 @@ class TuResults2D():
 				results[name][id2] = {'times': {},
 				                      'is3dDataset': self.is3dDataset(i, dp),
 				                      'timeUnit': self.getTimeUnit(layer),
-				                      'referenceTime': self.tuView.tuOptions.zeroTime,
+				                      # 'referenceTime': self.tuView.tuOptions.zeroTime,
+				                      'referenceTime': self.getReferenceTime(layer, self.tuView.tuOptions.zeroTime),
 				                      'isMax': TuResults.isMaximumResultType(id, dp, i),
 				                      'isMin':TuResults.isMinimumResultType(id, dp, i),
 				                      'isStatic': TuResults.isStatic(id, dp, i),
@@ -867,6 +878,11 @@ class TuResults2D():
 
 		results = self.tuView.tuResults.results
 
+		try:
+			self.tuView.OpenResults.itemSelectionChanged.disconnect(self.tuView.resultSelectionChangeSignal)
+		except:
+			pass
+
 		for res in resList:
 			if res in results.keys():
 				# remove from indexed results
@@ -890,6 +906,9 @@ class TuResults2D():
 							
 				if res in self.results2d:
 					del self.results2d[res]
+
+		self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
+			lambda: self.tuView.resultsChanged('selection changed'))
 						
 		return True
 	
@@ -918,6 +937,12 @@ class TuResults2D():
 					self.tuView.OpenResults.addItem(ml)
 				
 				layer.dataProvider().datasetGroupsAdded.connect(self.datasetGroupsAdded)
+				try:
+					layer.nameChanged.disconnect()
+				except:
+					pass
+				name = layer.name()
+				layer.nameChanged.connect(lambda: self.layerNameChanged(layer, name, layer.name()))
 					
 	def datasetGroupsAdded(self):
 		"""
@@ -944,6 +969,16 @@ class TuResults2D():
 
 		qv = Qgis.QGIS_VERSION_INT
 		results = self.tuView.tuResults.results
+
+		signalConnected = False
+		meshLayers = findAllMeshLyrs()
+		for ml in meshLayers:
+			layer = tuflowqgis_find_layer(ml)
+			try:
+				layer.repaintRequested.disconnect(self.repaintRequested)
+				signalConnected = True
+			except:
+				pass
 
 		updated = False
 		for r in results:
@@ -978,6 +1013,12 @@ class TuResults2D():
 				rsMesh.setEnabled(False)
 				rs.setNativeMeshSettings(rsMesh)
 				layer.setRendererSettings(rs)
+
+		if signalConnected:
+			meshLayers = findAllMeshLyrs()
+			for ml in meshLayers:
+				layer = tuflowqgis_find_layer(ml)
+				layer.repaintRequested.connect(self.repaintRequested)
 
 	def applyScalarRenderSettings(self, layer, datasetGroupIndex, file, type, save_type='xml'):
 		"""
@@ -1112,6 +1153,13 @@ class TuResults2D():
 		"""
 		
 		layer.nameChanged.disconnect()
+
+		# change name in results dict
+		results = self.tuView.tuResults.results
+		for key, entry in results.items():
+			if key == oldName:
+				results[newName] = entry
+				del results[oldName]
 		
 		# change name in list widget
 		selectedItems = self.tuView.OpenResults.selectedItems()
@@ -1123,12 +1171,12 @@ class TuResults2D():
 				if item in selectedItems:
 					self.tuView.OpenResults.item(i).setSelected(True)
 					
-		# change name in results dict
-		results = self.tuView.tuResults.results
-		for key, entry in results.items():
-			if key == oldName:
-				results[newName] = entry
-				del results[oldName]
+		# # change name in results dict
+		# results = self.tuView.tuResults.results
+		# for key, entry in results.items():
+		# 	if key == oldName:
+		# 		results[newName] = entry
+		# 		del results[oldName]
 				
 		layer.nameChanged.connect(lambda: self.layerNameChanged(layer, newName, layer.name()))
 				
