@@ -1,0 +1,3 @@
+[submodule "swangis"]
+	path = tuflow/swangis
+	url = https://gitlab.com/tuflow/swangis
