@@ -523,7 +523,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		the default layout is "narrow", otherwise initial location is the bottom.
 		"""
 
-		if area is None:
+		if area is None or area == Qt.NoDockWidgetArea:
 			return
 
 		if self.PlotLayout.isVisible():
@@ -948,6 +948,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			
 			# update 2D results class
 			self.tuResults.updateResultTypes()
+			self.timeSliderChanged()
 			
 			# render map
 			self.renderMap()

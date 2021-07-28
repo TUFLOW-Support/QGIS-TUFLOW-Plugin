@@ -247,8 +247,13 @@ class Timeseries():
 				values = numpy.genfromtxt(fullpath, delimiter=",", skip_header=1, dtype=str)
 			else:
 				values = numpy.genfromtxt(fullpath, delimiter=",", skip_header=1)
-			null_array = values == self.null_data
-			self.Values = numpy.ma.masked_array(values,null_array)
+			# null_array = values == self.null_data)
+			# self.Values = numpy.ma.masked_array(values,null_array)
+			if values.dtype == numpy.float64:
+				self.Values = numpy.ma.masked_values(values, self.null_data)
+			else:
+				null_array = numpy.array([[True if y == str(self.null_data) else False for y in x] for x in values])
+				self.Values = numpy.ma.masked_array(values, null_array)
 		except:
 			message = 'ERROR - Error reading data from: '+fullpath
 			error = True
@@ -1086,6 +1091,7 @@ class ResData():
 					try:
 						ind = self.Data_1D.V.Header.index(id)
 						data = self.Data_1D.V.Values[:,ind]
+						self.times = self.Data_1D.V.Values[:, 1]
 						return True, data, message
 					except:
 						message = 'Data not found for 1D V with ID: '+id
@@ -1143,6 +1149,7 @@ class ResData():
 					try:
 						ind = self.Data_1D.MB.Header.index(id)
 						data = self.Data_1D.MB.Values[:, ind]
+						self.times = self.Data_1D.MB.Values[:, 1]
 						return True, data, message
 					except:
 						message = 'Data not found for 1D MB with ID: ' + id
@@ -1156,10 +1163,12 @@ class ResData():
 						if id in self.Data_1D.NF.Header:
 							ind = self.Data_1D.NF.Header.index(id)
 							data = self.Data_1D.NF.Values[:, ind]
+							self.times = self.Data_1D.NF.Values[:, 1].astype(float)
 							return True, data, message
 						elif id in self.Data_1D.CF.Header:
 							ind = self.Data_1D.CF.Header.index(id)
 							data = self.Data_1D.CF.Values[:, ind]
+							self.times = self.Data_1D.CF.Values[:, 1].astype(float)
 							return True, data, message
 						else:
 							return True, [0.0], message
@@ -1176,6 +1185,7 @@ class ResData():
 						iun = self.Data_1D.CL.uID.index(id)  # index unique name
 						nCol = self.Data_1D.CL.nCols[iun]  # number of columns associated with element losses
 						data = self.Data_1D.CL.Values[:, ind:ind + nCol]
+						self.times = self.Data_1D.CL.Values[:, 1]
 						return True, data, message
 					except:
 						message = 'Data not found for 1D Losses with ID: ' + id

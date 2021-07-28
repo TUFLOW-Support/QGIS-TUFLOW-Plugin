@@ -15,6 +15,7 @@ from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, convertFormattedTi
 from tuflow.dataset_menu import DatasetMenuDepAv
 from tuflow.TUFLOW_XS import XS
 import numpy as np
+import re
 
 
 class TuResults():
@@ -1823,7 +1824,8 @@ class TuResults():
 		:return: bool
 		"""
 
-		if '/Minimums' in resultType or ('min_' in resultType and 'time' not in resultType):
+		# if '/Minimums' in resultType or ('min_' in resultType and 'time' not in resultType):
+		if '/Minimums' in resultType or (re.findall(r'\Dmin_', resultType, flags=re.IGNORECASE) and 'time' not in resultType):
 			return True
 
 		return False
@@ -2117,7 +2119,7 @@ class TuResults():
 			else:
 				timeSpec = 1
 		begin = dt2qdt(time, 1)
-		end = begin.addSecs(60.*60.)
+		end = begin.addSecs(60*60)
 		dtr = QgsDateTimeRange(begin, end)
 		if qgsObject is not None:
 			qgsObject.setTemporalRange(dtr)

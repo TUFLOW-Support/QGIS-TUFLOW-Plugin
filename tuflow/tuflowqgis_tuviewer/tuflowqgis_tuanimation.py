@@ -23,7 +23,7 @@ from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, applyMatplotLibArt
                                        convertFormattedTimeToTime, getPolyCollectionExtents, getQuiverExtents,
                                        convertTimeToDate, convertFormattedDateToTime, addColourBarAxes, reSpecPlot,
                                        addLegend, addQuiverKey, datetime2timespec, convert_datetime_to_float,
-                                       convert_float_to_datetime, qdt2dt)
+                                       convert_float_to_datetime, qdt2dt, DownloadBinPackage)
 import matplotlib
 import numpy as np
 try:
@@ -45,6 +45,7 @@ from matplotlib.quiver import Quiver
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot3d import ColourBar
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults2d import TuResults2D
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+import requests
 
 
 # http://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
@@ -82,50 +83,71 @@ def findPlatformVersion():
 
 
 def downloadBinPackage(packageUrl, destinationFileName):
-	request = QNetworkRequest(QUrl(packageUrl))
-	request.setRawHeader(b'Accept-Encoding', b'gzip,deflate')
-
-	reply = QgsNetworkAccessManager.instance().get(request)
-	evloop = QEventLoop()
-	reply.finished.connect(evloop.quit)
-	evloop.exec_(QEventLoop.ExcludeUserInputEvents)
-	content_type = reply.rawHeader(b'Content-Type')
+	# request = QNetworkRequest(QUrl(packageUrl))
+	# request.setRawHeader(b'Accept-Encoding', b'gzip,deflate')
+	#
+	# reply = QgsNetworkAccessManager.instance().get(request)
+	# evloop = QEventLoop()
+	# reply.finished.connect(evloop.quit)
+	# evloop.exec_(QEventLoop.ExcludeUserInputEvents)
+	# content_type = reply.rawHeader(b'Content-Type')
 	#if content_type == QByteArray().append('application/zip'):
-	if content_type == b'application/zip':
+	# if content_type == b'application/zip':
+	r = requests.get(packageUrl, stream=True)
+	if r.status_code == requests.codes.ok and r.headers['Content-Type'] == 'application/zip':
 		if os.path.isfile(destinationFileName):
 			os.unlink(destinationFileName)
 
 		destinationFile = open(destinationFileName, 'wb')
-		destinationFile.write(bytearray(reply.readAll()))
+		# destinationFile.write(bytearray(reply.readAll()))
+		destinationFile.write(bytearray(r.content))
 		destinationFile.close()
 	else:
-		ret_code = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
-		raise IOError("{} {}".format(ret_code, packageUrl))
+		# ret_code = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+		raise IOError("{} {}".format(r.status_code, packageUrl))
 	
 	
 def downloadFfmpeg(parent_widget=None):
 	
-	downloadBaseUrl = 'https://www.lutraconsulting.co.uk/'
+	# downloadBaseUrl = 'https://www.lutraconsulting.co.uk/'
+	downloadBaseUrl = 'https://www.gyan.dev/ffmpeg/builds/'
 	destFolder = os.path.dirname(os.path.dirname(__file__))
-	ffmpegZip = 'ffmpeg-20150505-git-6ef3426-win32-static.zip'
+	# ffmpegZip = 'ffmpeg-20150505-git-6ef3426-win32-static.zip'
+	ffmpegZip = 'ffmpeg-release-essentials.zip'
 	ffmpegZipPath = os.path.join(destFolder, ffmpegZip)
-	ffmpegUrl = downloadBaseUrl+'products/crayfish/viewer/binaries/'+findPlatformVersion()+'/extra/'+ffmpegZip
+	# ffmpegUrl = downloadBaseUrl+'products/crayfish/viewer/binaries/'+findPlatformVersion()+'/extra/'+ffmpegZip
+	ffmpegUrl = '{0}{1}'.format(downloadBaseUrl, ffmpegZip)
 
 	qApp.setOverrideCursor(QCursor(Qt.WaitCursor))
 	try:
-		downloadBinPackage(ffmpegUrl, ffmpegZipPath)
+		# downloadBinPackage(ffmpegUrl, ffmpegZipPath)
+		downloader = DownloadBinPackage(ffmpegUrl, ffmpegZipPath, 'Downloading ffmpeg.exe. . . ')
+		downloader.start()
+		downloader.wait()
 		z = zipfile.ZipFile(ffmpegZipPath)
-		z.extractall(destFolder)
+		ffmpeg_loc = None
+		for member in z.namelist():
+			if 'ffmpeg.exe' in member:
+				ffmpeg_loc = z.extract(member, destFolder)
+				break
+		# z.extractall(destFolder)
 		z.close()
 		os.unlink(ffmpegZipPath)
 		qApp.restoreOverrideCursor()
-		return os.path.join(destFolder, 'ffmpeg.exe')
+		# return os.path.join(destFolder, 'ffmpeg.exe')
+		return ffmpeg_loc
 	except IOError as err:
 		qApp.restoreOverrideCursor()
 		QMessageBox.critical(parent_widget,
 		  'Could Not Download FFmpeg',
 		  "Download of FFmpeg failed. Please try again or contact us for "
 		  "further assistance.\n\n(Error: %s)" % str(err))
+	except Exception as e:
+		qApp.restoreOverrideCursor()
+		QMessageBox.critical(parent_widget,
+		                     'Could Not Download FFmpeg',
+		                     "Download of FFmpeg failed. Please try again or contact us for "
+		                     "further assistance.\n\n(Error: %s)" % str(e))
 
 
 def findLayoutItem(layout, id):
@@ -1358,25 +1380,25 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		total_width = 0
 		for i in range(self.tablePlots.columnCount()):
 			total_width += self.tablePlots.columnWidth(i)
-		self.tablePlots.setColumnWidth(0, (total_width - 175) / 3.)
+		self.tablePlots.setColumnWidth(0, int((total_width - 175) / 3.))
 		self.tablePlots.setColumnWidth(1, 175)
-		self.tablePlots.setColumnWidth(2, (total_width - 175) / 3.)
-		self.tablePlots.setColumnWidth(3, (total_width - 175) / 3.)
+		self.tablePlots.setColumnWidth(2, int((total_width - 175) / 3.))
+		self.tablePlots.setColumnWidth(3, int((total_width - 175) / 3.))
 		
 		total_width = 0
 		for i in range(self.tableGraphics.columnCount()):
 			total_width += self.tableGraphics.columnWidth(i)
-		self.tableGraphics.setColumnWidth(0, (total_width - 175) / 3.)
+		self.tableGraphics.setColumnWidth(0, int((total_width - 175) / 3))
 		self.tableGraphics.setColumnWidth(1, 175)
-		self.tableGraphics.setColumnWidth(2, (total_width - 175) / 3.)
-		self.tableGraphics.setColumnWidth(3, (total_width - 175) / 3.)
+		self.tableGraphics.setColumnWidth(2, int((total_width - 175) / 3))
+		self.tableGraphics.setColumnWidth(3, int((total_width - 175) / 3))
 		
 		total_width = 0
 		for i in range(self.tableImages.columnCount()):
 			total_width += self.tableImages.columnWidth(i)
 		self.tableImages.setColumnWidth(0, 250)
-		self.tableImages.setColumnWidth(1, (total_width - 250.) / 2.)
-		self.tableImages.setColumnWidth(2, (total_width - 250.) / 2.)
+		self.tableImages.setColumnWidth(1, int((total_width - 250.) / 2))
+		self.tableImages.setColumnWidth(2, int((total_width - 250.) / 2))
 		
 		self.setPlotTableProperties()
 		self.setImageTableProperties()
@@ -2646,9 +2668,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 				QMessageBox.warning(self, "FFmpeg missing",
 									"The tool for video creation (<a href=\"http://en.wikipedia.org/wiki/FFmpeg\">FFmpeg</a>) "
 									"is missing. Please check your FFmpeg configuration in <i>Video</i> tab.<p>"
-									"<b>Windows users:</b> Let the TUFLOW plugin download FFmpeg automatically (by clicking OK) or "
-									"<a href=\"http://ffmpeg.zeranoe.com/builds/\">download</a> FFmpeg manually "
-									"and configure path in <i>Video</i> tab to point to ffmpeg.exe.<p>"
+									"<b>Windows users:</b> Let the TUFLOW plugin download FFmpeg automatically (by clicking OK).<p>"
 									"<b>Linux users:</b> Make sure FFmpeg is installed in your system - usually a package named "
 									"<tt>ffmpeg</tt>. On Debian/Ubuntu systems FFmpeg was replaced by Libav (fork of FFmpeg) "
 									"- use <tt>libav-tools</tt> package.<p>"
@@ -2664,7 +2684,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 				# 2. packages contain extra binaries we do not need
 
 				msg = "Would you like to download and auto-configure FFmpeg?\n\n" \
-					  "The download may take some time (~13 MB).\n" \
+					  "The download may take some time (~70 MB).\n" \
 					  "FFmpeg will be downloaded to the TUFLOW plugin's directory."
 				if self.tuView.iface is not None:
 					reply = QMessageBox.question(self,
@@ -2683,7 +2703,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 				self.ffmpeg_bin = downloadFfmpeg(self)
 				if not self.ffmpeg_bin:
 					return
-				
+
 				# configure the path automatically
 				self.radFfmpegCustom.setChecked(True)
 				self.editFfmpegPath.setText(self.ffmpeg_bin)
@@ -3171,8 +3191,8 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			self.project.writeEntry("TUFLOW", 'plot_{0}_xlabel'.format(i), p.leXLabel.text())
 			self.project.writeEntry("TUFLOW", 'plot_{0}_ylabel'.format(i), p.leYLabel.text())
 			self.project.writeEntry("TUFLOW", 'plot_{0}_y2label'.format(i), p.leY2Label.text())
-			self.project.writeEntry("TUFLOW", 'plot_{0}_xmin'.format(i), p.sbXmin.value())
-			self.project.writeEntry("TUFLOW", 'plot_{0}_xmax'.format(i), p.sbXMax.value())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xmin'.format(i), int(p.sbXmin.value()))
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xmax'.format(i), int(p.sbXMax.value()))
 			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemin_year'.format(i), p.dteXmin.dateTime().date().year())
 			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemin_month'.format(i), p.dteXmin.dateTime().date().month())
 			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemin_day'.format(i), p.dteXmin.dateTime().date().day())
@@ -3188,16 +3208,16 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemax_second'.format(i), p.dteXMax.dateTime().time().second())
 			self.project.writeEntry("TUFLOW", 'plot_{0}_xdatemax_msecond'.format(i), p.dteXMax.dateTime().time().msec())
 			self.project.writeEntry("TUFLOW", 'plot_{0}_xaxis_rotation'.format(i), p.sbXAxisRotation.value())
-			self.project.writeEntry("TUFLOW", 'plot_{0}_ymin'.format(i), p.sbYMin.value())
-			self.project.writeEntry("TUFLOW", 'plot_{0}_ymax'.format(i), p.sbYMax.value())
-			self.project.writeEntry("TUFLOW", 'plot_{0}_y2min'.format(i), p.sbY2Min.value())
-			self.project.writeEntry("TUFLOW", 'plot_{0}_y2max'.format(i), p.sbY2Max.value())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_ymin'.format(i), int(p.sbYMin.value()))
+			self.project.writeEntry("TUFLOW", 'plot_{0}_ymax'.format(i), int(p.sbYMax.value()))
+			self.project.writeEntry("TUFLOW", 'plot_{0}_y2min'.format(i), int(p.sbY2Min.value()))
+			self.project.writeEntry("TUFLOW", 'plot_{0}_y2max'.format(i), int(p.sbY2Max.value()))
 			self.project.writeEntry("TUFLOW", 'plot_{0}_legend_cb'.format(i), p.cbLegend.isChecked())
 			self.project.writeEntry("TUFLOW", 'plot_{0}_legend_pos'.format(i), p.cboLegendPos.currentIndex())
 			self.project.writeEntry("TUFLOW", 'plot_{0}_ygrid'.format(i), p.cbGridY.isChecked())
 			self.project.writeEntry("TUFLOW", 'plot_{0}_xgrid'.format(i), p.cbGridX.isChecked())
-			self.project.writeEntry("TUFLOW", 'plot_{0}_xsize'.format(i), p.sbFigSizeX.value())
-			self.project.writeEntry("TUFLOW", 'plot_{0}_ysize'.format(i), p.sbFigSizeY.value())
+			self.project.writeEntry("TUFLOW", 'plot_{0}_xsize'.format(i), int(p.sbFigSizeX.value()))
+			self.project.writeEntry("TUFLOW", 'plot_{0}_ysize'.format(i), int(p.sbFigSizeY.value()))
 			
 		# Graphics
 		self.project.writeEntry("TUFLOW", "number_of_graphics", self.tableGraphics.rowCount())

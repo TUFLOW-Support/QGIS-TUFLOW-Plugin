@@ -191,13 +191,13 @@ def makeMap(cfg, iface, progress_fn=None, dialog=None, preview=False, iteration=
 	layout_exporter = QgsLayoutExporter(layout)
 	image_export_settings = QgsLayoutExporter.ImageExportSettings()
 	image_export_settings.dpi = dpi
-	image_export_settings.imageSize = QSize(w, h)
+	image_export_settings.imageSize = QSize(int(w), int(h))
 	pdf_export_settings = QgsLayoutExporter.PdfExportSettings()
 	pdf_export_settings.dpi = dpi
-	pdf_export_settings.imageSize = QSize(w, h)
+	pdf_export_settings.imageSize = QSize(int(w), int(h))
 	svg_export_settings = QgsLayoutExporter.SvgExportSettings()
 	svg_export_settings.dpi = dpi
-	svg_export_settings.imageSize = QSize(w, h)
+	svg_export_settings.imageSize = QSize(int(w), int(h))
 	ext = os.path.splitext(imgfile)[1]
 	if not preview:
 		if ext.lower() == '.pdf':
@@ -263,25 +263,25 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		total_width = self.tablePlots.verticalHeader().width() + self.tablePlots.horizontalHeader().length() + self.tablePlots.frameWidth() * 2
 		primarywidth = 175.
 		subwidth = (total_width - primarywidth) / (self.tablePlots.columnCount() - 1)
-		self.tablePlots.setColumnWidth(0, subwidth)
-		self.tablePlots.setColumnWidth(1, primarywidth)
-		self.tablePlots.setColumnWidth(2, subwidth)
-		self.tablePlots.setColumnWidth(3, subwidth)
+		self.tablePlots.setColumnWidth(0, int(subwidth))
+		self.tablePlots.setColumnWidth(1, int(primarywidth))
+		self.tablePlots.setColumnWidth(2, int(subwidth))
+		self.tablePlots.setColumnWidth(3, int(subwidth))
 		
 		total_width = self.tableGraphics.verticalHeader().width() + self.tableGraphics.horizontalHeader().length() + self.tableGraphics.frameWidth() * 2
 		primarywidth = 175.
 		subwidth = (total_width - primarywidth) / (self.tableGraphics.columnCount() - 1)
-		self.tableGraphics.setColumnWidth(0, subwidth)
-		self.tableGraphics.setColumnWidth(1, primarywidth)
-		self.tableGraphics.setColumnWidth(2, subwidth)
-		self.tableGraphics.setColumnWidth(3, subwidth)
+		self.tableGraphics.setColumnWidth(0, int(subwidth))
+		self.tableGraphics.setColumnWidth(1, int(primarywidth))
+		self.tableGraphics.setColumnWidth(2, int(subwidth))
+		self.tableGraphics.setColumnWidth(3, int(subwidth))
 		
 		total_width = self.tableImages.verticalHeader().width() + self.tableImages.horizontalHeader().length() + self.tableImages.frameWidth() * 2
 		primarywidth = 250.
 		subwidth = (total_width - primarywidth) / (self.tableImages.columnCount() - 1)
-		self.tableImages.setColumnWidth(0, primarywidth)
-		self.tableImages.setColumnWidth(1, subwidth)
-		self.tableImages.setColumnWidth(2, subwidth)
+		self.tableImages.setColumnWidth(0, int(primarywidth))
+		self.tableImages.setColumnWidth(1, int(subwidth))
+		self.tableImages.setColumnWidth(2, int(subwidth))
 
 		self.setPlotTableProperties()
 		self.setImageTableProperties()

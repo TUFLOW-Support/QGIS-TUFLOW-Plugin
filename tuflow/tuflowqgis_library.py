@@ -54,6 +54,7 @@ import locale
 import codecs
 from shutil import copyfile
 # import processing
+import requests
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tuflowqgis_styles
@@ -490,7 +491,7 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 				outfile = QgsVectorFileWriter.writeAsVectorFormatV2(outlayer, savename, QgsCoordinateTransformContext(), options)
 				# if (outfile.hasError() != QgsVectorFileWriter.NoError):
 				if outfile[0] != QgsVectorFileWriter.NoError:
-				 	QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: {0}\n{1}".format(*outfile)))
+					QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: {0}\n{1}".format(*outfile)))
 				# del outfile
 
 				# delete prj file and replace with empty prj - ensures it is exactly the same
@@ -815,9 +816,15 @@ def region_renderer(layer):
 			if i == 1:
 				field_name = field.name()
 			i += 1
-	elif re.findall(r'_FM_PLOT_[PLR]', fname, flags=re.IGNORECASE):
+	# elif re.findall(r'_FM_PLOT_[PLR]', fname, flags=re.IGNORECASE):
+	elif re.findall(r'((_FM_PLOT_[PLR])|_raw_(nodes|links)_)', fname, flags=re.IGNORECASE):
+		try:
+			field_names = [x.name() for x in [f for f in layer.getFeatures()][0].fields()]
+			upstrm_type = 'Upstrm_Type' if 'Upstrm_Type' in field_names else 'Upstrm_Typ'
+		except (IndexError, AttributeError):
+			upstrm_type = 'Upstrm_Type'
 		if layer.geometryType() == QgsWkbTypes.LineGeometry:
-			field_name = 'Upstrm_Type'
+			field_name = upstrm_type
 		elif layer.geometryType() == QgsWkbTypes.PointGeometry:
 			field_name = 'Unit_Type'
 	else: #render not needed
@@ -831,19 +838,26 @@ def region_renderer(layer):
 	vals = layer.dataProvider().fieldNameIndex(field_name)
 	unique_values = layer.dataProvider().uniqueValues(vals)
 	#QgsMessageLog.logMessage('These values have been identified: ' + vals, "TUFLOW")
-
-	if re.findall(r'_FM_PLOT_[PLR]', fname, flags=re.IGNORECASE) and layer.geometryType() == QgsWkbTypes.LineGeometry:
-		unique_values2 = [x.upper() for x in unique_values if x.upper() != 'SPILL' and x.upper() != 'JUNCTION']
+	if re.findall(r'((_FM_PLOT_[PLR])|_raw_(nodes|links)_)', fname, flags=re.IGNORECASE) and layer.geometryType() == QgsWkbTypes.LineGeometry:
+		unique_values2 = [x.upper() for x in unique_values if x.upper() != 'SPILL' and x.upper() != 'JUNCTION' and x.upper() != 'INTERPOLATE']
+		try:
+			field_names = [x.name() for x in [f for f in layer.getFeatures()][0].fields()]
+			upstrm_type = 'Upstrm_Type' if 'Upstrm_Type' in field_names else 'Upstrm_Typ'
+			dnstrm_type = 'Dnstrm_Type' if 'Upstrm_Type' in field_names else 'Dnstrm_Typ'
+		except (IndexError, AttributeError):
+			upstrm_type = 'Upstrm_Type'
+			dnstrm_type = 'Dnstrm_Type'
 		spillExists = 'SPILL' in [x.upper() for x in unique_values]
 		junctExists = 'JUNCTION' in [x.upper() for x in unique_values]
 		intpExists = 'INTERPOLATE' in [x.upper() for x in unique_values]
-		expressions = [f'"Upstrm_Type" ILIKE \'{x}\'' for x in unique_values2]
+		expressions = [f'"{upstrm_type}" ILIKE \'{x}\' and {upstrm_type} NOT ILIKE \'%BDY%\' and {dnstrm_type} NOT ILIKE \'%BDY%\'' for x in unique_values2]
 		if spillExists:
-			expressions = [f'{x} and "Dnstrm_Type" NOT ILIKE \'SPILL\'' for x in expressions]
+			expressions = [f'{x} and "{dnstrm_type}" NOT ILIKE \'SPILL\'' for x in expressions]
 		if junctExists:
-			expressions = [f'{x} and "Dnstrm_Type" NOT ILIKE \'JUNCTION\'' for x in expressions]
+			expressions = [f'{x} and "{dnstrm_type}" NOT ILIKE \'JUNCTION\'' for x in expressions]
 		if intpExists:
-			expressions = [f'{x} and "Dnstrm_Type" NOT ILIKE \'INTERPOLATE\'' for x in expressions]
+			expressions = [f'{x} and "{dnstrm_type}" NOT ILIKE \'INTERPOLATE\'' for x in expressions]
+		expressions.insert(0, f'"{upstrm_type}" ILIKE \'%BDY%\' or "{dnstrm_type}" ILIKE \'%BDY%\'')
 		# if spillExists and junctExists:
 		# 	expressions = [f'"Upstrm_Type" ILIKE \'{x}\' and  "Dnstrm_Type" NOT ILIKE \'SPILL\'' \
 		# 	               f' and "Dnstrm_Type" NOT ILIKE \'JUNCTION\'' for x in unique_values2]
@@ -856,48 +870,60 @@ def region_renderer(layer):
 		symbol = QgsSymbol.defaultSymbol(layer.geometryType())
 		renderer = QgsRuleBasedRenderer(symbol)
 		root_rule = renderer.rootRule()
-		for i, exp in enumerate(expressions):
+		for j, exp in enumerate(expressions):
+			i = j - 1
 			layer_style = {}
 			color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))
 			layer_style['color'] = color
 			layer_style['outline'] = '#000000'
 			symbol = QgsSymbol.defaultSymbol(layer.geometryType())
 			rule = root_rule.children()[0].clone()
-			rule.setLabel(unique_values2[i])
-			rule.setFilterExpression(exp)
-			if unique_values2[i].lower() == 'lateral':
-				symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
-				symbol_layer.setWidth(0.25)
-				color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
-				symbol_layer.setStrokeColor(color)
-				symbol_layer.setPenStyle(Qt.DotLine)
-				symbol_layer2 = None
-			elif 'bdy' in unique_values2[i].lower():
+			if j == 0:
+				rule.setLabel('BDY')
+				rule.setFilterExpression(exp)
 				symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
 				symbol_layer.setWidth(0.5)
 				symbol_layer.setStrokeColor(QColor(227, 26, 28))
 				symbol_layer.setPenStyle(Qt.DashLine)
 				symbol_layer2 = None
 			else:
-				symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
-				symbol_layer.setWidth(0.5)
-				symbol_layer2 = QgsMarkerLineSymbolLayer.create({'placement': 'lastvertex'})
-				layer_style['color_border'] = color
-				markerSymbol = QgsSimpleMarkerSymbolLayer.create(layer_style)
-				markerSymbol.setShape(QgsSimpleMarkerSymbolLayerBase.ArrowHeadFilled)
-				markerSymbol.setSize(4)
-				marker = QgsMarkerSymbol()
-				marker.changeSymbolLayer(0, markerSymbol)
-				symbol_layer2.setSubSymbol(marker)
-			if symbol_layer is not None:
-				symbol.changeSymbolLayer(0, symbol_layer)
-				if symbol_layer2 is not None:
-					symbol.appendSymbolLayer(symbol_layer2)
+				# rule.setLabel(unique_values2[i-1])
+				rule.setLabel(unique_values2[i])
+				rule.setFilterExpression(exp)
+				if unique_values2[i].lower() == 'lateral':
+					symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+					symbol_layer.setWidth(0.25)
+					color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
+					symbol_layer.setStrokeColor(color)
+					symbol_layer.setPenStyle(Qt.DotLine)
+					symbol_layer2 = None
+				elif 'bdy' in unique_values2[i].lower():
+					continue
+					# symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+					# symbol_layer.setWidth(0.5)
+					# symbol_layer.setStrokeColor(QColor(227, 26, 28))
+					# symbol_layer.setPenStyle(Qt.DashLine)
+					# symbol_layer2 = None
+				else:
+					symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+					symbol_layer.setWidth(0.5)
+					symbol_layer2 = QgsMarkerLineSymbolLayer.create({'placement': 'lastvertex'})
+					layer_style['color_border'] = color
+					markerSymbol = QgsSimpleMarkerSymbolLayer.create(layer_style)
+					markerSymbol.setShape(QgsSimpleMarkerSymbolLayerBase.ArrowHeadFilled)
+					markerSymbol.setSize(4)
+					marker = QgsMarkerSymbol()
+					marker.changeSymbolLayer(0, markerSymbol)
+					symbol_layer2.setSubSymbol(marker)
+				if symbol_layer is not None:
+					symbol.changeSymbolLayer(0, symbol_layer)
+					if symbol_layer2 is not None:
+						symbol.appendSymbolLayer(symbol_layer2)
 			rule.setSymbol(symbol)
 			root_rule.appendChild(rule)
 		if spillExists:
 			symbol = QgsSymbol.defaultSymbol(layer.geometryType())
-			exp = '"Upstrm_Type" ILIKE \'SPILL\' or  "Dnstrm_Type" ILIKE \'SPILL\''
+			exp = f'"{upstrm_type}" ILIKE \'SPILL\' or  "{dnstrm_type}" ILIKE \'SPILL\''
 			rule = root_rule.children()[0].clone()
 			rule.setLabel('SPILL')
 			rule.setFilterExpression(exp)
@@ -915,7 +941,7 @@ def region_renderer(layer):
 			root_rule.appendChild(rule)
 		if junctExists:
 			symbol = QgsSymbol.defaultSymbol(layer.geometryType())
-			exp = '"Upstrm_Type" ILIKE \'JUNCTION\' or "Dnstrm_Type" ILIKE \'JUNCTION\''
+			exp = f'("{upstrm_type}" ILIKE \'JUNCTION\' or "{dnstrm_type}" ILIKE \'JUNCTION\') AND "{upstrm_type}" NOT ILIKE \'SPILL\' AND "{dnstrm_type}" NOT ILIKE \'SPILL\''
 			rule = root_rule.children()[0].clone()
 			rule.setLabel('CONN')
 			rule.setFilterExpression(exp)
@@ -936,7 +962,7 @@ def region_renderer(layer):
 			layer_style['color'] = color
 			layer_style['outline'] = '#000000'
 			symbol = QgsSymbol.defaultSymbol(layer.geometryType())
-			exp = '"Upstrm_Type" ILIKE \'INTERPOLATE\' or "Dnstrm_Type" ILIKE \'INTERPOLATE\''
+			exp = f'("{upstrm_type}" ILIKE \'INTERPOLATE\' or "{dnstrm_type}" ILIKE \'INTERPOLATE\') AND "{upstrm_type}" NOT ILIKE \'SPILL\' AND "{dnstrm_type}" NOT ILIKE \'SPILL\''
 			rule = root_rule.children()[0].clone()
 			rule.setLabel('INTERPOLATE')
 			rule.setFilterExpression(exp)
@@ -1024,7 +1050,7 @@ def region_renderer(layer):
 					color = QColor(randrange(0,256), randrange(0,256), randrange(0,256))
 					symbol_layer.setStrokeColor(color)
 					symbol_layer.setStrokeWidth(1)
-			elif re.findall(r'_FM_PLOT_[PLR]', fname, flags=re.IGNORECASE):
+			elif re.findall(r'((_FM_PLOT_[PLR])|_raw_(nodes|links)_)', fname, flags=re.IGNORECASE):
 				if layer.geometryType() == QgsWkbTypes.LineGeometry:
 					# shouldn't get here anymore
 					if unique_value.lower() == 'lateral' or unique_value.lower() == 'spill':
@@ -1089,6 +1115,7 @@ def region_renderer(layer):
 		return QgsCategorizedSymbolRenderer(field_name, categories)
 	
 def tuflowqgis_apply_check_tf(qgis):
+
 	#apply check file styles to all open shapefiles
 	error = False
 	message = None
@@ -1115,7 +1142,7 @@ def tuflowqgis_apply_check_tf(qgis):
 			error, message, slyr = tf_styles.Find(layer_fname, layer) #use tuflow styles to find longest matching
 			if error:
 				return error, message
-			if re.findall(r'_FM_PLOT_[PLR]', layer_fname, flags=re.IGNORECASE):
+			if re.findall(r'((_FM_PLOT_[PLR])|_raw_(nodes|links)_)', layer_fname, flags=re.IGNORECASE):
 				slyr = False  # flood modeller
 			if slyr: #style layer found:
 				layer.loadNamedStyle(slyr)
@@ -1169,7 +1196,7 @@ def tuflowqgis_apply_check_tf_clayer(qgis, **kwargs):
 		# 	cLayer.triggerRepaint()
 		# else: # use .qml style using tf_styles
 		error, message, slyr = tf_styles.Find(layer_fname, cLayer) #use tuflow styles to find longest matching
-		if re.findall(r'_FM_PLOT_[PLR]', layer_fname, flags=re.IGNORECASE):
+		if re.findall(r'((_FM_PLOT_[PLR])|_raw_(nodes|links)_)', layer_fname, flags=re.IGNORECASE):
 			slyr = False  # flood modeller
 		if error:
 			return error, message
@@ -1970,8 +1997,6 @@ def setLabelProperties(label: QgsPalLayerSettings, properties: dict, layer: QgsV
 
 
 def tuflowqgis_apply_autoLabel_clayer(qgis: QgisInterface):
-	import pydevd_pycharm
-	pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
 	error = False
 	message = None
 	canvas = qgis.mapCanvas()
@@ -5165,7 +5190,7 @@ def saveBatchFile(flags, workdir):
 def downloadBinPackage(packageUrl, destinationFileName):
 	request = QNetworkRequest(QUrl(packageUrl))
 	request.setRawHeader(b'Accept-Encoding', b'gzip,deflate')
-	
+
 	reply = QgsNetworkAccessManager.instance().get(request)
 	evloop = QEventLoop()
 	reply.finished.connect(evloop.quit)
@@ -5175,13 +5200,169 @@ def downloadBinPackage(packageUrl, destinationFileName):
 	if content_type == b'application/x-zip-compressed':
 		if os.path.isfile(destinationFileName):
 			os.unlink(destinationFileName)
-		
+
 		destinationFile = open(destinationFileName, 'wb')
 		destinationFile.write(bytearray(reply.readAll()))
 		destinationFile.close()
 	else:
 		ret_code = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
 		raise IOError("{} {}".format(ret_code, packageUrl))
+
+
+class Downloader(QObject):
+
+	updated = pyqtSignal(int)
+	finished = pyqtSignal(int)
+
+	def __init__(self, packageUrl, destinationFileName):
+		QObject.__init__(self, None)
+		self.packageUrl = packageUrl
+		self.destinationFileName = destinationFileName
+
+	def start(self):
+		# import pydevd_pycharm
+		# pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
+		from urllib.request import urlopen
+		# self.r = requests.get(self.packageUrl, stream=True)
+		# if self.r.status_code != requests.codes.ok or \
+		# 		(self.r.headers['Content-Type'] != 'application/zip' and self.r.headers['Content-Type'] != 'application/x-zip-compressed'):
+			# self.finished.emit(self.r.status_code)
+			# self.finished.emit(self.r.status)
+			# self.r.close()
+			# return
+
+		# total_length = self.r.headers.get('Content-Length')
+		# total_length = self.r.length
+		# if total_length is None or self.r.headers['Content-Type'] == 'application/x-zip-compressed':
+		# 	if os.path.isfile(self.destinationFileName):
+		# 		os.unlink(self.destinationFileName)
+		# 	# self.r.close()
+		# 	# self.r = requests.get(self.packageUrl)  # not streaming
+		# 	destinationFile = open(self.destinationFileName, 'wb')
+		# 	destinationFile.write(bytearray(self.r.content))
+		# 	destinationFile.close()
+		# 	self.r.close()
+		# 	self.finished.emit(0)
+		# else:
+		# 	# total_length = int(total_length)
+		# 	if os.path.isfile(self.destinationFileName):
+		# 		os.unlink(self.destinationFileName)
+		# 	destinationFile = open(self.destinationFileName, 'wb')
+		# 	chunk_size = min(int(total_length / 100), 1024 * 1024 * 10)
+		# 	prog = 0
+		# 	for data in self.r.iter_content(chunk_size=chunk_size):
+		# 		prog += len(data)
+		# 		destinationFile.write(bytearray(data))
+		# 		done = int(prog / total_length * 100)
+		# 		self.updated.emit(done)
+		# 		if QThread().currentThread().isInterruptionRequested():
+		# 			break
+		with urlopen(self.packageUrl) as request:
+			total_length = request.length
+			if os.path.isfile(self.destinationFileName):
+				os.unlink(self.destinationFileName)
+			CHUNK = 4096
+			prog = 0
+			with open(self.destinationFileName, 'wb') as f:
+				for chunk in iter(lambda: request.read(CHUNK), ''):
+					prog += CHUNK
+					if not chunk:
+						break
+					f.write(chunk)
+					done = int(prog / total_length * 100)
+					self.updated.emit(done)
+					if QThread().currentThread().isInterruptionRequested():
+						break
+		# self.destinationFileName.close()
+		# self.r.close()
+		self.finished.emit(0)
+
+
+class DownloadProgressBar(QObject):
+
+	def __init__(self, label):
+		QObject.__init__(self, None)
+		self.layout = QVBoxLayout()
+		self.label = QLabel(label)
+		self.layout.addWidget(self.label)
+		self.progressBar = QProgressBar()
+		self.progressBar.setRange(0, 0)
+		self.layout.addWidget(self.progressBar)
+		self.widget = QWidget()
+		self.widget.setAttribute(Qt.WA_DeleteOnClose)
+		self.widget.setMinimumWidth(525)
+		self.widget.setLayout(self.layout)
+		self.widget.show()
+		self.is_finished = False
+		self.error = 0
+
+	def start(self):
+		self.widget.show()
+
+	def finish(self, error):
+		try:
+			self.widget.close()
+		except:
+			pass
+		self.error = error
+		self.is_finished = True
+
+	def update(self, prog):
+		try:
+			if prog > -1:
+				if self.progressBar.maximum() != 100:
+					self.progressBar.setRange(0, 100)
+				self.progressBar.setValue(prog)
+		except:
+			pass
+
+
+class DownloadBinPackage(QObject):
+
+	def __init__(self, packageUrl, destinationFileName, label, add_progress_bar=True, parent_widget=None):
+		QObject.__init__(self, parent_widget)
+		self.parent_widget = parent_widget
+		self.packageUrl = packageUrl
+		self.destinationFileName = destinationFileName
+		self.add_progress_bar = add_progress_bar
+		self.label = label
+
+	def wait(self):
+		while not self.progress_bar.is_finished:
+			QgsApplication.processEvents()
+
+		if self.progress_bar.error != 0:
+			raise IOError("error code {} {}".format(self.progress_bar.error, self.packageUrl))
+
+		self.thread.quit()
+
+	def stop(self):
+		self.thread.requestInterruption()
+		self.thread.quit()
+
+	def start(self):
+		if self.add_progress_bar:
+			self.progress_bar = DownloadProgressBar(self.label)
+			self.downloader = Downloader(self.packageUrl, self.destinationFileName)
+			self.thread = QThread()
+			self.downloader.moveToThread(self.thread)
+			self.downloader.updated.connect(self.progress_bar.update)
+			self.downloader.finished.connect(self.progress_bar.finish)
+			self.thread.started.connect(self.downloader.start)
+			self.progress_bar.widget.destroyed.connect(self.stop)
+			self.progress_bar.start()
+			self.thread.setTerminationEnabled(True)
+			self.thread.start()
+		else:
+			r = requests.get(self.packageUrl)
+			if r.status_code == requests.codes.ok and r.headers['Content-Type'] == 'application/zip':
+				if os.path.isfile(self.destinationFileName):
+					os.unlink(self.destinationFileName)
+				destinationFile = open(self.destinationFileName, 'wb')
+				destinationFile.write(bytearray(r.content))
+				destinationFile.close()
+			else:
+				raise IOError("{} {}".format(r.status_code, self.packageUrl))
 
 
 def getUtilityDownloadPaths(util_dict, util_path_file):
@@ -5200,7 +5381,6 @@ def getUtilityDownloadPaths(util_dict, util_path_file):
 
 
 def downloadUtility(utility, parent_widget=None):
-
 	util_path_file = os.path.join(os.path.dirname(__file__), "__utilities__.txt")
 	latestUtilities = {
 		'asc_to_asc': '',
@@ -5241,6 +5421,9 @@ def downloadUtility(utility, parent_widget=None):
 	qApp.setOverrideCursor(QCursor(Qt.WaitCursor))
 	try:
 		downloadBinPackage(url, exePath)
+		# downloader = DownloadBinPackage(url, exePath, 'Downloading {0}. . .'.format(utility))
+		# downloader.start()
+		# downloader.wait()
 		z = zipfile.ZipFile(exePath)
 		z.extractall(destFolder)
 		z.close()
@@ -7100,7 +7283,7 @@ def dt2qdt(dt, timeSpec):
 	"""Converts datetime to QDateTime: assumes timespec = 1"""
 
 	return QDateTime(QDate(dt.year, dt.month, dt.day),
-	                 QTime(dt.hour, dt.minute, dt.second, dt.microsecond / 1000.),
+	                 QTime(dt.hour, dt.minute, dt.second, int(dt.microsecond / 1000)),
 	                 Qt.TimeSpec(timeSpec))
 
 

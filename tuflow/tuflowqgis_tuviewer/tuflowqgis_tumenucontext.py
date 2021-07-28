@@ -24,6 +24,8 @@ class TuContextMenu():
 		self.tuMenuFunctions = TuMenuFunctions(TuView)
 
 		self.plotNoToToolbar = self.tuView.tuMenuBar.plotNoToToolbar
+
+		self.signals = []
 		
 	def loadPlotMenu(self, plotNo, **kwargs):
 		"""
@@ -95,15 +97,21 @@ class TuContextMenu():
 			self.plotMenu.addAction(self.tuPlot.verticalMesh_action)
 		
 		#self.userPlotDataManager_action.triggered.connect(self.tuMenuFunctions.openUserPlotDataManager)
-		self.freezeAxisLimits_action.triggered.connect(viewToolbar.freezeXYAxis)
-		self.freezeAxisXLimits_action.triggered.connect(viewToolbar.freezeXAxis)
-		self.freezeAxisYLimits_action.triggered.connect(viewToolbar.freezeYAxis)
-		self.refreshCurrentPlotWindow_action.triggered.connect(self.tuView.refreshCurrentPlot)
+		signal = self.freezeAxisLimits_action.triggered.connect(viewToolbar.freezeXYAxis)
+		self.signals.append(('self.freezeAxisLimits_action.triggered', signal))
+		signal = self.freezeAxisXLimits_action.triggered.connect(viewToolbar.freezeXAxis)
+		self.signals.append(('self.freezeAxisXLimits_action.triggered', signal))
+		signal = self.freezeAxisYLimits_action.triggered.connect(viewToolbar.freezeYAxis)
+		self.signals.append(('self.freezeAxisYLimits_action.triggered', signal))
+		signal = self.refreshCurrentPlotWindow_action.triggered.connect(self.tuView.refreshCurrentPlot)
+		self.signals.append(('self.refreshCurrentPlotWindow_action.triggered', signal))
 		# self.clearPlotWindow_action.triggered.connect(
 		# 	lambda: self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), clear_rubberband=True, clear_selection=True))
-		self.clearPlotWindow_action.triggered.connect(
+		signal = self.clearPlotWindow_action.triggered.connect(
 			lambda: self.tuView.tuPlot.clearPlot2(self.tuView.tabWidget.currentIndex()))
-		self.exportAsCSV_action.triggered.connect(self.tuMenuFunctions.exportCSV)
+		self.signals.append(('self.clearPlotWindow_action.triggered', signal))
+		signal = self.exportAsCSV_action.triggered.connect(self.tuMenuFunctions.exportCSV)
+		self.signals.append(('self.exportAsCSV_action.triggered', signal))
 		
 		return True
 	
@@ -167,17 +175,28 @@ class TuContextMenu():
 		self.resultsMenu.addAction(self.removeParticlesResults_action)
 		self.resultsMenu.addAction(self.closeHydraulicTable_action)
 
-		self.load2dResults_action.triggered.connect(self.tuMenuFunctions.load2dResults)
-		self.load1dResults_action.triggered.connect(self.tuMenuFunctions.load1dResults)
-		self.loadFMResults_action.triggered.connect(self.tuMenuFunctions.loadFMResults)
-		self.loadParticlesResults_action.triggered.connect(self.tuMenuFunctions.loadParticlesResults)
-		self.load1d2dResults_action.triggered.connect(self.tuMenuFunctions.load1d2dResults)
-		self.loadHydraulicTable_action.triggered.connect(self.tuMenuFunctions.loadHydraulicTables)
-		self.remove1d2dResults_action.triggered.connect(self.tuMenuFunctions.remove1d2dResults)
-		self.remove2dResults_action.triggered.connect(self.tuMenuFunctions.remove2dResults)
-		self.remove1dResults_action.triggered.connect(self.tuMenuFunctions.remove1dResults)
-		self.removeParticlesResults_action.triggered.connect(self.tuMenuFunctions.removeParticlesResults)
-		self.closeHydraulicTable_action.triggered.connect(self.tuMenuFunctions.removeHydraulicTables)
+		signal = self.load2dResults_action.triggered.connect(self.tuMenuFunctions.load2dResults)
+		self.signals.append(('self.load2dResults_action.triggered', signal))
+		signal = self.load1dResults_action.triggered.connect(self.tuMenuFunctions.load1dResults)
+		self.signals.append(('self.load1dResults_action.triggered', signal))
+		signal = self.loadFMResults_action.triggered.connect(self.tuMenuFunctions.loadFMResults)
+		self.signals.append(('self.loadFMResults_action.triggered', signal))
+		signal = self.loadParticlesResults_action.triggered.connect(self.tuMenuFunctions.loadParticlesResults)
+		self.signals.append(('self.loadParticlesResults_action.triggered', signal))
+		signal = self.load1d2dResults_action.triggered.connect(self.tuMenuFunctions.load1d2dResults)
+		self.signals.append(('self.load1d2dResults_action.triggered', signal))
+		signal = self.loadHydraulicTable_action.triggered.connect(self.tuMenuFunctions.loadHydraulicTables)
+		self.signals.append(('self.loadHydraulicTable_action.triggered', signal))
+		signal = self.remove1d2dResults_action.triggered.connect(self.tuMenuFunctions.remove1d2dResults)
+		self.signals.append(('self.remove1d2dResults_action.triggered', signal))
+		signal = self.remove2dResults_action.triggered.connect(self.tuMenuFunctions.remove2dResults)
+		self.signals.append(('self.remove2dResults_action.triggered', signal))
+		signal = self.remove1dResults_action.triggered.connect(self.tuMenuFunctions.remove1dResults)
+		self.signals.append(('self.remove1dResults_action.triggered', signal))
+		signal = self.removeParticlesResults_action.triggered.connect(self.tuMenuFunctions.removeParticlesResults)
+		self.signals.append(('self.removeParticlesResults_action.triggered', signal))
+		signal = self.closeHydraulicTable_action.triggered.connect(self.tuMenuFunctions.removeHydraulicTables)
+		self.signals.append(('self.closeHydraulicTable_action.triggered', signal))
 
 		return True
 	
@@ -231,16 +250,26 @@ class TuContextMenu():
 		self.resultTypesMenu.addSeparator()
 		self.resultTypesMenu.addAction(self.propertiesDialog_action)
 		
-		self.setToMaximumResult_action.triggered.connect(self.tuMenuFunctions.toggleResultTypeToMax)
-		self.setToMinimumResult_action.triggered.connect(self.tuMenuFunctions.toggleResultTypeToMin)
-		self.setToSecondaryAxis_action.triggered.connect(self.tuMenuFunctions.toggleResultTypeToSecondaryAxis)
-		self.saveDefaultStyleRamp_action.triggered.connect(lambda: self.tuMenuFunctions.saveDefaultStyleScalar('color ramp', use_clicked=True))
-		self.saveDefaultStyleMap_action.triggered.connect(lambda: self.tuMenuFunctions.saveDefaultStyleScalar('color map', use_clicked=True))
-		self.saveDefaultVectorStyle_action.triggered.connect(lambda: self.tuMenuFunctions.saveDefaultStyleVector(use_clicked=True))
-		self.loadDefaultStyle_action.triggered.connect(lambda: self.tuMenuFunctions.loadDefaultStyleScalar(use_clicked=True))
-		self.loadDefaultVectorStyle_action.triggered.connect(lambda: self.tuMenuFunctions.loadDefaultStyleVector(use_clicked=True))
-		self.propertiesDialog_action.triggered.connect(lambda: self.tuView.resultTypeDoubleClicked(None))
-		self.includeFlowRegime_action.triggered.connect(self.tuMenuFunctions.flowRegimeToggled)
+		signal = self.setToMaximumResult_action.triggered.connect(self.tuMenuFunctions.toggleResultTypeToMax)
+		self.signals.append(('self.setToMaximumResult_action.triggered', signal))
+		signal = self.setToMinimumResult_action.triggered.connect(self.tuMenuFunctions.toggleResultTypeToMin)
+		self.signals.append(('self.setToMinimumResult_action.triggered', signal))
+		signal = self.setToSecondaryAxis_action.triggered.connect(self.tuMenuFunctions.toggleResultTypeToSecondaryAxis)
+		self.signals.append(('self.setToSecondaryAxis_action.triggered', signal))
+		signal = self.saveDefaultStyleRamp_action.triggered.connect(lambda: self.tuMenuFunctions.saveDefaultStyleScalar('color ramp', use_clicked=True))
+		self.signals.append(('self.saveDefaultStyleRamp_action.triggered', signal))
+		signal = self.saveDefaultStyleMap_action.triggered.connect(lambda: self.tuMenuFunctions.saveDefaultStyleScalar('color map', use_clicked=True))
+		self.signals.append(('self.saveDefaultStyleMap_action.triggered', signal))
+		signal = self.saveDefaultVectorStyle_action.triggered.connect(lambda: self.tuMenuFunctions.saveDefaultStyleVector(use_clicked=True))
+		self.signals.append(('self.saveDefaultVectorStyle_action.triggered', signal))
+		signal = self.loadDefaultStyle_action.triggered.connect(lambda: self.tuMenuFunctions.loadDefaultStyleScalar(use_clicked=True))
+		self.signals.append(('self.loadDefaultStyle_action.triggered', signal))
+		signal = self.loadDefaultVectorStyle_action.triggered.connect(lambda: self.tuMenuFunctions.loadDefaultStyleVector(use_clicked=True))
+		self.signals.append(('self.loadDefaultVectorStyle_action.triggered', signal))
+		signal = self.propertiesDialog_action.triggered.connect(lambda: self.tuView.resultTypeDoubleClicked(None))
+		self.signals.append(('self.propertiesDialog_action.triggered', signal))
+		signal = self.includeFlowRegime_action.triggered.connect(self.tuMenuFunctions.flowRegimeToggled)
+		self.signals.append(('self.includeFlowRegime_action.triggered', signal))
 		
 		return True
 	
@@ -355,122 +384,142 @@ class TuContextMenu():
 		self.tuPlot.plotWidgetVerticalProfile.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.tuView.OpenResults.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.tuView.OpenResultTypes.setContextMenuPolicy(Qt.CustomContextMenu)
-		self.tuPlot.plotWidgetTimeSeries.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 0))
-		self.tuPlot.plotWidgetLongPlot.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 1))
-		self.tuPlot.plotWidgetCrossSection.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 2))
-		self.tuPlot.plotWidgetVerticalProfile.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 3))
-		self.tuView.OpenResults.customContextMenuRequested.connect(self.showResultsMenu)
-		self.tuView.OpenResultTypes.customContextMenuRequested.connect(self.showResultTypesMenu)
+		signal = self.tuPlot.plotWidgetTimeSeries.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 0))
+		self.signals.append(('self.tuPlot.plotWidgetTimeSeries.customContextMenuRequested', signal))
+		signal = self.tuPlot.plotWidgetLongPlot.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 1))
+		self.signals.append(('self.tuPlot.plotWidgetLongPlot.customContextMenuRequested', signal))
+		signal = self.tuPlot.plotWidgetCrossSection.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 2))
+		self.signals.append(('self.tuPlot.plotWidgetCrossSection.customContextMenuRequested', signal))
+		signal = self.tuPlot.plotWidgetVerticalProfile.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 3))
+		self.signals.append(('self.tuPlot.plotWidgetVerticalProfile.customContextMenuRequested', signal))
+		signal = self.tuView.OpenResults.customContextMenuRequested.connect(self.showResultsMenu)
+		self.signals.append(('self.tuView.OpenResults.customContextMenuRequested', signal))
+		signal = self.tuView.OpenResultTypes.customContextMenuRequested.connect(self.showResultTypesMenu)
+		self.signals.append(('self.tuView.OpenResultTypes.customContextMenuRequested', signal))
 		
 		return True
 
 	def qgisDisconnect(self):
-		# plot menu
-		for plotNo in range(self.tuPlot.TotalPlotNo):
-			toolbar, viewToolbar, mplToolbar = self.plotNoToToolbar[plotNo]
+		nsignals = len(self.signals)
+		for i, (signal_caller, signal) in enumerate(reversed(self.signals[:])):
 			try:
-				self.freezeAxisLimits_action.triggered.disconnect(viewToolbar.freezeXYAxis)
+				signal_caller = eval(signal_caller)
+			except Exception as e:
+				pass
+			try:
+				signal_caller.disconnect(signal)
 			except:
 				pass
 			try:
-				self.freezeAxisXLimits_action.triggered.disconnect(viewToolbar.freezeXAxis)
-			except:
+				self.signals.pop(nsignals - i - 1)
+			except Exception as e:
 				pass
-			try:
-				self.freezeAxisYLimits_action.triggered.disconnect(viewToolbar.freezeYAxis)
-			except:
-				pass
-			try:
-				self.refreshCurrentPlotWindow_action.triggered.disconnect(self.tuView.refreshCurrentPlot)
-			except:
-				pass
-			try:
-				self.clearPlotWindow_action.triggered.disconnect()
-			except:
-				pass
-			try:
-				self.exportAsCSV_action.triggered.disconnect(self.tuMenuFunctions.exportCSV)
-			except:
-				pass
-		# results menu
-		try:
-			self.load2dResults_action.triggered.disconnect(self.tuMenuFunctions.load2dResults)
-		except:
-			pass
-		try:
-			self.load1dResults_action.triggered.disconnect(self.tuMenuFunctions.load1dResults)
-		except:
-			pass
-		try:
-			self.loadParticlesResults_action.triggered.disconnect(self.tuMenuFunctions.loadParticlesResults)
-		except:
-			pass
-		try:
-			self.load1d2dResults_action.triggered.disconnect(self.tuMenuFunctions.load1d2dResults)
-		except:
-			pass
-		try:
-			self.loadHydraulicTable_action.triggered.disconnect(self.tuMenuFunctions.loadHydraulicTables)
-		except:
-			pass
-		try:
-			self.remove1d2dResults_action.triggered.disconnect(self.tuMenuFunctions.remove1d2dResults)
-		except:
-			pass
-		try:
-			self.remove2dResults_action.triggered.disconnect(self.tuMenuFunctions.remove2dResults)
-		except:
-			pass
-		try:
-			self.remove1dResults_action.triggered.connect(self.tuMenuFunctions.remove1dResults)
-		except:
-			pass
-		try:
-			self.removeParticlesResults_action.triggered.disconnect(self.tuMenuFunctions.removeParticlesResults)
-		except:
-			pass
-		try:
-			self.closeHydraulicTable_action.triggered.disconnect(self.tuMenuFunctions.removeHydraulicTables)
-		except:
-			pass
-		# result types menu
-		try:
-			self.setToMaximumResult_action.triggered.disconnect(self.tuMenuFunctions.toggleResultTypeToMax)
-		except:
-			pass
-		try:
-			self.setToMinimumResult_action.triggered.disconnect(self.tuMenuFunctions.toggleResultTypeToMin)
-		except:
-			pass
-		try:
-			self.setToSecondaryAxis_action.triggered.disconnect(self.tuMenuFunctions.toggleResultTypeToSecondaryAxis)
-		except:
-			pass
-		try:
-			self.saveDefaultStyleRamp_action.triggered.disconnect()
-		except:
-			pass
-		try:
-			self.saveDefaultStyleMap_action.triggered.disconnect()
-		except:
-			pass
-		try:
-			self.saveDefaultVectorStyle_action.triggered.disconnect()
-		except:
-			pass
-		try:
-			self.loadDefaultStyle_action.triggered.disconnect()
-		except:
-			pass
-		try:
-			self.loadDefaultVectorStyle_action.triggered.disconnect()
-		except:
-			pass
-		try:
-			self.propertiesDialog_action.triggered.disconnect()
-		except:
-			pass
-		try:
-			self.includeFlowRegime_action.triggered.disconnect(self.tuMenuFunctions.flowRegimeToggled)
-		except:
-			pass
+		# # plot menu
+		# for plotNo in range(self.tuPlot.TotalPlotNo):
+		# 	toolbar, viewToolbar, mplToolbar = self.plotNoToToolbar[plotNo]
+		# 	try:
+		# 		self.freezeAxisLimits_action.triggered.disconnect(viewToolbar.freezeXYAxis)
+		# 	except:
+		# 		pass
+		# 	try:
+		# 		self.freezeAxisXLimits_action.triggered.disconnect(viewToolbar.freezeXAxis)
+		# 	except:
+		# 		pass
+		# 	try:
+		# 		self.freezeAxisYLimits_action.triggered.disconnect(viewToolbar.freezeYAxis)
+		# 	except:
+		# 		pass
+		# 	try:
+		# 		self.refreshCurrentPlotWindow_action.triggered.disconnect(self.tuView.refreshCurrentPlot)
+		# 	except:
+		# 		pass
+		# 	try:
+		# 		self.clearPlotWindow_action.triggered.disconnect()
+		# 	except:
+		# 		pass
+		# 	try:
+		# 		self.exportAsCSV_action.triggered.disconnect(self.tuMenuFunctions.exportCSV)
+		# 	except:
+		# 		pass
+		# # results menu
+		# try:
+		# 	self.load2dResults_action.triggered.disconnect(self.tuMenuFunctions.load2dResults)
+		# except:
+		# 	pass
+		# try:
+		# 	self.load1dResults_action.triggered.disconnect(self.tuMenuFunctions.load1dResults)
+		# except:
+		# 	pass
+		# try:
+		# 	self.loadParticlesResults_action.triggered.disconnect(self.tuMenuFunctions.loadParticlesResults)
+		# except:
+		# 	pass
+		# try:
+		# 	self.load1d2dResults_action.triggered.disconnect(self.tuMenuFunctions.load1d2dResults)
+		# except:
+		# 	pass
+		# try:
+		# 	self.loadHydraulicTable_action.triggered.disconnect(self.tuMenuFunctions.loadHydraulicTables)
+		# except:
+		# 	pass
+		# try:
+		# 	self.remove1d2dResults_action.triggered.disconnect(self.tuMenuFunctions.remove1d2dResults)
+		# except:
+		# 	pass
+		# try:
+		# 	self.remove2dResults_action.triggered.disconnect(self.tuMenuFunctions.remove2dResults)
+		# except:
+		# 	pass
+		# try:
+		# 	self.remove1dResults_action.triggered.connect(self.tuMenuFunctions.remove1dResults)
+		# except:
+		# 	pass
+		# try:
+		# 	self.removeParticlesResults_action.triggered.disconnect(self.tuMenuFunctions.removeParticlesResults)
+		# except:
+		# 	pass
+		# try:
+		# 	self.closeHydraulicTable_action.triggered.disconnect(self.tuMenuFunctions.removeHydraulicTables)
+		# except:
+		# 	pass
+		# # result types menu
+		# try:
+		# 	self.setToMaximumResult_action.triggered.disconnect(self.tuMenuFunctions.toggleResultTypeToMax)
+		# except:
+		# 	pass
+		# try:
+		# 	self.setToMinimumResult_action.triggered.disconnect(self.tuMenuFunctions.toggleResultTypeToMin)
+		# except:
+		# 	pass
+		# try:
+		# 	self.setToSecondaryAxis_action.triggered.disconnect(self.tuMenuFunctions.toggleResultTypeToSecondaryAxis)
+		# except:
+		# 	pass
+		# try:
+		# 	self.saveDefaultStyleRamp_action.triggered.disconnect()
+		# except:
+		# 	pass
+		# try:
+		# 	self.saveDefaultStyleMap_action.triggered.disconnect()
+		# except:
+		# 	pass
+		# try:
+		# 	self.saveDefaultVectorStyle_action.triggered.disconnect()
+		# except:
+		# 	pass
+		# try:
+		# 	self.loadDefaultStyle_action.triggered.disconnect()
+		# except:
+		# 	pass
+		# try:
+		# 	self.loadDefaultVectorStyle_action.triggered.disconnect()
+		# except:
+		# 	pass
+		# try:
+		# 	self.propertiesDialog_action.triggered.disconnect()
+		# except:
+		# 	pass
+		# try:
+		# 	self.includeFlowRegime_action.triggered.disconnect(self.tuMenuFunctions.flowRegimeToggled)
+		# except:
+		# 	pass

@@ -137,8 +137,9 @@ class TuPlot2D():
 							elif 'H' in self.tuResults.results[layer.name()]:
 								if 'H' not in resultTypes:
 									resultTypes.append('H')
-			
-			for i, rtype in enumerate(resultTypes):
+			i = -1
+			# for i, rtype in enumerate(resultTypes):
+			for rtype in resultTypes:
 				# get result data for open mesh results and selected scalar dataset
 				tuResultsIndex = TuResultsIndex(layer.name(), rtype, None, False, False, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
 				r = self.tuView.tuResults.getResult(tuResultsIndex)  # r = dict - { str time: [ float time, QgsMeshDatasetIndex ] }
@@ -151,6 +152,7 @@ class TuPlot2D():
 				if gmd is None:
 					continue
 
+				i += 1
 				avgmethods = self.getAveragingMethods(dataType, gmd, resultTypes)
 				am = avgmethods[i]
 
@@ -684,7 +686,7 @@ class TuPlot2D():
 						prevFlowDirection = None
 						complete += 1
 						pComplete = complete / maxProgress * 100
-						self.progress.setValue(pComplete)
+						self.progress.setValue(int(pComplete))
 					
 					elif i > 0:
 						directionOpposite = direction + 180.0
@@ -719,7 +721,7 @@ class TuPlot2D():
 								prevFlowDirection = flowDirection
 								complete += 1
 								pComplete = complete / maxProgress * 100
-								self.progress.setValue(pComplete)
+								self.progress.setValue(int(pComplete))
 								continue
 
 						if flowDirection == direction or flowDirection == directionOpposite:
@@ -756,7 +758,7 @@ class TuPlot2D():
 						prevFlowDirection = flowDirection
 						complete += 1
 						pComplete = complete / maxProgress * 100
-						self.tuView.progressBar.setValue(pComplete)
+						self.tuView.progressBar.setValue(int(pComplete))
 						QgsApplication.processEvents()
 
 				# summed all flow, can append to timestep

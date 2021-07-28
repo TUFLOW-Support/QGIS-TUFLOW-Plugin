@@ -821,8 +821,11 @@ class TuMenuFunctions():
 		if data is not None:
 			for i in range(1, data.shape[1]):
 				if i % 2 == 0:
-					if data[:, i - 2].dtype == np.object and data[:, i].dtype == np.object:  # probably datetime objects
-						if not np.any((data[:, i - 2].astype(np.datetime64) == data[:, i].astype(np.datetime64)) == False):  # allclose doesn't seem to work with datetime
+					if data[:, i - 2].dtype == object and data[:, i].dtype == object:  # probably datetime objects
+						# if not np.any((data[:, i - 2].astype(np.datetime64) == data[:, i].astype(np.datetime64)) == False):  # allclose doesn't seem to work with datetime
+						a1 = np.array([x for x in data[:, i - 2].tolist() if isinstance(x, datetime.datetime)])
+						a2 = np.array([x for x in data[:, i].tolist() if isinstance(x, datetime.datetime)])
+						if a1.shape == a2.shape and np.all((a1 == a2) == True):
 							timeColumns.append(i)
 					else:
 						if np.allclose(data[:, i - 2], data[:, i], equal_nan=True):		# avoid nan == nan not being True
@@ -1956,3 +1959,15 @@ class TuMenuFunctions():
 
 		self.tuView.tuPlot.clearFrozenPlotProperties(rtype='axis labels')
 		self.tuView.tuPlot.updateAllPlots()
+
+	def redockTuflowViewer(self):
+		"""
+
+		"""
+
+		if self.tuView.PlotLayout.isVisible():
+			area = Qt.BottomDockWidgetArea
+		else:
+			area = Qt.RightDockWidgetArea
+
+		self.iface.addDockWidget(area, self.tuView)

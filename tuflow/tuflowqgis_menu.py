@@ -40,6 +40,8 @@ import shutil
 import os
 import glob
 
+from tuflow.swangis.swangis.ui import *
+
 # clean up previous tempfiles
 for_deleting = glob.glob(os.path.join(tempfile.gettempdir(), "tuflow_refh2*"))
 for f in for_deleting:
@@ -334,7 +336,7 @@ class tuflowqgis_menu:
 		self.iface.addPluginToMenu("&TUFLOW", self.extractSCSAction)
 		self.iface.addToolBarIcon(self.extractSCSAction)
 
-# ES 2019/01 TUFLOW Utilities
+		# ES 2019/01 TUFLOW Utilities
 		icon = QgsApplication.getThemeIcon('mActionTerminal.svg')
 		self.tuflowUtilitiesAction = QAction(icon, "TUFLOW Utilities", self.iface.mainWindow())
 		self.tuflowUtilitiesAction.triggered.connect(self.tuflowUtilities)
@@ -351,6 +353,21 @@ class tuflowqgis_menu:
 		self.plotlibrary = None							#The plotting library to use
 		self.textquit0 = "Click for polyline and double click to end (right click to cancel then quit)"
 		self.textquit1 = "Select the polyline in a vector layer (Right click to quit)"
+
+		# swangis
+		self.builderUI = None
+		self.processingUI = None
+		self.swanMenu = QMenu()
+		self.builderAction = QAction("Model Builder", self.iface.mainWindow())
+		self.builderAction.triggered.connect(self.runBuilderUI)
+		self.processingAction = QAction("Post Processing", self.iface.mainWindow())
+		self.processingAction.triggered.connect(self.runProcessingUI)
+		self.swanMenu.addAction(self.builderAction)
+		self.swanMenu.addAction(self.processingAction)
+		self.swanAction = QAction("SWAN GIS Tools (beta)", self.iface.mainWindow())
+		self.swanAction.setMenu(self.swanMenu)
+		self.iface.addPluginToMenu('&TUFLOW', self.swanAction)
+		QgsProject.instance().cleared.connect(self.clearBuilderUI)
 
 	def unload(self):
 		# signals
@@ -752,6 +769,39 @@ class tuflowqgis_menu:
 			self.iface.addDockWidget(Qt.RightDockWidgetArea, self.scsDock)
 			self.scsDockOpen = True
 
+	# swangis
+	def runBuilderUI(self):
+		if self.builderUI is None:
+			self.builderUI = BuilderUI()
+			self.iface.mainWindow().addDockWidget(Qt.RightDockWidgetArea, self.builderUI.dockWidget)
+		else:
+			self.builderUI.dockWidget.setVisible(True)
+
+	# swangis
+	def runProcessingUI(self):
+		if self.processingUI is None:
+			self.processingUI = PostProcessingUI()
+			self.iface.mainWindow().addDockWidget(Qt.RightDockWidgetArea, self.processingUI.dockWidget)
+		else:
+			self.processingUI.dockWidget.setVisible(True)
+
+	# swangis
+	def clearBuilderUI(self):
+		# remove the builder UI if active and save project
+		if self.builderUI is not None:
+			self.iface.removeDockWidget(self.builderUI.dockWidget)
+			self.builderUI.dockWidget.setParent(None)
+			self.builderUI.gridLayerUI.setLayer(None)
+			self.builderUI = None
+
+	# swangis
+	def clearProcessingUI(self):
+		# remove the processing UI if active
+		if self.processingUI is not None:
+			self.processingUI.dockWidget.close()
+			self.iface.removeDockWidget(self.processingUI.dockWidget)
+			self.processingUI = None
+
 	def addLambdaConnection(self, conn):
 		self.lambdaConnections.append(conn)
 
@@ -863,6 +913,10 @@ class tuflowqgis_menu:
 			pass
 		try:
 			self.tuflowUtilitiesAction.triggered.disconnect(self.tuflowUtilities)
+		except:
+			pass
+		try:
+			QgsProject.instance().cleared.disconnect(self.clearBuilderUI)
 		except:
 			pass
 

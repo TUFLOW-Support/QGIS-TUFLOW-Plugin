@@ -855,7 +855,7 @@ class ColourBar(ColorbarBase):
             orientation = 'horizontal'
 
         # Initialize ColorbarBase
-        super(ColourBar, self).__init__(cax, patch.cmap, patch.norm, orientation=orientation)
+        super(ColourBar, self).__init__(ax=cax, cmap=patch.cmap, norm=patch.norm, orientation=orientation)
 
         # Finish formatting
         # if orientation == 'horizontal':

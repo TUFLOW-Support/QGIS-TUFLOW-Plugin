@@ -257,6 +257,7 @@ class TuMenuBar():
 			self.addPlotColourRamp_action = QAction("Add Colour Ramp to Plot", self.window)
 			self.resetPlotColours_action = QAction("Reset Plotting Colours", self.window)
 			self.resetAxisNames_action = QAction("Reset Plot Axis Names", self.window)
+			self.dockTuflowViewer_action = QAction('Redock TUFLOW Viewer', self.window)
 			self.settingsMenu.addAction(self.userPlotDataManager_action)
 			self.settingsMenu.addSeparator()
 			self.settingsMenu.addAction(toolbar[7])
@@ -273,6 +274,8 @@ class TuMenuBar():
 			self.settingsMenu.addSeparator()
 			self.settingsMenu.addAction(self.resetPlotColours_action)
 			self.settingsMenu.addAction(self.resetAxisNames_action)
+			self.settingsMenu.addSeparator()
+			self.settingsMenu.addAction(self.dockTuflowViewer_action)
 			self.settingsMenu.addSeparator()
 			self.settingsMenu.addAction(self.options_action)
 
@@ -293,6 +296,7 @@ class TuMenuBar():
 			self.addPlotColourRamp_action.triggered.connect(self.tuMenuFunctions.addColourRampFromXML)
 			self.resetPlotColours_action.triggered.connect(self.tuMenuFunctions.resetMatplotColours)
 			self.resetAxisNames_action.triggered.connect(self.tuMenuFunctions.resetPlotAxisNames)
+			self.dockTuflowViewer_action.triggered.connect(self.tuMenuFunctions.redockTuflowViewer)
 		else:
 			self.settingsMenu.addAction(self.menu.userPlotDataManager_action)
 			self.settingsMenu.addSeparator()
@@ -310,6 +314,8 @@ class TuMenuBar():
 			self.settingsMenu.addSeparator()
 			self.settingsMenu.addAction(self.menu.resetPlotColours_action)
 			self.settingsMenu.addAction(self.menu.resetAxisNames_action)
+			self.settingsMenu.addSeparator()
+			self.settingsMenu.addAction(self.menu.dockTuflowViewer_action)
 			self.settingsMenu.addSeparator()
 			self.settingsMenu.addAction(self.menu.options_action)
 		

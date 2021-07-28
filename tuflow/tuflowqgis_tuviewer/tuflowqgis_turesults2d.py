@@ -1156,7 +1156,7 @@ class TuResults2D():
 
 		# change name in results dict
 		results = self.tuView.tuResults.results
-		for key, entry in results.items():
+		for key, entry in results.copy().items():
 			if key == oldName:
 				results[newName] = entry
 				del results[oldName]
