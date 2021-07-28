@@ -1,8 +1,0 @@
-.idea
-venv
-working
-.\tutorial\DATA
-.\tutorial\SWAN
-.\tutorial\tmp
-__pycache__*
-swangis/__pycache__*
