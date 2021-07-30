@@ -40,7 +40,14 @@ import shutil
 import os
 import glob
 
-from tuflow.swangis.swangis.ui import *
+try:
+	from tuflow.swangis.swangis.ui import *
+	swangisSupported = True
+except ImportError:
+	swangisSupported = False
+except Exception as e:
+	swangisSupported = False
+	QMessageBox.warning(None, 'TUFLOW Plugin', 'Error loading swangis tools: {0}'.format(e))
 
 # clean up previous tempfiles
 for_deleting = glob.glob(os.path.join(tempfile.gettempdir(), "tuflow_refh2*"))
@@ -771,19 +778,29 @@ class tuflowqgis_menu:
 
 	# swangis
 	def runBuilderUI(self):
-		if self.builderUI is None:
-			self.builderUI = BuilderUI()
-			self.iface.mainWindow().addDockWidget(Qt.RightDockWidgetArea, self.builderUI.dockWidget)
+		if swangisSupported:
+			if self.builderUI is None:
+				self.builderUI = BuilderUI()
+				self.iface.mainWindow().addDockWidget(Qt.RightDockWidgetArea, self.builderUI.dockWidget)
+			else:
+				self.builderUI.dockWidget.setVisible(True)
 		else:
-			self.builderUI.dockWidget.setVisible(True)
+			QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Plugin',
+			                        'Unable to load SWAN GIS Tools. Please ensure you have '
+			                        'the netCDF4 Python library installed.')
 
 	# swangis
 	def runProcessingUI(self):
-		if self.processingUI is None:
-			self.processingUI = PostProcessingUI()
-			self.iface.mainWindow().addDockWidget(Qt.RightDockWidgetArea, self.processingUI.dockWidget)
+		if swangisSupported:
+			if self.processingUI is None:
+				self.processingUI = PostProcessingUI()
+				self.iface.mainWindow().addDockWidget(Qt.RightDockWidgetArea, self.processingUI.dockWidget)
+			else:
+				self.processingUI.dockWidget.setVisible(True)
 		else:
-			self.processingUI.dockWidget.setVisible(True)
+			QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Plugin',
+			                        'Unable to load SWAN GIS Tools. Please ensure you have '
+			                        'the netCDF4 Python library installed.')
 
 	# swangis
 	def clearBuilderUI(self):

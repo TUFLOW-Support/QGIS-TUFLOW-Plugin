@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.1.8
+version=3.1.8.1
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,10 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=--- 3.1.8 ---
+changelog=--- 3.1.8.1 ---
+          Fixed bug that would cause TUFLOW plugin to not load if the netCDF4 Python library was not installed
+
+          --- 3.1.8 ---
           SWAN GIS Tools - Added tool as beta to plugin
           TUFLOW Viewer - fixed bug that could occur when 'min_' was in the result type name that caused results to not load properly - usually resulting from outputs from res_to_res.exe
           TUFLOW Viewer - fixed bug that would cause Python error when exporting or copying plot data containing null x values and a datetime axis
