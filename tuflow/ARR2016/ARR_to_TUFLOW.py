@@ -660,8 +660,8 @@ if access_web:
         atpRegionCode = atpRegion.arealTemporalPatternCode(arr_raw_fname)
         if atpRegionCode:
             try:
-                url_atp = f'http://data.arr-software.org//static/temporal_patterns/Areal/Areal_{atpRegionCode}.zip'
-                logger.info(f'URL: {url_atp}')
+                url_atp = 'http://data.arr-software.org//static/temporal_patterns/Areal/Areal_{0}.zip'.format(atpRegionCode)
+                logger.info('URL: {0}'.format(url_atp))
                 r = requests.get(url_atp)
                 z = zipfile.ZipFile(io.BytesIO(r.content))
                 z.extractall(os.path.join(export_path, "data"))
@@ -672,12 +672,12 @@ if access_web:
                         atpInc = f
                 areal_tp_download = os.path.join(export_path, "data", atpInc)
                 if os.path.exists(areal_tp_download):
-                    logger.info(f'Areal temporal pattern csv: {areal_tp_download}')
+                    logger.info('Areal temporal pattern csv: {0}'.format(areal_tp_download))
                 else:
-                    logger.info(f'ERROR finding areal temporal pattern csv: {areal_tp_download}')
+                    logger.info('ERROR finding areal temporal pattern csv: {0}'.format(areal_tp_download))
                     logger.info('skipping step...')
             except Exception as e:
-                logger.warning(f"ERROR: failed to download areal temporal pattern.. skipping step. Contact support@tuflow.com\n{e}")
+                logger.warning("ERROR: failed to download areal temporal pattern.. skipping step. Contact support@tuflow.com\n{0}".format(e))
         else:
             logger.warning("WARNING: unable to determine areal temporal pattern region... skipping step")
     else:
@@ -751,6 +751,27 @@ if access_web:
                 #print('Done saving file.')
                 logger.info('Done saving file.')
 
+                # areal tp
+                logger.info('Downloading areal temporal pattern for: {0}'.format(tp))
+                tpRegionCheck = ARR_WebRes.Arr()
+                tpCode = tpRegionCheck.arealTemporalPatternCode(add_tpFilename)
+                url2 = 'http://data.arr-software.org//static/temporal_patterns/Areal/Areal_{0}.zip'.format(tpCode)
+                req = urllib2.Request(url2, headers=headers)
+                response = urllib2.urlopen(req)
+                z = zipfile.ZipFile(io.BytesIO(response.read()))
+                z.extractall(os.path.join(export_path, "data"))
+                atpIncFiles = [x.filename for x in z.filelist]
+                atpInc = ""
+                for f in atpIncFiles:
+                    if 'INCREMENTS' in f.upper():
+                        atpInc = f
+                areal_csv = os.path.join(export_path, "data", atpInc)
+                if os.path.exists(areal_tp_download):
+                    logger.info('Areal temporal pattern csv: {0}'.format(areal_csv))
+                else:
+                    logger.info('ERROR finding areal temporal pattern csv: {0}'.format(areal_csv))
+                    logger.info('skipping step...')
+
 # load from file
 ARR = ARR_WebRes.Arr()
 try:
@@ -776,8 +797,31 @@ logger.info('Exporting data...\n')
 try:
     # Combine standard and non standard durations
     if len(non_stnd_dur) > 0:
-        for len, unit in non_stnd_dur.items():
-            duration[len] = unit
+        for len_, unit in non_stnd_dur.items():
+            conflict = False
+            if len_ in duration:
+                conflict = True
+                if duration[len_] == 'm':
+                    if len_ / 60. not in duration:
+                        duration[len_ / 60.] = 'h'
+                        conflict = False
+                elif duration[len_] == 'h':
+                    if len_ * 60. not in duration:
+                        duration[len_ * 60] = 'm'
+                        conflict = False
+            if conflict:
+                if unit == 'm':
+                    len_ /= 60
+                    unit = 'h'
+                elif unit == 'h':
+                    len_ *= 60
+                    unit = 'm'
+                if len_ not in duration:
+                    duration[len_] = unit
+                else:
+                    logger.info('ERROR: should not be here - couldn\'t add duration {0}{1} - please contact support@tuflow.com'.format(len_, unit))
+            else:
+                duration[len_] = unit
 
     ARR.export(export_path, aep=AEP, dur=duration, name=site_name, format=out_form, bom_data=Bom, climate_change=cc,
                climate_change_years=cc_years, cc_rcp=cc_RCP, area=catchment_area, frequent=frequent_events,
@@ -794,7 +838,7 @@ except Exception as e:
     try:
         exc_type, exc_value, exc_traceback = sys.exc_info()
         logger.error('ERROR: Unable to export data: {0}'.format(e))
-        logger.error(f"{traceback.print_exception(exc_type, exc_value, exc_traceback)}")
+        logger.error("{0}".format(traceback.print_exception(exc_type, exc_value, exc_traceback)))
     finally:
         del exc_type, exc_value, exc_traceback
     #print("ERROR: if problem persists please email input files and log.txt to support@tuflow.com.")

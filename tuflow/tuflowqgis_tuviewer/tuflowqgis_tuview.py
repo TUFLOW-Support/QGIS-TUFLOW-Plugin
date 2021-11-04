@@ -1002,12 +1002,13 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# what happens if there is more than one active mesh layer
 		if len(self.tuResults.tuResults2D.activeMeshLayers) > 1:
 			if self.iface is not None:
-				self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuResults.tuResults2D.activeMeshLayers)
+				self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuResults.tuResults2D.activeMeshLayers,
+				                                                  'Select Which Result To Open Properties For...')
 				self.meshDialog.exec_()
 				if self.meshDialog.selectedMesh is None:
 					return False
-			else:
-				meshLayer = tuflowqgis_find_layer(self.meshDialog.selectedMesh)
+				else:
+					meshLayer = tuflowqgis_find_layer(self.meshDialog.selectedMesh)
 		else:
 			meshLayer = self.tuResults.tuResults2D.activeMeshLayers[0]
 		

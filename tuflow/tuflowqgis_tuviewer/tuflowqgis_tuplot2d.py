@@ -1236,6 +1236,11 @@ class TuPlot2D():
 			mdb = self.calculateAverage(dataType, avgmethod, dataset3d)
 
 		if mdb.isValid():
+			if face is None:
+				# return np.nan
+				pass
+			elif not layer.isFaceActive(res, face):
+				return np.nan
 			if len(mdb.values()) > 1:
 				if restype == 'scalar':
 					return (mdb.values()[0] ** 2 + mdb.values()[1] ** 2) ** 0.5
@@ -1251,7 +1256,10 @@ class TuPlot2D():
 			if face is None:
 				mdb = layer.datasetValue(res, p)
 			else:
-				mdb = layer.dataProvider().datasetValue(res, face)
+				if layer.isFaceActive(res, face):
+					mdb = layer.dataProvider().datasetValue(res, face)
+				else:
+					return np.nan
 			return eval("mdb.{0}()".format(restype))
 
 	def datasetValueAvgDep2(self, dp, res, v, f, avgmethod, restype, dataType):

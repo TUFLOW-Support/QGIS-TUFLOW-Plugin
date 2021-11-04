@@ -1657,7 +1657,7 @@ class TuResults():
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml)
-			self.tuResults2D.getResultMetaData(ml, layer)
+			self.tuResults2D.getResultMetaData(ml, layer, loadRenderStyle=False)
 		self.updateResultTypes()
 
 	def checkSelectedResults(self):
@@ -1887,7 +1887,7 @@ class TuResults():
 						if not meshprocessed:
 							if qv >= 31300 and not resinfo['hadTemporalProperties']:
 								layer.setReferenceTime(dt2qdt(datetime2timespec(self.tuView.tuOptions.zeroTime, self.loadedTimeSpec, 1), 1))
-							self.tuResults2D.getResultMetaData(resname, layer, resinfo['ext'], resinfo['hadTemporalProperties'])
+							self.tuResults2D.getResultMetaData(resname, layer, resinfo['ext'], resinfo['hadTemporalProperties'], loadRenderStyle=False)
 							meshprocessed = True
 				elif TuResults.isParticleType(restype):
 					self.tuResultsParticles.reloadTimesteps(resname)

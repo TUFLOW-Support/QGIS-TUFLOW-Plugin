@@ -186,7 +186,7 @@ class ArrLosses:
         if self.existsPNLosses:
             self.logger.info("Catchment is in NSW, multiplying Datahub continuing loss by 0.4")
             self.cls *= 0.4
-            self.cls = float(f'{self.cls:.2f}')
+            self.cls = float('{0:.2f}'.format(self.cls))
 
         self.loaded = True
         #print('Finished reading file.')
@@ -220,7 +220,7 @@ class ArrLosses:
                                 self.AEP.append(val)
                                 self.AEP_names.append('{0:.0f}%'.format(val))
                             except Exception as e:
-                                self.logger.warning(f"ERROR: Reading Probability Neutral Initial Losses AEP... skipping\n{e}")
+                                self.logger.warning("ERROR: Reading Probability Neutral Initial Losses AEP... skipping\n{0}".format(e))
                                 read_header = False
                                 return
                         read_header = False
@@ -233,7 +233,7 @@ class ArrLosses:
                         except Exception as e:
                             self.error = True
                             self.message = 'Error processing from line {0}'.format(block_line)
-                            self.logger.warning(f"ERROR: Reading Probability Neutral Initial Losses... skipping\n{e}")
+                            self.logger.warning("ERROR: Reading Probability Neutral Initial Losses... skipping\n{0}".format(e))
                             return
                 if finished:
                     self.ilpn = numpy.array(losses_all)
@@ -861,7 +861,7 @@ class ArrTemporal:
                 dur = float(preburst_pattern_dur) * 60.
             increments.append(100)
             timestep = dur
-            self.logger.info(f"For complete storm {aep_name} {duration} min using constant preburst rate of {dur} mins")
+            self.logger.info("For complete storm {0} {1} min using constant preburst rate of {2} mins".format(aep_name, duration, dur))
         else:
             if bpreburst_dur_proportional:
                 dur = duration * float(preburst_pattern_dur)
@@ -871,8 +871,8 @@ class ArrTemporal:
                 elif re.findall(r"min", preburst_pattern_dur, re.IGNORECASE):
                     dur = float(preburst_pattern_dur.strip(' min'))
             dur = self.findClosestTP(dur)
-            self.logger.info(f"For complete storm {aep_name} {duration} min "
-                             f"using ARR Temporal pattern for preburst: {dur} mins, {preburst_pattern_tp}")
+            self.logger.info("For complete storm {0} {1} min "
+                             "using ARR Temporal pattern for preburst: {2} mins, {3}".format(aep_name, duration, dur, preburst_pattern_tp))
             id, increments, timestep = self.get_dur_aep(dur, aep)
 
             tp = int(re.findall(r"\d{2}", preburst_pattern_tp)[0])
@@ -1277,7 +1277,7 @@ class Arr:
                 self.logger.warning('WARNING: {0} negative rainfall depths have occured, caused by negative ARF values. ' \
                                     'Negative depth values have been set to zero.'.format(neg_depths))
             fo_arf_depths.flush()
-            fo_arf_depths.close
+            fo_arf_depths.close()
 
             # Save figure
             fig_name = os.path.join(fpath, 'data', 'BOM_Rainfall_Depths_{0}.png'.format(site_name))
@@ -1595,8 +1595,8 @@ class Arr:
                 flosses.write(
                     'This File has been generated using ARR_to_TUFLOW. The Burst losses have been calculated by '
                     'using Probability Neutral Burst Initial Losses provided by the Datahub and the user '
-                    f'provided initial loss value of {self.Losses.ils_user} mm. '
-                    'Eqn: IL Burst = User IL x IL Burst ARR / IL Storm ARR\n')
+                    'provided initial loss value of {0} mm. '
+                    'Eqn: IL Burst = User IL x IL Burst ARR / IL Storm ARR\n'.format(self.Losses.ils_user))
             else:
                 flosses.write(
                     'This File has been generated using ARR_to_TUFLOW. The Burst losses have been calculated by '
@@ -1606,7 +1606,7 @@ class Arr:
                 flosses.write(
                     'This File has been generated using ARR_to_TUFLOW. The Burst losses have been calculated by '
                     'subtracting the maximum preburst (Depth or Ratios) from the user defined initial loss '
-                    f'value of {self.Losses.ils_user} mm.\n')
+                    'value of {0} mm.\n'.format(self.Losses.ils_user))
             else:
                 flosses.write(
                     'This File has been generated using ARR_to_TUFLOW. The Burst losses have been calculated by '
@@ -1735,8 +1735,8 @@ class Arr:
                                     pb_depth = pb_dep_final_complete[j,i]
                                     if numpy.isnan(pb_depth):
                                         self.logger.warning(
-                                            f"WARNING: No preburst depths exist for aep/duration [{aep}/{duration} min]"
-                                            "... using design storm")
+                                            "WARNING: No preburst depths exist for aep/duration [{0}/{1} min]"
+                                            "... using design storm".format(aep, duration))
                                     else:
                                         increments_pb, dts_pb = self.Temporal.get_dur_aep_pb(duration, aep_band,
                                                                                              preburst_pattern_method,

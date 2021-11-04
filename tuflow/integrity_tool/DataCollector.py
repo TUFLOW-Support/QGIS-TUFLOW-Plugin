@@ -13,6 +13,11 @@ from tuflow.tuflowqgis_library import tuflowqgis_find_layer, is1dNetwork, lineTo
 from datetime import datetime, timedelta
 
 
+import sys
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\debug-eggs')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\plugins\python\helpers\pydev')
+
+
 class DataCollector(QObject):
     """
     Class for collecting 1D network input data.
@@ -269,8 +274,10 @@ class DataCollector(QObject):
                     if featureData.id in self.connections:
                         collectorData = self.connections[featureData.id]
 
-                        if closestVertexToUs.closestVertex.id in collectorData.linesDs or \
-                                closestVertexToUs.closestVertex.id in collectorData.linesDsDs:
+                        if (closestVertexToUs.closestVertex is not None and
+                                closestVertexToUs.closestVertex.id in collectorData.linesDs) or \
+                                (closestVertexToUs.closestVertex is not None and
+                                 closestVertexToUs.closestVertex.id in collectorData.linesDsDs):
                             closestVertexToUs.closestVertex = None
                             closestVertexToUs.distanceToClosest = 99999
 
@@ -282,10 +289,13 @@ class DataCollector(QObject):
                     # to the upstream end of the same pipe
                     if featureData.id in self.connections:
                         collectorData = self.connections[featureData.id]
-                        if closestVertexToDs.closestVertex.id in collectorData.linesUs or \
-                                closestVertexToDs.closestVertex.id in collectorData.linesUsUs:
+                        if (closestVertexToDs.closestVertex is not None and
+                                closestVertexToDs.closestVertex.id in collectorData.linesUs) or \
+                                (closestVertexToDs.closestVertex is not None and
+                                 closestVertexToDs.closestVertex.id in collectorData.linesUsUs):
                             closestVertexToDs.closestVertex = None
                             closestVertexToDs.distanceToClosest = 99999
+
 
             # make sure feature has a ConnectionData object
             if featureData.id not in self.connections:

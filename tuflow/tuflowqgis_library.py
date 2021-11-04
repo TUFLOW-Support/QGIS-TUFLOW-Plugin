@@ -58,6 +58,8 @@ import requests
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tuflowqgis_styles
+from pathlib import Path
+import sqlite3
 
 # --------------------------------------------------------
 #    tuflowqgis Utility Functions
@@ -139,12 +141,20 @@ def tuflowqgis_find_layer(layer_name, **kwargs):
 			if search_layer.name() == layer_name:
 				if return_type == 'layer':
 					return search_layer
+				elif return_type == 'layerid':
+					return name
+				elif return_type == 'name':
+					return search_layer.name()
 				else:
 					return name
 		elif search_type.lower() == 'layerid':
 			if name == layer_name:
 				if return_type == 'layer':
 					return search_layer
+				elif return_type == 'layerid':
+					return name
+				elif return_type == 'name':
+					return search_layer.name()
 				else:
 					return name
 
@@ -394,7 +404,6 @@ def tuflowqgis_create_tf_dir(dialog, crs, basepath, engine, tutorial, gisFormat=
 def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines, regions, dialog,
 							   databaseOption='separate', databaseLoc='', convert=False):
 
-
 	if (len(empty_types) == 0):
 		return "No Empty File specified"
 
@@ -422,9 +431,11 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 	gis_folder = basepath.replace('/', os.sep).replace('{0}{1}'.format(os.sep, d), '')
 	# Create folders, ignore top level (e.g. model, as these are create when the subfolders are created)
 	i = 0
+	yestoall = False
 	for type in empty_types:
 		for geom in geom_type:
-			search_string = os.path.join(basepath, "{0}_empty*".format(type))
+			search_string = os.path.join(basepath, "{0}_empty_pts*".format(type.replace('_pts', ''))) if '_pts' in type else \
+				os.path.join(basepath, "{0}_empty*".format(type))
 			fpaths = glob.glob(search_string)
 			if not fpaths:
 				continue
@@ -438,11 +449,14 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 				isgpkg = os.path.splitext(fpath.lower())[1] == '.gpkg' \
 				         or (os.path.splitext(fpath.lower())[1] == '.shp' and convert)
 				if isgpkg:
-					uri = '{0}|layername={1}{2}'.format(fpath, os.path.splitext(os.path.basename(fpath))[0], geom)
+					lyrname_ = '{0}{1}'.format(Path(fpath).with_suffix('').name, geom)
+					uri = '{0}|layername={1}'.format(fpath, lyrname_)
 					ext = '.gpkg'
 				else:
 					uri = fpath
+					lyrname_ = Path(fpath).with_suffix('').name
 					ext = '.shp'
+
 				layer = QgsVectorLayer(uri, "tmp", "ogr")
 				attributes = layer.dataProvider().fields()
 				name = '{0}_{1}{2}{3}'.format(type, runID, geom, ext)
@@ -458,14 +472,48 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 						if i == 0:
 							databaseLoc = savename  # if user doesn't specify, use the first database for the rest
 
-				if QFile(savename).exists() and not isgpkg:
-					overwriteExisting = QMessageBox.question(dialog, "Import Empty",
-					                                         'Output file already exists\nOverwrite existing file?',
-					                                         QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-					if overwriteExisting != QMessageBox.Yes:
-						# QMessageBox.critical(qgis.mainWindow(),"Info", ("File Exists: {0}".format(savename)))
-						#message = 'Unable to complete utility because file already exists'
-						return 1
+				fpath = savename
+				if isgpkg:
+					uri = '{0}|layername={1}'.format(fpath, lyrname_)
+					ext = '.gpkg'
+				else:
+					uri = fpath
+					ext = '.shp'
+				if isgpkg:
+					if Path(fpath).exists() and layername.lower() in [x.lower() for x in get_table_names(fpath)] and not yestoall:
+						answer = QMessageBox.question(dialog, 'Layer Already Exists',
+						                              '{0} already exists in {1}\nOverwrite existing layer?'.format(layername, Path(fpath).name),
+						                              QMessageBox.Yes | QMessageBox.YesToAll | QMessageBox.No | QMessageBox.Cancel)
+						if answer == QMessageBox.Yes:
+							pass
+						elif answer == QMessageBox.YesToAll:
+							yestoall = True
+						elif answer == QMessageBox.No:
+							return 'pass'
+						elif answer == QMessageBox.Cancel:
+							return
+				else:
+					if Path(fpath).exists() and not yestoall:
+						answer = QMessageBox.question(dialog, 'Layer Already Exists',
+						                              '{0} already exists\nOverwrite existing file?'.format(fpath),
+						                              QMessageBox.Yes | QMessageBox.YesToAll | QMessageBox.No | QMessageBox.Cancel)
+						if answer == QMessageBox.Yes:
+							pass
+						elif answer == QMessageBox.YesToAll:
+							yestoall = True
+						elif answer == QMessageBox.No:
+							return 'pass'
+						elif answer == QMessageBox.Cancel:
+							return
+
+				# if QFile(savename).exists() and not isgpkg:
+				# 	overwriteExisting = QMessageBox.question(dialog, "Import Empty",
+				# 	                                         'Output file already exists\nOverwrite existing file?',
+				# 	                                         QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+				# 	if overwriteExisting != QMessageBox.Yes:
+				# 		# QMessageBox.critical(qgis.mainWindow(),"Info", ("File Exists: {0}".format(savename)))
+				# 		#message = 'Unable to complete utility because file already exists'
+				# 		return 1
 				#outfile = QgsVectorFileWriter(QString(savename), QString("System"),
 				if geom.upper() == '_P':
 					uri = 'point?crs={0}'.format(layer.crs().authid())
@@ -483,6 +531,10 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 					options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
 				else:
 					options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
+					open_layer = tuflowqgis_find_layer(layername)
+					if open_layer is not None:
+						QgsProject.instance().removeMapLayer(open_layer.id())
+						open_layer = None
 				options.layerName = layername
 				if isgpkg:
 					options.driverName = 'GPKG'
@@ -507,7 +559,9 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 					uri = '{0}|layername={1}'.format(savename, layername)
 				else:
 					uri = savename
-				qgis.addVectorLayer(uri, layername, "ogr")
+				open_layer = tuflowqgis_find_layer(layername)
+				if open_layer is None or open_layer.dataProvider().dataSourceUri().lower() != uri.lower():
+					qgis.addVectorLayer(uri, layername, "ogr")
 
 				i += 1
 
@@ -1256,90 +1310,211 @@ def tuflowqgis_increment_fname(infname):
 
 	return outfname
 
-def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, lenFields, dialog):
-
+def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, lenFields, dialog, output_db):
 	message = None
 	
 	if inputLayer.geometryType() == QgsWkbTypes.PointGeometry:
 		geomType = '_P'
+		g = 'point'
 	elif inputLayer.geometryType() == QgsWkbTypes.PolygonGeometry:
 		geomType = '_R'
+		g = 'polygon'
 	else:
 		geomType = '_L'
+		g = 'linestring'
 	
-	empty_folder = 'empty'
-	for p in os.walk(os.path.dirname(basedir)):
-		for d in p[1]:
-			if d.lower() == empty_folder:
-				empty_folder = d
-				break
-		break
-	gis_folder = basedir.replace('/', os.sep).replace('{0}{1}'.format(os.sep, d), '')
+	# empty_folder = 'empty'
+	# for p in os.walk(os.path.dirname(basedir)):
+	# 	for d in p[1]:
+	# 		if d.lower() == empty_folder:
+	# 			empty_folder = d
+	# 			break
+	# 	break
+	# gis_folder = basedir.replace('/', os.sep).replace('{0}{1}'.format(os.sep, d), '')
+	basedir = Path(basedir)
+	gis_folder = basedir.parent
+
+	template = '1d_nwke' if lenFields >= 10 and template.lower() == '1d_nwk' else template
+	empty_type = '{0}_empty_pts'.format(template) if '_pts' in template.lower() else '{0}_empty'.format(template)
+	empty_file = [x for x in basedir.glob(f'{empty_type}*') if x.suffix.lower() in ['.shp', '.gpkg']][0]
+	empty_ext = empty_file.suffix.lower()
+	isgpkg = is_database(inputLayer)
+	out_ext = '.gpkg' if isgpkg or output_db else '.shp'
+	layername = '{0}_{1}{2}'.format(template, runID, geomType)
+	if out_ext == '.gpkg':
+		output_db = Path(output_db) if output_db else (gis_folder / layername).with_suffix('.gpkg')
+		out_path = str(output_db)
+		fpath = '{0}|layername={1}'.format(output_db, layername)
+	else:
+		fpath = str((gis_folder / layername).with_suffix('.shp'))
+		out_path = fpath
+
+	if out_ext == '.gpkg':
+		if output_db.exists() and layername.lower() in [x.lower() for x in get_table_names(output_db)]:
+			answer = QMessageBox.question(dialog, 'Output Exists', '{0} already exists in {1}.\nOverwrite existing?'.format(layername, output_db.name),
+			                              QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+			if answer == QMessageBox.Cancel:
+				return None
+			elif answer == QMessageBox.No:
+				return 'pass'
+	else:
+		if Path(fpath).exists():
+			answer = QMessageBox.question(dialog, 'Output Exists', '{0} already exists.\nOverwrite existing?'.format(fpath),
+			                              QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+			if answer == QMessageBox.Cancel:
+				return None
+			elif answer == QMessageBox.No:
+				return 'pass'
+
+
+	if empty_ext == '.gpkg':
+		empty_name = get_table_names(empty_file)[0]
+		empty_fpath = '{0}|layername={1}'.format(empty_file, empty_name)
+	else:
+		empty_name = empty_file.with_suffix('').name
+		empty_fpath = str(empty_file)
+	empty_layer = QgsVectorLayer(empty_fpath, empty_name, 'ogr')
+	if not empty_layer.isValid():
+		return 'Could not load empty layer'
+	crs = empty_layer.sourceCrs()
+	uri = '{0}?crs={1}'.format(g, crs.authid())
+	unique_names = []
+	renamed_fields = []
+	for field in empty_layer.fields():
+		if field.name().lower() == 'fid':
+			continue
+		unique_names.append(field.name())
+		uri = '{0}&field={1}:{2}({3},{4})'.format(uri, field.name(), field.typeName(), field.length(), field.precision())
+	for field in inputLayer.fields():
+		if field.name().lower() == 'fid':
+			continue
+		if field.name() in unique_names:
+			counter = 1
+			new_name = '{0}_{1}'.format(counter, field.name())
+			while new_name in unique_names:
+				counter += 1
+				new_name = '{0}_{1}'.format(counter, field.name())
+		else:
+			new_name = field.name()
+		unique_names.append(new_name)
+		renamed_fields.append(new_name)
+		uri = '{0}&field={1}:{2}({3},{4})'.format(uri, new_name, field.typeName(), field.length(), field.precision())
+
+	out_lyr = QgsVectorLayer(uri, layername, 'memory')
+	if not out_lyr.isValid():
+		return 'error initialising output layer in memory'
+
+	feats = []
+	for feat in inputLayer.getFeatures():
+		try:
+			f = QgsFeature()
+			f.setGeometry(feat.geometry())
+			f.setFields(out_lyr.fields())
+			i = 0
+			for field in inputLayer.fields():
+				if field.name().lower() == 'fid':
+					continue
+				f[renamed_fields[i]] = feat[field.name()]
+				i += 1
+			feats.append(f)
+		except Exception as e:
+			return 'Error copying feature: {0}'.format(e)
+	try:
+		out_lyr.dataProvider().truncate()
+		out_lyr.dataProvider().addFeatures(feats)
+		out_lyr.updateExtents()
+	except Exception as e:
+		return 'Error copying features: {0}'.format(e)
+
+	options = QgsVectorFileWriter.SaveVectorOptions()
+	if out_ext == '.gpkg' and output_db.exists():
+		options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
+	else:
+		options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
+		open_layer = tuflowqgis_find_layer(layername)
+		if out_ext == '.shp' and open_layer is not None:
+			QgsProject.instance().removeMapLayer(open_layer.id())
+			open_layer = None
+	options.layerName = layername
+	options.driverName = 'GPKG' if out_ext == '.gpkg' else 'ESRI Shapefile'
+	error = QgsVectorFileWriter.writeAsVectorFormatV2(out_lyr, out_path, QgsCoordinateTransformContext(), options)
+	if error[0] != QgsVectorFileWriter.NoError:
+		if out_ext == '.gpkg':
+			return 'Error writing out {0} | {1}\n{2}'.format(output_db, layername, error[1])
+		else:
+			return 'Error writing out {0}\n{1}'.format(fpath, error[1])
+
+	open_layer = tuflowqgis_find_layer(layername)
+	if open_layer is None or open_layer.dataProvider().dataSourceUri().lower() != fpath.lower():
+		qgis.addVectorLayer(fpath, layername, "ogr")
+
+	return
+
 	
 	# Create new vector file from template with appended attribute fields
-	if template == '1d_nwk':
-		if lenFields >= 10:
-			template2 = '1d_nwke'
-			fpath = os.path.join(basedir, '{0}_empty{1}.shp'.format(template2, geomType))
-		else:
-			fpath = os.path.join(basedir, '{0}_empty{1}.shp'.format(template, geomType))
-	else:
-		fpath = os.path.join(basedir, '{0}_empty{1}.shp'.format(template, geomType))
-	if os.path.isfile(fpath):
-		layer = QgsVectorLayer(fpath, "tmp", "ogr")
-		name = '{0}_{1}{2}.shp'.format(template, runID, geomType)
-		savename = os.path.join(gis_folder, name)
-		if QFile(savename).exists():
-			overwriteExisting = QMessageBox.question(dialog, "Import Empty",
-			                                         'Output file already exists\nOverwrite existing file?',
-			                                         QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-			if overwriteExisting != QMessageBox.Yes:
-			#QMessageBox.critical(qgis.mainWindow(),"Info", ("File Exists: {0}".format(savename)))
-				message = 'Unable to complete utility because file already exists'
-				return 1
-		outfile = QgsVectorFileWriter(vectorFileName=savename, fileEncoding="System", 
-		                              fields=layer.dataProvider().fields(), geometryType=layer.wkbType(), 
-		                              srs=layer.dataProvider().sourceCrs(), driverName="ESRI Shapefile",)
-			
-		if outfile.hasError() != QgsVectorFileWriter.NoError:
-			QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: {0}".format(savename)))
-			message = 'Error writing output file. Check output location and output file.'
-			return message
-
-		# delete prj file and replace with empty prj - ensures it is exactly the same
-		correct_prj = '{0}.prj'.format(os.path.splitext(inputLayer.dataProvider().dataSourceUri())[0])
-		new_prj = '{0}.prj'.format(os.path.splitext(savename)[0])
-		try:
-			copyfile(correct_prj, new_prj)
-		except:
-			pass
-
-		outfile = QgsVectorLayer(savename, name[:-4], "ogr")
-		outfile.dataProvider().addAttributes(inputLayer.dataProvider().fields())
+	# if template == '1d_nwk':
+	# 	if lenFields >= 10:
+	# 		template2 = '1d_nwke'
+	# 		fpath = os.path.join(basedir, '{0}_empty{1}.shp'.format(template2, geomType))
+	# 	else:
+	# 		fpath = os.path.join(basedir, '{0}_empty{1}.shp'.format(template, geomType))
+	# else:
+	# 	fpath = os.path.join(basedir, '{0}_empty{1}.shp'.format(template, geomType))
+	# if os.path.isfile(fpath):
+	# 	layer = QgsVectorLayer(fpath, "tmp", "ogr")
+	# 	name = '{0}_{1}{2}.shp'.format(template, runID, geomType)
+	# 	savename = os.path.join(gis_folder, name)
+	# 	if QFile(savename).exists():
+	# 		overwriteExisting = QMessageBox.question(dialog, "Import Empty",
+	# 		                                         'Output file already exists\nOverwrite existing file?',
+	# 		                                         QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+	# 		if overwriteExisting != QMessageBox.Yes:
+	# 		#QMessageBox.critical(qgis.mainWindow(),"Info", ("File Exists: {0}".format(savename)))
+	# 			message = 'Unable to complete utility because file already exists'
+	# 			return 1
+	# 	outfile = QgsVectorFileWriter(vectorFileName=savename, fileEncoding="System",
+	# 	                              fields=layer.dataProvider().fields(), geometryType=layer.wkbType(),
+	# 	                              srs=layer.dataProvider().sourceCrs(), driverName="ESRI Shapefile",)
+	#
+	# 	if outfile.hasError() != QgsVectorFileWriter.NoError:
+	# 		QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: {0}".format(savename)))
+	# 		message = 'Error writing output file. Check output location and output file.'
+	# 		return message
+	#
+	# 	# delete prj file and replace with empty prj - ensures it is exactly the same
+	# 	correct_prj = '{0}.prj'.format(os.path.splitext(inputLayer.dataProvider().dataSourceUri())[0])
+	# 	new_prj = '{0}.prj'.format(os.path.splitext(savename)[0])
+	# 	try:
+	# 		copyfile(correct_prj, new_prj)
+	# 	except:
+	# 		pass
+	#
+	# 	outfile = QgsVectorLayer(savename, name[:-4], "ogr")
+	# 	outfile.dataProvider().addAttributes(inputLayer.dataProvider().fields())
 		
 		# Get attribute names of input layers
-		layer_attributes = [field.name() for field in layer.fields()]
-		inputLayer_attributes = [field.name() for field in inputLayer.fields()]
+		# layer_attributes = [field.name() for field in layer.fields()]
+		# inputLayer_attributes = [field.name() for field in inputLayer.fields()]
 		
 		# Create 2D attribute value list and add features to new file
-		row_list = []
-		for feature in inputLayer.getFeatures():
-			row = [''] * len(layer_attributes)
-			for attr in inputLayer_attributes:
-				row.append(feature[attr])
-			row_list.append(row)
-			outfile.dataProvider().addFeatures([feature])
-		
-		# correct field values
-		for i, feature in enumerate(outfile.getFeatures()):
-			row_dict = {}
-			for j in range(len(row_list[0])):
-				row_dict[j] = row_list[i][j]
-			outfile.dataProvider().changeAttributeValues({i: row_dict})
-
-		qgis.addVectorLayer(savename, name[:-4], "ogr")
-	
-	return message
+	# 	row_list = []
+	# 	for feature in inputLayer.getFeatures():
+	# 		row = [''] * len(layer_attributes)
+	# 		for attr in inputLayer_attributes:
+	# 			row.append(feature[attr])
+	# 		row_list.append(row)
+	# 		outfile.dataProvider().addFeatures([feature])
+	#
+	# 	# correct field values
+	# 	for i, feature in enumerate(outfile.getFeatures()):
+	# 		row_dict = {}
+	# 		for j in range(len(row_list[0])):
+	# 			row_dict[j] = row_list[i][j]
+	# 		outfile.dataProvider().changeAttributeValues({i: row_dict})
+	#
+	# 	qgis.addVectorLayer(savename, name[:-4], "ogr")
+	#
+	# return message
 	
 def get_tuflow_labelName(layer):
 	fsource = layer.source() #includes full filepath and extension
@@ -1582,7 +1757,8 @@ def getTuflowLayerType(layerName: str) -> (str, str):
 	geomType = ''
 
 	# get name - separate extension and file path if needed
-	name = os.path.splitext(os.path.basename(layerName))[0]
+	# name = os.path.splitext(os.path.basename(layerName))[0]
+	name = layerName
 
 	# first see if it is a check layer
 	pattern = r'_check(_[PLR])?$'  # will match '_check' or '_check_P' (P or L or R) only if it is at the end of the string
@@ -1615,6 +1791,11 @@ def getTuflowLayerType(layerName: str) -> (str, str):
 		if re.findall(pattern, layerName, flags=re.IGNORECASE):
 			tuflowLayerType = '_FM_PLOT'
 
+		# messages
+		pattern = r'_messages'
+		if re.findall(pattern, layerName, flags=re.IGNORECASE):
+			tuflowLayerType = 'messages'
+
 	# get geometry type
 	if tuflowLayerType:
 		layer = tuflowqgis_find_layer(layerName)
@@ -1642,13 +1823,14 @@ def findLabelPropertyMatch(files: list, layerType: str, geomType: str, layerName
 	"""
 
 	# get name - separate extension and file path if needed
-	name = os.path.splitext(os.path.basename(layerName))[0]
+	# name = os.path.splitext(os.path.basename(layerName))[0]
+	name = layerName
 
 	# initialise match variable
 	match = ''
 
 	# if layer is a check layer or not a tuflow layer loop through file and just find first name match
-	if layerType == 'check' or layerType == '':
+	if layerType == 'check' or layerType == '' or layerType == 'messages':
 		for labelProperty in files:
 			if os.path.splitext(os.path.basename(labelProperty))[0].lower() in name.lower():
 				match = labelProperty
@@ -1881,14 +2063,18 @@ def getLabelFieldName(layer: QgsVectorLayer, properties: dict) -> str:
 	:return: str field name expression
 	"""
 
+	add = 0
+	if re.findall(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), re.IGNORECASE):
+		add = 1
+
 	fields = layer.fields()
 	a = []
 	for i in properties['label_attributes']:
 		if fields.size() >= i:
 			if properties['use_attribute_name']:
-				a.append("'{0}: ' + if ( \"{0}\" IS NULL, \"{0}\", to_string( \"{0}\" ) )".format(fields.field(i-1).name()))
+				a.append("'{0}: ' + if ( \"{0}\" IS NULL, \"{0}\", to_string( \"{0}\" ) )".format(fields.field(i-1+add).name()))
 			else:
-				a.append("if ( \"{0}\" IS NULL, \"{0}\", to_string( \"{0}\" ) )".format(fields.field(i-1).name()))
+				a.append("if ( \"{0}\" IS NULL, \"{0}\", to_string( \"{0}\" ) )".format(fields.field(i-1+add).name()))
 
 	fieldName = r" + '\n' + ".join(a)
 
@@ -3771,6 +3957,23 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 							message += log
 			if 'read operating controls file' in f.lower():
 				ind = f.lower().find('read operating controls file')
+				if '!' not in f[:ind] and '#' not in f[:ind]:
+					command, relPath = f.split('==')
+					command = command.strip()
+					relPath = relPath.split('!')[0].split('#')[0]
+					relPath = relPath.strip()
+					paths = getAllFolders(dir, relPath, variables, scenarios, [])
+					for path in paths:
+						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
+						                                                          processed_layers,
+						                                                          scenarios, variables, crs)
+						processed_paths += pPaths
+						processed_layers += pLayers
+						if error:
+							couldNotReadFile = True
+							message += log
+			if 'rainfall control file' in f.lower():
+				ind = f.lower().find('rainfall control file')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
 					command, relPath = f.split('==')
 					command = command.strip()
@@ -6091,30 +6294,33 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
 	startDir = os.getcwd()
 	if lineEdit is not None:
 		if type(lineEdit) is QLineEdit:
-			startDir = lineEdit.text()
+			if not re.findall(r'^<.*>$', lineEdit.text()) and lineEdit.text():
+				startDir = lineEdit.text()
 		elif type(lineEdit) is QComboBox:
-			startDir = lineEdit.currentText()
+			if not re.findall(r'^<.*>$', lineEdit.currentText()) and lineEdit.currentText():
+				startDir = lineEdit.currentText()
 	
 	if lastFolder:  # if outFolder no longer exists, work backwards in directory until find one that does
-		pattern = r'[a-z]\:\\$'  # windows root drive directory
-		loop_limit = 100
-		loop_count = 0
-		while lastFolder:
-			if os.path.exists(lastFolder):
-				startDir = lastFolder
-				break
-			elif not lastFolder:
-				startDir = lastFolder
-				break
-			elif re.findall(pattern, lastFolder, re.IGNORECASE):
-				startDir = ''
-				break
-			elif loop_count > loop_limit:
-				startDir = ''
-				break
-			else:
-				lastFolder = os.path.dirname(lastFolder)
-				loop_count += 1
+		if Path(Path(lastFolder).drive).exists():
+			pattern = r'[a-z]\:\\$'  # windows root drive directory
+			loop_limit = 100
+			loop_count = 0
+			while lastFolder:
+				if os.path.exists(lastFolder):
+					startDir = lastFolder
+					break
+				elif not lastFolder:
+					startDir = lastFolder
+					break
+				elif re.findall(pattern, lastFolder, re.IGNORECASE):
+					startDir = ''
+					break
+				elif loop_count > loop_limit:
+					startDir = ''
+					break
+				else:
+					lastFolder = os.path.dirname(lastFolder)
+					loop_count += 1
 	dialog = QFileDialog(parent, dialogName, startDir, fileType)
 	f = []
 	if icon is not None:
@@ -6469,6 +6675,7 @@ def makeDir(path: str) -> bool:
 
 def convert_datetime_to_float(dt_time):
 	"""
+	!!! deprecated !!!! (and wrong now it seems) - use matplotlib.dates num2date and date2num
 	How Matplotlib interprets dates: days since 0001-01-01 00:00:00 UTC + 1 day
 	https://matplotlib.org/gallery/text_labels_and_annotations/date.html
 
@@ -7462,6 +7669,31 @@ def mplcolor_to_qcolor(color):
 		return color[0] + color[-2:] + color[1:-2]
 	else:
 		return color
+
+
+def is_database(layer):
+	ds = layer.dataProvider().dataSourceUri()
+	if re.findall(re.escape(r'.gpkg|layername='), ds, flags=re.IGNORECASE):
+		return True
+
+	return False
+
+
+def get_table_names(db):
+	if Path(db).exists():
+		conn = sqlite3.connect(db)
+		cur = conn.cursor()
+		try:
+			cur.execute('SELECT table_name FROM gpkg_contents;')
+			tables = [x[0] for x in cur.fetchall()]
+			cur.close()
+			return tables
+		except:
+			cur.close()
+			return []
+
+	return []
+
 
 
 

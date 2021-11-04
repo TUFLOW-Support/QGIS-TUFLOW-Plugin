@@ -216,8 +216,8 @@ class TuResults1D():
 									x = res.links[link_dnn.index(node)].x
 									y = res.links[link_dnn.index(node)].y
 								elif node in link_upn:
-									x = res.links[link_dnn.index(node)].x
-									y = res.links[link_dnn.index(node)].y
+									x = res.links[link_upn.index(node)].x
+									y = res.links[link_upn.index(node)].y
 								else:
 									x = [node.x - 1, node.x]
 									y = [node.y, node.y]

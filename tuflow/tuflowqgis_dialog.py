@@ -38,6 +38,7 @@ import subprocess
 import numpy as np
 import matplotlib
 import dateutil.parser
+from pathlib import Path
 try:
 	import matplotlib.pyplot as plt
 except:
@@ -421,8 +422,9 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 			
 		engine = self.tfsettings.combined.engine
 		self.parent_folder_name = 'TUFLOWFV' if engine == 'flexible mesh' else 'TUFLOW'
-		
-		self.browsedir.clicked.connect(self.browse_empty_dir)
+
+		self.browsedir.clicked.connect(lambda: browse(self, 'existing folder', 'TUFLOW/empty_directory',
+		                                              'Empty Directory', lineEdit=self.emptydir))
 		self.emptydir.editingFinished.connect(self.dirChanged)
 		self.pbShowToolTip.clicked.connect(self.toggleToolTip)
 		self.pbHideToolTip.clicked.connect(self.toggleToolTip)
@@ -451,30 +453,31 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 			self.emptydir.setText("ERROR - Project not loaded")
 			
 		# load empty types
-		self.emptyType.clear()
-		if self.emptydir.text() == "ERROR - Project not loaded":
-			self.emptyType.addItem('No empty directory')
-		elif not os.path.exists(self.emptydir.text()):
-			self.emptyType.addItem('Empty directory not valid')
-		else:
-			exts = ['shp', 'gpkg']
-			files = []
-			for ext in exts:
-				search_string = '{0}{1}*.{2}'.format(self.emptydir.text(), os.path.sep, ext)
-				f = glob.glob(search_string)
-				if not f:
-					search_string = '{0}{1}*.{2}'.format(self.emptydir.text(), os.path.sep, ext.upper())
-					f = glob.glob(search_string)
-				files += f
-			empty_list = []
-			for file in files:
-				if len(file.split('_empty')) < 2:
-					continue
-				empty_type = os.path.basename(file.split('_empty')[0])
-				if empty_type not in empty_list:
-					empty_list.append(empty_type)
-			empty_list = sorted(empty_list)
-			self.emptyType.addItems(empty_list)
+		self.dirChanged()
+		# self.emptyType.clear()
+		# if self.emptydir.text() == "ERROR - Project not loaded":
+		# 	self.emptyType.addItem('No empty directory')
+		# elif not os.path.exists(self.emptydir.text()):
+		# 	self.emptyType.addItem('Empty directory not valid')
+		# else:
+		# 	exts = ['shp', 'gpkg']
+		# 	files = []
+		# 	for ext in exts:
+		# 		search_string = '{0}{1}*.{2}'.format(self.emptydir.text(), os.path.sep, ext)
+		# 		f = glob.glob(search_string)
+		# 		if not f:
+		# 			search_string = '{0}{1}*.{2}'.format(self.emptydir.text(), os.path.sep, ext.upper())
+		# 			f = glob.glob(search_string)
+		# 		files += f
+		# 	empty_list = []
+		# 	for file in files:
+		# 		if len(file.split('_empty')) < 2:
+		# 			continue
+		# 		empty_type = os.path.basename(file.split('_empty')[0])
+		# 		if empty_type not in empty_list:
+		# 			empty_list.append(empty_type)
+		# 	empty_list = sorted(empty_list)
+		# 	self.emptyType.addItems(empty_list)
 
 		self.gbSpatialDatabaseOptions.setVisible(spatial_database_option)
 		w = self.width()
@@ -611,7 +614,6 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 						self.emptyType.addItem(empty_type)
 
 	def dirChanged(self):
-		# load empty types
 		self.emptyType.clear()
 		if self.emptydir.text() == "ERROR - Project not loaded":
 			self.emptyType.addItem('No empty directory')
@@ -621,20 +623,25 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 			exts = ['shp', 'gpkg']
 			files = []
 			for ext in exts:
-				search_string = '{0}{1}*.{2}'.format(self.emptydir.text(), os.path.sep, ext)
-				f = glob.glob(search_string)
-				if not f:
-					search_string = '{0}{1}*.{2}'.format(self.emptydir.text(), os.path.sep, ext.upper())
-					f = glob.glob(search_string)
-				files += f
+				p = Path(self.emptydir.text())
+				if not p.exists():
+					continue
+				f = list(p.glob('*.{0}'.format(ext)))
+				f.extend(list(p.glob('*.{0}'.format(ext.upper()))))
+				files.extend(f)
 			empty_list = []
 			for file in files:
+				file = str(file)
 				if len(file.split('_empty')) < 2:
 					continue
 				empty_type = os.path.basename(file.split('_empty')[0])
+				if '_pts' in os.path.basename(file):
+					empty_type = '{0}_pts'.format(empty_type)
 				if empty_type not in empty_list:
 					empty_list.append(empty_type)
 					self.emptyType.addItem(empty_type)
+			if not empty_list:
+				self.emptyType.addItem('No empty files in directory')
 	
 	def run(self):
 		runID = unicode(self.txtRunID.displayText()).strip()
@@ -665,7 +672,9 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		# run create dir script
 		message = tuflowqgis_import_empty_tf(self.iface, basedir, runID, empty_types, points, lines, regions, self, databaseOption, databaseLoc, convert)
 		#message = tuflowqgis_create_tf_dir(self.iface, crs, basedir)
-		if message is not None:
+		if message == 'pass':
+			pass
+		elif message is not None:
 			if message != 1:
 				QMessageBox.critical(self.iface.mainWindow(), "Importing {0} Empty File(s)".format(self.parent_folder_name), message)
 		else:
@@ -1653,12 +1662,13 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		lastFolder = settings.value(key)
 		startDir = "C:\\"
 		if lastFolder:  # if outFolder no longer exists, work backwards in directory until find one that does
-			while lastFolder:
-				if os.path.exists(lastFolder):
-					startDir = lastFolder
-					break
-				else:
-					lastFolder = os.path.dirname(lastFolder)
+			if Path(Path(lastFolder).drive).exists():
+				while lastFolder:
+					if os.path.exists(lastFolder):
+						startDir = lastFolder
+						break
+					else:
+						lastFolder = os.path.dirname(lastFolder)
 		if browseType == 'existing folder':
 			f = QFileDialog.getExistingDirectory(self, dialogName, startDir)
 		elif browseType == 'existing file':
@@ -2399,32 +2409,45 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 			self.emptydir.setText("ERROR - Project not loaded")
 			
 		# load empty types
-		self.comboBox_tfType.clear()
-		if self.emptydir.text() == "ERROR - Project not loaded":
-			self.comboBox_tfType.addItem('No empty directory')
-		elif not os.path.exists(self.emptydir.text()):
-			self.comboBox_tfType.addItem('Empty directory not valid')
-		else:
-			search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
-			files = glob.glob(search_string)
-			if not files:
-				search_string = '{0}{1}*.SHP'.format(self.emptydir.text(), os.path.sep)
-				files = glob.glob(search_string)
-			empty_list = []
-			for file in files:
-				if len(file.split('_empty')) < 2:
-					continue
-				empty_type = os.path.basename(file.split('_empty')[0])
-				if empty_type not in empty_list:
-					empty_list.append(empty_type)
-			empty_list = sorted(empty_list)
-			self.comboBox_tfType.addItems(empty_list)
+		self.dirChanged()
+		# self.emptyType.clear()
+		# if self.emptydir.text() == "ERROR - Project not loaded":
+		# 	self.emptyType.addItem('No empty directory')
+		# elif not os.path.exists(self.emptydir.text()):
+		# 	self.emptyType.addItem('Empty directory not valid')
+		# else:
+		# 	search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
+		# 	files = glob.glob(search_string)
+		# 	if not files:
+		# 		search_string = '{0}{1}*.SHP'.format(self.emptydir.text(), os.path.sep)
+		# 		files = glob.glob(search_string)
+		# 	empty_list = []
+		# 	for file in files:
+		# 		if len(file.split('_empty')) < 2:
+		# 			continue
+		# 		empty_type = os.path.basename(file.split('_empty')[0])
+		# 		if empty_type not in empty_list:
+		# 			empty_list.append(empty_type)
+		# 	empty_list = sorted(empty_list)
+		# 	self.emptyType.addItems(empty_list)
 									
-		self.browsedir.clicked.connect(lambda: self.browse_empty_dir(unicode(self.emptydir.displayText()).strip()))
+		# self.browsedir.clicked.connect(lambda: self.browse_empty_dir(unicode(self.emptydir.displayText()).strip()))
+		self.browsedir.clicked.connect(lambda: browse(self, 'existing folder', 'TUFLOW/empty_directory',
+		                                              'Empty Directory', lineEdit=self.emptydir))
 		self.emptydir.editingFinished.connect(self.dirChanged)
 		self.pbOk.clicked.connect(self.run)
 		self.pbCancel.clicked.connect(self.reject)
+		self.browseDatabase.clicked.connect(lambda: browse(self, 'output database', "TUFLOW/import_empty_database",
+													      "Spatial Database", "gpkg (*.gpkg *.GPKG)",
+													      self.leDatabase))
 
+		self.label.setVisible(spatial_database_option)
+		self.leDatabase.setVisible(spatial_database_option)
+		self.browseDatabase.setVisible(spatial_database_option)
+		w = self.width()
+		h = self.height() - self.label.sizeHint().height() - self.leDatabase.sizeHint().height() - \
+		    self.browseDatabase.sizeHint().height()
+		self.resize(w, h)
 
 	def browse_empty_dir(self, oldName):
 		startDir = None
@@ -2441,11 +2464,11 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 			self.emptydir.setText(newname)
 			
 			# load empty types
-			self.comboBox_tfType.clear()
+			self.emptyType.clear()
 			if self.emptydir.text() == "ERROR - Project not loaded":
-				self.comboBox_tfType.addItem('No empty directory')
+				self.emptyType.addItem('No empty directory')
 			elif not os.path.exists(self.emptydir.text()):
-				self.comboBox_tfType.addItem('Empty directory not valid')
+				self.emptyType.addItem('Empty directory not valid')
 			else:
 				search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
 				files = glob.glob(search_string)
@@ -2456,44 +2479,57 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 					empty_type = os.path.basename(file.split('_empty')[0])
 					if empty_type not in empty_list:
 						empty_list.append(empty_type)
-						self.comboBox_tfType.addItem(empty_type)
+						self.emptyType.addItem(empty_type)
 	
 	def dirChanged(self):
-		# load empty types
-		self.comboBox_tfType.clear()
+		self.emptyType.clear()
 		if self.emptydir.text() == "ERROR - Project not loaded":
-			self.comboBox_tfType.addItem('No empty directory')
+			self.emptyType.addItem('No empty directory')
 		elif not os.path.exists(self.emptydir.text()):
-			self.comboBox_tfType.addItem('Empty directory not valid')
+			self.emptyType.addItem('Empty directory not valid')
 		else:
-			search_string = '{0}{1}*.shp'.format(self.emptydir.text(), os.path.sep)
-			files = glob.glob(search_string)
-			if not files:
-				search_string = '{0}{1}*.SHP'.format(self.emptydir.text(), os.path.sep)
-				files = glob.glob(search_string)
+			exts = ['shp', 'gpkg']
+			files = []
+			for ext in exts:
+				p = Path(self.emptydir.text())
+				if not p.exists():
+					continue
+				f = list(p.glob('*.{0}'.format(ext)))
+				f.extend(list(p.glob('*.{0}'.format(ext.upper()))))
+				files.extend(f)
 			empty_list = []
 			for file in files:
+				file = str(file)
 				if len(file.split('_empty')) < 2:
 					continue
 				empty_type = os.path.basename(file.split('_empty')[0])
+				if '_pts' in os.path.basename(file):
+					empty_type = '{0}_pts'.format(empty_type)
 				if empty_type not in empty_list:
 					empty_list.append(empty_type)
-					self.comboBox_tfType.addItem(empty_type)
+					self.emptyType.addItem(empty_type)
+			if not empty_list:
+				self.emptyType.addItem('No empty files in directory')
 	
 	def run(self):
 		runID = unicode(self.txtRunID.displayText()).strip()
 		basedir = unicode(self.emptydir.displayText()).strip()
-		template = unicode(self.comboBox_tfType.currentText())
+		template = unicode(self.emptyType.currentText())
 		
 		inputFile = unicode(self.comboBox_inputLayer.currentText())
 		inputLayer = tuflowqgis_find_layer(inputFile)
 		lenFields = len(inputLayer.fields())
+
+		output_dbase = self.leDatabase.text() if not re.findall(r'^<.*>$', self.leDatabase.text()) and self.leDatabase.text() else None
 		
 		# run insert tuflow attributes script
-		message = tuflowqgis_insert_tf_attributes(self.iface, inputLayer, basedir, runID, template, lenFields, self)
+		message = tuflowqgis_insert_tf_attributes(self.iface, inputLayer, basedir, runID, template, lenFields, self,
+		                                          output_dbase)
 		if message is not None:
 			if message != 1:
 				QMessageBox.critical(self.iface.mainWindow(), "Importing TUFLOW Empty File(s)", message)
+		elif message == 'pass':
+			pass
 		else:
 			self.accept()
 
@@ -2822,12 +2858,14 @@ from ui_tuflowqgis_meshSelection import *
 
 
 class tuflowqgis_meshSelection_dialog(QDialog, Ui_meshSelection):
-	def __init__(self, iface, meshes):
+	def __init__(self, iface, meshes, dialog_text=None):
 		QDialog.__init__(self)
 		self.setupUi(self)
 		self.iface = iface
 		self.meshes = meshes
 		self.selectedMesh = None
+		if dialog_text is not None:
+			self.setWindowTitle(dialog_text)
 		
 		for mesh in self.meshes:
 			self.mesh_lw.addItem(mesh.name())

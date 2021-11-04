@@ -1316,20 +1316,30 @@ class TuMenuFunctions():
 		rs = meshLayer.rendererSettings()
 		
 		# get scalar renderer settings
+		activeScalarGroupIndex = None
 		if useClicked:
 			resultType = self.tuView.tuContextMenu.resultTypeContextItem.ds_name
-			for i in range(dp.datasetGroupCount()):
-				# is the datasetGroup a maximum?
-				isDatasetMax = TuResults.isMaximumResultType(dp.datasetGroupMetadata(i).name(),
-				                                             dp=dp, groupIndex=i)
-				if self.tuView.tuContextMenu.resultTypeContextItem.isMax and isDatasetMax:
-					if TuResults.stripMaximumName(dp.datasetGroupMetadata(i).name()) == resultType:
-						activeScalarGroupIndex = i
-						break
-				else:
-					if dp.datasetGroupMetadata(i).name() == resultType and not isDatasetMax:
-						activeScalarGroupIndex = i
-						break
+			if self.tuView.tuContextMenu.resultTypeContextItem.isMax:
+				resultType = '{0}/Maximums'.format(resultType)
+			elif self.tuView.tuContextMenu.resultTypeContextItem.isMin:
+				resultType = '{0}/Minimums'.format(resultType)
+			if meshLayer.name() in self.tuView.tuResults.results and resultType in self.tuView.tuResults.results[
+				meshLayer.name()]:
+				for _, (_, _, dsi) in self.tuView.tuResults.results[meshLayer.name()][resultType]['times'].items():
+					activeScalarGroupIndex = dsi.group()
+					break
+			# for i in range(dp.datasetGroupCount()):
+			# 	# is the datasetGroup a maximum?
+			# 	isDatasetMax = TuResults.isMaximumResultType(dp.datasetGroupMetadata(i).name(),
+			# 	                                             dp=dp, groupIndex=i)
+			# 	if self.tuView.tuContextMenu.resultTypeContextItem.isMax and isDatasetMax:
+			# 		if TuResults.stripMaximumName(dp.datasetGroupMetadata(i).name()) == resultType:
+			# 			activeScalarGroupIndex = i
+			# 			break
+			# 	else:
+			# 		if dp.datasetGroupMetadata(i).name() == resultType and not isDatasetMax:
+			# 			activeScalarGroupIndex = i
+			# 			break
 		elif meshIndex is not None:
 			activeScalarGroupIndex = meshIndex.group()
 		else:
@@ -1339,6 +1349,9 @@ class TuMenuFunctions():
 				QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Scalar Dataset')
 				return False
 
+		if activeScalarGroupIndex is None:
+			QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'Unexpected error saving default scalar styling')
+			return False
 		activeScalarType = dp.datasetGroupMetadata(activeScalarGroupIndex).name()
 		activeScalarType = TuResults.stripMaximumName(activeScalarType)
 		rsScalar = rs.scalarSettings(activeScalarGroupIndex)
@@ -1429,18 +1442,27 @@ class TuMenuFunctions():
 		rs = meshLayer.rendererSettings()
 		
 		# get the active scalar dataset
+		activeVectorGroupIndex = None
 		if useClicked:
 			resultType = self.tuView.tuContextMenu.resultTypeContextItem.ds_name
-			for i in range(dp.datasetGroupCount()):
-				if self.tuView.tuContextMenu.resultTypeContextItem.isMax and \
-						TuResults.isMaximumResultType(dp.datasetGroupMetadata(i).name()):
-					if TuResults.stripMaximumName(dp.datasetGroupMetadata(i).name()) == resultType:
-						activeVectorGroupIndex = i
-						break
-				else:
-					if dp.datasetGroupMetadata(i).name() == resultType:
-						activeVectorGroupIndex = i
-						break
+			if self.tuView.tuContextMenu.resultTypeContextItem.isMax:
+				resultType = '{0}/Maximums'.format(resultType)
+			elif self.tuView.tuContextMenu.resultTypeContextItem.isMin:
+				resultType = '{0}/Minimums'.format(resultType)
+			if meshLayer.name() in self.tuView.tuResults.results and resultType in self.tuView.tuResults.results[meshLayer.name()]:
+				for _, (_, _, dsi) in self.tuView.tuResults.results[meshLayer.name()][resultType]['times'].items():
+					activeVectorGroupIndex = dsi.group()
+					break
+			# for i in range(dp.datasetGroupCount()):
+			# 	if self.tuView.tuContextMenu.resultTypeContextItem.isMax and \
+			# 			TuResults.isMaximumResultType(dp.datasetGroupMetadata(i).name()):
+			# 		if TuResults.stripMaximumName(dp.datasetGroupMetadata(i).name()) == resultType:
+			# 			activeVectorGroupIndex = i
+			# 			break
+			# 	else:
+			# 		if dp.datasetGroupMetadata(i).name() == resultType:
+			# 			activeVectorGroupIndex = i
+			# 			break
 		elif meshIndex is not None:
 			activeVectorGroupIndex = meshIndex.group()
 		else:
@@ -1452,6 +1474,9 @@ class TuMenuFunctions():
 					return False
 				else:
 					return ''
+		if activeVectorGroupIndex is None:
+			QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'Unexpected error saving default vector data')
+			return False
 		activeVectorType = dp.datasetGroupMetadata(activeVectorGroupIndex).name()
 		activeVectorType = TuResults.stripMaximumName(activeVectorType)
 

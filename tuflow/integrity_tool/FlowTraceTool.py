@@ -1,4 +1,5 @@
 import os, sys
+import numpy as np
 from qgis.core import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import pyqtSignal, QThread, QTimer
@@ -164,11 +165,14 @@ class FlowTracePlot(PlotDialog, Ui_flowTracePlot):
         self.ax.set_ybound(0, 1000)
         self.manageMatplotlibAxe(self.ax)
         self.plotLayout.addWidget(self.plotWidget)
-        
+        self.labelOffsetY = -0.1
+        self.labelOffsetX = 0.
+
         # intialise signal connections
         self.paths.itemSelectionChanged.connect(self.drawPlot)
         self.pbSelectPath.clicked.connect(self.selectPathInWorkspace)
         self.resized.connect(self.resizePlot)
+        self.cbLabel.clicked.connect(self.drawPlot)
         
         # get paths
         self.getPaths()
@@ -329,7 +333,7 @@ class FlowTracePlot(PlotDialog, Ui_flowTracePlot):
         
         :return:
         """
-        
+
         self.ax.clear()
         self.manageMatplotlibAxe(self.ax)
         ymax = -99999
@@ -402,16 +406,72 @@ class FlowTracePlot(PlotDialog, Ui_flowTracePlot):
                         y = self.downstreamConnectivity.pathsPlotInCover[j][1][:]
                         label = '{0}: Insufficient Cover'.format(pathName)
                         self.ax.plot(x, y, label=label, linestyle='None', marker='o')
-                    
+
         # set axis y max - matplotlib doesn't consider patches when it automates this step
         self.setYMax(ymax)
         
         # set legend - remove duplicate 'pipe' entries
         self.setLegend()
-        
+
         # draw
         self.fig.tight_layout()
+
+        # add labels
+        if self.cbLabel.isChecked():
+            self.addLabels()
+
         self.plotWidget.draw()
+
+    def addLabels(self):
+        """
+        Add labels to plot for 1d elements
+        """
+
+        bbox = dict(boxstyle="round", fc="0.8")
+        arrowprops = dict(
+            arrowstyle="->",
+            connectionstyle="angle,angleA=0,angleB=90,rad=10")
+
+        for i in range(self.paths.count()):
+            item = self.paths.item(i)
+
+            if item.isSelected():
+                pathName = item.text()
+
+                # path index
+                j = None
+                if pathName in self.downstreamConnectivity.pathsName:
+                    j = self.downstreamConnectivity.pathsName.index(pathName)
+
+                if j is not None:
+                    x = self.downstreamConnectivity.pathsX[j][:]
+                    x = x[0:1] + x[1:-1:2] + x[-1:]
+                    y = self.downstreamConnectivity.pathsInvert[j][:]
+                    y = y[0:1] + y[1:-1:2] + y[-1:]
+                    labels = self.downstreamConnectivity.pathsNwks[j][:]
+
+                    for k, x_ in enumerate(x[:-1]):
+                        xpos = (x_ + x[k + 1]) / 2
+                        ypos = np.interp(xpos, x[k:k+2], y[k:k+2])
+
+                        offset = -30
+                        self.ax.annotate(labels[k],
+                                         (xpos, ypos),
+                                         xytext=(1, offset),
+                                         textcoords='offset points',
+                                         bbox=bbox,
+                                         arrowprops=arrowprops,
+                                         horizontalalignment='center')
+
+        # rescale plot coordinates
+        xmin, xmax = self.ax.get_xlim()
+        ymin, ymax = self.ax.get_ylim()
+
+        xloc, yloc = self.ax.transData.transform((xmin, ymin))
+        yloc -= 75
+        xmin, ymin = self.ax.transData.inverted().transform((xloc, yloc))
+
+        self.ax.set_ylim((ymin, ymax))
         
     def setYMax(self, ymax):
         """

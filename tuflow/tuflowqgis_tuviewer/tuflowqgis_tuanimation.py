@@ -746,6 +746,9 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 	# store original values
 	original_rs = l.rendererSettings()
 
+	# render selected mesh layer and turn off others
+	dialog.tuView.tuResults.tuResults2D.renderMap(turn_off=True)
+
 	# animate
 	imgnum = 0
 	#for i in range(count):
@@ -1405,7 +1408,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		self.tablePlots.itemChanged.connect(self.plotTypeChanged)
 		self.contextMenuPlotTable()
 		self.contextMenuImageTable()
-		self.populateGeneralTab()
+		self.populateGeneralTab(load_project_settings=True)
 		self.populateLayoutTab()
 		self.populateVideoTab()
 		
@@ -1505,56 +1508,57 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		if 'crs' in kwargs:
 			self.crs = kwargs['crs']
 
-	def populateGeneralTab(self, ignore=None):
+	def populateGeneralTab(self, ignore=None, load_project_settings=False):
 		"""
 		Populates widgets in general tab.
 		
 		:return: void
 		"""
-		
+
 		if ignore != 'results':
 			self.populateResults()
 		if ignore != 'times':
 			self.populateTimes()
 		if ignore != 'types':
 			self.populateResultTypes()
-		
-		folderIcon = QgsApplication.getThemeIcon('\mActionFileOpen.svg')
-		self.btnBrowseOutput.setIcon(folderIcon)
-		# apply project settings
-		if self.project.readEntry("TUFLOW", 'start_time')[0]:
-			for i in range(self.cboStart.count()):
-				if self.cboStart.itemText(i) == self.project.readEntry("TUFLOW", 'start_time')[0]:
-					self.cboStart.setCurrentIndex(i)
-					break
-		if self.project.readEntry("TUFLOW", 'end_time')[0]:
-			for i in range(self.cboEnd.count()):
-				if self.cboEnd.itemText(i) == self.project.readEntry("TUFLOW", 'end_time')[0]:
-					self.cboEnd.setCurrentIndex(i)
-					break
-		if self.project.readEntry("TUFLOW", 'result_name')[0]:
-			for i in range(self.cboResult.count()):
-				if self.cboResult.itemText(i) == self.project.readEntry("TUFLOW", 'result_name')[0]:
-					self.cboResult.setCurrentIndex(i)
-					break
-		if self.project.readEntry("TUFLOW", 'result_scalar')[0]:
-			for i in range(self.cboScalar.count()):
-				if self.cboScalar.itemText(i) == self.project.readEntry("TUFLOW", 'result_scalar')[0]:
-					self.cboScalar.setCurrentIndex(i)
-					break
-		if self.project.readEntry("TUFLOW", 'result_vector')[0]:
-			for i in range(self.cboVector.count()):
-				if self.cboVector.itemText(i) == self.project.readEntry("TUFLOW", 'result_vector')[0]:
-					self.cboVector.setCurrentIndex(i)
-					break
-		if self.project.readEntry("TUFLOW", 'video_width')[0]:
-			self.spinWidth.setValue(self.project.readNumEntry("TUFLOW", 'video_width')[0])
-		if self.project.readEntry("TUFLOW", 'video_height')[0]:
-			self.spinHeight.setValue(self.project.readNumEntry("TUFLOW", 'video_height')[0])
-		if self.project.readEntry("TUFLOW", 'video_fps')[0]:
-			self.spinSpeed.setValue(self.project.readNumEntry("TUFLOW", 'video_fps')[0])
-		if self.project.readEntry("TUFLOW", 'output_file')[0]:
-			self.editOutput.setText(self.project.readEntry("TUFLOW", 'output_file')[0])
+
+		if load_project_settings:
+			folderIcon = QgsApplication.getThemeIcon('\mActionFileOpen.svg')
+			self.btnBrowseOutput.setIcon(folderIcon)
+			# apply project settings
+			if self.project.readEntry("TUFLOW", 'start_time')[0]:
+				for i in range(self.cboStart.count()):
+					if self.cboStart.itemText(i) == self.project.readEntry("TUFLOW", 'start_time')[0]:
+						self.cboStart.setCurrentIndex(i)
+						break
+			if self.project.readEntry("TUFLOW", 'end_time')[0]:
+				for i in range(self.cboEnd.count()):
+					if self.cboEnd.itemText(i) == self.project.readEntry("TUFLOW", 'end_time')[0]:
+						self.cboEnd.setCurrentIndex(i)
+						break
+			if self.project.readEntry("TUFLOW", 'result_name')[0]:
+				for i in range(self.cboResult.count()):
+					if self.cboResult.itemText(i) == self.project.readEntry("TUFLOW", 'result_name')[0]:
+						self.cboResult.setCurrentIndex(i)
+						break
+			if self.project.readEntry("TUFLOW", 'result_scalar')[0]:
+				for i in range(self.cboScalar.count()):
+					if self.cboScalar.itemText(i) == self.project.readEntry("TUFLOW", 'result_scalar')[0]:
+						self.cboScalar.setCurrentIndex(i)
+						break
+			if self.project.readEntry("TUFLOW", 'result_vector')[0]:
+				for i in range(self.cboVector.count()):
+					if self.cboVector.itemText(i) == self.project.readEntry("TUFLOW", 'result_vector')[0]:
+						self.cboVector.setCurrentIndex(i)
+						break
+			if self.project.readEntry("TUFLOW", 'video_width')[0]:
+				self.spinWidth.setValue(self.project.readNumEntry("TUFLOW", 'video_width')[0])
+			if self.project.readEntry("TUFLOW", 'video_height')[0]:
+				self.spinHeight.setValue(self.project.readNumEntry("TUFLOW", 'video_height')[0])
+			if self.project.readEntry("TUFLOW", 'video_fps')[0]:
+				self.spinSpeed.setValue(self.project.readNumEntry("TUFLOW", 'video_fps')[0])
+			if self.project.readEntry("TUFLOW", 'output_file')[0]:
+				self.editOutput.setText(self.project.readEntry("TUFLOW", 'output_file')[0])
 		
 	def populateLayoutTab(self):
 		"""

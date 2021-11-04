@@ -279,7 +279,6 @@ class TuPlot3D(TuPlot2D):
         return True
 
     def plotCurtainFromMap(self, vLayer, feat, **kwargs):
-
         from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
         debug = self.tuView.tuOptions.writeMeshIntersects
@@ -487,14 +486,17 @@ class TuPlot3D(TuPlot2D):
         xi = 0  # index for chainage - can be different due to null areas
         for i, f in enumerate(faces):
             if onFaces:
-                data3d = dp.dataset3dValues(mdi, f, 1)
-                vlc = data3d.verticalLevelsCount()
-                if vlc:
-                    vlc = vlc[0]
+                if layer.isFaceActive(mdi, f):
+                    data3d = dp.dataset3dValues(mdi, f, 1)
+                    vlc = data3d.verticalLevelsCount()
+                    if vlc:
+                        vlc = vlc[0]
+                    else:
+                        continue
+                    vl = data3d.verticalLevels()
+                    v = data3d.values()
                 else:
-                    continue
-                vl = data3d.verticalLevels()
-                v = data3d.values()
+                    v = [np.nan]
             else:
                 vlc = 1
                 v = [self.datasetValue(layer, dp, si, mesh, mdi, False, f, 0, TuPlot.DataCurtainPlot, None)]

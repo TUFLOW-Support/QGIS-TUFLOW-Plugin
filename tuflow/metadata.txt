@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.1.8.1
+version=3.1.9
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,28 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=--- 3.1.8.1 ---
+changelog=--- 3.1.9 ---
+          TUFLOW Viewer - Added hover-over labelling on plots
+          TUFLOW Viewer - Toggling 'Show as Dates' will no longer reload default mesh styles - previously this would override any changes in style the use had made to the mesh
+          TUFLOW Viewer - Toggling 'Show as Dates' could sometimes badly relimited curtain plot axis if the Long Plot plot wasn't the active plot when toggled
+          TUFLOW Viewer - Curtain plot retains colour bar name changes
+          TUFLOW Viewer - Cross section / long profile plot will now correctly reset user colour changes (when requested through the View menu)
+          TUFLOW Viewer - Fixed bug in FM time series import
+          TUFLOW Viewer - 3D to 2D depth average time series plotting working again
+          TUFLOW Viewer - Curtain plot should now auto update extent correctly in QGIS 3.20
+          TUFLOW Viewer - Fixed bug when opening mesh layer properties with multiple results selected which would cause python error after selected a mesh layer
+          TUFLOW Viewer - Animation tool will now correctly animate only the selected result in animation dialog
+          TUFLOW Viewer - Fixed an error that could occur when saving default vector style while viewing netcdf results
+          TUFLOW Viewer - FV netCDF results now correctly show dry areas when plotted
+          Load From TCF - Rainfall control file now included
+          Auto label - Fixed labelling tool so it correctly applies _messages.txt label properties to messages.shp
+          1D Integrity Tool - Added label option to flow trace long section
+          1D Integerity Tool - Fixed a bug that would result in an 'unexpected error'
+          Import Empty - Added _pts to empty list
+          ARR Tool - Fixed bug that would cause an error when adding additional temporal patterns due to areal temporal patterns not being downloaded correctly
+          ARR Tool - Fixed bug that would not output 30m duration storm if 30h storm was also selected
+          ARR Tool - Python version independent
+          ARR Tool - Changed plotting backend to qt5agg
           Fixed bug that would cause TUFLOW plugin to not load if the netCDF4 Python library was not installed
 
           --- 3.1.8 ---

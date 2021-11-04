@@ -302,7 +302,7 @@ class TuResults2D():
 					
 		return types
 	
-	def getResultMetaData(self, name, layer, ext='', hadtp=None):
+	def getResultMetaData(self, name, layer, ext='', hadtp=None, loadRenderStyle=True):
 		"""
 		Get all the result types and timesteps for 2D results.
 
@@ -417,23 +417,24 @@ class TuResults2D():
 				                      }  # add result type to results dictionary
 
 			# apply any default rendering styles to datagroup
-			if id:
-				resultType = TuResults.stripMaximumName(mdGroup.name())
-				resultType = TuResults.stripMaximumName(resultType)
-				# try finding if style has been saved as a ramp first
-				key = 'TUFLOW_scalarRenderer/{0}_ramp'.format(resultType)
-				file = QSettings().value(key)
-				if file:
-					self.applyScalarRenderSettings(layer, i, file, type='ramp')
-				# else try map
-				key = 'TUFLOW_scalarRenderer/{0}_map'.format(resultType)
-				file = QSettings().value(key)
-				if file:
-					self.applyScalarRenderSettings(layer, i, file, type='map')
-			if mdGroup.isVector() or id2:
-				vectorProperties = QSettings().value('TUFLOW_vectorRenderer/vector')
-				if vectorProperties:
-					self.applyVectorRenderSettings(layer, i, vectorProperties)
+			if loadRenderStyle:
+				if id:
+					resultType = TuResults.stripMaximumName(mdGroup.name())
+					resultType = TuResults.stripMaximumName(resultType)
+					# try finding if style has been saved as a ramp first
+					key = 'TUFLOW_scalarRenderer/{0}_ramp'.format(resultType)
+					file = QSettings().value(key)
+					if file:
+						self.applyScalarRenderSettings(layer, i, file, type='ramp')
+					# else try map
+					key = 'TUFLOW_scalarRenderer/{0}_map'.format(resultType)
+					file = QSettings().value(key)
+					if file:
+						self.applyScalarRenderSettings(layer, i, file, type='map')
+				if mdGroup.isVector() or id2:
+					vectorProperties = QSettings().value('TUFLOW_vectorRenderer/vector')
+					if vectorProperties:
+						self.applyVectorRenderSettings(layer, i, vectorProperties)
 
 			# record datasetindex for each timestep
 			for j in range(dp.datasetCount(i)):
@@ -760,15 +761,27 @@ class TuResults2D():
 				if id is None:
 					if name_ is not None:
 						id = self.addCounter(name_, ids)
-						id2 = self.addCounter('{0} Vector'.format(name_), ids)
+						if TuResults.isMaximumResultType(name_) or TuResults.isMinimumResultType(name_):
+							id2 = self.addCounter('{0}'.format(' Vector/'.join(name_.split('/'))), ids)
+						else:
+							id2 = self.addCounter('{0} Vector'.format(name_), ids)
 					else:
 						id = self.addCounter(mdg.name(), ids)
-						id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
+						if TuResults.isMaximumResultType(mdg.name()) or TuResults.isMinimumResultType(mdg.name()):
+							id2 = self.addCounter('{0}'.format(' Vector/'.join(mdg.name().split('/'))), ids)
+						else:
+							id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
 				else:
 					if name_ is not None:
-						id2 = self.addCounter('{0} Vector'.format(name_), ids)
+						if TuResults.isMaximumResultType(name_) or TuResults.isMinimumResultType(name_):
+							id2 = self.addCounter('{0}'.format(' Vector/'.join(name_.split('/'))), ids)
+						else:
+							id2 = self.addCounter('{0} Vector'.format(name_), ids)
 					else:
-						id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
+						if TuResults.isMaximumResultType(mdg.name()) or TuResults.isMinimumResultType(mdg.name()):
+							id2 = self.addCounter('{0}'.format(' Vector/'.join(mdg.name().split('/'))), ids)
+						else:
+							id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
 		else:
 			if name_ is not None:
 				id = self.addCounter(name_, ids)
@@ -933,7 +946,7 @@ class TuResults2D():
 				if layer.dataProvider().datasetGroupCount() == 0:
 					return
 				elif layer.dataProvider().datasetGroupCount() > 0:
-					self.getResultMetaData(ml, layer)
+					self.getResultMetaData(ml, layer, loadRenderStyle=False)
 					self.tuView.OpenResults.addItem(ml)
 				
 				layer.dataProvider().datasetGroupsAdded.connect(self.datasetGroupsAdded)
