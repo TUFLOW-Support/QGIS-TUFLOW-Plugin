@@ -77,6 +77,32 @@ cm.register_cmap(name="bmt_blue_pink", cmap=cm_bmtbluepink)
 # cm_bmtblueyellowred = LinearSegmentedColormap('bmt_blue_yellow_red', bmtblueyellowred)
 # cm.register_cmap(name="bmt_blue_yellow_red", cmap=cm_bmtblueyellowred)
 
+class CurtainIntersects:
+    def __init__(self, feat, inters, chainages, faces, crs):
+        self.feat = feat
+        self.inters = inters[:]
+        self.chainages = chainages[:]
+        self.faces = faces[:]
+        self.mid_points = [calcMidPoint(self.inters[i], self.inters[i+1], crs) for i in range(len(self.inters) - 1)]
+        self.bed_z = []
+
+    def __eq__(self, other):
+        if isinstance(other, QgsFeature):
+            if self.feat.geometry().wkbType() == QgsWkbTypes.LineString:
+                g1 = np.array([(x.x(), x.y()) for x in self.feat.geometry().asPolyline()])
+            elif self.feat.geometry().wkbType() == QgsWkbTypes.MultiLineString:
+                g1 = np.array(sum([[(y.x(), y.y()) for y in x] for x in self.feat.geometry().asMultiPolyline()], []))
+            else:
+                g1 = None
+            if other.geometry().wkbType() == QgsWkbTypes.LineString:
+                g2 = np.array([(x.x(), x.y()) for x in other.geometry().asPolyline()])
+            elif other.geometry().wkbType() == QgsWkbTypes.MultiLineString:
+                g2 = g1 = np.array(sum([[(y.x(), y.y()) for y in x] for x in other.geometry().asMultiPolyline()], []))
+            else:
+                g2 = None
+            return g1.shape == g2.shape and np.isclose(g1, g2).all()
+
+        return False
 
 
 class TuPlot3D(TuPlot2D):
@@ -91,6 +117,8 @@ class TuPlot3D(TuPlot2D):
 
         self.plotSelectionCurtainFeat = []
         self.plotSelectionVPFeat = []
+
+        self.curtainGeom = []
 
     def getAveragingMethods(self, dataType, gmd, resultTypes):
         """
@@ -321,6 +349,8 @@ class TuPlot3D(TuPlot2D):
         plotAsQuiver = []
         plotAsPatch = []
 
+        time = datetime.now()
+
         for layer in activeMeshLayers:
             # get mesh information and spatial index the mesh
             dp = layer.dataProvider()
@@ -370,35 +400,44 @@ class TuPlot3D(TuPlot2D):
                 #     onFaces = True
 
                 # get mesh intersects
-                update = False
-                if not update:
+                update = feat in self.curtainGeom
+                # update = False
+                if update:
+                    curtainGeom = self.curtainGeom[self.curtainGeom.index(feat)]
+                    self.inters, self.chainages, self.faces = curtainGeom.inters, curtainGeom.chainages, curtainGeom.faces
+                else:
                     self.inters, self.chainages, self.faces = findMeshIntersects(si, dp, mesh, feat, crs,
                                                                                  self.tuView.project)
+                    curtainGeom = CurtainIntersects(feat, self.inters, self.chainages, self.faces, crs)
+                    self.curtainGeom.append(curtainGeom)
                     # update = True  # turn on update now - allow only one line at the moment
-                    if not onFaces:
-                        self.points = [calcMidPoint(self.inters[i], self.inters[i+1], crs) for i in range(len(self.inters) - 1)]
-                        if debug:
-                            writeTempPoints(self.inters, self.tuView.project, crs, self.chainages, 'Chainage', QVariant.Double)
-                    else:
-                        onFaces = True
-                        self.points = self.faces[:]
-                        if debug:
-                            polys = [meshToPolygon(mesh, mesh.face(x)) for x in self.faces]
-                            writeTempPolys(polys, self.tuView.project, crs)
-                            writeTempPoints(self.inters, self.tuView.project, crs, self.chainages, 'Chainage',
-                                            QVariant.Double)
+                if not onFaces:
+                    # self.points = [calcMidPoint(self.inters[i], self.inters[i+1], crs) for i in range(len(self.inters) - 1)]
+                    self.points = curtainGeom.mid_points[:]
+                    if debug and not update:
+                        writeTempPoints(self.inters, self.tuView.project, crs, self.chainages, 'Chainage', QVariant.Double)
+                else:
+                    onFaces = True
+                    self.points = self.faces[:]
+                    if debug and not update:
+                        polys = [meshToPolygon(mesh, mesh.face(x)) for x in self.faces]
+                        writeTempPolys(polys, self.tuView.project, crs)
+                        writeTempPoints(self.inters, self.tuView.project, crs, self.chainages, 'Chainage',
+                                        QVariant.Double)
 
 
                 # collect and arrange data
                 if 'vector' in rtype.lower():
                     self.getVectorDataCurtain(layer, dp, si, mesh, meshDatasetIndex, self.points,
-                                              self.chainages, self.inters, update, onFaces, isMax, isMin)
+                                              self.chainages, self.inters, update, onFaces, isMax, isMin,
+                                              curtainGeom)
                     data.append(self.quiver)
                     plotAsCollection.append(False)
                     plotAsQuiver.append(True)
                 else:
                     collection = self.getScalarDataCurtain(layer, dp, si, mesh, meshDatasetIndex, self.points,
-                                                           self.chainages, update, rtype, onFaces, isMax, isMin)
+                                                           self.chainages, update, rtype, onFaces, isMax, isMin,
+                                                           curtainGeom)
                     if collection is None:
                         continue
                     data.append(collection)
@@ -415,7 +454,8 @@ class TuPlot3D(TuPlot2D):
         if export is None:
             self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes, draw=draw,
                                  plot_as_collection=plotAsCollection, plot_as_patch=plotAsPatch,
-                                 plot_as_quiver=plotAsQuiver)
+                                 plot_as_quiver=plotAsQuiver,
+                                 geom=feat.geometry())
         elif export == 'image':  # plot through drawPlot however instead of drawing, save figure
             # unique output file name
             outFile = '{0}{1}'.format(os.path.join(exportOut, name), exportFormat)
@@ -433,6 +473,9 @@ class TuPlot3D(TuPlot2D):
                                  plot_as_collection=plotAsCollection, plot_as_patch=plotAsPatch,
                                  plot_as_quiver=plotAsQuiver)
 
+        time = (datetime.now() - time).total_seconds()
+        print('{0:.4f}'.format(time))
+        # QMessageBox.information(self.tuView, 'debug', '{0:.4f}'.format(time))
         return True
 
     def getScalarDataPoint(self, point, layer, dp, si, mesh, mdi, meshRendered, onFaces, isMax, isMin):
@@ -471,7 +514,8 @@ class TuPlot3D(TuPlot2D):
 
         return x, y, vm
 
-    def getScalarDataCurtain(self, layer, dp, si, mesh, mdi, faces, ch, update, rtype, onFaces, isMax, isMin):
+    def getScalarDataCurtain(self, layer, dp, si, mesh, mdi, faces, ch, update, rtype, onFaces, isMax, isMin,
+                             curtainGeom):
         """
 
         """
@@ -480,11 +524,17 @@ class TuPlot3D(TuPlot2D):
 
         edgecolour = ((0,0,0,1),) if self.tuPlot.verticalMesh_action.isChecked() else 'face'
 
+        # update = update and curtainGeom.bed_z
+
         d = []
         x = []
         y = []
         xi = 0  # index for chainage - can be different due to null areas
+        #time_faces = 0.
+        #time_stacking = 0.
+        #time_leftover = 0.
         for i, f in enumerate(faces):
+            time = datetime.now()
             if onFaces:
                 if layer.isFaceActive(mdi, f):
                     data3d = dp.dataset3dValues(mdi, f, 1)
@@ -501,7 +551,13 @@ class TuPlot3D(TuPlot2D):
                 vlc = 1
                 v = [self.datasetValue(layer, dp, si, mesh, mdi, False, f, 0, TuPlot.DataCurtainPlot, None)]
                 vl = self.getBedAndWaterElevation(layer, dp, si, mesh, mdi, False, f, 0, TuPlot.DataCurtainPlot, None,
-                                                  isMax, isMin)
+                                                  isMax, isMin, update)
+                if update:
+                    vl = [curtainGeom.bed_z[i], vl[1]]
+                else:
+                    curtainGeom.bed_z.append(vl[0])
+            #time_faces += (datetime.now() - time).total_seconds()
+            #time = datetime.now()
 
             if not np.isnan(v).any():
                 for j in range(vlc):
@@ -522,6 +578,9 @@ class TuPlot3D(TuPlot2D):
                         d.append(m)
                     else:
                         d.append(v[j])
+
+            #time_stacking += (datetime.now() - time).total_seconds()
+
             xi += 1
 
         if len(x) != len(y):
@@ -530,6 +589,7 @@ class TuPlot3D(TuPlot2D):
         if not x or not y:
             return None
 
+        #time = datetime.now()
         xy = np.dstack((np.array(x), np.array(y)))
         values = np.array(d)
         #if update and self.collection is not None:  # testing to see if quicker just to update collection
@@ -540,9 +600,13 @@ class TuPlot3D(TuPlot2D):
         #else:
         self.colSpec['clim'] = self.getMinMaxValue(dp, mdi.group())
         # self.collection = PolyCollection(xy, array=values, edgecolor=edgecolour, label=rtype, **self.colSpec)
-        return PolyCollection(xy, array=values, edgecolor=edgecolour, label=rtype, **self.colSpec)
+        polycoll = PolyCollection(xy, array=values, edgecolor=edgecolour, label=rtype, **self.colSpec)
+        #time_leftover += (datetime.now() - time).total_seconds()
+        #print('{0:.4f}, {1:.4f}, {2:.4f}'.format(time_faces, time_stacking, time_leftover))
+        return polycoll
 
-    def getVectorDataCurtain(self, layer, dp, si, mesh, mdi, faces, ch, points, update, onFaces, isMax, isMin):
+    def getVectorDataCurtain(self, layer, dp, si, mesh, mdi, faces, ch, points, update, onFaces, isMax, isMin,
+                             curtainGeom):
         """
 
         """
@@ -571,7 +635,11 @@ class TuPlot3D(TuPlot2D):
                 else:
                     v = [v]
                 vl = self.getBedAndWaterElevation(layer, dp, si, mesh, mdi, False, f, 0, TuPlot.DataCurtainPlot, None,
-                                                  isMax, isMin)
+                                                  isMax, isMin, update)
+                if update:
+                    vl = [curtainGeom.bed_z[i], vl[1]]
+                else:
+                    curtainGeom.bed_z.append(vl[0])
 
             # line angle - rotate x,y velocity to local line angle u,v
             a = QgsGeometryUtils.lineAngle(points[i].x(), points[i].y(), points[i+1].x(), points[i+1].y())
@@ -642,7 +710,8 @@ class TuPlot3D(TuPlot2D):
 
         return minimum, maximum
 
-    def getBedAndWaterElevation(self, layer, dp, si, mesh, mdi, meshRendered, f, ind, dataType, am, isMax, isMin):
+    def getBedAndWaterElevation(self, layer, dp, si, mesh, mdi, meshRendered, f, ind, dataType, am, isMax, isMin,
+                                update=False):
         """
 
         """
@@ -673,7 +742,8 @@ class TuPlot3D(TuPlot2D):
         if iBedGmd is None: return [0, 0]
         if iWlGmd is None: return [0, 0]
 
-        bedGmdMdi = QgsMeshDatasetIndex(iBedGmd, 0)  # bed elevation is constant
+        if not update:
+            bedGmdMdi = QgsMeshDatasetIndex(iBedGmd, 0)  # bed elevation is constant
         wlGmdMdi = None
         rt = dp.datasetMetadata(mdi).time()  # reference time
         for i in range(dp.datasetCount(iWlGmd)):
@@ -685,7 +755,10 @@ class TuPlot3D(TuPlot2D):
 
         if wlGmdMdi is None: return [0, 0]
 
-        bed = self.datasetValue(layer, dp, si, mesh, bedGmdMdi, meshRendered, f, ind, dataType, am)
+        if update:
+            bed = None
+        else:
+            bed = self.datasetValue(layer, dp, si, mesh, bedGmdMdi, meshRendered, f, ind, dataType, am)
         wl = self.datasetValue(layer, dp, si, mesh, wlGmdMdi, meshRendered, f, ind, dataType, am)
         return [bed, wl]
 

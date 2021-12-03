@@ -304,7 +304,7 @@ class TuMenuFunctions():
 		
 		if not inFileNames[0]:  # empty list
 			return False
-		
+
 		# get 1D and 2D results from TCF or TLF
 		results1D, results2D, messages = [], [], []
 		for file in inFileNames[0]:
@@ -1199,8 +1199,15 @@ class TuMenuFunctions():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
 		self.tuView.tuPlot.updateLegend(self.tuView.tabWidget.currentIndex())
 		self.tuView.tuPlot.setNewPlotProperties(self.tuView.tabWidget.currentIndex())
+
+		# if self.tuView.tabWidget.currentIndex() == TuPlot.CrossSection:
+		# 	subplot = self.tuView.tuPlot.plotEnumerator(TuPlot.CrossSection)[2]
+		# 	subplot2 = self.tuView.tuPlot.getSecondaryAxis(TuPlot.CrossSection, create=False)
+		# 	self.tuView.tuPlot.cursorMarker.rename(subplot, subplot2)
 		
 		return True
 	
@@ -1921,22 +1928,29 @@ class TuMenuFunctions():
 		# redraw plot
 		self.tuView.tuPlot.updateCurrentPlot(0, update='1d only')
 
-	def loadHydraulicTables(self):
+	def loadHydraulicTables(self, infiles=()):
 		"""
 
 		"""
 
-		inFileNames = browse(self.tuView, 'existing files', 'TUFLOW_Results/lastFolder', 'Load 1D Hydraulic Tables',
-		                     'CSV (*.csv *.CSV)')
+		if infiles:
+			inFileNames = infiles[:]
+		else:
+			inFileNames = browse(self.tuView, 'existing files', 'TUFLOW_Results/lastFolder', 'Load 1D Hydraulic Tables',
+			                     'CSV (*.csv *.CSV)')
+
+		success = True
 		for f in inFileNames:
 			ta, err = self.tuView.hydTables.loadData(f)
 			if err:
 				QMessageBox.critical(self.tuView, "Load 1D Hydraulic Tables", err)
+				success = False
 			else:
 				# dn = re.sub(r"(_1d_ta_tables_check.csv)$", "", os.path.basename(f), flags=re.IGNORECASE)  # displayname
 				# dn = '{0}_1d_ta'.format(dn)
 				self.tuView.tuResults.add1dHydTableToResults(ta.displayName, ta)
 
+		return success
 
 	def removeHydraulicTables(self):
 		"""

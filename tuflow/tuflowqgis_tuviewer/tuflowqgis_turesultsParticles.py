@@ -278,13 +278,15 @@ class TuResultsParticles():
 		# Failure
 		return None, None
 
-	def removeResults(self, resList):
+	def removeResults(self, resList, **kwargs):
 		"""
 		Removes the Particles results from the indexed results and ui.
 
 		:param resList: list -> str result name e.g. M01_5m_001
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+
+		remove_vlayer = kwargs['remove_vlayer'] if 'remove_vlayer' in kwargs else True
 
 		results = self.tuView.tuResults.results
 
@@ -299,11 +301,12 @@ class TuResultsParticles():
 
 			if res in self.resultsParticles:
 				vlayer = self.resultsParticles[res][1]
-				try:
-					self.tuView.project.removeMapLayer(vlayer.id())
-					del vlayer
-				except:
-					pass
+				if remove_vlayer:
+					try:
+						self.tuView.project.removeMapLayer(vlayer.id())
+						del vlayer
+					except:
+						pass
 
 				try:
 					self.resultsParticles[res][0].nc.close()
@@ -385,12 +388,14 @@ class TuResultsParticles():
 		else:
 			active_date = date
 
-		for _, data in self.resultsParticles.items():
+		selectedResults = [x.text() for x in self.tuView.OpenResults.selectedItems()]
+
+		for res_name, data in self.resultsParticles.items():
 			particles_data_provider = data[0]
 			vlayer = data[1]
 
-			if active_date is None:
-				time_index = 0
+			if res_name not in selectedResults or active_date is None:
+				time_index = None
 			else:
 				# find closest
 				for time_index, date in enumerate(particles_data_provider.times):
@@ -441,6 +446,9 @@ class TuResultsParticles():
 
 	def _get_features(self, particles_data_provider, vlayer, time_index):
 		points = []
+
+		if time_index == None:
+			return points
 
 		data = particles_data_provider.read_data_at_time(time_index)
 		if data is None:

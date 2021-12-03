@@ -280,6 +280,11 @@ class TuPlotToolbar():
 		self.tuView.tuMenuBarSecond.viewMenu.clear()
 		self.tuView.tuMenuBarSecond.loadViewMenu(plotNo, update=True)
 
+		self.tuView.tuMenuBar.settingsMenu.clear()
+		self.tuView.tuMenuBar.loadSettingsMenu(plotNo, update=True)
+		self.tuView.tuMenuBarSecond.settingsMenu.clear()
+		self.tuView.tuMenuBarSecond.loadSettingsMenu(plotNo, update=True)
+
 		self.tuView.tuMenuBar.exportMenu.clear()
 		self.tuView.tuMenuBar.loadExportMenu(plotNo, update=True)
 		self.tuView.tuMenuBarSecond.exportMenu.clear()

@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import *
 import tuflow.TUFLOW_results as TuflowResults
 import tuflow.TUFLOW_results2013 as TuflowResults2013
 from tuflow.tuflowqgis_library import (getPathFromRel, tuflowqgis_apply_check_tf_clayer, datetime2timespec,
-                                       datetime2timespec, roundSeconds)
+                                       datetime2timespec, roundSeconds, isPlotLayer)
 import re
 from tuflow.TUFLOW_FM_data_provider import TuFloodModellerDataProvider
 from math import atan2, sin, cos, pi
@@ -32,7 +32,8 @@ class TuResults1D():
 		self.pointTS = []
 		self.lineTS = []
 		self.regionTS = []
-		self.activeType = -1  # -1 null, 0 pointTS, 1 lineTS, 2 RegionTS, 3 XS
+		# self.activeType = -1  # -1 null, 0 pointTS, 1 lineTS, 2 RegionTS, 3 XS
+		self.activeType = []  # -1 null, 0 pointTS, 1 lineTS, 2 RegionTS, 3 XS
 		self.typesLP = []  # list -> str selected 1D long plot result types
 		self.typesXS = []  # 1D cross section types
 		self.lineXS = []  # 1D cross section line types
@@ -456,6 +457,7 @@ class TuResults1D():
 		:param result: TUFLOW_results.ResData
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+
 		qv = Qgis.QGIS_VERSION_INT
 
 		results = self.tuView.tuResults.results  # dict
@@ -480,16 +482,16 @@ class TuResults1D():
 		timesteps = result.timeSteps()
 		for t in timesteps:
 			timekey2time['{0:.6f}'.format(t)] = t
-		results[result.displayname]['point_ts'] = {'times': {'{0:.6}'.format(x): [x] for x in timesteps},
+		results[result.displayname]['point_ts'] = {'times': {'{0:.6f}'.format(x): [x] for x in timesteps},
 		                                           'referenceTime': result.reference_time,
 		                                           'hasMax': hasMax}
-		results[result.displayname]['line_ts'] = {'times': {'{0:.6}'.format(x): [x] for x in timesteps},
+		results[result.displayname]['line_ts'] = {'times': {'{0:.6f}'.format(x): [x] for x in timesteps},
 		                                          'referenceTime': result.reference_time,
 		                                          'hasMax': hasMax}
-		results[result.displayname]['region_ts'] = {'times': {'{0:.6}'.format(x): [x] for x in timesteps},
+		results[result.displayname]['region_ts'] = {'times': {'{0:.6f}'.format(x): [x] for x in timesteps},
 		                                            'referenceTime': result.reference_time,
 		                                            'hasMax': hasMax}
-		results[result.displayname]['line_lp'] = {'times': {'{0:.6}'.format(x): [x] for x in timesteps},
+		results[result.displayname]['line_lp'] = {'times': {'{0:.6f}'.format(x): [x] for x in timesteps},
 		                                          'referenceTime': result.reference_time,
 		                                          'hasMax': hasMax}
 
@@ -535,35 +537,38 @@ class TuResults1D():
 				resVersion.append(self.tuView.tuResults.tuResults1D.results1d[result.text()].formatVersion)
 		
 		# collect ids and domain types
-		for f in layer.selectedFeatures():
-			if 1 not in resVersion:
-				if 'ID' in f.fields().names() and 'Type' in f.fields().names() and 'Source' in f.fields().names():
-					self.ids.append(f['ID'].strip())
-					self.sources.append(f['Source'].strip())
-					type = f['Type'].strip()
-					if 'node' in type.lower() or 'chan' in type.lower():
-						self.domains.append('1D')
-					else:
-						self.domains.append(type)  # 2D or RL
-			elif 2 not in resVersion:
-				id = f.attributes()[0]
-				id = id.strip()
-				self.ids.append(id)
-				self.domains.append('1D')
-			else:  # try both
-				if 'ID' in f.fields().names() and 'Type' in f.fields().names() and 'Source' in f.fields().names():
-					self.ids.append(f['ID'].strip())
-					self.sources.append(f['Source'].strip())
-					type = f['Type'].strip()
-					if 'node' in type.lower() or 'chan' in type.lower():
-						self.domains.append('1D')
-					else:
-						self.domains.append(type)  # 2D or RL
-				else:
+		for layerid, layer in QgsProject.instance().mapLayers().items():
+			if not isPlotLayer(layer):
+				continue
+			for f in layer.selectedFeatures():
+				if 1 not in resVersion:
+					if 'ID' in f.fields().names() and 'Type' in f.fields().names() and 'Source' in f.fields().names():
+						self.ids.append(f['ID'].strip())
+						self.sources.append(f['Source'].strip())
+						type = f['Type'].strip()
+						if 'node' in type.lower() or 'chan' in type.lower():
+							self.domains.append('1D')
+						else:
+							self.domains.append(type)  # 2D or RL
+				elif 2 not in resVersion:
 					id = f.attributes()[0]
 					id = id.strip()
 					self.ids.append(id)
 					self.domains.append('1D')
+				else:  # try both
+					if 'ID' in f.fields().names() and 'Type' in f.fields().names() and 'Source' in f.fields().names():
+						self.ids.append(f['ID'].strip())
+						self.sources.append(f['Source'].strip())
+						type = f['Type'].strip()
+						if 'node' in type.lower() or 'chan' in type.lower():
+							self.domains.append('1D')
+						else:
+							self.domains.append(type)  # 2D or RL
+					else:
+						id = f.attributes()[0]
+						id = id.strip()
+						self.ids.append(id)
+						self.domains.append('1D')
 					
 		return True
 	

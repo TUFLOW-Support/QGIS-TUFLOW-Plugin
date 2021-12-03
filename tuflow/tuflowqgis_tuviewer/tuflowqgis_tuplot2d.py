@@ -419,7 +419,7 @@ class TuPlot2D():
 		dataTypes = [dataType] * len(data)
 		if data:
 			if export is None:  # normal plot i.e. in tuview
-				self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes, draw=draw)
+				self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes, draw=draw, geom=feat.geometry())
 			elif export == 'image':  # plot through drawPlot however instead of drawing, save figure
 				# unique output file name
 				outFile = '{0}{1}'.format(os.path.join(exportOut, name), exportFormat)

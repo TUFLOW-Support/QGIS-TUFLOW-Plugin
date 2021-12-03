@@ -447,7 +447,7 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 							emptydir = os.path.join(emptydir, d)
 							break
 					break
-			self.emptydir.setText(emptydir)
+			self.emptydir.setText(emptydir.replace('/', os.sep).replace('\\', os.sep))
 			#self.emptydir.setText(os.path.join(self.tfsettings.combined.base_dir, self.parent_folder_name, "model", "gis", "empty"))
 		else:
 			self.emptydir.setText("ERROR - Project not loaded")
@@ -586,7 +586,7 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 			
 		newname = QFileDialog.getExistingDirectory(None, "Output Directory", startDir)
 		if len(newname) > 0:
-			self.emptydir.setText(newname)
+			self.emptydir.setText(newname.replace('/', os.sep).replace('\\', os.sep))
 			
 			# load empty types
 			self.emptyType.clear()
@@ -2404,7 +2404,7 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 							emptydir = os.path.join(emptydir, d)
 							break
 					break
-			self.emptydir.setText(emptydir)
+			self.emptydir.setText(emptydir.replace('/', os.sep).replace('\\', os.sep))
 		else:
 			self.emptydir.setText("ERROR - Project not loaded")
 			

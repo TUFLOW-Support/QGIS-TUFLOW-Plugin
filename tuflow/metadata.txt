@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.1.9
+version=3.1.10
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,34 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=--- 3.1.9 ---
+changelog=--- 3.1.10 ---
+          TUFLOW Viewer - Cursor location on cross-section plot is now projected onto map canvas
+          TUFLOW Viewer - Added hover over labels on curtain plot
+          TUFLOW Viewer - Fixed load from TCF that would fail if more than 2 variables were used in a row in output folder name
+          TUFLOW Viewer - Fixed bug that could cause QGIS to crash when removing particle and map output results from Layers Panel at the same time
+          TUFLOW Viewer - Active result type(s) are now retained as 'off' if the result is toggled in the 'Results' list
+          TUFLOW Viewer - Active time is retained if the result is toggled in the 'Results' list
+          TUFLOW Viewer - Fixed bug that could cause result type not to render if maximum value was toggled on in a previous open result and current result does not contain a maximum
+          TUFLOW Viewer - Fixed bug that user to have to deselect result in 'Results' list a couple of times to toggle it off after loading from a project file
+          TUFLOW Viewer - Particle results are now only displayed if the result is selected in 'Results' list
+          TUFLOW Viewer - Fix bug that could cause QGIS to crash on close if particle results were loaded with map output results
+          TUFLOW Viewer - Fix bug that would cause curtain plot colour bar legend to not show if there was a result on the secondary axis
+          TUFLOW Viewer - Curtain plot colour bar will now be removed if the user toggles off legend
+          TUFLOW Viewer - Fix bug that could cause hydraulic table to display properties from incorrect channel
+          TUFLOW Viewer - Sped up curtain plots on xmdf / dat results by saving bed elevation data after first plot
+          TUFLOW Viewer - Fixed bug that could occur sometimes when selecting/deselecting result types that would cause some muddling of plotting and displayed results
+          TUFLOW Viewer - Fixed bug in hover over label routine that would sometimes cause plot to relimit when user's mouse enters the plot area
+          TUFLOW Viewer - Fixed bug where unrecognised flow regime typese would cause python error - more types inlcuded, but won't error when encounters unknown
+          TUFLOW Viewer - Added units on axis name for sediment, Q SED, Q TRACE, Q SALT
+          TUFLOW Viewer - Updated hover snapping to hopefully be nicer - will check other datasets for closer values (previously would stop at first found)
+          TUFLOW Viewer - Different Time Series geometry types can be viewed at the same time now - e.g. flow from 2d_po line and level from 2d_po point
+          TUFLOW Viewer - Fixed bug loading time series where timesteps were sometimes being loaded incorrectly
+          TUFLOW Viewer - Sped up curtain plot updating (e.g. updating the time) a little by saving mesh interesects / faces
+          TUFLOW Viewer - Added TUFLOW FV time series outputs
+          Load from TCF - Quadtree control file will now be loaded
+          TUFLOW Styling - Fixed _sac_check_R style
+
+          --- 3.1.9 ---
           TUFLOW Viewer - Added hover-over labelling on plots
           TUFLOW Viewer - Toggling 'Show as Dates' will no longer reload default mesh styles - previously this would override any changes in style the use had made to the mesh
           TUFLOW Viewer - Toggling 'Show as Dates' could sometimes badly relimited curtain plot axis if the Long Plot plot wasn't the active plot when toggled
@@ -36,7 +63,7 @@ changelog=--- 3.1.9 ---
           Load From TCF - Rainfall control file now included
           Auto label - Fixed labelling tool so it correctly applies _messages.txt label properties to messages.shp
           1D Integrity Tool - Added label option to flow trace long section
-          1D Integerity Tool - Fixed a bug that would result in an 'unexpected error'
+          1D Integrity Tool - Fixed a bug that would result in an 'unexpected error'
           Import Empty - Added _pts to empty list
           ARR Tool - Fixed bug that would cause an error when adding additional temporal patterns due to areal temporal patterns not being downloaded correctly
           ARR Tool - Fixed bug that would not output 30m duration storm if 30h storm was also selected

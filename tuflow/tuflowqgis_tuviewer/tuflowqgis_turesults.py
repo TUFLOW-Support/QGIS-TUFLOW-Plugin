@@ -53,6 +53,7 @@ class TuResults():
 			self.maxResultTypes = []
 			self.minResultTypes = []
 			self.activeTime = None  # active time for rendering
+			self.activeTime_ = None
 			self.activeResults = []  # str result type names
 			self.activeResultsTypes = []  # int result types (e.g. 1 - scalar, 2 - vector...)
 			self.activeResultsIndexes = []  # QModelIndex
@@ -99,7 +100,7 @@ class TuResults():
 		if not result:
 			return False
 
-		update = self.updateResultTypes()
+		update = self.updateResultTypes(select_first_dataset=True)
 
 		if not update:
 			return False
@@ -425,7 +426,7 @@ class TuResults():
 
 		return final
 
-	def applyPreviousResultTypeSelections(self, currentPlotData, time):
+	def applyPreviousResultTypeSelections(self, currentPlotData, time, **kwargs):
 		"""
 		Applies the previously selected result types to updated DataSetView.
 
@@ -433,7 +434,11 @@ class TuResults():
 		:param time: str -> time key
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+		# kwargs
+		select_first_dataset = kwargs['select_first_dataset'] if'select_first_dataset' in kwargs else True
 
 		qv = Qgis.QGIS_VERSION_INT
 
@@ -471,7 +476,7 @@ class TuResults():
 				self.activeResultsIndexes.append(openResultTypes.model().item2index(item))
 
 		# if there are no active results assume first dataset and select first result
-		if not self.activeResults:
+		if not self.activeResults and select_first_dataset:
 			openResultTypes = self.tuView.OpenResultTypes
 			ind = openResultTypes.model().index(0, 0)
 			index = openResultTypes.indexBelow(ind)
@@ -497,12 +502,18 @@ class TuResults():
 			if item.ds_name in self.secondaryAxisTypes:
 				item.toggleSecondaryActive()
 			if item.ds_name in self.maxResultTypes:
-				item.toggleMaxActive()
+				if item.hasMax:
+					item.toggleMaxActive()
+				else:
+					self.maxResultTypes.remove(item.ds_name)
 		for item in openResultTypes.model().timeSeriesItem.children():
 			if '{0}_1d'.format(item.ds_name) in self.secondaryAxisTypes:
 				item.toggleSecondaryActive()
 			if '{0}_1d'.format(item.ds_name) in self.maxResultTypes:
-				item.toggleMaxActive()
+				if item.hasMax:
+					item.toggleMaxActive()
+				else:
+					self.maxResultTypes.remove('{0}_1d'.format(item.ds_name))
 
 		# apply selection to plotting result types
 		#mcboResultType.setCheckedItems(names)
@@ -585,12 +596,12 @@ class TuResults():
 
 		return True
 
-	def updateResultTypes(self):
+	def updateResultTypes(self, **kwargs):
 		qv = Qgis.QGIS_VERSION_INT
 		if qv < 31600:
 			return self.updateResultTypes_old()
 		else:
-			return self.updateResultTypes_31600()
+			return self.updateResultTypes_31600(**kwargs)
 
 	def updateResultTypes_old(self):
 		"""
@@ -735,7 +746,7 @@ class TuResults():
 
 		return True
 
-	def updateResultTypes_31600(self):
+	def updateResultTypes_31600(self, **kwargs):
 		"""
 		Populates the plotting ui with available result types in the selected open mesh results
 
@@ -761,6 +772,11 @@ class TuResults():
 			plotData = self.tuView.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(dataType, all_details=True)
 			if plotData:
 				currentPlotData[dataType] = plotData
+
+		if self.activeTime is None:
+			self.activeTime = self.activeTime_
+		else:
+			self.activeTime_ = self.activeTime
 
 		if qv < 31600:
 			currentTime = str(self.activeTime) if self.activeTime is not None else None
@@ -877,7 +893,8 @@ class TuResults():
 				layer.repaintRequested.disconnect(self.tuResults2D.repaintRequested)
 			except:
 				pass
-		self.applyPreviousResultTypeSelections(currentPlotData, currentTime)
+
+		self.applyPreviousResultTypeSelections(currentPlotData, currentTime, **kwargs)
 		self.tuResults2D.repaintRequested()  # this is the step that changes the 'reference time' property in the result dict
 		self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
 			lambda: self.tuView.resultsChanged('selection changed'))
@@ -905,14 +922,14 @@ class TuResults():
 		# if geomtype then change the TS result options
 		if geomType is not None:
 			if geomType == QgsWkbTypes.PointGeometry:
-				self.tuResults1D.typesTS = self.tuResults1D.pointTS[:]
-				self.tuResults1D.typesXS = self.tuResults1D.lineXS[:]
+				self.tuResults1D.typesTS.extend(x for x in self.tuResults1D.pointTS if x not in self.tuResults1D.typesTS)
+				self.tuResults1D.typesXS.extend(x for x in self.tuResults1D.lineXS if x not in self.tuResults1D.typesXS)
 			elif geomType == QgsWkbTypes.LineGeometry:
-				self.tuResults1D.typesTS = self.tuResults1D.lineTS[:] + self.tuResults1D.pointTS[:]
-				self.tuResults1D.typesXS = self.tuResults1D.lineXS[:]
+				self.tuResults1D.typesTS.extend(x for x in self.tuResults1D.lineTS + self.tuResults1D.pointTS if x not in self.tuResults1D.typesTS)
+				self.tuResults1D.typesXS.extend(x for x in self.tuResults1D.lineXS if x not in self.tuResults1D.typesXS)
 			elif geomType == QgsWkbTypes.PolygonGeometry:
-				self.tuResults1D.typesTS = self.tuResults1D.regionTS[:]
-				self.tuResults1D.typesXS = self.tuResults1D.lineXS[:]
+				self.tuResults1D.typesTS.extend(x for x in self.tuResults1D.regionTS if x not in self.tuResults1D.typesTS)
+				self.tuResults1D.typesXS.extend(x for x in self.tuResults1D.lineXS if x not in self.tuResults1D.typesXS)
 			else:
 				self.tuResults1D.typesTS = []
 
@@ -966,16 +983,19 @@ class TuResults():
 					elif item.ds_type == 8:  # XS
 						if item.ds_name not in self.tuResults1D.typesXS:
 							self.tuResults1D.lineXS.append(item.ds_name)
-					if self.tuResults1D.activeType == 0:
-						self.tuResults1D.typesTS = self.tuResults1D.pointTS[:]
-						self.tuResults1D.typesXSRes = self.tuResults1D.pointTS[:]
-					elif self.tuResults1D.activeType == 1:
-						self.tuResults1D.typesTS = self.tuResults1D.lineTS[:] + self.tuResults1D.pointTS[:]
-						self.tuResults1D.typesXS = self.tuResults1D.lineXS[:]
-						self.tuResults1D.typesXSRes = self.tuResults1D.pointTS[:]
-					elif self.tuResults1D.activeType == 2:
-						self.tuResults1D.typesTS = self.tuResults1D.regionTS[:]
-						self.tuResults1D.typesXSRes = self.tuResults1D.pointTS[:]
+					# if self.tuResults1D.activeType == 0:
+					if 0 in self.tuResults1D.activeType:
+						self.tuResults1D.typesTS.extend(x for x in self.tuResults1D.pointTS if x not in self.tuResults1D.typesTS)
+						self.tuResults1D.typesXSRes.extend(x for x in self.tuResults1D.pointTS if x not in self.tuResults1D.typesXSRes)
+					# elif self.tuResults1D.activeType == 1:
+					if 1 in self.tuResults1D.activeType:
+						self.tuResults1D.typesTS.extend(x for x in self.tuResults1D.lineTS + self.tuResults1D.pointTS if x not in self.tuResults1D.typesTS)
+						self.tuResults1D.typesXS.extend(x for x in self.tuResults1D.lineXS if x not in self.tuResults1D.typesXS)
+						self.tuResults1D.typesXSRes.extend(x for x in self.tuResults1D.pointTS if x not in self.tuResults1D.typesXSRes)
+					# elif self.tuResults1D.activeType == 2:
+					if 2 in self.tuResults1D.activeType:
+						self.tuResults1D.typesTS.extend(x for x in self.tuResults1D.regionTS if x not in self.tuResults1D.typesTS)
+						self.tuResults1D.typesXSRes.extend(x for x in self.tuResults1D.pointTS if x not in self.tuResults1D.typesXSRes)
 					# elif self.tuResults1D.activeType == 3:
 					# 	self.tuResults1D.typesXS = self.tuResults1D.lineXS[:]
 					# 	self.tuResults1D.typesXSRes = self.tuResults1D.pointTS[:]
@@ -985,6 +1005,8 @@ class TuResults():
 					#	self.tuResults1D.typesLP.append(item.ds_name)
 				# if result type is vector or scalar, need to remove previous vector or scalar results
 				if item.ds_type == 1 or item.ds_type == 2:
+					while 'none' in self.activeResults:
+						self.activeResults.remove('none')
 					while item.ds_type in self.activeResultsTypes:
 						i_item = self.activeResultsTypes.index(item.ds_type)
 						if len(self.activeResults) >= i_item + 1:
@@ -1023,8 +1045,12 @@ class TuResults():
 
 				if item.ds_name + nameAppend in self.activeResults:
 					self.activeResults.remove(item.ds_name + nameAppend)
-				if i > 0 and len(self.activeResultsTypes) >= i + 1:
+				# if i > 0 and len(self.activeResultsTypes) >= i + 1:
+				if i >= 0 and len(self.activeResultsTypes) >= i + 1:
 					self.activeResultsTypes.pop(i)
+					if item.ds_type == 1 or item.ds_type == 2:
+						if 1 not in self.activeResultsTypes and 2 not in self.activeResultsTypes:
+							self.activeResults.append('none')
 				if resultIndex in self.activeResultsIndexes:
 					self.activeResultsIndexes.remove(resultIndex)
 				if i > 0:
@@ -1577,13 +1603,16 @@ class TuResults():
 		else:
 			return True if typ in minResultTypes else False
 
-	def removeResults(self, resList):
+	def removeResults(self, resList, **kwargs):
 		"""
 		Removes the results from the indexed results and ui.
 
 		:param resList: list -> str result name e.g. M01_5m_001
 		:return: bool -> True for successful, False for unsuccessful
 		"""
+
+		# kwargs
+		ignoreMeshResults = kwargs['ignore_mesh_results'] if 'ignore_mesh_results' in kwargs else False
 
 		results = self.tuView.tuResults.results
 		results2d = self.tuView.tuResults.tuResults2D.results2d
@@ -1596,6 +1625,8 @@ class TuResults():
 			self.tuView.crossSectionsFM.delByLayername(res)
 
 		for res in resList:
+			if ignoreMeshResults and res in results2d:
+				continue
 			if res in results.keys():
 				# remove from indexed results
 				del results[res]
@@ -1689,31 +1720,41 @@ class TuResults():
 				item = index.internalPointer()
 				if item.ds_type == 1:  # scalar
 					self.tuResults2D.activeScalar = item.ds_name
+					self.activeResults.append(item.ds_name)
 				elif item.ds_type == 2:  # vector
 					self.tuResults2D.activeVector = item.ds_name
+					self.activeResults.append(item.ds_name)
 				# elif item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6 or item.ds_type == 7:  # 1d result
 				elif item.ds_type in TuResults.Results1D:  # 1d result
 					self.tuResults1D.items1d.append(item)
+					nameAppend = ''
 					if item.ds_type == 4 or item.ds_type == 5 or item.ds_type == 6:  # time series
+						nameAppend = '_TS'
 						if item.ds_type == 4:  # point
 							self.tuResults1D.pointTS.append(item.ds_name)
 						elif item.ds_type == 5:  # line
 							self.tuResults1D.lineTS.append(item.ds_name)
 						elif item.ds_type == 6:
 							self.tuResults1D.regionTS.append(item.ds_name)
-						if self.tuResults1D.activeType == 0:
-							self.tuResults1D.typesTS = self.tuResults1D.pointTS[:]
-						elif self.tuResults1D.activeType == 1:
-							self.tuResults1D.typesTS = self.tuResults1D.lineTS[:] + self.tuResults1D.pointTS[:]
-						elif self.tuResults1D.activeType == 2:
-							self.tuResults1D.typesTS = self.tuResults1D.regionTS[:]
-						else:
-							self.tuResults1D.typesTS = []
+						# if self.tuResults1D.activeType == 0:
+						if 0 in self.tuResults1D.activeType:
+							self.tuResults1D.typesTS.extend(self.tuResults1D.pointTS[:])
+						# elif self.tuResults1D.activeType == 1:
+						if 1 in self.tuResults1D.activeType:
+							self.tuResults1D.typesTS.extend(self.tuResults1D.lineTS[:] + self.tuResults1D.pointTS[:])
+						# elif self.tuResults1D.activeType == 2:
+						if 2 in self.tuResults1D.activeType:
+							self.tuResults1D.typesTS.extend(self.tuResults1D.regionTS[:])
+						# else:
+						# 	self.tuResults1D.typesTS = []
 					elif item.ds_type == 7:  # long plot
+						nameAppend = '_LP'
 						self.tuResults1D.typesLP.append(item.ds_name)
 					elif item.ds_type == 8:  # cross section
+						nameAppend = '_CS'
 						self.tuResults1D.typesXS = self.tuResults1D.lineTS[:]
-						self.tuResults1D.activeType = 3
+						self.tuResults1D.activeType.append(3)
+					self.activeResults.append(item.ds_name + nameAppend)
 
 	def findMaxResultType(self, result: str, resultType: str) -> str:
 		"""
@@ -2271,7 +2312,7 @@ class TuResults():
 	def isMapOutputType(resultType):
 		"""Returns true if resultType is a Map Output"""
 
-		a = [True for x in TuResults.OtherTypes if x in resultType]
+		a = [True for x in TuResults.OtherTypes if x in resultType.lower()]
 		return len(a) == 0
 
 	@staticmethod
@@ -2284,7 +2325,7 @@ class TuResults():
 	def isTimeSeriesType(resultType):
 		"""Returns true if resultType is a Map Output"""
 
-		a = [True for x in [x for x in TuResults.OtherTypes if '_particles' not in x] if x in resultType]
+		a = [True for x in [x for x in TuResults.OtherTypes if '_particles' not in x] if x in resultType.lower()]
 		return len(a) > 0
 
 	def updateTemporalProperties(self):

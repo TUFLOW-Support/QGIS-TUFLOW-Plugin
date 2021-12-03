@@ -239,7 +239,8 @@ class HydTableData():
 				props = self.xsHydTa_headers[:]
 				data = self.xsHydTa[:]
 			else:
-				i -= len(self.xsNames) - 1
+				# i -= len(self.xsNames) - 1
+				i -= len(self.xsNames)
 				props = self.channelHydTa_headers[:]
 				data = self.channelHydTa[:]
 			propH = [x.lower() for x in props[i]]

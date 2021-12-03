@@ -116,7 +116,8 @@ class TuPlot():
 		self.longPlotHoverPoint = self.subplotLongPlot.scatter(0, 0, 20, 'red')
 		self.longPlotHoverPoint.set_visible(False)
 		self.figLongPlot.canvas.mpl_connect("motion_notify_event", lambda e: self.hover(e, TuPlot.CrossSection))
-		
+		self.figLongPlot.canvas.mpl_connect("motion_notify_event", self.updateCursorMarker)
+
 		# cross section
 		self.layoutCrossSection = self.tuView.CrossSectionFrame.layout()
 		self.figCrossSection, self.subplotCrossSection = plt.subplots()
@@ -362,6 +363,9 @@ class TuPlot():
 			self.tuCurtainLine: 'Curtain Line',
 			self.tuCSLineDepAv: '3D to 2D DepAv Cross Section',
 		}
+
+		# cursor marker - projects cursor from plot to the map canvas
+		self.cursorMarker = CursorMarker(self.canvas)
 		
 		# User Plot Data Manager
 		self.userPlotData = TuUserPlotDataManager()
@@ -628,6 +632,8 @@ class TuPlot():
 			flowRegime = []
 			flowRegimeTied = []
 			plotAsPatch = []
+			plotAsCollection = []
+			plotAsQuiver = []
 
 			bFlowRegimeTied = False
 			flowRegimeY = []
@@ -661,6 +667,8 @@ class TuPlot():
 									types.append(rtype)
 									dataTypes.append(dpt)
 									plotAsPatch.append(False)
+									plotAsCollection.append(False)
+									plotAsQuiver.append(False)
 
 									if artist.get_linestyle() == 'None':
 										plotAsPoints.append(True)
@@ -701,15 +709,45 @@ class TuPlot():
 								plotAsPatch.append(True)
 								plotAsPoints.append(False)
 								flowRegime.append(False)
+								plotAsCollection.append(False)
+								plotAsQuiver.append(False)
+								flowRegimeTied.append(-1)
+							elif type(artist) is PolyCollection:
+								edgecolour = ((0, 0, 0, 1),) if self.verticalMesh_action.isChecked() else 'face'
+								xy = np.array([x.vertices for x in artist.get_paths()])
+								pc = PolyCollection(xy, array=artist.get_array(), edgecolor=edgecolour, label=rtype,
+								                    **self.tuPlot3D.colSpec)
+								data.append(pc)
+								labels.append(artist.get_label())
+								types.append(rtype)
+								dataTypes.append(dpt)
+								plotAsPatch.append(True)
+								plotAsPoints.append(False)
+								flowRegime.append(False)
+								plotAsCollection.append(True)
+								plotAsQuiver.append(False)
+								flowRegimeTied.append(-1)
+							elif type(artist) is Quiver:
+								qv = self.tuPlot3D.quiver[:]
+								data.append(qv)
+								labels.append(artist.get_label())
+								types.append(rtype)
+								dataTypes.append(dpt)
+								plotAsPatch.append(True)
+								plotAsPoints.append(False)
+								flowRegime.append(False)
+								plotAsCollection.append(False)
+								plotAsQuiver.append(True)
 								flowRegimeTied.append(-1)
 					if bFlowRegimeTied:
 						data.append([flowRegimeX, flowRegimeY])
 						bFlowRegimeTied = False
 
 			if data:
-				self.clearPlot2(plotNo, clear_rubberband=False, clear_selection=False)
+				self.clearPlot2(plotNo, clear_rubberband=False, clear_selection=False ,clear_cursor_marker=False)
 				self.drawPlot(plotNo, data, labels, types, dataTypes, draw=True, plot_as_points=plotAsPoints,
-				              plot_as_patch=plotAsPatch, flow_regime=flowRegime, flow_regime_tied=flowRegimeTied)
+				              plot_as_patch=plotAsPatch, flow_regime=flowRegime, flow_regime_tied=flowRegimeTied,
+				              plot_as_collection=plotAsCollection, plot_as_quiver=plotAsQuiver)
 
 	def clearAllPlots(self):
 		"""
@@ -733,6 +771,7 @@ class TuPlot():
 
 		clearRubberband = kwargs['clear_rubberband'] if 'clear_rubberband' in kwargs else True
 		clearSelection = kwargs['clear_selection'] if 'clear_selection' in kwargs else True
+		clearCursorMarker = kwargs['clear_cursor_marker'] if 'clear_cursor_marker' in kwargs else True
 
 		# get plot objects
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
@@ -754,6 +793,8 @@ class TuPlot():
 					self.tuCurtainLine.escape(None)
 				if self.tuCSLineDepAv.cursorTrackingConnected:
 					self.tuCSLineDepAv.escape(None)
+				if clearCursorMarker:
+					self.cursorMarker.clear()
 			elif plotNo == TuPlot.VerticalProfile:
 				if self.tuVPPoint.cursorTrackingConnected:
 					self.tuVPPoint.escape(None)
@@ -781,9 +822,14 @@ class TuPlot():
 			for k, ax in enumerate(artists):
 				for j, a in enumerate(ax):
 					if a == artist:
+						# label = a.get_label()
 						ax.pop(j)
 						if len(labels[k]) >= j + 1:
-							labels[k].pop(j)
+							label = labels[k].pop(j)
+							if clearCursorMarker:
+								if clearType == TuPlot.DataCurtainPlot:
+									label = '{0}__curtain__'.format(label)
+								self.cursorMarker.removeTracker(label)
 			if not last_only and not clearOnly or i + 1 >= len(self.plotData[clearType]) - remove_no + 1 or line in clearOnly:
 				if artist in subplot.lines:
 					subplot.lines.remove(artist)
@@ -1279,6 +1325,8 @@ class TuPlot():
 				for dataType in self.plotDataPlottingTypes:
 					if self.plotDataToPlotType[dataType] == plotNo:
 						self.plotDataToGraphic[dataType].clearGraphics()
+				if plotNo == TuPlot.CrossSection:
+					self.tuPlot3D.curtainGeom.clear()
 
 		if 'clear_selection' in kwargs.keys():
 			if kwargs['clear_selection']:
@@ -1753,7 +1801,9 @@ class TuPlot():
 			r'flow area': ('m$^2$', 'ft$^2$', ''),
 			r'time of max h': ('hrs', 'hrs', ''),
 			r'([^a-z]|^)sal': ('ppt', 'ppt', ''),
+			r'([^a-z]|^)sal.*flux': ('ppt m$^3$/s', 'ppt ft$^3$/s', ''),
 			r'([^a-z]|^)temp': ('$^o$C', 'N/A', ''),
+			r'([^a-z]|^)temp.*flux': ('$^o$C m$^3$/s', 'N/A', ''),
 			r'bed elevation change': ('m', 'ft', ''),
 			r'downward .* wave radiaton flux': ('W/m$^2$', 'N/A', ''),
 			r'evaporation rate': ('m/day', 'N/A', ''),
@@ -1765,6 +1815,9 @@ class TuPlot():
 			r'significant wave height': ('m', 'ft', ''),
 			r'surface shear stress': ('N/m$^2$', 'lbf/ft$^2$', 'pdl/ft$^2$', ''),
 			r'tracer \d*': ('units/m$^3$', 'units/ft$^3$', ''),
+			r'trace[\s_]\d*[\s_]flux': ('units m$^3$/s', 'units ft$^3$/s', ''),
+			r'sediment fraction \d*': ('mg/L', 'lb/gal', ''),
+			r'sed[\s_]\d*[\s_]flux': ('10^-3 kg/s', 'lb/s', ''),
 			r'water density': ('kg/m$^3$', 'N/A', ''),
 			r'wave direction.*': ('$^o$C', '$^o$C', ''),
 			r'wave force': ('N/m$^2$', 'N/A', ''),
@@ -1798,6 +1851,7 @@ class TuPlot():
 			r'losses': 'LC',
 			r'flow regime': 'F',
 			r'([^a-z]|^)sal': 'SAL',
+			r'([^a-z]|^)sal.*flux': 'Q SAL',
 			r'([^a-z]|^)temp': 'TEMP',
 			r'bed elevation change' : 'DZB',
 			r'downward .* wave radiaton flux': 'LW_Rad',
@@ -1810,6 +1864,9 @@ class TuPlot():
 			r'significant wave height': 'Hsig',
 			r'surface shear stress': 'Taus',
 			r'tracer \d*': 'TRACE',
+			r'trace[\s_]\d*[\s_]flux': 'Q TRACE',
+			r'sediment fraction \d*': 'SED',
+			r'sed[\s_]\d*[\s_]flux': 'Q SED',
 			r'water density': 'RHOW',
 			r'wave direction.*': 'Wvdir',
 			r'wave force': 'Wvstr',
@@ -2176,6 +2233,7 @@ class TuPlot():
 		plotAsCollection = kwargs['plot_as_collection'] if 'plot_as_collection' in kwargs else [False] * len(data)
 		plotAsQuiver = kwargs['plot_as_quiver'] if 'plot_as_quiver' in kwargs else [False] * len(data)
 		plotVertMesh = kwargs['plot_vert_mesh'] if 'plot_vert_mesh' in kwargs else [False] * len(data)
+		geom = kwargs['geom'] if 'geom' in kwargs else None
 
 		flowRegimeTiedMult = 0.1
 
@@ -2273,6 +2331,8 @@ class TuPlot():
 							a, = subplot.plot(x, y, label=label[i], color=colour)
 							applyMatplotLibArtist(a, artistTemplates[i])
 							self.plotData[dataTypes[i]].append({a: types[i]})
+							if geom is not None:
+								self.cursorMarker.addTracker(labelsOriginal[i], a, geom)
 						else:  # plot as points only
 							if flowRegime[i]:
 								if flowRegimeTied[i] > -1:
@@ -2314,6 +2374,8 @@ class TuPlot():
 							if not export:
 								artists[0].append(a)
 								labels[0].append(labelsOriginal[i])
+							if geom is not None:
+								self.cursorMarker.addTracker('{0}__curtain__'.format(labelsOriginal[i]), a, geom)
 							#self.plotData[dataTypes[i]].append({a: types[i]})
 						elif plotAsQuiver is not None and plotAsQuiver[i]:
 							q = data[i]
@@ -2340,6 +2402,8 @@ class TuPlot():
 							a, = subplot2.plot(x, y, marker='x', label=label[i], color=colour)
 							applyMatplotLibArtist(a, artistTemplates[i])
 							self.plotData[dataTypes[i]].append({a: types[i]})
+							if geom is not None:
+								self.cursorMarker.addTracker(labelsOriginal[i], a, geom)
 						else:
 							if flowRegime[i]:
 								if flowRegimeTied[i] > -1:
@@ -2535,7 +2599,8 @@ class TuPlot():
 				subplot.relim()
 
 				# fix because curtain plots aren't correctly relim'd
-				self.relimCurtainPlot()
+				if plotNo == TuPlot.CrossSection:
+					self.relimCurtainPlot()
 
 				if self.checkPlotForInconsistentUnits(subplot):
 					subplot.xaxis.set_major_locator(matplotlib.ticker.AutoLocator())
@@ -2546,7 +2611,8 @@ class TuPlot():
 					subplot.relim()
 
 					# fix because curtain plots aren't correctly relim'd
-					self.relimCurtainPlot()
+					if plotNo == TuPlot.CrossSection:
+						self.relimCurtainPlot()
 
 
 			if isSecondaryAxis[0]:
@@ -2570,15 +2636,15 @@ class TuPlot():
 					subplot2.set_ybound(yLimits2)
 		if types is not None and 'Flow Regime_1d' in types:
 			if 'Flow Regime_1d' in self.tuView.tuResults.secondaryAxisTypes:
-				subplot2.set_ybound((-4, 6))
-				subplot2.set_yticks(np.arange(-4, 7, 1))
+				subplot2.set_ybound((-4, 15))
+				subplot2.set_yticks(np.arange(-4, 16, 1))
 				subplot2.set_yticks([], minor=True)
-				subplot2.set_yticklabels(['L', 'K', 'B', 'A', 'G', 'C', 'D', 'E', 'F', 'H', 'J'])
+				subplot2.set_yticklabels(['L', 'K', 'B', 'A', 'G', 'C', 'D', 'E', 'F', 'H', 'J', '*', '#', 'S', 'T', 'N', 'U', 'W', 'O', 'R'])
 			else:
-				subplot.set_ybound((-4, 6))
-				subplot.set_yticks(np.arange(-4, 7, 1))
+				subplot.set_ybound((-4, 15))
+				subplot.set_yticks(np.arange(-4, 16, 1))
 				subplot.set_yticks([], minor=True)
-				subplot.set_yticklabels(['L', 'K', 'B', 'A', 'G', 'C', 'D', 'E', 'F', 'H', 'J'])
+				subplot.set_yticklabels(['L', 'K', 'B', 'A', 'G', 'C', 'D', 'E', 'F', 'H', 'J', '*', '#', 'S', 'T', 'N', 'U', 'W', 'O', 'R'])
 
 		subplot._label = "Primary Axis"
 		if isSecondaryAxis[0]:
@@ -3052,6 +3118,7 @@ class TuPlot():
 		
 		if not viewToolbar.legendMenu.menuAction().isChecked():
 			subplot.legend_ = None
+			self.removeColourBar(plotNo)
 			return True
 
 		# get legend labels and artists
@@ -3061,6 +3128,8 @@ class TuPlot():
 		uniqueNames = []
 		uniqueLines = []
 		for i, l in enumerate(lab):
+			if type(line[i]) is PolyCollection:
+				l = '{0}__curtain__'.format(l)
 			if l not in uniqueNames:
 				uniqueNames.append(l)
 				uniqueLines.append(line[i])
@@ -3072,6 +3141,8 @@ class TuPlot():
 			uniqueNames2 = []
 			uniqueLines2 = []
 			for i, l in enumerate(lab2):
+				if type(line2[i]) is PolyCollection:
+					l = '{0}__curtain__'.format(l)
 				if l not in uniqueNames2:
 					uniqueNames2.append(l)
 					uniqueLines2.append(line2[i])
@@ -3116,7 +3187,8 @@ class TuPlot():
 				if viewToolbar.legendMenu.menuAction().isChecked():
 					self.addColourBarAxes(plotNo)
 					col_bar = ColourBar(l, self.cax)
-					label = lab[i]
+					# label = lab[i]
+					label = lab[i].split('__curtain__')[0]
 					if '{0}__curtain_plot__'.format(label) in self.frozenLPProperties:
 						label = self.frozenLPProperties['{0}__curtain_plot__'.format(label)][0]
 					col_bar.ax.set_xlabel(label)
@@ -3179,8 +3251,8 @@ class TuPlot():
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.plotEnumerator(1)
 
-		if isSecondaryAxis[0]:
-			self.removeColourBar(1)
+		# if isSecondaryAxis[0]:
+		# 	self.removeColourBar(1)
 
 
 	def setNewPlotProperties(self, plotNo):
@@ -3611,6 +3683,17 @@ class TuPlot():
 			'F': 4,
 			'H': 5,
 			"J": 6,
+			# channel flags
+			'*': 7,
+			'#': 8,
+			'S': 9,
+			'T': 10,
+			'N': 11,
+			'U': 12,
+			'W': 13,
+			# WEIR flags
+			'O': 14,
+			'R': 15,
 			# no flow or flap gate closed = 0
 			'G': 0,
 			' ': 0,
@@ -3620,7 +3703,10 @@ class TuPlot():
 		dataInt = []
 		for d in data:
 			if d:
-				dataInt.append(fr2int[d[0].upper()])
+				if d[0] in fr2int:
+					dataInt.append(fr2int[d[0].upper()])
+				else:
+					dataInt.append(None)
 			else:
 				dataInt.append(0)
 
@@ -3647,6 +3733,7 @@ class TuPlot():
 		subplot2 = self.getSecondaryAxis(plotNo, create=False)
 
 		x, y, z = None, None, None
+		x2, y2 = None, None
 		if e.inaxes == subplot:
 			# if e.button == MouseButton.LEFT and not e.dblclick:
 			if e.guiEvent.type() == QEvent.MouseButtonPress and e.guiEvent.button() == Qt.LeftButton:
@@ -3738,31 +3825,52 @@ class TuPlot():
 		y_updated = False
 		artists, labels = subplot.get_legend_handles_labels()
 		for a in artists:
-			if isinstance(a, PolyCollection):
+			if type(a) == PolyCollection:
 				if a not in subplot.artists:
 					curtain_x = getPolyCollectionData(a, 'x')
 					curtain_x_min = np.nanmin(curtain_x)
 					curtain_x_max = np.nanmax(curtain_x)
-					if curtain_x_min < xmin or not subplot.artists:
+					# if curtain_x_min < xmin or not subplot.artists:
 						# xmin = curtain_x_min - (curtain_x_max - curtain_x_min) * f
-						xmin = curtain_x_min
-						x_updated = True
-					if curtain_x_max > xmax or not subplot.artists:
+					xmin = curtain_x_min
+					x_updated = True
+					# if curtain_x_max > xmax or not subplot.artists:
 						# xmax = curtain_x_max + (curtain_x_max - curtain_x_min) * f
-						xmax = curtain_x_max
-						x_updated = True
+					xmax = curtain_x_max
+					x_updated = True
 
 					curtain_y = getPolyCollectionData(a, 'y')
 					curtain_y_min = np.nanmin(curtain_y)
 					curtain_y_max = np.nanmax(curtain_y)
-					if curtain_y_min < ymin or not subplot.artists:
+					# if curtain_y_min < ymin or not subplot.artists:
 						# ymin = curtain_y_min - (curtain_y_max - curtain_y_min) * f
-						ymin = curtain_y_min
-						y_updated = True
-					if curtain_y_max > ymax or not subplot.artists:
+					ymin = curtain_y_min
+					y_updated = True
+					# if curtain_y_max > ymax or not subplot.artists:
 						# ymax = curtain_y_max + (curtain_y_max - curtain_y_min) * f
-						ymax = curtain_y_max
-						y_updated = True
+					ymax = curtain_y_max
+					y_updated = True
+		for a in artists:
+			if type(a) == Quiver:
+				if x_updated:
+					xmin = min(np.nanmin(a.X), xmin)
+					xmax = max(np.nanmax(a.X), xmax)
+				else:
+					xmin = np.nanmin(a.X)
+					xmax = np.nanmax(a.X)
+				if y_updated:
+					ymin = min(np.nanmin(a.Y), ymin)
+					ymax = max(np.nanmax(a.Y), ymax)
+				else:
+					ymin = np.nanmin(a.Y)
+					ymax = np.nanmax(a.Y)
+		if x_updated or y_updated:
+			for a in artists:
+				if type(a) == plt.Line2D:
+					xmin = min(min(a.get_xdata()), xmin)
+					xmax = max(max(a.get_xdata()), xmax)
+					ymin = min(min(a.get_ydata()), ymin)
+					ymax = max(max(a.get_ydata()), ymax)
 
 		subplot.set_xlim([xmin, xmax])
 		subplot.set_ylim([ymin, ymax])
@@ -4034,9 +4142,12 @@ class TuPlot():
 				return self.verticalProfileAnnot2, self.verticalProfileHoverPoint2
 
 
-	def indata(self, artist, a, ax, ax_event):
+	def indata(self, artist, a, ax, ax_event, event):
 		if ax is None or ax_event is None:
 			return []
+		if isinstance(artist, PolyCollection):
+			contains, _ = artist.contains(event)
+			return contains
 		trans = ax.transData.transform
 		trans_event = ax_event.transData.transform
 		if isinstance(artist, plt.Line2D):
@@ -4044,9 +4155,9 @@ class TuPlot():
 			if artist.get_xdata().any():
 				if isinstance(artist.get_xdata()[0], datetime):
 					d = [(date2num(x[0]), x[1]) for x in d]
-			return [x for x in d if np.isclose(trans(x), trans_event(a), rtol=0.03).all()]
+			return [x for x in d if np.isclose(trans(x), trans_event(a), atol=5).all()]
 		elif isinstance(artist, Polygon):
-			return [x for x in artist.get_xy() if np.isclose(trans(x), trans_event(a), rtol=0.03).all()]
+			return [x for x in artist.get_xy() if np.isclose(trans(x), trans_event(a), atol=5).all()]
 
 		return []
 
@@ -4060,36 +4171,54 @@ class TuPlot():
 			if artist.get_xdata().any():
 				if isinstance(artist.get_xdata()[0], datetime):
 					d = [(date2num(x[0]), x[1]) for x in d]
-			close_points = np.array([(np.absolute(np.array(x) - np.array(a)).sum(), i) for i, x in enumerate(d) if np.isclose(trans(x), trans_event(a), rtol=0.03).all()])
+			close_points = np.array([(np.absolute(np.array(x) - np.array(a)).sum(), i) for i, x in enumerate(d) if np.isclose(trans(x), trans_event(a), atol=5).all()])
 			i = np.where(close_points[:,0] == np.amin(close_points[:,0]))[0][0]
-			return list(zip(*artist.get_data()))[int(close_points[:,1][i])]
+			point_xy = list(zip(*artist.get_data()))[int(close_points[:,1][i])]
+			if isinstance(point_xy[0], datetime):
+				pxy = (date2num(point_xy[0]), point_xy[1])
+				dist = ((trans(pxy)[0] - trans_event(a)[0]) ** 2 + (trans(pxy)[1] - trans_event(a)[1]) ** 2) ** 0.5
+			else:
+				dist = ((trans(point_xy)[0] - trans_event(a)[0]) ** 2 + (trans(point_xy)[1] - trans_event(a)[1]) ** 2) ** 0.5
+			return list(zip(*artist.get_data()))[int(close_points[:,1][i])], dist
 		elif isinstance(artist, Polygon):
 			close_points = np.array(
 				[(np.absolute(np.array(x) - np.array(a)).sum(), i) for i, x in enumerate(artist.get_xy())
-				 if np.isclose(trans(x), trans_event(a), rtol=0.03).all()])
+				 if np.isclose(trans(x), trans_event(a), atol=5).all()])
 			i = np.where(close_points[:, 0] == np.amin(close_points[:, 0]))[0][0]
 			return artist.get_xy()[int(close_points[:, 1][i])]
 
 		return None
 
-	def update_annotation(self, pos_xy, annotation, point, artist, ax, fig):
+	def update_annotation(self, pos_xy, annotation, point, artist, ax, fig, event):
 		if pos_xy is None:
 			return
 		trans = ax.transData.transform
 		transInv = ax.transData.inverted().transform
 		annotation.xy = pos_xy
 		point.set_zorder(100)
-		if isinstance(pos_xy[0], datetime):
-			point.set_offsets([[date2num(pos_xy[0]), pos_xy[1]]])
-			text = self.tuView.tuResults._dateFormat.format(pos_xy[0])
-		else:
-			point.set_offsets([pos_xy])
-			text = '{0:.3f}'.format(pos_xy[0])
-		text = '{0}, {1:.3f}'.format(text, pos_xy[-1])
 		if isinstance(artist, plt.Line2D):
-			annotation.get_bbox_patch().set_facecolor(artist.get_color())
-		elif isinstance(artist, Polygon):
-			annotation.get_bbox_patch().set_facecolor('0.9')
+			if isinstance(pos_xy[0], datetime):
+				point.set_offsets([[date2num(pos_xy[0]), pos_xy[1]]])
+				text = self.tuView.tuResults._dateFormat.format(pos_xy[0])
+			else:
+				point.set_offsets([pos_xy])
+				text = '{0:.3f}'.format(pos_xy[0])
+			text = '{0}, {1:.3f}'.format(text, pos_xy[-1])
+			if isinstance(artist, plt.Line2D):
+				annotation.get_bbox_patch().set_facecolor(artist.get_color())
+			elif isinstance(artist, Polygon):
+				annotation.get_bbox_patch().set_facecolor('0.9')
+		elif type(artist) == PolyCollection:
+			_, ind = artist.contains(event)
+			if ind:
+				z = artist.get_array()[ind['ind'][0]]
+				text = '{0:.3f}'.format(z)
+				annotation.get_bbox_patch().set_facecolor(artist.cmap(self.tuPlot3D.colSpec['norm'](z)))
+			else:
+				return
+		else:
+			return
+
 		annotation.set_text(text)
 		annotation.get_bbox_patch().set_alpha(0.3)
 		annotation.xyann = (10., 10.)
@@ -4108,13 +4237,23 @@ class TuPlot():
 	def hover(self, event, plotNo):
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.plotEnumerator(plotNo)
+		xlim = subplot.get_xlim()
+		ylim = subplot.get_ylim()
 		annotation, point = self.getAnnotation(plotNo, 1)
+		subplot.set_xlim(xlim)
+		subplot.set_ylim(ylim)
 
 		subplot2 = self.getSecondaryAxis(plotNo, create=False)
 		annotation2, point2 = None, None
+		xlim2, ylim2 = None, None
 		if subplot2:
+			xlim2 = subplot2.get_xlim()
+			ylim2 = subplot2.get_ylim()
 			annotation2, point2 = self.getAnnotation(plotNo, 2)
+			subplot2.set_xlim(xlim2)
+			subplot2.set_ylim(ylim2)
 
+		found = False
 		if event.inaxes == subplot or event.inaxes == subplot2:
 			ax_event = subplot if event.inaxes == subplot else subplot2
 			artists, labels = subplot.get_legend_handles_labels()
@@ -4138,23 +4277,134 @@ class TuPlot():
 						p_off = point
 					else:
 						continue
-					if self.indata(artist, [event.xdata, event.ydata], ax, ax_event):
-						self.update_annotation(self.closest_point(artist, [event.xdata, event.ydata], ax, ax_event),
-						                       annot, p, artist, ax, figure)
+					if self.indata(artist, [event.xdata, event.ydata], ax, ax_event, event):
+						found = True
+						if type(artist) == PolyCollection:
+							closest_point = (event.xdata, event.ydata)
+							if subplot != ax_event:
+								closest_point = ax_event.transData.transform(closest_point)
+								closest_point = subplot.transData.inverted().transform(closest_point)
+							dist = 5
+						else:
+							closest_point, dist = self.closest_point(artist, [event.xdata, event.ydata], ax, ax_event)
+						self.update_annotation(closest_point, annot, p, artist, ax, figure, event)
 						annot.set_visible(True)
-						p.set_visible(True)
-						figure.texts.append(ax.texts.pop())
+						if type(artist) == PolyCollection:
+							p.set_visible(False)
+						else:
+							p.set_visible(True)
+						if ax.texts:
+							figure.texts.append(ax.texts.pop())
 						if annot_off is not None:
 							annot_off.set_visible(False)
 						if p_off is not None:
 							p_off.set_visible(False)
-						figure.canvas.draw_idle()
-						return
 
-		annotation.set_visible(False)
-		point.set_visible(False)
-		if annotation2 is not None:
-			annotation2.set_visible(False)
-		if point2 is not None:
-			point2.set_visible(False)
-		figure.canvas.draw_idle()
+						figure.canvas.draw_idle()
+
+						if dist < 3:
+							return
+
+		if not found:
+			annotation.set_visible(False)
+			point.set_visible(False)
+			if annotation2 is not None:
+				annotation2.set_visible(False)
+			if point2 is not None:
+				point2.set_visible(False)
+
+			figure.canvas.draw_idle()
+
+	def updateCursorMarker(self, event):
+		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists_, labels_, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
+			self.plotEnumerator(TuPlot.CrossSection)
+		subplot2 = self.getSecondaryAxis(TuPlot.CrossSection, create=False)
+
+		if event.inaxes == subplot or (subplot2 is not None and event.inaxes == subplot2):
+			ax = event.inaxes
+			artists, labels = subplot.get_legend_handles_labels()
+			if subplot2 is not None:
+				a, lab = subplot2.get_legend_handles_labels()
+				artists.extend(a)
+				labels.extend(lab)
+			for i, artist in enumerate(artists):
+				if artist in artists_[0]:
+					j = artists_[0].index(artist)
+					label = labels_[0][j]
+					if type(artist) == PolyCollection:
+						label = '{0}__curtain__'.format(label)
+					self.cursorMarker.updateTracker(label, event.xdata)
+				elif artist in artists_[1]:
+					j = artists_[1].index(artist)
+					label = labels_[1][j]
+					if type(artist) == PolyCollection:
+						label = '{0}__curtain__'.format(label)
+					self.cursorMarker.updateTracker(label, event.xdata)
+		else:
+			self.cursorMarker.setVisible(False)
+
+
+class CursorMarker:
+
+	def __init__(self, canvas):
+		self.ids = {}
+		self.canvas = canvas
+
+	def addTracker(self, id_, artist, geom):
+		geoms = [x for k, (_, x, _) in self.ids.items() if x == geom]
+		if not geoms:
+			self.ids[id_] = (artist, geom, None)
+
+	def removeTracker(self, id_):
+		if id_ in self.ids:
+			_, _, marker = self.ids[id_]
+			if self.canvas is not None:
+				self.canvas.scene().removeItem(marker)
+			del self.ids[id_]
+
+	def clear(self):
+		for id in list(self.ids.keys()):
+			self.removeTracker(id)
+
+	def updateTracker(self, id_, plot_x):
+		if self.canvas is None:
+			return
+		if id_ in self.ids:
+			artist, geom, marker = self.ids[id_]
+			p = self.transform(artist, geom, plot_x)
+			if marker is None:
+				marker = QgsVertexMarker(self.canvas)
+				marker.setColor(Qt.red)
+				marker.setFillColor(Qt.red)
+				marker.setIconType(QgsVertexMarker.ICON_CIRCLE)
+				marker.setIconSize(10)
+				self.ids[id_] = (artist, geom, marker)
+			if p is None:
+				marker.setVisible(False)
+			else:
+				marker.setCenter(p)
+				marker.setVisible(True)
+
+	def setVisible(self, b):
+		if self.canvas is None:
+			return
+		for id_, (_, _, marker) in self.ids.items():
+			if marker is not None:
+				marker.setVisible(b)
+
+	def transform(self, artist, geom, plot_x):
+		if isinstance(artist, matplotlib.lines.Line2D):
+			xdata = artist.get_data()[0]
+			min_ = min(xdata)
+			max_ = max(xdata)
+		elif isinstance(artist, PolyCollection):
+			xdata = getPolyCollectionData(artist, 'x')
+			min_ = np.nanmin(xdata)
+			max_ = np.nanmax(xdata)
+		else:
+			return
+
+		if min_ <= plot_x <= max_:
+			s = (plot_x - min_) / (max_ - min_)
+			dist = geom.length() * s
+			return geom.interpolate(dist).asPoint()

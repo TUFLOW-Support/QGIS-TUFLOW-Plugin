@@ -3773,6 +3773,7 @@ def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers
 				ind = f.lower().find('read')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
 					if not re.findall(r'read material(s)? file', f, flags=re.IGNORECASE) \
+							and not re.findall(r'read soil(s)? file', f, flags=re.IGNORECASE) \
 							and 'read file' not in f.lower() and 'read operating controls file' not in f.lower():
 						command, relPath = f.split('==')
 						command = command.strip()
@@ -3943,6 +3944,8 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 				if '!' not in f[:ind] and '#' not in f[:ind]:
 					command, relPath = f.split('==')
 					command = command.strip()
+					if 'material' in command.lower() or 'soil' in command.lower():
+						continue
 					relPath = relPath.split('!')[0].split('#')[0]
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
@@ -3979,6 +3982,25 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 					command = command.strip()
 					relPath = relPath.split('!')[0].split('#')[0]
 					relPath = relPath.strip()
+					paths = getAllFolders(dir, relPath, variables, scenarios, [])
+					for path in paths:
+						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
+						                                                          processed_layers,
+						                                                          scenarios, variables, crs)
+						processed_paths += pPaths
+						processed_layers += pLayers
+						if error:
+							couldNotReadFile = True
+							message += log
+			if 'quadtree control file' in f.lower():
+				ind = f.lower().find('rainfall control file')
+				if '!' not in f[:ind] and '#' not in f[:ind]:
+					command, relPath = f.split('==')
+					command = command.strip()
+					relPath = relPath.split('!')[0].split('#')[0]
+					relPath = relPath.strip()
+					if relPath.lower() == 'single level':
+						continue
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
 						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
@@ -4949,12 +4971,13 @@ def getAllFolders(dir, relPath, variables, scenarios, events, output_drive=None)
 			# what happens if there are multiple <<variables>> in path component e.g. ..\<<~s1~>>_<<~s2~>>\2d
 			vname2 = []
 			j2 = j + 2
+			k2 = 0
 			if pc.count('<<') > 1:
 				for n in range(pc.count('<<')):
 					if n > 0:  # ignore first instance since this is already vname
-						k2 = j2
-						i2 = rpath[j2:].find('<<')
-						j2 = rpath[j2:].find('>>') + 2
+						k2 += j2
+						i2 = rpath[k2:].find('<<')
+						j2 = rpath[k2:].find('>>') + 2
 						vname2.append(rpath[i2+k2:j2+k2])
 				vnames = [vname] + vname2
 			else:
@@ -5423,8 +5446,6 @@ class Downloader(QObject):
 		self.destinationFileName = destinationFileName
 
 	def start(self):
-		# import pydevd_pycharm
-		# pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
 		from urllib.request import urlopen
 		# self.r = requests.get(self.packageUrl, stream=True)
 		# if self.r.status_code != requests.codes.ok or \
@@ -6086,7 +6107,10 @@ def is1dTable(layer):
 	if not isinstance(layer, QgsVectorLayer):
 		return False
 
-	if not re.findall(r'^1d_', layer.name(), flags=re.IGNORECASE):
+	try:
+		if not re.findall(r'^1d_', layer.name(), flags=re.IGNORECASE):
+			return False
+	except RuntimeError:
 		return False
 
 	isgpkg = False
@@ -6300,7 +6324,7 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
 			if not re.findall(r'^<.*>$', lineEdit.currentText()) and lineEdit.currentText():
 				startDir = lineEdit.currentText()
 	
-	if lastFolder:  # if outFolder no longer exists, work backwards in directory until find one that does
+	if lastFolder and startDir == os.getcwd():  # if outFolder no longer exists, work backwards in directory until find one that does
 		if Path(Path(lastFolder).drive).exists():
 			pattern = r'[a-z]\:\\$'  # windows root drive directory
 			loop_limit = 100
@@ -6360,12 +6384,13 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
 			fs = ''
 			for i, a in enumerate(f):
 				if i == 0:
-					value = a
-					fs += a
+					value = a.replace('/', os.sep).replace('\\', os.sep)
+					fs += a.replace('/', os.sep).replace('\\', os.sep)
 				else:
-					fs += ';;' + a
+					fs += ';;' + a.replace('/', os.sep).replace('\\', os.sep)
 			f = fs
 		else:
+			f = f.replace('/', os.sep).replace('\\', os.sep)
 			value = f
 		settings.setValue(key, value)
 		if lineEdit is not None:

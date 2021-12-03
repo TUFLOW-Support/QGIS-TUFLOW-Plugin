@@ -144,6 +144,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 	def __del__(self):
 		self.qgisDisconnect()
 		self.tuMenuBar.disconnectMenu()
+		self.tuResults.removeResults([self.OpenResults.item(i).text() for i in range(self.OpenResults.count()) if self.OpenResults.item(i).text()],
+		                             ignore_mesh_results=True)
 
 	def setTabVisible(self, index, visible):
 		"""
@@ -258,7 +260,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 		if isinstance(self.currentLayer, QgsVectorLayer):
 			self.OpenResultTypes.model().setEnabled(4, 5, 6, 7, 8)
 			try:
-				self.tuResults.tuResults1D.activeType = self.currentLayer.geometryType()
+				if self.currentLayer.geometryType() not in self.tuResults.tuResults1D.activeType:
+					self.tuResults.tuResults1D.activeType.append(self.currentLayer.geometryType())
 			except:
 				pass
 		else:
@@ -382,7 +385,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 					if itemName == layer.name():
 						self.tuResults.tuResults2D.removeResults([itemName])
 			elif layer is not None and layer.name() in self.tuResults.tuResultsParticles.resultsParticles:
-				self.tuResults.tuResultsParticles.removeResults([layer.name()])
+				self.tuResults.tuResultsParticles.removeResults([layer.name()], remove_vlayer=False)
 
 		self.resultsChanged('force refresh')
 				

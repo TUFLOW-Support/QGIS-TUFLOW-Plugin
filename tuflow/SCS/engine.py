@@ -318,8 +318,6 @@ class SCS(QObject):
 
         # final inflows with input interval
         inflowPer = np.array([])
-        # import pydevd_pycharm
-        # pydevd_pycharm.settrace('localhost', port=53100, stdoutToServer=True, stderrToServer=True)
         for i in range(0, runoffDepthPer.size):
             inflowPerSum = uhFullPer[i, :].sum()
             inflowPer = np.append(inflowPer, inflowPerSum).round(decimals=self.inputs['decimals'])

@@ -89,7 +89,8 @@ class TuProject():
 			# active results
 			self.processActiveResults('load')
 			self.tuView.tuResults.updateResultTypes()
-			
+			self.tuView.resultChangeSignalCount = 0
+
 			# active result types
 			#self.processActiveResultTypes('load')
 			

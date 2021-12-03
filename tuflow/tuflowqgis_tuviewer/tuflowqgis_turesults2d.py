@@ -933,6 +933,12 @@ class TuResults2D():
 		"""
 
 		layer = kwargs['layer'] if 'layer' in kwargs.keys() else None
+
+		try:
+			self.tuView.OpenResults.itemSelectionChanged.disconnect(self.tuView.resultSelectionChangeSignal)
+			need2connect = True
+		except:
+			need2connect = False
 		
 		if layer:
 			meshLayers = [layer]
@@ -948,6 +954,9 @@ class TuResults2D():
 				elif layer.dataProvider().datasetGroupCount() > 0:
 					self.getResultMetaData(ml, layer, loadRenderStyle=False)
 					self.tuView.OpenResults.addItem(ml)
+
+					k = self.tuView.OpenResults.findItems(layer.name(), Qt.MatchRecursive)[0]
+					k.setSelected(True)
 				
 				layer.dataProvider().datasetGroupsAdded.connect(self.datasetGroupsAdded)
 				try:
@@ -956,6 +965,10 @@ class TuResults2D():
 					pass
 				name = layer.name()
 				layer.nameChanged.connect(lambda: self.layerNameChanged(layer, name, layer.name()))
+
+		if need2connect:
+			self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
+				lambda: self.tuView.resultsChanged('selection changed'))
 					
 	def datasetGroupsAdded(self):
 		"""
