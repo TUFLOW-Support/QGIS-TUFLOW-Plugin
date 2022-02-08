@@ -919,6 +919,38 @@ class TuResults():
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 		openResultTypes = self.tuView.OpenResultTypes
 
+		# remove all active results if no longer available at all (i.e. results have been closed)
+		for resultType in self.activeResults:
+			if resultType == 'none':
+				continue
+			found = False
+			for res, resType1 in self.results.items():
+				if re.findall(r'_(TS|LP|CS)$', resultType):
+					for resType2, resType3 in resType1.items():
+						if 'metadata' in resType3:
+							for metadata in resType3['metadata']:
+								if metadata == resultType:
+									found = True
+									break
+								elif type(metadata) is list:
+									if resultType[:-3] in metadata:
+										found = True
+										break
+						if found:
+							break
+				else:
+					if resultType in resType1:
+						found = True
+				if found:
+					break
+			if not found:
+				i = self.activeResults.index(resultType)
+				self.activeResults.remove(resultType)
+				if len(self.activeResultsTypes) >= i + 1:
+					self.activeResultsTypes.pop(i)
+				if resultType[:-3] in self.tuResults1D.typesTS:
+					self.tuResults1D.typesTS.remove(resultType[:-3])
+
 		# if geomtype then change the TS result options
 		if geomType is not None:
 			if geomType == QgsWkbTypes.PointGeometry:

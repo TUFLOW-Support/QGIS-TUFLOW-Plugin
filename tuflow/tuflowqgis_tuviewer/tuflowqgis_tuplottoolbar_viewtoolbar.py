@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import *
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumenufunctions import TuMenuFunctions
 from tuflow.dataset_menu import DatasetMenu
 from tuflow.spinbox_action import SingleSpinBoxAction, DoubleSpinBoxAction
+import numpy as np
 
 
 class ViewToolbar():
@@ -30,20 +31,35 @@ class ViewToolbar():
 		self.initialiseViewToolbar()
 	
 	def initialiseViewToolbar(self):
+		# if QSettings().contains('/qgis/IconSize'):
+		# 	try:
+		# 		w = QgsApplication.scaleIconSize(int(QSettings().value('/qgis/IconSize')), True)
+		# 	except:
+		# 		w = QgsApplication.scaleIconSize(24, True)
+		# else:
+		# 	w = QgsApplication.scaleIconSize(24, True)
+		w = int(QgsApplication.scaleIconSize(self.tuView.tuOptions.iconSize, True))
+
+		w2 = int(np.ceil(w * 1.5))
+		w3 = int(np.ceil(w2 * 7))
+		w4 = int(np.ceil(w3 + w2*2))
+
 		# toolbar settings
 		self.viewToolbar = QToolBar('View Toolbar', self.tuView.ViewToolbarFrame)
-		self.viewToolbar.setIconSize(QSize(20, 20))
-		self.viewToolbar.resize(QSize(250, 30))
+		self.viewToolbar.setIconSize(QSize(w, w))
+		self.tuView.ViewToolbarFrame.setMinimumHeight(w2)
+		self.tuView.ViewToolbarFrame.setMinimumWidth(w3)
+		self.viewToolbar.resize(QSize(w4, w2))
 		
 		# icons
 		dir = os.path.dirname(os.path.dirname(__file__))
-		refreshIcon = QIcon(os.path.join(dir, "icons", "refreshplotblack.png"))
-		clearIcon = QIcon(os.path.join(dir, "icons", "ClearPlot.png"))
-		freezeXYAxisIcon = QIcon(os.path.join(dir, "icons", "freeze_xyaxis.png"))
-		freezeXAxisIcon = QIcon(os.path.join(dir, "icons", "freeze_xaxis.png"))
-		freezeYAxisIcon = QIcon(os.path.join(dir, "icons", "freeze_yaxis.png"))
-		legendIcon = QIcon(os.path.join(dir, "icons", "legend_icon.png"))
-		userPlotDataIcon = QIcon(os.path.join(dir, "icons", "userPlotData.png"))
+		refreshIcon = QIcon(os.path.join(dir, "icons", "refresh_plot_black.svg"))
+		clearIcon = QIcon(os.path.join(dir, "icons", "clear_plot.svg"))
+		freezeXYAxisIcon = QIcon(os.path.join(dir, "icons", "freeze_xyaxis.svg"))
+		freezeXAxisIcon = QIcon(os.path.join(dir, "icons", "freeze_xaxis.svg"))
+		freezeYAxisIcon = QIcon(os.path.join(dir, "icons", "freeze_yaxis.svg"))
+		legendIcon = QIcon(os.path.join(dir, "icons", "legend.svg"))
+		userPlotDataIcon = QIcon(os.path.join(dir, "icons", "user_plot_data.svg"))
 		
 		# buttons
 		self.refreshPlotButton = QToolButton(self.viewToolbar)
@@ -162,17 +178,11 @@ class ViewToolbar():
 		
 		# add buttons to toolbar
 		self.viewToolbar.addWidget(self.refreshPlotButton)
-		self.viewToolbar.addSeparator()
 		self.viewToolbar.addWidget(self.clearPlotButton)
-		self.viewToolbar.addSeparator()
 		self.viewToolbar.addWidget(self.freezeXYAxisButton)
 		self.viewToolbar.addWidget(self.freezeXAxisButton)
 		self.viewToolbar.addWidget(self.freezeYAxisButton)
-		self.viewToolbar.addSeparator()
-		self.viewToolbar.addSeparator()
 		self.viewToolbar.addAction(self.legendMenu.menuAction())
-		self.viewToolbar.addSeparator()
-		self.viewToolbar.addSeparator()
 		self.viewToolbar.addWidget(self.userPlotDataManagerButton)
 		
 		# connect buttons
@@ -204,6 +214,8 @@ class ViewToolbar():
 		self.vGridLines_action.triggered.connect(self.gridLines_toggled)
 		self.axisFontSize_action.sbValueChanged.connect(self.axisFontSizeChanged)
 		self.axisLabelFontSize_action.sbValueChanged.connect(self.axisLabelFontSizeChanged)
+
+		# self.viewToolbar.iconSizeChanged.connect(lambda e: self.tuView.toolbarIconSizeChanged(e, self.viewToolbar, self.tuView.ViewToolbarFrame))
 
 	def freezeXYAxis(self):
 		

@@ -227,6 +227,8 @@ class TuContextMenu():
 		self.setToMinimumResult_action.setCheckable(True)
 		self.setToSecondaryAxis_action = QAction('Secondary Axis', self.resultTypesMenu)
 		self.setToSecondaryAxis_action.setCheckable(True)
+		self.copyStyle_action = QAction('Copy Style')
+		self.pasteStyle_action = QAction('Paste Style')
 		self.saveDefaultStyleRamp_action = QAction('Colour Ramp', self.resultTypesMenu)
 		self.saveDefaultStyleMap_action = QAction('Colour Map (Exact Values and Colours)', self.resultTypesMenu)
 		self.saveDefaultVectorStyle_action = QAction('Save Vector Style as Default', self.resultTypesMenu)
@@ -241,6 +243,8 @@ class TuContextMenu():
 		self.resultTypesMenu.addAction(self.setToSecondaryAxis_action)
 		self.resultTypesMenu.addAction(self.includeFlowRegime_action)
 		self.resultTypesMenu.addSeparator()
+		self.resultTypesMenu.addAction(self.copyStyle_action)
+		self.resultTypesMenu.addAction(self.pasteStyle_action)
 		self.saveStyleMenu = self.resultTypesMenu.addMenu('Save Style as Default')
 		self.saveStyleMenu.addAction(self.saveDefaultStyleRamp_action)
 		self.saveStyleMenu.addAction(self.saveDefaultStyleMap_action)
@@ -270,6 +274,10 @@ class TuContextMenu():
 		self.signals.append(('self.propertiesDialog_action.triggered', signal))
 		signal = self.includeFlowRegime_action.triggered.connect(self.tuMenuFunctions.flowRegimeToggled)
 		self.signals.append(('self.includeFlowRegime_action.triggered', signal))
+		signal = self.copyStyle_action.triggered.connect(self.tuMenuFunctions.copyStyle)
+		self.signals.append(('self.copyStyle_action.triggered', signal))
+		signal = self.pasteStyle_action.triggered.connect(self.tuMenuFunctions.pasteStyle)
+		self.signals.append(('self.pasteStyle_action.triggered', signal))
 		
 		return True
 	
@@ -336,6 +344,8 @@ class TuContextMenu():
 
 				# save and load styling
 				if item.ds_type == 1:  # scalar
+					self.copyStyle_action.setVisible(True)
+					self.pasteStyle_action.setVisible(True)
 					self.saveStyleMenu.menuAction().setVisible(True)
 					self.loadDefaultStyle_action.setVisible(True)
 					self.saveDefaultVectorStyle_action.setVisible(False)
@@ -343,6 +353,8 @@ class TuContextMenu():
 					self.propertiesDialog_action.setVisible(True)
 					self.includeFlowRegime_action.setVisible(False)
 				elif item.ds_type == 2:  # vector
+					self.copyStyle_action.setVisible(True)
+					self.pasteStyle_action.setVisible(True)
 					self.saveStyleMenu.menuAction().setVisible(False)
 					self.loadDefaultStyle_action.setVisible(False)
 					self.saveDefaultVectorStyle_action.setVisible(True)
@@ -350,6 +362,8 @@ class TuContextMenu():
 					self.propertiesDialog_action.setVisible(True)
 					self.includeFlowRegime_action.setVisible(False)
 				elif item.ds_type == 4 or item.ds_type == 5:  # time series plot
+					self.copyStyle_action.setVisible(False)
+					self.pasteStyle_action.setVisible(False)
 					self.saveStyleMenu.menuAction().setVisible(False)
 					self.loadDefaultStyle_action.setVisible(False)
 					self.saveDefaultVectorStyle_action.setVisible(False)
@@ -357,6 +371,8 @@ class TuContextMenu():
 					self.propertiesDialog_action.setVisible(False)
 					self.includeFlowRegime_action.setVisible(True)
 				else:  # long plot
+					self.copyStyle_action.setVisible(False)
+					self.pasteStyle_action.setVisible(False)
 					self.saveStyleMenu.menuAction().setVisible(False)
 					self.loadDefaultStyle_action.setVisible(False)
 					self.saveDefaultVectorStyle_action.setVisible(False)

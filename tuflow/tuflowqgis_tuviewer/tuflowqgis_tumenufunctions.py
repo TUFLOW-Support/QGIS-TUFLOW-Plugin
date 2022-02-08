@@ -503,6 +503,7 @@ class TuMenuFunctions():
 		zeroDatePrev = self.tuView.tuOptions.zeroTime
 		plotBackgroundColorPrev = self.tuView.tuOptions.plotBackgroundColour
 		self.tuOptionsDialog = TuOptionsDialog(self.tuView.tuOptions)
+		self.tuOptionsDialog.cboIconSize.currentIndexChanged.connect(lambda: self.tuView.iconSizeChanged(int(self.tuOptionsDialog.cboIconSize.currentText())))
 		self.tuOptionsDialog.exec_()
 
 		if self.tuView.tuMenuBar.showMedianEvent_action.isChecked() or self.tuView.tuMenuBar.showMeanEvent_action.isChecked():
@@ -544,6 +545,8 @@ class TuMenuFunctions():
 				rect = figure.patch
 				rect.set_facecolor(self.tuView.tuOptions.plotBackgroundColour)
 				plotWidget.draw()
+
+		self.tuView.iconSizeChanged(self.tuView.tuOptions.iconSize)
 
 		self.tuView.tuPlot.updateCurrentPlot(self.tuView.tabWidget.currentIndex(), update='1d and 2d only')
 		self.tuView.tuPlot.tuPlotToolbar.cursorTrackingButton.setChecked(self.tuView.tuOptions.liveMapTracking)
@@ -721,7 +724,7 @@ class TuMenuFunctions():
 		# get maximum data length so we can adjust all lengths to be the same (easier to export that way)
 		maxLen = 0
 		for line in lines:
-			if type(line) == Polygon:
+			if isinstance(line, Polygon):
 				maxLen = max(maxLen, len(line.get_xy()))
 			elif type(line) is Quiver:
 				continue
@@ -730,7 +733,7 @@ class TuMenuFunctions():
 			else:
 				maxLen = max(maxLen, len(line.get_data()[0]))
 		for line in lines2:
-			if type(line) == Polygon:
+			if isinstance(line, Polygon):
 				maxLen = max(maxLen, len(line.get_xy()))
 			else:
 				maxLen = max(maxLen, len(line.get_data()[0]))
@@ -740,7 +743,7 @@ class TuMenuFunctions():
 		for i, line in enumerate(lines):
 			if i == 0:
 				data = np.zeros((maxLen, 1))  # set up data array.. start with zeros and delete first column once populated
-			if type(line) is Polygon:
+			if isinstance(line, Polygon):
 				xy = line.get_xy()
 				x = xy[:,0]
 				y = xy[:,1]
@@ -776,7 +779,7 @@ class TuMenuFunctions():
 				if data is None:
 					data = np.zeros((maxLen, 1))  # set up data array
 					needToDeleteFirstColumn = True
-			if type(line) is Polygon:
+			if isinstance(line, Polygon):
 				xy = line.get_xy()
 				x = xy[:,0]
 				y = xy[:,1]
@@ -1301,6 +1304,10 @@ class TuMenuFunctions():
 		saveType = kwargs['save_type'] if 'save_type' in kwargs else 'xml'
 		meshIndex = kwargs['mesh_index'] if 'mesh_index' in kwargs else None
 		result = kwargs['result'] if 'result' in kwargs else None
+
+		saved_style_folder = os.path.join(os.path.dirname(__file__), '_saved_styles')
+		if not os.path.exists(saved_style_folder):
+			os.mkdir(saved_style_folder)
 		
 		# what happens if there are no mesh layer or more than one active mesh layer
 		if meshIndex is not None and result is not None:
@@ -1426,6 +1433,10 @@ class TuMenuFunctions():
 		saveType = kwargs['save_type'] if 'save_type' in kwargs else 'default'
 		meshIndex = kwargs['mesh_index'] if 'mesh_index' in kwargs else None
 		result = kwargs['result'] if 'result' in kwargs else None
+
+		saved_style_folder = os.path.join(os.path.dirname(__file__), '_saved_styles')
+		if not os.path.exists(saved_style_folder):
+			os.mkdir(saved_style_folder)
 		
 		# what happens if there are no mesh layer or more than one active mesh layer
 		if meshIndex is not None and result is not None:
@@ -2010,3 +2021,109 @@ class TuMenuFunctions():
 			area = Qt.RightDockWidgetArea
 
 		self.iface.addDockWidget(area, self.tuView)
+
+	def activeMeshLayer(self):
+		if not self.tuView.tuResults.tuResults2D.activeMeshLayers:
+			return None
+		elif len(self.tuView.tuResults.tuResults2D.activeMeshLayers) > 1:
+			self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuView.tuResults.tuResults2D.activeMeshLayers)
+			self.meshDialog.exec_()
+			if self.meshDialog.selectedMesh is None:
+				return None
+			else:
+				return tuflowqgis_find_layer(self.meshDialog.selectedMesh)
+		else:
+			return self.tuView.tuResults.tuResults2D.activeMeshLayers[0]
+
+	def clickedResultDataType(self):
+		return self.tuView.tuContextMenu.resultTypeContextItem.ds_type
+
+	def clickedGroupIndex(self, meshLayer):
+		resultType = self.tuView.tuContextMenu.resultTypeContextItem.ds_name
+		if self.tuView.tuContextMenu.resultTypeContextItem.isMax:
+			resultType = '{0}/Maximums'.format(resultType)
+		elif self.tuView.tuContextMenu.resultTypeContextItem.isMin:
+			resultType = '{0}/Minimums'.format(resultType)
+		if meshLayer.name() in self.tuView.tuResults.results and resultType in self.tuView.tuResults.results[
+			meshLayer.name()]:
+			for _, (_, _, dsi) in self.tuView.tuResults.results[meshLayer.name()][resultType]['times'].items():
+				return dsi.group()
+
+		return None
+
+	def copyStyle(self):
+		meshLayer = self.activeMeshLayer()
+
+		if meshLayer is None:
+			return
+
+		if self.clickedResultDataType() > 2:  # not a scalar result type
+			return
+
+		scalar, vector = False, False
+		if self.clickedResultDataType() == 1:
+			scalar = True
+			mimeType = "application/tuflow_viewer_scalar.style"
+		elif self.clickedResultDataType() == 2:
+			vector = True
+			mimeType = "application/tuflow_viewer_vector.style"
+
+		index = self.clickedGroupIndex(meshLayer)
+		rsScalar = meshLayer.rendererSettings().scalarSettings(index)
+		rsVector = meshLayer.rendererSettings().vectorSettings(index)
+
+		doc = QDomDocument('tuflow_meshlayer')
+		if scalar:
+			doc.appendChild(rsScalar.writeXml(doc))
+		if vector:
+			doc.appendChild(rsVector.writeXml(doc))
+
+		clipboard = QApplication.clipboard()
+		mimeData = QMimeData()
+		mimeData.setData(mimeType, doc.toByteArray())
+		mimeData.setText(doc.toString())  # so can be pasted into text editor
+		clipboard.setMimeData(mimeData)
+
+	def pasteStyle(self):
+		meshLayer = self.activeMeshLayer()
+
+		if meshLayer is None:
+			return
+
+		if self.clickedResultDataType() > 2:  # not a scalar result type
+			return
+
+		scalar, vector = False, False
+		if self.clickedResultDataType() == 1:
+			scalar = True
+			mimeType = "application/tuflow_viewer_scalar.style"
+		elif self.clickedResultDataType() == 2:
+			vector = True
+			mimeType = "application/tuflow_viewer_vector.style"
+
+		index = self.clickedGroupIndex(meshLayer)
+		rs = meshLayer.rendererSettings()
+		rsScalar = rs.scalarSettings(index)
+		rsVector = rs.vectorSettings(index)
+
+		clipboard = QApplication.clipboard()
+		mimeData = clipboard.mimeData()
+
+		if not mimeData.hasFormat(mimeType):
+			return
+
+		doc = QDomDocument('tuflow_meshlayer')
+		statusOK, errorStr, errorLine, errorColumn = doc.setContent(mimeData.data(mimeType), True)
+		if not statusOK:
+			QMessageBox.critical(self.tuView, 'Paste Style', 'Error pasting style: {0}'.format(errorStr))
+			return
+
+		if scalar:
+			rsScalar.readXml(doc.documentElement())
+			rs.setScalarSettings(index, rsScalar)
+		if vector:
+			rsVector.readXml(doc.documentElement())
+			rs.setVectorSettings(index, rsVector)
+		meshLayer.setRendererSettings(rs)
+
+		meshLayer.triggerRepaint()

@@ -249,7 +249,7 @@ class TuProject():
 				if activeResults:
 					for result in activeResults:
 						layer = tuflowqgis_find_layer(result)
-						if layer is not None:
+						if layer is not None and type(layer) is QgsMeshLayer:
 							self.tuView.tuResults.tuResults2D.activeMeshLayers.append(layer)
 			except:
 				pass

@@ -639,6 +639,8 @@ class TuPlot():
 			flowRegimeY = []
 			flowRegimeX = []
 
+			pipeNames = []
+
 			for dpt in self.plotData:
 				if self.plotDataToPlotType[dpt] == plotNo:
 					for line in self.plotData[dpt][:]:
@@ -694,13 +696,18 @@ class TuPlot():
 									bFlowRegimeTied = True
 									flowRegimeX.append(x[0])
 									flowRegimeY.append(artist.get_marker().strip('$'))
-							elif type(artist) is Polygon:
+							elif type(artist) is Polygon or type(artist) is TuflowPipe:
 								xy = artist.get_xy()
 								x = xy[:, 0]
 								y = xy[:, 1]
 								x = [list(zip(x, y))]
 								y = [x for x in range(6)]
 								label = artist.get_label()
+
+								try:
+									pipeNames.append([artist.channel_id])
+								except AttributeError:
+									pipeNames.append([None])
 
 								data.append([x, y])
 								labels.append(label)
@@ -712,6 +719,7 @@ class TuPlot():
 								plotAsCollection.append(False)
 								plotAsQuiver.append(False)
 								flowRegimeTied.append(-1)
+
 							elif type(artist) is PolyCollection:
 								edgecolour = ((0, 0, 0, 1),) if self.verticalMesh_action.isChecked() else 'face'
 								xy = np.array([x.vertices for x in artist.get_paths()])
@@ -747,7 +755,7 @@ class TuPlot():
 				self.clearPlot2(plotNo, clear_rubberband=False, clear_selection=False ,clear_cursor_marker=False)
 				self.drawPlot(plotNo, data, labels, types, dataTypes, draw=True, plot_as_points=plotAsPoints,
 				              plot_as_patch=plotAsPatch, flow_regime=flowRegime, flow_regime_tied=flowRegimeTied,
-				              plot_as_collection=plotAsCollection, plot_as_quiver=plotAsQuiver)
+				              plot_as_collection=plotAsCollection, plot_as_quiver=plotAsQuiver, pipe_names=pipeNames)
 
 	def clearAllPlots(self):
 		"""
@@ -2234,6 +2242,7 @@ class TuPlot():
 		plotAsQuiver = kwargs['plot_as_quiver'] if 'plot_as_quiver' in kwargs else [False] * len(data)
 		plotVertMesh = kwargs['plot_vert_mesh'] if 'plot_vert_mesh' in kwargs else [False] * len(data)
 		geom = kwargs['geom'] if 'geom' in kwargs else None
+		pipeNames = kwargs['pipe_names'] if 'pipe_names' in kwargs else []
 
 		flowRegimeTiedMult = 0.1
 
@@ -2271,6 +2280,8 @@ class TuPlot():
 		# Get data
 		secondYAxisInUse = False  # this is for an empty secondary axis
 		if not refreshOnly:  # only if it's not refresh only
+			if data:
+				nPipe = -1  # used for culvert/pipe id labelling on the plot
 			for i in range(len(data)):
 				# determine which axis it belongs on
 				rtype = types[i]
@@ -2390,11 +2401,16 @@ class TuPlot():
 							# quiver.set_offsets(q[0])
 							# quiver.set_UVC(q[1], q[2])
 						else:  # culvert layer
-							for verts in x:
+							nPipe += 1
+							pipeArtists = []
+							for j, verts in enumerate(x):
 								if verts:
-									poly = Polygon(verts, facecolor='0.9', edgecolor='0.5', label=label[i])
+									poly = TuflowPipe(verts, facecolor='0.9', edgecolor='0.5', label=label[i])
+									if len(pipeNames) >= nPipe + 1 and len(pipeNames[nPipe]) >= j + 1:
+										poly.channel_id = pipeNames[nPipe][j]
 									a = subplot.add_patch(poly)
 									self.plotData[dataTypes[i]].append({a: types[i]})
+									pipeArtists.append(a)
 				elif axis == 2:
 					secondYAxisInUse = True
 					if plotAsPatch is None or not plotAsPatch[i]:  # normal X, Y data
@@ -2437,11 +2453,16 @@ class TuPlot():
 							labels[1].append(labelsOriginal[i])
 						#subplot2.hold(True)
 					else:  # plot as patch i.e. culvert
-						for verts in x:
+						nPipe += 1
+						pipeArtists = []
+						for j, verts in enumerate(x):
 							if verts:
-								poly = Polygon(verts, facecolor='0.9', edgecolor='0.5', label=label[i])
+								poly = TuflowPipe(verts, facecolor='0.9', edgecolor='0.5', label=label[i])
+								if len(pipeNames) >= nPipe + 1 and len(pipeNames[nPipe]) >= j + 1:
+									poly.channel_id = pipeNames[nPipe][j]
 								a = subplot2.add_patch(poly)
 								self.plotData[dataTypes[i]].append({a: types[i]})
+								pipeArtists.append(a)
 		
 		# get secondary axis if refresh only
 		if isSecondaryAxis[0] and refreshOnly:
@@ -4157,11 +4178,16 @@ class TuPlot():
 					d = [(date2num(x[0]), x[1]) for x in d]
 			return [x for x in d if np.isclose(trans(x), trans_event(a), atol=5).all()]
 		elif isinstance(artist, Polygon):
-			return [x for x in artist.get_xy() if np.isclose(trans(x), trans_event(a), atol=5).all()]
+			# return [x for x in artist.get_xy() if np.isclose(trans(x), trans_event(a), atol=5).all()]
+			contains, _ = artist.contains(event)
+			if contains:
+				return contains
+			else:
+				return [x for x in artist.get_xy() if np.isclose(trans(x), trans_event(a), atol=5).all()]
 
 		return []
 
-	def closest_point(self, artist, a, ax, ax_event):
+	def closest_point(self, artist, a, ax, ax_event, point_xy_ = None, dist_ = None):
 		if ax is None or ax_event is None:
 			return None
 		trans = ax.transData.transform
@@ -4179,17 +4205,27 @@ class TuPlot():
 				dist = ((trans(pxy)[0] - trans_event(a)[0]) ** 2 + (trans(pxy)[1] - trans_event(a)[1]) ** 2) ** 0.5
 			else:
 				dist = ((trans(point_xy)[0] - trans_event(a)[0]) ** 2 + (trans(point_xy)[1] - trans_event(a)[1]) ** 2) ** 0.5
-			return list(zip(*artist.get_data()))[int(close_points[:,1][i])], dist
+			if dist_ is None or point_xy_ is None or dist < dist_:
+				return point_xy, dist
+			else:
+				return point_xy_, dist_
 		elif isinstance(artist, Polygon):
 			close_points = np.array(
 				[(np.absolute(np.array(x) - np.array(a)).sum(), i) for i, x in enumerate(artist.get_xy())
 				 if np.isclose(trans(x), trans_event(a), atol=5).all()])
+			if not close_points.any():
+				return point_xy_, dist_
 			i = np.where(close_points[:, 0] == np.amin(close_points[:, 0]))[0][0]
-			return artist.get_xy()[int(close_points[:, 1][i])]
+			point_xy = artist.get_xy()[int(close_points[:, 1][i])]
+			dist = ((trans(point_xy)[0] - trans_event(a)[0]) ** 2 + (trans(point_xy)[1] - trans_event(a)[1]) ** 2) ** 0.5
+			if dist_ is None or point_xy_ is None or dist < dist_:
+				return point_xy, dist
+			else:
+				return point_xy_, dist_
 
 		return None
 
-	def update_annotation(self, pos_xy, annotation, point, artist, ax, fig, event):
+	def update_annotation(self, pos_xy, annotation, point, artist, ax, fig, event, dist):
 		if pos_xy is None:
 			return
 		trans = ax.transData.transform
@@ -4216,6 +4252,16 @@ class TuPlot():
 				annotation.get_bbox_patch().set_facecolor(artist.cmap(self.tuPlot3D.colSpec['norm'](z)))
 			else:
 				return
+		elif isinstance(artist, Polygon):
+			point.set_offsets([pos_xy])
+			if type(dist) == int and dist == 5:
+				try:
+					text = artist.channel_id if artist.channel_id is not None else ''
+				except AttributeError:
+					text = ''
+			else:
+				text = '{0:.3f}, {1:.3f}'.format(*pos_xy[0:2])
+			annotation.get_bbox_patch().set_facecolor('0.9')
 		else:
 			return
 
@@ -4281,15 +4327,24 @@ class TuPlot():
 						found = True
 						if type(artist) == PolyCollection:
 							closest_point = (event.xdata, event.ydata)
-							if subplot != ax_event:
+							if artist.axes != ax_event:
 								closest_point = ax_event.transData.transform(closest_point)
 								closest_point = subplot.transData.inverted().transform(closest_point)
 							dist = 5
 						else:
-							closest_point, dist = self.closest_point(artist, [event.xdata, event.ydata], ax, ax_event)
-						self.update_annotation(closest_point, annot, p, artist, ax, figure, event)
+							closest_point, dist = None, None
+							if type(artist) == Polygon or type(artist) == TuflowPipe:
+								closest_point = (event.xdata, event.ydata)
+								if artist.axes != ax_event:
+									closest_point = ax_event.transData.transform(closest_point)
+									closest_point = subplot.transData.inverted().transform(closest_point)
+								dist = 5
+							closest_point, dist = self.closest_point(artist, [event.xdata, event.ydata], ax, ax_event, closest_point, dist)
+						self.update_annotation(closest_point, annot, p, artist, ax, figure, event, dist)
 						annot.set_visible(True)
 						if type(artist) == PolyCollection:
+							p.set_visible(False)
+						elif (type(artist) == Polygon or type(artist) == TuflowPipe) and type(dist) == int and dist == 5:
 							p.set_visible(False)
 						else:
 							p.set_visible(True)
@@ -4342,6 +4397,13 @@ class TuPlot():
 					self.cursorMarker.updateTracker(label, event.xdata)
 		else:
 			self.cursorMarker.setVisible(False)
+
+
+class TuflowPipe(Polygon):
+
+	def __init__(self, xy, closed=True, **kwargs):
+		Polygon.__init__(self, xy, closed, **kwargs)
+		self.channel_id = None
 
 
 class CursorMarker:

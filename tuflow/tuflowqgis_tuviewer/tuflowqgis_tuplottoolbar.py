@@ -23,6 +23,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumenufunctions import TuMenuFunctions
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplottoolbar_viewtoolbar import ViewToolbar
 from tuflow.spinbox_action import SingleSpinBoxAction, DoubleSpinBoxAction
+import numpy as np
 
 
 
@@ -65,47 +66,83 @@ class TuPlotToolbar():
 		
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
+		# if QSettings().contains('/qgis/IconSize'):
+		# 	try:
+		# 		w = QgsApplication.scaleIconSize(int(QSettings().value('/qgis/IconSize')), True)
+		# 	except:
+		# 		w = QgsApplication.scaleIconSize(24, True)
+		# else:
+		# 	w = QgsApplication.scaleIconSize(24, True)
+		w = int(QgsApplication.scaleIconSize(self.tuView.tuOptions.iconSize, True))
+
+		w2 = int(np.ceil(w*1.5))
+		w3 = int(np.ceil(w2 * 6))
+		w4 = int(np.ceil(w3 + w2 * 2))
+		self.tuView.mplToolbarFrame.setMinimumHeight(w2)
+		self.tuView.mplToolbarFrame.setMinimumWidth(w3)
+
 		# Plotting Toolbar - Time series
 		self.mpltoolbarTimeSeries = matplotlib.backends.backend_qt5agg.NavigationToolbar2QT(
 			self.tuPlot.plotWidgetTimeSeries,
 			self.tuView.mplToolbarFrame)
-		self.mpltoolbarTimeSeries.setIconSize(QSize(20, 20))
-		self.mpltoolbarTimeSeries.resize(QSize(250, 30))
+		self.mpltoolbarTimeSeries.setIconSize(QSize(w, w))
+		self.mpltoolbarTimeSeries.resize(QSize(w4, w2))
 		self.lstActionsTimeSeries = self.mpltoolbarTimeSeries.actions()
-		self.mpltoolbarTimeSeries.removeAction(self.lstActionsTimeSeries[6])  # remove customise subplot
+		#self.mpltoolbarTimeSeries.removeAction(self.lstActionsTimeSeries[6])  # remove customise subplot
+		self.mpltoolbarTimeSeries.removeAction(self.lstActionsTimeSeries[-1])
+		self.mpltoolbarTimeSeries.removeAction(self.lstActionsTimeSeries[8])
+		self.mpltoolbarTimeSeries.removeAction(self.lstActionsTimeSeries[6])
+		self.mpltoolbarTimeSeries.removeAction(self.lstActionsTimeSeries[3])
 
 		
 		# Plotting Toolbar - Long plot
 		self.mpltoolbarLongPlot = matplotlib.backends.backend_qt5agg.NavigationToolbar2QT(
 			self.tuPlot.plotWidgetLongPlot,
 			self.tuView.mplToolbarFrame)
-		self.mpltoolbarLongPlot.setIconSize(QSize(20, 20))
-		self.mpltoolbarLongPlot.resize(QSize(250, 30))
+		self.mpltoolbarLongPlot.setIconSize(QSize(w, w))
+		self.mpltoolbarLongPlot.resize(QSize(w4, w2))
 		self.lstActionsLongPlot = self.mpltoolbarLongPlot.actions()
-		self.mpltoolbarLongPlot.removeAction(self.lstActionsLongPlot[6])  # remove customise subplot
+		# self.mpltoolbarLongPlot.removeAction(self.lstActionsLongPlot[6])  # remove customise subplot
+		self.mpltoolbarLongPlot.removeAction(self.lstActionsLongPlot[-1])
+		self.mpltoolbarLongPlot.removeAction(self.lstActionsLongPlot[8])
+		self.mpltoolbarLongPlot.removeAction(self.lstActionsLongPlot[6])
+		self.mpltoolbarLongPlot.removeAction(self.lstActionsLongPlot[3])
 		self.mpltoolbarLongPlot.setVisible(False)
 		
 		# Plotting Toolbar - Cross section
 		self.mpltoolbarCrossSection = matplotlib.backends.backend_qt5agg.NavigationToolbar2QT(
 			self.tuPlot.plotWidgetCrossSection,
 			self.tuView.mplToolbarFrame)
-		self.mpltoolbarCrossSection.setIconSize(QSize(20, 20))
-		self.mpltoolbarCrossSection.resize(QSize(250, 30))
+		self.mpltoolbarCrossSection.setIconSize(QSize(w, w))
+		self.mpltoolbarCrossSection.resize(QSize(w4, w2))
 		self.lstActionsCrossSection = self.mpltoolbarCrossSection.actions()
-		self.mpltoolbarCrossSection.removeAction(self.lstActionsCrossSection[6])  # remove customise subplot
+		# self.mpltoolbarCrossSection.removeAction(self.lstActionsCrossSection[6])  # remove customise subplot
+		self.mpltoolbarCrossSection.removeAction(self.lstActionsCrossSection[-1])
+		self.mpltoolbarCrossSection.removeAction(self.lstActionsCrossSection[8])
+		self.mpltoolbarCrossSection.removeAction(self.lstActionsCrossSection[6])
+		self.mpltoolbarCrossSection.removeAction(self.lstActionsCrossSection[3])
 		self.mpltoolbarCrossSection.setVisible(False)
 
 		# Plotting Toolbar - vertical profile
 		self.mpltoolbarVerticalProfile = matplotlib.backends.backend_qt5agg.NavigationToolbar2QT(
 			self.tuPlot.plotWidgetVerticalProfile,
 			self.tuView.mplToolbarFrame)
-		self.mpltoolbarVerticalProfile.setIconSize(QSize(20, 20))
-		self.mpltoolbarVerticalProfile.resize(QSize(250, 30))
+		self.mpltoolbarVerticalProfile.setIconSize(QSize(w, w))
+		self.mpltoolbarVerticalProfile.resize(QSize(w4, w2))
 		self.lstActionsVerticalProfile = self.mpltoolbarVerticalProfile.actions()
-		self.mpltoolbarVerticalProfile.removeAction(self.lstActionsVerticalProfile[6])  # remove customise subplot
+		# self.mpltoolbarVerticalProfile.removeAction(self.lstActionsVerticalProfile[6])  # remove customise subplot
+		self.mpltoolbarVerticalProfile.removeAction(self.lstActionsVerticalProfile[-1])
+		self.mpltoolbarVerticalProfile.removeAction(self.lstActionsVerticalProfile[8])
+		self.mpltoolbarVerticalProfile.removeAction(self.lstActionsVerticalProfile[6])
+		self.mpltoolbarVerticalProfile.removeAction(self.lstActionsVerticalProfile[3])
 		self.mpltoolbarVerticalProfile.setVisible(False)
-		
+
+		# self.mpltoolbarTimeSeries.iconSizeChanged.connect(lambda e: self.tuView.toolbarIconSizeChanged(e, self.mpltoolbarTimeSeries, self.tuView.mplToolbarFrame))
+		# self.mpltoolbarLongPlot.iconSizeChanged.connect(lambda e: self.tuView.toolbarIconSizeChanged(e, self.mpltoolbarLongPlot, self.tuView.mplToolbarFrame))
+		# self.mpltoolbarCrossSection.iconSizeChanged.connect(lambda e: self.tuView.toolbarIconSizeChanged(e, self.mpltoolbarCrossSection, self.tuView.mplToolbarFrame))
+		# self.mpltoolbarVerticalProfile.iconSizeChanged.connect(lambda e: self.tuView.toolbarIconSizeChanged(e, self.mpltoolbarVerticalProfile, self.tuView.mplToolbarFrame))
+
 		return True
 		
 	def initialiseMapOutputPlottingToolbar(self):
@@ -116,30 +153,46 @@ class TuPlotToolbar():
 		"""
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		#
+		# if QSettings().contains('/qgis/IconSize'):
+		# 	try:
+		# 		w = QgsApplication.scaleIconSize(int(QSettings().value('/qgis/IconSize')), True)
+		# 	except:
+		# 		w = QgsApplication.scaleIconSize(24, True)
+		# else:
+		# 	w = QgsApplication.scaleIconSize(24, True)
+		w = int(QgsApplication.scaleIconSize(self.tuView.tuOptions.iconSize, True))
+
+		w2 = int(np.ceil(w * 1.5))
+		w3 = int(np.ceil(w2 * 6))
+		w4 = int(np.ceil(w3 + w2 * 2))
 
 		# toolbar settings
 		self.mapOutputPlotToolbar = QToolBar('Map Output Plotting', self.tuView.MapOutputPlotFrame)
-		self.mapOutputPlotToolbar.setIconSize(QSize(20, 20))
-		self.mapOutputPlotToolbar.resize(QSize(250, 30))
+		self.mapOutputPlotToolbar.setIconSize(QSize(w, w))
+		self.tuView.MapOutputPlotFrame.setMinimumHeight(w2)
+		self.mapOutputPlotToolbar.resize(QSize(w4, w2))
 
 		# 3D mesh averaging plotting
 		self.mesh3dPlotToolbar = QToolBar('3D Mesh Plotting', self.tuView.Mesh3DToolbarFrame)
-		self.mesh3dPlotToolbar.setIconSize(QSize(20, 20))
-		self.mesh3dPlotToolbar.resize(QSize(250, 30))
+		self.mesh3dPlotToolbar.setIconSize(QSize(w, w))
+		self.tuView.Mesh3DToolbarFrame.setMinimumHeight(w2)
+		self.tuView.Mesh3DToolbarFrame.setMinimumWidth(w3)
+		self.mesh3dPlotToolbar.resize(QSize(w4, w2))
 		
 		# icons
 		dir = os.path.dirname(os.path.dirname(__file__))
-		tsIcon = QIcon(os.path.join(dir, "icons", "results_2.png"))
-		csIcon = QIcon(os.path.join(dir, "icons", "CrossSection_2.png"))
-		fluxIcon = QIcon(os.path.join(dir, "icons", "FluxLine.png"))
-		fluxSecAxisIcon = QIcon(os.path.join(dir, "icons", "2nd_axis_2.png"))
-		cursorTrackingIcon = QIcon(os.path.join(dir, "icons", "live_cursor_tracking.png"))
-		meshGridIcon = QIcon(os.path.join(dir, "icons", "meshGrid.png"))
+		tsIcon = QIcon(os.path.join(dir, "icons", "results.svg"))
+		csIcon = QIcon(os.path.join(dir, "icons", "cross_section.svg"))
+		fluxIcon = QIcon(os.path.join(dir, "icons", "flux_line.svg"))
+		fluxSecAxisIcon = QIcon(os.path.join(dir, "icons", "2nd_axis.svg"))
+		cursorTrackingIcon = QIcon(os.path.join(dir, "icons", "cursor_tracking.svg"))
+		meshGridIcon = QIcon(os.path.join(dir, "icons", "mesh_grid.svg"))
 		#meshAveragingIcon = QgsApplication.getThemeIcon('/propertyicons/meshaveraging.svg')
-		tsDepthAvIcon = QIcon(os.path.join(dir, "icons", "TS_3D.PNG"))
-		csDepthAvIcon = QIcon(os.path.join(dir, "icons", "XS_3D.PNG"))
-		curtainPlotIcon = QIcon(os.path.join(dir, "icons", "curtain_plot.png"))
-		verticalProfileIcon = QIcon(os.path.join(dir, "icons", "vertical_profile.png"))
+		tsDepthAvIcon = QIcon(os.path.join(dir, "icons", "results_ts_3d.svg"))
+		csDepthAvIcon = QIcon(os.path.join(dir, "icons", "results_xs_3d.svg"))
+		curtainPlotIcon = QIcon(os.path.join(dir, "icons", "curtain_plot.svg"))
+		verticalProfileIcon = QIcon(os.path.join(dir, "icons", "vertical_profile.svg"))
 		
 		# buttons
 		self.plotTSMenu = DatasetMenu('Plot Time Series From Map Output')
@@ -163,6 +216,7 @@ class TuPlotToolbar():
 		self.cursorTrackingButton.setToolTip('Live Map Tracking')
 		self.meshGridButton = QToolButton(self.mapOutputPlotToolbar)
 		self.meshGridButton.setCheckable(True)
+		self.meshGridButton.setToolTip('Toggle Mesh')
 		self.meshGridAction = QAction(meshGridIcon, 'Toggle Mesh Rendering', self.meshGridButton)
 		self.meshGridAction.setCheckable(True)
 		self.meshGridButton.setDefaultAction(self.meshGridAction)
@@ -184,20 +238,13 @@ class TuPlotToolbar():
 		# add buttons to toolbar
 		self.mapOutputPlotToolbar.addAction(self.plotTSMenu.menuAction())
 		self.mapOutputPlotToolbar.addAction(self.plotLPMenu.menuAction())
-		self.mapOutputPlotToolbar.addSeparator()
 		self.mapOutputPlotToolbar.addWidget(self.plotFluxButton)
 		self.mapOutputPlotToolbar.addWidget(self.fluxSecAxisButton)
-		self.mapOutputPlotToolbar.addSeparator()
-		self.mapOutputPlotToolbar.addSeparator()
 		self.mapOutputPlotToolbar.addWidget(self.cursorTrackingButton)
-		self.mapOutputPlotToolbar.addSeparator()
-		self.mapOutputPlotToolbar.addSeparator()
 		self.mapOutputPlotToolbar.addWidget(self.meshGridButton)
 		self.mesh3dPlotToolbar.addAction(self.averageMethodTSMenu.menuAction())
 		self.mesh3dPlotToolbar.addAction(self.averageMethodCSMenu.menuAction())
-		self.mesh3dPlotToolbar.addSeparator()
 		self.mesh3dPlotToolbar.addAction(self.curtainPlotMenu.menuAction())
-		self.mesh3dPlotToolbar.addSeparator()
 		self.mesh3dPlotToolbar.addAction(self.plotVPMenu.menuAction())
 		
 		# connect buttons
@@ -231,6 +278,9 @@ class TuPlotToolbar():
 			TuPlot.DataHydraulicProperty: None,
 			TuPlot.DataVerticalMesh: None,
 		}
+
+		# self.mapOutputPlotToolbar.iconSizeChanged.connect(lambda e: self.tuView.toolbarIconSizeChanged(e, self.mapOutputPlotToolbar, self.tuView.MapOutputPlotFrame))
+		# self.mesh3dPlotToolbar.iconSizeChanged.connect(lambda e: self.tuView.toolbarIconSizeChanged(e, self.mesh3dPlotToolbar, self.tuView.Mesh3DToolbarFrame))
 
 		return True
 	

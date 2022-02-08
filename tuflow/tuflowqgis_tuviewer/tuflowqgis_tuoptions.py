@@ -55,6 +55,14 @@ class TuOptions():
 		else:
 			self.defaultFontSize = 10
 
+		if settings.contains("TUFLOW/tuview_iconsize"):
+			try:
+				self.iconSize = int(settings.value("TUFLOW/tuview_iconsize"))
+			except ValueError:
+				self.iconSize = 24
+		else:
+			self.iconSize = 24
+
 	def saveProject(self, project):
 		project.writeEntry("TUVIEW", "livemaptracking", str(self.liveMapTracking))
 		

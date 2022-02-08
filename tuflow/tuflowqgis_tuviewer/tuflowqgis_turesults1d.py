@@ -51,6 +51,11 @@ class TuResults1D():
 		
 		openResults = self.tuView.OpenResults  # QListWidget
 		results = self.tuView.tuResults.results  # dict of indexed results
+
+		try:
+			self.tuView.OpenResults.itemSelectionChanged.disconnect(self.tuView.resultSelectionChangeSignal)
+		except:
+			pass
 		
 		for filePath in inFilePaths:
 			
@@ -68,10 +73,14 @@ class TuResults1D():
 				res = TuflowResults.ResData()
 				error, message = res.Load(filePath)
 				if error:
+					self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
+						lambda: self.tuView.resultsChanged('selection changed'))
 					QMessageBox.critical(self.tuView, "TUFLOW Viewer", message)
 					return False
 				
 			else:
+				self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
+					lambda: self.tuView.resultsChanged('selection changed'))
 				return False
 			
 			# index results
@@ -89,6 +98,9 @@ class TuResults1D():
 				openResults.addItem(res.displayname)  # add to widget
 			k = openResults.findItems(res.displayname, Qt.MatchRecursive)[0]
 			k.setSelected(True)
+
+			self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
+				lambda: self.tuView.resultsChanged('selection changed'))
 			
 		return True
 

@@ -281,7 +281,7 @@ def addLineToPlot(fig, ax, line, label, bLegend=False, ax2=None, polyCollAndQuiv
 	if type(line) is matplotlib.lines.Line2D:
 		a, = ax.plot(line.get_data()[0], line.get_data()[1], label=label)
 		applyMatplotLibArtist(a, line)
-	elif type(line) is matplotlib.patches.Polygon:
+	elif isinstance(line, matplotlib.patches.Polygon):
 		xy = line.get_xy()
 		poly = Polygon(xy, facecolor='0.9', edgecolor='0.5', label=label)
 		ax.add_patch(poly)
@@ -3483,7 +3483,7 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 								x = lines[i].get_xdata()
 								xmin = min(xmin, np.nanmin(x))
 								xmax = max(xmax, np.nanmax(x))
-							elif type(lines[i]) is matplotlib.patches.Polygon:
+							elif isinstance(lines[i], matplotlib.patches.Polygon):
 								xy = lines[i].line.get_xy()
 								x = xy[:, 0]
 								xmin = min(xmin, np.nanmin(x))
@@ -3638,7 +3638,7 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 										y = lines[i].get_ydata()
 										ymin = min(ymin, np.nanmin(y))
 										ymax = max(ymax, np.nanmax(y))
-									elif type(lines[i]) is matplotlib.patches.Polygon:
+									elif isinstance(lines[i], matplotlib.patches.Polygon):
 										xy = lines[i].line.get_xy()
 										y = xy[:, 1]
 										ymin = min(ymin, np.nanmin(y))
@@ -3775,7 +3775,7 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 											ymax = max(ymax, np.nanmax(y))
 											xmin = min(xmin, np.nanmin(x))
 											xmax = max(xmax, np.nanmax(x))
-										elif type(lines[i]) is matplotlib.patches.Polygon:
+										elif isinstance(lines[i], matplotlib.patches.Polygon):
 											xy = lines[i].line.get_xy()
 											y = xy[:, 1]
 											x = xy[:, 0]
@@ -3829,7 +3829,7 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 											ymax = max(ymax, np.nanmax(y))
 											xmin = min(xmin, np.nanmin(x))
 											xmax = max(xmax, np.nanmax(x))
-										elif type(lines[i]) is matplotlib.patches.Polygon:
+										elif isinstance(lines[i], matplotlib.patches.Polygon):
 											xy = lines[i].get_xy()
 											y = xy[:, 1]
 											x = xy[:, 0]

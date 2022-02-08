@@ -342,7 +342,7 @@ class TuPlot1D():
 								else:
 									typename = rtype
 							found, ydata, message = res.getTSData(id, dom, typename, 'Geom')
-							xdata = res.times
+							xdata = res.times if found else []
 						else:
 							continue
 						if type(ydata) is list:
@@ -435,6 +435,7 @@ class TuPlot1D():
 		plotAsPoints = []
 		plotAsPatch = []
 		dataTypes = []
+		pipeNames = []
 
 		# iterate through all selected results
 		for result in self.tuView.OpenResults.selectedItems():
@@ -520,6 +521,7 @@ class TuPlot1D():
 									labels.append(label)
 									plotAsPoints.append(False)
 									plotAsPatch.append(True)
+									pipeNames.append(res.LP.chan_list[:])
 							# else normal X, Y data
 							else:
 								if len(x) != len(y):
@@ -548,7 +550,8 @@ class TuPlot1D():
 		dataTypes = [TuPlot.DataCrossSection1D] * len(data)
 		if data:
 			self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes,
-			                     plot_as_points=plotAsPoints, plot_as_patch=plotAsPatch, draw=draw)
+			                     plot_as_points=plotAsPoints, plot_as_patch=plotAsPatch, draw=draw,
+			                     pipe_names=pipeNames[:])
 			self.tuPlot.profilePlotFirst = False
 		
 		return True

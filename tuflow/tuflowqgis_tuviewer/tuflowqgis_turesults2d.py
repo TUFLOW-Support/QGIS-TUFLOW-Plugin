@@ -80,6 +80,8 @@ class TuResults2D():
 			if mLayer is None or name is None:
 				if not skipConnect:
 					self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
+				self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
+					lambda: self.tuView.resultsChanged('selection changed'))
 				return False
 			
 			# Load Results
@@ -751,7 +753,16 @@ class TuResults2D():
 		id = None
 		id2 = None
 
-		if ext.upper() != ".XMDF":
+		# if ext.upper() != ".XMDF":
+		if ext.upper() == ".XMDF" and (mdg.name() == 'Velocity' or mdg.name() == 'Velocity/Maximums' or
+				mdg.name() == 'Unit Flow' or mdg.name() == 'Unit Flow/Maximums' or
+				mdg.name() == 'Vector Unit Flow' or mdg.name() == 'Vector Unit Flow/Maximums' or
+				mdg.name() == 'Vector Velocity' or mdg.name() == 'Vector Velocity/Maximums'):
+			if name_ is not None:
+				id = self.addCounter(name_, ids)
+			else:
+				id = self.addCounter(mdg.name(), ids)
+		else:
 			if mdg.isScalar():
 				if name_ is not None:
 					id = self.addCounter(name_, ids)
@@ -782,11 +793,11 @@ class TuResults2D():
 							id2 = self.addCounter('{0}'.format(' Vector/'.join(mdg.name().split('/'))), ids)
 						else:
 							id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
-		else:
-			if name_ is not None:
-				id = self.addCounter(name_, ids)
-			else:
-				id = self.addCounter(mdg.name(), ids)
+		# else:
+		# 	if name_ is not None:
+		# 		id = self.addCounter(name_, ids)
+		# 	else:
+		# 		id = self.addCounter(mdg.name(), ids)
 
 		return id, id2
 

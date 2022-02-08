@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from datetime import datetime
 from PyQt5.QtCore import *
@@ -24,6 +25,7 @@ from tuflow.TUFLOW_XS import XS
 from tuflow.TUFLOW_1dTa import HydTables
 from datetime import timedelta
 from tuflow.TUFLOW_FM_data_provider import FM_XS
+import numpy as np
 
 class TuView(QDockWidget, Ui_Tuplot):
 	
@@ -238,12 +240,21 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		if lyr is None:
 			lyr = self.currentLayer
+		i = 0
+		if re.findall(re.escape(r'.gpkg|layername='), lyr.dataProvider().dataSourceUri(), flags=re.IGNORECASE):
+			i = 1
 		if is1dTable(lyr):
 			for crossSection in crossSections:
-				crossSection.removeByFeaturesNotIncluded(lyr.selectedFeatures())
+				crossSection.removeByFeaturesNotIncluded(lyr.selectedFeatures(), i)
 				for sel in lyr.selectedFeatures():
-					source = sel.attributes()[0]
-					if source not in crossSection.source:
+					source = sel.attributes()[i]
+					if sel.attributes()[i+3] != NULL:
+						source = '{0}_{1}'.format(source, sel.attributes()[i+3])
+					if source not in crossSection.source or not crossSection.data[crossSection.source.index(source)].loaded:
+						if source in crossSection.source:
+							i = crossSection.source.index(source)
+							crossSection.source.remove(source)
+							crossSection.data.pop(i)
 						dir = os.path.dirname(lyr.source())
 						crossSection.addFromFeature(dir, lyr.fields(), sel, lyr)
 
@@ -950,7 +961,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.tuResults.tuResults2D.updateActiveMeshLayers()
 			
 			# update 2D results class
-			self.tuResults.updateResultTypes()
+			self.tuResults.updateResultTypes(select_first_dataset=False)
 			self.timeSliderChanged()
 			
 			# render map
@@ -1217,3 +1228,42 @@ class TuView(QDockWidget, Ui_Tuplot):
 	def showAsDatesToggled(self):
 		self.tuOptions.xAxisDates = self.cbShowAsDates.isChecked()
 		self.tuResults.updateTimeUnits()
+
+	def iconSizeChanged(self, size):
+		self.toolbarIconSizeChanged(size, self.tuPlot.tuPlotToolbar.mpltoolbarTimeSeries, self.mplToolbarFrame)
+		self.toolbarIconSizeChanged(size, self.tuPlot.tuPlotToolbar.mpltoolbarLongPlot, self.mplToolbarFrame)
+		self.toolbarIconSizeChanged(size, self.tuPlot.tuPlotToolbar.mpltoolbarLongPlot, self.mplToolbarFrame)
+		self.toolbarIconSizeChanged(size, self.tuPlot.tuPlotToolbar.mpltoolbarVerticalProfile, self.mplToolbarFrame)
+		self.toolbarIconSizeChanged(size, self.tuPlot.tuPlotToolbar.mapOutputPlotToolbar, self.MapOutputPlotFrame)
+		self.toolbarIconSizeChanged(size, self.tuPlot.tuPlotToolbar.mesh3dPlotToolbar, self.Mesh3DToolbarFrame)
+		for i in range(4):
+			_, viewToolbar, _ = self.tuPlot.tuPlotToolbar.plotNoToToolbar[i]
+			self.toolbarIconSizeChanged(size, viewToolbar.viewToolbar, self.ViewToolbarFrame)
+
+	def toolbarIconSizeChanged(self, size=None, toolbar=None, frame=None):
+		# if size is not None:
+		# 	w = QgsApplication.scaleIconSize(size.width(), True)
+		# elif QSettings().contains('/qgis/IconSize'):
+		# 	w = QgsApplication.scaleIconSize(int(QSettings().value('/qgis/IconSize')), True)
+		# else:
+		# 	w = QgsApplication.scaleIconSize(24, True)
+		w = int(QgsApplication.scaleIconSize(size, True))
+
+		if toolbar is None or frame is None:
+			return
+
+		w2 = int(np.ceil(w * 1.5))
+		w3 = int(np.ceil(w2 * len(toolbar.actions())))
+		w4 = int(np.ceil(w3 + w2 * 2))
+
+		frame.setMinimumWidth(w4)
+		frame.setMinimumHeight(w2)
+		toolbar.setIconSize(QSize(w, w))
+		toolbar.resize(QSize(w4, w2))
+
+		actions = [x for x in toolbar.actions()]
+		toolbar.clear()
+		[toolbar.addAction(x) for x in actions]
+
+		toolbar.update()
+		toolbar.repaint()
