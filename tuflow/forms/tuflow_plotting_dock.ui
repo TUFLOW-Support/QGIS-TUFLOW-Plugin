@@ -115,7 +115,7 @@
               <string/>
              </property>
              <property name="pixmap">
-              <pixmap resource="../resources/TUFLOW_logo.qrc">:/logo/TUFLOW_logo_resized.png</pixmap>
+              <pixmap resource="../resources/tuflow.qrc">:/logo/resources/TUFLOW_logo_resized.png</pixmap>
              </property>
              <property name="scaledContents">
               <bool>false</bool>
@@ -147,6 +147,10 @@
            <number>0</number>
           </property>
           <widget class="QWidget" name="TimeSeriesTab">
+           <attribute name="icon">
+            <iconset resource="../resources/tuflow.qrc">
+             <normaloff>:/icons/icons/results.svg</normaloff>:/icons/icons/results.svg</iconset>
+           </attribute>
            <attribute name="title">
             <string>Time Series</string>
            </attribute>
@@ -168,6 +172,10 @@
            </layout>
           </widget>
           <widget class="QWidget" name="LongPlotTab">
+           <attribute name="icon">
+            <iconset resource="../resources/tuflow.qrc">
+             <normaloff>:/icons/icons/cross_section.svg</normaloff>:/icons/icons/cross_section.svg</iconset>
+           </attribute>
            <attribute name="title">
             <string>Cross Section / Long Profile</string>
            </attribute>
@@ -210,6 +218,10 @@
            </layout>
           </widget>
           <widget class="QWidget" name="VerticalProfileTab">
+           <attribute name="icon">
+            <iconset resource="../resources/tuflow.qrc">
+             <normaloff>:/icons/icons/vertical_profile.svg</normaloff>:/icons/icons/vertical_profile.svg</iconset>
+           </attribute>
            <attribute name="title">
             <string>Vertical Profile</string>
            </attribute>
@@ -300,7 +312,7 @@
               <string/>
              </property>
              <property name="pixmap">
-              <pixmap resource="../resources/TUFLOW_logo.qrc">:/logo/TUFLOW_logo_resized.png</pixmap>
+              <pixmap resource="../resources/tuflow.qrc">:/logo/resources/TUFLOW_logo_resized.png</pixmap>
              </property>
             </widget>
            </item>
@@ -392,8 +404,8 @@
                          <widget class="QFrame" name="MapOutputPlotFrame">
                           <property name="minimumSize">
                            <size>
-                            <width>100</width>
-                            <height>30</height>
+                            <width>300</width>
+                            <height>0</height>
                            </size>
                           </property>
                           <property name="frameShape">
@@ -402,15 +414,31 @@
                           <property name="frameShadow">
                            <enum>QFrame::Raised</enum>
                           </property>
-                          <layout class="QHBoxLayout" name="horizontalLayout"/>
+                          <layout class="QHBoxLayout" name="horizontalLayout">
+                           <property name="spacing">
+                            <number>0</number>
+                           </property>
+                           <property name="leftMargin">
+                            <number>0</number>
+                           </property>
+                           <property name="topMargin">
+                            <number>0</number>
+                           </property>
+                           <property name="rightMargin">
+                            <number>0</number>
+                           </property>
+                           <property name="bottomMargin">
+                            <number>0</number>
+                           </property>
+                          </layout>
                          </widget>
                         </item>
                         <item>
                          <widget class="QFrame" name="Mesh3DToolbarFrame">
                           <property name="minimumSize">
                            <size>
-                            <width>100</width>
-                            <height>30</height>
+                            <width>300</width>
+                            <height>0</height>
                            </size>
                           </property>
                           <property name="frameShape">
@@ -455,8 +483,8 @@
                          <widget class="QFrame" name="ViewToolbarFrame">
                           <property name="minimumSize">
                            <size>
-                            <width>100</width>
-                            <height>30</height>
+                            <width>300</width>
+                            <height>0</height>
                            </size>
                           </property>
                           <property name="frameShape">
@@ -471,8 +499,8 @@
                          <widget class="QFrame" name="mplToolbarFrame">
                           <property name="minimumSize">
                            <size>
-                            <width>100</width>
-                            <height>30</height>
+                            <width>300</width>
+                            <height>0</height>
                            </size>
                           </property>
                           <property name="frameShape">
@@ -754,7 +782,7 @@
   </customwidget>
  </customwidgets>
  <resources>
-  <include location="../resources/TUFLOW_logo.qrc"/>
+  <include location="../resources/tuflow.qrc"/>
  </resources>
  <connections/>
 </ui>

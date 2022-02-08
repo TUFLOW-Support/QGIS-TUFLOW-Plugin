@@ -45,7 +45,7 @@ class PipeDirectionTool():
         if not self.tmpLyrs:
             for layer in inputs:
                 if is1dNetwork(layer):
-                    lyr = self.copyLayerToTemp(layer, 'temp_{0}'.format(layer.name()))
+                    lyr = self.copyLayerToTemp(layer, '{0}_tmp'.format(layer.name()))
                     self.tmpLyrs.append(lyr)
             
         
@@ -97,7 +97,7 @@ class PipeDirectionTool():
         if not self.tmpLyrs:
             for layer in inputs:
                 if is1dNetwork(layer):
-                    lyr = self.copyLayerToTemp(layer, 'temp_{0}'.format(layer.name()), dataCollector)
+                    lyr = self.copyLayerToTemp(layer, '{0}_tmp'.format(layer.name()), dataCollector)
                     self.tmpLyrs.append(lyr)
                     
         for id in dataCollector.ids:

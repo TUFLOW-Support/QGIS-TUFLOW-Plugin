@@ -4,7 +4,7 @@ from PyQt5.QtCore import *
 from .Enumerators import *
 
 
-class SnappingTool():
+class SnappingTool:
     """
     Class for generating the output for the snapping tool.
 
@@ -97,7 +97,7 @@ class SnappingTool():
                                 if pointVertex not in self.dataCollectorPoints.unsnappedVertexes:
                                     self.dataCollectorPoints.unsnappedVertexes.append(pointVertex)
                             
-                            tempLyrName = 'tmp_{0}'.format(v.layer.name())
+                            tempLyrName = '{0}_tmp'.format(v.layer.name())
                             if tempLyrName not in [x.name() for x in self.tmpLyrs]:
                                 lyr = self.copyLayerToTemp(v.layer, tempLyrName)
                                 self.tmpLyrs.append(lyr)

@@ -7,4 +7,4 @@ description == Reads links to tabular inputs associated with cross-section profi
 wiki link == https://wiki.tuflow.com/index.php?title=TUFLOW_Empty_Files#ESTRY_Control_file_.28ECF.29
 
 manual link == https://www.tuflow.com/Download/TUFLOW/Releases/2017-09/TUFLOW%20Manual.2017-09-AC.pdf
-manual page == 89
+manual page == 90

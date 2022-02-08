@@ -3,6 +3,8 @@ class TOOL_TYPE:
     PipeDirection = 1
     Continuity = 2
     FlowTrace = 3
+    UniqueIds = 4
+    NullGeometry = 5
 
 
 class X_OBJECT:

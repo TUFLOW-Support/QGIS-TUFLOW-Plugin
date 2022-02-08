@@ -6,5 +6,5 @@ description == Used to define the final 3D shape of the Zpts at the completion o
 
 wiki link == https://wiki.tuflow.com/index.php?title=TUFLOW_Empty_Files#TUFLOW_Geometry_Control_file_.28TGC.29
 
-manual link == https://www.tuflow.com/Download/TUFLOW/Releases/2017-09/TUFLOW%20Manual.2017-09-AC.pdf
-manual page == 248
+manual link == https://downloads.tuflow.com/_archive/TUFLOW/Releases/2018-03/TUFLOW%20Manual.2018-03.pdf
+manual page == 251

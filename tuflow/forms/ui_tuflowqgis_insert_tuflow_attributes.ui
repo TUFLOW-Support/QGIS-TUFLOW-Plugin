@@ -54,6 +54,24 @@
       </layout>
      </item>
      <item>
+      <layout class="QHBoxLayout" name="horizontalLayout_4">
+       <item>
+        <widget class="QPushButton" name="pbSaveToProject">
+         <property name="text">
+          <string>Save directory to Project</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pbSaveToGlobal">
+         <property name="text">
+          <string>Save directory to Global</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
       <widget class="QLabel" name="label3_2">
        <property name="text">
         <string>Input Layer</string>

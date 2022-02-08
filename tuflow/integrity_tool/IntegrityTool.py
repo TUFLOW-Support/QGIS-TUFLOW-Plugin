@@ -15,7 +15,8 @@ from .ContinuityTool import ContinuityTool
 from .FlowTraceTool import DataCollectorFlowTrace, FlowTraceTool, FlowTracePlot
 from .PipeDirectionTool import PipeDirectionTool
 from .Enumerators import *
-
+from .UniqueIds import UniqueIds, DuplicateRule, CreateNameRule, CreateNameRules
+from .NullGeometry import NullGeometry, NullGeometryDialog
 
 
 class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
@@ -39,22 +40,24 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         self.dataCollectorLines = DataCollector(self.iface)
         self.dataCollectorPoints = DataCollector(self.iface)
         self.dataCollectorTables = DataCollector(self.iface)
+        self.uniqueIds = UniqueIds()
+        self.nullGeometry = NullGeometry()
 
         # progress bar
         self.currentStep = 0
         self.maxProgressSteps = 0
 
         # set up radio buttons determing which tool to run
-        self.toolButtonGroup = QButtonGroup()
-        self.toolButtonGroup.addButton(self.rbSnapping)
-        self.toolButtonGroup.setId(self.rbSnapping, 0)
-        self.toolButtonGroup.addButton(self.rbPipeDirection)
-        self.toolButtonGroup.setId(self.rbPipeDirection, 1)
-        self.toolButtonGroup.addButton(self.rbContinuity)
-        self.toolButtonGroup.setId(self.rbContinuity, 2)
-        self.toolButtonGroup.addButton(self.rbFlowTrace)
-        self.toolButtonGroup.setId(self.rbFlowTrace, 3)
-        self.rbSnapping.setChecked(True)
+        # self.toolButtonGroup = QButtonGroup()
+        # self.toolButtonGroup.addButton(self.rbSnapping)
+        # self.toolButtonGroup.setId(self.rbSnapping, 0)
+        # self.toolButtonGroup.addButton(self.rbPipeDirection)
+        # self.toolButtonGroup.setId(self.rbPipeDirection, 1)
+        # self.toolButtonGroup.addButton(self.rbContinuity)
+        # self.toolButtonGroup.setId(self.rbContinuity, 2)
+        # self.toolButtonGroup.addButton(self.rbFlowTrace)
+        # self.toolButtonGroup.setId(self.rbFlowTrace, 3)
+        # self.rbSnapping.setChecked(True)
 
         # apply icons
         self.applyIcons()
@@ -185,15 +188,34 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         self.setGuiActive(False)
 
         try:
+            # check for null geometries
+            if self.tabWidget.currentIndex() != TOOL_TYPE.NullGeometry:
+                ok = self.checkNullGeometries()
+                if not ok:
+                    self.setGuiActive(True)
+                    return
+
+            # check unique ids and that every channel has an id (except x connectors)
+            if self.tabWidget.currentIndex() != TOOL_TYPE.UniqueIds and \
+                    self.tabWidget.currentIndex() != TOOL_TYPE.NullGeometry:
+                ok = self.checkUniqueIds()
+                if not ok:
+                    self.setGuiActive(True)
+                    return
+
             # run specified tool
-            if self.toolButtonGroup.checkedId() == TOOL_TYPE.Snapping:
+            if self.tabWidget.currentIndex() == TOOL_TYPE.Snapping:
                 self.runSnappingTool()
-            elif self.toolButtonGroup.checkedId() == TOOL_TYPE.PipeDirection:
+            elif self.tabWidget.currentIndex() == TOOL_TYPE.PipeDirection:
                 self.runPipeDirectionTool()
-            elif self.toolButtonGroup.checkedId() == TOOL_TYPE.Continuity:
+            elif self.tabWidget.currentIndex() == TOOL_TYPE.Continuity:
                 self.runContinuityTool()
-            elif self.toolButtonGroup.checkedId() == TOOL_TYPE.FlowTrace:
+            elif self.tabWidget.currentIndex() == TOOL_TYPE.FlowTrace:
                 self.runFlowTraceTool()
+            elif self.tabWidget.currentIndex() == TOOL_TYPE.UniqueIds:
+                self.runUniqueIdTool()
+            elif self.tabWidget.currentIndex() == TOOL_TYPE.NullGeometry:
+                self.runNullGeometryTool()
 
             QgsProject.instance().addMapLayer(self.outputLyr)
 
@@ -210,6 +232,40 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             stackTraceDialog.exec_()
 
         self.setGuiActive(True)
+
+    def checkUniqueIds(self):
+        """
+        Check that each channel has a unique id before running other tools.
+
+        return: bool - whether to continue running other tools or not
+        """
+
+        layers = self.getInputs('lines')
+        self.setupDataCollectorProgressBar(layers, 'uniqueIds')
+
+        self.uniqueIds = UniqueIds()
+        self.uniqueIds.updated.connect(self.updateProgressDataCollection)
+        self.uniqueIds.finished.connect(lambda e: self.finishedDataCollection(e, text='Finished checking channel IDs'))
+        self.uniqueIds.checkForDuplicates(layers)
+
+        return len(self.uniqueIds.duplicate_ids) == 0 and self.uniqueIds.null_id_count == 0
+
+    def checkNullGeometries(self):
+        """
+        Check all gis layers for null geometries before running other tools.
+
+        return: bool
+        """
+
+        layers = self.getInputs(['lines', 'points', 'tables'])
+        self.setupDataCollectorProgressBar(layers, 'nullGeometry')
+
+        self.nullGeometry = NullGeometry()
+        self.nullGeometry.updated.connect(self.updateProgressDataCollection)
+        self.nullGeometry.finished.connect(lambda e: self.finishedDataCollection(e, text='Finished checking for empty geometry'))
+        self.nullGeometry.checkForNullGeometries(layers)
+
+        return self.nullGeometry.null_geom_count == 0
 
     def runSnappingTool(self):
         """
@@ -385,7 +441,127 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             self.plot.updateMessage.disconnect(self.updateMessage)
         except:
             pass
-        
+
+    def runUniqueIdTool(self):
+        """
+        Check that each channel has a unique id before running other tools.
+
+        return: bool - whether to continue running other tools or not
+        """
+
+        layers = self.getInputs('lines')
+
+        self.outputLyr = None
+        self.uniqueIds = UniqueIds()
+        self.uniqueIds.updated.connect(self.updateProgressDataCollection)
+        self.uniqueIds.finished.connect(lambda e: self.finishedDataCollection(e, text='Finished checking channel IDs'))
+
+        self.setupDataCollectorProgressBar(layers, 'uniqueIds')
+        self.uniqueIds.checkForDuplicates(layers, write_duplicate_errors=False)
+        if not self.uniqueIds.duplicate_ids and not self.uniqueIds.null_id_count:
+            QMessageBox.information(self, 'Integrity Tools', 'All channel IDs were compliant')
+            return
+
+        if self.cbFindNonCompIDs.isChecked():
+            # reset progressbar
+            self.currentStep = 0
+            self.maxProgressSteps = len(self.uniqueIds.duplicate_ids) + self.uniqueIds.null_id_count
+            self.progressBar.setValue(0)
+
+            # reconnect signals
+            self.uniqueIds.updated.connect(self.updateProgressDataCollection)
+            self.uniqueIds.finished.connect(lambda e: self.finishedDataCollection(e, text='Finished flagging non-compliant IDs'))
+
+            # run process
+            self.uniqueIds.findNonCompliantIds()
+
+        if self.cbFixChannelIDs.isChecked():
+            # re-setup progress bar
+            self.setupDataCollectorProgressBar(layers, 'fixChannelIds')
+
+            # collect rules
+            duplicateRule = DuplicateRule(
+                append_letter=self.rbDuplicateUseLetters.isChecked(),
+                append_number=self.rbDuplicateUseNumbers.isChecked(),
+                delimiter=self.leCustomDelim.text().strip()
+            )
+            # stuff needed for eval in list comprehension
+            globs = globals()
+            locs = locals()
+            createNameRuleList = [
+                CreateNameRule(
+                    duplicate_rule=duplicateRule,
+                    type=eval('self.leType{0}.text().strip()'.format(x), globs, locs),
+                    prefix=eval('self.lePrefix{0}.text().strip()'.format(x), globs, locs)
+                )
+                for x in range(1, 5) if eval('self.leType{0}.text().strip()'.format(x), globs, locs)
+            ]
+            createNameRuleList.append(
+                CreateNameRule(
+                    duplicate_rule=duplicateRule,
+                    default_rule=True,
+                    prefix=self.leDefaultPrefix.text().strip()
+                )
+            )
+            createNameRules = CreateNameRules(createNameRuleList)
+
+            # pass rules to class and run
+            # reconnect signals
+            self.uniqueIds.updated.connect(self.updateProgressDataCollection)
+            self.uniqueIds.finished.connect(lambda e: self.finishedDataCollection(e, text='Finished correcting non-compliant IDs'))
+            self.uniqueIds.fixChannelIDs(duplicateRule, createNameRules)
+
+        if self.uniqueIds.outputLyr is not None and self.uniqueIds.outputLyr.isValid():
+            QgsProject.instance().addMapLayer(self.uniqueIds.outputLyr)
+
+    def runNullGeometryTool(self):
+        layers = self.getInputs(['lines', 'points', 'tables'])
+        self.setupDataCollectorProgressBar(layers, 'nullGeometry')
+
+        self.nullGeometry = NullGeometry()
+        self.nullGeometry.updated.connect(self.updateProgressDataCollection)
+        self.nullGeometry.finished.connect(lambda e: self.finishedDataCollection(e, text='Finished checking for empty geometry'))
+        self.nullGeometry.checkForNullGeometries(layers, write_null_geom_errors=False)
+
+        if not self.nullGeometry.null_geom_count:
+            QMessageBox.information(self, 'Integrity Tools', 'No empty geometries found.')
+            return
+
+        message = '<span style=" font-size:10pt; font-weight:600; text-decoration: underline;">' \
+                  '{0} empty geometry found</span>.<br><br>'.format(self.nullGeometry.null_geom_count)
+        for layer in layers:
+            if layer.name() not in self.nullGeometry.gis_layers_containing_null:
+                message = '{0}<span style="font-weight:600;">{1} [0]</span>:<br>' \
+                          '<span style="font-style:italic;">&nbsp;&nbsp;&nbsp;&nbsp;No Empty Geometry' \
+                          '</span><br><br>'.format(message, layer.name())
+                continue
+
+            count = len(self.nullGeometry.gis_layers_containing_null[layer.name()])
+            message = '{0}<span style="font-weight:600;">{1} [{2}]</span>:'.format(message, layer.name(), count)
+            ids_ = ''
+            for id_ in self.nullGeometry.gis_layers_containing_null[layer.name()]:
+                if id_ == 'Empty ID':
+                    ids_ = '{0}<br><span style="font-style:italic;">&nbsp;&nbsp;&nbsp;&nbsp;{1}' \
+                           '</span>'.format(ids_, id_)
+                else:
+                    ids_ = '{0}<br>&nbsp;&nbsp;&nbsp;&nbsp;{1}<br>'.format(ids_, id_)
+            message = '{0}{1}<br><br>'.format(message, ids_)
+
+        self.nullGeometryDialog = NullGeometryDialog(self, message)
+        self.nullGeometryDialog.exec_()
+
+        if not self.nullGeometryDialog.confirmDelete:
+            return
+
+        layers = [x for x in layers if x.name() in self.nullGeometry.gis_layers_containing_null]
+        self.setupDataCollectorProgressBar(layers, 'nullGeometry')
+
+        # reconnect signals
+        self.nullGeometry.updated.connect(self.updateProgressDataCollection)
+        self.nullGeometry.finished.connect(lambda e: self.finishedDataCollection(e, text='Finished deleting empty geometry'))
+        # delete empty geometries
+        self.nullGeometry.deleteNullGeometry()
+
     def updateStatusBar(self):
         self.dotCount += 1
         if self.dotCount > 4:
@@ -511,7 +687,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
         inputs = []
 
-        if inputType == 'lines':
+        if inputType == 'lines' or 'lines' in inputType:
             for i in range(self.lwLines.count()):
                 item = self.lwLines.item(i)
                 itemText = item.text()
@@ -520,7 +696,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                 else:  # append the QgsVectorLayer
                     layer = tuflowqgis_find_layer(itemText)
                     inputs.append(layer)
-        elif inputType == 'points':
+        if inputType == 'points' or 'points' in inputType:
             for i in range(self.lwPoints.count()):
                 item = self.lwPoints.item(i)
                 itemText = item.text()
@@ -529,7 +705,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                 else:  # append the QgsVectorLayer
                     layer = tuflowqgis_find_layer(itemText)
                     inputs.append(layer)
-        elif inputType == 'tables':
+        if inputType == 'tables' or 'tables' in inputType:
             for i in range(self.lwTables.count()):
                 item = self.lwTables.item(i)
                 itemText = item.text()
@@ -565,6 +741,12 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             self.runStatus.setText("Collecting data and connectivity from input points. . .")
         elif inputType == 'tables':
             self.runStatus.setText("Collecting data from input Tables. . .")
+        elif inputType == 'uniqueIds':
+            self.runStatus.setText("Checking channels for duplicate IDs. . .")
+        elif inputType == 'fixChannelIds':
+            self.runStatus.setText("Fixing Channel IDs. . .")
+        elif inputType == 'nullGeometry':
+            self.runStatus.setText("Checking GIS layers for null geometries. . .")
 
     def updateProgressDataCollection(self):
         """
@@ -603,6 +785,18 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             self.dataCollectorPoints.finished.disconnect()
         elif e == self.dataCollectorTables:
             pass
+        elif e == self.uniqueIds:
+            if e.errMessage is not None:
+                QMessageBox.critical(self, "Integrity Tool", e.errMessage)
+                self.runStatus.setText(e.errStatus)
+            self.uniqueIds.updated.disconnect()
+            self.uniqueIds.finished.disconnect()
+        elif e == self.nullGeometry:
+            if e.errMessage is not None:
+                QMessageBox.critical(self, "Integrity Tool", e.errMessage)
+                self.runStatus.setText(e.errStatus)
+            self.nullGeometry.updated.disconnect()
+            self.nullGeometry.finished.disconnect()
 
     def applyIcons(self):
         """
@@ -932,13 +1126,17 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
         widgets = [self.browseInputLines, self.browseInputPoints, self.browseInputTables, self.btnAddLines,
                    self.btnAddPoints, self.btnAddTables, self.btnRemoveLines, self.btnRemovePoints,
-                   self.btnRemoveTables, self.rbSnapping, self.rbPipeDirection, self.rbContinuity,
-                   self.rbFlowTrace, self.cbExclRadius, self.cbAutoSnap, self.sbAutoSnapSearchRadius,
+                   self.btnRemoveTables,
+                   # self.rbSnapping, self.rbPipeDirection, self.rbContinuity, self.rbFlowTrace,
+                   self.cbExclRadius, self.cbAutoSnap, self.sbAutoSnapSearchRadius,
                    self.cbBasedOnInverts, self.cbBasedOnContinuity, self.cbContinuityArea, self.cbContinuityInverts,
                    self.cbContinuityAngle, self.sbContinuityAngle, self.cbContinuityCover, self.sbContinuityCover,
                    self.cbFlowTraceArea, self.cbFlowTraceInverts, self.sbContinuityArea, self.sbFlowTraceArea,
                    self.cbFlowTraceAngle, self.sbFlowTraceAngle, self.cbFlowTraceCover, self.sbFlowTraceCover,
-                   self.pbRun, self.sbExclRadius]
+                   self.pbRun, self.sbExclRadius,
+                   self.cbFindNonCompIDs, self.cbFixChannelIDs, self.rbDuplicateUseLetters, self.rbDuplicateUseNumbers,
+                   self.leCustomDelim, self.leDefaultPrefix, self.leType1, self.lePrefix1, self.leType2, self.lePrefix2,
+                   self.leType3, self.lePrefix3, self.leType4, self.lePrefix4]
 
         for widget in widgets:
             widget.setEnabled(active)

@@ -4,5 +4,5 @@ command == Read GIS SA Trigger
 
 description == Used to define the location of internal source area flow verse time boundaries. The model input is specified using rainfall hyetographs (mm versus hours) instead of flow hydrographs (flow verse time).
 
-manual link == https://www.tuflow.com/Download/TUFLOW/Releases/2017-09/TUFLOW%20Manual.2017-09-AC.pdf
-manual page == 322
+manual link == https://downloads.tuflow.com/_archive/TUFLOW/Releases/2018-03/TUFLOW%20Manual.2018-03.pdf
+manual page == 325
