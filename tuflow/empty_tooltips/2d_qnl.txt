@@ -1,0 +1,10 @@
+location == Quadtree Control File (.qcf)
+
+command == Read GIS Nesting
+
+description == Used to define polygons of mesh refinement (different levels).
+
+wiki link == https://wiki.tuflow.com/index.php?title=TUFLOW_Empty_Files#TUFLOW_Quadtree_Control_File_.28QCF.29
+
+manual link == https://downloads.tuflow.com/TUFLOW/Releases/2020-10/TUFLOW%20Release%20Notes.2020-10-AC.pdf
+manual page == 25

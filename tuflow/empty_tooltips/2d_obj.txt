@@ -1,0 +1,10 @@
+location == Geometry Control File (.tgc)
+
+command == Read GIS Objects
+
+description == Used to represent receptors (such as properties or buildings). TUFLOW records the flood level and simulation time at one or more gauge(s) when receptors are first inundated above their trigger inundation levels (e.g. floor levels).
+
+wiki link == https://wiki.tuflow.com/index.php?title=TUFLOW_Empty_Files#TUFLOW_Geometry_Control_file_.28TGC.29
+
+manual link == https://downloads.tuflow.com/_archive/TUFLOW/Releases/2018-03/TUFLOW%20Manual.2018-03.pdf
+manual page == 429
