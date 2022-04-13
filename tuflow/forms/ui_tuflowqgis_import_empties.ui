@@ -421,7 +421,7 @@
             <item>
              <widget class="QCheckBox" name="cbConvertToDb">
               <property name="text">
-               <string>Check if empty files are shp and whish to convert to gpkg</string>
+               <string>Convert to GPKG</string>
               </property>
              </widget>
             </item>

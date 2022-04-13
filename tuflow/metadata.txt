@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.1.10
+version=3.3
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,104 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=--- 3.1.10 ---
+changelog=--- 3.3---
+          - New Features and Updates -
+          GPKG compatibility added to relevant tools - Functionality added for the 2022 TUFLOW release - keep watch for beta release coming soon!
+          Processing Toolbox - Added TUFLOW Processing Toolbox
+          Processing Toolbox - Added "Convert TUFLOW Model GIS Format" script
+          TUFLOW Viewer - New approach when loading from TCF - all possible results listed to user rather than possible scenarios. Old method still available via Settings > Defaults.
+          TUFLOW Viewer - cross section / long plots in animation now gives user options to set axis limits different ways. Opening plot properties will no longer trigger axis limit calculation which could sometimes take a while.
+          TUFLOW Viewer - added hover over channel names to 1D results for long plotting - similar to culvert hover over labelling
+          TUFLOW Viewer - use blitting to make hover over labelling a lot quicker and hopefully now feels 'snappier'
+          TUFLOW utilities - TUFLOW to GIS now has option to load header information from an XMDF file to populate available result types and timesteps
+          Apply GPKG Names - New Tool - renames GPKG layers in QGIS Layers Panel to match their name in the GPKG database
+          Auto Styling - now supports GPKG layers
+          Import Check Files - now supports check files written as GPKG
+          Import Empty - now supports GPKG empty files and an option to convert SHP empty file to GPKG
+          Insert TUFLOW Attributes - now supports GPKG empty files and an option to convert SHP empty file to GPKG
+          Configure Project - now supports GPKG option (requires TUFLOW 2022 release)
+          About Dialog - now has QGIS and Python version also listed for convenience
+          1D Integrity Tool - Added additional 'magnitude' column to 'output' GIS layer that defines how far big the error is based on respective tool (bigger magnitude = bigger issue)
+          1D Integrity Tool - Added auto symbology for the 'output' GIS layer that uses a graduated size based on the 'magnitude'
+          1D Integrity Tool - styling is automatically applied to 'output' layer
+          1D Integrity Tool - option will be given to automatically replace inputs with tool outputs after running certain tools
+          1D Integrity Tool - updated GUI with links to documentation and reduced the height
+          1D Integrity Tool - output tmp layers automatically copy the style of input layers
+          1D Integrity Tool - Significantly improved the speed of the long plot generator in the flow trace tool - will be most noticeable on big datasets
+          1D Integrity Tool - Can now limit flow trace and long plot to particular section of network by selecting 2+ channels to connect between
+          1D Integrity Tool - long plot - added basic plotting tools and interaction
+          1D Integrity Tool - long plot - hover over labelling now shows more information on the channel
+          1D Integrity Tool - long plot - hover over labelling now shows more information on continuity flags
+          1D Integrity Tool - long plot - added export/copy data options in context menu
+          1D Integrity Tool - long plot - can toggle legend on/off in context menu
+          1D Integrity Tool - long plot - can toggle continuity flags on/off in context menu
+          1D Integrity Tool - long plot - current pipe at mouse position is shown in QGIS map window
+          1D Integrity Tool - long plot - can zoom to current channel in map window using context menu
+          1D Integrity Tool - long plot - can zoom to selected path extent using context menu
+          1D Integrity Tool - long plot - pipe labels now try and avoid overlapping
+
+          - Bug Fixes -
+          TUFLOW Viewer - prevent scrambling of datasets in plot window due to bug in matplotlib 3.5.1 (packaged with QGIS 3.24.1)
+          TUFLOW Viewer - colour bar is now always displayed for curtain plot (if legend is on) - previously if there was no data (i.e. section was dry) the colour bar wasn't shown. Mostly affects animations.
+          TUFLOW Viewer - fixed colour bar label which broke with an update to the matplotlib library
+          TUFLOW Viewer - TUFLOW FV XMDF outputs now will correctly show maximums
+          TUFLOW Viewer - Fixed bug that could cause Python error if _PLOT_ layers were removed from workspace while TUFLOW Viewer was closed
+          TUFLOW Viewer - Fixed bug with icon size setting introduced in v3.2 for QGIS versions < 3.16 that would cause error when trying to load
+          TUFLOW Viewer - Hover over labelling is broken in latest QGIS python/matplotlib version - now fixed
+          TUFLOW Viewer - fixed bug that could occur when loading from a qgz/qgs
+          ReFH2 Tool - fixed bug that broke ReFH2 GUI from opening in previous release
+          Import Empty - TUFLOW empty type list will be properly updated after user uses 'browse' to select a directory
+          Insert TUFLOW attributes - TUFLOW empty type list will be properly updated after user uses 'browse' to select a directory
+          Configure Project - Displayed paths now show correct operating system slashes
+          TUFLOW utilities - Common functions - can now specify an output name without specifying an output directory
+          TUFLOW utilities - Common functions - output name in TUFLOW_to_GIS was not working
+          1D Integrity Tool - No longer need a line layer to check for empty geometries in points or cross section layers
+          Load From TCF - Will now load layers from 'Create TIN Zpts' command
+          Auto Label - Fixed tooltip when mouse hovers over toolicon in plugin toolbar
+          SCS Tool - now unloads properly
+          TUFLOW Menu under Plugins - now unloads properly
+
+
+          --- 3.2 ---
+          - New Features and Updates -
+          TUFLOW Viewer - Added option to copy and paste scalar and vector styling within TUFLOW Viewer
+          TUFLOW Viewer - Icon size can now be changed in TUFLOW Viewer > Setting > Options
+          TUFLOW Viewer - Icon size should be corrected for Ultra HD monitors
+          TUFLOW Viewer - Hover over pipe labels added to cross-section plotting tab
+          TUFLOW Viewer - Long sections from 1D results now allow users to generate sections along non-primary flow paths by selecting an upstream and downstream section to go between
+          TUFLOW Viewer - If cross-section CSV is missing, copying the CSV to correct location and refreshing the plot will now correctly reload from CSV
+          TUFLOW Viewer - Added icons to plotting tab headings. Changed long-profile icon for time series results to be the cross-section icon
+          1D Integrity Tool - Added new tool: Empty Geometry (find and fix)
+          1D Integrity Tool - Added new tool to find and fix duplicate IDs or empty IDs
+          1D Integrity Tool - Added check in most tools that stops the tool from running if there are duplicate or empty IDs as this can cause errors or funny behaviour in most of the tools
+          1D Integrity Tool - Gave all output layers a consistent naming convention - 'original_lyr_name_tmp'
+          Import Empty - Tooltips updated to include some missing empty types and updated to link to the 2018 Manual.
+          Import Empty - User can now save the current empty directory to the project or globally
+          Auto Labelling - Added _PLOT_L and _PLOT_P custom label rules
+          Insert TUFLOW Attributes - User can now save the current empty directory to the project or globally
+          Load From TCF - Now supports GPKG vector and raster format
+          Load From TCF - Now supports TIF raster format
+          TUFLOW Styling - Added 2d_rf style
+          TUFLOW Styling - Updated 2d_sa style with to have more transparency
+
+          - Bug Fixes -
+          TUFLOW Viewer - Save default style fixed
+          TUFLOW Viewer - Load scalar and vector datasets correctly for xmdf results outside of velocity and unit flow
+          TUFLOW Viewer - Fixed bug in time series results that could load groundwater results incorrectly as surface results e.g. 'groundwater level' as 'level'
+          TUFLOW Viewer - Fixed bug that could cause python error or unusual plotting behaviour if time series results was removed then re-added with updated/different output types
+          TUFLOW Viewer - Fixed bug that user to have to deselect result in 'Results' list a couple of times to toggle it off after loading time series results only [similar to bug fixed in 3.1.10]
+          TUFLOW Viewer - Fixed bug that would cause Python error when plotting 'US Level' or 'DS Level' when a point object from PLOT_P was also selected
+          TUFLOW Viewer - Default font size is now correctly shown in options dialog after it is changed without having to restart TUFLOW Viewer
+          TUFLOW Viewer - Fixed bug that could occur when loading from a project can cause Python error when time series results are in the project
+          TUFLOW Viewer - Fixed bug that could cause water level results to not appear on cross-section
+          TUFLOW Viewer - Fixed bug for viewing cross-section that would not correctly handle column names in the GIS layer
+          TUFLOW Viewer - Time series long plot will now check for circular references in the 1D channel system. Previously this could cause QGIS to hang.
+          Import Empty Tool - Fixed and issue where older versions of QGIS (older than 3.10.3) had stopped working due to the use of new modern methods.
+          Increment Layer Tool - Fixed and issue where older versions of QGIS (older than 3.10.3) had stopped working due to the use of new modern methods.
+          TUFLOW Styling - Fixed bug that would cause a Python error if no layer was selected
+          Load from TCF - Fixed bug that would cause Python error when a command had '==' as a comment.
+
+          --- 3.1.10 ---
           TUFLOW Viewer - Cursor location on cross-section plot is now projected onto map canvas
           TUFLOW Viewer - Added hover over labels on curtain plot
           TUFLOW Viewer - Fixed load from TCF that would fail if more than 2 variables were used in a row in output folder name

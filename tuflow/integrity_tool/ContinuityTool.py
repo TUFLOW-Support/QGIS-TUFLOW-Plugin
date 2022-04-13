@@ -3,6 +3,7 @@ from qgis.core import *
 from math import pi
 from .Enumerators import *
 from tuflow.tuflowqgis_library import getNetworkMidLocation, interpolateObvert
+from .FlowTraceLongPlot_V2 import Connectivity
 
 
 class ContinuityTool(QObject):
@@ -10,15 +11,21 @@ class ContinuityTool(QObject):
     # some custom signals to let the gui know what's going on
     updated = pyqtSignal()
     finished = pyqtSignal()
+    error = pyqtSignal(str)
     
     def __init__(self, iface=None, dataCollector=None, outputLyr=None, limitAngle=0, limitCover=99999, limitArea=100,
                  checkArea=False, checkAngle=False, checkInvert=False, checkCover=False):
         # initialise inherited QObject
         QObject.__init__(self, parent=None)
-        
+
         # some custom properties
         self.iface = iface
         self.dataCollector = dataCollector
+
+        self.bCheckArea = checkArea
+        self.bCheckAngle = checkAngle
+        self.bCheckInvert = checkInvert
+        self.bCheckCover = checkCover
         self.limitAngle = limitAngle
         self.limitCover = limitCover
         self.limitArea = limitArea
@@ -27,26 +34,38 @@ class ContinuityTool(QObject):
         self.flaggedAreaIds = []
         self.flaggedAreas = []
         self.flaggedAreaMessages = []
+        self.flaggedAreaMag = []
+        self.flaggedAreaLabel = []
         
         self.flaggedInvertUniqueIds = []
         self.flaggedInvertIds = []
         self.flaggedInverts = []
         self.flaggedInvertMessages = []
+        self.flaggedInvertMag = []
+        self.flaggedInvertLabel = []
         
         self.flaggedGradientUniqueIds = []
         self.flaggedGradientIds = []
         self.flaggedGradients = []
         self.flaggedGradientMessages = []
+        self.flaggedGradientMag = []
+        self.flaggedGradientLabel = []
         
         self.flaggedAngleUniqueIds = []
         self.flaggedAngleIds = []
         self.flaggedAngles = []
         self.flaggedAngleMessages = []
+        self.flaggedAngleMag = []
+        self.flaggedAngleLabel = []
         
         self.flaggedCoverUniqueIds = []
         self.flaggedCoverIds = []
+        self.flaggedCoverIds_ = []
         self.flaggedCover = []
         self.flaggedCoverMessages = []
+        self.flaggedCoverMag = []
+        self.flaggedCoverChainage = []
+        self.flaggedCoverLabel = []
         
         # prepare the outputlyr
         if outputLyr is not None:
@@ -62,11 +81,28 @@ class ContinuityTool(QObject):
             self.dp = self.outputLyr.dataProvider()
             self.dp.addAttributes([QgsField('Warning', QVariant.String),
                                    QgsField("Message", QVariant.String),
-                                   QgsField("Tool", QVariant.String)])
+                                   QgsField("Tool", QVariant.String),
+                                   QgsField("Magnitude", QVariant.Double)])
             self.outputLyr.updateFields()
+
+        self.ids_to_assess = None
+        if dataCollector.flowTrace and len(dataCollector.startLocs) > 1:
+            connectivity = Connectivity(dataCollector.startLocs, dataCollector)
+            connectivity.getBranches()
+            if not connectivity.valid:
+                self.error.emit('Selected channels are not connected')
+                return
+            if not connectivity.branches or not connectivity.branches[0]:
+                self.error.emit('Did not find any channels to assess')
+                return
+
+            self.ids_to_assess = set(sum(connectivity.branches, []))
             
         # loop through features and check continuity
         for id in dataCollector.ids:
+            if self.ids_to_assess is not None and id not in self.ids_to_assess:
+                continue
+
             fData = dataCollector.features[id]
             cData = dataCollector.connections[id]
             
@@ -100,7 +136,8 @@ class ContinuityTool(QObject):
             feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
             feat.setAttributes(['Flow area decreases downstream of {0}'.format(id),
                                 '{0}'.format(message),
-                                'Continuity: Flow Area Check'])
+                                'Continuity: Flow Area Check',
+                                self.flaggedAreaMag[i]])
             feats.append(feat)
         # inverts
         for i, point in enumerate(self.flaggedInverts):
@@ -111,7 +148,8 @@ class ContinuityTool(QObject):
             feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
             feat.setAttributes(['Invert increases downstream of {0}'.format(id),
                                 '{0}'.format(message),
-                                'Continuity: Invert Check'])
+                                'Continuity: Invert Check',
+                                self.flaggedInvertMag[i]])
             feats.append(feat)
         # gradients
         for i, point in enumerate(self.flaggedGradients):
@@ -122,7 +160,8 @@ class ContinuityTool(QObject):
             feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
             feat.setAttributes(['Adverse gradient at {0}'.format(id),
                                 '{0}'.format(message),
-                                'Continuity: Gradient Check'])
+                                'Continuity: Gradient Check',
+                                self.flaggedGradientMag[i]])
             feats.append(feat)
         # angle
         for i, point in enumerate(self.flaggedAngles):
@@ -133,7 +172,8 @@ class ContinuityTool(QObject):
             feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
             feat.setAttributes(['Accute outflow angle at {0}'.format(id),
                                 '{0}'.format(message),
-                                'Continuity: Outflow Angle Check'])
+                                'Continuity: Outflow Angle Check',
+                                self.flaggedAngleMag[i]])
             feats.append(feat)
         # cover
         for i, point in enumerate(self.flaggedCover):
@@ -144,7 +184,8 @@ class ContinuityTool(QObject):
             feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
             feat.setAttributes(['Insufficient cover at {0}'.format(id),
                                 '{0}'.format(message),
-                                'Continuity: Cover Check'])
+                                'Continuity: Cover Check',
+                                self.flaggedCoverMag[i]])
             feats.append(feat)
 
         self.dp.addFeatures(feats)
@@ -181,13 +222,16 @@ class ContinuityTool(QObject):
                 if 1 - areaDs / area > self.limitArea / 100:
                     doesAreaDecrease = True
             if doesAreaDecrease:
-                self.flaggedAreaIds.append(fData.id)
+                # self.flaggedAreaIds.append(fData.id)
                 uniqueId = (fData.endVertex.x(), fData.endVertex.y())
                 if uniqueId not in self.flaggedAreaUniqueIds:
+                    self.flaggedAreaIds.append(fData.id)
                     self.flaggedAreaUniqueIds.append(uniqueId)
                     #self.flaggedAreaIds.append(fData.id)
                     self.flaggedAreas.append(fData.endVertex)
                     self.flaggedAreaMessages.append('Area changes from {0:.02f} to {1:.02f}'.format(area, areaDs))
+                    self.flaggedAreaLabel.append('{0}\nIn Area: {1:.02f}\nOut Area: {2:.02f}'.format(fData.id, area, areaDs))
+                    self.flaggedAreaMag.append(area - areaDs)
     
     def checkInverts(self, fData, cData):
         """
@@ -214,6 +258,8 @@ class ContinuityTool(QObject):
                             self.flaggedInverts.append(fData.endVertex)
                             self.flaggedInvertMessages.append(
                                 'Invert goes from {0:.02f} to {1:.02f}'.format(invert, invertDs))
+                            self.flaggedInvertLabel.append('{0}\nUS Invert: {1:.02f}\nDS Invert: {2:.02f}'.format(fData.id, invert, invertDs))
+                            self.flaggedInvertMag.append(invertDs - invert)
                         
     def checkGradient(self, fData):
         """
@@ -234,6 +280,8 @@ class ContinuityTool(QObject):
                     self.flaggedGradientMessages.append(
                         'Adverse Gradient: Upstream invert: {0:.02f} Downstream invert {1:.02f}'.
                             format(fData.invertUs, fData.invertDs))
+                    self.flaggedGradientLabel.append('{0}\nUS Invert: {1:.02f}\nDS Invert: {2:.02f}'.format(fData.id, fData.invertUs, fData.invertDs))
+                    self.flaggedGradientMag.append(fData.invertDs - fData.invertUs)
                     
     def checkAngles(self, fData, cData):
         """
@@ -265,7 +313,9 @@ class ContinuityTool(QObject):
                             self.flaggedAngleUniqueIds.append(uniqueId)
                             self.flaggedAngleIds.append(fData.id)
                             self.flaggedAngles.append(fData.endVertex)
-                            self.flaggedAngleMessages.append('Outflow angle is {0:.2f}'.format(outFlowAngle))
+                            self.flaggedAngleMessages.append('Outflow angle is {0:.02f}'.format(outFlowAngle))
+                            self.flaggedAngleLabel.append('{0}\nAngle: {1:.02f}'.format(fData.id, outFlowAngle))
+                            self.flaggedAngleMag.append(outFlowAngle)
                             
     def checkCover(self, fData):
         """
@@ -276,28 +326,37 @@ class ContinuityTool(QObject):
         """
         
         # get pipe obvert
-        if fData.type.upper() == 'C' or fData.type.upper() == 'R':
+        if fData.type and (fData.type.upper()[0] == 'C' or fData.type.upper()[0] == 'R'):
             if fData.invertUs != -99999 and fData.invertDs != -99999:
                 dData = self.dataCollector.drapes[fData.id]
                 chainages = dData.chainages
-                if fData.type.upper() == 'C':
-                    height = fData.width
-                else:
-                    height = fData.height
+                height = fData.height_
                 obverts = interpolateObvert(fData.invertUs, fData.invertDs, height, chainages)
+                min_cover, min_ground, min_obvert, min_chainage, min_x, min_y, min_point = [9e29 for x in range(7)]
                 for i, obvert in enumerate(obverts):
                     ground = dData.elevations[i]
                     point = dData.points[i]
                     if ground is not None:
                         cover = ground - obvert
-                        if cover < self.limitCover:
-                            uniqueId = (point.x(), point.y())
-                            if uniqueId not in self.flaggedCoverUniqueIds:
-                                self.flaggedCoverUniqueIds.append(uniqueId)
-                                self.flaggedCoverIds.append(uniqueId)
-                                self.flaggedCover.append(point)
-                                self.flaggedCoverMessages.append("Pipe cover drops below limit")
-                            break
+                        if cover < self.limitCover and cover < min_cover:
+                            min_cover = max(cover, 0.)
+                            min_ground = ground
+                            min_obvert = obvert
+                            min_chainage = chainages[i]
+                            min_x = point.x()
+                            min_y = point.y()
+                            min_point = point
+                if min_cover < self.limitCover:
+                    uniqueId = (min_x, min_y)
+                    if uniqueId not in self.flaggedCoverUniqueIds:
+                        self.flaggedCoverUniqueIds.append(uniqueId)
+                        self.flaggedCoverIds.append(uniqueId)
+                        self.flaggedCover.append(min_point)
+                        self.flaggedCoverMessages.append("Pipe cover drops below limit: {0:.02f}".format(min_cover))
+                        self.flaggedCoverLabel.append('{0}\nCover: {1:.02f}\nGround: {2:.02f}\nObvert: {3:.02f}'.format(fData.id, min_cover, min_ground, min_obvert))
+                        self.flaggedCoverMag.append(self.limitCover - min_cover)
+                        self.flaggedCoverChainage.append(min_chainage)
+                        self.flaggedCoverIds_.append(fData.id)
             
     def getAngle(self, ids, whichEnd):
         """

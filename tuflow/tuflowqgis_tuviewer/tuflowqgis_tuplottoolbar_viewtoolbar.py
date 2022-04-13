@@ -31,14 +31,11 @@ class ViewToolbar():
 		self.initialiseViewToolbar()
 	
 	def initialiseViewToolbar(self):
-		# if QSettings().contains('/qgis/IconSize'):
-		# 	try:
-		# 		w = QgsApplication.scaleIconSize(int(QSettings().value('/qgis/IconSize')), True)
-		# 	except:
-		# 		w = QgsApplication.scaleIconSize(24, True)
-		# else:
-		# 	w = QgsApplication.scaleIconSize(24, True)
-		w = int(QgsApplication.scaleIconSize(self.tuView.tuOptions.iconSize, True))
+		qv = Qgis.QGIS_VERSION_INT
+
+		w = self.tuView.tuOptions.iconSize
+		if qv >= 31600:
+			w = int(QgsApplication.scaleIconSize(self.tuView.tuOptions.iconSize, True))
 
 		w2 = int(np.ceil(w * 1.5))
 		w3 = int(np.ceil(w2 * 7))

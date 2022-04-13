@@ -1,6 +1,7 @@
 import os, sys
 import tempfile
 import shutil
+import re
 from datetime import datetime
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -1784,8 +1785,20 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 					time = 0.0
 				scalarInd = -1
 				for j in range(layer.dataProvider().datasetGroupCount()):
-					if str(layer.dataProvider().datasetGroupMetadata(j).name()).lower() == scalar.lower():
+
+					name_ = layer.dataProvider().datasetGroupMetadata(j).name()
+					if re.findall(r'^max_(?!time)', name_):
+						name__ = re.split(r'^max_(?!time)', name_)
+						if len(name__) > 1:
+							name_ = '{0}/Maximums'.format(name__[-1])
+					elif re.findall(r'^min_(?!time)', name_):
+						name__ = re.split(r'^min_(?!time)', name_)
+						if len(name__) > 1:
+							name_ = '{0}/Minimums'.format(name__[-1])
+
+					if name_.lower() == scalar.lower():
 						scalarInd = j
+
 				rs = layer.rendererSettings()
 				rendering[self.tableMaps.item(i, 1).text()] = rs.scalarSettings(scalarInd)
 				
@@ -1907,17 +1920,29 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 				vector += '/Maximums'
 				time = 0.0
 			else:
-				d['time'] = 99999.
+				d['time'] = -99999.
 				scalar += '/Minimums'
 				vector += '/Minimums'
 				time = 0.0
 			scalarInd = -1
 			vectorInd = -1
 			for j in range(layer.dataProvider().datasetGroupCount()):
-				if str(layer.dataProvider().datasetGroupMetadata(j).name()).lower() == scalar.lower():
+
+				name_ = layer.dataProvider().datasetGroupMetadata(j).name()
+				if re.findall(r'^max_(?!time)', name_):
+					name__ = re.split(r'^max_(?!time)', name_)
+					if len(name__) > 1:
+						name_ = '{0}/Maximums'.format(name__[-1])
+				elif re.findall(r'^min_(?!time)', name_):
+					name__ = re.split(r'^min_(?!time)', name_)
+					if len(name__) > 1:
+						name_ = '{0}/Minimums'.format(name__[-1])
+
+				if name_.lower() == scalar.lower():
 					scalarInd = j
-				if str(layer.dataProvider().datasetGroupMetadata(j).name()).lower() == vector.lower():
+				if name_.lower() == vector.lower():
 					vectorInd = j
+
 			asd = QgsMeshDatasetIndex(-1, 0)
 			if qv < 31600:
 				for j in range(layer.dataProvider().datasetCount(scalarInd)):

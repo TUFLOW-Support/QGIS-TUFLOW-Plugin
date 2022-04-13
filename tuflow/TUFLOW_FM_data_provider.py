@@ -506,7 +506,7 @@ class TuFloodModellerDataProvider(ResData):
     def LP_getConnectivity(self, id1, id2, *args, **kwargs):
         """Populate list of connected channels"""
 
-        self.LP.chan_list.clear()
+        self.LP.chan_ids.clear()
         self.LP.chan_index.clear()
         self.LP.node_list.clear()
 
@@ -525,7 +525,7 @@ class TuFloodModellerDataProvider(ResData):
         if selected_ids[0] not in link_ids:
             return err, msg
         i = link_ids.index(selected_ids[0])
-        self.LP.chan_list.append(selected_ids[0])
+        self.LP.chan_ids.append(selected_ids[0])
         self.LP.chan_index.append(i)
         self.LP.node_list.append(self.links[i].us_node.id)
         self.LP.node_list.append(self.links[i].ds_node.id)
@@ -540,8 +540,8 @@ class TuFloodModellerDataProvider(ResData):
                     k = link_dnn[m:].index(self.links[i].us_node) + m
                     m = k + 1
                     if self.links[k].index in selected_ids:
-                        if self.links[k].index not in self.LP.chan_list:
-                            self.LP.chan_list.insert(0, self.links[k].index)
+                        if self.links[k].index not in self.LP.chan_ids:
+                            self.LP.chan_ids.insert(0, self.links[k].index)
                             self.LP.chan_index.insert(0, k)
                             self.LP.node_list.insert(0, self.links[k].us_node.id)
                             found = True
@@ -555,8 +555,8 @@ class TuFloodModellerDataProvider(ResData):
                         k = link_dnn[m:].index(self.links[i].ds_node) + m
                         m = k + 1
                         if self.links[k].index in selected_ids:
-                            if self.links[k].index not in self.LP.chan_list:
-                                self.LP.chan_list.insert(0, self.links[k].index)
+                            if self.links[k].index not in self.LP.chan_ids:
+                                self.LP.chan_ids.insert(0, self.links[k].index)
                                 self.LP.chan_index.insert(0, k)
                                 self.LP.node_list.insert(0, self.links[k].us_node.id)
                                 found = True
@@ -570,8 +570,8 @@ class TuFloodModellerDataProvider(ResData):
                         m = k + 1
                         if self.links[k].us_node.type.lower() == 'spill':
                             if self.links[k].index in selected_ids:
-                                if self.links[k].index not in self.LP.chan_list:
-                                    self.LP.chan_list.insert(0, self.links[k].index)
+                                if self.links[k].index not in self.LP.chan_ids:
+                                    self.LP.chan_ids.insert(0, self.links[k].index)
                                     self.LP.chan_index.insert(0, k)
                                     self.LP.node_list.insert(0, self.links[k].us_node.id)
                                     found = True
@@ -591,8 +591,8 @@ class TuFloodModellerDataProvider(ResData):
                     k = link_upn[m:].index(self.links[i].ds_node) + m
                     m = k + 1
                     if self.links[k].index in selected_ids:
-                        if self.links[k].index not in self.LP.chan_list:
-                            self.LP.chan_list.append(self.links[k].index)
+                        if self.links[k].index not in self.LP.chan_ids:
+                            self.LP.chan_ids.append(self.links[k].index)
                             self.LP.chan_index.append(k)
                             self.LP.node_list.append(self.links[k].ds_node.id)
                             found = True
@@ -606,8 +606,8 @@ class TuFloodModellerDataProvider(ResData):
                         k = link_upn[m:].index(self.links[i].us_node) + m
                         m = k + 1
                         if self.links[k].index in selected_ids:
-                            if self.links[k].index not in self.LP.chan_list:
-                                self.LP.chan_list.append(self.links[k].index)
+                            if self.links[k].index not in self.LP.chan_ids:
+                                self.LP.chan_ids.append(self.links[k].index)
                                 self.LP.chan_index.append(k)
                                 self.LP.node_list.append(self.links[k].ds_node.id)
                                 found = True
@@ -621,8 +621,8 @@ class TuFloodModellerDataProvider(ResData):
                         m = k + 1
                         if self.links[k].us_node.type.lower() == 'spill':
                             if self.links[k].index in selected_ids:
-                                if self.links[k].index not in self.LP.chan_list:
-                                    self.LP.chan_list.append(self.links[k].index)
+                                if self.links[k].index not in self.LP.chan_ids:
+                                    self.LP.chan_ids.append(self.links[k].index)
                                     self.LP.chan_index.append(k)
                                     self.LP.node_list.append(self.links[k].ds_node.id)
                                     found = True

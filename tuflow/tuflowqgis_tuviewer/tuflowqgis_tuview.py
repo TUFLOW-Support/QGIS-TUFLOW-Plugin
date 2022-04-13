@@ -146,6 +146,9 @@ class TuView(QDockWidget, Ui_Tuplot):
 	def __del__(self):
 		self.qgisDisconnect()
 		self.tuMenuBar.disconnectMenu()
+		self.tuMenuBar.clear()
+		self.tuMenuBarSecond.disconnectMenu()
+		self.tuMenuBarSecond.clear()
 		self.tuResults.removeResults([self.OpenResults.item(i).text() for i in range(self.OpenResults.count()) if self.OpenResults.item(i).text()],
 		                             ignore_mesh_results=True)
 
@@ -389,6 +392,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		for rlayer in removedLayers:
 			layer = tuflowqgis_find_layer(rlayer, search_type='layerId')
+			if layer == self.currentLayer:
+				self.currentLayer = None
 			if layer is not None and isinstance(layer, QgsMeshLayer):
 				for i in reversed(range(self.OpenResults.count())):
 					item = self.OpenResults.item(i)
@@ -749,6 +754,9 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		if completely_remove:
 			self.tuMenuBar.qgisDisconnect()
+			self.tuMenuBar.clear()
+			self.tuMenuBarSecond.qgisDisconnect()
+			self.tuMenuBarSecond.clear()
 			self.tuContextMenu.qgisDisconnect()
 			self.tuPlot.tuPlotToolbar.qgisDisconnect()
 
@@ -1241,13 +1249,11 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.toolbarIconSizeChanged(size, viewToolbar.viewToolbar, self.ViewToolbarFrame)
 
 	def toolbarIconSizeChanged(self, size=None, toolbar=None, frame=None):
-		# if size is not None:
-		# 	w = QgsApplication.scaleIconSize(size.width(), True)
-		# elif QSettings().contains('/qgis/IconSize'):
-		# 	w = QgsApplication.scaleIconSize(int(QSettings().value('/qgis/IconSize')), True)
-		# else:
-		# 	w = QgsApplication.scaleIconSize(24, True)
-		w = int(QgsApplication.scaleIconSize(size, True))
+		qv = Qgis.QGIS_VERSION_INT
+
+		w = self.tuOptions.iconSize
+		if qv >= 31600:
+			w = int(QgsApplication.scaleIconSize(self.tuOptions.iconSize, True))
 
 		if toolbar is None or frame is None:
 			return

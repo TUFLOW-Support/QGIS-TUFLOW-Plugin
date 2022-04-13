@@ -11,6 +11,7 @@ class PipeDirectionTool():
         self.iface = iface
         self.outputLyr = outputLyr
         self.tmpLyrs = []
+        self.tmplyr2oldlyr = {}
         
         self.flagGradientPoint = []
         self.flagGradientMessage = []
@@ -32,7 +33,8 @@ class PipeDirectionTool():
             self.dp = self.outputLyr.dataProvider()
             self.dp.addAttributes([QgsField('Warning', QVariant.String),
                                    QgsField("Message", QVariant.String),
-                                   QgsField("Tool", QVariant.String)])
+                                   QgsField("Tool", QVariant.String),
+                                   QgsField("Magnitude", QVariant.Double)])
             self.outputLyr.updateFields()
             
     def byGradient(self, inputs=()):
@@ -81,7 +83,8 @@ class PipeDirectionTool():
             feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
             feat.setAttributes(['Pipe Direction Changed',
                                 message,
-                                'Pipe Direction: Gradient'])
+                                'Pipe Direction: Gradient',
+                                1.])
             feats.append(feat)
         self.dp.addFeatures(feats)
         self.outputLyr.updateExtents()
@@ -97,7 +100,15 @@ class PipeDirectionTool():
         if not self.tmpLyrs:
             for layer in inputs:
                 if is1dNetwork(layer):
-                    lyr = self.copyLayerToTemp(layer, '{0}_tmp'.format(layer.name()), dataCollector)
+                    lyrnames = [x.name() for _, x in QgsProject.instance().mapLayers().items()]
+                    cnt = 1
+                    tmplyrname = '{0}_PD{1}'.format(layer.name(), cnt)
+                    while tmplyrname in lyrnames:
+                        cnt += 1
+                        tmplyrname = '{0}_PD{1}'.format(layer.name(), cnt)
+                    self.tmplyr2oldlyr[tmplyrname] = layer.name()
+
+                    lyr = self.copyLayerToTemp(layer, tmplyrname, dataCollector)
                     self.tmpLyrs.append(lyr)
                     
         for id in dataCollector.ids:
@@ -134,7 +145,8 @@ class PipeDirectionTool():
             feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(point)))
             feat.setAttributes(['Pipe Direction Changed',
                                 message,
-                                'Pipe Direction: Continuity'])
+                                'Pipe Direction: Continuity',
+                                1.])
             feats.append(feat)
         self.dp.addFeatures(feats)
         self.outputLyr.updateExtents()

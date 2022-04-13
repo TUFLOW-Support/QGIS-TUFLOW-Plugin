@@ -67,14 +67,11 @@ class TuPlotToolbar():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		# if QSettings().contains('/qgis/IconSize'):
-		# 	try:
-		# 		w = QgsApplication.scaleIconSize(int(QSettings().value('/qgis/IconSize')), True)
-		# 	except:
-		# 		w = QgsApplication.scaleIconSize(24, True)
-		# else:
-		# 	w = QgsApplication.scaleIconSize(24, True)
-		w = int(QgsApplication.scaleIconSize(self.tuView.tuOptions.iconSize, True))
+		qv = Qgis.QGIS_VERSION_INT
+
+		w = self.tuView.tuOptions.iconSize
+		if qv >= 31600:
+			w = int(QgsApplication.scaleIconSize(self.tuView.tuOptions.iconSize, True))
 
 		w2 = int(np.ceil(w*1.5))
 		w3 = int(np.ceil(w2 * 6))
@@ -153,15 +150,12 @@ class TuPlotToolbar():
 		"""
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
-		#
-		# if QSettings().contains('/qgis/IconSize'):
-		# 	try:
-		# 		w = QgsApplication.scaleIconSize(int(QSettings().value('/qgis/IconSize')), True)
-		# 	except:
-		# 		w = QgsApplication.scaleIconSize(24, True)
-		# else:
-		# 	w = QgsApplication.scaleIconSize(24, True)
-		w = int(QgsApplication.scaleIconSize(self.tuView.tuOptions.iconSize, True))
+
+		qv = Qgis.QGIS_VERSION_INT
+
+		w = self.tuView.tuOptions.iconSize
+		if qv >= 31600:
+			w = int(QgsApplication.scaleIconSize(self.tuView.tuOptions.iconSize, True))
 
 		w2 = int(np.ceil(w * 1.5))
 		w3 = int(np.ceil(w2 * 6))

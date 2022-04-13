@@ -346,7 +346,7 @@ class Ui_tuflowqgis_import_empty(object):
         self.checkLine.setText(_translate("tuflowqgis_import_empty", "Lines"))
         self.checkRegion.setText(_translate("tuflowqgis_import_empty", "Regions"))
         self.gbSpatialDatabaseOptions.setTitle(_translate("tuflowqgis_import_empty", "Spatial Database Options:"))
-        self.cbConvertToDb.setText(_translate("tuflowqgis_import_empty", "Check if empty files are shp and whish to convert to gpkg"))
+        self.cbConvertToDb.setText(_translate("tuflowqgis_import_empty", "Convert to GPKG"))
         self.rbDatabaseSeparate.setText(_translate("tuflowqgis_import_empty", "Separate"))
         self.rbDatabaseGrouped.setText(_translate("tuflowqgis_import_empty", "Group geometry types"))
         self.rbDatabaseOne.setText(_translate("tuflowqgis_import_empty", "All to one:"))

@@ -26,6 +26,7 @@ class stored():
 		self.base_dir = None
 		self.engine = None
 		self.tutorial = None
+		self.empty_dir = None
 
 class TF_Settings():
 	def __init__(self):
@@ -46,6 +47,7 @@ class TF_Settings():
 			self.global_settings.base_dir = self.settings.value("TUFLOW/dir", "Undefined")
 			self.global_settings.engine = self.settings.value('TUFLOW/engine', None)
 			self.global_settings.tutorial = self.settings.value('TUFLOW/tutorial', None)
+			self.global_settings.empty_dir = self.settings.value('TUFLOW/empty_dir', None)
 		except:
 			error = True
 			message = 'Unable to load global setting'
@@ -66,6 +68,7 @@ class TF_Settings():
 			self.project_settings.base_dir = self.project.readEntry("TUFLOW","dir","Undefined")[0]
 			self.project_settings.engine = self.project.readEntry("TUFLOW", "engine", None)[0]
 			self.project_settings.tutorial = self.project.readEntry("TUFLOW", 'tutorial', '')[0]
+			self.project_settings.empty_dir = self.project.readEntry("TUFLOW", 'empty_dir', '')[0]
 		except:
 			error = True
 			message = 'Unable to load project setting'
@@ -102,6 +105,8 @@ class TF_Settings():
 				self.settings.setValue("TUFLOW/engine", self.global_settings.engine)
 			if self.global_settings.tutorial:
 				self.settings.setValue('TUFLOW/tutorial', self.global_settings.tutorial)
+			if self.global_settings.empty_dir:
+				self.settings.setValue("TUFLOW/empty_dir", self.global_settings.empty_dir)
 		except:
 			error = True
 			message = 'Unable to save global settings'
@@ -122,6 +127,8 @@ class TF_Settings():
 				self.project.writeEntry("TUFLOW", "engine", self.project_settings.engine)
 			if self.project_settings.tutorial:
 				self.project.writeEntry("TUFLOW", 'tutorial', self.project_settings.tutorial)
+			if self.project_settings.empty_dir:
+				self.project.writeEntry("TUFLOW", "empty_dir", self.project_settings.empty_dir)
 		except:
 			error = True
 			message = 'Unable to save project data'
@@ -168,6 +175,13 @@ class TF_Settings():
 			self.combined.tutorial = self.global_settings.tutorial
 		else:
 			self.combined.tutorial = None
+		# empty dir
+		if self.project_settings.empty_dir:
+			self.combined.empty_dir = self.project_settings.empty_dir
+		elif self.global_settings.base_dir:
+			self.combined.empty_dir = self.global_settings.empty_dir
+		else:
+			self.combined.empty_dir = None
 			
 	def get_last_exe(self):
 		error = False

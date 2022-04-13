@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>flowTracePlot</class>
- <widget class="QDialog" name="flowTracePlot">
+ <class>flowTracePlotWidget</class>
+ <widget class="QWidget" name="flowTracePlotWidget">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>963</width>
-    <height>312</height>
+    <width>937</width>
+    <height>338</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,14 +16,7 @@
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <layout class="QGridLayout" name="gridLayout">
-     <item row="0" column="1">
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>Paths</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1">
+     <item row="2" column="1">
       <widget class="QListWidget" name="paths">
        <property name="maximumSize">
         <size>
@@ -36,21 +29,14 @@
        </property>
       </widget>
      </item>
-     <item row="2" column="1">
+     <item row="3" column="1">
       <widget class="QCheckBox" name="cbLabel">
        <property name="text">
         <string>Label Network</string>
        </property>
       </widget>
      </item>
-     <item row="3" column="1">
-      <widget class="QPushButton" name="pbSelectPath">
-       <property name="text">
-        <string>Select Path In Workspace</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="1">
+     <item row="5" column="1">
       <layout class="QHBoxLayout" name="horizontalLayout">
        <item>
         <widget class="QFrame" name="toolbarFrame">
@@ -70,7 +56,31 @@
        </item>
       </layout>
      </item>
-     <item row="0" column="0" rowspan="5">
+     <item row="4" column="1">
+      <widget class="QPushButton" name="pbSelectPath">
+       <property name="text">
+        <string>Select Path In Workspace</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>Paths</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QLabel" name="label_2">
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://wiki.tuflow.com/index.php?title=1D_Integrity_Tool_-_Flow_Trace_-_Long_Plot&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;Documentation&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="openExternalLinks">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0" rowspan="6">
       <layout class="QGridLayout" name="plotLayout"/>
      </item>
     </layout>

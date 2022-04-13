@@ -436,6 +436,7 @@ class TuPlot1D():
 		plotAsPatch = []
 		dataTypes = []
 		pipeNames = []
+		chanNames = {}
 
 		# iterate through all selected results
 		for result in self.tuView.OpenResults.selectedItems():
@@ -521,6 +522,7 @@ class TuPlot1D():
 									labels.append(label)
 									plotAsPoints.append(False)
 									plotAsPatch.append(True)
+									# pipeNames.append(res.LP.chan_ids[:])
 									pipeNames.append(res.LP.chan_list[:])
 							# else normal X, Y data
 							else:
@@ -545,13 +547,15 @@ class TuPlot1D():
 								else:
 									plotAsPoints.append(False)
 								plotAsPatch.append(False)
+								if type == 'Bed Level':
+									chanNames[label] = res.LP.chan_list[:]
 		
 		data = list(zip(xAll, yAll))
 		dataTypes = [TuPlot.DataCrossSection1D] * len(data)
 		if data:
 			self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes,
 			                     plot_as_points=plotAsPoints, plot_as_patch=plotAsPatch, draw=draw,
-			                     pipe_names=pipeNames[:])
+			                     pipe_names=pipeNames, chan_names=chanNames)
 			self.tuPlot.profilePlotFirst = False
 		
 		return True

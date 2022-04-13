@@ -29,3 +29,8 @@ class NETWORK:
     Upstream = 0
     Downstream = 1
     UpstreamUpstream = 2
+
+
+class LongPlotMessages:
+    CollectingBranches = 0
+    Populating = 1

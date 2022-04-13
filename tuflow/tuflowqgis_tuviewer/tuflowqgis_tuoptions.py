@@ -22,6 +22,7 @@ class TuOptions():
 		self.particlesWriteDebugInfo = False
 		self.verticalProfileInterpolated = False
 		self.timeSpec = 1
+
 		if settings.contains("TUFLOW/tuview_defaultlayout"):
 			self.defaultLayout = settings.value('TUFLOW/tuview_defaultlayout')
 		else:
@@ -62,6 +63,14 @@ class TuOptions():
 				self.iconSize = 24
 		else:
 			self.iconSize = 24
+
+		if settings.contains("TUFLOW/tuview_tcf_load_method"):
+			try:
+				self.tcfLoadMethod = settings.value("TUFLOW/tuview_tcf_load_method")
+			except:
+				self.tcfLoadMethod = 'result_selection'
+		else:
+			self.tcfLoadMethod = 'result_selection'
 
 	def saveProject(self, project):
 		project.writeEntry("TUVIEW", "livemaptracking", str(self.liveMapTracking))

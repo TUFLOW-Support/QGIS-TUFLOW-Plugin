@@ -44,7 +44,7 @@ from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuuserplotdata import TuUserPlotDataM
 from tuflow.tuflowqgis_library import (applyMatplotLibArtist, getMean, roundSeconds, convert_datetime_to_float,
                                        generateRandomMatplotColours2, saveMatplotLibArtist,
                                        polyCollectionPathIndexFromXY, regex_dict_val, datetime2timespec,
-                                       convertFormattedTimeToTime, getPolyCollectionData)
+                                       convertFormattedTimeToTime, getPolyCollectionData, mpl_version_int)
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot3d import (TuPlot3D, ColourBar)
 
 
@@ -84,6 +84,7 @@ class TuPlot():
 		self.tuView = TuView
 		self.iface = self.tuView.iface
 		self.canvas = self.tuView.canvas
+		self._creating_background = False
 
 		# Initialise figures
 		# time series
@@ -96,11 +97,14 @@ class TuPlot():
 		                                                       xycoords='data',
 		                                                       # xycoords=self.subplotTimeSeries.transData.transform,
 		                                                       textcoords="offset pixels",
-                                                               bbox=dict(boxstyle="round", fc="w"))
+                                                               bbox=dict(boxstyle="round", fc="w"), xytext=(10., 10.))
 		self.timeSeriesAnnot.set_visible(False)
 		self.timeSeriesHoverPoint = self.subplotTimeSeries.scatter(0, 0, 20, 'red')
 		self.timeSeriesHoverPoint.set_visible(False)
 		self.figTimeSeries.canvas.mpl_connect("motion_notify_event", lambda e: self.hover(e, TuPlot.TimeSeries))
+		self.figTimeSeries.canvas.mpl_connect("draw_event", lambda e: self.onDraw(e, TuPlot.TimeSeries))
+		self.figTimeSeries.canvas.mpl_connect('figure_leave_event', lambda e: self.onLeave(e, TuPlot.TimeSeries))
+		self.timeSeriesBackground = None
 
 		
 		# long plot
@@ -111,12 +115,17 @@ class TuPlot():
 		self.figLongPlot.canvas.mpl_connect('button_press_event', lambda e: self.onclick(e, TuPlot.CrossSection))
 		self.longPlotAnnot = self.subplotLongPlot.annotate("debug", xy=(15, 15), xycoords='data',
 		                                                       textcoords="offset pixels",
-		                                                       bbox=dict(boxstyle="round", fc="w"))
+		                                                       bbox=dict(boxstyle="round", fc="w"), xytext=(10., 10.))
 		self.longPlotAnnot.set_visible(False)
 		self.longPlotHoverPoint = self.subplotLongPlot.scatter(0, 0, 20, 'red')
 		self.longPlotHoverPoint.set_visible(False)
+		self.longPlotHoverLine = None
+		self.longPlotHoverLine2 = None
 		self.figLongPlot.canvas.mpl_connect("motion_notify_event", lambda e: self.hover(e, TuPlot.CrossSection))
 		self.figLongPlot.canvas.mpl_connect("motion_notify_event", self.updateCursorMarker)
+		self.figLongPlot.canvas.mpl_connect("draw_event", lambda e: self.onDraw(e, TuPlot.CrossSection))
+		self.figLongPlot.canvas.mpl_connect('figure_leave_event', lambda e: self.onLeave(e, TuPlot.CrossSection))
+		self.longPlotBackground = None
 
 		# cross section
 		self.layoutCrossSection = self.tuView.CrossSectionFrame.layout()
@@ -127,7 +136,7 @@ class TuPlot():
 		self.crossSectionAnnot = self.subplotCrossSection.annotate("debug", xy=(15, 15),
 		                                                           xycoords='data',
 		                                                           textcoords="offset pixels",
-		                                                           bbox=dict(boxstyle="round", fc="w"))
+		                                                           bbox=dict(boxstyle="round", fc="w"), xytext=(10., 10.))
 		self.crossSectionAnnot.set_visible(False)
 		self.crossSectionHoverPoint = self.subplotCrossSection.scatter(0, 0, 20, 'red')
 		self.crossSectionHoverPoint.set_visible(False)
@@ -141,11 +150,14 @@ class TuPlot():
 		self.figVerticalProfile.canvas.mpl_connect('button_press_event', lambda e: self.onclick(e, TuPlot.VerticalProfile))
 		self.verticalProfileAnnot = self.subplotVerticalProfile.annotate("debug", xy=(15, 15), xycoords='data',
 		                                                           textcoords="offset pixels",
-		                                                           bbox=dict(boxstyle="round", fc="w"))
+		                                                           bbox=dict(boxstyle="round", fc="w"), xytext=(10., 10.))
 		self.verticalProfileAnnot.set_visible(False)
 		self.verticalProfileHoverPoint = self.subplotVerticalProfile.scatter(0, 0, 20, 'red')
 		self.verticalProfileHoverPoint.set_visible(False)
 		self.figVerticalProfile.canvas.mpl_connect("motion_notify_event", lambda e: self.hover(e, TuPlot.VerticalProfile))
+		self.figVerticalProfile.canvas.mpl_connect("draw_event", lambda e: self.onDraw(e, TuPlot.VerticalProfile))
+		self.figVerticalProfile.canvas.mpl_connect('figure_leave_event', lambda e: self.onLeave(e, TuPlot.VerticalProfile))
+		self.verticalProfileBackground = None
 		
 		# Initialise other variables
 		# time series
@@ -425,6 +437,10 @@ class TuPlot():
 			TuPlot.DataVerticalMesh: None,
 		}
 
+		self.timeSeries_labels_about_to_break = 0
+		self.crossSection_labels_about_to_break = 0
+		self.verticalProfile_labels_about_to_break = 0
+
 	def plot2D(self):
 		"""
 		Get plot from 2D results from selection or from map.
@@ -640,6 +656,7 @@ class TuPlot():
 			flowRegimeX = []
 
 			pipeNames = []
+			chanNames = {}
 
 			for dpt in self.plotData:
 				if self.plotDataToPlotType[dpt] == plotNo:
@@ -671,6 +688,10 @@ class TuPlot():
 									plotAsPatch.append(False)
 									plotAsCollection.append(False)
 									plotAsQuiver.append(False)
+									try:
+										chanNames[label] = artist.channel_ids[:]
+									except:
+										pass
 
 									if artist.get_linestyle() == 'None':
 										plotAsPoints.append(True)
@@ -755,7 +776,8 @@ class TuPlot():
 				self.clearPlot2(plotNo, clear_rubberband=False, clear_selection=False ,clear_cursor_marker=False)
 				self.drawPlot(plotNo, data, labels, types, dataTypes, draw=True, plot_as_points=plotAsPoints,
 				              plot_as_patch=plotAsPatch, flow_regime=flowRegime, flow_regime_tied=flowRegimeTied,
-				              plot_as_collection=plotAsCollection, plot_as_quiver=plotAsQuiver, pipe_names=pipeNames)
+				              plot_as_collection=plotAsCollection, plot_as_quiver=plotAsQuiver, pipe_names=pipeNames,
+							  chan_names=chanNames)
 
 	def clearAllPlots(self):
 		"""
@@ -780,6 +802,7 @@ class TuPlot():
 		clearRubberband = kwargs['clear_rubberband'] if 'clear_rubberband' in kwargs else True
 		clearSelection = kwargs['clear_selection'] if 'clear_selection' in kwargs else True
 		clearCursorMarker = kwargs['clear_cursor_marker'] if 'clear_cursor_marker' in kwargs else True
+		draw = kwargs['draw'] if 'draw' in kwargs else True
 
 		# get plot objects
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
@@ -813,7 +836,7 @@ class TuPlot():
 						self.plotData[dpt].remove(line)
 			self.removeColourBar(plotNo)
 			self.removeQuiverKey(plotNo)
-			self.clearPlot(plotNo, clear_rubberband=clearRubberband, clear_selection=clearSelection)
+			self.clearPlot(plotNo, clear_rubberband=clearRubberband, clear_selection=clearSelection, draw=draw)
 			return
 
 		if isSecondaryAxis[0]:
@@ -840,17 +863,35 @@ class TuPlot():
 								self.cursorMarker.removeTracker(label)
 			if not last_only and not clearOnly or i + 1 >= len(self.plotData[clearType]) - remove_no + 1 or line in clearOnly:
 				if artist in subplot.lines:
-					subplot.lines.remove(artist)
+					if mpl_version_int() >= 35000:
+						artist.remove()
+					else:
+						subplot.lines.remove(artist)
 				if subplot2 is not None and artist in subplot2.lines:
-					subplot2.lines.remove(artist)
+					if mpl_version_int() >= 35000:
+						artist.remove()
+					else:
+						subplot2.lines.remove(artist)
 				if artist in subplot.collections:
-					subplot.collections.remove(artist)
+					if mpl_version_int() >= 35000:
+						artist.remove()
+					else:
+						subplot.collections.remove(artist)
 				if subplot2 is not None and artist in subplot2.collections:
-					subplot2.collections.remove(artist)
+					if mpl_version_int() >= 35000:
+						artist.remove()
+					else:
+						subplot2.collections.remove(artist)
 				if artist in subplot.patches:
-					subplot.patches.remove(artist)
+					if mpl_version_int() >= 35000:
+						artist.remove()
+					else:
+						subplot.patches.remove(artist)
 				if subplot2 is not None and artist in subplot2.patches:
-					subplot2.patches.remove(artist)
+					if mpl_version_int() >= 35000:
+						artist.remove()
+					else:
+						subplot2.patches.remove(artist)
 				self.plotData[clearType].remove(line)
 				if clearSelection:
 					self.tuPlotSelection.clearSelection(clearType)
@@ -874,7 +915,10 @@ class TuPlot():
 					artists[1].pop(ind)
 				if artist in subplot.lines:
 					showCurrentTime = True
-					subplot.lines.remove(artist)
+					if mpl_version_int() >= 35000:
+						artist.remove()
+					else:
+						subplot.lines.remove(artist)
 				del line
 			for line in self.plotData[TuPlot.DataTimeSeriesStartLine]:
 				if type(line) is dict:
@@ -890,7 +934,10 @@ class TuPlot():
 					labels[1].pop(ind)
 					artists[1].pop(ind)
 				if artist in subplot.lines:
-					subplot.lines.remove(line)
+					if mpl_version_int() >= 35000:
+						line.remove()
+					else:
+						subplot.lines.remove(line)
 				del line
 		elif plotNo == TuPlot.CrossSection:
 			for line in self.plotData[TuPlot.DataCrossSectionStartLine]:
@@ -907,7 +954,10 @@ class TuPlot():
 					labels[1].pop(ind)
 					artists[1].pop(ind)
 				if artist in subplot.lines:
-					subplot.lines.remove(line)
+					if mpl_version_int() >= 35000:
+						line.remove()
+					else:
+						subplot.lines.remove(line)
 				del line
 		elif plotNo == TuPlot.CrossSection1D:
 			for line in self.plotData[TuPlot.DataCrossSectionStartLine1D]:
@@ -924,7 +974,10 @@ class TuPlot():
 					labels[1].pop(ind)
 					artists[1].pop(ind)
 				if artist in subplot.lines:
-					subplot.lines.remove(line)
+					if mpl_version_int() >= 35000:
+						line.remove()
+					else:
+						subplot.lines.remove(line)
 				del line
 		elif plotNo == TuPlot.VerticalProfile:
 			for line in self.plotData[TuPlot.DataVerticalMesh][:]:
@@ -941,7 +994,10 @@ class TuPlot():
 					labels[1].pop(ind)
 					artists[1].pop(ind)
 				if artist in subplot.lines:
-					subplot.lines.remove(line)
+					if mpl_version_int() >= 35000:
+						line.remove()
+					else:
+						subplot.lines.remove(line)
 				del line
 			for line in self.plotData[TuPlot.DataVerticalProfileStartLine]:
 				if type(line) is dict:
@@ -957,17 +1013,20 @@ class TuPlot():
 					labels[1].pop(ind)
 					artists[1].pop(ind)
 				if artist in subplot.lines:
-					subplot.lines.remove(line)
+					if mpl_version_int() >= 35000:
+						line.remove()
+					else:
+						subplot.lines.remove(line)
 				del line
 
 		self.removeColourBar(plotNo)
 		self.removeQuiverKey(plotNo)
 
 		# self.drawPlot(plotNo, [], [], [], [], refreshOnly=True, draw=True, showCurrentTime=showCurrentTime)
-		if clearType == TuPlot.DataCurrentTime and not showCurrentTime:
+		if clearType == TuPlot.DataCurrentTime and not showCurrentTime and draw:
 			plotWidget.draw()
 		else:
-			self.drawPlot(plotNo, [], [], [], [], draw=True, show_current_time=showCurrentTime)
+			self.drawPlot(plotNo, [], [], [], [], draw=draw, show_current_time=showCurrentTime)
 
 	def addColourBarAxes(self, plotNo, **kwargs):
 
@@ -1082,7 +1141,10 @@ class TuPlot():
 		if self.qk is not None:
 			for ax in figure.axes:
 				if self.qk in ax.artists:
-					ax.artists.remove(self.qk)
+					if mpl_version_int() >= 35000:
+						self.qk.remove()
+					else:
+						ax.artists.remove(self.qk)
 			self.qk = None
 
 	def reSpecPlot(self, plotNo):
@@ -1220,6 +1282,8 @@ class TuPlot():
 		
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.plotEnumerator(plotNo)
+
+		draw = kwargs['draw'] if 'draw' in kwargs else True
 		
 		# get axis limits
 		xLimits = subplot.get_xlim()
@@ -1324,8 +1388,9 @@ class TuPlot():
 			subplot.set_ylabel(yLabel)
 			if isSecondaryAxis[0]:
 				subplot2.set_ylabel(yLabel2)
-		figure.tight_layout()
-		plotWidget.draw()
+		if draw:
+			figure.tight_layout()
+			plotWidget.draw()
 		
 		# Clear markers and rubber bands as well - only really used through view >> clear plot and view >> clear graphics
 		if 'clear_rubberband' in kwargs.keys():
@@ -1368,7 +1433,7 @@ class TuPlot():
 				# little different method because flow extraction takes a lot longer than normal TS extraction
 				data = list(zip(flowKeptXAll, flowKeptYAll))
 				flowKeptTypes = ['2D Flow'] * len(flowKeptLabels)
-				if data:
+				if data and draw:
 					self.drawPlot(0, data, flowKeptLabels, flowKeptTypes)
 				
 		# record axis limits
@@ -1517,7 +1582,10 @@ class TuPlot():
 		if self.plotData[TuPlot.DataCurrentTime]:
 			for line in subplot.lines:
 				if line._label.lower() == 'current time':
-					subplot.lines.remove(line)
+					if mpl_version_int() >= 35000:
+						line.remove()
+					else:
+						subplot.lines.remove(line)
 			if self.plotData[TuPlot.DataCurrentTime]:
 				del self.plotData[TuPlot.DataCurrentTime][0]
 			for lab in labels[0][:]:
@@ -1640,7 +1708,10 @@ class TuPlot():
 		if self.plotData[TuPlot.DataVerticalMesh]:
 			for line in self.plotData[TuPlot.DataVerticalMesh][:]:
 				if line in subplot.lines:
-					subplot.lines.remove(line)
+					if mpl_version_int() >= 35000:
+						line.remove()
+					else:
+						subplot.lines.remove(line)
 					self.plotData[TuPlot.DataVerticalMesh].remove(line)
 				else:
 					self.plotData[TuPlot.DataVerticalMesh].remove(line)
@@ -2060,7 +2131,7 @@ class TuPlot():
 			self.timeSeriesAnnot2 = ax.annotate("debug", xy=(15, 15),
 			                                    xycoords='data',
 			                                    textcoords="offset points",
-			                                    bbox=dict(boxstyle="round", fc="w"))
+			                                    bbox=dict(boxstyle="round", fc="w"), xytext=(10.,10.))
 			self.timeSeriesAnnot2.set_visible(False)
 			self.timeSeriesHoverPoint2 = ax.scatter(0, 0, 20, 'red')
 			self.timeSeriesHoverPoint2.set_visible(False)
@@ -2070,17 +2141,22 @@ class TuPlot():
 			self.longPlotAnnot2 = ax.annotate("debug", xy=(15, 15),
 			                                    xycoords='data',
 			                                    textcoords="offset points",
-			                                    bbox=dict(boxstyle="round", fc="w"))
+			                                    bbox=dict(boxstyle="round", fc="w"), xytext=(10.,10.))
 			self.longPlotAnnot2.set_visible(False)
 			self.longPlotHoverPoint2 = ax.scatter(0, 0, 20, 'red')
 			self.longPlotHoverPoint2.set_visible(False)
+			# self.longPlotHoverLine2, = ax.plot([0, 0], [0, 0], color='red', linewidth=2)
+			if self.longPlotHoverLine2 is not None:
+				self.longPlotHoverLine2.remove()
+				self.longPlotHoverLine2 = None
+			self.longPlotHoverLine2 = None
 			return
 
 		if plotNo == TuPlot.VerticalProfile:
 			self.verticalProfileAnnot2 = ax.annotate("debug", xy=(15, 15),
 			                                    xycoords='data',
 			                                    textcoords="offset points",
-			                                    bbox=dict(boxstyle="round", fc="w"))
+			                                    bbox=dict(boxstyle="round", fc="w"), xytext=(10.,10.))
 			self.verticalProfileAnnot2.set_visible(False)
 			self.verticalProfileHoverPoint2 = ax.scatter(0, 0, 20, 'red')
 			self.verticalProfileHoverPoint2.set_visible(False)
@@ -2243,6 +2319,7 @@ class TuPlot():
 		plotVertMesh = kwargs['plot_vert_mesh'] if 'plot_vert_mesh' in kwargs else [False] * len(data)
 		geom = kwargs['geom'] if 'geom' in kwargs else None
 		pipeNames = kwargs['pipe_names'] if 'pipe_names' in kwargs else []
+		chanNames = kwargs['chan_names'] if 'chan_names' in kwargs else {}
 
 		flowRegimeTiedMult = 0.1
 
@@ -2282,6 +2359,7 @@ class TuPlot():
 		if not refreshOnly:  # only if it's not refresh only
 			if data:
 				nPipe = -1  # used for culvert/pipe id labelling on the plot
+				nChan = -1
 			for i in range(len(data)):
 				# determine which axis it belongs on
 				rtype = types[i]
@@ -2340,6 +2418,8 @@ class TuPlot():
 					if plotAsPatch is None or not plotAsPatch[i]:  # normal X, Y data
 						if plotAsPoints is None or not plotAsPoints[i]:  # plot as line
 							a, = subplot.plot(x, y, label=label[i], color=colour)
+							if chanNames and label[i] in chanNames:
+								a.channel_ids = chanNames[label[i]][:]
 							applyMatplotLibArtist(a, artistTemplates[i])
 							self.plotData[dataTypes[i]].append({a: types[i]})
 							if geom is not None:
@@ -2416,6 +2496,8 @@ class TuPlot():
 					if plotAsPatch is None or not plotAsPatch[i]:  # normal X, Y data
 						if plotAsPoints is None or not plotAsPoints[i]:
 							a, = subplot2.plot(x, y, marker='x', label=label[i], color=colour)
+							if chanNames and label[i] in chanNames:
+								a.channel_ids = chanNames[label[i]][:]
 							applyMatplotLibArtist(a, artistTemplates[i])
 							self.plotData[dataTypes[i]].append({a: types[i]})
 							if geom is not None:
@@ -2682,7 +2764,8 @@ class TuPlot():
 			#subplot.relim()
 			#if isSecondaryAxis[0]:
 			#	subplot2.relim()
-			figure.tight_layout()
+			if draw:
+				figure.tight_layout()
 			skipDraw = False
 		except ValueError:  # something has gone wrong and trying to plot time (hrs) on a date formatted x axis
 			skipDraw = True
@@ -2879,7 +2962,7 @@ class TuPlot():
 		# if not plot:
 		# 	self.clearPlot(1)
 		# 	#self.clearedLongPlot = False
-		self.clearPlot2(TuPlot.CrossSection, clear_rubberband=False, clear_selection=False)
+		self.clearPlot2(TuPlot.CrossSection, clear_rubberband=False, clear_selection=False, draw=False)
 		
 		if plot.lower() != '1d only':
 			multi = False  # do labels need to be counted up e.g. line 1, line 2
@@ -2943,9 +3026,9 @@ class TuPlot():
 							feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in geom]))
 						# if i == 0:
 						self.tuPlot3D.plotCrossSectionFromMap(None, feat, bypass=multi, draw=draw,
-						                                      time=time, mesh_rendered=meshRendered,
-						                                      plot_active_scalar=plotActiveScalar, lineNo=i + 1,
-						                                      data_type=TuPlot.DataCrossSectionDepAv)
+															  time=time, mesh_rendered=meshRendered,
+															  plot_active_scalar=plotActiveScalar, lineNo=i + 1,
+															  data_type=TuPlot.DataCrossSectionDepAv)
 				# else:
 				# 	self.tuPlot2D.plotCrossSectionFromMap(None, feat, bypass=True, plot='2D Only', draw=draw,
 				# 	                                      time=time, mesh_rendered=meshRendered,
@@ -2960,9 +3043,9 @@ class TuPlot():
 					featName = None
 
 				self.tuPlot3D.plotCrossSectionFromMap(None, feat, bypass=multi, draw=draw,
-				                                      time=time, mesh_rendered=meshRendered,
-				                                      plot_active_scalar=plotActiveScalar, featName=featName,
-				                                      data_type=TuPlot.DataCrossSectionDepAv)
+													  time=time, mesh_rendered=meshRendered,
+													  plot_active_scalar=plotActiveScalar, featName=featName,
+													  data_type=TuPlot.DataCrossSectionDepAv)
 
 			if self.tuPlot3D.multiLineSelectCount > 1:
 				self.tuPlot3D.reduceMultiLineCount(1)
@@ -2987,9 +3070,9 @@ class TuPlot():
 							feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in geom]))
 						# if i == 0:
 						self.tuPlot3D.plotCurtainFromMap(None, feat, bypass=multi, draw=draw,
-						                                 time=time,
-						                                 plot_active_scalar=plotActiveScalar, lineNo=i+1,
-						                                 update=True)
+														 time=time,
+														 plot_active_scalar=plotActiveScalar, lineNo=i+1,
+														 update=True)
 			for feat in self.tuPlot3D.plotSelectionCurtainFeat:
 				iFeatName = self.tuView.tuOptions.iLabelField
 				if len(feat.attributes()) > iFeatName:
@@ -3213,8 +3296,9 @@ class TuPlot():
 					if '{0}__curtain_plot__'.format(label) in self.frozenLPProperties:
 						label = self.frozenLPProperties['{0}__curtain_plot__'.format(label)][0]
 					col_bar.ax.set_xlabel(label)
+					col_bar.ax.get_xaxis().set_visible(True)
 					l.set_label(label)
-					plotWidget.draw()
+					# plotWidget.draw()
 				else:
 					self.removeColourBar(plotNo)
 			elif type(l) is Quiver:
@@ -3259,8 +3343,8 @@ class TuPlot():
 						self.reSpecPlot(plotNo)
 			else:
 				subplot.legend(linesCopy, labCopy, loc=legendPos, ncol=ncol, fontsize=fontsize)
-			if redraw:
-				plotWidget.draw()
+			# if redraw:
+			# 	plotWidget.draw()
 		
 		return True
 
@@ -3327,13 +3411,13 @@ class TuPlot():
 				lab = label
 
 			if plotNo == TuPlot.TimeSeries:
-				self.frozenTSProperties[lab] = [labs[i], lines[i]]
+				self.frozenTSProperties[lab] = [labs[i], saveMatplotLibArtist(lines[i])]
 			elif plotNo == TuPlot.CrossSection:
 				self.frozenLPProperties[lab] = [labs[i], saveMatplotLibArtist(lines[i])]
 			elif plotNo == TuPlot.CrossSection1D:
-				self.frozenCSProperties[lab] = [labs[i], lines[i]]
+				self.frozenCSProperties[lab] = [labs[i], saveMatplotLibArtist(lines[i])]
 			elif plotNo == TuPlot.VerticalProfile:
-				self.frozenVPProperties[lab] = [labs[i], lines[i]]
+				self.frozenVPProperties[lab] = [labs[i], saveMatplotLibArtist(lines[i])]
 		if isSecondaryAxis[0]:
 			for i, label in enumerate(labels[1]):
 				label = label.split('[')[0].strip()  # remove any time values in the label e.g. 'water level [01:00:00]'
@@ -3893,8 +3977,8 @@ class TuPlot():
 					ymin = min(min(a.get_ydata()), ymin)
 					ymax = max(max(a.get_ydata()), ymax)
 
-		subplot.set_xlim([xmin, xmax])
-		subplot.set_ylim([ymin, ymax])
+			subplot.set_xlim([xmin, xmax])
+			subplot.set_ylim([ymin, ymax])
 
 		# add margins based on screen whitespace
 		if x_updated:
@@ -3922,7 +4006,7 @@ class TuPlot():
 		if axisNo == 1:
 			if plotNo == TuPlot.TimeSeries:
 				if len(subplot.texts) > 1:
-					[subplot.text.pop(i) for i in range(len(subplot.texts)) if i > 0]
+					[subplot.texts.pop(i) for i in range(len(subplot.texts)) if i > 0]
 				if len(subplot.texts) == 1:
 					del self.timeSeriesAnnot
 					self.timeSeriesAnnot = subplot.texts[0]
@@ -3930,7 +4014,7 @@ class TuPlot():
 					del self.timeSeriesAnnot
 					self.timeSeriesAnnot = subplot.annotate("debug", xy=(15, 15), xycoords='data',
 					                                         textcoords="offset pixels",
-					                                         bbox=dict(boxstyle="round", fc="w"))
+					                                         bbox=dict(boxstyle="round", fc="w"), xytext=(10.,10.))
 					self.timeSeriesAnnot.set_visible(False)
 
 				found = False
@@ -3941,7 +4025,10 @@ class TuPlot():
 						found = True
 						continue
 					if isinstance(collection, PathCollection) and found:
-						subplot.collections.remove(collection)
+						if mpl_version_int() >= 35000:
+							collection.remove()
+						else:
+							subplot.collections.remove(collection)
 
 				if not found:
 					del self.timeSeriesHoverPoint
@@ -3952,7 +4039,7 @@ class TuPlot():
 					self.timeSeriesHoverPoint = subplot.scatter(x, y, 20, 'red')
 					self.timeSeriesHoverPoint.set_visible(False)
 
-				return self.timeSeriesAnnot, self.timeSeriesHoverPoint
+				return self.timeSeriesAnnot, self.timeSeriesHoverPoint, None
 
 			if plotNo == TuPlot.CrossSection:
 				if len(subplot.texts) > 1:
@@ -3964,7 +4051,7 @@ class TuPlot():
 					del self.longPlotAnnot
 					self.longPlotAnnot = subplot.annotate("debug", xy=(15, 15), xycoords='data',
 					                                      textcoords="offset pixels",
-					                                      bbox=dict(boxstyle="round", fc="w"))
+					                                      bbox=dict(boxstyle="round", fc="w"), xytext=(10.,10.))
 					self.longPlotAnnot.set_visible(False)
 
 				found = False
@@ -3975,7 +4062,10 @@ class TuPlot():
 						found = True
 						continue
 					if isinstance(collection, PathCollection) and found:
-						subplot.collections.remove(collection)
+						if mpl_version_int() >= 35000:
+							collection.remove()
+						else:
+							subplot.collections.remove(collection)
 
 				if not found:
 					del self.longPlotHoverPoint
@@ -3986,11 +4076,21 @@ class TuPlot():
 					self.longPlotHoverPoint = subplot.scatter(x, y, 20, 'red')
 					self.longPlotHoverPoint.set_visible(False)
 
-				return self.longPlotAnnot, self.longPlotHoverPoint
+				if self.longPlotHoverLine is not None:
+					self.longPlotHoverLine.remove()
+					self.longPlotHoverLine = None
+				xmin, xmax = subplot.get_xlim()
+				x = (xmin + xmax) / 2.
+				ymin, ymax = subplot.get_ylim()
+				y = (ymin + ymax) / 2.
+				self.longPlotHoverLine, = subplot.plot([x, x], [y, y], color='red', linewidth=2)
+				self.longPlotHoverLine.set_visible(False)
+
+				return self.longPlotAnnot, self.longPlotHoverPoint, self.longPlotHoverLine
 
 			if plotNo == TuPlot.CrossSection1D:
 				if len(subplot.texts) > 1:
-					[subplot.text.pop(i) for i in range(len(subplot.texts)) if i > 0]
+					[subplot.texts.pop(i) for i in range(len(subplot.texts)) if i > 0]
 				if len(subplot.texts) == 1:
 					del self.crossSectionAnnot
 					self.crossSectionAnnot = subplot.texts[0]
@@ -3998,7 +4098,7 @@ class TuPlot():
 					del self.crossSectionAnnot
 					self.crossSectionAnnot = subplot.annotate("debug", xy=(15, 15), xycoords='data',
 					                                          textcoords="offset pixels",
-					                                          bbox=dict(boxstyle="round", fc="w"))
+					                                          bbox=dict(boxstyle="round", fc="w"), xytext=(10.,10.))
 					self.crossSectionAnnot.set_visible(False)
 
 				found = False
@@ -4009,7 +4109,10 @@ class TuPlot():
 						found = True
 						continue
 					if isinstance(collection, PathCollection) and found:
-						subplot.collections.remove(collection)
+						if mpl_version_int() >= 35000:
+							collection.remove()
+						else:
+							subplot.collections.remove(collection)
 
 				if not found:
 					del self.crossSectionHoverPoint
@@ -4020,11 +4123,11 @@ class TuPlot():
 					self.crossSectionHoverPoint = subplot.scatter(x, y, 20, 'red')
 					self.crossSectionHoverPoint.set_visible(False)
 
-				return self.crossSectionAnnot, self.crossSectionHoverPoint
+				return self.crossSectionAnnot, self.crossSectionHoverPoint, None
 
 			if plotNo == TuPlot.VerticalProfile:
 				if len(subplot.texts) > 1:
-					[subplot.text.pop(i) for i in range(len(subplot.texts)) if i > 0]
+					[subplot.texts.pop(i) for i in range(len(subplot.texts)) if i > 0]
 				if len(subplot.texts) == 1:
 					del self.verticalProfileAnnot
 					self.verticalProfileAnnot = subplot.texts[0]
@@ -4032,7 +4135,7 @@ class TuPlot():
 					del self.verticalProfileAnnot
 					self.verticalProfileAnnot = subplot.annotate("debug", xy=(15, 15), xycoords='data',
 					                                          textcoords="offset pixels",
-					                                          bbox=dict(boxstyle="round", fc="w"))
+					                                          bbox=dict(boxstyle="round", fc="w"), xytext=(10.,10.))
 					self.verticalProfileAnnot.set_visible(False)
 
 				found = False
@@ -4043,7 +4146,10 @@ class TuPlot():
 						found = True
 						continue
 					if isinstance(collection, PathCollection) and found:
-						subplot.collections.remove(collection)
+						if mpl_version_int() >= 35000:
+							collection.remove()
+						else:
+							subplot.collections.remove(collection)
 
 				if not found:
 					del self.verticalProfileHoverPoint
@@ -4054,7 +4160,7 @@ class TuPlot():
 					self.verticalProfileHoverPoint = subplot.scatter(x, y, 20, 'red')
 					self.verticalProfileHoverPoint.set_visible(False)
 
-				return self.verticalProfileAnnot, self.verticalProfileHoverPoint
+				return self.verticalProfileAnnot, self.verticalProfileHoverPoint, None
 		elif axisNo == 2:
 			subplot2 = self.getSecondaryAxis(plotNo, create=False)
 			if subplot2 is None:
@@ -4062,7 +4168,7 @@ class TuPlot():
 
 			if plotNo == TuPlot.TimeSeries:
 				if len(subplot2.texts) > 1:
-					[subplot2.text.pop(i) for i in range(len(subplot2.texts)) if i > 0]
+					[subplot2.texts.pop(i) for i in range(len(subplot2.texts)) if i > 0]
 				if len(subplot2.texts) == 1:
 					del self.timeSeriesAnnot2
 					self.timeSeriesAnnot2 = subplot2.texts[0]
@@ -4070,7 +4176,7 @@ class TuPlot():
 					del self.timeSeriesAnnot2
 					self.timeSeriesAnnot2 = subplot2.annotate("debug", xy=(15, 15), xycoords='data',
 					                                          textcoords="offset pixels",
-					                                          bbox=dict(boxstyle="round", fc="w"))
+					                                          bbox=dict(boxstyle="round", fc="w"), xytext=(10.,10.))
 					self.timeSeriesAnnot2.set_visible(False)
 
 				found = False
@@ -4081,7 +4187,10 @@ class TuPlot():
 						found = True
 						continue
 					if isinstance(collection, PathCollection) and found:
-						subplot2.collections.remove(collection)
+						if mpl_version_int() >= 35000:
+							collection.remove()
+						else:
+							subplot2.collections.remove(collection)
 
 				if not found:
 					del self.timeSeriesHoverPoint2
@@ -4092,11 +4201,11 @@ class TuPlot():
 					self.timeSeriesHoverPoint2 = subplot2.scatter(x, y, 20, 'red')
 					self.timeSeriesHoverPoint2.set_visible(False)
 
-				return self.timeSeriesAnnot2, self.timeSeriesHoverPoint2
+				return self.timeSeriesAnnot2, self.timeSeriesHoverPoint2, None
 
 			if plotNo == TuPlot.CrossSection:
 				if len(subplot2.texts) > 1:
-					[subplot2.text.pop(i) for i in range(len(subplot2.texts)) if i > 0]
+					[subplot2.texts.pop(i) for i in range(len(subplot2.texts)) if i > 0]
 				if len(subplot2.texts) == 1:
 					del self.longPlotAnnot2
 					self.longPlotAnnot2 = subplot2.texts[0]
@@ -4104,7 +4213,7 @@ class TuPlot():
 					del self.longPlotAnnot2
 					self.longPlotAnnot2 = subplot2.annotate("debug", xy=(15, 15), xycoords='data',
 					                                        textcoords="offset pixels",
-					                                        bbox=dict(boxstyle="round", fc="w"))
+					                                        bbox=dict(boxstyle="round", fc="w"), xytext=(10.,10.))
 					self.longPlotAnnot2.set_visible(False)
 
 				found = False
@@ -4115,7 +4224,10 @@ class TuPlot():
 						found = True
 						continue
 					if isinstance(collection, PathCollection) and found:
-						subplot2.collections.remove(collection)
+						if mpl_version_int() >= 35000:
+							collection.remove()
+						else:
+							subplot2.collections.remove(collection)
 
 				if not found:
 					del self.longPlotHoverPoint2
@@ -4126,11 +4238,21 @@ class TuPlot():
 					self.longPlotHoverPoint2 = subplot2.scatter(x, y, 20, 'red')
 					self.longPlotHoverPoint2.set_visible(False)
 
-				return self.longPlotAnnot2, self.longPlotHoverPoint2
+				if self.longPlotHoverLine2 is not None:
+					self.longPlotHoverLine2.remove()
+					self.longPlotHoverLine2 = None
+				xmin, xmax = subplot2.get_xlim()
+				x = (xmin + xmax) / 2.
+				ymin, ymax = subplot2.get_ylim()
+				y = (ymin + ymax) / 2.
+				self.longPlotHoverLine2, = subplot2.plot([x, x], [y, y], color='red', linewidth=2)
+				self.longPlotHoverLine2.set_visible(False)
+
+				return self.longPlotAnnot2, self.longPlotHoverPoint2, self.longPlotHoverLine2
 
 			if plotNo == TuPlot.VerticalProfile:
 				if len(subplot2.texts) > 1:
-					[subplot2.text.pop(i) for i in range(len(subplot2.texts)) if i > 0]
+					[subplot2.texts.pop(i) for i in range(len(subplot2.texts)) if i > 0]
 				if len(subplot2.texts) == 1:
 					del self.verticalProfileAnnot2
 					self.verticalProfileAnnot2 = subplot2.texts[0]
@@ -4138,7 +4260,7 @@ class TuPlot():
 					del self.verticalProfileAnnot2
 					self.verticalProfileAnnot2 = subplot2.annotate("debug", xy=(15, 15), xycoords='data',
 					                                          textcoords="offset pixels",
-					                                          bbox=dict(boxstyle="round", fc="w"))
+					                                          bbox=dict(boxstyle="round", fc="w"), xytext=(10.,10.))
 					self.verticalProfileAnnot2.set_visible(False)
 
 				found = False
@@ -4149,7 +4271,10 @@ class TuPlot():
 						found = True
 						continue
 					if isinstance(collection, PathCollection) and found:
-						subplot2.collections.remove(collection)
+						if mpl_version_int() >= 35000:
+							collection.remove()
+						else:
+							subplot2.collections.remove(collection)
 
 				if not found:
 					del self.verticalProfileHoverPoint2
@@ -4160,7 +4285,7 @@ class TuPlot():
 					self.verticalProfileHoverPoint2 = subplot2.scatter(x, y, 20, 'red')
 					self.verticalProfileHoverPoint2.set_visible(False)
 
-				return self.verticalProfileAnnot2, self.verticalProfileHoverPoint2
+				return self.verticalProfileAnnot2, self.verticalProfileHoverPoint2, None
 
 
 	def indata(self, artist, a, ax, ax_event, event):
@@ -4169,8 +4294,14 @@ class TuPlot():
 		if isinstance(artist, PolyCollection):
 			contains, _ = artist.contains(event)
 			return contains
-		trans = ax.transData.transform
-		trans_event = ax_event.transData.transform
+		try:
+			trans = ax.transData.transform
+		except:
+			return []
+		try:
+			trans_event = ax_event.transData.transform
+		except:
+			return []
 		if isinstance(artist, plt.Line2D):
 			d = list(zip(*artist.get_data()))
 			if artist.get_xdata().any():
@@ -4190,8 +4321,14 @@ class TuPlot():
 	def closest_point(self, artist, a, ax, ax_event, point_xy_ = None, dist_ = None):
 		if ax is None or ax_event is None:
 			return None
-		trans = ax.transData.transform
-		trans_event = ax_event.transData.transform
+		try:
+			trans = ax.transData.transform
+		except:
+			return None
+		try:
+			trans_event = ax_event.transData.transform
+		except:
+			return None
 		if isinstance(artist, plt.Line2D):
 			d = list(zip(*artist.get_data()))
 			if artist.get_xdata().any():
@@ -4225,11 +4362,18 @@ class TuPlot():
 
 		return None
 
-	def update_annotation(self, pos_xy, annotation, point, artist, ax, fig, event, dist):
+	def update_annotation(self, pos_xy, annotation, point, artist, ax, fig, event, dist, line=None, ind=None, line_data=None):
+		b = True
 		if pos_xy is None:
-			return
-		trans = ax.transData.transform
-		transInv = ax.transData.inverted().transform
+			return False
+		try:
+			trans = ax.transData.transform
+		except:
+			return False
+		try:
+			transInv = ax.transData.inverted().transform
+		except:
+			return False
 		annotation.xy = pos_xy
 		point.set_zorder(100)
 		if isinstance(artist, plt.Line2D):
@@ -4240,6 +4384,14 @@ class TuPlot():
 				point.set_offsets([pos_xy])
 				text = '{0:.3f}'.format(pos_xy[0])
 			text = '{0}, {1:.3f}'.format(text, pos_xy[-1])
+			if line is not None and ind is not None and line_data is not None:
+				try:
+					line.set_data(line_data)
+					text = artist.channel_ids[ind]
+				except:
+					text = ''
+					b = False
+
 			if isinstance(artist, plt.Line2D):
 				annotation.get_bbox_patch().set_facecolor(artist.get_color())
 			elif isinstance(artist, Polygon):
@@ -4263,7 +4415,7 @@ class TuPlot():
 				text = '{0:.3f}, {1:.3f}'.format(*pos_xy[0:2])
 			annotation.get_bbox_patch().set_facecolor('0.9')
 		else:
-			return
+			return False
 
 		annotation.set_text(text)
 		annotation.get_bbox_patch().set_alpha(0.3)
@@ -4272,30 +4424,34 @@ class TuPlot():
 		annotation.set_visible(True)
 		annotation.draw(fig.canvas.renderer)
 		xy = annotation.xy
+		padw = annotation.get_bbox_patch()._bbox_transmuter.pad * annotation.get_bbox_patch().get_width() * 2
+		padh = annotation.get_bbox_patch()._bbox_transmuter.pad * annotation.get_bbox_patch().get_height() * 2
 		if isinstance(xy[0], datetime):
 			xy = (date2num(xy[0]), xy[1])
-		if trans(xy)[0] + annotation.get_bbox_patch().get_width() + 15 > fig.bbox.width:
+		if trans(xy)[0] + annotation.get_bbox_patch().get_width() + padw + padw + 5 > ax.bbox.p1[0]:
 			annotation.xyann = (-annotation.get_bbox_patch().get_width() - 7, annotation.xyann[1])
-		if trans(xy)[1] + annotation.get_bbox_patch().get_height() + 15 > fig.bbox.height:
+		if trans(xy)[1] + annotation.get_bbox_patch().get_height() + padh + 5 > ax.bbox.p1[1]:
 			annotation.xyann = (annotation.xyann[0], -annotation.get_bbox_patch().get_height() - 7)
 		annotation.set_visible(vis)
+
+		return b
 
 	def hover(self, event, plotNo):
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.plotEnumerator(plotNo)
 		xlim = subplot.get_xlim()
 		ylim = subplot.get_ylim()
-		annotation, point = self.getAnnotation(plotNo, 1)
+		annotation, point, line = self.getAnnotation(plotNo, 1)
 		subplot.set_xlim(xlim)
 		subplot.set_ylim(ylim)
 
 		subplot2 = self.getSecondaryAxis(plotNo, create=False)
-		annotation2, point2 = None, None
+		annotation2, point2, line2 = None, None, None
 		xlim2, ylim2 = None, None
 		if subplot2:
 			xlim2 = subplot2.get_xlim()
 			ylim2 = subplot2.get_ylim()
-			annotation2, point2 = self.getAnnotation(plotNo, 2)
+			annotation2, point2, line2 = self.getAnnotation(plotNo, 2)
 			subplot2.set_xlim(xlim2)
 			subplot2.set_ylim(ylim2)
 
@@ -4315,12 +4471,16 @@ class TuPlot():
 						p = point
 						annot_off = annotation2
 						p_off = point2
+						l = line
+						l_off = line2
 					elif artist.axes == subplot2 and subplot2 is not None:
 						ax = subplot2
 						annot = annotation2
 						p = point2
 						annot_off = annotation
 						p_off = point
+						l = line2
+						l_off = line
 					else:
 						continue
 					if self.indata(artist, [event.xdata, event.ydata], ax, ax_event, event):
@@ -4328,19 +4488,25 @@ class TuPlot():
 						if type(artist) == PolyCollection:
 							closest_point = (event.xdata, event.ydata)
 							if artist.axes != ax_event:
-								closest_point = ax_event.transData.transform(closest_point)
-								closest_point = subplot.transData.inverted().transform(closest_point)
+								try:
+									closest_point = ax_event.transData.transform(closest_point)
+									closest_point = subplot.transData.inverted().transform(closest_point)
+								except:
+									continue
 							dist = 5
 						else:
 							closest_point, dist = None, None
 							if type(artist) == Polygon or type(artist) == TuflowPipe:
 								closest_point = (event.xdata, event.ydata)
 								if artist.axes != ax_event:
-									closest_point = ax_event.transData.transform(closest_point)
-									closest_point = subplot.transData.inverted().transform(closest_point)
+									try:
+										closest_point = ax_event.transData.transform(closest_point)
+										closest_point = subplot.transData.inverted().transform(closest_point)
+									except:
+										continue
 								dist = 5
 							closest_point, dist = self.closest_point(artist, [event.xdata, event.ydata], ax, ax_event, closest_point, dist)
-						self.update_annotation(closest_point, annot, p, artist, ax, figure, event, dist)
+						self.update_annotation(closest_point, annot, p, artist, ax_event, figure, event, dist)
 						annot.set_visible(True)
 						if type(artist) == PolyCollection:
 							p.set_visible(False)
@@ -4350,15 +4516,72 @@ class TuPlot():
 							p.set_visible(True)
 						if ax.texts:
 							figure.texts.append(ax.texts.pop())
+							if annot.axes is None:
+								annot.axes = ax
+							if annot.figure is None:
+								annot.figure = figure
 						if annot_off is not None:
 							annot_off.set_visible(False)
 						if p_off is not None:
 							p_off.set_visible(False)
+						if l is not None:
+							l.set_visible(False)
+						if l_off is not None:
+							l_off.set_visible(False)
 
-						figure.canvas.draw_idle()
+						self._blitted_draw(plotNo, annot, annot_off, p, p_off, l, l_off)
 
 						if dist < 3:
 							return
+
+					elif isinstance(artist, plt.Line2D):
+						contains, d = artist.contains(event)
+						if not contains or not line:
+							continue
+
+						found = True
+						dist = 5
+
+						xdata, ydata = [np.reshape(x, (x.shape[0], 1)) for x in artist.get_data()]
+						data_ = np.append(xdata, ydata, axis=1)
+						data_ = data_[data_[:, 0].argsort()]
+
+						j2 = min(np.searchsorted(data_[:, 0], event.xdata), data_.shape[0] - 1)
+						if j2 % 2 == 0:
+							j2 -= 1
+						j1 = j2 - 1
+
+						xy_ = np.transpose(data_[j2-1:j2 + 1, :])
+
+						if j2 % 2 == 0:
+							j2 -= 1
+						label_i = int(j2 / 2)
+
+						closest_point = ax_event.transData.transform((event.xdata, event.ydata))
+						closest_point = ax.transData.inverted().transform(closest_point)
+
+						b = self.update_annotation(closest_point, annot, p, artist, ax, figure, event, dist, l, label_i, xy_)
+						if l is not None:
+							l.set_visible(b)
+						if l_off is not None:
+							l_off.set_visible(False)
+						annot.set_visible(True)
+						if ax.texts:
+							figure.texts.append(ax.texts.pop())
+							if annot.axes is None:
+								annot.axes = ax
+							if annot.figure is None:
+								annot.figure = figure
+						if annot_off is not None:
+							annot_off.set_visible(False)
+						if p_off is not None:
+							p_off.set_visible(False)
+						if l_off is not None:
+							l_off.set_visible(False)
+						if p is not None:
+							p.set_visible(False)
+
+						self._blitted_draw(plotNo, annot, annot_off, p, p_off, l, l_off)
 
 		if not found:
 			annotation.set_visible(False)
@@ -4367,8 +4590,87 @@ class TuPlot():
 				annotation2.set_visible(False)
 			if point2 is not None:
 				point2.set_visible(False)
+			if line is not None:
+				line.set_visible(False)
+			if line2 is not None:
+				line2.set_visible(False)
 
-			figure.canvas.draw_idle()
+			self._blitted_draw(plotNo, annotation, annotation2, point, point2, line, line2)
+
+	def onDraw(self, e, plotNo):
+		self._create_new_background(plotNo)
+
+	def onLeave(self, e, plotNo):
+		figure = self.plotEnumerator(plotNo)[1]
+		self.hover_set_visible(plotNo, False)
+		figure.canvas.draw()
+
+	def _create_new_background(self, plotNo):
+		if self._creating_background:
+			return
+
+		self._creating_background = True
+
+		figure, subplot = self.plotEnumerator(plotNo)[1:3]
+
+		figure.canvas.draw()
+		background = figure.canvas.copy_from_bbox(subplot.bbox)
+		self._creating_background = False
+
+		if plotNo == TuPlot.TimeSeries:
+			self.timeSeriesBackground = background
+		elif plotNo == TuPlot.CrossSection:
+			self.longPlotBackground = background
+		elif plotNo == TuPlot.VerticalProfile:
+			self.verticalProfileBackground = background
+
+	def hover_set_visible(self, plotNo, b):
+		annotation, point, line = self.getAnnotation(plotNo, 1)
+		subplot2 = self.getSecondaryAxis(plotNo, create=False)
+		annotation2, point2, line2 = None, None, None
+		if subplot2:
+			annotation2, point2, line2 = self.getAnnotation(plotNo, 2)
+
+		if annotation is not None:
+			annotation.set_visible(b)
+		if annotation2 is not None:
+			annotation2.set_visible(b)
+		if point is not None:
+			point.set_visible(b)
+		if point2 is not None:
+			point2.set_visible(b)
+		if line is not None:
+			line.set_visible(b)
+		if line2 is not None:
+			line2.set_visible(b)
+
+	def _blitted_draw(self, plotNo, annot1, annot2, point1, point2, line1=None, line2=None):
+		if plotNo == TuPlot.TimeSeries:
+			background = self.timeSeriesBackground
+		elif plotNo == TuPlot.CrossSection:
+			background = self.longPlotBackground
+		elif plotNo == TuPlot.VerticalProfile:
+			background = self.verticalProfileBackground
+		else:
+			return
+
+		if background is None:
+			self._create_new_background(plotNo)
+
+		figure, subplot = self.plotEnumerator(plotNo)[1:3]
+
+		figure.canvas.restore_region(background)
+		if annot1 is not None:
+			subplot.draw_artist(annot1)
+		if annot2 is not None:
+			subplot.draw_artist(annot2)
+		if point1 is not None:
+			subplot.draw_artist(point1)
+		if point2 is not None:
+			subplot.draw_artist(point2)
+		if line1 is not None:
+			subplot.draw_artist(line1)
+		figure.canvas.blit(subplot.bbox)
 
 	def updateCursorMarker(self, event):
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists_, labels_, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
@@ -4397,6 +4699,28 @@ class TuPlot():
 					self.cursorMarker.updateTracker(label, event.xdata)
 		else:
 			self.cursorMarker.setVisible(False)
+
+	def labels_about_to_break(self, plotNo):
+		labels_about_to_break = [self.timeSeries_labels_about_to_break, self.crossSection_labels_about_to_break,
+								 None, self.verticalProfile_labels_about_to_break]
+
+		if plotNo + 1 > len(labels_about_to_break):
+			return
+
+		return labels_about_to_break[plotNo]
+
+	def set_labels_about_to_break(self, plotNo, value):
+		if plotNo == 0:
+			self.timeSeries_labels_about_to_break = value
+		elif plotNo == 1:
+			self.crossSection_labels_about_to_break = value
+		elif plotNo == 3:
+			self.verticalProfile_labels_about_to_break = value
+
+	def clear_labels_are_about_to_break(self):
+		self.timeSeries_labels_about_to_break = 0
+		self.crossSection_labels_about_to_break = 0
+		self.verticalProfile_labels_about_to_break = 0
 
 
 class TuflowPipe(Polygon):

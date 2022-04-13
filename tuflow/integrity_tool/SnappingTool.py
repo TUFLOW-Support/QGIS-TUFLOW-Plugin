@@ -1,3 +1,4 @@
+import re
 from qgis.core import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -22,6 +23,7 @@ class SnappingTool:
         self.outputLyr = outputLyr
         self.cutoffLimit = exclRadius  # limit to consider pipe vertex is most upstream or downstream
         self.tmpLyrs = []
+        self.tmplyr2oldlyr = {}
 
         if outputLyr is None or not outputLyr.isValid():
             if self.iface is not None:
@@ -33,7 +35,8 @@ class SnappingTool:
             self.dp = self.outputLyr.dataProvider()
             self.dp.addAttributes([QgsField('Warning', QVariant.String),
                                    QgsField("Message", QVariant.String),
-                                   QgsField("Tool", QVariant.String)])
+                                   QgsField("Tool", QVariant.String),
+                                   QgsField("Magnitude", QVariant.Double)])
             self.outputLyr.updateFields()
         else:
             self.dp = self.outputLyr.dataProvider()
@@ -60,7 +63,8 @@ class SnappingTool:
                         geom = 'point' if fData.geomType == GEOM_TYPE.Point else 'line vertex'
                         feat.setAttributes(['Unsnapped {0}'.format(geom),
                                             'Unsnapped {0} at {1}, {2}'.format(geom, loc.x(), loc.y()),
-                                            'Snapping: Check'])
+                                            'Snapping: Check',
+                                            vertex.distanceToClosest])
                         feats.append(feat)
 
             self.dp.addFeatures(feats)
@@ -96,8 +100,20 @@ class SnappingTool:
                                 pointVertex.distanceToClosest = v.distanceToClosest
                                 if pointVertex not in self.dataCollectorPoints.unsnappedVertexes:
                                     self.dataCollectorPoints.unsnappedVertexes.append(pointVertex)
-                            
-                            tempLyrName = '{0}_tmp'.format(v.layer.name())
+
+                            lyrnames = [x.name() for _, x in QgsProject.instance().mapLayers().items()]
+                            if re.findall(r'_SN\d+$', v.layer.name()):
+                                cnt = int(re.findall(r'\d+$', v.layer.name())[0])
+                                name_ = re.split(r'_SN\d+', v.layer.name())[0]
+                            else:
+                                cnt = 1
+                                name_ = v.layer.name()
+                            tempLyrName = '{0}_SN{1}'.format(name_, cnt)
+                            while tempLyrName in lyrnames:
+                                cnt += 1
+                                tempLyrName = '{0}_SN{1}'.format(name_, cnt)
+                            self.tmplyr2oldlyr[tempLyrName] = v.layer.name()
+
                             if tempLyrName not in [x.name() for x in self.tmpLyrs]:
                                 lyr = self.copyLayerToTemp(v.layer, tempLyrName)
                                 self.tmpLyrs.append(lyr)
@@ -149,7 +165,8 @@ class SnappingTool:
                                 geom2 = 'point' if v.closestVertex.vertex == VERTEX.Point else 'line vertex'
                                 feat.setAttributes(['Auto Snap {0}'.format(geom),
                                                     'Moved {0} {1:.4f} to {2}'.format(geom, v.distanceToClosest, geom2),
-                                                    'Snapping: Auto'])
+                                                    'Snapping: Auto',
+                                                    v.distanceToClosest])
                                 self.dp.addFeature(feat)
                                 self.outputLyr.updateExtents()
                                 

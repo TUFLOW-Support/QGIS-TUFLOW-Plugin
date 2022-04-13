@@ -3,6 +3,7 @@ import sys
 import os
 import csv
 import numpy.ma as ma
+from qgis.core import NULL
 # from .tuflowqgis_library import interpolate
 version = '2018-04-AA'
 
@@ -91,6 +92,7 @@ class XS_Data():
 			reader = csv.reader(csvfile, delimiter=',', quotechar='"')
 			nheader = 0
 			bHeader = True
+			header = []
 			for line in reader:
 				try:
 					for i in line[0:3]:
@@ -101,67 +103,127 @@ class XS_Data():
 				except:
 					if bHeader:
 						nheader = nheader + 1
-						header = line
+						header.append(line)
 
 		csvfile.close()
-		header = [element.upper() for element in header]
+		header = [[y.upper() for y in x] for x in header]
 
 		# find which columns data is in
-		if (self.col1 == None):
+		if self.col1 == None:
 			c1_ind = 0
 		else:
 			try:
-				c1_ind  = header.index(self.col1)
+				found = False
+				for i in range(nheader):
+					if found:
+						break
+					if self.col1.upper() in header[i]:
+						c1_ind  = header[i].index(self.col1.upper())
+						found = True
 			except:
 				self.error = True
 				self.message = 'ERROR - Unable to find '+self.col1+ ' in header.'
-				return
-		if (self.col2 == None):
-			c2_ind = 1
+			finally:
+				if self.error or not found:
+					self.error = True
+					self.message = 'ERROR - Unable to find ' + self.col1 + ' in header.'
+					return
+		if self.col2 == None:
+			c2_ind = c1_ind + 1
 		else:
 			try:
-				c2_ind  = header.index(self.col2)
+				found = False
+				for i in range(nheader):
+					if found:
+						break
+					if self.col2.upper() in header[i]:
+						c2_ind = header[i].index(self.col2.upper())
+						found = True
 			except:
 				self.error = True
 				self.message = 'ERROR - Unable to find '+self.col2+ ' in header.'
-				return
+			finally:
+				if self.error or not found:
+					self.error = True
+					self.message = 'ERROR - Unable to find ' + self.col2 + ' in header.'
+					return
 		if self.flags:
 			if self.col3 == None:
-				c3_ind = 2
+				c3_ind = c2_ind + 1
 			else:
 				try:
-					c3_ind  = header.index(self.col3)
+					found = False
+					for i in range(nheader):
+						if found:
+							break
+						if self.col3.upper() in header[i]:
+							c3_ind = header[i].index(self.col3.upper())
+							found = True
 				except:
 					self.error = True
 					self.message = 'ERROR - Unable to find '+self.col3+ ' in header.'
-					return
+				finally:
+					if self.error or not found:
+						self.error = True
+						self.message = 'ERROR - Unable to find ' + self.col3 + ' in header.'
+						return
 			if self.col4 == None:
-				c4_ind = 3
+				c4_ind = c3_ind + 1
 			else:
 				try:
-					c4_ind  = header.index(self.col4)
+					found = False
+					for i in range(nheader):
+						if found:
+							break
+						if self.col4.upper() in header[i]:
+							c4_ind = header[i].index(self.col4.upper())
+							found = True
 				except:
 					self.error = True
 					self.message = 'ERROR - Unable to find '+self.col4+ ' in header.'
-					return
+				finally:
+					if self.error or not found:
+						self.error = True
+						self.message = 'ERROR - Unable to find ' + self.col4 + ' in header.'
+						return
 			if self.col5 == None:
-				c5_ind = 4
+				c5_ind = c4_ind + 1
 			else:
 				try:
-					c5_ind  = header.index(self.col5)
+					found = False
+					for i in range(nheader):
+						if found:
+							break
+						if self.col5.upper() in header[i]:
+							c5_ind = header[i].index(self.col5.upper())
+							found = True
 				except:
 					self.error = True
 					self.message = 'ERROR - Unable to find '+self.col5+ ' in header.'
-					return
+				finally:
+					if self.error or not found:
+						self.error = True
+						self.message = 'ERROR - Unable to find ' + self.col5 + ' in header.'
+						return
 			if self.col6 == None:
-				c6_ind = 5
+				c6_ind = c5_ind + 1
 			else:
 				try:
-					c6_ind  = header.index(self.col6)
+					found = False
+					for i in range(nheader):
+						if found:
+							break
+						if self.col6.upper() in header[i]:
+							c6_ind = header[i].index(self.col6.upper())
+							found = True
 				except:
 					self.error = True
 					self.message = 'ERROR - Unable to find '+self.col6+ ' in header.'
-					return
+				finally:
+					if self.error or not found:
+						self.error = True
+						self.message = 'ERROR - Unable to find ' + self.col5 + ' in header.'
+						return
 
 		with open(self.fullpath, 'r') as csvfile:
 			reader = csv.reader(csvfile, delimiter=',', quotechar='"')
@@ -700,8 +762,16 @@ class XS():
 				self.all_types.append(self.data[-1].type)
 			return False, None
 
-	def removeByFeaturesNotIncluded(self, features):
-		selSource = [x.attributes()[0] for x in features]
+	def removeByFeaturesNotIncluded(self, features, source_index):
+		i = source_index
+		selSource = []
+		for x in features:
+			source = x.attributes()[i]
+			if x.attributes()[i+3] != NULL:
+				source = '{0}_{1}'.format(source, x.attributes()[i+3])
+			selSource.append(source)
+		# selSource = [x.attributes()[i] for x in features]
+
 		l = len(self.source)
 		for i, s in enumerate(reversed(self.source[:])):
 			j = l - i - 1
@@ -784,7 +854,10 @@ class XS():
 
 		try:
 			self.nXS = self.nXS + 1
-			self.source.append(source)
+			if col1:
+				self.source.append('{0}_{1}'.format(source, col1))
+			else:
+				self.source.append(source)
 			self.data.append(XS_Data(fpath,source,xs_type,flags,col1,col2,col3,col4,col5,col6, feature))
 			if self.data[-1].error:
 				return self.data[-1].error, self.data[-1].message

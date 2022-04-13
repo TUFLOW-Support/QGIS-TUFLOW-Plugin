@@ -14,14 +14,17 @@ from matplotlib.quiver import Quiver
 from matplotlib.collections import PolyCollection
 from matplotlib import cm
 from matplotlib.colors import LinearSegmentedColormap
-from tuflow.tuflowqgis_library import loadLastFolder, getResultPathsFromTCF, getScenariosFromTcf, getEventsFromTCF, \
-	tuflowqgis_find_layer, getUnit, getCellSizeFromTCF, getOutputZonesFromTCF, getPathFromRel, convertTimeToFormattedTime, \
-	convertFormattedTimeToTime, getResultPathsFromTLF, browse, qgsxml_as_mpl_cdict, generateRandomMatplotColours2
+from tuflow.tuflowqgis_library import (loadLastFolder, getResultPathsFromTCF, getScenariosFromTcf, getEventsFromTCF,
+									   tuflowqgis_find_layer, getUnit, getCellSizeFromTCF, getOutputZonesFromTCF,
+									   getPathFromRel, convertTimeToFormattedTime, convertFormattedTimeToTime,
+									   getResultPathsFromTLF, browse, qgsxml_as_mpl_cdict,
+									   generateRandomMatplotColours2, getResultPathsFromTCF_v2, mpl_version_int,
+									   labels_about_to_break, labels_already_broken, applyMatplotLibArtist)
 from tuflow.tuflowqgis_dialog import (tuflowqgis_scenarioSelection_dialog, tuflowqgis_eventSelection_dialog,
 									  TuOptionsDialog, TuSelectedElementsDialog, tuflowqgis_meshSelection_dialog,
 									  TuBatchPlotExportDialog, TuUserPlotDataManagerDialog,
 									  tuflowqgis_outputZoneSelection_dialog, tuflowqgis_brokenLinks_dialog,
-                                      FloodModellerResultImportDialog)
+                                      FloodModellerResultImportDialog, tuflowqgis_outputSelection_dialog)
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuanimation import TuAnimationDialog
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumap import TuMapDialog
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
@@ -36,6 +39,7 @@ class TuMenuFunctions():
 	def __init__(self, TuView):
 		self.tuView = TuView
 		self.iface = TuView.iface
+		self.labels_about_to_break = 0
 	
 	def load2dResults(self, **kwargs):
 		"""
@@ -311,40 +315,65 @@ class TuMenuFunctions():
 			ext = os.path.splitext(file)[1].lower()
 			
 			if ext == '.tcf':
-				# get scenarios from TCF and prompt user to select desired scenarios
-				error, message, scenarios = getScenariosFromTcf(file)
-				if error:
-					if message:
-						QMessageBox.critical(self.tuView, "Load From TCF", message)
-				if scenarios:
-					self.scenarioDialog = tuflowqgis_scenarioSelection_dialog(self.iface, file, scenarios)
-					self.scenarioDialog.exec_()
-					if self.scenarioDialog.scenarios is None:
-						scenarios = []
-					else:
-						scenarios = self.scenarioDialog.scenarios
-						
-				# get events from TCF and prompt user to select desired events
-				events = getEventsFromTCF(file)
-				if events:
-					self.eventDialog = tuflowqgis_eventSelection_dialog(self.iface, file, events)
-					self.eventDialog.exec_()
-					if self.eventDialog.events is None:
-						events = []
-					else:
-						events = self.eventDialog.events
-						
-				# get output zones from TCF and prompt user to select desired output zones
-				outputZones = getOutputZonesFromTCF(file)
-				selectedOutputZones = []
-				if outputZones:
-					self.outputZoneDialog = tuflowqgis_outputZoneSelection_dialog(self.iface, file, outputZones)
-					self.outputZoneDialog.exec_()
-					for opz in outputZones:
-						if opz['name'] in self.outputZoneDialog.outputZones:
-							selectedOutputZones.append(opz)
+				if self.tuView.tuOptions.tcfLoadMethod == 'scenario_selection':
+					# get scenarios from TCF and prompt user to select desired scenarios
+					error, message, scenarios = getScenariosFromTcf(file)
+					if error:
+						if message:
+							QMessageBox.critical(self.tuView, "Load From TCF", message)
+					if scenarios:
+						if self.iface is not None:
+							self.scenarioDialog = tuflowqgis_scenarioSelection_dialog(self.iface, file, scenarios)
+							self.scenarioDialog.exec_()
+							if self.scenarioDialog.scenarios is None:
+								scenarios = []
+							else:
+								scenarios = self.scenarioDialog.scenarios
+						elif 'scenarios' in kwargs:
+							scenarios = kwargs['scenarios']
 
-				res1D, res2D, mess = getResultPathsFromTCF(file, scenarios=scenarios, events=events, output_zones=selectedOutputZones)
+					# get events from TCF and prompt user to select desired events
+					events = getEventsFromTCF(file)
+					if events:
+						self.eventDialog = tuflowqgis_eventSelection_dialog(self.iface, file, events)
+						self.eventDialog.exec_()
+						if self.eventDialog.events is None:
+							events = []
+						else:
+							events = self.eventDialog.events
+
+					# get output zones from TCF and prompt user to select desired output zones
+					outputZones = getOutputZonesFromTCF(file)
+					selectedOutputZones = []
+					if outputZones:
+						self.outputZoneDialog = tuflowqgis_outputZoneSelection_dialog(self.iface, file, outputZones)
+						self.outputZoneDialog.exec_()
+						for opz in outputZones:
+							if opz['name'] in self.outputZoneDialog.outputZones:
+								selectedOutputZones.append(opz)
+
+					res1D, res2D, mess = getResultPathsFromTCF(file, scenarios=scenarios, events=events, output_zones=selectedOutputZones)
+				elif self.tuView.tuOptions.tcfLoadMethod == 'result_selection':
+					res1D, res2D, = [], []
+					paths, names, mess = getResultPathsFromTCF_v2(file)
+					if names:
+						if len(names) > 1:
+							if self.iface is not None:
+								output_selection = tuflowqgis_outputSelection_dialog(self.iface, names)
+								output_selection.exec_()
+								names = output_selection.outputs
+							else:
+								names = names[:1]
+						for output in names:
+							possible_paths = [x for x in paths if output in str(x)]
+							for pp in possible_paths:
+								if pp.suffix.lower() in ['.xmdf', '.dat']:
+									res2D.append(str(pp))
+								elif pp.suffix.lower() == '.tpc':
+									res1D.append(str(pp))
+				else:
+					res1D, res2D, mess = [], [], ''
+
 			else:
 				res1D, res2D, mess = getResultPathsFromTLF(file)
 			
@@ -1204,8 +1233,41 @@ class TuMenuFunctions():
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
-		self.tuView.tuPlot.updateLegend(self.tuView.tabWidget.currentIndex())
-		self.tuView.tuPlot.setNewPlotProperties(self.tuView.tabWidget.currentIndex())
+		ax, plotWidget, _, artists, labels = self.tuView.tuPlot.plotEnumerator(self.tuView.tabWidget.currentIndex())[2:7]
+		labels_about_to_break_ = self.tuView.tuPlot.labels_about_to_break(self.tuView.tabWidget.currentIndex())
+		if labels_about_to_break_ == 1:
+			labels_about_to_break_ = 2
+		elif mpl_version_int() >= 35000 and labels_already_broken(labels[0]):
+			labels_about_to_break_ = 2
+		elif labels_about_to_break_ == 0 and mpl_version_int() >= 35000 and labels_about_to_break(ax, labels[0]):
+			labels_about_to_break_ = 1
+
+		self.tuView.tuPlot.set_labels_about_to_break(self.tuView.tabWidget.currentIndex(), labels_about_to_break_)
+
+		if labels_about_to_break_ < 2:
+			self.tuView.tuPlot.updateLegend(self.tuView.tabWidget.currentIndex())
+			self.tuView.tuPlot.setNewPlotProperties(self.tuView.tabWidget.currentIndex())
+		else:
+			labels_, artistTemplates = self.tuView.tuPlot.getNewPlotProperties(self.tuView.tabWidget.currentIndex(), labels[0], artists[0], rtype='lines')
+			for i, a in enumerate(artists[0]):
+				a.set_label(labels_[i])
+				applyMatplotLibArtist(a, artistTemplates[i])
+			self.tuView.tuPlot.updateLegend(self.tuView.tabWidget.currentIndex())
+			QMessageBox.warning(self.tuView, "Plotting", "Unable to update plot styles. "
+														 "This has been purposefully prevented due to a known bug in "
+														 "Matplotlib v3.5.1 mixing up the plot datasets. Please "
+														 "visit the below TUFLOW Wiki page for more information.<p>"
+														 "<a href=\"https://wiki.tuflow.com/index.php?title=TUFLOW_Viewer_Matplotlib_v3.5.1_Bug\">wiki.tuflow.com/index.php?title=TUFLOW_Viewer_Matplotlib_v3.5.1_Bug</a>")
+			# QMessageBox.warning(self.tuView, "FFmpeg missing",
+			# 					"The tool for video creation (<a href=\"https://wiki.tuflow.com/index.php?title=TUFLOW_Viewer_Matplotlib_v3.5.1_Bug\">test</a>) "
+			# 					"is missing. Please check your FFmpeg configuration in <i>Video</i> tab.<p>"
+			# 					"<b>Windows users:</b> Let the TUFLOW plugin download FFmpeg automatically (by clicking OK).<p>"
+			# 					"<b>Linux users:</b> Make sure FFmpeg is installed in your system - usually a package named "
+			# 					"<tt>ffmpeg</tt>. On Debian/Ubuntu systems FFmpeg was replaced by Libav (fork of FFmpeg) "
+			# 					"- use <tt>libav-tools</tt> package.<p>"
+			# 					"<b>MacOS users:</b> Make sure FFmpeg is installed in your system <tt>brew install ffmpeg</tt>")
+
+		plotWidget.draw()
 
 		# if self.tuView.tabWidget.currentIndex() == TuPlot.CrossSection:
 		# 	subplot = self.tuView.tuPlot.plotEnumerator(TuPlot.CrossSection)[2]
@@ -1999,6 +2061,7 @@ class TuMenuFunctions():
 		"""
 
 		self.tuView.tuPlot.clearFrozenPlotProperties(rtype='lines')
+		self.tuView.tuPlot.clear_labels_are_about_to_break()
 		self.tuView.tuPlot.colours = generateRandomMatplotColours2(100)
 		self.tuView.tuPlot.updateAllPlots()
 

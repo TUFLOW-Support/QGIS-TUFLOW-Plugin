@@ -44,9 +44,21 @@ class TuMenuBar():
 		self.menu = kwargs['menu_bar'] if 'menu_bar' in kwargs else None
 
 		self.plotNoToToolbar = self.tuPlot.tuPlotToolbar.plotNoToToolbar
-		
+
+		self.fileMenu_connected = False
+		self.viewMenu_connected = False
+		self.settingsMenu_connected = False
+		self.exportMenu_connected = False
+		self.resultMenu_connected = False
+		self.helpMenu_connected = False
+
+	def clear(self):
+		if self.menu is not None:
+			self.menu.clear()
+
 	def __del__(self):
 		self.disconnectMenu()
+		self.clear()
 		
 	def loadFileMenu(self):
 		"""
@@ -223,7 +235,7 @@ class TuMenuBar():
 		:param kwargs: dict -> key word arguments
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
 		update = kwargs['update'] if 'update' in kwargs.keys() else False
 		
 		# if plotNo == 0:
@@ -280,10 +292,13 @@ class TuMenuBar():
 			self.settingsMenu.addAction(self.options_action)
 
 			#self.userPlotDataManager_action.triggered.connect(self.tuMenuFunctions.openUserPlotDataManager)
-			self.tuView.tuPlot.tuPlotToolbar.lstActionsTimeSeries[7].triggered.connect(self.tuMenuFunctions.updateLegend)
-			self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot[7].triggered.connect(self.tuMenuFunctions.updateLegend)
-			self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection[7].triggered.connect(self.tuMenuFunctions.updateLegend)
-			self.tuView.tuPlot.tuPlotToolbar.lstActionsVerticalProfile[7].triggered.connect(self.tuMenuFunctions.updateLegend)
+			if not self.viewMenu_connected:
+				self.tuView.tuPlot.tuPlotToolbar.lstActionsTimeSeries[7].triggered.connect(self.tuMenuFunctions.updateLegend)
+				self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot[7].triggered.connect(self.tuMenuFunctions.updateLegend)
+				self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection[7].triggered.connect(self.tuMenuFunctions.updateLegend)
+				self.tuView.tuPlot.tuPlotToolbar.lstActionsVerticalProfile[7].triggered.connect(self.tuMenuFunctions.updateLegend)
+				self.viewMenu_connected = True
+
 			self.saveColorRampForActiveResult_action.triggered.connect(
 				lambda: self.tuMenuFunctions.saveDefaultStyleScalar('color ramp'))
 			self.saveColorMapForActiveResult_action.triggered.connect(

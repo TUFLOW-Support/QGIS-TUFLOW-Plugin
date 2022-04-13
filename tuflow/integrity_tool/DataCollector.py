@@ -77,6 +77,10 @@ class DataCollector(QObject):
         self.featuresAssessed = []
         self.layersToAssess = []
 
+        # start locations
+        self.startLocs = []
+        self.flowTrace = False
+
     def collectData(self, inputs=(), dem=None, lines=(), lineDataCollector=None, exclRadius=15, tables=(),
                     startLocs=(), flowTrace=False):
         """
@@ -116,6 +120,9 @@ class DataCollector(QObject):
         self.unsnappedVertexes.clear()
         self.allFeatures.clear()
         self.hasStarted = False
+
+        self.startLocs = startLocs[:]
+        self.flowTrace = flowTrace
 
         # loop through all inputs and start collecting
         #for layer in inputs:
@@ -204,6 +211,7 @@ class DataCollector(QObject):
 
             snappedFeatures = []
             snappedLayers = []
+            additional_features = []
             for reqLayer in reqInputs:
                 if not lines:
                     if reqLayer.name() in self.spatialIndexes:
@@ -237,6 +245,7 @@ class DataCollector(QObject):
                         id = self.getIdFromFid(reqLayer.name(), reqFeat.id())
                         if id is None:
                             reqFeatData = self.populateFeatureData(reqLayer, reqFeat, dem)
+                            additional_features.append(reqFeatData)
                             id = reqFeatData.id
                         else:
                             reqFeatData = self.features[id]
@@ -301,6 +310,12 @@ class DataCollector(QObject):
             if featureData.id not in self.connections:
                 connectionData = ConnectionData(featureData.id)
                 self.connections[featureData.id] = connectionData
+
+            # also populate any additional feature data that was created
+            for reqFeatData in additional_features:
+                if reqFeatData not in self.connections:
+                    connectionData = ConnectionData(reqFeatData.id)
+                    self.connections[reqFeatData.id] = connectionData
             
             # do something since we've finished assessing feature
             self.finishedFeature(f, layer, snappedFeatures, snappedLayers)
@@ -379,6 +394,7 @@ class DataCollector(QObject):
                     connData2 = lineDataCollector.connections[featData2.id]
                 else:
                     connData2 = self.connections[featData2.id]
+
                 xIn = connData2.xIn
                 connectionData.getConnectorData(featData1, featData2, X_OBJECT.IsSecond, xIn, self, vDataUs, vDataDs)
             else:

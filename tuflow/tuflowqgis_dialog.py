@@ -51,7 +51,10 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from tuflow.tuflowqgis_library import interpolate, convertStrftimToTuviewftim, convertTuviewftimToStrftim, browse
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/forms")
 currentFolder = os.path.dirname(os.path.abspath(__file__))
-spatial_database_option = False
+spatial_database_option = True
+
+if Qgis.QGIS_VERSION_INT < 31030:
+	spatial_database_option = False
 
 
 # ----------------------------------------------------------
@@ -208,9 +211,9 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		newname = QFileDialog.getSaveFileName(self, "Output Shapefile", outfolder, "*.shp *.SHP")
 		if len(newname) > 0:
 			fpath, fname = os.path.split(newname[0])
-			self.outfolder.setText(fpath)
+			self.outfolder.setText(self.translate(fpath))
 			outfname = tuflowqgis_increment_fname(fname)
-			self.outfilename.setText(outfname)
+			self.outfilename.setText(self.translate(outfname))
 
 	def sourcelayer_changed(self, e, layer=None):
 		if layer is None:
@@ -248,10 +251,13 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 				# 	outdbname = fname
 				outdbname = tuflowqgis_increment_fname(fname)
 				fpath = os.path.join(fpath, '{0}.gpkg'.format(outdbname))
-			self.outfolder.setText(fpath)
-			self.outfilename.setText(outfname)
+			self.outfolder.setText(self.translate(fpath))
+			self.outfilename.setText(self.translate(outfname))
 		except:
 			QMessageBox.information( self.iface.mainWindow(),"Information", "Unexpected error")
+
+	def translate(self, string):
+		return re.sub(r'[\\/]', re.escape(os.sep), string)
 
 	def incrementedDatabaseTableNames(self):
 
@@ -424,7 +430,7 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		self.parent_folder_name = 'TUFLOWFV' if engine == 'flexible mesh' else 'TUFLOW'
 
 		self.browsedir.clicked.connect(lambda: browse(self, 'existing folder', 'TUFLOW/empty_directory',
-		                                              'Empty Directory', lineEdit=self.emptydir))
+		                                              'Empty Directory', lineEdit=self.emptydir, action=self.dirChanged))
 		self.emptydir.editingFinished.connect(self.dirChanged)
 		self.pbShowToolTip.clicked.connect(self.toggleToolTip)
 		self.pbHideToolTip.clicked.connect(self.toggleToolTip)
@@ -434,8 +440,12 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		self.btnDatabaseBrowse.clicked.connect(lambda: browse(self, 'output database', "TUFLOW/import_empty_database",
 													          "Spatial Database", "gpkg (*.gpkg *.GPKG)",
 													          self.leDatabaseBrowse))
+		self.pbSaveToProject.clicked.connect(lambda: self.saveDir('project'))
+		self.pbSaveToGlobal.clicked.connect(lambda: self.saveDir('global'))
 
-		if self.tfsettings.combined.base_dir:
+		if self.tfsettings.combined.empty_dir:
+			self.emptydir.setText(self.tfsettings.combined.empty_dir.replace('/', os.sep).replace('\\', os.sep))
+		elif self.tfsettings.combined.base_dir:
 			subfolders = [self.parent_folder_name.lower(), 'model', 'gis', 'empty']
 			emptydir = self.tfsettings.combined.base_dir
 			for i, subfolder in enumerate(subfolders):
@@ -484,6 +494,15 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		h = self.height() - self.gbSpatialDatabaseOptions.sizeHint().height()
 		self.resize(w, h)
 		
+	def saveDir(self, type_):
+		if type_ == 'project':
+			self.tfsettings.project_settings.empty_dir = self.emptydir.text()
+			self.tfsettings.Combine()
+			self.tfsettings.Save_Project()
+		elif type_ == 'global':
+			self.tfsettings.global_settings.empty_dir = self.emptydir.text()
+			self.tfsettings.Save_Global()
+
 	def toggleToolTip(self):
 
 		showToolTip = not self.teToolTip.isVisible()
@@ -999,16 +1018,16 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		
 		#set fields
 		if self.tfsettings.project_settings.base_dir:
-			self.outdir.setText(self.tfsettings.project_settings.base_dir)
+			self.outdir.setText(self.translate(self.tfsettings.project_settings.base_dir))
 		elif self.tfsettings.global_settings.base_dir:
-			self.outdir.setText(self.tfsettings.global_settings.base_dir)
+			self.outdir.setText(self.translate(self.tfsettings.global_settings.base_dir))
 		else:
 			self.outdir.setText("Not Yet Set")
 		
 		if self.tfsettings.project_settings.tf_exe:
-			self.TUFLOW_exe.setText(self.tfsettings.project_settings.tf_exe)
+			self.TUFLOW_exe.setText(self.translate(self.tfsettings.project_settings.tf_exe))
 		elif self.tfsettings.global_settings.tf_exe:
-			self.TUFLOW_exe.setText(self.tfsettings.global_settings.tf_exe)
+			self.TUFLOW_exe.setText(self.translate(self.tfsettings.global_settings.tf_exe))
 		else:
 			self.TUFLOW_exe.setText("Not Yet Set")
 
@@ -1082,12 +1101,15 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 
 		self.gbGisFormat.setVisible(spatial_database_option)
 
+	def translate(self, string):
+		return re.sub(r'[\\/]', re.escape(os.sep), string)
+
 	def browse_outdir(self):
 		#newname = QFileDialog.getExistingDirectory(None, QString.fromLocal8Bit("Output Directory"))
 		newname = QFileDialog.getExistingDirectory(None, "Output Directory")
 		if newname != None:
 			#self.outdir.setText(QString(newname))
-			self.outdir.setText(newname)
+			self.outdir.setText(self.translate(newname))
 	
 	def select_CRS(self):
 		projSelector = QgsProjectionSelectionWidget()
@@ -1125,7 +1147,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		if len(inFileName) == 0: # If the length is 0 the user pressed cancel 
 			return
 		# Store the exe location and path we just looked in
-		self.TUFLOW_exe.setText(inFileName)
+		self.TUFLOW_exe.setText(self.translate(inFileName))
 		self.tfsettings.save_last_exe(inFileName)
 
 	def layer_changed(self):
@@ -2392,7 +2414,9 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 		self.parent_folder_name = 'TUFLOWFV' if engine == 'flexible mesh' else 'TUFLOW'
 		
 		# Get empty dir
-		if self.tfsettings.combined.base_dir:
+		if self.tfsettings.combined.empty_dir:
+			self.emptydir.setText(self.tfsettings.combined.empty_dir.replace('/', os.sep).replace('\\', os.sep))
+		elif self.tfsettings.combined.base_dir:
 			subfolders = [self.parent_folder_name.lower(), 'model', 'gis', 'empty']
 			emptydir = self.tfsettings.combined.base_dir
 			for i, subfolder in enumerate(subfolders):
@@ -2433,13 +2457,15 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 									
 		# self.browsedir.clicked.connect(lambda: self.browse_empty_dir(unicode(self.emptydir.displayText()).strip()))
 		self.browsedir.clicked.connect(lambda: browse(self, 'existing folder', 'TUFLOW/empty_directory',
-		                                              'Empty Directory', lineEdit=self.emptydir))
+		                                              'Empty Directory', lineEdit=self.emptydir, action=self.dirChanged))
 		self.emptydir.editingFinished.connect(self.dirChanged)
 		self.pbOk.clicked.connect(self.run)
 		self.pbCancel.clicked.connect(self.reject)
 		self.browseDatabase.clicked.connect(lambda: browse(self, 'output database', "TUFLOW/import_empty_database",
 													      "Spatial Database", "gpkg (*.gpkg *.GPKG)",
 													      self.leDatabase))
+		self.pbSaveToProject.clicked.connect(lambda: self.saveDir('project'))
+		self.pbSaveToGlobal.clicked.connect(lambda: self.saveDir('global'))
 
 		self.label.setVisible(spatial_database_option)
 		self.leDatabase.setVisible(spatial_database_option)
@@ -2448,6 +2474,15 @@ class tuflowqgis_insert_tuflow_attributes_dialog(QDialog, Ui_tuflowqgis_insert_t
 		h = self.height() - self.label.sizeHint().height() - self.leDatabase.sizeHint().height() - \
 		    self.browseDatabase.sizeHint().height()
 		self.resize(w, h)
+
+	def saveDir(self, type_):
+		if type_ == 'project':
+			self.tfsettings.project_settings.empty_dir = self.emptydir.text()
+			self.tfsettings.Combine()
+			self.tfsettings.Save_Project()
+		elif type_ == 'global':
+			self.tfsettings.global_settings.empty_dir = self.emptydir.text()
+			self.tfsettings.Save_Global()
 
 	def browse_empty_dir(self, oldName):
 		startDir = None
@@ -2924,6 +2959,43 @@ class tuflowqgis_outputZoneSelection_dialog(QDialog, Ui_outputZoneSelection):
 
 
 # ----------------------------------------------------------
+#    tuflowqgis Output Zone selection
+# ----------------------------------------------------------
+from ui_tuflowqgis_outputZoneSelection import *
+
+
+class tuflowqgis_outputSelection_dialog(QDialog, Ui_outputZoneSelection):
+	def __init__(self, iface, outputs):
+		QDialog.__init__(self)
+		self.iface = iface
+		self.setupUi(self)
+		self.setWindowTitle('Select Result(s) to Add')
+		self.outputs = []
+
+		self.listWidget.addItems(outputs)
+
+		self.ok_button.clicked.connect(self.run)
+		self.cancel_button.clicked.connect(self.cancel)
+		self.selectAll_button.clicked.connect(self.selectAll)
+
+	def cancel(self):
+		self.reject()
+
+	def selectAll(self):
+		for i in range(self.listWidget.count()):
+			item = self.listWidget.item(i)
+			item.setSelected(True)
+
+	def run(self):
+		self.outputZones = []
+		for i in range(self.listWidget.count()):
+			item = self.listWidget.item(i)
+			if item.isSelected():
+				self.outputs.append(item.text())
+		self.accept()  # destroy dialog window
+
+
+# ----------------------------------------------------------
 #    tuView Options Dialog
 # ----------------------------------------------------------
 from ui_tuflowqgis_TuOptionsDialog import *
@@ -3030,12 +3102,22 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		# default font size
 		self.sbDefaultFontSize.setValue(self.tuOptions.defaultFontSize)
 
+		# icon size
+		self.cboIconSize.setCurrentText(str(self.tuOptions.iconSize))
+
 		# debug - check files
 		if self.tuOptions.writeMeshIntersects:
 			self.cbMeshIntCheck.setChecked(True)
 		else:
 			self.cbMeshIntCheck.setChecked(False)
 		self.cbParticleDebug.setChecked(self.tuOptions.particlesWriteDebugInfo)
+
+		if self.tuOptions.tcfLoadMethod == 'scenario_selection':
+			self.rbByScenSelection.setChecked(True)
+		elif self.tuOptions.tcfLoadMethod == 'result_selection':
+			self.rbByResSelection.setChecked(True)
+		else:
+			self.rbByResSelection.setChecked(True)
 
 		
 		# Signals
@@ -3046,7 +3128,13 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		self.buttonBox.rejected.connect(self.cancel)
 		self.buttonBox.accepted.connect(self.run)
 		self.colourButtonPlotBackground.colorChanged.connect(lambda e: self.cbPlotBackgroudCustom.setChecked(True))
-		
+		self.rbByScenSelection.clicked.connect(lambda e: self.tcfLoadMethodChanged('scenario_selection'))
+		self.rbByResSelection.clicked.connect(lambda e: self.tcfLoadMethodChanged('result_selection'))
+
+	def tcfLoadMethodChanged(self, tcf_load_method):
+		self.tuOptions.tcfLoadMethod = tcf_load_method
+		QSettings().setValue("TUFLOW/tuview_tcf_load_method", tcf_load_method)
+
 	def saveDefaultLayout(self, layoutType):
 		QSettings().setValue("TUFLOW/tuview_defaultlayout", layoutType)
 
@@ -3166,7 +3254,14 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		else:
 			self.tuOptions.writeMeshIntersects = False
 		self.tuOptions.particlesWriteDebugInfo = self.cbParticleDebug.isChecked()
-			
+
+		# icon size
+		self.tuOptions.iconSize = int(self.cboIconSize.currentText())
+		settings.setValue("TUFLOW/tuview_iconsize", self.tuOptions.iconSize)
+
+		# font size
+		self.tuOptions.defaultFontSize = int(self.sbDefaultFontSize.value())
+
 
 # ----------------------------------------------------------
 #    tuView Selected Elements Dialog
@@ -4529,6 +4624,10 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 		self.pbCancel.clicked.connect(self.reject)
 		self.tabWidget.currentChanged.connect(self.currentTabChanged)
 		self.btnFindFile.clicked.connect(self.findFile)
+		self.pbLoadFromXmdfHeader.clicked.connect(self.populateXmdfInfo)
+
+		self.xmdf_header = None
+		self.cboToGisMeshDataset.currentIndexChanged.connect(self.tuflow_to_gis_result_type_changed)
 
 	def findFile(self):
 		if not self.leAdvWorkingDir.text():
@@ -4742,16 +4841,76 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 			button.setIcon(addIcon)
 		for button in removeButtons:
 			button.setIcon(removeIcon)
+
+	def populateXmdfInfo(self):
+		if not self.leMeshToGis.text():
+			QMessageBox.critical(self, "TUFLOW Utilities", "Please specify an XMDF first.")
+			return
+
+		if os.path.splitext(self.leMeshToGis.text())[1].lower() != '.xmdf':
+			QMessageBox.critical(self, "TUFLOW Utilities", "Please file must be an XMDF to load information.")
+			return
+
+		if not self.leRes2Res.text():
+			QMessageBox.critical(self, "TUFLOW Utilities", "Must specify res_to_res.exe location before populating XMDF information.")
+			return
+
+		QApplication.setOverrideCursor(Qt.WaitCursor)
+
+		error, message = resToRes(self.leRes2Res.text().strip('"').strip("'"), 'info', '',
+								  [self.leMeshToGis.text().strip('"\'')],
+								  '', hide_window=True)
+
+		QApplication.restoreOverrideCursor()
+
+		if error:
+			QMessageBox.critical(self, "TUFLOW Utilities", "Error occurred reading XMDF header information.\nPlease see output log information for more information.")
+			output_dialog = StackTraceDialog(message)
+			output_dialog.setWindowTitle('Res_to_Res Output Log')
+			output_dialog.exec_()
+			return
+
+		self.xmdf_header = XMDF_Header_Info(message)
+
+		if not self.xmdf_header.loaded:
+			QMessageBox.critical(self, "TUFLOW Utilities", "Error occurred reading XMDF header information. Please contact support@tuflow.com if problem persists.")
+			return
+
+		self.cboToGisMeshDataset.clear()
+		self.cboToGisMeshDataset.addItems(self.xmdf_header.result_types())
+
+		self.cboTimestep.clear()
+		times = []
+		if self.xmdf_header.has_max():
+			times.append('Max')
+		if self.xmdf_header.has_min():
+			times.append('Min')
+		times.extend(['{0:.03f}'.format(x) for x in self.xmdf_header.times()])
+		self.cboTimestep.addItems(times)
+
+	def tuflow_to_gis_result_type_changed(self, e):
+		if self.xmdf_header is None or not self.xmdf_header.loaded:
+			return
+
+		result_type = self.cboToGisMeshDataset.currentText()
+		self.cboTimestep.clear()
+		times = []
+		if self.xmdf_header.has_max(result_type):
+			times.append('Max')
+		if self.xmdf_header.has_min(result_type):
+			times.append('Min')
+		times.extend(['{0:.03f}'.format(x) for x in self.xmdf_header.times(result_type)])
+		self.cboTimestep.addItems(times)
 		
 	def check(self):
 		if self.rbCommonFunctions.isChecked():
-			if self.leOutputName.text():
-				if not self.leComOutputDir.text():
-					QMessageBox.critical(self, "TUFLOW Utilities", "Must specify output location if specifying output name")
-					return
-				elif not os.path.exists(self.leComOutputDir.text().strip('"').strip("'")):
-					QMessageBox.critical(self, "TUFLOW Utilities", "Output location does not exist")
-					return
+			# if self.leOutputName.text():
+				# if not self.leComOutputDir.text():
+				# 	QMessageBox.critical(self, "TUFLOW Utilities", "Must specify output location if specifying output name")
+				# 	return
+				# if not os.path.exists(self.leComOutputDir.text().strip('"').strip("'")):
+				# 	QMessageBox.critical(self, "TUFLOW Utilities", "Output location does not exist")
+				# 	return
 			if self.cboCommonUtility.currentIndex() == 0:  # asc_to_asc
 				if not self.leAsc2Asc.text():
 					QMessageBox.critical(self, "TUFLOW Utilities", "Must specify asc_to_asc.exe location")
@@ -4917,10 +5076,14 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 			if self.cboCommonUtility.currentIndex() == 0:
 				# difference
 				if self.rbAscDiff.isChecked():
+					if not workdir:
+						workdir = os.path.dirname(self.cboDiffGrid1.currentText().strip('"').strip("'"))
 					function = 'diff'
 					grids = [self.cboDiffGrid1.currentText().strip('"').strip("'"),
 					         self.cboDiffGrid2.currentText().strip('"').strip("'")]
 				else:
+					if not workdir:
+						workdir = os.path.dirname(self.lwGrids.item(0).text())
 					grids = []
 					for i in range(self.lwGrids.count()):
 						grids.append(self.lwGrids.item(i).text())
@@ -4938,14 +5101,23 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 				
 			# tuflow_to_gis
 			elif self.cboCommonUtility.currentIndex() == 1:
+				if not workdir:
+					workdir = os.path.dirname(self.leTUFLOW2GIS.text().strip('"').strip("'"))
 				if self.rbMeshToGrid.isChecked():
 					function = 'grid'
 				elif self.rbMeshToPoints.isChecked():
 					function = 'points'
 				else:
 					function = 'vectors'
+				dataset = self.cboToGisMeshDataset.currentText()
+				time = self.cboTimestep.currentText()
+				if self.xmdf_header is not None and self.xmdf_header.loaded():
+					dataset, time = self.xmdf_header[dataset,time]
+				if self.xmdf_header is None or not self.xmdf_header.loaded() or dataset is None or time is None:
+					dataset = self.cboToGisMeshDataset.currentText()
+					time = self.cboTimestep.currentText()
 				error, message = tuflowToGis(self.leTUFLOW2GIS.text().strip('"').strip("'"), function, workdir, self.leMeshToGis.text(),
-				                             self.cboToGisMeshDataset.currentText(), self.cboTimestep.currentText(), saveFile=self.cbSaveBatComm.isChecked())
+				                             dataset, time, saveFile=self.cbSaveBatComm.isChecked(), out=self.leOutputName.text())
 				
 			# res_to_res
 			elif self.cboCommonUtility.currentIndex() == 2:
@@ -4953,9 +5125,13 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 					function = 'info'
 					meshes = [self.leMeshToRes.text().strip('"').strip("'")]
 				elif self.rbMeshConvert.isChecked():
+					if not workdir:
+						workdir = os.path.dirname(self.leMeshToRes.text().strip('"').strip("'"))
 					function = 'conv'
 					meshes = [self.leMeshToRes.text().strip('"').strip("'")]
 				else:
+					if not workdir:
+						workdir = os.path.dirname(self.lwMeshes.item(0).text())
 					meshes = []
 					for i in range(self.lwMeshes.count()):
 						meshes.append(self.lwMeshes.item(i).text())

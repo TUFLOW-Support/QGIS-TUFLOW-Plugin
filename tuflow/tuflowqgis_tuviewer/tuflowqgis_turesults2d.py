@@ -352,8 +352,11 @@ class TuResults2D():
 			else:
 				hadtp = False
 		if self.tuView.tuProject is not None:
-			if name in self.tuView.tuProject.hastp:
-				hadtp = self.tuView.tuProject.hastp[name]  # override hadtp with this
+			if type(self.tuView.tuProject.hastp) is bool:
+				hadtp = self.tuView.tuProject.hastp
+			elif type(self.tuView.tuProject.hastp) is dict:
+				if name in self.tuView.tuProject.hastp:
+					hadtp = self.tuView.tuProject.hastp[name]  # override hadtp with this
 		self.configTemporalProperties(layer)
 
 		# this is to capture minimums - loop through the result names once and figure out if there are double ups that are static
@@ -753,46 +756,53 @@ class TuResults2D():
 		id = None
 		id2 = None
 
+		if name_ is None:
+			name_ = mdg.name()
+
+		if re.findall(r'^max_(?!time)', name_):
+			name__ = re.split(r'^max_(?!time)', name_)
+			if len(name__) > 1:
+				name_ = '{0}/Maximums'.format(name__[-1])
+		elif re.findall(r'^min_(?!time)', name_):
+			name__ = re.split(r'^min_(?!time)', name_)
+			if len(name__) > 1:
+				name_ = '{0}/Minimums'.format(name__[-1])
+
 		# if ext.upper() != ".XMDF":
 		if ext.upper() == ".XMDF" and (mdg.name() == 'Velocity' or mdg.name() == 'Velocity/Maximums' or
 				mdg.name() == 'Unit Flow' or mdg.name() == 'Unit Flow/Maximums' or
 				mdg.name() == 'Vector Unit Flow' or mdg.name() == 'Vector Unit Flow/Maximums' or
 				mdg.name() == 'Vector Velocity' or mdg.name() == 'Vector Velocity/Maximums'):
-			if name_ is not None:
-				id = self.addCounter(name_, ids)
-			else:
-				id = self.addCounter(mdg.name(), ids)
+			id = self.addCounter(name_, ids)
 		else:
 			if mdg.isScalar():
-				if name_ is not None:
-					id = self.addCounter(name_, ids)
-				else:
-					id = self.addCounter(mdg.name(), ids)
+				id = self.addCounter(name_, ids)
+
 			if mdg.isVector():
 				if id is None:
-					if name_ is not None:
-						id = self.addCounter(name_, ids)
-						if TuResults.isMaximumResultType(name_) or TuResults.isMinimumResultType(name_):
-							id2 = self.addCounter('{0}'.format(' Vector/'.join(name_.split('/'))), ids)
-						else:
-							id2 = self.addCounter('{0} Vector'.format(name_), ids)
+					# if name is not None
+					id = self.addCounter(name_, ids)
+					if TuResults.isMaximumResultType(name_) or TuResults.isMinimumResultType(name_):
+						id2 = self.addCounter('{0}'.format(' Vector/'.join(name_.split('/'))), ids)
 					else:
-						id = self.addCounter(mdg.name(), ids)
-						if TuResults.isMaximumResultType(mdg.name()) or TuResults.isMinimumResultType(mdg.name()):
-							id2 = self.addCounter('{0}'.format(' Vector/'.join(mdg.name().split('/'))), ids)
-						else:
-							id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
+						id2 = self.addCounter('{0} Vector'.format(name_), ids)
+					# else:
+					# 	id = self.addCounter(mdg.name(), ids)
+					# 	if TuResults.isMaximumResultType(mdg.name()) or TuResults.isMinimumResultType(mdg.name()):
+					# 		id2 = self.addCounter('{0}'.format(' Vector/'.join(mdg.name().split('/'))), ids)
+					# 	else:
+					# 		id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
 				else:
-					if name_ is not None:
-						if TuResults.isMaximumResultType(name_) or TuResults.isMinimumResultType(name_):
-							id2 = self.addCounter('{0}'.format(' Vector/'.join(name_.split('/'))), ids)
-						else:
-							id2 = self.addCounter('{0} Vector'.format(name_), ids)
+					# if name is not None
+					if TuResults.isMaximumResultType(name_) or TuResults.isMinimumResultType(name_):
+						id2 = self.addCounter('{0}'.format(' Vector/'.join(name_.split('/'))), ids)
 					else:
-						if TuResults.isMaximumResultType(mdg.name()) or TuResults.isMinimumResultType(mdg.name()):
-							id2 = self.addCounter('{0}'.format(' Vector/'.join(mdg.name().split('/'))), ids)
-						else:
-							id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
+						id2 = self.addCounter('{0} Vector'.format(name_), ids)
+					# else:
+					# 	if TuResults.isMaximumResultType(mdg.name()) or TuResults.isMinimumResultType(mdg.name()):
+					# 		id2 = self.addCounter('{0}'.format(' Vector/'.join(mdg.name().split('/'))), ids)
+					# 	else:
+					# 		id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
 		# else:
 		# 	if name_ is not None:
 		# 		id = self.addCounter(name_, ids)
@@ -1371,3 +1381,31 @@ class TuResults2D():
 
 			if not tp.referenceTime().isValid() or self.tuView.tuResults.loadedTimeSpec != self.tuView.tuResults.timeSpec:
 				layer.setReferenceTime(dt2qdt(self.getReferenceTime(layer), 1))
+
+	def getBedAndWLNames(self, layer, isMax=False, isMin=False):
+		possibleWlNames = ['water level', 'water surface elevation', 'h']
+		possibleBdNames = ['bed elevation']
+		wlname = None
+		bdname = None
+		for i in range(layer.dataProvider().datasetGroupCount()):
+			name = layer.dataProvider().datasetGroupMetadata(i).name()
+			if name.lower() in possibleBdNames:
+				bdname = name
+				continue
+			if isMax:
+				if TuResults.isMaximumResultType(name):
+					name = TuResults.stripMaximumName(name)
+					if name.lower() in possibleWlNames:
+						wlname = name
+			elif isMin:
+				if TuResults.isMinimumResultType(name):
+					name = TuResults.stripMinimumName(name)
+					if name.lower() in possibleWlNames:
+						wlname = name
+			else:
+				if name.lower() in possibleWlNames:
+					wlname = name
+			if wlname is not None and bdname is not None:
+				break
+
+		return bdname, wlname

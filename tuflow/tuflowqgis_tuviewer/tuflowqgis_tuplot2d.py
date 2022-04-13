@@ -37,6 +37,7 @@ class TuPlot2D():
 			self.flowProgressBar = None
 			self.progress = QProgressBar()
 			self.faceIndexes = []
+			self.crossSectionGeom = []
 
 	def plotTimeSeriesFromMap(self, vLayer, point, **kwargs):
 		"""
@@ -276,7 +277,7 @@ class TuPlot2D():
 				resultMesh = activeMeshLayers
 			self.tuPlot.clearPlot2(TuPlot.CrossSection, dataType,
 			                       last_only=self.tuView.cboSelectType.currentText() == 'From Map Multi',
-			                       remove_no=len(resultTypes)*len(resultMesh))
+			                       remove_no=len(resultTypes)*len(resultMesh), draw=draw)
 
 		# initialise plotting variables
 		xAll = []
@@ -363,32 +364,49 @@ class TuPlot2D():
 						onVertices = gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices
 					except:    # versions earlier than ~ 3.8
 						onVertices = True
-					if j == 0:
-						inters, ch, fcs = findMeshIntersects(si, dp, mesh, feat, crs,
-						                                             self.tuView.project)
-					#if gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices:
-					if onVertices:
-						#points = inters[:]
-						points = inters[0:1]
-						points.extend([calcMidPoint2(inters[i], inters[i + 1], crs) for i in range(len(inters) - 1)])
-						points.append(inters[-1])
-						chainage = ch[0:1]
-						chainage.extend([(ch[i] + ch[i+1]) / 2. for i in range(len(ch) - 1)])
-						chainage.append(ch[-1])
-						faces = [None] * len(points)
-						if debug:
-							writeTempPoints(inters, self.tuView.project, crs, chainage, 'Chainage',
-							                QVariant.Double)
+
+					update = feat in self.crossSectionGeom
+
+					if update:
+						crossSectionGeom = self.crossSectionGeom[self.crossSectionGeom.index(feat)]
 					else:
-						# points = faces[:]
-						points = inters[:]
-						chainage = ch[:]
-						faces = fcs[:]
-						if debug:
-							polys = [meshToPolygon(mesh, mesh.face(x)) for x in faces]
-							writeTempPolys(polys, self.tuView.project, crs)
-							writeTempPoints(inters, self.tuView.project, crs, chainage, 'Chainage',
-							                QVariant.Double)
+						inters, ch, fcs = findMeshIntersects(si, dp, mesh, feat, crs, self.tuView.project)
+						crossSectionGeom = CrossSectionIntersects(feat, inters, ch, fcs, crs)
+						self.crossSectionGeom.append(crossSectionGeom)
+						#if gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices:
+						# if onVertices:
+						# 	#points = inters[:]
+						# 	points = inters[0:1]
+						# 	points.extend([calcMidPoint2(inters[i], inters[i + 1], crs) for i in range(len(inters) - 1)])
+						# 	points.append(inters[-1])
+						# 	chainage = ch[0:1]
+						# 	chainage.extend([(ch[i] + ch[i+1]) / 2. for i in range(len(ch) - 1)])
+						# 	chainage.append(ch[-1])
+						# 	faces = [None] * len(points)
+						# 	if debug:
+						# 		writeTempPoints(inters, self.tuView.project, crs, chainage, 'Chainage',
+						# 						QVariant.Double)
+						# else:
+						# 	# points = faces[:]
+						# 	points = inters[:]
+						# 	chainage = ch[:]
+						# 	faces = fcs[:]
+					inters = crossSectionGeom.inters
+					if onVertices:
+						points = crossSectionGeom.mid_points
+						chainage = crossSectionGeom.chainages_mid_points
+						faces = [None] * len(points)
+					else:
+						points = crossSectionGeom.inters
+						chainage = crossSectionGeom.chainages
+						faces = crossSectionGeom.faces
+					if j == 0 and debug:
+						polys = [meshToPolygon(mesh, mesh.face(x)) for x in faces]
+						writeTempPolys(polys, self.tuView.project, crs)
+						writeTempPoints(inters, self.tuView.project, crs, chainage, 'Chainage',
+										QVariant.Double)
+
+
 				
 				# iterate through points and extract data
 				x = []
@@ -408,7 +426,7 @@ class TuPlot2D():
 				yAll.append(y)
 
 				label = self.generateLabel(layer, resultMesh, rtype, lineNo, featName,
-				                           activeMeshLayers, am, export, bypass, j, dataType)
+										   activeMeshLayers, am, export, bypass, j, dataType)
 				labels.append(label)
 		
 		# increment line count for multi select - for updateLongPlot function
@@ -1636,3 +1654,38 @@ class TuPlot2D():
 					'{0} - {1}: {2}'.format(layer.name(), rtype, featName)
 
 		return label
+
+
+class CrossSectionIntersects:
+	def __init__(self, feat, inters, chainages, faces, crs):
+		self.feat = feat
+		self.inters = inters[:]
+		self.chainages = chainages[:]
+		self.faces = faces[:]
+
+		self.mid_points = inters[0:1]
+		self.mid_points.extend([calcMidPoint2(inters[i], inters[i + 1], crs) for i in range(len(inters) - 1)])
+		self.mid_points.append(inters[-1])
+
+		self.chainages_mid_points = chainages[0:1]
+		self.chainages_mid_points.extend([(chainages[i] + chainages[i + 1]) / 2. for i in range(len(chainages) - 1)])
+		self.chainages_mid_points.append(chainages[-1])
+
+	def __eq__(self, other):
+
+		if isinstance(other, QgsFeature):
+			if self.feat.geometry().wkbType() == QgsWkbTypes.LineString:
+				g1 = np.array([(x.x(), x.y()) for x in self.feat.geometry().asPolyline()])
+			elif self.feat.geometry().wkbType() == QgsWkbTypes.MultiLineString:
+				g1 = np.array(sum([[(y.x(), y.y()) for y in x] for x in self.feat.geometry().asMultiPolyline()], []))
+			else:
+				g1 = None
+			if other.geometry().wkbType() == QgsWkbTypes.LineString:
+				g2 = np.array([(x.x(), x.y()) for x in other.geometry().asPolyline()])
+			elif other.geometry().wkbType() == QgsWkbTypes.MultiLineString:
+				g2 = np.array(sum([[(y.x(), y.y()) for y in x] for x in other.geometry().asMultiPolyline()], []))
+			else:
+				g2 = None
+			return g1.shape == g2.shape and np.isclose(g1, g2).all()
+
+		return False

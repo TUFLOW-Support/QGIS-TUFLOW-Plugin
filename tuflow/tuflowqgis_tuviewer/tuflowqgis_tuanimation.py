@@ -24,6 +24,7 @@ from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, applyMatplotLibArt
                                        convertTimeToDate, convertFormattedDateToTime, addColourBarAxes, reSpecPlot,
                                        addLegend, addQuiverKey, datetime2timespec, convert_datetime_to_float,
                                        convert_float_to_datetime, qdt2dt, DownloadBinPackage)
+from animation_axis_limits_warning import Ui_animationPlotLimitsWarning
 import matplotlib
 import numpy as np
 try:
@@ -289,7 +290,10 @@ def addLineToPlot(fig, ax, line, label, bLegend=False, ax2=None, polyCollAndQuiv
 		xy = line.get_paths()
 		x = [x.vertices[:,0] for x in xy]
 		y = [x.vertices[:,1] for x in xy]
-		xy = np.dstack((x, y))
+		if not x or not y:
+			xy = []
+		else:
+			xy = np.dstack((x, y))
 		values = line.get_array()
 		lab = re.sub(r'(\s-\sloc\s\d)?\s\[curtain]', '', label, flags=re.IGNORECASE)
 		colSpec = dict(cmap=line.cmap, clim=line.get_clim(), norm=line.norm)
@@ -299,6 +303,7 @@ def addLineToPlot(fig, ax, line, label, bLegend=False, ax2=None, polyCollAndQuiv
 			cax = addColourBarAxes(fig, ax, ax2, False)
 			colbar = ColourBar(line, cax)
 			colbar.ax.set_xlabel(lab)
+			colbar.ax.get_xaxis().set_visible(True)
 			reSpecPlot(fig, ax, ax2, colbar.ax, False)
 	elif type(line) is Quiver:
 		x = line.X
@@ -2056,8 +2061,8 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			dialog = PlotProperties(self, item1, item2, self.tuView.tuOptions.xAxisDates)
 		self.pbDialogs[pb] = dialog
 		self.dialog2Plot[dialog] = [item1, item2, item3]
-		pb.clicked.connect(lambda: dialog.setDefaults(self, item1, item2, static=False))
-		pb.clicked.connect(lambda: dialog.exec_())
+		pb.clicked.connect(lambda: dialog.setDefaults(self, item1, item2, 'not cross sections', static=False))
+		pb.clicked.connect(lambda: dialog.show_())
 		self.tablePlots.setCellWidget(n, 3, pb)
 		if n == 0:
 			self.tablePlots.setColumnWidth(2, self.tablePlots.columnWidth(
@@ -2545,7 +2550,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 	def check(self, event=None, preview=False):
 		"""
 		Checks input parameters before trying to run the tool and destroying the dialog.
-		
+
 		:return: void
 		"""
 
@@ -2625,7 +2630,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			else:
 				print(msg)
 			return
-			
+
 		# Layout Tab
 		for i in range(self.tableImages.rowCount()):
 			if not os.path.exists(self.tableImages.item(i, 0).text()):
@@ -2643,7 +2648,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 				else:
 					print(msg)
 				return
-				
+
 		# Video Tab
 		if not preview:
 			if self.radFfmpegSystem.isChecked():
@@ -2667,7 +2672,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 					else:
 						print(msg)
 					return
-			
+
 			if which(self.ffmpeg_bin) is None:
 				QMessageBox.warning(self, "FFmpeg missing",
 									"The tool for video creation (<a href=\"http://en.wikipedia.org/wiki/FFmpeg\">FFmpeg</a>) "
@@ -2677,10 +2682,10 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 									"<tt>ffmpeg</tt>. On Debian/Ubuntu systems FFmpeg was replaced by Libav (fork of FFmpeg) "
 									"- use <tt>libav-tools</tt> package.<p>"
 									"<b>MacOS users:</b> Make sure FFmpeg is installed in your system <tt>brew install ffmpeg</tt>")
-				
+
 				if platform.system() != 'Windows':
 					return
-				
+
 				# special treatment for Windows users!
 				# offer automatic download and installation from Lutra web.
 				# Official distribution is not used because:
@@ -2714,7 +2719,24 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 				s = QSettings()
 				s.setValue("TUFLOW/animation_ffmpeg_switch", "custom")
 				s.setValue("TUFLOW/animation_ffmpeg", self.ffmpeg_bin)
-			
+
+		# check default on all cs / lp plots
+		limits_not_set = [y for x, y in self.pbDialogs.items() if y.cboPlotType.text() == 'CS / LP' and not y.userSet]
+		if limits_not_set and self.iface:
+			answer = AxisLimitsMessage.warning(self)
+			if answer == AxisLimitsMessage.Cancel:
+				return
+			elif answer == AxisLimitsMessage.UseTV:
+				for plot_settings in limits_not_set:
+					plot_settings.minmax_from_tv('x')
+					plot_settings.minmax_from_tv('y')
+					plot_settings.minmax_from_tv('y2')
+					plot_settings.userSet = True
+			elif answer == AxisLimitsMessage.Calc:
+				pass  # default behaviour - do nothing
+			else:
+				return  # assume cancel
+
 		self.run(preview)
 	
 	def updateProgress(self, i, cnt):
@@ -3271,6 +3293,9 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 		QDialog.__init__(self)
 		self.setupUi(self)
 		self.userSet = False  # once user has entered properties and left once, don't update anymore
+		self.cross_section_y_axis1_limits_set = cboPlotType.text() != 'CS / LP'
+		self.cross_section_y_axis2_limits_set = cboPlotType.text() != 'CS / LP'
+
 		self.dynamicYAxis = False
 		self.xUseMatplotLibDefault = False
 		self.yUseMatplotLibDefault = False
@@ -3304,7 +3329,72 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 		self.pbAutoCalcY2Lim.clicked.connect(lambda event: self.setDefaults(self.animationDialog, self.cboPlotType, self.mcboPlotItems, 'y2 limits'))
 		self.pbAutoCalcX2Lim.clicked.connect(lambda event: self.setDefaults(self.animationDialog, self.cboPlotType, self.mcboPlotItems, 'x2 limits'))
 		self.buttonBox.accepted.connect(self.userSetTrue)
-		
+
+	def show_(self):
+		b = self.cboPlotType.text() == 'Vert Profile'
+		self.label_18.setVisible(b)
+		self.label_19.setVisible(b)
+		self.sbX2min.setVisible(b)
+		self.label_20.setVisible(b)
+		self.sbX2Max.setVisible(b)
+		self.pbAutoCalcX2Lim.setVisible(b)
+
+		b = not b
+		self.label_14.setVisible(b)
+		self.label_15.setVisible(b)
+		self.sbY2Min.setVisible(b)
+		self.label_16.setVisible(b)
+		self.sbY2Max.setVisible(b)
+		self.pbAutoCalcY2Lim.setVisible(b)
+
+		try:
+			self.pbAutoCalcXLim.clicked.disconnect()
+		except:
+			pass
+		try:
+			self.pbAutoCalcYLim.clicked.disconnect()
+		except:
+			pass
+		try:
+			self.pbAutoCalcY2Lim.clicked.disconnect()
+		except:
+			pass
+
+		if self.cboPlotType.text() == 'CS / LP':
+			self.pbAutoCalcXLim.setText('From TV Plot')
+			self.pbAutoCalcYLim.setText('From TV Plot')
+			self.pbAutoCalcY2Lim.setText('From TV Plot')
+			self.pbAutoCalcXLim.clicked.connect(lambda: self.minmax_from_tv('x'))
+			self.pbAutoCalcYLim.clicked.connect(lambda: self.minmax_from_tv('y'))
+			self.pbAutoCalcY2Lim.clicked.connect(lambda: self.minmax_from_tv('y2'))
+		else:
+			self.pbAutoCalcXLim.setText('Auto Calc')
+			self.pbAutoCalcYLim.setText('Auto Calc')
+			self.pbAutoCalcY2Lim.setText('Auto Calc')
+			self.pbAutoCalcXLim.clicked.connect(lambda: self.setDefaults(self.animationDialog, self.cboPlotType, self.mcboPlotItems, 'not cross sections', static=False))
+			self.pbAutoCalcYLim.clicked.connect(lambda: self.setDefaults(self.animationDialog, self.cboPlotType, self.mcboPlotItems, 'not cross sections', static=False))
+			self.pbAutoCalcY2Lim.clicked.connect(lambda: self.setDefaults(self.animationDialog, self.cboPlotType, self.mcboPlotItems, 'not cross sections', static=False))
+
+		self.exec_()
+
+	def minmax_from_tv(self, axis):
+		from tuflowqgis_tuplot import TuPlot
+		tuplot = self.animationDialog.tuView.tuPlot
+		ax = tuplot.plotEnumerator(TuPlot.CrossSection)[2]
+		ax2 = tuplot.getSecondaryAxis(TuPlot.CrossSection, create=False)
+		if axis == 'x':
+			xmin, xmax = ax.get_xlim()
+			self.sbXmin.setValue(xmin)
+			self.sbXMax.setValue(xmax)
+		elif axis == 'y':
+			ymin, ymax = ax.get_ylim()
+			self.sbYMin.setValue(ymin)
+			self.sbYMax.setValue(ymax)
+		elif axis == 'y2' and ax2 is not None:
+			ymin, ymax = ax2.get_ylim()
+			self.sbY2Min.setValue(ymin)
+			self.sbY2Max.setValue(ymax)
+
 	def setDateTime(self, bDt):
 		self.datetime = bDt
 		if self.datetime:
@@ -3413,12 +3503,12 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 		if time is not None:
 			if plotType == 'CS / LP':
 				animation.tuView.tuPlot.updateCurrentPlot(TuPlot.CrossSection, draw=False, time=time,
-				                                          meshRendered=False)
+				                                          mesh_rendered=False)
 				lines, labels, axis = animation.plotItems(plotType)
 				labels = [TuResults.stripMaximumName(TuResults.stripMinimumName(x)) for x in labels]
 			elif plotType == 'Vert Profile':
 				animation.tuView.tuPlot.updateCurrentPlot(TuPlot.VerticalProfile, draw=False, time=time,
-				                                          meshRendered=False)
+				                                          mesh_rendered=False)
 				lines, labels, axis = animation.plotItems(plotType)
 				labels = [TuResults.stripMaximumName(TuResults.stripMinimumName(x)) for x in labels]
 
@@ -3723,168 +3813,187 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 					self.sbXmin.setValue(0)
 					self.sbXMax.setValue(1)
 			else:  # long plot / cross section - so need to loop through all timesteps to get max
-				if items:
-					ymin = 999999
-					ymax = -999999
-					ymin2 = 999999
-					ymax2 = -999999
-					xmin = 999999
-					xmax = -999999
-					xmin2 = 999999
-					xmax2 = -999999
-					for i in range(animation.tuView.cboTime.count()):
-						timeFormatted = animation.tuView.cboTime.itemText(i)
-						unit = self.animationDialog.tuView.tuOptions.timeUnits
-						# if self.animationDialog.tuView.tuOptions.xAxisDates:
-						# 	time = convertFormattedDateToTime(timeFormatted,
-						# 	                                  self.animationDialog.tuView.tuResults.dateFormat,
-						# 	                                  self.animationDialog.tuView.tuResults.date2time)
-						# else:
-						# 	time = convertFormattedTimeToTime(timeFormatted, unit=unit)
+				if recalculate != 'not cross sections':
+					if items:
+						ymin = 999999
+						ymax = -999999
+						ymin2 = 999999
+						ymax2 = -999999
+						xmin = 999999
+						xmax = -999999
+						xmin2 = 999999
+						xmax2 = -999999
+						for i in range(animation.tuView.cboTime.count()):
+							timeFormatted = animation.tuView.cboTime.itemText(i)
+							unit = self.animationDialog.tuView.tuOptions.timeUnits
+							# if self.animationDialog.tuView.tuOptions.xAxisDates:
+							# 	time = convertFormattedDateToTime(timeFormatted,
+							# 	                                  self.animationDialog.tuView.tuResults.dateFormat,
+							# 	                                  self.animationDialog.tuView.tuResults.date2time)
+							# else:
+							# 	time = convertFormattedTimeToTime(timeFormatted, unit=unit)
 
-						if qv < 31600:
-							time = self.animationDialog.tuView.tuResults.timeFromString(timeFormatted)
-						else:
-							if self.animationDialog.tuView.tuOptions.xAxisDates:
-								time = datetime.strptime(timeFormatted, self.animationDialog.tuView.tuResults.dateFormat)
+							if qv < 31600:
+								time = self.animationDialog.tuView.tuResults.timeFromString(timeFormatted)
 							else:
-								if timeFormatted in self.animationDialog.tuView.tuResults.cboTime2timekey:
-									time = self.animationDialog.tuView.tuResults.cboTime2timekey[timeFormatted]
-									time = self.animationDialog.tuView.tuResults.timekey2time[time]
-									zt = self.animationDialog.tuView.tuOptions.zeroTime
-									time = zt + timedelta(hours=time)
+								if self.animationDialog.tuView.tuOptions.xAxisDates:
+									time = datetime.strptime(timeFormatted, self.animationDialog.tuView.tuResults.dateFormat)
 								else:
-									time = convertFormattedTimeToTime(timeFormatted, unit=unit)
+									if timeFormatted in self.animationDialog.tuView.tuResults.cboTime2timekey:
+										time = self.animationDialog.tuView.tuResults.cboTime2timekey[timeFormatted]
+										time = self.animationDialog.tuView.tuResults.timekey2time[time]
+										zt = self.animationDialog.tuView.tuOptions.zeroTime
+										time = zt + timedelta(hours=time)
+									else:
+										time = convertFormattedTimeToTime(timeFormatted, unit=unit)
 
-						if plotType == 'CS / LP':
-							animation.tuView.tuPlot.updateCurrentPlot(TuPlot.CrossSection, draw=False, time=time,
-							                                          meshRendered=False)
-						else:
-							animation.tuView.tuPlot.updateCurrentPlot(TuPlot.VerticalProfile, draw=False, time=time,
-							                                          meshRendered=False)
-						lines, labels, axis = animation.plotItems(plotType)
-						if 'axis 1' in axis and 'axis 2' in axis:
-							for item in items:
-								i = labels.index(item) if labels.count(item) else -1
-								if i > -1:
-									if axis[i] == 'axis 1':
-										if type(lines[i]) is matplotlib.lines.Line2D:
+							if plotType == 'CS / LP':
+								animation.tuView.tuPlot.updateCurrentPlot(TuPlot.CrossSection, draw=False, time=time,
+																		  mesh_rendered=False)
+							else:
+								animation.tuView.tuPlot.updateCurrentPlot(TuPlot.VerticalProfile, draw=False, time=time,
+																		  mesh_rendered=False)
+							lines, labels, axis = animation.plotItems(plotType)
+							if 'axis 1' in axis and 'axis 2' in axis:
+								for item in items:
+									if '[Curtain]' in item:
+										is_ = []
+										for i, label in enumerate(labels):
+											if '[Curtain]' in label:
+												rt = item.split('[Curtain]')[0].strip()
+												if rt in label:
+													is_.append(i)
+									else:
+										is_ = [labels.index(item)] if labels.count(item) else []
+									for i in is_:
+										if axis[i] == 'axis 1':
+											if type(lines[i]) is matplotlib.lines.Line2D:
+												y = lines[i].get_ydata()
+												x = lines[i].get_xdata()
+												ymin = min(ymin, np.nanmin(y))
+												ymax = max(ymax, np.nanmax(y))
+												xmin = min(xmin, np.nanmin(x))
+												xmax = max(xmax, np.nanmax(x))
+											elif isinstance(lines[i], matplotlib.patches.Polygon):
+												xy = lines[i].line.get_xy()
+												y = xy[:, 1]
+												x = xy[:, 0]
+												ymin = min(ymin, np.nanmin(y))
+												ymax = max(ymax, np.nanmax(y))
+												xmin = min(xmin, np.nanmin(x))
+												xmax = max(xmax, np.nanmax(x))
+											elif type(lines[i]) is PolyCollection:
+												ymin_t, ymax_t, = getPolyCollectionExtents(lines[i], axis='y')
+												xmin_t, xmax_t, = getPolyCollectionExtents(lines[i], axis='x')
+												ymin = min(ymin, ymin_t)
+												ymax = max(ymax, ymax_t)
+												xmin = min(xmin, xmin_t)
+												xmax = max(xmax, xmax_t)
+											elif type(lines[i]) is Quiver:
+												ymin_t, ymax_t = getQuiverExtents(lines[i], axis='y')
+												xmin_t, xmax_t, = getQuiverExtents(lines[i], axis='x')
+												ymin = min(ymin, ymin_t)
+												ymax = max(ymax, ymax_t)
+												xmin = min(xmin, xmin_t)
+												xmax = max(xmax, xmax_t)
+										elif axis[i] == 'axis 2':
 											y = lines[i].get_ydata()
 											x = lines[i].get_xdata()
-											ymin = min(ymin, np.nanmin(y))
-											ymax = max(ymax, np.nanmax(y))
-											xmin = min(xmin, np.nanmin(x))
-											xmax = max(xmax, np.nanmax(x))
-										elif isinstance(lines[i], matplotlib.patches.Polygon):
-											xy = lines[i].line.get_xy()
-											y = xy[:, 1]
-											x = xy[:, 0]
-											ymin = min(ymin, np.nanmin(y))
-											ymax = max(ymax, np.nanmax(y))
-											xmin = min(xmin, np.nanmin(x))
-											xmax = max(xmax, np.nanmax(x))
-										elif type(lines[i]) is PolyCollection:
-											ymin_t, ymax_t, = getPolyCollectionExtents(lines[i], axis='y')
-											xmin_t, xmax_t, = getPolyCollectionExtents(lines[i], axis='x')
-											ymin = min(ymin, ymin_t)
-											ymax = max(ymax, ymax_t)
-											xmin = min(xmin, xmin_t)
-											xmax = max(xmax, xmax_t)
-										elif type(lines[i]) is Quiver:
-											ymin_t, ymax_t = getQuiverExtents(lines[i], axis='y')
-											xmin_t, xmax_t, = getQuiverExtents(lines[i], axis='x')
-											ymin = min(ymin, ymin_t)
-											ymax = max(ymax, ymax_t)
-											xmin = min(xmin, xmin_t)
-											xmax = max(xmax, xmax_t)
-									elif axis[i] == 'axis 2':
-										y = lines[i].get_ydata()
-										x = lines[i].get_xdata()
-										if plotType == 'Vert Profile':
-											ymin = min(ymin, np.nanmin(y))
-											ymax = max(ymax, np.nanmax(y))
-											xmin2 = min(xmin, np.nanmin(x))
-											xmax2 = max(xmax, np.nanmax(x))
+											if plotType == 'Vert Profile':
+												ymin = min(ymin, np.nanmin(y))
+												ymax = max(ymax, np.nanmax(y))
+												xmin2 = min(xmin, np.nanmin(x))
+												xmax2 = max(xmax, np.nanmax(x))
+											else:
+												ymin2 = min(ymin2, np.nanmin(y))
+												ymax2 = max(ymax2, np.nanmax(y))
+												xmin = min(xmin, np.nanmin(x))
+												xmax = max(xmax, np.nanmax(x))
+									complete += 1
+									if maxProgress:
+										pComplete = complete / maxProgress * 100
+										if animation.iface is not None:
+											progress.setValue(pComplete)
 										else:
-											ymin2 = min(ymin2, np.nanmin(y))
-											ymax2 = max(ymax2, np.nanmax(y))
-											xmin = min(xmin, np.nanmin(x))
-											xmax = max(xmax, np.nanmax(x))
-								complete += 1
-								if maxProgress:
-									pComplete = complete / maxProgress * 100
-									if animation.iface is not None:
-										progress.setValue(pComplete)
-									else:
-										print(f' {pComplete:.0f}', end="", flush=True)
-						elif not self.userSet or recalculate == 'y limits' or recalculate == 'x limits':
-							for item in items:
-								if item != 'Current Time':
-									i = labels.index(item) if labels.count(item) else -1
-									if i > -1:
-										if type(lines[i]) is matplotlib.lines.Line2D:
-											y = lines[i].get_ydata()
-											x = lines[i].get_xdata()
-											ymin = min(ymin, np.nanmin(y))
-											ymax = max(ymax, np.nanmax(y))
-											xmin = min(xmin, np.nanmin(x))
-											xmax = max(xmax, np.nanmax(x))
-										elif isinstance(lines[i], matplotlib.patches.Polygon):
-											xy = lines[i].get_xy()
-											y = xy[:, 1]
-											x = xy[:, 0]
-											ymin = min(ymin, np.nanmin(y))
-											ymax = max(ymax, np.nanmax(y))
-											xmin = min(xmin, np.nanmin(x))
-											xmax = max(xmax, np.nanmax(x))
-										elif type(lines[i]) is PolyCollection:
-											ymin_t, ymax_t = getPolyCollectionExtents(lines[i], axis='y')
-											xmin_t, xmax_t, = getPolyCollectionExtents(lines[i], axis='x')
-											ymin = min(ymin, ymin_t)
-											ymax = max(ymax, ymax_t)
-											xmin = min(xmin, xmin_t)
-											xmax = max(xmax, xmax_t)
-										elif type(lines[i]) is Quiver:
-											ymin_t, ymax_t = getQuiverExtents(lines[i], axis='y')
-											xmin_t, xmax_t, = getQuiverExtents(lines[i], axis='x')
-											ymin = min(ymin, ymin_t)
-											ymax = max(ymax, ymax_t)
-											xmin = min(xmin, xmin_t)
-											xmax = max(xmax, xmax_t)
-								complete += 1
-								if maxProgress:
-									pComplete = complete / maxProgress * 100
-									if animation.iface is not None:
-										progress.setValue(pComplete)
-									else:
-										print(f' {pComplete:.0f}', end="", flush=True)
-					margin = max((ymax - ymin) * 0.05, 0.01)
-					marginx = max((xmax - xmin) * 0.05, 0.01)
-					if not self.userSet or recalculate == 'y limits':
-						self.sbYMin.setValue(ymin - margin)
-						self.sbYMax.setValue(ymax + margin)
-					if not self.userSet or recalculate == 'x limits':
-						#if not self.datetime:
-						self.sbXmin.setValue(xmin - marginx)
-						self.sbXMax.setValue(xmax + marginx)
-						#else:
-						#	self.dteXmin.setDateTime(xmin - marginx)
-						#	self.dteXMax.setDateTime(xmax + marginx)
-					if ymin2 != 999999 and ymax2 != -999999:
-						if not self.userSet or recalculate == 'y2 limits':
-							margin2 = max((ymax2 - ymin2) * 0.05, 0.01)
-							self.sbY2Min.setValue(ymin2 - margin2)
-							self.sbY2Max.setValue(ymax2 + margin2)
-					if ymin == 999999 or ymax == -999999:
-						self.yUseMatplotLibDefault = True
-					if xmin2 != 999999 and xmax2 != -999999:
-						if not self.userSet or recalculate == 'x2 limits':
-							margin2 = max((xmax2 - xmin2) * 0.05, 0.01)
-							self.sbX2min.setValue(xmin2 - margin2)
-							self.sbX2Max.setValue(xmax2 + margin2)
-				else:
-					self.sbYMin.setValue(0)
-					self.sbYMax.setValue(1)
+											print(f' {pComplete:.0f}', end="", flush=True)
+							elif not self.userSet or recalculate == 'y limits' or recalculate == 'x limits':
+								for item in items:
+									if item != 'Current Time':
+										if '[Curtain]' in item:
+											is_ = []
+											for i, label in enumerate(labels):
+												if '[Curtain]' in label:
+													rt = item.split('[Curtain]')[0].strip()
+													if rt in label:
+														is_.append(i)
+										else:
+											is_ = [labels.index(item)] if labels.count(item) else []
+										for i in is_:
+											if type(lines[i]) is matplotlib.lines.Line2D:
+												y = lines[i].get_ydata()
+												x = lines[i].get_xdata()
+												ymin = min(ymin, np.nanmin(y))
+												ymax = max(ymax, np.nanmax(y))
+												xmin = min(xmin, np.nanmin(x))
+												xmax = max(xmax, np.nanmax(x))
+											elif isinstance(lines[i], matplotlib.patches.Polygon):
+												xy = lines[i].get_xy()
+												y = xy[:, 1]
+												x = xy[:, 0]
+												ymin = min(ymin, np.nanmin(y))
+												ymax = max(ymax, np.nanmax(y))
+												xmin = min(xmin, np.nanmin(x))
+												xmax = max(xmax, np.nanmax(x))
+											elif type(lines[i]) is PolyCollection:
+												ymin_t, ymax_t = getPolyCollectionExtents(lines[i], axis='y')
+												xmin_t, xmax_t, = getPolyCollectionExtents(lines[i], axis='x')
+												ymin = min(ymin, ymin_t)
+												ymax = max(ymax, ymax_t)
+												xmin = min(xmin, xmin_t)
+												xmax = max(xmax, xmax_t)
+											elif type(lines[i]) is Quiver:
+												ymin_t, ymax_t = getQuiverExtents(lines[i], axis='y')
+												xmin_t, xmax_t, = getQuiverExtents(lines[i], axis='x')
+												ymin = min(ymin, ymin_t)
+												ymax = max(ymax, ymax_t)
+												xmin = min(xmin, xmin_t)
+												xmax = max(xmax, xmax_t)
+									complete += 1
+									if maxProgress:
+										pComplete = complete / maxProgress * 100
+										if animation.iface is not None:
+											progress.setValue(pComplete)
+										else:
+											print(f' {pComplete:.0f}', end="", flush=True)
+						margin = max((ymax - ymin) * 0.05, 0.01)
+						marginx = max((xmax - xmin) * 0.05, 0.01)
+						if not self.userSet or recalculate == 'y limits':
+							self.sbYMin.setValue(ymin - margin)
+							self.sbYMax.setValue(ymax + margin)
+							self.cross_section_y_axis1_limits_set = True
+						if not self.userSet or recalculate == 'x limits':
+							#if not self.datetime:
+							self.sbXmin.setValue(xmin - marginx)
+							self.sbXMax.setValue(xmax + marginx)
+							#else:
+							#	self.dteXmin.setDateTime(xmin - marginx)
+							#	self.dteXMax.setDateTime(xmax + marginx)
+						if ymin2 != 999999 and ymax2 != -999999:
+							if not self.userSet or recalculate == 'y2 limits':
+								margin2 = max((ymax2 - ymin2) * 0.05, 0.01)
+								self.sbY2Min.setValue(ymin2 - margin2)
+								self.sbY2Max.setValue(ymax2 + margin2)
+								self.cross_section_y_axis2_limits_set = True
+						if ymin == 999999 or ymax == -999999:
+							self.yUseMatplotLibDefault = True
+						if xmin2 != 999999 and xmax2 != -999999:
+							if not self.userSet or recalculate == 'x2 limits':
+								margin2 = max((xmax2 - xmin2) * 0.05, 0.01)
+								self.sbX2min.setValue(xmin2 - margin2)
+								self.sbX2Max.setValue(xmax2 + margin2)
+					else:
+						self.sbYMin.setValue(0)
+						self.sbYMax.setValue(1)
 		if animation.iface is None:
 			print()
 		self.userSet = True
@@ -3916,3 +4025,29 @@ class ImagePropertiesDialog(QDialog, Ui_ImageProperties):
 			self.sbSizeX.setValue(prop.sbSizeX.value())
 			self.sbSizeY.setValue(prop.sbSizeY.value())
 			self.cbKeepAspectRatio.setChecked(prop.cbKeepAspectRatio.isChecked())
+
+
+class AxisLimitsMessage(QDialog, Ui_animationPlotLimitsWarning):
+
+	NoValue = -1
+	Calc = 0
+	UseTV = 1
+	Cancel = 2
+
+	def __init__(self, parent=None):
+		QDialog.__init__(self, parent)
+		self.setupUi(self)
+		self.returnValue = AxisLimitsMessage.NoValue
+		self.pbCalc.clicked.connect(lambda: self.setReturnValue(AxisLimitsMessage.Calc))
+		self.pbUseTV.clicked.connect(lambda: self.setReturnValue(AxisLimitsMessage.UseTV))
+		self.pbCancel.clicked.connect(lambda: self.setReturnValue(AxisLimitsMessage.Cancel))
+
+	def setReturnValue(self, value):
+		self.returnValue = value
+		self.accept()
+
+	@staticmethod
+	def warning(parent):
+		dialog = AxisLimitsMessage(parent)
+		dialog.exec_()
+		return dialog.returnValue

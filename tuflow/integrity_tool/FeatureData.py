@@ -23,6 +23,8 @@ class FeatureData():
         self.width = None
         self.height = None
         self.numberOf = None
+        self.length = None
+        self.height_ = None
         self.nullCounter = nullCounter
 
         if feature is not None:
@@ -70,6 +72,8 @@ class FeatureData():
                 self.numberOf = feature.attribute(15)
                 if self.numberOf == 0 or self.numberOf == NULL:
                     self.numberOf = 1
+                self.height_ = self.width if self.type.lower()[0] == 'c' else self.height
+                self.length = feature.attribute(4) if feature.attribute(4) != NULL and feature.attribute(4) > 0. else feature.geometry().length()
 
                 # start and end vertex QgsPointXY
                 if layer.geometryType() == QgsWkbTypes.PointGeometry:

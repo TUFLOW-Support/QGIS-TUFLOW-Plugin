@@ -35,6 +35,8 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 # Import the code for the 1D results viewer
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuview import TuView
 
+from provider import TuflowAlgorithmProvider
+
 import tempfile
 import shutil
 import os
@@ -107,10 +109,18 @@ class tuflowqgis_menu:
 		self.integrityToolOpened = False
 		self.lambdaConnections = []
 
+		self.provider = TuflowAlgorithmProvider()
+
+	def initProcessing(self):
+		"""Create the Processing provider"""
+		QgsApplication.processingRegistry().addProvider(self.provider)
+
 	def initGui(self):
+		self.initProcessing()
+
 		dir = os.path.dirname(__file__)
 		icon = QIcon(os.path.join(dir, "tuflow.png"))
-		self.iface.pluginMenu().addMenu(icon, "&TUFLOW")
+		self.tuflowMenu = self.iface.pluginMenu().addMenu(icon, "&TUFLOW")
 		
 		# About Submenu
 		self.about_menu = QMenu(QCoreApplication.translate("TUFLOW", "&About"))
@@ -313,7 +323,7 @@ class tuflowqgis_menu:
 		self.autoLabelMenu = QMenu()
 		self.autoLabelMenu.menuAction().triggered.connect(self.apply_label_cLayer)
 		self.autoLabelMenu.setIcon(icon)
-		self.autoLabelMenu.setToolTip("Apply Label to Current Layer")
+		self.autoLabelMenu.menuAction().setToolTip("Apply Label to Current Layer")
 		self.autoLabelSettingLocAction = QAction("Open Label Settings", self.autoLabelMenu)
 		self.autoLabelSettingLocAction.triggered.connect(self.openLabelSettingLoc)
 		self.autoLabelMenu.addAction(self.autoLabelSettingLocAction)
@@ -377,11 +387,9 @@ class tuflowqgis_menu:
 		QgsProject.instance().cleared.connect(self.clearBuilderUI)
 
 	def unload(self):
-		# signals
-		self.qgisDisconnect()
-
 		# tuflow viewer
 		self.removeTuview(no_popup=True)
+
 		# integrity tool
 		try:
 			self.integrityTool.qgisDisconnect()
@@ -404,6 +412,27 @@ class tuflowqgis_menu:
 			del self.refh2Dock
 		except:
 			pass
+		# SCS
+		try:
+			self.scsDock.close()
+			self.iface.removeDockWidget(self.scsDock)
+			del self.scsDock
+		except:
+			pass
+		# SWAN
+		try:
+			self.clearBuilderUI()
+		except:
+			pass
+		try:
+			self.clearProcessingUI()
+		except:
+			pass
+
+		self.qgisDisconnect()
+
+		self.tuflowMenu.clear()
+		self.iface.pluginMenu().removeAction(self.tuflowMenu.menuAction())
 
 		self.iface.removeToolBarIcon(self.reload_data_action)
 		self.iface.removeToolBarIcon(self.view_results_action)
@@ -419,25 +448,10 @@ class tuflowqgis_menu:
 		self.iface.removeToolBarIcon(self.autoLabelMenu.menuAction())
 		self.iface.removeToolBarIcon(self.extract_arr2016_action)
 		self.iface.removeToolBarIcon(self.extractRefh2Action)
+		self.iface.removeToolBarIcon(self.extractSCSAction)
 		self.iface.removeToolBarIcon(self.tuflowUtilitiesAction)
-		self.iface.removePluginMenu("&TUFLOW", self.about_menu.menuAction())
-		self.iface.removePluginMenu("&TUFLOW", self.editing_menu.menuAction())
-		self.iface.removePluginMenu("&TUFLOW", self.run_menu.menuAction())
-		self.iface.removePluginMenu("&TUFLOW", self.clear_menu.menuAction())
-		self.iface.removePluginMenu("&TUFLOW", self.reload_data_action)
-		self.iface.removePluginMenu("&TUFLOW", self.view_results_action)
-		self.iface.removePluginMenu("&TUFLOW", self.integrity_tool_action)
-		self.iface.removePluginMenu("&TUFLOW", self.import_empty_tf_action)
-		self.iface.removePluginMenu("&TUFLOW", self.insert_TUFLOW_attributes_action)
-		self.iface.removePluginMenu("&TUFLOW", self.load_tuflowFiles_from_TCF_action)
-		self.iface.removePluginMenu("&TUFLOW", self.filterAndSortLayersAction)
-		self.iface.removePluginMenu("&TUFLOW", self.increment_action)
-		self.iface.removePluginMenu("&TUFLOW", self.import_chk_action)
-		self.iface.removePluginMenu("&TUFLOW", self.apply_chk_action)
-		self.iface.removePluginMenu("&TUFLOW", self.apply_chk_cLayer_action)
-		self.iface.removePluginMenu("&TUFLOW", self.extract_arr2016_action)
-		self.iface.removePluginMenu("&TUFLOW", self.extractRefh2Action)
-		self.iface.removePluginMenu("&TUFLOW", self.tuflowUtilitiesAction)
+		if spatial_database_option:
+			self.iface.removeToolBarIcon(self.apply_gpkg_layernames_action)
 
 	def configure_tf(self):
 		project = QgsProject.instance()
@@ -932,6 +946,11 @@ class tuflowqgis_menu:
 			self.tuflowUtilitiesAction.triggered.disconnect(self.tuflowUtilities)
 		except:
 			pass
+		if spatial_database_option:
+			try:
+				self.apply_gpkg_layernames_action.triggered.disconnect(self.apply_gpkg_layername)
+			except:
+				pass
 		try:
 			QgsProject.instance().cleared.disconnect(self.clearBuilderUI)
 		except:

@@ -36,6 +36,9 @@ class NullGeometry(QObject):
         self.errMessage = None
         self.errStatus = None
 
+        self.tmpLyrs = []
+        self.tmplyr2oldlyr = {}
+
     def checkForNullGeometries(self, gis_layers, **kwargs):
         self.gis_layers = gis_layers[:]
 
@@ -81,13 +84,23 @@ class NullGeometry(QObject):
                 continue
 
             uri = '{0}?crs={1}'.format(uri, layer.crs().authid())
-            out_lyr = QgsVectorLayer(uri, '{0}_tmp'.format(layer.name()), 'memory')
+
+            lyrnames = [x.name() for _, x in QgsProject.instance().mapLayers().items()]
+            cnt = 1
+            tempLyrName = '{0}_EG{1}'.format(layer.name(), cnt)
+            while tempLyrName in lyrnames:
+                cnt += 1
+                tempLyrName = '{0}_EG{1}'.format(layer.name(), cnt)
+
+            out_lyr = QgsVectorLayer(uri, tempLyrName, 'memory')
             if not out_lyr.isValid():
                 self.errMessage = 'Unexpected error occurred creating temporary output layer ' \
                                   ' for {0}'.format(layer.name())
                 self.errStatus = 'Error: Unexpected error occurred creating output layer'
                 self.finised.emit(self)
                 return
+            self.tmpLyrs.append(out_lyr)
+            self.tmplyr2oldlyr[tempLyrName] = layer.name()
 
             out_lyr.dataProvider().addAttributes(layer.fields())
             out_lyr.updateFields()

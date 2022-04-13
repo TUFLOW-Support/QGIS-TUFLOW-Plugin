@@ -142,6 +142,8 @@ class UniqueIds(QObject):
         self.errMessage = None
         self.errStatus = None
         self.hasRun = False
+        self.tmpLyrs = []
+        self.tmplyr2oldlyr = {}
 
     def __check_has_run__(self):
         """Check checkForDuplicates has been run."""
@@ -175,7 +177,7 @@ class UniqueIds(QObject):
             uri = "point"
             if crs is not None:
                 uri = '{0}?crs={1}'.format(uri, crs.authid().lower())
-            uri = '{0}&field=Warning:string&field=Message:string&field=Tool:string'.format(uri)
+            uri = '{0}&field=Warning:string&field=Message:string&field=Tool:string&field=Magnitude:double'.format(uri)
             self.outputLyr = QgsVectorLayer(uri, 'output', 'memory')
 
         if not self.outputLyr.isValid():
@@ -212,9 +214,9 @@ class UniqueIds(QObject):
                 if feat.attributes()[iid+1] != NULL and feat.attributes()[iid+1].lower() != 'x' and (id_ == NULL or id_.strip() == ''):
                     self.null_id_count += 1
                     self.null_id_feats[feat] = gis_layer
-                elif id_ not in self.ids:
+                elif feat.attributes()[iid+1] != NULL and feat.attributes()[iid+1].lower() != 'x' and id_ not in self.ids:
                     self.ids.append(id_)
-                else:
+                elif feat.attributes()[iid + 1] != NULL and feat.attributes()[iid + 1].lower() != 'x':
                     self.duplicate_ids.append(id_)
                     self.duplicate_feats[feat] = gis_layer
 
@@ -268,7 +270,8 @@ class UniqueIds(QObject):
                 new_feat.setAttributes([
                     'Duplicate ID: {0}'.format(feat.attributes()[iid]),
                     'Duplicate ID: {0}'.format(feat.attributes()[iid]),
-                    'Channel ID: find duplicate ID tool'
+                    'Channel ID: find duplicate ID tool',
+                    1.0
                 ])
                 new_feats.append(new_feat)
             self.updated.emit()
@@ -279,7 +282,8 @@ class UniqueIds(QObject):
                 new_feat.setAttributes([
                     'NULL or empty ID',
                     'NULL or empty ID',
-                    'Channel ID: find NULL or empty ID tool'
+                    'Channel ID: find NULL or empty ID tool',
+                    1.0
                 ])
                 new_feats.append(new_feat)
             self.updated.emit()
@@ -306,23 +310,57 @@ class UniqueIds(QObject):
         if not self.__create_output_layer__():
             return
 
-        # loop through and write out channels with ID name corrections
+        # loop through once to get unique ids
         ids = []
+        ok_feats = {}
+        bad_lyrs = []
+        for layer in self.gis_layers:
+            is_gpkg = re.findall(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)
+            iid = 1 if is_gpkg else 0
+            itype = iid + 1
+            for feat in layer.getFeatures():
+                is_x_connector = feat[itype] != NULL and feat[itype].lower() == 'x'
+                if not is_x_connector:
+                    id_ = feat[iid]
+                    if id_ is not NULL and id_ and id_ not in ids:
+                        ids.append(id_)
+                        if layer.id() not in ok_feats:
+                            ok_feats[layer.id()] = []
+                        ok_feats[layer.id()].append(feat.id())
+                    else:
+                        bad_lyrs.append(layer.id())
+
+        # loop through and write out channels with ID name corrections
         output_feats = []  # logging features
         for layer in self.gis_layers:
+            if layer.id() not in bad_lyrs:
+                continue
+
+            ok_feats_ = ok_feats[layer.id()]
+
             # id field index
             is_gpkg = re.findall(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)
             iid = 1 if is_gpkg else 0
 
             # create tmp output 1d_nwk layer
             uri = 'linestring?crs={0}'.format(layer.crs().authid())
-            nwk = QgsVectorLayer(uri, '{0}_tmp'.format(layer.name()), 'memory')
+
+            lyrnames = [x.name() for _, x in QgsProject.instance().mapLayers().items()]
+            cnt = 1
+            tempLyrName = '{0}_ID{1}'.format(layer.name(), cnt)
+            while tempLyrName in lyrnames:
+                cnt += 1
+                tempLyrName = '{0}_ID{1}'.format(layer.name(), cnt)
+
+            nwk = QgsVectorLayer(uri, tempLyrName, 'memory')
             if not nwk.isValid():
                 self.errMessage = 'Unexpected error occurred creating temporary 1d_nwk ' \
                                   'layer output for {0}'.format(layer.name())
                 self.errStatus = 'Error: Unexpected error occurred creating output layer'
                 self.finised.emit(self)
                 return
+            self.tmpLyrs.append(nwk)
+            self.tmplyr2oldlyr[tempLyrName] = layer.name()
 
             # copy fields
             fields = [x for x in layer.fields()][iid:]
@@ -357,12 +395,14 @@ class UniqueIds(QObject):
                     log_feat.setAttributes([
                         'Created Name: {0}'.format(new_feat[0]),
                         'Created Name for feature (FID = {0}): {1}'.format(feat.id(), new_feat[iid]),
-                        'Channel ID: create new name tool'
+                        'Channel ID: create new name tool',
+                        1.0
                     ])
                     output_feats.append(log_feat)
 
                 # check for duplicate id
-                if not is_x_connector and new_feat[0] in ids:
+                # if not is_x_connector and new_feat[0] in ids:
+                if not is_x_connector and feat.id() not in ok_feats_:
                     # fix id
                     new_feat[0] = duplicate_rule.unique_name(new_feat[0], ids)
                     if new_feat[0] is None:
@@ -376,12 +416,14 @@ class UniqueIds(QObject):
                     log_feat.setGeometry(feat.geometry().pointOnSurface())
                     log_feat.setAttributes([
                         'Renamed Channel ID to {0}'.format(new_feat[0]),
-                        'Renamed Channel ID from {0} to {1}'.format(feat[iid], new_feat[0]),
-                        'Channel ID: rename duplicate tool'
+                        'Renamed Channel (FID = {2}) ID from {0} to {1}'.format(feat[iid], new_feat[0], feat.id()),
+                        'Channel ID: rename duplicate tool',
+                        1.0
                     ])
                     output_feats.append(log_feat)
+                    ids.append(new_feat[0])
 
-                ids.append(new_feat[0])
+                # ids.append(new_feat[0])
                 nwk_feats.append(new_feat)
 
                 self.updated.emit()  # update progress bar
@@ -390,7 +432,8 @@ class UniqueIds(QObject):
             nwk.updateExtents()
             QgsProject.instance().addMapLayer(nwk)
 
-        self.outputLyr.dataProvider().addFeatures(output_feats)
-        self.outputLyr.updateExtents()
+        if bad_lyrs:
+            self.outputLyr.dataProvider().addFeatures(output_feats)
+            self.outputLyr.updateExtents()
 
         self.finished.emit(self)

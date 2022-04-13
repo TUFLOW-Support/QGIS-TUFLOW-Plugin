@@ -338,7 +338,7 @@ class TuPlot3D(TuPlot2D):
 
         # clear the plot based on kwargs
         if not bypass:
-            self.tuPlot.clearPlot2(TuPlot.CrossSection, TuPlot.DataCurtainPlot)
+            self.tuPlot.clearPlot2(TuPlot.CrossSection, TuPlot.DataCurtainPlot, draw=draw)
 
         # initialise plotting variables
         data = []
@@ -586,11 +586,14 @@ class TuPlot3D(TuPlot2D):
         if len(x) != len(y):
             return None
 
-        if not x or not y:
-            return None
+        # if not x or not y:
+        #     return None
 
         #time = datetime.now()
-        xy = np.dstack((np.array(x), np.array(y)))
+        if not x or not y:
+            xy = []
+        else:
+            xy = np.dstack((np.array(x), np.array(y)))
         values = np.array(d)
         #if update and self.collection is not None:  # testing to see if quicker just to update collection
         #    pf = datetime.now()  # profiling
@@ -716,7 +719,7 @@ class TuPlot3D(TuPlot2D):
 
         """
 
-        possibleWlNames = ['water level', 'water surface elevation']
+        possibleWlNames = ['water level', 'water surface elevation', 'h']
         possibleBdNames = ['bed elevation']
         iBedGmd = None  # bed group metadata index
         iWlGmd = None  # water level group metadata index

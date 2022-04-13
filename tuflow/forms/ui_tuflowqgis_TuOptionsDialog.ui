@@ -789,6 +789,38 @@
         </widget>
        </item>
        <item>
+        <widget class="QGroupBox" name="groupBox_11">
+         <property name="title">
+          <string>TCF Load Method</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_12">
+          <item>
+           <widget class="QRadioButton" name="rbByScenSelection">
+            <property name="text">
+             <string>By Scenario Selction</string>
+            </property>
+            <attribute name="buttonGroup">
+             <string notr="true">buttonGroup_3</string>
+            </attribute>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="rbByResSelection">
+            <property name="text">
+             <string>By Result Selection</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+            <attribute name="buttonGroup">
+             <string notr="true">buttonGroup_3</string>
+            </attribute>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
         <spacer name="verticalSpacer_5">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -912,10 +944,11 @@
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_2"/>
-  <buttongroup name="LiveCursorTracking"/>
+  <buttongroup name="buttonGroup"/>
   <buttongroup name="MeanSelection"/>
   <buttongroup name="DefaultLayout"/>
+  <buttongroup name="LiveCursorTracking"/>
+  <buttongroup name="buttonGroup_3"/>
  </buttongroups>
 </ui>

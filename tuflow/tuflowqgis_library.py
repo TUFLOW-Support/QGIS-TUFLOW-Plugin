@@ -1,9 +1,9 @@
 """
  --------------------------------------------------------
 		tuflowqgis_library - tuflowqgis operation functions
-        begin                : 2013-08-27
-        copyright            : (C) 2013 by Phillip Ryan
-        email                : support@tuflow.com
+		begin                : 2013-08-27
+		copyright            : (C) 2013 by Phillip Ryan
+		email                : support@tuflow.com
  ***************************************************************************/
 
 /***************************************************************************
@@ -125,10 +125,27 @@ class NcVar():
 
 
 def about(window):
+	from ui_AboutDialog import Ui_AboutDialog
+	class AboutDialog(QDialog, Ui_AboutDialog):
+		def __init__(self, iface, plugin_version):
+			QDialog.__init__(self)
+			self.setupUi(self)
+			self.iface = iface
+			self.textEdit.setText('{0}\t: {1}\n'
+								  '{2}\t\t: {3}\n'
+								  '{4}\t\t: {5}'
+								  .format("TUFLOW Plugin Version", plugin_version, "QGIS Version", Qgis.QGIS_VERSION,
+										  "Python Version", sys.version.split('(')[0].strip()))
+			self.pbClose.clicked.connect(self.accept)
+			self.pbCopyText.clicked.connect(self.copy)
+
+		def copy(self):
+			clipboard = QApplication.clipboard()
+			clipboard.setText(self.textEdit.toPlainText())
+
 	build_type, build_vers = version()
-	QMessageBox.information(window, "TUFLOW",
-	                        "This is a {0} version of the TUFLOW QGIS utility\n"
-	                        "Build: {1}".format(build_type, build_vers))
+	dialog = AboutDialog(window, build_vers)
+	dialog.exec_()
 
 
 def tuflowqgis_find_layer(layer_name, **kwargs):
@@ -249,7 +266,7 @@ def tuflowqgis_duplicate_file(qgis, layer, savename, keepform):
 		
 	# Iterate through each feature in the source layer
 	feature_count = layer.dataProvider().featureCount()
-    
+
 	#feature = QgsFeature()
 	#layer.dataProvider().select(layer.dataProvider().attributeIndexes())
 	#layer.dataProvider().rewind()
@@ -296,9 +313,19 @@ def duplicate_database(iface, layer, db, layername, incrementDatabase, increment
 				options.layerName = layername
 				options.driverName = 'GPKG'
 				layer_temp = QgsVectorLayer('{0}|layername={1}'.format(db_old, tablename), 'temp', 'ogr')
-				error = QgsVectorFileWriter.writeAsVectorFormatV2(layer_temp, db, QgsCoordinateTransformContext(), options)
-				if error[0] != QgsVectorFileWriter.NoError:
-					return 'Error writing layer to database: {0} | {1}\n{2}'.format(db, tablename, error[1])
+				try:
+					if Qgis.QGIS_VERSION_INT >= 31030:
+						error = QgsVectorFileWriter.writeAsVectorFormatV2(layer_temp, db, QgsCoordinateTransformContext(), options)
+						if error[0] != QgsVectorFileWriter.NoError:
+							return 'Error writing layer to database: {0} | {1}\n{2}'.format(db, tablename, error[1])
+					else:
+						err, msg = QgsVectorFileWriter.writeAsVectorFormat(layer_temp, db, 'SYSTEM', layer.crs(),
+						                                                   options.driverName)
+						if err:
+							return 'Error writing layer to database: {0} | {1}\n{2}'.format(db, tablename, msg)
+				except Exception as e:
+					return 'Error writing layer to database: {0} | {1}: {2}. Try updating QGIS version to fix this issue.'.format(db, tablename, e)
+
 	else:
 		options = QgsVectorFileWriter.SaveVectorOptions()
 		if os.path.exists(db):
@@ -307,9 +334,19 @@ def duplicate_database(iface, layer, db, layername, incrementDatabase, increment
 			options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
 		options.layerName = layername
 		options.driverName = 'GPKG'
-		error = QgsVectorFileWriter.writeAsVectorFormatV2(layer, db, QgsCoordinateTransformContext(), options)
-		if error[0] != QgsVectorFileWriter.NoError:
-			return 'Error creating new layer: {0} | {1}\n{2}'.format(db, layername, error[1])
+		try:
+			if Qgis.QGIS_VERSION_INT >= 31030:
+				error = QgsVectorFileWriter.writeAsVectorFormatV2(layer, db, QgsCoordinateTransformContext(), options)
+				if error[0] != QgsVectorFileWriter.NoError:
+					return 'Error creating new layer: {0} | {1}\n{2}'.format(db, layername, error[1])
+			else:
+				err, msg = QgsVectorFileWriter.writeAsVectorFormat(layer, db, 'SYSTEM', layer.crs(),
+				                                                   options.driverName)
+				if err:
+					return 'Error writing layer to database: {0} | {1}\n{2}'.format(db, layername, msg)
+		except Exception as e:
+			return 'Error writing layer to database: {0} | {1}: {2}. Try updating QGIS version to fix this issue.'.format(
+				db, layername, e)
 
 	return None
 
@@ -332,10 +369,10 @@ def tuflowqgis_create_tf_dir(dialog, crs, basepath, engine, tutorial, gisFormat=
 	
 	# Create folders, ignore top level (e.g. model, as these are create when the subfolders are created)
 	TUFLOW_Folders = ["bc_dbase",
-	                  "check",
-	                  "model{0}gis{0}empty".format(os.sep),
-	                  "results",
-	                  "runs{0}log".format(os.sep)]
+					  "check",
+					  "model{0}gis{0}empty".format(os.sep),
+					  "results",
+					  "runs{0}log".format(os.sep)]
 	if engine == 'flexible mesh':
 		TUFLOW_Folders.append("model{0}geo".format(os.sep))
 	for x in TUFLOW_Folders:
@@ -540,10 +577,28 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 					options.driverName = 'GPKG'
 				else:
 					options.driverName = 'ESRI Shapefile'
-				outfile = QgsVectorFileWriter.writeAsVectorFormatV2(outlayer, savename, QgsCoordinateTransformContext(), options)
-				# if (outfile.hasError() != QgsVectorFileWriter.NoError):
-				if outfile[0] != QgsVectorFileWriter.NoError:
-					QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: {0}\n{1}".format(*outfile)))
+
+
+				try:
+					if Qgis.QGIS_VERSION_INT >= 31030:
+						outfile = QgsVectorFileWriter.writeAsVectorFormatV2(outlayer, savename, QgsCoordinateTransformContext(), options)
+					else:
+						err, msg = QgsVectorFileWriter.writeAsVectorFormat(outlayer, savename, 'SYSTEM', outlayer.crs(), options.driverName, datasourceOptions=['OVERWRITE=YES'])
+				except AttributeError:
+					QMessageBox.critical(qgis.mainWindow(), 'Save new file', 'Error creating new file. Try upgrading QGIS version to fix this error.')
+					return
+				except Exception as e:
+					QMessageBox.critical(qgis.mainWindow(), 'Save new file', 'Error creating new file: {0}'.format(e))
+					return
+
+				if Qgis.QGIS_VERSION_INT >= 31030:
+					if outfile[0] != QgsVectorFileWriter.NoError:
+						QMessageBox.critical(qgis.mainWindow(),"Info", ("Error Creating: {0}\n{1}".format(*outfile)))
+						continue
+				else:
+					if err:
+						QMessageBox.critical(qgis.mainWindow(), "Info", ("Error Creating: {0}\n{1}".format(savename, msg)))
+						continue
 				# del outfile
 
 				# delete prj file and replace with empty prj - ensures it is exactly the same
@@ -767,15 +822,23 @@ def tuflowqgis_import_check_tf(qgis, basepath, runID,showchecks):
 
 	# Get all the check files in the given directory
 	check_files = glob.glob(basepath +  '/*'+ runID +'*.shp') + glob.glob(basepath +  '/*'+ runID +'*.mif') + \
-				  glob.glob(basepath + '/*' + runID + '*.SHP') + glob.glob(basepath + '/*' + runID + '*.MIF')
+				  glob.glob(basepath + '/*' + runID + '*.SHP') + glob.glob(basepath + '/*' + runID + '*.MIF') + \
+				  glob.glob(basepath + '/*' + runID + '*.gpkg')
 
 	check_files_lower = [x.lower() for x in check_files]
 	check_files_temp = []
 	check_files_lower_temp = []
 	for i, cf in enumerate(check_files_lower):
-		if cf not in check_files_lower_temp:
-			check_files_lower_temp.append(cf)
-			check_files_temp.append(check_files[i])
+		if os.path.splitext(cf)[1].lower() == '.gpkg':
+			for lyr_name in get_table_names(cf):
+				uri = '{0}|layername={1}'.format(check_files[i], lyr_name)
+				if uri.lower() not in check_files_lower_temp:
+					check_files_lower_temp.append(uri.lower())
+					check_files_temp.append(uri)
+		else:
+			if cf not in check_files_lower_temp:
+				check_files_lower_temp.append(cf)
+				check_files_temp.append(check_files[i])
 	check_files = check_files_temp[:]
 
 
@@ -797,8 +860,11 @@ def tuflowqgis_import_check_tf(qgis, basepath, runID,showchecks):
 	if not check_files:
 		return "No check files found to import"
 	for chk in check_files:
-		pfft,fname = os.path.split(chk)
-		fname = fname[:-4]
+		if re.findall(re.escape(r'.gpkg|layername='), chk, flags=re.IGNORECASE):
+			fname = re.split(re.escape(r'.gpkg|layername='), chk, flags=re.IGNORECASE)[-1]
+		else:
+			pfft, fname = os.path.split(chk)
+			fname = fname[:-4]
 		layer = qgis.addVectorLayer(chk, fname, "ogr")
 		if layer is None:  # probably a mif file with 2 geometry types, have to redefine layer object
 			for layer_name, layer_object in QgsProject.instance().mapLayers().items():
@@ -844,7 +910,7 @@ def region_renderer(layer):
 
 	if layer.dataProvider().name() == 'memory':
 		fname = layer.name()
-	
+
 	if '_bcc_check_R' in fname:
 		field_name = 'Source'
 	elif '_1d_to_2d_check_R' in fname:
@@ -1167,6 +1233,28 @@ def region_renderer(layer):
 
 		# create renderer object
 		return QgsCategorizedSymbolRenderer(field_name, categories)
+
+
+def graduatedRenderer(layer):
+	symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+	symbol.setColor(Qt.red)
+	grad_rend = QgsGraduatedSymbolRenderer('Magnitude')
+	grad_rend.setSourceSymbol(symbol)
+	grad_rend.setGraduatedMethod(QgsGraduatedSymbolRenderer.GraduatedMethod.GraduatedSize)
+	grad_rend.updateClasses(layer, QgsGraduatedSymbolRenderer.Mode.Quantile, 5)
+	grad_rend.setSymbolSizes(2., 5.)
+
+	return grad_rend
+
+
+def is1dIntegrityToolOutput(layer):
+	field_mapping = [('Warning', QVariant.String), ('Message', QVariant.String),
+					 ('Tool', QVariant.String), ('Magnitude', QVariant.Double)]
+	len_ = len(field_mapping)
+
+	return layer is not None and isinstance(layer, QgsVectorLayer) and layer.isValid() and \
+		   'output' in layer.name() and [(x.name(), x.type()) for x in layer.fields()][:len_] == field_mapping
+
 	
 def tuflowqgis_apply_check_tf(qgis):
 
@@ -1186,13 +1274,7 @@ def tuflowqgis_apply_check_tf(qgis):
 				layer_fname = re.split(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)[1]
 			else:
 				layer_fname = os.path.splitext(os.path.basename(layer.dataProvider().dataSourceUri()))[0]
-			# layer_fname = os.path.split(layer.source())[1][:-4]
-			#QMessageBox.information(qgis.mainWindow(), "DEBUG", "shp layer name = "+layer.name())
-			#renderer = region_renderer(layer)
-			#if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
-			#	layer.setRenderer(renderer)
-			#	layer.triggerRepaint()
-			#else: # use .qml style using tf_styles
+
 			error, message, slyr = tf_styles.Find(layer_fname, layer) #use tuflow styles to find longest matching
 			if error:
 				return error, message
@@ -1201,6 +1283,11 @@ def tuflowqgis_apply_check_tf(qgis):
 			if slyr: #style layer found:
 				layer.loadNamedStyle(slyr)
 				layer.triggerRepaint()
+			elif is1dIntegrityToolOutput(layer):
+				renderer = graduatedRenderer(layer)
+				if renderer:
+					layer.setRenderer(renderer)
+					layer.triggerRepaint()
 			else:
 				renderer = region_renderer(layer)
 				if renderer:  # if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
@@ -1236,19 +1323,14 @@ def tuflowqgis_apply_check_tf_clayer(qgis, **kwargs):
 		return error, message
 		
 
-	if cLayer.type() == QgsMapLayer.VectorLayer:
+	if cLayer is not None and cLayer.type() == QgsMapLayer.VectorLayer:
 		if re.findall(re.escape(r'.gpkg|layername='), cLayer.dataProvider().dataSourceUri(), flags=re.IGNORECASE):
 			layer_fname = re.split(re.escape(r'.gpkg|layername='), cLayer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)[1]
 		else:
 			layer_fname = os.path.splitext(os.path.basename(cLayer.dataProvider().dataSourceUri()))[0]
 		if cLayer.dataProvider().name() == 'memory':
 			layer_fname = cLayer.name()
-		# layer_fname = os.path.split(cLayer.source())[1][:-4]
-		# renderer = region_renderer(cLayer)
-		# if renderer: #if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
-		# 	cLayer.setRenderer(renderer)
-		# 	cLayer.triggerRepaint()
-		# else: # use .qml style using tf_styles
+
 		error, message, slyr = tf_styles.Find(layer_fname, cLayer) #use tuflow styles to find longest matching
 		if re.findall(r'((_FM_PLOT_[PLR])|_raw_(nodes|links)_)', layer_fname, flags=re.IGNORECASE):
 			slyr = False  # flood modeller
@@ -1257,15 +1339,17 @@ def tuflowqgis_apply_check_tf_clayer(qgis, **kwargs):
 		if slyr: #style layer found:
 			cLayer.loadNamedStyle(slyr)
 			cLayer.triggerRepaint()
+		elif is1dIntegrityToolOutput(cLayer):
+			renderer = graduatedRenderer(cLayer)
+			if renderer:
+				cLayer.setRenderer(renderer)
+				cLayer.triggerRepaint()
 		else:
 			renderer = region_renderer(cLayer)
 			if renderer:  # if the file requires a attribute based rendered (e.g. BC_Name for a _sac_check_R)
 				cLayer.setRenderer(renderer)
 				cLayer.triggerRepaint()
-	else:
-		error = True
-		message = 'ERROR - Layer is not a vector layer: '+cLayer.source()
-		return error, message
+
 	return error, message
 	
 def tuflowqgis_increment_fname(infname):
@@ -1322,7 +1406,7 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
 	else:
 		geomType = '_L'
 		g = 'linestring'
-	
+
 	# empty_folder = 'empty'
 	# for p in os.walk(os.path.dirname(basedir)):
 	# 	for d in p[1]:
@@ -1437,12 +1521,27 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
 			open_layer = None
 	options.layerName = layername
 	options.driverName = 'GPKG' if out_ext == '.gpkg' else 'ESRI Shapefile'
-	error = QgsVectorFileWriter.writeAsVectorFormatV2(out_lyr, out_path, QgsCoordinateTransformContext(), options)
-	if error[0] != QgsVectorFileWriter.NoError:
-		if out_ext == '.gpkg':
-			return 'Error writing out {0} | {1}\n{2}'.format(output_db, layername, error[1])
+	try:
+		if Qgis.QGIS_VERSION_INT >= 31030:
+			error = QgsVectorFileWriter.writeAsVectorFormatV2(out_lyr, out_path, QgsCoordinateTransformContext(), options)
+			if error[0] != QgsVectorFileWriter.NoError:
+				if out_ext == '.gpkg':
+					return 'Error writing out {0} | {1}\n{2}'.format(output_db, layername, error[1])
+				else:
+					return 'Error writing out {0}\n{1}'.format(fpath, error[1])
 		else:
-			return 'Error writing out {0}\n{1}'.format(fpath, error[1])
+			err, msg = QgsVectorFileWriter.writeAsVectorFormat(out_lyr, out_path, 'SYSTEM', out_lyr.crs(),
+			                                                   options.driverName)
+			if err:
+				if out_ext == '.gpkg':
+					return 'Error writing out {0} | {1}\n{2}'.format(output_db, layername, msg)
+				else:
+					return 'Error writing out {0}\n{1}'.format(fpath, msg)
+	except Exception as e:
+		if out_ext == '.gpkg':
+			return 'Error writing out {0} | {1}: {2}. Try updating QGIS to latest version to fix this issue.'.format(output_db, layername, e)
+		else:
+			return 'Error writing out {0}: {1}. Try updating QGIS to latest version to fix this issue.'.format(fpath, e)
 
 	open_layer = tuflowqgis_find_layer(layername)
 	if open_layer is None or open_layer.dataProvider().dataSourceUri().lower() != fpath.lower():
@@ -1450,7 +1549,7 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
 
 	return
 
-	
+
 	# Create new vector file from template with appended attribute fields
 	# if template == '1d_nwk':
 	# 	if lenFields >= 10:
@@ -1540,19 +1639,19 @@ def get_tuflow_labelName(layer):
 		field_name3 = layer.fields().field(2).name()
 		field_name4 = layer.fields().field(5).name()
 		field_name = "'Type: ' + \"{0}\" + '\n' + 'Invert: ' + if(\"{1}\">-1000000, to_string(\"{1}\"), \"{1}\") +" \
-		             "'\n' + 'Obvert: ' + if(\"{2}\">-100, to_string(\"{2}\"), \"{2}\") + '\n' + 'FLC: ' + " \
-		             "if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\")".format(field_name1, field_name2, field_name3, 
-		                                                                  field_name4)
+					 "'\n' + 'Obvert: ' + if(\"{2}\">-100, to_string(\"{2}\"), \"{2}\") + '\n' + 'FLC: ' + " \
+					 "if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\")".format(field_name1, field_name2, field_name3,
+																		  field_name4)
 	elif '2d_fcsh' in fname:
 		field_name1 = layer.fields().field(0).name()
 		field_name2 = layer.fields().field(1).name()
 		field_name3 = layer.fields().field(5).name()
 		field_name4 = layer.fields().field(6).name()
 		field_name = "'Invert: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'Obvert: ' + " \
-		             "if(\"{1}\">-100, to_string(\"{1}\"), \"{1}\") + '\n'" \
-		             " + 'pBlockage: ' + if(\"{2}\">-100, to_string(\"{2}\"), \"{2}\") + '\n' + 'FLC: ' + " \
-		             "if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\")".format(field_name1, field_name2, field_name3, 
-		                                                                  field_name4)
+					 "if(\"{1}\">-100, to_string(\"{1}\"), \"{1}\") + '\n'" \
+					 " + 'pBlockage: ' + if(\"{2}\">-100, to_string(\"{2}\"), \"{2}\") + '\n' + 'FLC: ' + " \
+					 "if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\")".format(field_name1, field_name2, field_name3,
+																		  field_name4)
 	elif '2d_lfcsh' in fname:
 		field_name1 = layer.fields().field(0).name()
 		field_name2 = layer.fields().field(4).name()
@@ -1565,18 +1664,18 @@ def get_tuflow_labelName(layer):
 		field_name9 = layer.fields().field(11).name()
 		field_name10 = layer.fields().field(12).name()
 		field_name = "'Invert: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'L1 Obvert: ' + " \
-		             "if(\"{1}\">-100, to_string(\"{1}\"), \"{1}\") + '\n'" \
-		             " + 'L1 pBlockage: ' + if(\"{2}\">-100, to_string(\"{2}\"), \"{2}\") + '\n' + 'L1 FLC: ' + " \
-		             "if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\") + '\n' + 'L2 Depth: ' + " \
-		             "if(\"{4}\">=0, to_string(\"{4}\"), \"{4}\") + '\n' + 'L2 pBlockage: ' + " \
-		             "if(\"{5}\">=0, to_string(\"{5}\"), \"{5}\") + '\n' + 'L2 FLC: ' + " \
-		             "if(\"{6}\">=0, to_string(\"{6}\"), \"{6}\") + '\n' + 'L3 Depth: ' + " \
-		             "if(\"{7}\">=0, to_string(\"{7}\"), \"{7}\") + '\n' + 'L3 pBlockage: ' + " \
-		             "if(\"{8}\">=0, to_string(\"{8}\"), \"{8}\") + '\n' + 'L3 FLC: ' + " \
-		             "if(\"{9}\">=0, to_string(\"{9}\"), \"{9}\")".format(field_name1, field_name2, field_name3, 
-		                                                                  field_name4, field_name5, field_name6, 
-		                                                                  field_name7, field_name8, field_name9,
-		                                                                  field_name10)
+					 "if(\"{1}\">-100, to_string(\"{1}\"), \"{1}\") + '\n'" \
+					 " + 'L1 pBlockage: ' + if(\"{2}\">-100, to_string(\"{2}\"), \"{2}\") + '\n' + 'L1 FLC: ' + " \
+					 "if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\") + '\n' + 'L2 Depth: ' + " \
+					 "if(\"{4}\">=0, to_string(\"{4}\"), \"{4}\") + '\n' + 'L2 pBlockage: ' + " \
+					 "if(\"{5}\">=0, to_string(\"{5}\"), \"{5}\") + '\n' + 'L2 FLC: ' + " \
+					 "if(\"{6}\">=0, to_string(\"{6}\"), \"{6}\") + '\n' + 'L3 Depth: ' + " \
+					 "if(\"{7}\">=0, to_string(\"{7}\"), \"{7}\") + '\n' + 'L3 pBlockage: ' + " \
+					 "if(\"{8}\">=0, to_string(\"{8}\"), \"{8}\") + '\n' + 'L3 FLC: ' + " \
+					 "if(\"{9}\">=0, to_string(\"{9}\"), \"{9}\")".format(field_name1, field_name2, field_name3,
+																		  field_name4, field_name5, field_name6,
+																		  field_name7, field_name8, field_name9,
+																		  field_name10)
 	elif '2d_po' in fname or '2d_lp' in fname:
 		field_name1 = layer.fields().field(0).name()
 		field_name2 = layer.fields().field(1).name()
@@ -1588,20 +1687,20 @@ def get_tuflow_labelName(layer):
 		field_name4 = layer.fields().field(3).name()
 		field_name5 = layer.fields().field(4).name()
 		field_name = "'Name: ' + \"{0}\" + '\n' + 'Catchment Area: ' + if(\"{1}\">0, to_string(\"{1}\"), \"{1}\") + " \
-		             "'\n' + 'Rain Gauge: ' + \"{2}\" + '\n' + 'IL: ' + if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\") " \
-		             " + '\n' + 'CL: ' + if(\"{4}\">=0, to_string(\"{4}\"), \"{4}\")".format(field_name1, field_name2, 
-		                                                                                     field_name3, field_name4,
-		                                                                                     field_name5)
+					 "'\n' + 'Rain Gauge: ' + \"{2}\" + '\n' + 'IL: ' + if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\") " \
+					 " + '\n' + 'CL: ' + if(\"{4}\">=0, to_string(\"{4}\"), \"{4}\")".format(field_name1, field_name2,
+																							 field_name3, field_name4,
+																							 field_name5)
 	elif '2d_sa_tr' in fname:
 		field_name1 = layer.fields().field(0).name()
 		field_name2 = layer.fields().field(1).name()
 		field_name3 = layer.fields().field(2).name()
 		field_name4 = layer.fields().field(3).name()
 		field_name = "'Name: ' + \"{0}\" + '\n' + 'Trigger Type: ' + \"{1}\" + '\n' + 'Trigger Location: ' + \"{2}\"" \
-		             "+ '\n' + 'Trigger Value: ' + if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\")".format(field_name1, 
-		                                                                                               field_name2, 
-		                                                                                               field_name3,
-		                                                                                               field_name4)
+					 "+ '\n' + 'Trigger Value: ' + if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\")".format(field_name1,
+																									   field_name2,
+																									   field_name3,
+																									   field_name4)
 	elif '2d_vzsh' in fname:
 		field_name1 = layer.fields().field(0).name()
 		field_name2 = layer.fields().field(3).name()
@@ -1610,10 +1709,10 @@ def get_tuflow_labelName(layer):
 		field_name5 = layer.fields().field(6).name()
 		field_name6 = layer.fields().field(7).name()
 		field_name = "'Z: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'Shape Options: ' + \"{1}\"" \
-		             "+ '\n' + 'Trigger 1: ' + \"{2}\" + '\n' + 'Trigger 2: ' + \"{3}\" + '\n' + 'Trigger Value: ' "\
-		             "+ if(\"{4}\">0, to_string(\"{4}\"), \"{4}\") + '\n' + 'Period: ' + " \
-		             "if(\"{5}\">0, to_string(\"{5}\"), \"{5}\")".format(field_name1, field_name2, field_name3,
-		                                                                 field_name4, field_name5, field_name6)
+					 "+ '\n' + 'Trigger 1: ' + \"{2}\" + '\n' + 'Trigger 2: ' + \"{3}\" + '\n' + 'Trigger Value: ' "\
+					 "+ if(\"{4}\">0, to_string(\"{4}\"), \"{4}\") + '\n' + 'Period: ' + " \
+					 "if(\"{5}\">0, to_string(\"{5}\"), \"{5}\")".format(field_name1, field_name2, field_name3,
+																		 field_name4, field_name5, field_name6)
 	elif '2d_zshr' in fname:
 		field_name1 = layer.fields().field(0).name()
 		field_name2 = layer.fields().field(3).name()
@@ -1621,12 +1720,12 @@ def get_tuflow_labelName(layer):
 		field_name4 = layer.fields().field(5).name()
 		field_name5 = layer.fields().field(6).name()
 		field_name = "'Z: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'Shape Options: ' + \"{1}\"" \
-		             "+ '\n' + 'Route Name: ' + \"{2}\" + '\n' + 'Cut Off Type: ' + \"{3}\" + '\n' + " \
-		             "'Cut Off Values: ' + if(\"{4}\">-1000000, to_string(\"{4}\"), \"{4}\")".format(field_name1, 
-		                                                                                             field_name2, 
-		                                                                                             field_name3,
-		                                                                                             field_name4, 
-		                                                                                             field_name5)
+					 "+ '\n' + 'Route Name: ' + \"{2}\" + '\n' + 'Cut Off Type: ' + \"{3}\" + '\n' + " \
+					 "'Cut Off Values: ' + if(\"{4}\">-1000000, to_string(\"{4}\"), \"{4}\")".format(field_name1,
+																									 field_name2,
+																									 field_name3,
+																									 field_name4,
+																									 field_name5)
 	elif '2d_zsh' in fname:
 		if layer.geometryType() == QgsWkbTypes.PointGeometry:
 			field_name1 = layer.fields().field(0).name()
@@ -1635,12 +1734,12 @@ def get_tuflow_labelName(layer):
 			field_name1 = layer.fields().field(0).name()
 			field_name2 = layer.fields().field(2).name()
 			field_name = "'Z: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'Shape Width: ' + " \
-			             "if(\"{1}\">-1000000, to_string(\"{1}\"), \"{1}\")".format(field_name1, field_name2)
+						 "if(\"{1}\">-1000000, to_string(\"{1}\"), \"{1}\")".format(field_name1, field_name2)
 		elif layer.geometryType() == QgsWkbTypes.PolygonGeometry:
 			field_name1 = layer.fields().field(0).name()
 			field_name2 = layer.fields().field(3).name()
 			field_name = "'Z: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'Shape Options: ' + " \
-			             "\"{1}\"".format(field_name1, field_name2)
+						 "\"{1}\"".format(field_name1, field_name2)
 	elif '_RCP' in fname:
 		field_name1 = layer.fields().field(0).name()
 		field_name2 = layer.fields().field(1).name()
@@ -1648,11 +1747,11 @@ def get_tuflow_labelName(layer):
 		field_name4 = layer.fields().field(3).name()
 		field_name5 = layer.fields().field(4).name()
 		field_name = "'Route Name: ' + if(\"{0}\">-1000000, to_string(\"{0}\"), \"{0}\") + '\n' + 'Cut Off Value: ' " \
-		             "+ if(\"{1}\">-1000000, to_string(\"{1}\"), \"{1}\") + '\n' + 'First Cut Off Time: ' + " \
-		             "if(\"{2}\">-1000000, to_string(\"{2}\"), \"{2}\") + '\n' + 'Last Cutoff Time: ' + " \
-		             "if(\"{3}\">-1000000, to_string(\"{3}\"), \"{3}\") + '\n' + 'Duration of Cutoff: ' + " \
-		             "if(\"{4}\">-1000000, to_string(\"{4}\"), \"{4}\")".format(field_name1, field_name2, field_name3, 
-		                                                                        field_name4, field_name5)
+					 "+ if(\"{1}\">-1000000, to_string(\"{1}\"), \"{1}\") + '\n' + 'First Cut Off Time: ' + " \
+					 "if(\"{2}\">-1000000, to_string(\"{2}\"), \"{2}\") + '\n' + 'Last Cutoff Time: ' + " \
+					 "if(\"{3}\">-1000000, to_string(\"{3}\"), \"{3}\") + '\n' + 'Duration of Cutoff: ' + " \
+					 "if(\"{4}\">-1000000, to_string(\"{4}\"), \"{4}\")".format(field_name1, field_name2, field_name3,
+																				field_name4, field_name5)
 	elif '1d_mmH_P' in fname:
 		field_name = ""
 		for i, field in enumerate(layer.fields()):
@@ -1693,12 +1792,12 @@ def get_1d_nwk_labelName(layer, type):
 	#QMessageBox.information(qgis.mainWindow(),"Info", ("{0}".format(field_name2)))
 	if type == 'C':
 		field_name = "'ID: ' + \"{0}\" + '\n' + 'Type: ' + \"{1}\" + '\n' + 'Width: ' + " \
-		             "if(\"{2}\">=0, to_string(\"{2}\"), \"{2}\")".format(field_name1, field_name2, field_name3)
+					 "if(\"{2}\">=0, to_string(\"{2}\"), \"{2}\")".format(field_name1, field_name2, field_name3)
 	elif type == 'R':
 		field_name = "'ID: ' + \"{0}\" + '\n' + 'Type: ' + \"{1}\" + '\n' + 'Width: ' + " \
-		             "if(\"{2}\">=0, to_string(\"{2}\"), \"{2}\") + '\n' + 'Height: ' + " \
-		             "if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\")".format(field_name1, field_name2, field_name3,
-		                                                                 field_name4)
+					 "if(\"{2}\">=0, to_string(\"{2}\"), \"{2}\") + '\n' + 'Height: ' + " \
+					 "if(\"{3}\">=0, to_string(\"{3}\"), \"{3}\")".format(field_name1, field_name2, field_name3,
+																		 field_name4)
 	else:
 		field_name = "'ID: ' + \"{0}\" + '\n' + 'Type: ' + \"{1}\"".format(field_name1, field_name2)
 		
@@ -2070,11 +2169,12 @@ def getLabelFieldName(layer: QgsVectorLayer, properties: dict) -> str:
 	fields = layer.fields()
 	a = []
 	for i in properties['label_attributes']:
-		if fields.size() >= i:
-			if properties['use_attribute_name']:
-				a.append("'{0}: ' + if ( \"{0}\" IS NULL, \"{0}\", to_string( \"{0}\" ) )".format(fields.field(i-1+add).name()))
-			else:
-				a.append("if ( \"{0}\" IS NULL, \"{0}\", to_string( \"{0}\" ) )".format(fields.field(i-1+add).name()))
+		i = min(i, fields.size() - 1)
+		# if fields.size() >= i:
+		if properties['use_attribute_name']:
+			a.append("'{0}: ' + if ( \"{0}\" IS NULL, '', to_string( \"{0}\" ) )".format(fields.field(i-1+add).name()))
+		else:
+			a.append("if ( \"{0}\" IS NULL, '', to_string( \"{0}\" ) )".format(fields.field(i-1+add).name()))
 
 	fieldName = r" + '\n' + ".join(a)
 
@@ -2526,7 +2626,7 @@ def checkForOutputDrive(tcf, scenarios=()):
 			if 'if scenario' in f.lower():
 				ind = f.lower().find('if scenario')
 				if '!' not in f[:ind]:
-					command, scenario = f.split('==')
+					command, scenario = f.split('==', 1)
 					command = command.strip()
 					scenario = scenario.split('!')[0]
 					scenario = scenario.strip()
@@ -2552,7 +2652,7 @@ def checkForOutputDrive(tcf, scenarios=()):
 			if 'output drive' in f.lower():  # check if there is an 'if scenario' command
 				ind = f.lower().find('output drive')  # get index in string of command
 				if '!' not in f[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
-					command, drive = f.split('==')  # split at == to get command and value
+					command, drive = f.split('==', 1)  # split at == to get command and value
 					command = command.strip()  # strip blank spaces and new lines \n
 					drive = drive.split('!')[0]  # split string by ! and take first entry i.e. remove any comments after command
 					drive = drive.strip()  # strip blank spaces and new lines \n
@@ -2583,7 +2683,7 @@ def getOutputFolderFromTCF(tcf, **kwargs):
 				if 'if scenario' in f.lower():
 					ind = f.lower().find('if scenario')
 					if '!' not in f[:ind]:
-						command, scenario = f.split('==')
+						command, scenario = f.split('==', 1)
 						command = command.strip()
 						scenario = scenario.split('!')[0]
 						scenario = scenario.strip()
@@ -2620,7 +2720,7 @@ def getOutputFolderFromTCF(tcf, **kwargs):
 							if 'if scenario' in f.lower():
 								ind = f.lower().find('if scenario')
 								if '!' not in f[:ind]:
-									command, scenario = f.split('==')
+									command, scenario = f.split('==', 1)
 									command = command.strip()
 									scenario = scenario.split('!')[0]
 									scenario = scenario.strip()
@@ -2651,14 +2751,14 @@ def getOutputFolderFromTCF(tcf, **kwargs):
 									folder = folder.split('!')[0]  # split string by ! and take first entry i.e. remove any comments after command
 									folder = folder.strip()  # strip blank spaces and new lines \n
 									folders = getAllFolders(os.path.dirname(tcf), folder, variables,
-									                        scenarios, events, outputDrive)
+															scenarios, events, outputDrive)
 									outputFolder1D += folders
 
 				# normal output folder
 				if 'output folder' in f.lower():  # check if there is an 'if scenario' command
 					ind = f.lower().find('output folder')  # get index in string of command
 					if '!' not in f[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
-						command, folder = f.split('==')  # split at == to get command and value
+						command, folder = f.split('==', 1)  # split at == to get command and value
 						command = command.strip()  # strip blank spaces and new lines \n
 						folder = folder.split('!')[0]  # split string by ! and take first entry i.e. remove any comments after command
 						folder = folder.strip()  # strip blank spaces and new lines \n
@@ -2676,28 +2776,26 @@ def getOutputFolderFromTCF(tcf, **kwargs):
 					if '!' not in f[:ind]:
 						if 'estry control file auto' in f.lower():
 							path = '{0}.ecf'.format(os.path.splitext(tcf)[0])
-						command, relPath = f.split('==')
+						command, relPath = f.split('==', 1)
 						command = command.strip()
 						relPath = relPath.split('!')[0]
 						relPath = relPath.strip()
 						files = getAllFolders(os.path.dirname(tcf), relPath, variables, scenarios, events, outputDrive)
 						#path = getPathFromRel(os.path.dirname(tcf), relPath, output_drive=outputDrive)
 						for file in files:
-							outputFolder1D += getOutputFolderFromTCF(file)
-
-				# check for output folder in TRD
-				if 'read file' in f.lower():
-					ind = f.lower().find('read file')
-					if '!' not in f[:ind]:
-						command, relPath = f.split('==')
-						command = command.strip()
-						relPath = relPath.split('!')[0]
-						relPath = relPath.strip()
-						files = getAllFolders(os.path.dirname(tcf), relPath, variables, scenarios, events, outputDrive)
-						for file in files:
-							res1D, res2D = getOutputFolderFromTCF(file, scenarios=scenarios, events=events, variables=variables, output_drive=outputDrive)
-							outputFolder1D += res1D
-							outputFolder2D += res2D
+							outputFolder1D += getOutputFolderFromTCF(file)# check for output folder in TRD
+					if 'read file' in f.lower():
+						ind = f.lower().find('read file')
+						if '!' not in f[:ind]:
+							command, relPath = f.split('==', 1)
+							command = command.strip()
+							relPath = relPath.split('!')[0]
+							relPath = relPath.strip()
+							files = getAllFolders(os.path.dirname(tcf), relPath, variables, scenarios, events, outputDrive)
+							for file in files:
+								res1D, res2D = getOutputFolderFromTCF(file, scenarios=scenarios, events=events, variables=variables, output_drive=outputDrive)
+								outputFolder1D += res1D
+								outputFolder2D += res2D
 
 		if outputFolder2D is not None:
 			if outputFolder1D is None:
@@ -2733,7 +2831,7 @@ def getResultPathsFromTCF(fpath, **kwargs):
 	
 	# get output folders
 	outputFolder1D, outputFolder2D = getOutputFolderFromTCF(fpath, variables=variables, output_drive=outputDrive,
-	                                                        scenarios=scenarios, events=events)
+															scenarios=scenarios, events=events)
 	outputFolders2D = []
 	if outputZones:
 		for opz in outputZones:
@@ -2783,7 +2881,7 @@ def getResultPathsFromTCF(fpath, **kwargs):
 							results2D.append(os.path.join(opf2D, file))
 				if not results2D:
 					messages.append("Could not find any matching mesh files for {0} in folder {1}".format(basename,
-					                                                                                      opf2D))
+																										  opf2D))
 
 			else:
 				messages.append("2D output folder does not exist: {0}".format(opf2D))
@@ -2825,17 +2923,20 @@ def check1DResultsForData(tpc):
 	
 	with open(tpc, 'r') as fo:
 		for line in fo:
-			if 'number 1d' in line.lower():
+			if '==' not in line:
+				continue
+			command, value = line.split('==', 1)
+			if 'number 1d' in command.lower():
 				property, value = line.split('==')
 				value = int(value.split('!')[0].strip())
 				if value > 0:
 					return True
-			elif 'number reporting location' in line.lower():
+			elif 'number reporting location' in command.lower():
 				property, value = line.split('==')
 				value = int(value.split('!')[0].strip())
 				if value > 0:
 					return True
-			elif '2d' in line.lower():
+			elif '2d' in command.lower():
 				return True
 			
 	return False
@@ -2908,7 +3009,7 @@ def getScenariosFromControlFile(controlFile, processedScenarios):
 				if 'if scenario' in f.lower():  # check if there is an 'if scenario' command
 					ind = f.lower().find('if scenario')  # get index in string of command
 					if '!' not in f[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
-						command, scenario = f.split('==')  # split at == to get command and value
+						command, scenario = f.split('==', 1)  # split at == to get command and value
 						command = command.strip()  # strip blank spaces and new lines \n
 						scenario = scenario.split('!')[
 							0]  # split string by ! and take first entry i.e. remove any comments after command
@@ -2966,7 +3067,7 @@ def getScenariosFromTcf(tcf):
 							error = True
 							messages.append("File not found: {0}".format(path))
 					else:
-						command, relPath = f.split('==')
+						command, relPath = f.split('==', 1)
 						command = command.strip()
 						relPath = relPath.split('!')[0]
 						relPath = relPath.strip()
@@ -2979,7 +3080,7 @@ def getScenariosFromTcf(tcf):
 			if 'geometry control file' in f.lower():
 				ind = f.lower().find('geometry control file')
 				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0]
 					relPath = relPath.strip()
@@ -2992,7 +3093,7 @@ def getScenariosFromTcf(tcf):
 			if 'bc control file' in f.lower():
 				ind = f.lower().find('bc control file')
 				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0]
 					relPath = relPath.strip()
@@ -3002,7 +3103,7 @@ def getScenariosFromTcf(tcf):
 			if 'event control file' in f.lower():
 				ind = f.lower().find('event control file')
 				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0]
 					relPath = relPath.strip()
@@ -3015,7 +3116,7 @@ def getScenariosFromTcf(tcf):
 			if 'read file' in f.lower():
 				ind = f.lower().find('read file')
 				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0]
 					relPath = relPath.strip()
@@ -3028,10 +3129,25 @@ def getScenariosFromTcf(tcf):
 			if 'read operating controls file' in f.lower():
 				ind = f.lower().find('read operating controls file')
 				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0]
 					relPath = relPath.strip()
+					paths = getAllFolders(dir, relPath, variables, scenarios, [])
+					for path in paths:
+						msg, scenarios = getScenariosFromControlFile(path, scenarios)
+						if msg:
+							error = True
+							messages.append(msg)
+			if 'quadtree control file' in f.lower():
+				ind = f.lower().find('quadtree control file')
+				if '!' not in f[:ind]:
+					command, relPath = f.split('==', 1)
+					command = command.strip()
+					relPath = relPath.split('!')[0]
+					relPath = relPath.strip()
+					if relPath.lower() == 'single level':
+						continue
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
 						msg, scenarios = getScenariosFromControlFile(path, scenarios)
@@ -3057,7 +3173,7 @@ def getEventsFromTEF(tef):
 			if 'define event' in f.lower():
 				ind = f.lower().find('define event')
 				if '!' not in f[:ind]:
-					command, event = f.split('==')
+					command, event = f.split('==', 1)
 					command = command.strip()
 					event = event.split('!')[0]
 					event = event.strip()
@@ -3082,7 +3198,7 @@ def getEventsFromTCF(tcf):
 			if 'event file' in f.lower():
 				ind = f.lower().find('event file')
 				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0]
 					relPath = relPath.strip()
@@ -3111,7 +3227,7 @@ def getVariableFromControlFile(controlFile, variable, **kwargs):
 				if 'if scenario' in f.lower():  # check if there is an 'if scenario' command
 					ind = f.lower().find('if scenario')  # get index in string of command
 					if '!' not in f[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
-						command, scenario = f.split('==')  # split at == to get command and value
+						command, scenario = f.split('==', 1)  # split at == to get command and value
 						command = command.strip()  # strip blank spaces and new lines \n
 						scenario = scenario.split('!')[0]  # split string by ! and take first entry i.e. remove any comments after command
 						scenario = scenario.strip()  # strip blank spaces and new lines \n
@@ -3121,7 +3237,7 @@ def getVariableFromControlFile(controlFile, variable, **kwargs):
 								if 'set variable' in sub_f.lower():  # check if there is an 'if scenario' command
 									ind = sub_f.lower().find('set variable')  # get index in string of command
 									if '!' not in sub_f[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
-										command, local_value = sub_f.split('==')  # split at == to get command and value
+										command, local_value = sub_f.split('==', 1)  # split at == to get command and value
 										command = command.strip()  # strip blank spaces and new lines \n
 										if variable in command:
 											value = local_value.split('!')[0]  # split string by ! and take first entry i.e. remove any comments after command
@@ -3132,7 +3248,7 @@ def getVariableFromControlFile(controlFile, variable, **kwargs):
 				if 'set variable' in f.lower():  # check if there is an 'if scenario' command
 					ind = f.lower().find('set variable')  # get index in string of command
 					if '!' not in f[:ind]:  # check to see if there is an ! before command (i.e. has been commented out)
-						command, local_value = f.split('==')  # split at == to get command and value
+						command, local_value = f.split('==', 1)  # split at == to get command and value
 						command = command.strip()  # strip blank spaces and new lines \n
 						if variable in command:
 							value = local_value.split('!')[0]  # split string by ! and take first entry i.e. remove any comments after command
@@ -3171,7 +3287,7 @@ def getVariableFromTCF(tcf, variable_name, **kwargs):
 					if 'estry control file auto' in f.lower():
 						path = '{0}.ecf'.format(os.path.splitext(tcf)[0])
 					else:
-						command, relPath = f.split('==')
+						command, relPath = f.split('==', 1)
 						command = command.strip()
 						relPath = relPath.split('!')[0]
 						relPath = relPath.strip()
@@ -3186,7 +3302,7 @@ def getVariableFromTCF(tcf, variable_name, **kwargs):
 			if 'geometry control file' in f.lower():
 				ind = f.lower().find('geometry control file')
 				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0]
 					relPath = relPath.strip()
@@ -3201,7 +3317,7 @@ def getVariableFromTCF(tcf, variable_name, **kwargs):
 			if 'bc control file' in f.lower():
 				ind = f.lower().find('bc control file')
 				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0]
 					relPath = relPath.strip()
@@ -3216,7 +3332,7 @@ def getVariableFromTCF(tcf, variable_name, **kwargs):
 			if 'event control file' in f.lower():
 				ind = f.lower().find('event control file')
 				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0]
 					relPath = relPath.strip()
@@ -3231,7 +3347,7 @@ def getVariableFromTCF(tcf, variable_name, **kwargs):
 			if 'read file' in f.lower():
 				ind = f.lower().find('read file')
 				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0]
 					relPath = relPath.strip()
@@ -3246,10 +3362,27 @@ def getVariableFromTCF(tcf, variable_name, **kwargs):
 			if 'read operating controls file' in f.lower():
 				ind = f.lower().find('read operating controls file')
 				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0]
 					relPath = relPath.strip()
+					path = getPathFromRel(dir, relPath)
+					if os.path.exists(path):
+						value = getVariableFromControlFile(path, variable)
+						if value is not None:
+							return error, message, value
+					else:
+						error = True
+						message += '{0}\n'.format(path)
+			if 'quadtree control file' in f.lower():
+				ind = f.lower().find('quadtree control file')
+				if '!' not in f[:ind]:
+					command, relPath = f.split('==', 1)
+					command = command.strip()
+					relPath = relPath.split('!')[0]
+					relPath = relPath.strip()
+					if relPath.lower() == 'single level':
+						continue
 					path = getPathFromRel(dir, relPath)
 					if os.path.exists(path):
 						value = getVariableFromControlFile(path, variable)
@@ -3276,7 +3409,7 @@ def getCellSizeFromTGC(tgc):
 			if 'cell size' in f.lower():
 				ind = f.lower().find('cell size')
 				if '!' not in f[:ind]:
-					command, size = f.split('==')
+					command, size = f.split('==', 1)
 					command = command.strip()
 					size = size.split('!')[0]
 					size = size.strip()
@@ -3321,7 +3454,7 @@ def getCellSizeFromTCF(tcf, **kwargs):
 			if 'geometry control file' in f.lower():
 				ind = f.lower().find('geometry control file')
 				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0]
 					relPath = relPath.strip()
@@ -3367,7 +3500,7 @@ def getOutputZonesFromTCF(tcf, **kwargs):
 				ind = f.lower().find('define output zone')
 				if '!' not in f[:ind]:
 					outputProp = {}
-					command, name = f.split('==')
+					command, name = f.split('==', 1)
 					command = command.strip()
 					name = name.split('!')[0].strip()
 					if name not in outputProp:
@@ -3380,7 +3513,7 @@ def getOutputZonesFromTCF(tcf, **kwargs):
 						elif 'output folder' in subf.lower():
 							subind = subf.lower().find('output folder')
 							if '!' not in subf[:subind]:
-								command, relPath = subf.split('==')
+								command, relPath = subf.split('==', 1)
 								command = command.strip()
 								relPath = relPath.split('!')[0].strip()
 								path = getPathFromRel(dir, relPath)
@@ -3389,7 +3522,7 @@ def getOutputZonesFromTCF(tcf, **kwargs):
 			if 'read file' in f.lower():
 				ind = f.lower().find('read file')
 				if '!' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0]
 					relPath = relPath.strip()
@@ -3449,7 +3582,7 @@ def getVariableNamesFromControlFile(controlFile, variables, scenarios=()):
 				if 'if scenario' in f.lower():
 					ind = f.lower().find('if scenario')
 					if '!' not in f[:ind]:
-						command, scenario = f.split('==')
+						command, scenario = f.split('==', 1)
 						command = command.strip()
 						scenario = scenario.split('!')[0]
 						scenario = scenario.strip()
@@ -3475,7 +3608,7 @@ def getVariableNamesFromControlFile(controlFile, variables, scenarios=()):
 				elif 'set variable' in f.lower():
 					ind = f.lower().find('set variable')
 					if '!' not in f[:ind]:
-						command, value = f.split('==')
+						command, value = f.split('==', 1)
 						command = command.strip()
 						variable = command[12:].strip()
 						value = value.split('!')[0]
@@ -3503,7 +3636,7 @@ def getVariableNamesFromTCF(tcf, scenarios=()):
 	:param scenarios: list -> str scenario name
 	:return: dict { variable name: [ value list ] }
 	"""
-	
+
 	dir = os.path.dirname(tcf)
 	variables = {}
 	# first look for variables in tcf
@@ -3518,7 +3651,7 @@ def getVariableNamesFromTCF(tcf, scenarios=()):
 				if 'if scenario' in f.lower():
 					ind = f.lower().find('if scenario')
 					if '!' not in f[:ind]:
-						command, scenario = f.split('==')
+						command, scenario = f.split('==', 1)
 						command = command.strip()
 						scenario = scenario.split('!')[0]
 						scenario = scenario.strip()
@@ -3547,7 +3680,7 @@ def getVariableNamesFromTCF(tcf, scenarios=()):
 						if 'estry control file auto' in f.lower():
 							path = '{0}.ecf'.format(os.path.splitext(tcf)[0])
 						else:
-							command, relPath = f.split('==')
+							command, relPath = f.split('==', 1)
 							command = command.strip()
 							relPath = relPath.split('!')[0]
 							relPath = relPath.strip()
@@ -3559,7 +3692,7 @@ def getVariableNamesFromTCF(tcf, scenarios=()):
 				if 'geometry control file' in f.lower():
 					ind = f.lower().find('geometry control file')
 					if '!' not in f[:ind]:
-						command, relPath = f.split('==')
+						command, relPath = f.split('==', 1)
 						command = command.strip()
 						relPath = relPath.split('!')[0]
 						relPath = relPath.strip()
@@ -3571,7 +3704,7 @@ def getVariableNamesFromTCF(tcf, scenarios=()):
 				if 'bc control file' in f.lower():
 					ind = f.lower().find('bc control file')
 					if '!' not in f[:ind]:
-						command, relPath = f.split('==')
+						command, relPath = f.split('==', 1)
 						command = command.strip()
 						relPath = relPath.split('!')[0]
 						relPath = relPath.strip()
@@ -3583,7 +3716,7 @@ def getVariableNamesFromTCF(tcf, scenarios=()):
 				if 'event control file' in f.lower():
 					ind = f.lower().find('event control file')
 					if '!' not in f[:ind]:
-						command, relPath = f.split('==')
+						command, relPath = f.split('==', 1)
 						command = command.strip()
 						relPath = relPath.split('!')[0]
 						relPath = relPath.strip()
@@ -3595,7 +3728,7 @@ def getVariableNamesFromTCF(tcf, scenarios=()):
 				if 'read file' in f.lower():
 					ind = f.lower().find('read file')
 					if '!' not in f[:ind]:
-						command, relPath = f.split('==')
+						command, relPath = f.split('==', 1)
 						command = command.strip()
 						relPath = relPath.split('!')[0]
 						relPath = relPath.strip()
@@ -3607,10 +3740,24 @@ def getVariableNamesFromTCF(tcf, scenarios=()):
 				if 'read operating controls file' in f.lower():
 					ind = f.lower().find('read operating controls file')
 					if '!' not in f[:ind]:
-						command, relPath = f.split('==')
+						command, relPath = f.split('==', 1)
 						command = command.strip()
 						relPath = relPath.split('!')[0]
 						relPath = relPath.strip()
+						path = getPathFromRel(dir, relPath)
+						if os.path.exists(path):
+							variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
+							if error:
+								return {}, True
+				if 'quadtree control file' in f.lower():
+					ind = f.lower().find('quadtree control file')
+					if '!' not in f[:ind]:
+						command, relPath = f.split('==', 1)
+						command = command.strip()
+						relPath = relPath.split('!')[0]
+						relPath = relPath.strip()
+						if relPath.lower() == 'single level':
+							continue
 						path = getPathFromRel(dir, relPath)
 						if os.path.exists(path):
 							variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
@@ -3643,14 +3790,48 @@ def loadGisFile(iface, path, group, processed_paths, processed_layers, error, lo
 	"""
 	
 	ext = os.path.splitext(path)[1]
-	if ext.lower() == '.mid':
+	if '|layername=' in path:
+		try:
+			db, layer = path.split('|layername=')
+			if os.path.exists(db):
+				layers = get_table_names(db)
+				if layer.lower() in [x.lower() for x in layers]:
+					layer = layers[[x.lower() for x in layers].index(layer.lower())]
+					p = '{0}|layername={1}'.format(db, layer)
+					try:
+						lyr = iface.addVectorLayer(p, layer, 'ogr')
+						loaded = True
+					except:
+						loaded = False
+					if not loaded:
+						try:
+							lyr = iface.addRasterLayer(p, layer, 'gdal')
+							loaded = True
+						except:
+							loaded = False
+					assert(loaded)
+					group.addLayer(lyr)
+					processed_paths.append(path)
+					processed_layers.append(lyr)
+					if crs is None:
+						crs = lyr.crs()
+				else:
+					error = True
+					log += '{0}\n'.format(path)
+			else:
+				error = True
+				log += '{0}\n'.format(path)
+		except Exception as e:
+			error = True
+			log += '{0}\n'.format(path)
+	elif ext.lower() == '.mid':
 		path = '{0}.mif'.format(os.path.splitext(path)[0])
 		ext = '.mif'
-	if ext.lower() == '.shp':
+	elif ext.lower() == '.shp':
 		try:
 			if os.path.exists(path):
 				lyr = iface.addVectorLayer(path, os.path.basename(os.path.splitext(path)[0]),
-				                           'ogr')
+										   'ogr')
 				group.addLayer(lyr)
 				processed_paths.append(path)
 				processed_layers.append(lyr)
@@ -3692,11 +3873,11 @@ def loadGisFile(iface, path, group, processed_paths, processed_layers, error, lo
 		except:
 			error = True
 			log += '{0}\n'.format(path)
-	elif ext.lower() == '.asc' or ext.lower() == '.flt' or ext.lower() == '.dem' or ext.lower() == '.txt':
+	elif ext.lower() == '.asc' or ext.lower() == '.flt' or ext.lower() == '.dem' or ext.lower() == '.txt' or ext.lower() == '.tif':
 		try:
 			if os.path.exists(path):
 				lyr = iface.addRasterLayer(path, os.path.basename(os.path.splitext(path)[0]),
-				                           'gdal')
+										   'gdal')
 				group.addLayer(lyr)
 				processed_paths.append(path)
 				processed_layers.append(lyr)
@@ -3718,7 +3899,8 @@ def loadGisFile(iface, path, group, processed_paths, processed_layers, error, lo
 	return processed_paths, processed_layers, error, log, crs
 	
 
-def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers, scenarios, variables, crs):
+def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers, scenarios, variables, crs,
+                           dbTCF, dbCCF, **kwargs):
 	"""
 	Opens all vector layers from the specified tuflow control file
 
@@ -3738,7 +3920,7 @@ def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers
 			if 'if scenario' in f.lower():
 				ind = f.lower().find('if scenario')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
-					command, scenario = f.split('==')
+					command, scenario = f.split('==', 1)
 					command = command.strip()
 					scenario = scenario.split('!')[0].split('#')[0]
 					scenario = scenario.strip()
@@ -3756,7 +3938,7 @@ def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers
 				ind = f.lower().find('else')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
 					if '==' in f.lower():
-						command, scenario = f.split('==')
+						command, scenario = f.split('==', 1)
 					else:
 						command = f.lower()
 					command = command.strip()
@@ -3769,31 +3951,56 @@ def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers
 					read = True
 			if not read:
 				continue
-			if 'read' in f.lower():
-				ind = f.lower().find('read')
+			if 'read' in f.lower() or 'create tin zpts' in f.lower():
+				if 'read' in f.lower():
+					ind = f.lower().find('read')
+				else:
+					ind = f.lower().find('create')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
 					if not re.findall(r'read material(s)? file', f, flags=re.IGNORECASE) \
 							and not re.findall(r'read soil(s)? file', f, flags=re.IGNORECASE) \
 							and 'read file' not in f.lower() and 'read operating controls file' not in f.lower():
-						command, relPath = f.split('==')
+						command, relPath = f.split('==', 1)
 						command = command.strip()
 						relPath = relPath.split('!')[0].split('#')[0]
 						relPath = relPath.strip()
 						relPaths = relPath.split("|")
 						for relPath in relPaths:
 							relPath = relPath.strip()
-							paths = getAllFolders(dir, relPath, variables, scenarios, [])
+							paths = getAllFolders(dir, relPath, variables, scenarios, [], db=dbCCF)
 							for path in paths:
 								if path not in processed_paths:
 									processed_paths, processed_layers, error, log, crs = \
 										loadGisFile(iface, path, group, processed_paths, processed_layers, error, log, crs)
+			elif 'spatial database' in f.lower() and 'output' not in f.lower():
+				ind = f.lower().find('spatial database')
+				if '!' not in f[:ind] and '#' not in f[:ind]:
+					command, relPath = f.split('==', 1)
+					command = command.strip()
+					relPath = relPath.split('!')[0].split('#')[0]
+					relPath = relPath.strip()
+
+					if relPath.lower() == 'off':
+						dbTCF = None
+						dbCCF = None
+					elif relPath.lower() == 'tcf':
+						if type(dbTCF) is list:
+							dbCCF = dbTCF[:]
+						else:
+							dbCCF = dbTCF
+					else:
+						paths = getAllFolders(dir, relPath, variables, scenarios, [])
+						dbCCF = [x for x in paths if os.path.exists(x)]
+						if 'is_tcf' in kwargs and kwargs['is_tcf']:
+							dbTCF = dbCCF[:]
 							
 	lyrs = [c.layer() for c in group.children()]
 	lyrs_sorted = sorted(lyrs, key=lambda x: x.name().lower())
 	for i, lyr in enumerate(lyrs_sorted):
 		treeLyr = group.insertLayer(i, lyr)
 	group.removeChildren(len(lyrs), len(lyrs))
-	return error, log, processed_paths, processed_layers, crs
+
+	return error, log, processed_paths, processed_layers, crs, dbTCF, dbCCF
 
 
 def openGisFromTcf(tcf, iface, scenarios=()):
@@ -3807,7 +4014,7 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 
 	dir = os.path.dirname(tcf)
 	crs = None
-	
+
 	# get variable names and corresponding values
 	variables, error = getVariableNamesFromTCF(tcf, scenarios)
 	if error:
@@ -3817,8 +4024,11 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 	processed_layers = []
 	couldNotReadFile = False
 	message = 'Could not open file:\n'
-	error, log, pPaths, pLayers, crs = loadGisFromControlFile(tcf, iface, processed_paths, processed_layers,
-	                                                          scenarios, variables, crs)
+	dbTCF = None
+	dbCCF = None
+	error, log, pPaths, pLayers, crs, dbTCF, dbCCF = loadGisFromControlFile(tcf, iface, processed_paths, processed_layers,
+	                                                                        scenarios, variables, crs, dbTCF, dbCCF,
+	                                                                        is_tcf=True)
 	processed_paths += pPaths
 	processed_layers += pLayers
 	if error:
@@ -3830,7 +4040,7 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 			if 'if scenario' in f.lower():
 				ind = f.lower().find('if scenario')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
-					command, scenario = f.split('==')
+					command, scenario = f.split('==', 1)
 					command = command.strip()
 					scenario = scenario.split('!')[0].split('#')[0]
 					scenario = scenario.strip()
@@ -3848,7 +4058,7 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 				ind = f.lower().find('else')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
 					if '==' in f.lower():
-						command, scenario = f.split('==')
+						command, scenario = f.split('==', 1)
 					else:
 						command = f.lower()
 					command = command.strip()
@@ -3866,24 +4076,30 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 				if '!' not in f[:ind] and '#' not in f[:ind]:
 					if 'estry control file auto' in f.lower():
 						path = '{0}.ecf'.format(os.path.splitext(tcf)[0])
-						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
-						                                                          processed_layers,
-						                                                          scenarios, variables, crs)
+						error, log, pPaths, pLayers, crs, dbTCF, dbCCF = loadGisFromControlFile(path, iface,
+						                                                                        processed_paths,
+						                                                                        processed_layers,
+						                                                                        scenarios, variables,
+						                                                                        crs,
+						                                                                        dbTCF, dbCCF)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
 							couldNotReadFile = True
 							message += log
 					else:
-						command, relPath = f.split('==')
+						command, relPath = f.split('==', 1)
 						command = command.strip()
 						relPath = relPath.split('!')[0].split('#')[0]
 						relPath = relPath.strip()
 						paths = getAllFolders(dir, relPath, variables, scenarios, [])
 						for path in paths:
-							error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
-							                                                          processed_layers,
-							                                                          scenarios, variables, crs)
+							error, log, pPaths, pLayers, crs, dbTCF, dbCCF = loadGisFromControlFile(path, iface,
+							                                                                        processed_paths,
+							                                                                        processed_layers,
+							                                                                        scenarios,
+							                                                                        variables, crs,
+							                                                                        dbTCF, dbCCF)
 							processed_paths += pPaths
 							processed_layers += pLayers
 							if error:
@@ -3892,14 +4108,18 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 			if 'geometry control file' in f.lower():
 				ind = f.lower().find('geometry control file')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0].split('#')[0]
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths, processed_layers,
-						                                                          scenarios, variables, crs)
+						error, log, pPaths, pLayers, crs, dbTCF, dbCCF = loadGisFromControlFile(path, iface,
+						                                                                        processed_paths,
+						                                                                        processed_layers,
+						                                                                        scenarios, variables,
+						                                                                        crs,
+						                                                                        dbTCF, dbCCF)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -3908,15 +4128,18 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 			if 'bc control file' in f.lower():
 				ind = f.lower().find('bc control file')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0].split('#')[0]
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
-						                                                          processed_layers,
-						                                                          scenarios, variables, crs)
+						error, log, pPaths, pLayers, crs, dbTCF, dbCCF = loadGisFromControlFile(path, iface,
+						                                                                        processed_paths,
+						                                                                        processed_layers,
+						                                                                        scenarios, variables,
+						                                                                        crs,
+						                                                                        dbTCF, dbCCF)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -3925,15 +4148,18 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 			if 'event control file' in f.lower():
 				ind = f.lower().find('event control file')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0].split('#')[0]
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
-						                                                          processed_layers,
-						                                                          scenarios, variables, crs)
+						error, log, pPaths, pLayers, crs, dbTCF, dbCCF = loadGisFromControlFile(path, iface,
+						                                                                        processed_paths,
+						                                                                        processed_layers,
+						                                                                        scenarios, variables,
+						                                                                        crs,
+						                                                                        dbTCF, dbCCF)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -3942,7 +4168,7 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 			if 'read file' in f.lower():
 				ind = f.lower().find('read file')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					if 'material' in command.lower() or 'soil' in command.lower():
 						continue
@@ -3950,9 +4176,12 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
-						                                                          processed_layers,
-						                                                          scenarios, variables, crs)
+						error, log, pPaths, pLayers, crs, dbTCF, dbCCF = loadGisFromControlFile(path, iface,
+						                                                                        processed_paths,
+						                                                                        processed_layers,
+						                                                                        scenarios, variables,
+						                                                                        crs,
+						                                                                        dbTCF, dbCCF)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -3961,15 +4190,18 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 			if 'read operating controls file' in f.lower():
 				ind = f.lower().find('read operating controls file')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0].split('#')[0]
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
-						                                                          processed_layers,
-						                                                          scenarios, variables, crs)
+						error, log, pPaths, pLayers, crs, dbTCF, dbCCF = loadGisFromControlFile(path, iface,
+						                                                                        processed_paths,
+						                                                                        processed_layers,
+						                                                                        scenarios, variables,
+						                                                                        crs,
+						                                                                        dbTCF, dbCCF)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -3978,15 +4210,18 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 			if 'rainfall control file' in f.lower():
 				ind = f.lower().find('rainfall control file')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0].split('#')[0]
 					relPath = relPath.strip()
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
-						                                                          processed_layers,
-						                                                          scenarios, variables, crs)
+						error, log, pPaths, pLayers, crs, dbTCF, dbCCF = loadGisFromControlFile(path, iface,
+						                                                                        processed_paths,
+						                                                                        processed_layers,
+						                                                                        scenarios, variables,
+						                                                                        crs,
+						                                                                        dbTCF, dbCCF)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -3995,7 +4230,7 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 			if 'quadtree control file' in f.lower():
 				ind = f.lower().find('rainfall control file')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
-					command, relPath = f.split('==')
+					command, relPath = f.split('==', 1)
 					command = command.strip()
 					relPath = relPath.split('!')[0].split('#')[0]
 					relPath = relPath.strip()
@@ -4003,9 +4238,12 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 						continue
 					paths = getAllFolders(dir, relPath, variables, scenarios, [])
 					for path in paths:
-						error, log, pPaths, pLayers, crs = loadGisFromControlFile(path, iface, processed_paths,
-						                                                          processed_layers,
-						                                                          scenarios, variables, crs)
+						error, log, pPaths, pLayers, crs, dbTCF, dbCCF = loadGisFromControlFile(path, iface,
+						                                                                        processed_paths,
+						                                                                        processed_layers,
+						                                                                        scenarios, variables,
+						                                                                        crs,
+						                                                                        dbTCF, dbCCF)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -4067,7 +4305,7 @@ def saveMatplotLibArtist(artist):
 		a['markerfacecolor'] = artist.get_markerfacecolor()
 
 	return a
-		
+
 		
 def getMean(values, **kwargs):
 	"""
@@ -4659,7 +4897,7 @@ def changeDataSource(iface, layer, newDataSource, isgpkg):
 	# reload layer
 	layer.reload()
 	reload_data(layer)  # force reload
-	
+
 	# rename layer in layers panel
 	legint = QgsProject.instance().layerTreeRoot()
 	# grab all nodes that are QgsMapLayers - get to node bed rock i.e. not a group
@@ -4936,7 +5174,7 @@ def sortLayerPanel(sort_locally=False):
 			legint.removeChildNode(group)
 			
 			
-def getAllFolders(dir, relPath, variables, scenarios, events, output_drive=None):
+def getAllFolders(dir, relPath, variables, scenarios, events, output_drive=None, db=None):
 	"""
 	Gets all possible existing folder combinations from << >> wild cards and possible options.
 	
@@ -4953,15 +5191,45 @@ def getAllFolders(dir, relPath, variables, scenarios, events, output_drive=None)
 	count = 0
 	rpath = relPath
 	for c in rpath.replace('\\', os.sep).split(os.sep):
-		if c.find('<<') > -1:
-			count += 1
+		if re.findall(r'\.gpkg\s*>>', c, flags=re.IGNORECASE):
+			if re.split(r'\.gpkg\s*>>', c, flags=re.IGNORECASE)[0].find('<<') > -1:
+				count += 1
+		else:
+			if c.find('<<') > -1:
+				count += 1
 	dirs = [dir]
 	if count == 0:
-		folders.append(getPathFromRel(dir, relPath, output_drive=output_drive))
+		if db is not None and os.path.splitext(relPath)[-1] == '':
+			for d in db:
+				for lyr in relPath.split('&&'):
+					layers = get_table_names(d)
+					if lyr.strip().lower() in [x.lower() for x in layers]:
+						lyr = layers[[x.lower() for x in layers].index(lyr.strip().lower())]
+						folders.append('{0}|layername={1}'.format(d, lyr))
+		elif db is not None and '.gpkg' in os.path.splitext(relPath)[-1].lower():
+			if '>>' in os.path.splitext(relPath)[-1]:
+				d, lyrs = os.path.splitext(relPath)[-1].split('>>')
+				d = '{0}{1}'.format(getPathFromRel(dir, os.path.splitext(relPath)[0], output_drive=output_drive), d.strip())
+				if os.path.exists(d):
+					layers = get_table_names(d)
+					for lyr in lyrs.strip().split('&&'):
+						if lyr.strip().lower() in [x.lower() for x in layers]:
+							lyr = layers[[x.lower() for x in layers].index(lyr.strip().lower())]
+							folders.append('{0}|layername={1}'.format(d, lyr))
+			else:
+				d = getPathFromRel(dir, relPath, output_drive=output_drive)
+				lyr = os.path.basename(os.path.splitext(relPath)[0])
+				if os.path.exists(d):
+					layers = get_table_names(d)
+					if lyr.strip().lower() in [x.lower() for x in layers]:
+						lyr = layers[[x.lower() for x in layers].index(lyr.strip().lower())]
+						folders.append('{0}|layername={1}'.format(d, lyr))
+		else:
+			folders.append(getPathFromRel(dir, relPath, output_drive=output_drive))
 	else:
 		for m in range(count):
 			i = rpath.find('<<')
-			j = rpath.find('>>')
+			j = rpath[i:].find('>>') + i
 			vname = rpath[i:j+2]  # variable name
 			path_components = rpath.replace('\\', os.sep).split(os.sep)
 			for k, pc in enumerate(path_components):
@@ -4970,15 +5238,17 @@ def getAllFolders(dir, relPath, variables, scenarios, events, output_drive=None)
 			
 			# what happens if there are multiple <<variables>> in path component e.g. ..\<<~s1~>>_<<~s2~>>\2d
 			vname2 = []
-			j2 = j + 2
-			k2 = 0
+			# j2 = j + 2
+			j2 = 0
+			# k2 = 0
 			if pc.count('<<') > 1:
 				for n in range(pc.count('<<')):
-					if n > 0:  # ignore first instance since this is already vname
-						k2 += j2
-						i2 = rpath[k2:].find('<<')
-						j2 = rpath[k2:].find('>>') + 2
-						vname2.append(rpath[i2+k2:j2+k2])
+					# if n > 0:  # ignore first instance since this is already vname
+						# k2 += j2
+						i2 = rpath[j2:].find('<<') + j2
+						j2 = rpath[i2:].find('>>') + i2 + 2
+						if n > 0:
+							vname2.append(rpath[i2:j2])
 				vnames = [vname] + vname2
 			else:
 				vnames = [vname]
@@ -4987,34 +5257,69 @@ def getAllFolders(dir, relPath, variables, scenarios, events, output_drive=None)
 			combinations = getVariableCombinations(vnames, variables, scenarios, events)
 			
 			new_relPath = os.sep.join(path_components[:k+1])
-			for d in dirs[:]:
-				new_path = getPathFromRel(d, new_relPath, output_drive=output_drive)
-				
-				for combo in combinations:
-					p = new_path
-					for n, vname in enumerate(vnames):
-						# check if variable name is start of absolute reference
-						# i.e. <<variable>>\results = C:\tuflow\results which means
-						# we don't need anything before the <<variable>>
-						if len(combo[n]) > 2:
-							combo[n] = combo[n].replace('/', os.sep)
-							if combo[n][1] == ':' or combo[n][:2] == '\\\\':
-								b = p.find("<<")
-								p = p[b:]
-						p = p.replace(vname, combo[n])
-				
-					if os.path.exists(p):
-						if m + 1 == count:
-							path_rest = os.sep.join(path_components[k + 1:])
-							p = getPathFromRel(p, path_rest, output_drive=output_drive)
-							if os.path.exists(p):
-								folders.append(p)
+			if db is not None and os.path.splitext(new_relPath)[-1] == '':
+				for d in db:
+					layers = get_table_names(d)
+					for combo in combinations:
+						p = new_relPath
+						for n, vname in enumerate(vnames):
+							p = p.replace(vname, combo[n])
+
+						for p2 in p.split('&&'):
+							if p2.strip().lower() in [x.lower() for x in layers]:
+								p2 = layers[[x.lower() for x in layers].index(p2.strip().lower())]
+								folders.append('{0}|layername={1}'.format(d, p2))
+			else:
+				for d in dirs[:]:
+					new_path = getPathFromRel(d, new_relPath, output_drive=output_drive)
+
+					for combo in combinations:
+						p = new_path
+						for n, vname in enumerate(vnames):
+							# check if variable name is start of absolute reference
+							# i.e. <<variable>>\results = C:\tuflow\results which means
+							# we don't need anything before the <<variable>>
+							if len(combo[n]) > 2:
+								combo[n] = combo[n].replace('/', os.sep)
+								if combo[n][1] == ':' or combo[n][:2] == '\\\\':
+									b = p.find("<<")
+									p = p[b:]
+							p = p.replace(vname, combo[n])
+
+						if m + 1 == count and '.gpkg' in os.path.splitext(p)[-1].lower():
+							ext = os.path.splitext(relPath)[-1]
+							if '>>' in ext:
+								db_, layer = ext.split('>>', 1)
+								db_ = '{0}{1}'.format(os.path.splitext(p)[0], db_)
+								layer = layer.strip()
+							else:
+								db_ = p
+								layer = os.path.basename(os.path.splitext(db_)[0])
+
+							if os.path.exists(db_):
+								layers = get_table_names(db_)
+								for combo in combinations:
+									p2 = layer
+									for n, vname in enumerate(vnames):
+										p2 = p2.replace(vname, combo[n])
+
+									for p3 in p2.split('&&'):
+										if p3.strip().lower() in [x.lower() for x in layers]:
+											p3 = layers[[x.lower() for x in layers].index(p3.strip().lower())]
+											folders.append('{0}|layername={1}'.format(db_, p3))
 						else:
-							dirs.append(p)
+							if os.path.exists(p):
+								if m + 1 == count:
+									path_rest = os.sep.join(path_components[k + 1:])
+									p = getPathFromRel(p, path_rest, output_drive=output_drive)
+									if os.path.exists(p):
+										folders.append(p)
+								else:
+									dirs.append(p)
 				
 				dirs = dirs[1:]
 				
-			rpath = os.sep.join(path_components[k+1:])
+				rpath = os.sep.join(path_components[k+1:])
 							
 	return folders
 
@@ -5151,12 +5456,12 @@ def ascToAsc(exe, function, workdir , grids, **kwargs):
 	else:
 		proc = subprocess.Popen(args)
 	proc.wait()
-	
+
 	if 'saveFile' in kwargs:
 		if kwargs['saveFile']:
 			message = saveBatchFile(args, workdir)
 			QMessageBox.information(None, "TUFLOW Utility", message)
-	
+
 	return False, ''
 	#out = ''
 	#for line in iter(proc.stdout.readline, ""):
@@ -5188,6 +5493,14 @@ def tuflowToGis(exe, function, workdir, mesh, dataType, timestep, **kwargs):
 	"""
 	
 	dataType2flag = {'depth': '-typed', 'water level': '-typeh', 'velocity': '-typev', 'z0': '-typez0'}
+
+	out = None
+	if 'out' in kwargs:
+		out = ['-out']
+		if workdir:
+			out.append('{0}'.format(os.path.join(workdir, kwargs['out'])))
+		else:
+			out.append('{0}'.format(kwargs['out']))
 	
 	args = [exe, '-b', mesh]
 	if timestep.lower() == 'max' or timestep.lower() == 'maximum':
@@ -5200,7 +5513,8 @@ def tuflowToGis(exe, function, workdir, mesh, dataType, timestep, **kwargs):
 		if dataType.lower() in dataType2flag:
 			args.append(dataType2flag[dataType.lower()])
 		else:
-			args.append('-type{0}'.format(dataType))
+			# args.append('-type{0}'.format(dataType))
+			args.append('-{0}'.format(dataType))
 	if function.lower() == 'grid':
 		args.append('-asc')
 	elif function.lower() == 'points':
@@ -5208,18 +5522,20 @@ def tuflowToGis(exe, function, workdir, mesh, dataType, timestep, **kwargs):
 	elif function.lower() == 'vectors':
 		args.append('-shp')
 		args.append('-vector')
+	if out:
+		args.extend(out)
 
 	if workdir:
 		proc = subprocess.Popen(args, cwd=workdir)
 	else:
 		proc = subprocess.Popen(args)
 	proc.wait()
-	
+
 	if 'saveFile' in kwargs:
 		if kwargs['saveFile']:
 			message = saveBatchFile(args, workdir)
 			QMessageBox.information(None, "TUFLOW Utility", message)
-	
+
 	return False, ''
 	#out = ''
 	#for line in iter(proc.stdout.readline, ""):
@@ -5248,7 +5564,7 @@ def resToRes(exe, function, workdir, meshes, dataType, **kwargs):
 	:param kwargs: dict keyword arguments
 	:return: bool error, str message
 	"""
-	
+
 	dataType2flag = {'depth': '-typed', 'water level': '-typeh', 'velocity': '-typev', 'z0': '-typez0'}
 	
 	args = [exe, '-b']
@@ -5256,8 +5572,10 @@ def resToRes(exe, function, workdir, meshes, dataType, **kwargs):
 		if os.path.splitext(meshes[0])[1].upper() == '.XMDF':
 			if dataType.lower() in dataType2flag:
 				args.append(dataType2flag[dataType.lower()])
+			elif dataType:
+				args.append('-{0}'.format(dataType))
 			else:
-				args.append('-type{0}'.format(dataType))
+				pass
 		if function.lower() == 'info':
 			args.append('-xnfo')
 			args.append(meshes[0])
@@ -5282,11 +5600,16 @@ def resToRes(exe, function, workdir, meshes, dataType, **kwargs):
 			if function.lower() != 'info':
 				args.append('-out')
 				args.append(kwargs['out'])
-	
-	if workdir:
-		proc = subprocess.Popen(args, cwd=workdir)
+
+	if 'hide_window' in kwargs and kwargs['hide_window']:
+		CREATE_NO_WINDOW = 0x08000000
+		proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, creationflags=CREATE_NO_WINDOW)
 	else:
-		proc = subprocess.Popen(args)
+		if workdir:
+			proc = subprocess.Popen(args, cwd=workdir)
+		else:
+			proc = subprocess.Popen(args)
+		proc.wait()
 	#out = ''
 	#for line in iter(proc.stdout.readline, ""):
 	#	if line == b"":
@@ -5299,7 +5622,17 @@ def resToRes(exe, function, workdir, meshes, dataType, **kwargs):
 	#if err:
 	#	return True, out.decode('utf-8')
 	#else:
-	proc.wait()
+	if 'hide_window' in kwargs and kwargs['hide_window']:
+		try:
+			proc.wait(timeout=5)
+			out, err = proc.communicate()
+		except subprocess.TimeoutExpired:
+			out, err = proc.communicate(input=b'\n')
+			return True, out.decode('utf-8')
+
+		if not os.path.exists(file) or err:
+			return True, out
+
 	if function.lower() == 'info':
 		info = ''
 		with open(file, 'r') as f:
@@ -5312,7 +5645,7 @@ def resToRes(exe, function, workdir, meshes, dataType, **kwargs):
 			if kwargs['saveFile']:
 				message = saveBatchFile(args, workdir)
 				QMessageBox.information(None, "TUFLOW Utility", message)
-		
+
 		return False, ''
 		#return False, out.decode('utf-8')
 	
@@ -5340,11 +5673,11 @@ def tuflowUtility(exe, workdir, flags, saveFile):
 	else:
 		proc = subprocess.Popen(args)
 	proc.wait()
-	
+
 	if saveFile:
 		message = saveBatchFile(args, workdir)
 		QMessageBox.information(None, "TUFLOW Utility", message)
-	
+
 	return False, ''
 	#out = ''
 	#for line in iter(proc.stdout.readline, ""):
@@ -5362,7 +5695,7 @@ def tuflowUtility(exe, workdir, flags, saveFile):
 
 
 def saveBatchFile(flags, workdir):
-	
+
 	# choose a directory to save file into
 	# use working directory if available
 	# otherwise scan batch file for the first applicable file and save in same location
@@ -5377,17 +5710,17 @@ def saveBatchFile(flags, workdir):
 						if os.path.exists(arg):
 							dir = os.path.dirname(arg)
 							break
-	
+
 	if dir is None:
 		return 'Error saving batch file'
-	
+
 	fname = os.path.splitext(os.path.basename(flags[0]))[0]
 	outfile = '{0}.bat'.format(os.path.join(dir, fname))
 	i = 0
 	while os.path.exists(outfile):
 		i += 1
 		outfile = '{0}_[{1}].bat'.format(os.path.join(dir, fname), i)
-		
+
 	with open(outfile, 'w') as fo:
 		for i, arg in enumerate(flags):
 			argWritten = False
@@ -5409,7 +5742,7 @@ def saveBatchFile(flags, workdir):
 								argWritten = True
 				if not argWritten:
 					fo.write(' {0}'.format(arg))
-				
+
 	return 'Successfully Saved Batch File: {0}'.format(outfile)
 
 
@@ -5609,11 +5942,11 @@ def downloadUtility(utility, parent_widget=None):
 	latestUtilities = {
 		'asc_to_asc': '',
 		'tuflow_to_gis': '',
-		'res_to_res': '',
+					   'res_to_res': '',
 		'12da_to_from_gis': '',
-		'convert_to_ts1': '',
+					   'convert_to_ts1': '',
 		'tin_to_tin': '',
-		'xsGenerator': '',
+					   'xsGenerator': '',
 	}
 	downloadBaseUrl = getUtilityDownloadPaths(latestUtilities, util_path_file)
 	if not downloadBaseUrl:
@@ -5665,9 +5998,9 @@ def downloadUtility(utility, parent_widget=None):
 	except IOError as err:
 		qApp.restoreOverrideCursor()
 		QMessageBox.critical(parent_widget,
-		                     'Could Not Download {0}'.format(utility),
-		                     "Download of {0} failed. Please try again or contact support@tuflow.com for "
-		                     "further assistance.\n\n(Error: {1})".format(utility, err))
+							 'Could Not Download {0}'.format(utility),
+							 "Download of {0} failed. Please try again or contact support@tuflow.com for "
+							 "further assistance.\n\n(Error: {1})".format(utility, err))
 
 
 def convertTimeToFormattedTime(time, hour_padding=2, unit='h'):
@@ -5691,7 +6024,7 @@ def convertTimeToFormattedTime(time, hour_padding=2, unit='h'):
 		if m == 60:
 			h += 1
 			m = 0
-	
+
 	if hour_padding == 2:
 		format = '{0:%H}:{0:%M}:{0:%S.%f}'
 		t = '{0:02d}:{1:02d}:{2:05.02f}'.format(h, m, s)
@@ -5774,9 +6107,16 @@ def reSpecPlot(fig, ax, ax2, cax, bqv):
 			if cax != 1:
 				# width = int((cax.xaxis.get_tightbbox(fig.canvas.get_renderer()).width + cax.yaxis.get_tightbbox(
 				# 	fig.canvas.get_renderer()).width) / fig.bbox.width * 1000)
-				width = int((max(cax.yaxis.get_tightbbox(fig.canvas.get_renderer()).x1, cax.xaxis.get_tightbbox(fig.canvas.get_renderer()).x1)
-				                 - cax.xaxis.get_tightbbox(fig.canvas.get_renderer()).x0) / fig.bbox.width * 1000)
-				width += max(0, int(cax.yaxis.get_tightbbox(fig.canvas.get_renderer()).x1 - fig.bbox.x1))
+				cax_bbox_yaxis = cax.yaxis.get_tightbbox(fig.canvas.get_renderer())
+				cax_bbox_xaxis = cax.xaxis.get_tightbbox(fig.canvas.get_renderer())
+				if cax_bbox_xaxis is None:
+					cax_bbox_xaxis = cax.bbox
+				# width = int((max(cax.yaxis.get_tightbbox(fig.canvas.get_renderer()).x1, cax.xaxis.get_tightbbox(fig.canvas.get_renderer()).x1)
+				# 				 - cax.xaxis.get_tightbbox(fig.canvas.get_renderer()).x0) / fig.bbox.width * 1000)
+				# width += max(0, int(cax.yaxis.get_tightbbox(fig.canvas.get_renderer()).x1 - fig.bbox.x1))
+				width = int((max(cax_bbox_yaxis.x1, cax_bbox_xaxis.x1) - cax_bbox_xaxis.x0) / fig.bbox.width * 1000)
+				width += max(0, int(cax_bbox_yaxis.x1 - fig.bbox.x1))
+
 			cei = 1000 - width
 		else:
 			if ax2 is not None:
@@ -5954,11 +6294,11 @@ def findToolTip(text, engine="classic"):
 		dir = os.path.join(os.path.dirname(__file__), 'empty_tooltips')
 	properties = {'location': None,
 				  'command': None,
-	              'description': None,
-	              'wiki link': None,
-	              'manual link': None,
-	              'manual page': None
-	              }
+				  'description': None,
+				  'wiki link': None,
+				  'manual link': None,
+				  'manual page': None
+				  }
 	
 	glob_search = ('{0}{1}*.txt'.format(dir, os.sep))
 	files = glob.glob(glob_search)
@@ -6036,6 +6376,61 @@ def createNewPoint(p1, p2, length, new_length, mapUnits):
 		return QgsPoint(pointBackConveted[1], pointBackConveted[0])
 
 
+def getParabolicCoord(x, x1, x2, x3, y1, y2, y3):
+	"""
+	Return y coordinate from x coordinate based on a parabolic
+	curve fitted to 3 points (x1, y1) | (x2, y2) | (x3, y3)
+
+	:param x: float
+	:param x1: float
+	:param x2: float
+	:param x3: float
+	:param y1: float
+	:param y2: float
+	:param y3: float
+	:return: float
+	"""
+
+	# make sure all inputs are floats
+	x = float(x)
+	x1 = float(x1)
+	x2 = float(x2)
+	x3 = float(x3)
+	y1 = float(y1)
+	y2 = float(y2)
+	y3 = float(y3)
+
+	# eqn ax^2 + bx + c
+	# work out a, b, c values
+	aNom = x3 * (y2 - y1) + x2 * (y1 - y3) + x1 * (y3 - y2)
+	aDen = (x1 - x2) * (x1 - x3) * (x2 - x3)
+	a = aNom / aDen
+
+	bNom = x1 ** 2 * (y2 - y3) + x3 ** 2 * (y1 - y2) + x2 ** 2 * (y3 - y1)
+	bDen = (x1 - x2) * (x1 - x3) * (x2 - x3)
+	b = bNom / bDen
+
+	cNom = x2 ** 2 * (x3 * y1 - x1 * y3) + x2 * (x1 ** 2 * y3 - x3 ** 2 * y1) + x1 * x3 * y2 * (x3 - x1)
+	cDen = (x1 - x2) * (x1 - x3) * (x2 - x3)
+	c = cNom / cDen
+
+	return a * x ** 2 + b * x + c
+
+
+def getRasterValue(point, raster):
+	"""
+	Gets the elevation value from a raster at a given location. Assumes raster has only one band or that the first
+	band is elevation.
+
+	:param point: QgsPoint
+	:param raster: QgsRasterLayer
+	:return: float elevation value
+	"""
+	point = QgsPointXY(point)
+	return raster.dataProvider().identify(point, QgsRaster.IdentifyFormatValue).results()[1]
+
+
+
 def is1dNetwork(layer):
 	"""
 	Checks if a layer is a 1d_nwk
@@ -6072,25 +6467,28 @@ def is1dNetwork(layer):
 	if isgpkg:
 		correct1dNetworkType.insert(0, QVariant.LongLong)
 		count = 21
+		i = 1
 	else:
 		count = 20
+		i = 0
 
 	fieldTypes = []
-	for i, f in enumerate(layer.getFeatures()):
-		if i > 0:
+	# for i, f in enumerate(layer.getFeatures()):
+	# 	if i > 0:
+	# 		break
+	# 	fields = f.fields()
+	fields = layer.fields()
+	for j in range(fields.count()):
+		if j > count - 1:
 			break
-		fields = f.fields()
-		for j in range(fields.count()):
-			if j > count - 1:
-				break
-			field = fields.field(j)
-			fieldType = field.type()
-			fieldTypes.append(fieldType)
+		field = fields.field(j)
+		fieldType = field.type()
+		fieldTypes.append(fieldType)
 
 	if len(fieldTypes) < count:
 		return False
-	if fieldTypes[:count] == correct1dNetworkType or fieldTypes[:count] == correct1dNetworkType2 or \
-		fieldTypes[:count] == correct1dNetworkType3 or fieldTypes[:count] == correct1dNetworkType4:
+	if fieldTypes[i:count] == correct1dNetworkType or fieldTypes[i:count] == correct1dNetworkType2 or \
+		fieldTypes[i:count] == correct1dNetworkType3 or fieldTypes[i:count] == correct1dNetworkType4:
 		return True
 	else:
 		return False
@@ -6127,16 +6525,17 @@ def is1dTable(layer):
 		count = 9
 
 	fieldTypes = []
-	for i, f in enumerate(layer.getFeatures()):
-		if i > 0:
-			break
-		fields = f.fields()
-		if fields.count() < count:
-			return False
-		for j in range(0, count):
-			field = fields.field(j)
-			fieldType = field.type()
-			fieldTypes.append(fieldType)
+	# for i, f in enumerate(layer.getFeatures()):
+	# 	if i > 0:
+	# 		break
+	# 	fields = f.fields()
+	fields = layer.fields()
+	if fields.count() < count:
+		return False
+	for j in range(0, count):
+		field = fields.field(j)
+		fieldType = field.type()
+		fieldTypes.append(fieldType)
 
 	if fieldTypes == correct1dTableType:
 		return True
@@ -6309,12 +6708,12 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
 	:param icon: QIcon dialog window icon
 	:param action: lambda function
 	:param bool: noDuplicates - if adding to list widget, don't allow duplicate entries
-	:return: None
+	:return: str
 	"""
 
 	settings = QSettings()
 	lastFolder = settings.value(key)
-	
+
 	startDir = os.getcwd()
 	if lineEdit is not None:
 		if type(lineEdit) is QLineEdit:
@@ -6392,6 +6791,7 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
 		else:
 			f = f.replace('/', os.sep).replace('\\', os.sep)
 			value = f
+		f = re.sub(r'[\\/]', re.escape(os.sep), f)  # os slashes
 		settings.setValue(key, value)
 		if lineEdit is not None:
 			if type(lineEdit) is QLineEdit:
@@ -6422,18 +6822,18 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
 
 		if action is not None:
 			action()
-		
+
 def getResultPathsFromTLF(fpath: str, read_method: int = 0) -> (list, list, list):
 	"""
 	Gets result paths from TLF file
-	
+
 	:param fpath: str full path to .tlf
 	:return: list res1D, list res2D, list messages
 	"""
-	
+
 	if not os.path.exists(fpath):
 		return [], [], ['File Does Not Exist: {0}'.format(fpath)]
-	
+
 	secondaryExt = os.path.splitext(os.path.splitext(fpath)[0])[1]
 	# if secondaryExt != '':
 	if secondaryExt.upper() == '.HPC':
@@ -7720,7 +8120,325 @@ def get_table_names(db):
 	return []
 
 
+def get_x(origin, angle, dist):
+	"""Calculates x coordinate location given an origin, angle, and distance."""
 
+	cosang = cos(angle)
+	dx = dist * cosang
+
+	return origin + dx
+
+
+def get_y(origin, angle, dist):
+	""" Calculates y coordinate location given an origin, angle, and distance."""
+
+	sinang = sin(angle)
+	dy = dist * sinang
+
+	return origin + dy
+
+
+def calculate_angle(geom):
+	"""calculate angle of line at centroid"""
+
+	if geom.wkbType() in [QgsWkbTypes.LineString, QgsWkbTypes.LineStringZ, QgsWkbTypes.LineStringM,
+	                      QgsWkbTypes.LineStringZM, QgsWkbTypes.LineString25D]:
+		line = geom.asPolyline()
+	elif geom.wkbType() in [QgsWkbTypes.MultiLineString, QgsWkbTypes.MultiLineStringZ, QgsWkbTypes.MultiLineStringM,
+	                        QgsWkbTypes.MultiLineStringZM, QgsWkbTypes.MultiLineString25D]:
+		line = sum(geom.asMultiPolyline(), [])
+	else:
+		return None
+
+	total_length = geom.length()
+	mid_length = total_length / 2.
+	p1, p2 = None, None
+	for i, p in enumerate(line):
+		if i == 0:
+			continue
+		if geom.distanceToVertex(i) > mid_length:
+			p1 = line[i-1]
+			p2 = line[i]
+			break
+
+	if p1 is None or p2 is None:
+		return None
+
+	return atan2((p2.y() - p1.y()), (p2.x() - p1.x()))
+
+
+def getRightAngleLine(geom, length):
+	"""
+	Creates a line perpendicular to a given input line. The input line is only used to define
+	the new line's angle. The centroid is used to define the new line's location. The new line will contain
+	three points - start, end, centroid.
+	"""
+
+	ang = calculate_angle(geom)
+	if ang is None:
+		return None
+	p1 = QgsPointXY(get_x(geom.centroid().asPoint().x(), ang + pi / 2., length / 2.),
+	                get_y(geom.centroid().asPoint().y(), ang + pi / 2., length / 2.))
+	p2 = QgsPointXY(get_x(geom.centroid().asPoint().x(), ang - pi / 2., length / 2.),
+	                get_y(geom.centroid().asPoint().y(), ang - pi / 2., length / 2.))
+
+	return QgsGeometry.fromPolylineXY([p1, p2])
+
+
+def copyStyle(lyr1, lyr2):
+	doc = QDomDocument("qgis")
+	errmsg = lyr1.exportNamedStyle(doc)
+	if errmsg:
+		return errmsg
+
+	err, errmsg = lyr2.importNamedStyle(doc)
+	if err:
+		return errmsg
+
+	return ''
+
+
+def mpl_version_int():
+	import matplotlib as mpl
+	v_ = [int(x) for x in mpl.__version__.split('.')]
+	f = 10000
+	version = 0
+	for v in v_:
+		version += int(v * f)
+		f /= 10
+
+	return version
+
+
+def labels_about_to_break(ax, labels_original):
+	artists, labels = ax.get_legend_handles_labels()
+	return sorted(artists, key=lambda x: x.get_label()) != artists
+
+
+def labels_already_broken(labels_original):
+	return sorted(labels_original) != labels_original
+
+
+class XMDF_Header_Info:
+
+	def __init__(self, header_text_dump):
+		self._header_text_dump = header_text_dump
+		self._vector_dataset_count = 0
+		self._scalar_dataset_count = 0
+		self._res_types = []
+		self._loaded = False
+
+		si, vi = 0, 0
+		scalar, vector = False, False
+		res_type = None
+		line_count = 0
+		line_index = 0
+		times = []
+		for line in header_text_dump.split('\n'):
+			if vector and self._vector_dataset_count > 0 and vi == self._vector_dataset_count:
+				vector = False
+			if scalar and self._scalar_dataset_count > 0 and si == self._scalar_dataset_count:
+				scalar = False
+
+			if 'Vector Datasets' in line:
+				vector = True
+				scalar = False
+			elif 'Scalar Datasets' in line:
+				scalar = True
+				vector = False
+
+			elif 'Number Datasets:' in line:
+				n = re.findall(r'\d+', line)
+				if n:
+					if vector:
+						self._vector_dataset_count = int(n[0])
+					elif scalar:
+						self._scalar_dataset_count = int(n[0])
+			elif re.findall(r'\w+/\w+/\w+(\s\w+)?', line):
+				if scalar:
+					si += 1
+				elif vector:
+					vi += 1
+				else:
+					continue
+				folder, name = line.split('/')[-2:]
+				if 'Vector' in name:
+					name = re.sub(r'\s*vector\s+', '', name, flags=re.IGNORECASE)
+				res_type = XMDF_Res_Type(folder, name, vector, si, vi)
+				self._res_types.append(res_type)
+
+			elif 'Num Times' in line:
+				line_count = int(re.findall(r'\d+', line)[0])
+
+			elif line_count != 0 and res_type is not None and line_index != line_count:
+				line_index += 1
+				try:
+					time = float(line)
+				except ValueError:
+					return
+				times.append(time)
+				if line_index == line_count:
+					res_type.add_times(times)
+					res_type = None
+					line_count = 0
+					line_index = 0
+					times = []
+
+		self._loaded = (bool(self._vector_dataset_count) or bool(self._scalar_dataset_count)) and bool(self._res_types)
+
+
+	def __contains__(self, item):
+		if isinstance(item, str):
+			return item.lower() in [x.name().lower() for x in self._res_types]
+		elif isinstance(item, XMDF_Res_Type):
+			return item.name().lower() in [x.name().lower() for x in self._res_types]
+		else:
+			return False
+
+	def __getitem__(self, item):
+		if isinstance(item, tuple) and len(item) == 2:
+			item1, item2 = item
+			if isinstance(item1, str) and isinstance(item2, str):
+				if item2 == 'Max':
+					a = [x for x in self._res_types if x.name() == item1 and x.folder() in ['Maximums', 'Final', 'Times']]
+					if a:
+						return a[0].key(), str(a[0].times()[0])
+				elif item2 == 'Min':
+					a = [x for x in self._res_types if x.name() == item1 and x.folder() == 'Minimums']
+					if a:
+						return a[0].key(), str(a[0].times()[0])
+				else:
+					a = [x for x in self._res_types if x.name() == item1 and x.folder() == 'Temporal']
+					if a:
+						for t in a[0].times():
+							if abs(t - float(item2)) < 0.001:
+								return a[0].key(), t
+							else:
+								return a[0].key(), None
+
+		return None, None
+
+	def result_types(self):
+		return list(set([x.name() for x in self._res_types[:]]))
+
+	def loaded(self):
+		return self._loaded
+
+	def times(self, res_type=None):
+		if not res_type:
+			return sorted(list(set(sum([x.times() for x in self._res_types if x.folder() == 'Temporal'], []))))
+		else:
+			return sorted(list(set(sum([x.times() for x in self._res_types if x.name() == res_type and x.folder() == 'Temporal'], []))))
+
+	def has_max(self, res_type=None):
+		if not res_type:
+			return bool([x for x in self._res_types if x.folder() == 'Maximums' or x.folder() == 'Final' or x.folder() == 'Times'])
+		else:
+			return bool([x for x in self._res_types if x.name() == res_type and (x.folder() == 'Maximums' or x.folder() == 'Final' or x.folder() == 'Times')])
+
+	def has_min(self, res_type=None):
+		if not res_type:
+			return bool([x for x in self._res_types if x.folder() == 'Minimums'])
+		else:
+			return bool([x for x in self._res_types if x.name() == res_type and x.folder() == 'Minimums'])
+
+
+class XMDF_Res_Type:
+
+	def __init__(self, folder, name, is_vector, scalar_count, vector_count):
+		self._is_vector = is_vector
+		self._key = 'v{0}'.format(vector_count) if is_vector else 's{0}'.format(scalar_count)
+		self._folder = folder
+		self._name = name
+		self._times = []
+
+	def add_times(self, times):
+		for time in times:
+			if time not in self._times:
+				self._times.append(time)
+		self._times = sorted(self._times)
+
+	def times(self):
+		return self._times[:]
+
+	def name(self):
+		return self._name
+
+	def folder(self):
+		return self._folder
+
+	def key(self):
+		return self._key
+
+
+def getOutputDirs(path, settings=None):
+	import sys
+	from os.path import dirname, join
+	sys.path.append(join(dirname(__file__), 'convert_tuflow_model_gis_format'))
+	from .convert_tuflow_model_gis_format.helpers.control_file import get_commands
+	from .convert_tuflow_model_gis_format.helpers.settings import ConvertSettings
+	from .convert_tuflow_model_gis_format.helpers.file import globify, TuflowPath
+
+	output_paths = []
+	if settings is None:
+		settings = ConvertSettings(*['-tcf', path])
+		settings.read_tcf()
+	else:
+		settings = settings.copy_settings(path, settings.output_folder)
+
+	if isinstance(path, str):
+		path = TuflowPath(path)
+
+	for command in get_commands(path, settings):
+		if command.is_control_file():
+			if (command.is_value_a_file() and command.value.suffix.lower() == '.ecf') or str(command.value).lower() == 'AUTO':
+				continue
+
+			pattern = globify(command.value, settings.wildcards)
+			for cf in settings.control_file.parent.glob(pattern):
+				cf = cf.resolve()
+				output_paths.extend(getOutputDirs(cf, settings))
+
+		if command.command == 'OUTPUT FOLDER':
+			if command.in_1d_domain_block():
+				continue
+
+			search_globs = [TuflowPath(command.value) / '**' / settings.tcf.with_suffix('.xmdf').name,
+							TuflowPath(command.value) / '**' / settings.tcf.with_suffix('.tpc').name]
+			for oz in settings.output_zones:
+				tcf = TuflowPath('{0}_{{{1}}}'.format(settings.tcf.stem, oz))
+				search_globs.extend([
+					TuflowPath(command.value) / '**' / tcf.with_suffix('.xmdf').name,
+					TuflowPath(command.value) / '**' / tcf.with_suffix('.tpc').name
+				])
+
+			wildcards = [r'(~[es]\d?~)']
+			for glob in search_globs:
+				pattern = globify(glob, wildcards)
+				for file in settings.control_file.parent.glob(pattern):
+					output_paths.append(file)
+
+
+
+	return output_paths
+
+
+def getResultPathsFromTCF_v2(tcf_path):
+
+	output_paths = getOutputDirs(tcf_path)
+	output_names = []
+	for op in output_paths[:]:
+		if op.suffix.lower() == '.tpc':
+			if check1DResultsForData(op):
+				if op.stem not in output_names:
+					output_names.append(op.stem)
+			else:
+				output_paths.remove(op)
+		else:
+			if op.stem not in output_names:
+				output_names.append(op.stem)
+
+	return output_paths, output_names, ''
 
 
 
