@@ -284,6 +284,7 @@ class Ui_utilitiesDialog(object):
         self.label_21.setObjectName("label_21")
         self.horizontalLayout_23.addWidget(self.label_21)
         self.cboTimestep = QtWidgets.QComboBox(self.tuflow2Gis)
+        self.cboTimestep.setMinimumSize(QtCore.QSize(100, 0))
         self.cboTimestep.setEditable(True)
         self.cboTimestep.setObjectName("cboTimestep")
         self.cboTimestep.addItem("")

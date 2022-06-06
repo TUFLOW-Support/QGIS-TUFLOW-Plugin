@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.3
+version=3.4
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,30 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=--- 3.3---
+changelog=--- 3.4 ---
+          - New Features and Updates -
+          Added New Stability Styling tool - new button is located using dropdown arrow under 'Style Current Layer' button
+          TUFLOW Viewer - added ability to 'quick view' _TS output GIS layers. Not full featured (no axis names, does not populate time slider, no secondary6 axis etc)
+          TUFLOW Viewer - User option added to view/hide inactive areas in 1D cross-sections
+          TUFLOW Viewer - Cross-section source reference with a leading '/' will now be interpreted the same as './'
+          TUFLOW Viewer - animation exporter will now update temporal properties of all map windows (allows for insets)
+          1D Integrity Tool - Now produces a warning instead of an error if the input layer doesn't look like a 1d_nwk type
+          ARR to TUFLOW - If storm loss values are NaN from the datahub, the tool will now assume zero and produce an error message for the output log file
+          ARR to TUFLOW - Added additional columns ("Storage Reduction Factor" and "Fraction Impervious") to material.csv output
+          TUFLOW Styling - added custom styling for VZSH_ZPT_CHECK
+          TUFLOW Styling - NWK_C check styling now has purple "all else" style visible by default
+          TUFLOW Utilities - Increased width of timesteps combobox for "TUFLOW to GIS" common tools
+
+          - Bug Fixes -
+          TUFLOW Viewer - fixed bug that caused map to not update when clicking different result types after loading from a project
+          TUFLOW Viewer - was converting all length units to metres for 2D/3D cross-section plotting. Will now use map canvas units
+          TUFLOW Viewer - fixed a bug that would incorrectly show the maximum water level on 1D cross-sections
+          TUFLOW Viewer - New method of loading result from TCF was sometimes incorrectly loading in results that weren't selected by the user
+          Import Empty - Fixed bug when choosing option to 'Convert to GPKG' that wouldn't correctly create a GPKG layer with TUFLOW attributes or projection
+          Load Layers From TCF - fixed loading GPKG layers that would sometimes fail to load
+          Configure Project - Fixed 'OK' button that was disabled within the select CRS dialog
+
+          --- 3.3---
           - New Features and Updates -
           GPKG compatibility added to relevant tools - Functionality added for the 2022 TUFLOW release - keep watch for beta release coming soon!
           Processing Toolbox - Added TUFLOW Processing Toolbox

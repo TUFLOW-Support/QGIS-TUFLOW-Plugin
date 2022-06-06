@@ -303,8 +303,31 @@ class tuflowqgis_menu:
 		self.apply_chk_cLayer_action = QAction(icon, "Apply TUFLOW Styles to Current Layer", self.iface.mainWindow())
 		#QObject.connect(self.apply_chk_cLayer_action, SIGNAL("triggered()"), self.apply_check_cLayer)
 		self.apply_chk_cLayer_action.triggered.connect(self.apply_check_cLayer)
-		self.iface.addToolBarIcon(self.apply_chk_cLayer_action)
-		self.iface.addPluginToMenu("&TUFLOW", self.apply_chk_cLayer_action)
+		# self.iface.addToolBarIcon(self.apply_chk_cLayer_action)
+		# self.iface.addPluginToMenu("&TUFLOW", self.apply_chk_cLayer_action)
+		self.apply_stability_style_clayer_action = QAction(QIcon(os.path.join(dir, "icons", "style_stability.png")),
+														   "Apply Stability Checking Style to Current Layer",
+														   self.iface.mainWindow())
+		self.apply_stability_style_clayer_action.triggered.connect(self.apply_stability_styling_clayer)
+
+		self.apply_style_clayer_menu = QMenu()
+		self.apply_style_clayer_menu.addAction(self.apply_chk_cLayer_action)
+		self.apply_style_clayer_menu.addAction(self.apply_stability_style_clayer_action)
+		self.apply_style_clayer_menu.setIcon(icon)
+		self.apply_style_clayer_menu.setToolTip("Apply TUFLOW Styles to Current Layer")
+		self.apply_style_clayer_menu.setDefaultAction(self.apply_chk_cLayer_action)
+		self.style_menu_connection = self.apply_style_clayer_menu.menuAction().triggered.connect(self.apply_check_cLayer)
+		self.iface.addToolBarIcon(self.apply_style_clayer_menu.menuAction())
+
+		# self.toolButton = QToolButton()
+		# self.toolButton.setIcon(icon)
+		# self.toolButton.setToolTip("Apply TUFLOW Styles to Current Layer")
+		# menu = QMenu()
+		# menu.addAction(self.apply_chk_cLayer_action)
+		# menu.addAction(self.apply_stability_style_clayer_action)
+		# self.toolButton.setMenu(menu)
+		# self.toolButton.setPopupMode(QToolButton.InstantPopup)
+		# self.iface.addToolBarWidget(self.toolButton)
 
 		if spatial_database_option:
 			icon = QIcon(os.path.join(dir, "icons", "geopackage.jpg"))
@@ -670,7 +693,24 @@ class tuflowqgis_menu:
 			QMessageBox.critical(self.iface.mainWindow(), "Error", message)
 	
 	def apply_check_cLayer(self):
+		icon = QIcon(os.path.join(os.path.dirname(__file__), "icons", "check_files_currentlayer.png"))
+		self.apply_style_clayer_menu.setIcon(icon)
+		self.apply_style_clayer_menu.menuAction().setToolTip("Apply TUFLOW Styles to Current Layer")
+		self.apply_style_clayer_menu.setDefaultAction(self.apply_chk_cLayer_action)
+		self.apply_style_clayer_menu.menuAction().triggered.disconnect(self.style_menu_connection)
+		self.style_menu_connection = self.apply_style_clayer_menu.menuAction().triggered.connect(self.apply_check_cLayer)
 		error, message = tuflowqgis_apply_check_tf_clayer(self.iface)
+		if error:
+			QMessageBox.critical(self.iface.mainWindow(), "Error", message)
+
+	def apply_stability_styling_clayer(self):
+		icon = QIcon(os.path.join(os.path.dirname(__file__), "icons", "style_stability.png"))
+		self.apply_style_clayer_menu.setIcon(icon)
+		self.apply_style_clayer_menu.menuAction().setToolTip("Apply Stability Styling to Current Layer")
+		self.apply_style_clayer_menu.setDefaultAction(self.apply_stability_style_clayer_action)
+		self.apply_style_clayer_menu.menuAction().triggered.disconnect(self.style_menu_connection)
+		self.style_menu_connection = self.apply_style_clayer_menu.menuAction().triggered.connect(self.apply_stability_styling_clayer)
+		error, message = tuflowqgis_apply_stability_style_clayer(self.iface)
 		if error:
 			QMessageBox.critical(self.iface.mainWindow(), "Error", message)
 

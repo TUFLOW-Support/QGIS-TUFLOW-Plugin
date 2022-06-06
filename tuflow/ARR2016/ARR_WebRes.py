@@ -168,11 +168,25 @@ class ArrLosses:
                     if finished:
                         break
                     if data[0].lower() == 'storm initial losses (mm)':
-                        self.ils_datahub = data[1]
-                        self.ils = data[1]
+                        self.ils_datahub = data[1].strip()
+                        try:
+                            self.ils = float(self.ils_datahub)
+                            if numpy.isnan(self.ils):
+                                raise ValueError
+                        except ValueError:
+                            msg = 'ERROR: Processing "Initial Storm Loss". Value found: {0}. Assuming value of zero instead'.format(self.ils_datahub)
+                            self.logger.info(msg)
+                            self.ils = 0.
                     if data[0].lower() == 'storm continuing losses (mm/h)':
-                        self.cls_datahub = data[1]
-                        self.cls = float(data[1].strip())
+                        self.cls_datahub = data[1].strip()
+                        try:
+                            self.cls = float(self.cls_datahub)
+                            if numpy.isnan(self.cls):
+                                raise ValueError
+                        except ValueError:
+                            msg = 'ERROR: Processing "Continuing Storm Loss". Value found: {0}. Assuming value of zero instead.'.format(data[1].strip())
+                            self.logger.info(msg)
+                            self.cls = 0.
                 if finished:
                     break
         if self.ils is None or self.cls is None:
@@ -2236,16 +2250,16 @@ class Arr:
                 self.logger.error('Unexpected error opening file {0}'.format(materials))
                 raise ('Unexpected error opening file')
             if catch_no == 0:
-                materials_open.write("Material ID, Manning's n, Rainfall Loss Parameters, Land Use Hazard ID, ! Description\n")
+                materials_open.write("Material ID,Manning's n,Rainfall Loss Parameters,Land Use Hazard ID,Storage Reduction Factor,Fraction Impervious,! Description\n")
             increment = 1
             if urban_initial_loss is not None and urban_continuing_loss is not None:
                 increment = 2
                 if catch_no == 0:
-                    materials_open.write('1,,"{0}, {1}",,! Impervious Area Rainfall Losses\n'.format(urban_initial_loss, urban_continuing_loss))
+                    materials_open.write('1,,"{0}, {1}",,,,! Impervious Area Rainfall Losses\n'.format(urban_initial_loss, urban_continuing_loss))
             if use_global_continuing_loss:
-                materials_open.write('{1:.0f},,"<<IL_{0}>>, {2}",,! Design ARR2016 Losses for catchment {0}\n'.format(site_name, catch_no + increment, self.Losses.cls))
+                materials_open.write('{1:.0f},,"<<IL_{0}>>, {2}",,,,! Design ARR2016 Losses for catchment {0}\n'.format(site_name, catch_no + increment, self.Losses.cls))
             else:
-                materials_open.write('{1:.0f},,"<<IL_{0}>>, <<CL_{0}>>",,! Design ARR2016 Losses for catchment {0}\n'.format(site_name, catch_no + increment))
+                materials_open.write('{1:.0f},,"<<IL_{0}>>, <<CL_{0}>>",,,,! Design ARR2016 Losses for catchment {0}\n'.format(site_name, catch_no + increment))
             materials_open.close()
         
         rareMag2Name = {'0.5%': '1 in 200', '0.2%': '1 in 500', '0.1%': '1 in 1000',

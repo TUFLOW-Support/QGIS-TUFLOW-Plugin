@@ -70,7 +70,7 @@
   </edittypes>
   <renderer-v2 attr="Type" forceraster="0" symbollevels="0" type="categorizedSymbol">
     <categories>
-      <category render="false" symbol="0" value="" label=""/>
+      <category render="true" symbol="0" value="" label=""/>
       <category render="true" symbol="1" value="C" label="C"/>
       <category render="true" symbol="2" value="R" label="R"/>
       <category render="true" symbol="3" value="S" label="S"/>

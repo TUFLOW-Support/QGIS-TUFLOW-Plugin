@@ -8,10 +8,68 @@ from PyQt5.QtWidgets import *
 import tuflow.TUFLOW_results as TuflowResults
 import tuflow.TUFLOW_results2013 as TuflowResults2013
 from tuflow.tuflowqgis_library import (getPathFromRel, tuflowqgis_apply_check_tf_clayer, datetime2timespec,
-                                       datetime2timespec, roundSeconds, isPlotLayer)
+                                       datetime2timespec, roundSeconds, isPlotLayer, isTSLayer, is1dNetwork)
 import re
 from tuflow.TUFLOW_FM_data_provider import TuFloodModellerDataProvider
 from math import atan2, sin, cos, pi
+from pathlib import Path
+
+
+class TSResult:
+
+	def __init__(self):
+		self.formatVersion = 0
+
+	def attname_to_float(self, name):
+		return float(name.replace('_', '.').strip('t'))
+
+	def field_names(self, feature, start=0):
+		for i in range(start, feature.fields().count()):
+			yield feature.fields()[i].name()
+
+	def field_names_to_float(self, feature, start):
+		for field_name in self.field_names(feature, start):
+			yield self.attname_to_float(field_name)
+
+	def getTSData(self, layer, id_):
+		i = 1 if r'.gpkg|layername=' in layer.dataProvider().dataSourceUri().lower() else 0
+		id_field = layer.fields()[i].name()
+		start = -1
+
+		xdata, ydata = [], []
+		for f in  layer.getFeatures('"{0}" = \'{1}\''.format(id_field, id_)):
+			for j, field_name in enumerate(self.field_names(f)):
+				if re.findall(r'^t\d_\d+', field_name):
+					start = j
+					break
+
+			xdata = [x for x in self.field_names_to_float(f, start)]
+			ydata = f.attributes()[start:]
+			break
+
+		return xdata, ydata
+
+	def getMaxData(self, layer, id_):
+		xdata, ydata = [], []
+		i = 1 if r'.gpkg|layername=' in layer.dataProvider().dataSourceUri().lower() else 0
+		id_field = layer.fields()[i].name()
+		for f in layer.getFeatures('"{0}" = \'{1}\''.format(id_field, id_)):
+			xdata = [f.attribute(i) for i, x in enumerate(self.field_names(f)) if x.lower() == 'time_max']
+			ydata = [f.attribute(i) for i, x in enumerate(self.field_names(f)) if x.lower() == 'max']
+			break
+
+		return xdata, ydata
+
+	def getMinData(self, layer, id_):
+		xdata, ydata = [], []
+		i = 1 if r'.gpkg|layername=' in layer.dataProvider().dataSourceUri().lower() else 0
+		id_field = layer.fields()[i].name()
+		for f in layer.getFeatures('"{0}" = \'{1}\''.format(id_field, id_)):
+			xdata = [f.attribute(i) for i, x in enumerate(self.field_names(f)) if x.lower() == 'time_min']
+			ydata = [f.attribute(i) for i, x in enumerate(self.field_names(f)) if x.lower() == 'min']
+			break
+
+		return xdata, ydata
 
 
 class TuResults1D():
@@ -550,10 +608,10 @@ class TuResults1D():
 		
 		# collect ids and domain types
 		for layerid, layer in QgsProject.instance().mapLayers().items():
-			if not isPlotLayer(layer):
+			if not isPlotLayer(layer) and not isTSLayer(layer, self.tuView.tuResults.results) and not is1dNetwork(layer):
 				continue
 			for f in layer.selectedFeatures():
-				if 1 not in resVersion:
+				if 1 not in resVersion and 0 not in resVersion:
 					if 'ID' in f.fields().names() and 'Type' in f.fields().names() and 'Source' in f.fields().names():
 						self.ids.append(f['ID'].strip())
 						self.sources.append(f['Source'].strip())
@@ -563,7 +621,8 @@ class TuResults1D():
 						else:
 							self.domains.append(type)  # 2D or RL
 				elif 2 not in resVersion:
-					id = f.attributes()[0]
+					i = 1 if '.gpkg|layername' in layer.dataProvider().dataSourceUri().lower() else 0
+					id = f.attributes()[i]
 					id = id.strip()
 					self.ids.append(id)
 					self.domains.append('1D')
@@ -577,7 +636,8 @@ class TuResults1D():
 						else:
 							self.domains.append(type)  # 2D or RL
 					else:
-						id = f.attributes()[0]
+						i = 1 if '.gpkg|layername' in layer.dataProvider().dataSourceUri().lower() else 0
+						id = f.attributes()[i]
 						id = id.strip()
 						self.ids.append(id)
 						self.domains.append('1D')
@@ -706,3 +766,25 @@ class TuResults1D():
 			if not result.has_reference_time:
 				result.reference_time = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
 			self.getResultMetaData(result)
+
+	def loadTSResultLayer(self, layer):
+		name = layer.dataProvider().dataSourceUri()
+		if re.findall(re.escape(r'.gpkg|layername='), name, flags=re.IGNORECASE):
+			name = re.split(re.escape(r'.gpkg|layername='), name, flags=re.IGNORECASE)[-1]
+			name = name.split('|')[0]
+		elif re.findall(r'^memory', name):
+			name = layer.name()
+		else:
+			name = Path(name).stem
+
+		if re.findall(r'_TS(_[PLR])?', name, flags=re.IGNORECASE):
+			self.results1d[name] = TSResult()
+			self.tuView.tuResults.results[name] = {}
+			self.tuView.OpenResults.addItem(name)
+			k = self.tuView.OpenResults.findItems(name, Qt.MatchRecursive)[0]
+			k.setSelected(True)
+
+	def loadOpenTSLayers(self):
+		for layerid, layer in QgsProject.instance().mapLayers().items():
+			if isTSLayer(layer):
+				self.loadTSResultLayer(layer)

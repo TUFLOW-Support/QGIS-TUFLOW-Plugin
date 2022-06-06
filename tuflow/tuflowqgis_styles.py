@@ -82,7 +82,7 @@ class TF_Styles:
 		
 		# Check to see if there is a geometry type in file name (_P, _L, _R)
 		if layer_name[-2:] == '_P' or layer_name[-2:] == '_L' or layer_name[-2:] == '_R':
-			next
+			pass
 		else:
 			if cLayer.geometryType() == QgsWkbTypes.PointGeometry:
 				layer_name = layer_name + '_P'

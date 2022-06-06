@@ -1,7 +1,7 @@
 import re
 import numpy as np
 from PyQt5.QtWidgets import QMessageBox
-from tuflow.tuflowqgis_library import (findPlotLayers, findIntersectFeat, is1dTable, is1dNetwork)
+from tuflow.tuflowqgis_library import (findPlotLayers, findIntersectFeat, is1dTable, is1dNetwork, isTSLayer)
 from tuflow.TUFLOW_XS import XS_results
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
 from qgis.core import Qgis
@@ -30,6 +30,7 @@ class TuPlot1D():
 		if self.tuView.tabWidget.currentIndex() == TuPlot.TimeSeries:
 			self.plot1dTimeSeries()
 			self.plot1dMaximums()
+			self.plot1dMinimums()
 		elif self.tuView.tabWidget.currentIndex() == TuPlot.CrossSection:
 			self.plot1dLongPlot()
 			self.plot1dCrossSection()
@@ -144,8 +145,15 @@ class TuPlot1D():
 							if 'line_cs' in self.tuResults.results[result] and \
 									xs.type in self.tuResults.results[result]['line_cs'] and \
 									xs.source.lower() in self.tuResults.results[result]['line_cs'][xs.type]:
-								xAll.append(xs.x)
-								yAll.append(xs.z)
+								# xAll.append(xs.x)
+								# yAll.append(xs.z)
+								section = xs.crossSectionPlot(self.tuView.tuOptions.plotInactiveAreas)
+								if section.any():
+									xAll.append(section[:,0])
+									yAll.append(section[:,1])
+								else:
+									xAll.append([])
+									yAll.append([])
 								labels.append(xs.source)
 								types.append('{0}_CS'.format(xs.type))
 
@@ -284,7 +292,11 @@ class TuPlot1D():
 				res = tuResults1D.results1d[result]
 
 				# get result types for all selected types
-				rtypes = tuResults1D.typesTS[:]
+				if re.findall(r'_TS(_[PLR])?$', result, flags=re.IGNORECASE) and isTSLayer(self.tuView.currentLayer):
+					i = 1 if '.gpkg|layername=' in self.tuView.currentLayer.dataProvider().dataSourceUri().lower() else 0
+					rtypes = [f.attribute(i)[0] for f in self.tuView.currentLayer.selectedFeatures()]
+				else:
+					rtypes = tuResults1D.typesTS[:]
 				#for rtype in tuResults1D.typesTS:
 				for rtype in rtypes:
 					# get result for each selected element
@@ -343,6 +355,9 @@ class TuPlot1D():
 									typename = rtype
 							found, ydata, message = res.getTSData(id, dom, typename, 'Geom')
 							xdata = res.times if found else []
+						elif res.formatVersion == 0:  # _TS
+							xdata, ydata = res.getTSData(self.tuView.currentLayer, id)
+							rtype = ''
 						else:
 							continue
 						if type(ydata) is list:
@@ -364,8 +379,11 @@ class TuPlot1D():
 									self.tuView.OpenResults.selectedItems()) < 2 \
 									else '{0} - {1} - {2}'.format(result, id, rtypelab)
 							else:
-								label = '{0} - {1}'.format(id, rtype) if len(self.tuView.OpenResults.selectedItems()) < 2 \
-									else '{0} - {1} - {2}'.format(result, id, rtype)
+								if rtype:
+									label = '{0} - {1}'.format(id, rtype) if len(self.tuView.OpenResults.selectedItems()) < 2 \
+										else '{0} - {1} - {2}'.format(result, id, rtype)
+								else:
+									label = id
 							xAll.append(xdata)
 							yAll.append(ydata)
 							labels.append(label)
@@ -605,9 +623,16 @@ class TuPlot1D():
 				res = tuResults1D.results1d[result]
 
 				# get result types for all selected types
-				for type in tuResults1D.typesTS:
+				if re.findall(r'_TS(_[PLR])?$', result, flags=re.IGNORECASE) and isTSLayer(self.tuView.currentLayer):
+					i = 1 if '.gpkg|layername=' in self.tuView.currentLayer.dataProvider().dataSourceUri().lower() else 0
+					rtypes = [f.attribute(i)[0] for f in self.tuView.currentLayer.selectedFeatures()]
+				else:
+					rtypes = tuResults1D.typesTS[:]
 
-					if '{0}_1d'.format(type) in self.tuResults.maxResultTypes:
+				# get result types for all selected types
+				for type in rtypes:
+
+					if '{0}_1d'.format(type) in self.tuResults.maxResultTypes or isTSLayer(result, self.tuResults.results):
 
 						# get result for each selected element
 						for i, id in enumerate(tuResults1D.ids):
@@ -630,10 +655,117 @@ class TuPlot1D():
 									continue
 								xdata = [xydata[0]]
 								ydata = [xydata[1]]
+							elif res.formatVersion == 0:  # _TS
+								xdata, ydata = res.getMaxData(self.tuView.currentLayer, id)
+								type = ''
 							else:
 								continue
-							label = '{0} - {1} Max'.format(id, type) if len(self.tuView.OpenResults.selectedItems()) < 2 \
-								else '{0} - {1} - {2} Max'.format(result, id, type)
+							if type:
+								label = '{0} - {1} Max'.format(id, type) if len(self.tuView.OpenResults.selectedItems()) < 2 \
+									else '{0} - {1} - {2} Max'.format(result, id, type)
+							else:
+								label = '{0} - Max'.format(id)
+							xAll.append(xdata)
+							yAll.append(ydata)
+							labels.append(label)
+							plotAsPoints.append(True)
+
+		data = list(zip(xAll, yAll))
+		dataTypes = [TuPlot.DataTimeSeries1D] * len(data)
+		if data:
+			self.tuPlot.drawPlot(TuPlot.TimeSeries, data, labels, types, dataTypes, plot_as_points=plotAsPoints, draw=draw)
+
+		return True
+
+	def plot1dMinimums(self, **kwargs):
+		"""
+		Plots 1D maximums based on selected features, results, and result types.
+
+		:param kwargs: dict -> keyword arguments
+		:return: bool -> True for successful, False for unsuccessful
+		"""
+
+		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
+		activeMeshLayers = self.tuView.tuResults.tuResults2D.activeMeshLayers  # list
+		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
+
+		# deal with kwargs
+		bypass = kwargs['bypass'] if 'bypass' in kwargs.keys() else False  # bypass clearing any data from plot
+		bypass = True
+		plot = kwargs['plot'] if 'plot' in kwargs.keys() else ''
+		draw = kwargs['draw'] if 'draw' in kwargs.keys() else True
+
+		# clear the plot based on kwargs
+		if bypass:
+			pass
+		else:
+			if plot.lower() == '1d only':
+				self.tuPlot.clearPlot(0)
+			else:
+				self.tuPlot.clearPlot(0, retain_2d=True, retain_flow=True)
+
+		labels = []
+		types = []
+		xAll = []
+		yAll = []
+		plotAsPoints = []
+		dataTypes = []
+
+		# iterate through all selected results
+		for result in self.tuView.OpenResults.selectedItems():
+			# for result in self.tuView.tuResults.tuResults2D.activeMeshLayers:
+			result = result.text()
+			# result = result.name()
+
+			if result in tuResults1D.results1d.keys():
+				res = tuResults1D.results1d[result]
+
+				# get result types for all selected types
+				if re.findall(r'_TS(_[PLR])?$', result, flags=re.IGNORECASE) and isTSLayer(self.tuView.currentLayer):
+					i = 1 if '.gpkg|layername=' in self.tuView.currentLayer.dataProvider().dataSourceUri().lower() else 0
+					rtypes = [f.attribute(i)[0] for f in self.tuView.currentLayer.selectedFeatures()]
+				else:
+					rtypes = tuResults1D.typesTS[:]
+
+				# get result types for all selected types
+				for type in rtypes:
+
+					if '{0}_1d'.format(type) in self.tuResults.minResultTypes or isTSLayer(result, self.tuResults.results):
+
+						# get result for each selected element
+						for i, id in enumerate(tuResults1D.ids):
+							types.append('{0}_1d'.format(type))
+
+							# get data
+							if res.formatVersion == 1:  # 2013
+								# found, ydata, message = res.getMAXData(id, type)
+								# xdata = res.times
+								continue
+							elif res.formatVersion == 2:  # 2015
+								# dom = tuResults1D.domains[i]
+								# source = tuResults1D.sources[i].upper()
+								# typename = type
+								# found, xydata, message = res.getMAXData(id, dom, typename)
+								# if len(xydata) != 2:
+								# 	xAll.append([])
+								# 	yAll.append([])
+								# 	labels.append('')
+								# 	plotAsPoints.append(True)
+								# 	continue
+								# xdata = [xydata[0]]
+								# ydata = [xydata[1]]
+								continue
+							elif res.formatVersion == 0:  # _TS
+								xdata, ydata = res.getMinData(self.tuView.currentLayer, id)
+								type = ''
+							else:
+								continue
+							if type:
+								label = '{0} - {1} Min'.format(id, type) if len(self.tuView.OpenResults.selectedItems()) < 2 \
+									else '{0} - {1} - {2} Min'.format(result, id, type)
+							else:
+								label = '{0} - Min'.format(id)
 							xAll.append(xdata)
 							yAll.append(ydata)
 							labels.append(label)

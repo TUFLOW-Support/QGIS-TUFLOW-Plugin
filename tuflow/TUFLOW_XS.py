@@ -4,6 +4,7 @@ import os
 import csv
 import numpy.ma as ma
 from qgis.core import NULL
+import numpy as np
 # from .tuflowqgis_library import interpolate
 version = '2018-04-AA'
 
@@ -24,7 +25,9 @@ class XS_Data():
 		self.loaded = False
 		#def load(self,fpath,fname,xs_type,flags,col1,col2,col3):
 		#print('Loading section: '+fname)
-		self.fullpath = os.path.join(fpath,fname)
+		if fname.strip() and (fname.strip()[0] == '/' or fname.strip()[0] == '\\'):
+			fname = fname.strip()[1:]
+		self.fullpath = os.path.join(fpath, fname)
 		#print('Fullpath: '+self.fullpath)
 		self.x = []
 		self.z = []
@@ -159,14 +162,23 @@ class XS_Data():
 						if self.col3.upper() in header[i]:
 							c3_ind = header[i].index(self.col3.upper())
 							found = True
+					if not found:
+						c3_ind = c2_ind + 1
+						self.mat_type = None
+						self.col3 = None
+						self.has_mat = False
 				except:
-					self.error = True
-					self.message = 'ERROR - Unable to find '+self.col3+ ' in header.'
-				finally:
-					if self.error or not found:
-						self.error = True
-						self.message = 'ERROR - Unable to find ' + self.col3 + ' in header.'
-						return
+					c3_ind = c2_ind + 1
+					self.mat_type = None
+					self.col3 = None
+					self.has_mat = False
+					# self.error = True
+					# self.message = 'ERROR - Unable to find '+self.col3+ ' in header.'
+				# finally:
+				# 	if self.error or not found:
+				# 		self.error = True
+				# 		self.message = 'ERROR - Unable to find ' + self.col3 + ' in header.'
+				# 		return
 			if self.col4 == None:
 				c4_ind = c3_ind + 1
 			else:
@@ -240,14 +252,26 @@ class XS_Data():
 					if self.flags:
 						if self.type == 'XZ':
 							if self.has_mat:
-								self.mat.append(float(line[c3_ind]))
+								if len(line) > c3_ind:
+									try:
+										self.mat.append(float(line[c3_ind]))
+									except ValueError:
+										self.mat.append(1.)
+								else:
+									self.mat.append(1.)
 						elif self.type == 'HW':
 							if self.has_area:
 								self.area.append(float(line[c3_ind]))
 							if self.has_perim:
 								self.perim.append(float(line[c4_ind]))
 							if self.has_mat:
-								self.mat.append(float(line[c5_ind]))
+								if len(line) > c3_ind:
+									try:
+										self.mat.append(float(line[c3_ind]))
+									except ValueError:
+										self.mat.append(1.)
+								else:
+									self.mat.append(1.)
 			except:
 				self.error = True
 				self.message = 'ERROR - Error reading cross section '+self.fullpath
@@ -275,6 +299,18 @@ class XS_Data():
 		if not self.error:
 			self.loaded = True
 			self.np = len(self.x)
+
+	def crossSectionPlot(self, plot_inactive_areas):
+		if plot_inactive_areas or self.flags is None or 'm' not in self.flags.lower() or not self.col3:
+			return np.array(list(zip(self.x, self.z)))
+
+		x, z = [], []
+		for i, m in enumerate(self.mat):
+			if m >= 0.:
+				x.append(self.x[i])
+				z.append(self.z[i])
+
+		return np.array(list(zip(x, z)))
 
 
 class XS_layer():

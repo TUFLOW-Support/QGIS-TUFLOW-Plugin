@@ -370,8 +370,8 @@ class TuPlot2D():
 					if update:
 						crossSectionGeom = self.crossSectionGeom[self.crossSectionGeom.index(feat)]
 					else:
-						inters, ch, fcs = findMeshIntersects(si, dp, mesh, feat, crs, self.tuView.project)
-						crossSectionGeom = CrossSectionIntersects(feat, inters, ch, fcs, crs)
+						inters, ch, fcs = findMeshIntersects(si, dp, mesh, feat, crs, self.tuView.project, self.iface)
+						crossSectionGeom = CrossSectionIntersects(feat, inters, ch, fcs, crs, self.iface)
 						self.crossSectionGeom.append(crossSectionGeom)
 						#if gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices:
 						# if onVertices:
@@ -571,7 +571,7 @@ class TuPlot2D():
 				gmd = layer.dataProvider().datasetGroupMetadata(item[-1].group())
 				break
 			inters, ch, fcs = findMeshIntersects(si, dp, mesh, feat, crs,
-			                                             self.tuView.project)
+			                                             self.tuView.project, self.iface)
 
 			try:
 				onVertices = gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices
@@ -1657,11 +1657,12 @@ class TuPlot2D():
 
 
 class CrossSectionIntersects:
-	def __init__(self, feat, inters, chainages, faces, crs):
+	def __init__(self, feat, inters, chainages, faces, crs, iface):
 		self.feat = feat
 		self.inters = inters[:]
 		self.chainages = chainages[:]
 		self.faces = faces[:]
+		self.iface = iface
 
 		self.mid_points = inters[0:1]
 		self.mid_points.extend([calcMidPoint2(inters[i], inters[i + 1], crs) for i in range(len(inters) - 1)])

@@ -551,7 +551,7 @@ def prepare_composition_from_template(layout, cfg, time, dialog, dir, showCurren
 			break
 
 	# setTemporalRange(tuResults, layout_map, time, meshLayer)
-	setTemporalRange(tuResults, layout_map, time, meshLayer, layout_3d)
+	setTemporalRange(tuResults, layout, time, meshLayer, layout_3d)
 
 	composition_set_time(layout, cfg['time text'])
 	if 'plots' in layoutcfg:
@@ -1007,7 +1007,7 @@ def createDefaultSymbol(gtype):
 
 
 
-def setTemporalRange(tuResults, layout_map, time, meshLayer, layout3d=None):
+def setTemporalRange(tuResults, layout, time, meshLayer, layout3d=None):
 	qv = Qgis.QGIS_VERSION_INT
 	if time != -99999. and time != 99999.:
 		if qv >= 31300:
@@ -1016,12 +1016,18 @@ def setTemporalRange(tuResults, layout_map, time, meshLayer, layout3d=None):
 					timeSpec = None
 				else:
 					timeSpec = meshLayer.temporalProperties().referenceTime().timeSpec()
-				if layout_map is not None:
-					layout_map.setIsTemporal(True)
-					tuResults.updateQgsTime(qgsObject=layout_map, time=time, timeSpec=timeSpec)
+			# 	if layout_map is not None:
+			# 		layout_map.setIsTemporal(True)
+			# 		tuResults.updateQgsTime(qgsObject=layout_map, time=time, timeSpec=timeSpec)
 				# if layout3d is not None:
 				# 	layout3d.setIsTemporal(True)
 				# 	tuResults.updateQgsTime(qgsObject=layout3d, time=time, timeSpec=timeSpec)
+			for n in range(layout.itemsModel().rowCount()):
+				for m in range(layout.itemsModel().columnCount()):
+					layoutItem = layout.itemsModel().itemFromIndex(layout.itemsModel().index(n, m))
+					if layoutItem is not None and isinstance(layoutItem, QgsLayoutItemMap):
+						layoutItem.setIsTemporal(True)
+						tuResults.updateQgsTime(qgsObject=layoutItem, time=time, timeSpec=timeSpec)
 
 
 def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, dialog, show_current_time=True,

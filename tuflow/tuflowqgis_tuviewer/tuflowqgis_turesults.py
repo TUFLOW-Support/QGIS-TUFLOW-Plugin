@@ -16,6 +16,7 @@ from tuflow.dataset_menu import DatasetMenuDepAv
 from tuflow.TUFLOW_XS import XS
 import numpy as np
 import re
+from pathlib import Path
 
 
 class TuResults():
@@ -2450,8 +2451,5 @@ class TuResults():
 		time = self.tuView.tuResults.timekey2time[timeKey] if timeKey in self.tuView.tuResults.timekey2time else float(
 			timeKey)
 		return time, 0
-
-
-
 
 

@@ -990,7 +990,8 @@ class TuResults2D():
 		if need2connect:
 			self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
 				lambda: self.tuView.resultsChanged('selection changed'))
-					
+			self.tuView.resultsChanged('selection changed')
+
 	def datasetGroupsAdded(self):
 		"""
 		Re-indexes results because a new dataset (xmdf or dat) has been added through layer properties and not through

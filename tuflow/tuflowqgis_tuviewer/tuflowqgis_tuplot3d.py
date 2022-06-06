@@ -78,12 +78,13 @@ cm.register_cmap(name="bmt_blue_pink", cmap=cm_bmtbluepink)
 # cm.register_cmap(name="bmt_blue_yellow_red", cmap=cm_bmtblueyellowred)
 
 class CurtainIntersects:
-    def __init__(self, feat, inters, chainages, faces, crs):
+    def __init__(self, feat, inters, chainages, faces, crs, iface):
+        self.iface = iface
         self.feat = feat
         self.inters = inters[:]
         self.chainages = chainages[:]
         self.faces = faces[:]
-        self.mid_points = [calcMidPoint(self.inters[i], self.inters[i+1], crs) for i in range(len(self.inters) - 1)]
+        self.mid_points = [calcMidPoint(self.inters[i], self.inters[i+1], crs, self.iface) for i in range(len(self.inters) - 1)]
         self.bed_z = []
 
     def __eq__(self, other):
@@ -407,8 +408,8 @@ class TuPlot3D(TuPlot2D):
                     self.inters, self.chainages, self.faces = curtainGeom.inters, curtainGeom.chainages, curtainGeom.faces
                 else:
                     self.inters, self.chainages, self.faces = findMeshIntersects(si, dp, mesh, feat, crs,
-                                                                                 self.tuView.project)
-                    curtainGeom = CurtainIntersects(feat, self.inters, self.chainages, self.faces, crs)
+                                                                                 self.tuView.project, self.iface)
+                    curtainGeom = CurtainIntersects(feat, self.inters, self.chainages, self.faces, crs, self.iface)
                     self.curtainGeom.append(curtainGeom)
                     # update = True  # turn on update now - allow only one line at the moment
                 if not onFaces:

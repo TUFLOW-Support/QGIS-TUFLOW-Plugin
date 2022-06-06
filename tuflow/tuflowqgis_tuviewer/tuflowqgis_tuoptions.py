@@ -72,6 +72,14 @@ class TuOptions():
 		else:
 			self.tcfLoadMethod = 'result_selection'
 
+		if settings.contains("TUFLOW/tuview_plot_inactive_areas"):
+			try:
+				self.plotInactiveAreas = True if settings.value("TUFLOW/tuview_plot_inactive_areas") == 'true' else False
+			except:
+				self.plotInactiveAreas = True
+		else:
+			self.plotInactiveAreas = True
+
 	def saveProject(self, project):
 		project.writeEntry("TUVIEW", "livemaptracking", str(self.liveMapTracking))
 		

@@ -1112,20 +1112,40 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 			self.outdir.setText(self.translate(newname))
 	
 	def select_CRS(self):
-		projSelector = QgsProjectionSelectionWidget()
-		projSelector.selectCrs()
-		try:
-			authid = projSelector.crs().authid()
-			description = projSelector.crs().description()
-			self.crs = projSelector.crs()
-			success = projSelector.crs()
-			if not success:
-				self.crs = None
-			else:
-				self.crsDesc.setText(description)
-				self.form_crsID.setText(authid)
-		except:
-			self.crs = None
+		# projSelector = QgsProjectionSelectionWidget(self)
+		# projSelector.selectCrs()
+		dlg = QgsProjectionSelectionDialog(self)
+		dlg.setWindowTitle('Select CRS')
+		crs = None
+		if self.form_crsID.text() and re.findall(r'\d+', self.form_crsID.text()):
+			try:
+				crs = QgsCoordinateReferenceSystem.fromEpsgId(int(re.findall(r'\d+', self.form_crsID.text())[0]))
+				if not crs.isValid():
+					crs = None
+			except ValueError:
+				pass
+		if crs is None:
+			crs = QgsProject.instance().crs()
+		self.crs = crs
+		dlg.setCrs(crs)
+		if dlg.exec_():
+			self.crs = dlg.crs()
+			self.crsDesc.setText(self.crs.description())
+			self.form_crsID.setText(self.crs.authid())
+		else:
+			return
+		# try:
+		# 	authid = projSelector.crs().authid()
+		# 	description = projSelector.crs().description()
+		# 	self.crs = projSelector.crs()
+		# 	success = projSelector.crs()
+		# 	if not success:
+		# 		self.crs = None
+		# 	else:
+		# 		self.crsDesc.setText(description)
+		# 		self.form_crsID.setText(authid)
+		# except:
+		# 	self.crs = None
 	def browse_exe(self):
 	
 		#get last used dir
@@ -3119,6 +3139,8 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		else:
 			self.rbByResSelection.setChecked(True)
 
+		self.cbPlotInactiveAreas.setChecked(self.tuOptions.plotInactiveAreas)
+
 		
 		# Signals
 		self.leDateFormat.textChanged.connect(self.updatePreview)
@@ -3130,6 +3152,11 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		self.colourButtonPlotBackground.colorChanged.connect(lambda e: self.cbPlotBackgroudCustom.setChecked(True))
 		self.rbByScenSelection.clicked.connect(lambda e: self.tcfLoadMethodChanged('scenario_selection'))
 		self.rbByResSelection.clicked.connect(lambda e: self.tcfLoadMethodChanged('result_selection'))
+		self.cbPlotInactiveAreas.clicked.connect(self.cbPlotInactiveAreasToggled)
+
+	def cbPlotInactiveAreasToggled(self, e):
+		self.tuOptions.plotInactiveAreas = bool(self.cbPlotInactiveAreas.isChecked())
+		QSettings().setValue("TUFLOW/tuview_plot_inactive_areas", self.tuOptions.plotInactiveAreas)
 
 	def tcfLoadMethodChanged(self, tcf_load_method):
 		self.tuOptions.tcfLoadMethod = tcf_load_method

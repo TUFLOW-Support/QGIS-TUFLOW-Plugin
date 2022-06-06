@@ -1031,7 +1031,7 @@ class ResData():
 		if type(time) is str:
 			time = float(time)
 
-		if time == -99999:
+		if time == 99999:
 			found, data, message = self.getMAXData(id, dom, res)
 			if found:
 				return data[1]

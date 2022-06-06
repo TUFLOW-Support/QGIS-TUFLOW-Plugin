@@ -19,13 +19,15 @@ import tuflowqgis_tuoptions
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumenucontext import TuContextMenu
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuproject import TuProject
 from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, findAllMeshLyrs, convertTimeToFormattedTime,
-                                       is1dTable, findTableLayers, is1dNetwork, isPlotLayer)
+                                       is1dTable, findTableLayers, is1dNetwork, isPlotLayer, isTSLayer)
 from tuflow.tuflowqgis_dialog import tuflowqgis_meshSelection_dialog
 from tuflow.TUFLOW_XS import XS
 from tuflow.TUFLOW_1dTa import HydTables
 from datetime import timedelta
 from tuflow.TUFLOW_FM_data_provider import FM_XS
 import numpy as np
+from pathlib import Path
+
 
 class TuView(QDockWidget, Ui_Tuplot):
 	
@@ -120,6 +122,9 @@ class TuView(QDockWidget, Ui_Tuplot):
 		
 		# check for already open mesh layers
 		self.tuResults.tuResults2D.loadOpenMeshLayers()
+
+		# check for already open _TS layers
+		self.tuResults.tuResults1D.loadOpenTSLayers()
 		
 		# set disabled tabs to be invisible
 		self.setStyleSheet("QTabBar::tab::disabled {width: 0; height: 0; margin: 0; padding: 0; border: none;} ")
@@ -281,7 +286,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 		else:
 			return
 
-		if is1dTable(self.currentLayer) or is1dNetwork(self.currentLayer) or isPlotLayer(self.currentLayer):
+		if is1dTable(self.currentLayer) or is1dNetwork(self.currentLayer) or isPlotLayer(self.currentLayer) or \
+				isTSLayer(self.currentLayer, self.tuResults.results):
 			#self.OpenResultTypes.model().setEnabled(4, 5, 6, 7, 8)
 			#self.tuResults.tuResults1D.activeType = 3
 			self.tuResults.updateActiveResultTypes(None, geomType=self.currentLayer.geometryType())
@@ -378,6 +384,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 		for layer in addedLayers:
 			if isinstance(layer, QgsMeshLayer):
 				self.tuResults.tuResults2D.loadOpenMeshLayers(layer=layer.name())
+			elif isinstance(layer, QgsVectorLayer):
+				self.tuResults.tuResults1D.loadTSResultLayer(layer)
 				
 		return True
 	
@@ -402,6 +410,24 @@ class TuView(QDockWidget, Ui_Tuplot):
 						self.tuResults.tuResults2D.removeResults([itemName])
 			elif layer is not None and layer.name() in self.tuResults.tuResultsParticles.resultsParticles:
 				self.tuResults.tuResultsParticles.removeResults([layer.name()], remove_vlayer=False)
+			elif layer is not None and isTSLayer(layer, self.tuResults.results):
+				name = layer.dataProvider().dataSourceUri()
+				if re.findall(re.escape(r'.gpkg|layername='), name, flags=re.IGNORECASE):
+					name = re.split(re.escape(r'.gpkg|layername='), name, flags=re.IGNORECASE)[-1]
+					name = name.split('|')[0]
+				elif re.findall(r'^memory', name):
+					name = layer.name()
+				else:
+					name = Path(name).stem
+
+				del self.tuResults.tuResults1D.results1d[name]
+				del self.tuResults.results[name]
+
+				for i in reversed(range(self.OpenResults.count())):
+					item = self.OpenResults.item(i)
+					itemName = item.text()
+					if itemName == name:
+						self.OpenResults.takeItem(i)
 
 		self.resultsChanged('force refresh')
 				

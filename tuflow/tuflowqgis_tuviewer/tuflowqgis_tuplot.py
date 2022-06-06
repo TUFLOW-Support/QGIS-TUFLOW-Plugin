@@ -1964,6 +1964,8 @@ class TuPlot():
 				elif self.canvas.mapUnits() == QgsUnitTypes.DistanceFeet or self.canvas.mapUnits() == QgsUnitTypes.DistanceNauticalMiles or \
 						self.canvas.mapUnits() == QgsUnitTypes.DistanceYards or self.canvas.mapUnits() == QgsUnitTypes.DistanceMiles:  # imperial
 					u, m = 1, 'ft'
+				else:
+					u, m = 0, 'degrees'
 		elif unit_system == 'si':
 			u, m = 0, 'm'
 		else:

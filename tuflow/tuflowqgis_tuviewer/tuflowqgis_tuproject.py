@@ -1,9 +1,10 @@
 import os
 from PyQt5.QtGui import QColor
 from PyQt5.QtCore import *
-from qgis.core import QgsPoint, QgsPointXY, QgsGeometry, Qgis
+from qgis.core import QgsPoint, QgsPointXY, QgsGeometry, Qgis, QgsMeshLayer
 from qgis.gui import QgsVertexMarker, QgsRubberBand
 from tuflow.tuflowqgis_library import tuflowqgis_find_layer
+from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults1d import TSResult
 
 
 
@@ -181,6 +182,8 @@ class TuProject():
 			results1d = self.tuView.tuResults.tuResults1D.results1d
 			results = ''
 			for i, result in enumerate(results1d):
+				if isinstance(result, TSResult):
+					continue
 				if i == 0:
 					results += os.path.join(results1d[result].fpath, results1d[result].filename)
 				else:
@@ -249,7 +252,7 @@ class TuProject():
 				if activeResults:
 					for result in activeResults:
 						layer = tuflowqgis_find_layer(result)
-						if layer is not None and type(layer) is QgsMeshLayer:
+						if layer is not None and isinstance(layer, QgsMeshLayer):
 							self.tuView.tuResults.tuResults2D.activeMeshLayers.append(layer)
 			except:
 				pass

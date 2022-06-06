@@ -483,8 +483,9 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 					break
 			#QMessageBox.information(qgis.mainWindow(),"Creating TUFLOW directory", fpath)
 			if (os.path.isfile(fpath)):
-				isgpkg = os.path.splitext(fpath.lower())[1] == '.gpkg' \
-				         or (os.path.splitext(fpath.lower())[1] == '.shp' and convert)
+				# isgpkg = os.path.splitext(fpath.lower())[1] == '.gpkg' \
+				#          or (os.path.splitext(fpath.lower())[1] == '.shp' and convert)
+				isgpkg = os.path.splitext(fpath.lower())[1] == '.gpkg'
 				if isgpkg:
 					lyrname_ = '{0}{1}'.format(Path(fpath).with_suffix('').name, geom)
 					uri = '{0}|layername={1}'.format(fpath, lyrname_)
@@ -1351,6 +1352,63 @@ def tuflowqgis_apply_check_tf_clayer(qgis, **kwargs):
 				cLayer.triggerRepaint()
 
 	return error, message
+
+
+def ts_attname_to_float(name):
+	return float(name.replace('_', '.').strip('t'))
+
+
+def tuflowqgis_apply_stability_style_clayer(iface):
+	error = False
+	message = None
+
+	if iface is None:
+		return error, message
+
+	layer = iface.activeLayer()
+	if not isinstance(layer, QgsVectorLayer):
+		return error, message
+
+	return tuflowqgis_apply_stability_style(layer)
+
+
+def tuflowqgis_apply_stability_style(layer):
+	error = False
+	msg = ''
+
+	name = layer.dataProvider().dataSourceUri()
+	if re.findall(re.escape(r'.gpkg|layername='), name, flags=re.IGNORECASE):
+		name = re.split(re.escape(r'.gpkg|layername='), name, flags=re.IGNORECASE)[-1]
+		name = name.split('|')[0]
+	elif re.findall(f'^memory', name):
+		name = layer.name()
+	else:
+		name = name.split('|')[0]
+		name = Path(name).stem
+
+	if not re.findall(r'_[PLR]$', name, flags=re.IGNORECASE):
+		if layer.geometryType() == QgsWkbTypes.PointGeometry:
+			name = '{0}_P'.format(name)
+		elif layer.geometryType() == QgsWkbTypes.LineGeometry:
+			name = '{0}_L'.format(name)
+		elif layer.geometryType() == QgsWkbTypes.PolygonGeometry:
+			name = '{0}_R'.format(name)
+
+	found_style = None
+	folder = Path(__file__).parent / 'QGIS_Styles' / 'stability'
+	for file in folder.glob('*.qml'):
+		if re.findall(r'{0}$'.format(file.stem), name, flags=re.IGNORECASE):
+			found_style = str(file)
+			break
+
+	if not found_style:
+		return error, msg
+
+	layer.loadNamedStyle(found_style)
+	layer.triggerRepaint()
+
+	return error, msg
+
 	
 def tuflowqgis_increment_fname(infname):
 	#check for file extension (shapefile only, not expecting .mif)
@@ -5206,7 +5264,7 @@ def getAllFolders(dir, relPath, variables, scenarios, events, output_drive=None,
 					if lyr.strip().lower() in [x.lower() for x in layers]:
 						lyr = layers[[x.lower() for x in layers].index(lyr.strip().lower())]
 						folders.append('{0}|layername={1}'.format(d, lyr))
-		elif db is not None and '.gpkg' in os.path.splitext(relPath)[-1].lower():
+		elif '.gpkg' in os.path.splitext(relPath)[-1].lower():
 			if '>>' in os.path.splitext(relPath)[-1]:
 				d, lyrs = os.path.splitext(relPath)[-1].split('>>')
 				d = '{0}{1}'.format(getPathFromRel(dir, os.path.splitext(relPath)[0], output_drive=output_drive), d.strip())
@@ -6586,6 +6644,22 @@ def isPlotLayer(layer, geom=''):
 		return False
 
 
+def isTSLayer(layer, results=None):
+	if isinstance(layer, str):
+		name = layer
+	else:
+		name = layer.dataProvider().dataSourceUri()
+	if re.findall(re.escape(r'.gpkg|layername='), name, flags=re.IGNORECASE):
+		name = re.split(re.escape(r'.gpkg|layername='), name, flags=re.IGNORECASE)[-1]
+		name = name.split('|')[0]
+	elif re.findall(r'^memory', name):
+		name = layer.name()
+	else:
+		name = Path(name).stem
+
+	return re.findall(r'_TS(_[PLR])?', name, flags=re.IGNORECASE) and (results is None or name in results)
+
+
 def getRasterValue(point, raster):
 	"""
 	Gets the elevation value from a raster at a given location. Assumes raster has only one band or that the first
@@ -7398,7 +7472,7 @@ def getFaceIndexes3(si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider, points: Po
 	return faceIndexes
 
 
-def getFaceIndex(p, si, mesh, p2=None, crs=None):
+def getFaceIndex(p, si, mesh, p2=None, crs=None, iface=None):
 	"""
 
 	"""
@@ -7415,7 +7489,7 @@ def getFaceIndex(p, si, mesh, p2=None, crs=None):
 					if f.geometry().contains(p):
 						return ind
 				else:
-					p3 = calcMidPoint2(p, p2)
+					p3 = calcMidPoint2(p, p2, iface)
 					if f.geometry().contains(p3):
 						return ind
 
@@ -7523,7 +7597,7 @@ def findMeshSideIntersects(p1: QgsPointXY, p2: QgsPointXY, faces: FaceList, mesh
 
 
 def findMeshIntersects(si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider, mesh: QgsMesh,
-                       feat: QgsFeature, crs, project: QgsProject = None, debug=False):
+                       feat: QgsFeature, crs, project: QgsProject = None, iface=None, debug=False):
 	"""
 
 	"""
@@ -7562,7 +7636,10 @@ def findMeshIntersects(si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider, mesh: Q
 	chainages.append(chainage)
 	for i, p in enumerate(points):
 		if i > 0:
-			chainage += calculateLength2(p, points[i-1], crs)
+			if iface is not None:
+				chainage += calculateLength2(p, points[i-1], crs, iface.mapCanvas().mapUnits())
+			else:
+				chainage += calculateLength2(p, points[i - 1], crs, QgsUnitTypes.DistanceMeters)
 			chainages.append(chainage)
 
 	# switch on/off to get check mesh faces and intercepts
@@ -7603,22 +7680,25 @@ def findMeshIntersects(si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider, mesh: Q
 	return points, chainages, allFaces
 
 
-def calculateLength2(p1, p2, crs=None):
+def calculateLength2(p1, p2, crs=None, units=None):
 	"""
 
 	"""
 
 	da = QgsDistanceArea()
 	da.setSourceCrs(crs, QgsCoordinateTransformContext())
-	return da.convertLengthMeasurement(da.measureLine(p1, p2), QgsUnitTypes.DistanceMeters)
+	return da.convertLengthMeasurement(da.measureLine(p1, p2), units)
 
 
-def calcMidPoint(p1, p2, crs):
+def calcMidPoint(p1, p2, crs, iface):
 	"""
 	Calculates a point halfway between p1 and p2
 	"""
 
-	h = calculateLength2(p1, p2, crs) / 2.
+	if iface is not None:
+		h = calculateLength2(p1, p2, crs, iface.mapCanvas().mapUnits()) / 2.
+	else:
+		h = calculateLength2(p1, p2, crs, QgsUnitTypes.DistanceMeters) / 2.
 	a = atan2((p2.x() - p1.x()), (p2.y() - p1.y()))
 	x = p1.x() + sin(a) * h
 	y = p1.y() + cos(a) * h

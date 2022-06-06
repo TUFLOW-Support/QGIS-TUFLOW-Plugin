@@ -365,7 +365,7 @@ class TuMenuFunctions():
 							else:
 								names = names[:1]
 						for output in names:
-							possible_paths = [x for x in paths if output in str(x)]
+							possible_paths = [x for x in paths if output in x.stem == output]
 							for pp in possible_paths:
 								if pp.suffix.lower() in ['.xmdf', '.dat']:
 									res2D.append(str(pp))

@@ -169,16 +169,22 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             for layer in self.getInputs(inputType):
                 if inputType == 'lines' or inputType == 'points':
                     if not is1dNetwork(layer):
-                        QMessageBox.critical(self, "Integrity Tool",
-                                             "Layer Is Not a 1d_nwk Type: {0}".format(layer.name()))
-                        return
-                    else:
-                        if inputType == 'lines':
-                            for f in layer.getFeatures():
-                                if isinstance(f.attribute(1), QVariant):
-                                    QMessageBox.critical(self, "Integrity Tool",
-                                                         "Feature type must be character or string type (cannot be blank or NULL).\nLayer: {0}\nFID: {1}".format(layer.name(), f.id()))
-                                    return
+                        # QMessageBox.critical(self, "Integrity Tool",
+                        #                      "Layer Is Not a 1d_nwk Type: {0}".format(layer.name()))
+                        question = QMessageBox.warning(self, "Integrity Tool",
+                                                       "Layer does not look like a 1d_nwk type: \"{0}\" - "
+                                                       "Tool might not work if layer is not a 1d_nwk type. "
+                                                       "Do you wish to continue?".format(layer.name()),
+                                                       QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+                        if question != QMessageBox.Yes:
+                            return
+                    if inputType == 'lines':
+                        for f in layer.getFeatures():
+                            if isinstance(f.attribute(1), QVariant):
+                                QMessageBox.critical(self, "Integrity Tool",
+                                                     "Feature type must be character or string type (cannot be blank "
+                                                     "or NULL).\nLayer: {0}\nFID: {1}".format(layer.name(), f.id()))
+                                return
                 else:  # tables
                     if not is1dTable(layer):
                         QMessageBox.critical(self, "Integrity Tool",
