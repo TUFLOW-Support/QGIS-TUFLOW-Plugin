@@ -1183,7 +1183,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		engine = 'flexible mesh' if self.rbTuflowFM.isChecked() else 'classic'
 		parent_folder_name = 'TUFLOWFV' if engine == 'flexible mesh' else 'TUFLOW'
 		tutorial = self.cbTutorial.isChecked()
-		basedir = self.outdir.displayText().strip()
+		basedir = self.outdir.displayText().strip().strip('\\/')
 		path_split = basedir.split('/')
 		for p in path_split[:]:
 			path_split += p.split(os.sep)
@@ -1211,6 +1211,12 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		self.tfsettings.project_settings.base_dir = basedir
 		self.tfsettings.project_settings.engine = engine
 		self.tfsettings.project_settings.tutorial = tutorial
+		if re.findall(r'TUFLOW\\?$', basedir, flags=re.IGNORECASE):
+			empty_dir = os.path.join(basedir, 'model', 'gis', 'empty')
+		else:
+			empty_dir = os.path.join(basedir, 'TUFLOW', 'model', 'gis', 'empty')
+
+		self.tfsettings.project_settings.empty_dir = empty_dir
 		error, message = self.tfsettings.Save_Project()
 		if error:
 			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Saving Project Settings. Message: "+message)
@@ -1224,6 +1230,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 			self.tfsettings.global_settings.base_dir = basedir
 			self.tfsettings.global_settings.engine = engine
 			self.tfsettings.global_settings.tutorial = tutorial
+			self.tfsettings.global_settings.empty_dir = empty_dir
 			error, message = self.tfsettings.Save_Global()
 			if error:
 				QMessageBox.information( self.iface.mainWindow(),"Error", "Error Saving Global Settings. Message: "+message)

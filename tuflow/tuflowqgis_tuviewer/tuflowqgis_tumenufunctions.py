@@ -60,7 +60,7 @@ class TuMenuFunctions():
 			# User get 2D result file
 			inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW 2D results file',
 			                                           fpath,
-			                                           "TUFLOW 2D Results (*.dat *.xmdf *.sup *.2dm *.nc)")
+			                                           "TUFLOW 2D Results (*.xmdf *.dat *.sup *.2dm *.nc)")
 			if not inFileNames[0]:  # empty list
 				return False
 			

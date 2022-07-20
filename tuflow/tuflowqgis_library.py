@@ -510,6 +510,7 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 						if i == 0:
 							databaseLoc = savename  # if user doesn't specify, use the first database for the rest
 
+				empty_file_ = fpath
 				fpath = savename
 				if isgpkg:
 					uri = '{0}|layername={1}'.format(fpath, lyrname_)
@@ -604,11 +605,11 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 
 				# delete prj file and replace with empty prj - ensures it is exactly the same
 				if not isgpkg:
-					correct_prj = '{0}.prj'.format(os.path.splitext(fpath)[0])
+					correct_prj = '{0}.prj'.format(os.path.splitext(empty_file_)[0])
 					new_prj = '{0}.prj'.format(os.path.splitext(savename)[0])
 					try:
 						copyfile(correct_prj, new_prj)
-					except:
+					except Exception as e:
 						pass
 
 				if isgpkg:
@@ -2220,19 +2221,27 @@ def getLabelFieldName(layer: QgsVectorLayer, properties: dict) -> str:
 	:return: str field name expression
 	"""
 
+	qv = Qgis.QGIS_VERSION_INT
+
 	add = 0
 	if re.findall(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), re.IGNORECASE):
 		add = 1
 
 	fields = layer.fields()
+
+	if qv >= 32600:
+		get_field = lambda i: fields[i]
+	else:
+		get_field = lambda i: fields.field(i)
+
 	a = []
 	for i in properties['label_attributes']:
 		i = min(i, fields.size() - 1)
 		# if fields.size() >= i:
 		if properties['use_attribute_name']:
-			a.append("'{0}: ' + if ( \"{0}\" IS NULL, '', to_string( \"{0}\" ) )".format(fields.field(i-1+add).name()))
+			a.append("'{0}: ' + if ( \"{0}\" IS NULL, '', to_string( \"{0}\" ) )".format(get_field(i-1+add).name()))
 		else:
-			a.append("if ( \"{0}\" IS NULL, '', to_string( \"{0}\" ) )".format(fields.field(i-1+add).name()))
+			a.append("if ( \"{0}\" IS NULL, '', to_string( \"{0}\" ) )".format(get_field(i-1+add).name()))
 
 	fieldName = r" + '\n' + ".join(a)
 
@@ -2290,6 +2299,8 @@ def setLabelProperties(label: QgsPalLayerSettings, properties: dict, layer: QgsV
 	:return: None
 	"""
 
+	qv = Qgis.QGIS_VERSION_INT
+
 	format = QgsTextFormat()
 
 	# buffer
@@ -2336,7 +2347,10 @@ def setLabelProperties(label: QgsPalLayerSettings, properties: dict, layer: QgsV
 	label.dist = d
 	label.xOffset = properties['offsetXY'][0]
 	label.yOffset = properties['offsetXY'][1]
-	label.multilineAlign = 0
+	if qv >= 32600:
+		label.multilineAlign = Qgis.LabelMultiLineAlignment.Left
+	else:
+		label.multilineAlign = 0
 	label.drawLabels = True
 
 
@@ -3833,7 +3847,7 @@ def getVariableNamesFromTCF(tcf, scenarios=()):
 	return variables, False
 
 
-def loadGisFile(iface, path, group, processed_paths, processed_layers, error, log, crs):
+def loadGisFile(iface, path, group, processed_paths, processed_layers, error, log, crs, visible=True):
 	"""
 	Load GIS file (vector or raster). If layer is already is processed_paths, layer won't be loaded again.
 	
@@ -3931,7 +3945,9 @@ def loadGisFile(iface, path, group, processed_paths, processed_layers, error, lo
 		except:
 			error = True
 			log += '{0}\n'.format(path)
-	elif ext.lower() == '.asc' or ext.lower() == '.flt' or ext.lower() == '.dem' or ext.lower() == '.txt' or ext.lower() == '.tif':
+	elif ext.lower() == '.asc' or ext.lower() == '.flt' or ext.lower() == '.dem' or ext.lower() == '.txt' or ext.lower() == '.tif' or ext.lower() == '.hdr':
+		if ext.lower() == '.hdr':
+			path = '{0}.flt'.format(os.path.splitext(path)[0])
 		try:
 			if os.path.exists(path):
 				lyr = iface.addRasterLayer(path, os.path.basename(os.path.splitext(path)[0]),
@@ -3953,6 +3969,13 @@ def loadGisFile(iface, path, group, processed_paths, processed_layers, error, lo
 	else:
 		error = True
 		log += '{0}\n'.format(path)
+
+	try:
+		if lyr.isValid():
+			nd = QgsProject.instance().layerTreeRoot().findLayer(lyr.id())
+			nd.setItemVisibilityChecked(visible)
+	except Exception as e:
+		pass
 		
 	return processed_paths, processed_layers, error, log, crs
 	
@@ -4020,6 +4043,7 @@ def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers
 							and 'read file' not in f.lower() and 'read operating controls file' not in f.lower():
 						command, relPath = f.split('==', 1)
 						command = command.strip()
+						is_raster = 'read grid' in command.lower()
 						relPath = relPath.split('!')[0].split('#')[0]
 						relPath = relPath.strip()
 						relPaths = relPath.split("|")
@@ -4028,8 +4052,12 @@ def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers
 							paths = getAllFolders(dir, relPath, variables, scenarios, [], db=dbCCF)
 							for path in paths:
 								if path not in processed_paths:
+									if is_raster and 'load_rasters' in kwargs and kwargs['load_rasters'] == 'no':
+										continue
+									invisible = is_raster and 'load_rasters' in kwargs and kwargs['load_rasters'] == 'invisible'
+									visible = not invisible
 									processed_paths, processed_layers, error, log, crs = \
-										loadGisFile(iface, path, group, processed_paths, processed_layers, error, log, crs)
+										loadGisFile(iface, path, group, processed_paths, processed_layers, error, log, crs, visible)
 			elif 'spatial database' in f.lower() and 'output' not in f.lower():
 				ind = f.lower().find('spatial database')
 				if '!' not in f[:ind] and '#' not in f[:ind]:
@@ -4056,12 +4084,13 @@ def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers
 	lyrs_sorted = sorted(lyrs, key=lambda x: x.name().lower())
 	for i, lyr in enumerate(lyrs_sorted):
 		treeLyr = group.insertLayer(i, lyr)
+		treeLyr.setItemVisibilityChecked(QgsProject.instance().layerTreeRoot().findLayer(lyr.id()).itemVisibilityChecked())
 	group.removeChildren(len(lyrs), len(lyrs))
 
 	return error, log, processed_paths, processed_layers, crs, dbTCF, dbCCF
 
 
-def openGisFromTcf(tcf, iface, scenarios=()):
+def openGisFromTcf(tcf, iface, scenarios=(), load_rasters=True):
 	"""
 	Opens all vector layers from the tuflow model from the TCF
 
@@ -4086,7 +4115,7 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 	dbCCF = None
 	error, log, pPaths, pLayers, crs, dbTCF, dbCCF = loadGisFromControlFile(tcf, iface, processed_paths, processed_layers,
 	                                                                        scenarios, variables, crs, dbTCF, dbCCF,
-	                                                                        is_tcf=True)
+	                                                                        is_tcf=True, load_rasters=load_rasters)
 	processed_paths += pPaths
 	processed_layers += pLayers
 	if error:
@@ -4139,7 +4168,8 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 						                                                                        processed_layers,
 						                                                                        scenarios, variables,
 						                                                                        crs,
-						                                                                        dbTCF, dbCCF)
+						                                                                        dbTCF, dbCCF,
+																								load_rasters=load_rasters)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -4157,7 +4187,8 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 							                                                                        processed_layers,
 							                                                                        scenarios,
 							                                                                        variables, crs,
-							                                                                        dbTCF, dbCCF)
+							                                                                        dbTCF, dbCCF,
+																									load_rasters=load_rasters)
 							processed_paths += pPaths
 							processed_layers += pLayers
 							if error:
@@ -4177,7 +4208,8 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 						                                                                        processed_layers,
 						                                                                        scenarios, variables,
 						                                                                        crs,
-						                                                                        dbTCF, dbCCF)
+						                                                                        dbTCF, dbCCF,
+																								load_rasters=load_rasters)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -4197,7 +4229,8 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 						                                                                        processed_layers,
 						                                                                        scenarios, variables,
 						                                                                        crs,
-						                                                                        dbTCF, dbCCF)
+						                                                                        dbTCF, dbCCF,
+																								load_rasters=load_rasters)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -4217,7 +4250,8 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 						                                                                        processed_layers,
 						                                                                        scenarios, variables,
 						                                                                        crs,
-						                                                                        dbTCF, dbCCF)
+						                                                                        dbTCF, dbCCF,
+																								load_rasters=load_rasters)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -4239,7 +4273,8 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 						                                                                        processed_layers,
 						                                                                        scenarios, variables,
 						                                                                        crs,
-						                                                                        dbTCF, dbCCF)
+						                                                                        dbTCF, dbCCF,
+																								load_rasters=load_rasters)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -4259,7 +4294,8 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 						                                                                        processed_layers,
 						                                                                        scenarios, variables,
 						                                                                        crs,
-						                                                                        dbTCF, dbCCF)
+						                                                                        dbTCF, dbCCF,
+																								load_rasters=load_rasters)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -4279,7 +4315,8 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 						                                                                        processed_layers,
 						                                                                        scenarios, variables,
 						                                                                        crs,
-						                                                                        dbTCF, dbCCF)
+						                                                                        dbTCF, dbCCF,
+																								load_rasters=load_rasters)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -4301,7 +4338,8 @@ def openGisFromTcf(tcf, iface, scenarios=()):
 						                                                                        processed_layers,
 						                                                                        scenarios, variables,
 						                                                                        crs,
-						                                                                        dbTCF, dbCCF)
+						                                                                        dbTCF, dbCCF,
+																								load_rasters=load_rasters)
 						processed_paths += pPaths
 						processed_layers += pLayers
 						if error:
@@ -8451,6 +8489,18 @@ class XMDF_Res_Type:
 		return self._key
 
 
+def re_ify(text, wildcards):
+	# text = re.escape(text)
+	for wc in wildcards:
+		text = re.sub(wc, '*', text, flags=re.IGNORECASE)
+	if re.findall(r'\*\*(?![\\/])', text):
+		text = re.sub(re.escape(r'**'), '*', text)
+
+	text = text.replace('*', '.*')
+
+	return text
+
+
 def getOutputDirs(path, settings=None):
 	import sys
 	from os.path import dirname, join
@@ -8493,10 +8543,16 @@ def getOutputDirs(path, settings=None):
 				])
 
 			wildcards = [r'(~[es]\d?~)']
+			re_name = re_ify(settings.tcf.with_suffix('').name, wildcards)
+			re_name = r'{0}((_[A-^`-z0-9%&]+)(\+[A-^`-z0-9%&]+)*)?'.format(re_name)
+
 			for glob in search_globs:
 				pattern = globify(glob, wildcards)
+				pattern = '{0}*{1}'.format(Path(pattern).with_suffix(''), Path(pattern).suffix)
 				for file in settings.control_file.parent.glob(pattern):
-					output_paths.append(file)
+					re_name_ = r'{0}\{1}'.format(re_name, file.suffix)
+					if re.findall(re_name_, file.name):
+						output_paths.append(file)
 
 
 
@@ -8519,6 +8575,51 @@ def getResultPathsFromTCF_v2(tcf_path):
 				output_names.append(op.stem)
 
 	return output_paths, output_names, ''
+
+
+global LoadRasterMessageBox_result
+LoadRasterMessageBox_result = None
+
+def LoadRasterMessageBox_signal(dialog, result):
+	global LoadRasterMessageBox_result
+	LoadRasterMessageBox_result = result
+	dialog.accept()
+
+def LoadRasterMessageBox(parent, title, text):
+	import tuflow.resources.tuflow
+	global LoadRasterMessageBox_result
+	dialog = QDialog(parent)
+	dialog.setWindowTitle(title)
+	image = QLabel()
+	image.setPixmap(QPixmap(":/icons/icons/question.svg"))
+	label = QLabel()
+	label.setText(text)
+	pb_yes = QPushButton()
+	pb_yes.setText('Yes')
+	pb_no = QPushButton()
+	pb_no.setText('No')
+	pb_invisible = QPushButton()
+	pb_invisible.setText('Yes, but not checked on')
+	layout_hori_1 = QHBoxLayout()
+	layout_hori_1.addWidget(image)
+	layout_hori_1.addWidget(label)
+	layout_hori_2 = QHBoxLayout()
+	layout_hori_2.addWidget(pb_yes)
+	layout_hori_2.addWidget(pb_no)
+	layout_hori_2.addWidget(pb_invisible)
+	layout_vert = QVBoxLayout()
+	layout_vert.addLayout(layout_hori_1)
+	layout_vert.addLayout(layout_hori_2)
+	layout_vert.setSizeConstraint(QLayout.SetFixedSize)
+	dialog.setLayout(layout_vert)
+
+	d = {pb_yes: 'yes', pb_no: 'no', pb_invisible: 'invisible'}
+	pb_yes.clicked.connect(lambda: LoadRasterMessageBox_signal(dialog, d[pb_yes]))
+	pb_no.clicked.connect(lambda: LoadRasterMessageBox_signal(dialog, d[pb_no]))
+	pb_invisible.clicked.connect(lambda: LoadRasterMessageBox_signal(dialog, d[pb_invisible]))
+
+	dialog.exec_()
+	return LoadRasterMessageBox_result
 
 
 

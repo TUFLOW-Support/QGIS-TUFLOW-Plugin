@@ -1046,7 +1046,8 @@ def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, 
 	layout.addLayoutItem(layout_map)
 	layout_map.attemptResize(_page_size(layout, margin))
 
-	setTemporalRange(tuResults, layout_map, time, meshLayer)
+	# setTemporalRange(tuResults, layout_map, time, meshLayer)
+	setTemporalRange(tuResults, layout, time, meshLayer)
 
 	if 'frame' in cfg:
 		layout_map.setFrameEnabled(cfg['frame'])

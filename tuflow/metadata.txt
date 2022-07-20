@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.4
+version=3.5
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,10 +20,24 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=--- 3.4 ---
+changelog=--- 3.5 ---
+          - New Features and Updates -
+          Load From TCF - new feature - user has option to load rasters, not load rasters, or load them but don't render them
+          TUFLOW Viewer - Load results from TCF now finds results that have appended scenario names
+          TUFLOW Viewer - changed extension order in browser dialog for load map outputs (xmdf is now listed first)
+          ARR to TUFLOW - Sets initial losses > 72hrs to the 72 hr initial loss value
+
+          - Bug Fixes -
+          Auto Label - Fixes auto label tool in QGIS 3.26
+          TUFLOW Viewer - fixes animation export
+          Import Empty - ensures the .prj file of the imported empty is the same as the empty - this was previously implemented but was recently broken in v3.4
+          Configure Project - Was not correctly setting the empty directory in the Import Empty and Insert TUFLOW Attributes tool if the 'Save to Project' or 'Save Globally' was used in either tool.
+          ARR to TUFLOW - Fixes a bug when selecting 'Use Event Independent Continuing Losses' that would cause the variable setting TRD file to become scrambled.
+
+          --- 3.4 ---
           - New Features and Updates -
           Added New Stability Styling tool - new button is located using dropdown arrow under 'Style Current Layer' button
-          TUFLOW Viewer - added ability to 'quick view' _TS output GIS layers. Not full featured (no axis names, does not populate time slider, no secondary6 axis etc)
+          TUFLOW Viewer - added ability to 'quick view' _TS output GIS layers. Not full featured (no axis names, does not populate time slider, no secondary axis etc)
           TUFLOW Viewer - User option added to view/hide inactive areas in 1D cross-sections
           TUFLOW Viewer - Cross-section source reference with a leading '/' will now be interpreted the same as './'
           TUFLOW Viewer - animation exporter will now update temporal properties of all map windows (allows for insets)

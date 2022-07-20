@@ -2353,7 +2353,10 @@ class Arr:
                                             il = il_complete[dur_index, mag_index]
                                             if np.isnan(il):
                                                 il = 0
-                                            insert_index.append(k + catch_no * 2 + 1)
+                                            if not use_global_continuing_loss:
+                                                insert_index.append(k + catch_no * 2 + 1)
+                                            else:
+                                                insert_index.append(k + catch_no + 1)
                                             insert_il.append(il)
                                     if 'End If' in subline:
                                         break

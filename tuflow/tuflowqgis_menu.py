@@ -752,6 +752,9 @@ class tuflowqgis_menu:
 		
 		inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW TCF', fpath,
 		                                           "TCF (*.tcf)")
+		if inFileNames:
+			load_rasters = LoadRasterMessageBox(self.iface.mainWindow(), 'Load Rasters',
+												'Load raster layers into workspace (large raster layers can be slow to load)?')
 		for inFileName in inFileNames[0]:
 			if not inFileName or len(inFileName) < 1:  # empty list
 				return
@@ -774,7 +777,8 @@ class tuflowqgis_menu:
 						scenarios = self.dialog.scenarios[:]
 					else:
 						scenarios = []
-					openGisFromTcf(inFileName, self.iface, scenarios)
+
+					openGisFromTcf(inFileName, self.iface, scenarios, load_rasters)
 	
 	def reload_data(self):
 		layer = self.iface.mapCanvas().currentLayer()

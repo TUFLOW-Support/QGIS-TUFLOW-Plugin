@@ -193,7 +193,7 @@ def extend_array_aep(common_aep, complete_aep, input_array, interpolate_missing=
     :param extrapolate_missing: bool extrapolate unknown values
     :return: ndarray
     """
-    
+
     old_shape = input_array.shape
     new_shape = (old_shape[0], len(complete_aep))  # shape of the new extended array
     
@@ -259,7 +259,8 @@ def interpolate_nan(input_array, dur, ils ,**kwargs):
 
     input_array: numpy array containing nan values
     dur: duration list that will be used as reference for interpolation"""
-
+    import pydevd_pycharm
+    pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
     for kw in kwargs:
         if kw.lower() == 'lossmethod':
             lossMethod = kwargs[kw]
@@ -305,8 +306,16 @@ def interpolate_nan(input_array, dur, ils ,**kwargs):
         int_array = np.insert(int_array, 0, 0, axis=0)
 
     # Populate first column with duration values (skipping first row)
+    k = None
     for i, duration in enumerate(dur):
         int_array[i + 1][0] = dur[i]
+
+        # extend array for dur > 72hrs
+        if duration == 4320:
+            k = i + 1
+        if duration > 4320 and k is not None:
+            for j in range(int_array.shape[1] - 1):
+                int_array[i+1,j+1] = int_array[k,j+1]
 
     # fill in nan values by interpolating
     for i, row in enumerate(int_array):

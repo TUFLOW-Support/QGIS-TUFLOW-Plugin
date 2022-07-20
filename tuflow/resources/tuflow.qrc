@@ -6,5 +6,6 @@
     <file>../icons/results.svg</file>
     <file>../icons/cross_section.svg</file>
     <file>../icons/vertical_profile.svg</file>
+    <file>../icons/question.svg</file>
   </qresource>
 </RCC>
