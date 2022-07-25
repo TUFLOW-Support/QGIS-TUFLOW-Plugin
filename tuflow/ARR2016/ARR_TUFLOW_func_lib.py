@@ -259,8 +259,7 @@ def interpolate_nan(input_array, dur, ils ,**kwargs):
 
     input_array: numpy array containing nan values
     dur: duration list that will be used as reference for interpolation"""
-    import pydevd_pycharm
-    pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
+
     for kw in kwargs:
         if kw.lower() == 'lossmethod':
             lossMethod = kwargs[kw]
