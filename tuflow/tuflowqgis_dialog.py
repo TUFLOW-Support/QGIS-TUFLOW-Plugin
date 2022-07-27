@@ -80,8 +80,8 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 
 		table_width = 414
 
-		self.twTables.setColumnWidth(0, table_width / 2)
-		self.twTables.setColumnWidth(1, table_width / 2)
+		self.twTables.setColumnWidth(0, int(table_width / 2))
+		self.twTables.setColumnWidth(1, int(table_width / 2))
 
 		self.sourcelayer_changed(None, cLayer)
 		if cLayer:
