@@ -13,8 +13,6 @@ class SCS(QObject):
     # static values that don't need to be initialised
     auckland = 'auckland'
     other = 'other'
-    #aucklandUh = 'aucklandUh'
-    #otherUh = 'otherUh'
     manualApproachChecked = 1
     areaImp2Checked = 2
     tpManualChecked = 3
@@ -59,7 +57,7 @@ class SCS(QObject):
         self.createInflows()
 
         # create log of input parameters
-        self.createInputLog()
+        self.createSummaryLog()
 
         self.finished.emit('')
 
@@ -68,15 +66,16 @@ class SCS(QObject):
 
         tef = os.path.join((self.inputs['outputFolder']), 'event_file.tef')
         events = self.inputs['events']
+
         try:
             with open(tef, 'w') as fo:
-                fo.write('! TEF Written by SCS to TUFLOW QGIS Plugin Tool\n\n')
-                fo.write('!! RAINFALL EVENTS !!\n')
+                fo.write('! TEF written by SCS to TUFLOW QGIS Plugin tool\n\n')
+                fo.write('! RAINFALL EVENTS !\n')
                 for event in events:
                     fo.write(f'Define Event == {event}\n')
                     fo.write(f'    BC Event Source == ~ARI~ | {event}\n')
                     fo.write('End Define\n')
-                    fo.write('!----------------------------------------\n')
+                    fo.write('\n')
         except PermissionError:
             self.finished.emit(f'{tef} Locked')
             return
@@ -93,7 +92,7 @@ class SCS(QObject):
             if self.inputs['manualApproachChecked']:
                 catchIdManualList = self.getCatchIdManual()
                 with open(bc_dbase, 'w') as fo:
-                    fo.write('Name,Source,Column 1,Column 2\n')
+                    fo.write('Name,Source,Column 1,Column 2, Add Col 1, Mult Col 2, Add Col 2, Column 3, Column 4\n')
                     for id in catchIdManualList:
                         fo.write(f'{id},Inflows_~ARI~.csv,Time (hr), {id}\n')
             else:
@@ -135,39 +134,62 @@ class SCS(QObject):
                 self.finished.emit(f'Error Opening {inflows}')
                 return
 
-    def createInputLog(self) -> None:
+    def createSummaryLog(self) -> None:
         """ Create log of input parameters. """
 
-        inputLog = os.path.join((self.inputs['outputFolder']), 'input_log.txt')
+        summaryLog = os.path.join((self.inputs['outputFolder']), 'summary_log.txt')
         events = self.inputs['events']
 
-        with open(inputLog, 'w') as log:
+        with open(summaryLog, 'w') as log:
             log.write('Events and Design Rainfall Depth (mm)\n')
             for event in events:
                 depthCalcs = self.inputs[event]
                 log.write(event + ': ' + str(depthCalcs) + '\n')
             log.write('\n')
             log.write('Simulation Settings\n')
-            log.write('Input Interval  (min): ' + str(self.inputs['intervalIn']) + '\n')
-            log.write('Output Interval (min): ' + str(self.inputs['intervalOut']) + '\n')
-            log.write('Decimal Spaces       : ' + str(self.inputs['decimals']) + '\n')
+            log.write('Input Interval    (min): ' + str(self.inputs['intervalIn']) + '\n')
+            log.write('Output Interval   (min): ' + str(self.inputs['intervalOut']) + '\n')
+            log.write('Decimal Spaces         : ' + str(self.inputs['decimals']) + '\n')
             log.write('\n')
             if self.inputs['manualApproachChecked']:
+                soilStoragePer, soilStorageImp = self.getSoilStorageManual()
                 log.write('Manual Approach\n')
-                log.write('Catchment ID: ' + self.inputs['catchmentId'] + '\n')
-                log.write('Curve Number Pervious : ' + str(self.inputs['cnPer']) + '\n')
-                log.write('Area-Pervious     (ha): ' + str(self.inputs['areaPer']) + ', Suffix: ' + self.inputs['areaPerSuf'] + '\n')
-                log.write('Area-Impervious 1 (ha): ' + str(self.inputs['areaImp1']) + ', Suffix: ' + self.inputs['areaImp1Suf'] + '\n')
+                log.write('Catchment ID           : ' + self.inputs['catchmentId'] + '\n')
+                log.write('Curve Number Pervious  : ' + str(self.inputs['cnPer']) + '\n')
+                log.write('Curve Number Impervious: ' + str(self.inputs['cnImp']) + '\n')
+                log.write('Initial Abstraction Per: ' + str(self.inputs['iniLossPer']) + '\n')
+                log.write('Initial Abstraction Imp: ' + str(self.inputs['iniLossImp']) + '\n')
+                log.write('Area-Pervious      (ha): ' + str(self.inputs['areaPer']) + ', Suffix: ' + self.inputs['areaPerSuf'] + '\n')
+                log.write('Area-Impervious 1  (ha): ' + str(self.inputs['areaImp1']) + ', Suffix: ' + self.inputs['areaImp1Suf'] + '\n')
                 if self.inputs['areaImp2Checked']:
-                    log.write('Area-Impervious 2 (ha): ' + str(self.inputs['areaImp2']) + ', Suffix: ' + self.inputs['areaImp2Suf'] + '\n')
+                    log.write('Area-Impervious 2  (ha): ' + str(self.inputs['areaImp2']) + ', Suffix: ' + self.inputs['areaImp2Suf'] + '\n')
                 if self.inputs['tpManualChecked']:
-                    log.write('Tp (hr) Per: ' + str(self.inputs['tpPer']) + ', Imp: ' + str(self.inputs['tpImp']) + '\n')
+                    log.write('Tp Pervious:       (hr): ' + str(self.inputs['tpPer']) + '\n')
+                    log.write('Tp Impervious:     (hr): ' + str(self.inputs['tpImp']) + '\n')
                 if self.inputs['tcManualChecked']:
-                    log.write('Tc (hr) Per: ' + str(self.inputs['tcPer']) + ', Imp: ' + str(self.inputs['tcImp']) + '\n')
+                    log.write('Tc Pervious:       (hr): ' + str(self.inputs['tcPer']) + '\n')
+                    log.write('Tc Impervious:     (hr): ' + str(self.inputs['tcImp']) + '\n')
                 if self.inputs['tpTcCalcsManualChecked']:
-                    log.write('Channelisation Factor Per: ' + str(self.inputs['cPer']) + ', Imp: ' + str(self.inputs['cImp']) + '\n')
-                    log.write('Length (km): ' + str(self.inputs['length']) + '\n')
-                    log.write('Slope (m/m): ' + str(self.inputs['slope']) + '\n')
+                    log.write('Channelisation Factor Per: ' + str(self.inputs['cPer']) + '\n')
+                    log.write('Channelisation Factor Imp: ' + str(self.inputs['cImp']) + '\n')
+                    log.write('Length            (km): ' + str(self.inputs['length']) + '\n')
+                    log.write('Slope            (m/m): ' + str(self.inputs['slope']) + '\n')
+                log.write('\n')
+                log.write('Calculated Parameters\n')
+                log.write('Storage Pervious   (mm): ' + f'{soilStoragePer:.3f}' + '\n')
+                log.write('Storage Impervious (mm): ' + f'{soilStorageImp:.3f}' + '\n')
+                inflowMaxList = self.getInflowMaxManual(event)
+                for event in events:
+                    i = -1
+                    log.write('Peak Flow Pervious     ' + event + ' (m3/s): ' + str(inflowMaxList[i + 1]) + '\n')
+                    i += 1
+                    log.write('Peak Flow Impervious 1 ' + event + ' (m3/s): ' + str(inflowMaxList[i + 1]) + '\n')
+                    i += 1
+                    if self.inputs['areaImp2Checked']:
+                        log.write('Peak Flow Impervious 2 ' + event + ' (m3/s): ' + str(inflowMaxList[i + 1]) + '\n')
+                        i += 1
+                    if len(inflowMaxList) > i:
+                        inflowMaxList = inflowMaxList[i + 1:]
             else:
                 log.write('GIS Approach\n')
 
@@ -195,16 +217,12 @@ class SCS(QObject):
 
         # inputs
         depthCalcs = self.inputs[event]
-        intensityPer = self.getIntensityPerManual(event)
-        intensityImp = self.getIntensityImpManual(event)
+        intensityPer, intensityImp = self.getIntensityManual(event)
+        soilStoragePer, soilStorageImp = self.getSoilStorageManual()
         tpPer, tpImp = self.getTpManual()
         intervalPer, intervalImp = self.getIntervalManual()
         timePer, timeImp = self.getTimeManual()
         timeOut = self.getTimeOut()
-
-        # soil storage
-        soilStoragePer = ((1000 / self.inputs['cnPer']) - 10) * 25.4
-        soilStorageImp = ((1000 / self.inputs['cnImp']) - 10) * 25.4
 
         # runoff depth for 24h in mm
         runoffDepth24hPer = ((depthCalcs - self.inputs['iniLossPer']) ** 2) / \
@@ -361,11 +379,17 @@ class SCS(QObject):
         :return: inflowGis
         """
 
-        # intensity
-        intensity = self.getIntensityGis(event)
+        # inputs
+        depthCalcs = self.inputs[event]
+        #intensity = self.getIntensityGis(event)
+        timeOut = self.getTimeOut()
+        # inflowGis = np.array([0])
+        inflowGisCum = np.zeros((1441,1))
 
         # GIS inputs
-        cnGis = self.inputs['cnGis']
+        #catchIdGisList = self.getCatchIdGis()
+        cnPerGis = self.inputs['cnPerGis']
+        cnImpGis = self.inputs['cnImpGis']
         areaPerGis = self.inputs['areaPerGis']
         areaPerCCGis = self.inputs['areaPerCCGis']
         areaImp1Gis = self.inputs['areaImp1Gis']
@@ -377,7 +401,216 @@ class SCS(QObject):
         lengthGis = self.inputs['lengthGis']
         slopeGis = self.inputs['slopeGis']
 
-        inflowGis = intensity
+        for j in range(len(self.inputs['catchIdGis'])):
+            # soil storage
+            soilStoragePerGis = ((1000 / float(cnPerGis[j])) - 10) * 25.4
+            soilStorageImpGis = ((1000 / float(cnImpGis[j])) - 10) * 25.4
+
+            # runoff depth for 24h in mm
+            runoffDepth24hPerGis = ((depthCalcs - self.inputs['iniLossPer']) ** 2) / \
+                                ((depthCalcs - self.inputs['iniLossPer']) + soilStoragePerGis)
+            runoffDepth24hImpGis = ((depthCalcs - self.inputs['iniLossImp']) ** 2) / \
+                                ((depthCalcs - self.inputs['iniLossImp']) + soilStorageImpGis)
+
+            # time of peak and time of concentration
+            tpPerGis = 0
+            tpImpGis = 0
+            if self.inputs['tpTcGisChecked']:
+                if self.inputs['tpGisChecked']:
+                    tpPerGis = float(tpTcGis[j])
+                    tpImpGis = float(tpTcGis[j])
+                else:
+                    tpPerGis = float(tpTcGis[j]) / 3 * 2
+                    tpImpGis = float(tpTcGis[j]) / 3 * 2
+            elif self.inputs['tpTcCalcsGisChecked']:
+                tpPerGis = (0.14 * cGis[j] * (lengthGis[j] ** 0.66) * ((cnPerGis[j] / (200 - cnPerGis[j])) ** -0.55) * (slopeGis[j] ** - 0.3)) / 3 * 2
+                if tpPerGis < 0.11:
+                    tpPerGis = 0.11
+                tpImpGis = (0.14 * cGis[j] * (lengthGis[j] ** 0.66) * ((cnImpGis[j] / (200 - cnImpGis[j])) ** -0.55) * (slopeGis[j] ** - 0.3)) / 3 * 2
+                if tpImpGis < 0.11:
+                    tpImpGis = 0.11
+            else:
+                pass
+
+            # peak flow rate of unit hydrograph
+            qpImp2Gis = 0
+            if 'CC' in event:
+                qpPerGis = (self.inputs['uhCurve'] * runoffDepth24hPerGis * 0.001 * float(areaPerCCGis[j]) * 10000) / (tpPerGis * 3600)
+                qpImp1Gis = (self.inputs['uhCurve'] * runoffDepth24hImpGis * 0.001 * float(areaImp1CCGis[j]) * 10000) / (tpImpGis * 3600)
+                if self.inputs['areaImp2GisChecked']:
+                    qpImp2Gis = (self.inputs['uhCurve'] * runoffDepth24hImpGis * 0.001 * float(areaImp2CCGis[j]) * 10000) / (tpImpGis * 3600)
+            else:
+                qpPerGis = (self.inputs['uhCurve'] * runoffDepth24hPerGis * 0.001 * float(areaPerGis[j]) * 10000) / (tpPerGis * 3600)
+                qpImp1Gis = (self.inputs['uhCurve'] * runoffDepth24hImpGis * 0.001 * float(areaImp1Gis[j]) * 10000) / (tpImpGis * 3600)
+                if self.inputs['areaImp2GisChecked']:
+                    qpImp2Gis = (self.inputs['uhCurve'] * runoffDepth24hImpGis * 0.001 * float(areaImp2Gis[j]) * 10000) / (tpImpGis * 3600)
+
+            # interval step based on unit hydrograph step
+            intervalPerGis = tpPerGis * self.inputs['uhStep']
+            intervalImpGis = tpImpGis * self.inputs['uhStep']
+
+            # time column for calculations based on input interval
+            timePerGis = np.array([0])
+            timeImpGis = np.array([0])
+            tPerGis = timePerGis[-1]
+            while tPerGis < 23.999999:
+                tPerGis = timePerGis[-1] + intervalPerGis
+                timePerGis = np.append(timePerGis, tPerGis)
+            timePerGis = timePerGis.round(decimals=4)
+            tImpGis = timeImpGis[-1]
+            while tImpGis < 23.999999:
+                tImpGis = timeImpGis[-1] + intervalImpGis
+                timeImpGis = np.append(timeImpGis, tImpGis)
+            timeImpGis = timeImpGis.round(decimals=4)
+
+            # intensity
+            intensityPerGis = np.array([0])
+            intensityImpGis = np.array([0])
+            intensityPerGis = self.getIntensity(event, timePerGis, intensityPerGis)
+            intensityImpGis = self.getIntensity(event, timeImpGis, intensityImpGis)
+
+            # rainfall depth in mm for specified interval
+            rainfallDepthPerGis = ((depthCalcs * intensityPerGis) / (24 / intervalPerGis))
+            rainfallDepthImpGis = ((depthCalcs * intensityImpGis) / (24 / intervalImpGis))
+
+            # cumulative rainfall depth
+            cumulativeRainfallDepthPerGis = np.reshape(np.array(rainfallDepthPerGis[0]), 1)
+            cumulativeRainfallDepthImpGis = np.reshape(np.array(rainfallDepthImpGis[0]), 1)
+            for i in range(1, rainfallDepthPerGis.size):
+                cumulatedDepthPerGis = cumulativeRainfallDepthPerGis[i - 1] + rainfallDepthPerGis[i]
+                cumulativeRainfallDepthPerGis = np.append(cumulativeRainfallDepthPerGis, cumulatedDepthPerGis)
+            for i in range(1, rainfallDepthImpGis.size):
+                cumulatedDepthImpGis = cumulativeRainfallDepthImpGis[i - 1] + rainfallDepthImpGis[i]
+                cumulativeRainfallDepthImpGis = np.append(cumulativeRainfallDepthImpGis, cumulatedDepthImpGis)
+
+            # cumulative rainfall excess based on remaining initial loss
+            cumulativeRainfallExcessPerGis = np.array([])
+            for i in range(0, cumulativeRainfallDepthPerGis.size):
+                if cumulativeRainfallDepthPerGis[i] < self.inputs['iniLossPer']:
+                    cumulativeRainfallExcessPerGis = np.append(cumulativeRainfallExcessPerGis, 0)
+                else:
+                    cumulativeRainfallExcessPerGis = np.append(cumulativeRainfallExcessPerGis, cumulativeRainfallDepthPerGis[i])
+            cumulativeRainfallExcessImpGis = np.array([])
+            for i in range(0, cumulativeRainfallDepthImpGis.size):
+                if cumulativeRainfallDepthImpGis[i] < self.inputs['iniLossImp']:
+                    cumulativeRainfallExcessImpGis = np.append(cumulativeRainfallExcessImpGis, 0)
+                else:
+                    cumulativeRainfallExcessImpGis = np.append(cumulativeRainfallExcessImpGis, cumulativeRainfallDepthImpGis[i])
+
+            # cumulative runoff depth
+            cumulativeRunoffDepthPerGis = np.array([])
+            for i in range(0, cumulativeRainfallExcessPerGis.size):
+                if cumulativeRainfallExcessPerGis[i] == 0:
+                    cumulativeRunoffDepthPerGis = np.append(cumulativeRunoffDepthPerGis, 0)
+                else:
+                    cumulatedRunoffDepthPerGis = ((cumulativeRainfallExcessPerGis[i] - self.inputs['iniLossPer']) ** 2) / (
+                                                      (cumulativeRainfallExcessPerGis[i] - self.inputs[
+                                                          'iniLossPer']) + soilStoragePerGis)
+                    cumulativeRunoffDepthPerGis = np.append(cumulativeRunoffDepthPerGis, cumulatedRunoffDepthPerGis)
+            cumulativeRunoffDepthImpGis = np.array([])
+            for i in range(0, cumulativeRainfallExcessImpGis.size):
+                if cumulativeRainfallExcessImpGis[i] == 0:
+                    cumulativeRunoffDepthImpGis = np.append(cumulativeRunoffDepthImpGis, 0)
+                else:
+                    cumulatedRunoffDepthImpGis = ((cumulativeRainfallExcessImpGis[i] - self.inputs['iniLossImp']) ** 2) / (
+                                                      (cumulativeRainfallExcessImpGis[i] - self.inputs[
+                                                          'iniLossImp']) + soilStorageImpGis)
+                    cumulativeRunoffDepthImpGis = np.append(cumulativeRunoffDepthImpGis, cumulatedRunoffDepthImpGis)
+
+            # runoff depth
+            runoffDepthPerGis = np.array([cumulativeRunoffDepthPerGis[0]])
+            for i in range(1, cumulativeRunoffDepthPerGis.size):
+                runoffDepthPerGis = np.append(runoffDepthPerGis, cumulativeRunoffDepthPerGis[i] - cumulativeRunoffDepthPerGis[i - 1])
+            #checkPerGis = runoffDepthPerGis.sum()
+            runoffDepthImpGis = np.array([cumulativeRunoffDepthImpGis[0]])
+            for i in range(1, cumulativeRunoffDepthImpGis.size):
+                runoffDepthImpGis = np.append(runoffDepthImpGis, cumulativeRunoffDepthImpGis[i] - cumulativeRunoffDepthImpGis[i - 1])
+            #checkImpGis = runoffDepthImpGis.sum()
+
+            # unit hydrograph - factored
+            uhFlowRateDimensionlessGis = self.inputs['uhOrdinates'][1, :]
+            uhFlowRateFactoredPerGis = np.array([])
+            for i in range(0, uhFlowRateDimensionlessGis.size):
+                uhFlowRateSinglePerGis = (uhFlowRateDimensionlessGis[i] * qpPerGis) / runoffDepth24hPerGis
+                uhFlowRateFactoredPerGis = np.append(uhFlowRateFactoredPerGis, uhFlowRateSinglePerGis)
+            uhFlowRateFactoredImp1Gis = np.array([])
+            for i in range(0, uhFlowRateDimensionlessGis.size):
+                uhFlowRateSingleImp1Gis = (uhFlowRateDimensionlessGis[i] * qpImp1Gis) / runoffDepth24hImpGis
+                uhFlowRateFactoredImp1Gis = np.append(uhFlowRateFactoredImp1Gis, uhFlowRateSingleImp1Gis)
+            uhFlowRateFactoredImp2Gis = np.array([])
+            if self.inputs['areaImp2GisChecked']:
+                for i in range(0, uhFlowRateDimensionlessGis.size):
+                    uhFlowRateSingleImp2Gis = (uhFlowRateDimensionlessGis[i] * qpImp2Gis) / runoffDepth24hImpGis
+                    uhFlowRateFactoredImp2Gis = np.append(uhFlowRateFactoredImp2Gis, uhFlowRateSingleImp2Gis)
+
+            # unit hydrograph inflows
+            uhFullPerGis = np.zeros((runoffDepthPerGis.size, runoffDepthPerGis.size))
+            for i in range(0, runoffDepthPerGis.size):
+                uhValuesPerGis = runoffDepthPerGis[i] * uhFlowRateFactoredPerGis
+                if i + uhValuesPerGis.size > runoffDepthPerGis.size:
+                    uhFullPerGis[i:runoffDepthPerGis.size, i] = uhValuesPerGis[:-(i + uhFlowRateFactoredPerGis.size - runoffDepthPerGis.size)]
+                else:
+                    uhFullPerGis[i:i + uhFlowRateFactoredPerGis.size, i] = uhValuesPerGis
+
+            uhFullImp1Gis = np.zeros((runoffDepthImpGis.size, runoffDepthImpGis.size))
+            for i in range(0, runoffDepthImpGis.size):
+                uhValuesImp1Gis = runoffDepthImpGis[i] * uhFlowRateFactoredImp1Gis
+                if i + uhValuesImp1Gis.size > runoffDepthImpGis.size:
+                    uhFullImp1Gis[i:runoffDepthImpGis.size, i] = uhValuesImp1Gis[:-(i + uhFlowRateFactoredImp1Gis.size - runoffDepthImpGis.size)]
+                else:
+                    uhFullImp1Gis[i:i + uhFlowRateFactoredImp1Gis.size, i] = uhValuesImp1Gis
+
+            if self.inputs['areaImp2GisChecked']:
+                uhFullImp2Gis = np.zeros((runoffDepthImpGis.size, runoffDepthImpGis.size))
+                for i in range(0, runoffDepthImpGis.size):
+                    uhValuesImp2Gis = runoffDepthImpGis[i] * uhFlowRateFactoredImp2Gis
+                    if i + uhValuesImp2Gis.size > runoffDepthImpGis.size:
+                        uhFullImp2Gis[i:runoffDepthImpGis.size, i] = uhValuesImp2Gis[:-(i + uhFlowRateFactoredImp2Gis.size - runoffDepthImpGis.size)]
+                    else:
+                        uhFullImp2Gis[i:i + uhFlowRateFactoredImp2Gis.size, i] = uhValuesImp2Gis
+
+            # final inflows with input interval
+            inflowPerGis = np.array([])
+            for i in range(0, runoffDepthPerGis.size):
+                inflowPerSumGis = uhFullPerGis[i, :].sum()
+                inflowPerGis = np.append(inflowPerGis, inflowPerSumGis).round(decimals=self.inputs['decimals'])
+
+            inflowImp1Gis = np.array([])
+            for i in range(0, runoffDepthImpGis.size):
+                inflowImp1SumGis = uhFullImp1Gis[i, :].sum()
+                inflowImp1Gis = np.append(inflowImp1Gis, inflowImp1SumGis).round(decimals=self.inputs['decimals'])
+
+            inflowImp2Gis = np.array([])
+            if self.inputs['areaImp2GisChecked']:
+                for i in range(0, runoffDepthImpGis.size):
+                    inflowImp2SumGis = uhFullImp2Gis[i, :].sum()
+                    inflowImp2Gis = np.append(inflowImp2Gis, inflowImp2SumGis).round(decimals=self.inputs['decimals'])
+
+
+            # final inflows with output interval
+            inflowPerOutGis = np.array([0])
+            inflowImp1OutGis = np.array([0])
+            inflowImp2OutGis = np.array([0])
+            for interval in timeOut:
+                if interval == 0:
+                    pass
+                else:
+                    indexPerGis = np.abs(timePerGis - interval).argmin()
+                    inflowPerOutGis = np.append(inflowPerOutGis, inflowPerGis[indexPerGis])
+                    indexImp1Gis = np.abs(timeImpGis - interval).argmin()
+                    inflowImp1OutGis = np.append(inflowImp1OutGis, inflowImp1Gis[indexImp1Gis])
+                    if self.inputs['areaImp2GisChecked']:
+                        indexImp2Gis = np.abs(timeImpGis - interval).argmin()
+                        inflowImp2OutGis = np.append(inflowImp2OutGis, inflowImp2Gis[indexImp2Gis])
+
+            if self.inputs['areaImp2GisChecked']:
+                inflowGisJ = np.column_stack((inflowPerOutGis, inflowImp1OutGis, inflowImp2OutGis))
+            else:
+                inflowGisJ = np.column_stack((inflowPerOutGis, inflowImp1OutGis))
+
+            inflowGisCum = np.column_stack((inflowGisCum, inflowGisJ))
+
+        inflowGis = inflowGisCum[:,1:]
 
         return inflowGis
 
@@ -408,6 +641,16 @@ class SCS(QObject):
                 catchIdGisList.append(catch + self.inputs["areaImp2SufGis"])
 
         return catchIdGisList
+
+    def getSoilStorageManual(self) -> tuple:
+        """ Calculate soil storage for manual calculation.
+            :return: soilStoragePer, soilStorageImp
+        """
+
+        soilStoragePer = ((1000 / self.inputs['cnPer']) - 10) * 25.4
+        soilStorageImp = ((1000 / self.inputs['cnImp']) - 10) * 25.4
+
+        return soilStoragePer, soilStorageImp
 
     def getTpManual(self) -> tuple:
         """ Calculate time of peak for manual calculation.
@@ -451,7 +694,6 @@ class SCS(QObject):
         timePer = np.array([0])
         timeImp = np.array([0])
         if self.inputs['manualApproachChecked']:
-            tpPer, tpImp = self.getTpManual()
             intervalPer, intervalImp = self.getIntervalManual()
             tPer = timePer[-1]
             while tPer < 23.999999:
@@ -494,6 +736,22 @@ class SCS(QObject):
         timeOut = timeOut.round(decimals=4)
 
         return timeOut
+
+    def getInflowMaxManual(self, event) -> list:
+        """ Calculate maximum inflow for manual approach.
+            :return: inflowMaxList
+        """
+
+        inflowMaxList = []
+        events = self.inputs['events']
+        for event in events:
+            inflowManual = self.calculateInflowManual(event)
+            inflowMaxList.append(np.amax(inflowManual[:, 0]))
+            inflowMaxList.append(np.amax(inflowManual[:, 1]))
+            if self.inputs['areaImp2Checked']:
+                inflowMaxList.append(np.amax(inflowManual[:, 2]))
+
+        return inflowMaxList
 
     def getIntensity(self, event, time, intensity) -> np.array:
         """ Assign intensity based on non CC, CC and time.
@@ -609,29 +867,19 @@ class SCS(QObject):
 
         return intensity
 
-    def getIntensityPerManual(self, event) -> np.array:
-        """ Assign pervious intensity for manual calculation.
-            :return: intensityPer
+    def getIntensityManual(self, event) -> np.array:
+        """ Assign pervious and impervious intensity for manual calculation.
+            :return: intensityPer, intensityImp
         """
 
         intensityPer = np.array([])
-        if self.inputs['manualApproachChecked']:
-            timePer, timeImp = self.getTimeManual()
-            intensityPer = self.getIntensity(event, timePer, intensityPer)
-
-        return intensityPer
-
-    def getIntensityImpManual(self, event) -> np.array:
-        """ Assign impervious intensity for manual calculation.
-            :return: intensityImp
-        """
-
         intensityImp = np.array([])
         if self.inputs['manualApproachChecked']:
             timePer, timeImp = self.getTimeManual()
+            intensityPer = self.getIntensity(event, timePer, intensityPer)
             intensityImp = self.getIntensity(event, timeImp, intensityImp)
 
-        return intensityImp
+        return intensityPer, intensityImp
 
     def getIntensityGis(self, event) -> np.array:
         """ Assign intensity for GIS calculation.

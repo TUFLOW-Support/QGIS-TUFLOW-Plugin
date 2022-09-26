@@ -1,4 +1,5 @@
 from qgis.PyQt.QtCore import QCoreApplication
+from qgis._core import QgsProcessingParameterBoolean, QgsProcessingParameterString, QgsProcessingModelGroupBox
 from qgis.core import QgsProcessing
 from qgis.core import QgsProcessingAlgorithm
 from qgis.core import QgsProcessingParameterDefinition
@@ -78,12 +79,29 @@ OP = {0: 'SEPARATE', 1: 'CF1', 2: 'CF2', 3: 'TCF'}
 class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
     
     def initAlgorithm(self, config=None):
-        self.addParameter(QgsProcessingParameterFile('tcf', 'TCF', behavior=QgsProcessingParameterFile.File, fileFilter='TCF (*.tcf *.TCF)', defaultValue=None))
-        self.addParameter(QgsProcessingParameterEnum('outputvectorformat', 'Output Vector Format', options=['GPKG','SHP','MIF'], allowMultiple=False, defaultValue=[0]))
-        self.addParameter(QgsProcessingParameterEnum('outputrasterformat', 'Output Raster Format', options=['GTIFF','GPKG','FLT', 'ASC'], allowMultiple=False, defaultValue=[0]))
-        self.addParameter(QgsProcessingParameterEnum('outputprofile', 'Output Profile', options=['SEPARATE','GROUP BY CONTROL FILE 1', 'GROUP BY CONTROL FILE 2','ALL IN ONE'], allowMultiple=False, defaultValue=[0]))
-        self.addParameter(QgsProcessingParameterFile('outputfolder', 'Output Folder', optional=True, behavior=QgsProcessingParameterFile.Folder, fileFilter='All files (*.*)', defaultValue=None))
-        param = QgsProcessingParameterFile('rootfolder', 'Root Folder', optional=True, behavior=QgsProcessingParameterFile.Folder, fileFilter='All files (*.*)', defaultValue=None)
+        self.addParameter(QgsProcessingParameterFile('tcf', 'TCF', behavior=QgsProcessingParameterFile.File,
+                                                     fileFilter='TCF (*.tcf *.TCF)', defaultValue=None))
+        self.addParameter(QgsProcessingParameterEnum('outputvectorformat', 'Output Vector Format',
+                                                     options=['GPKG','SHP','MIF'], allowMultiple=False, defaultValue=[0]))
+        self.addParameter(QgsProcessingParameterEnum('outputrasterformat', 'Output Raster Format',
+                                                     options=['GTIFF','GPKG','FLT', 'ASC'], allowMultiple=False, defaultValue=[0]))
+        self.addParameter(QgsProcessingParameterEnum('outputprofile', 'Output Profile',
+                                                     options=['SEPARATE','GROUP BY CONTROL FILE 1', 'GROUP BY CONTROL FILE 2','ALL IN ONE'],
+                                                     allowMultiple=False, defaultValue=[0]))
+        self.addParameter(QgsProcessingParameterFile('outputfolder', 'Output Folder', optional=True,
+                                                     behavior=QgsProcessingParameterFile.Folder,
+                                                     fileFilter='All files (*.*)', defaultValue=None))
+        param = QgsProcessingParameterFile('rootfolder', 'Root Folder', optional=True,
+                                           behavior=QgsProcessingParameterFile.Folder, fileFilter='All files (*.*)',
+                                           defaultValue=None)
+        param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        self.addParameter(param)
+
+        param = QgsProcessingParameterBoolean('usescenarios', 'Restrict Conversion by Scenarios')
+        param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        self.addParameter(param)
+        param = QgsProcessingParameterString('scenarios', 'Scenarios (list as you would with TUFLOW e.g. -s BASE -s 5m -e Q100)',
+                                                       optional=True)
         param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
         self.addParameter(param)
         
@@ -100,6 +118,10 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
         op = OP[parameters['outputprofile']]
         of = parameters['outputfolder']
         rf = parameters['rootfolder']
+        use_scenarios = parameters['usescenarios']
+        scenarios = []
+        if use_scenarios:
+            scenarios = [x.strip() for x in parameters['scenarios'].split(' ') if x.strip()]
 
         # script path
         script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'convert_tuflow_model_gis_format', 'convert_tuflow_gis_format.py')
@@ -109,6 +131,9 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
             args.extend(['-o', str(of)])
         if rf:
             args.extend(['-rf', str(rf)])
+        if use_scenarios:
+            args.append('-use-scenarios')
+            args.extend(scenarios)
 
         feedback.pushInfo('args: {0}'.format(args[3:]))
 
@@ -156,22 +181,38 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
             "<p>"
             "<p>"
             "Tool Inputs:<p>"
-            " 1. TCF: The location of the input TUFLOW model's TCF file to be converted<p>"
-            " 2. Output Vector Format - The output vector format<p>"
-            " 3. Output Raster Format - The output raster format<p>"
-            " 4. Output Profile - For GPKG outputs only - will determine how layers are grouped into databases. "
-            "Options:<p>"
-            "       a) SEPARATE will write each layer into its own database. "
+            "<ol>"
+            "  <li>TCF: The location of the input TUFLOW model's TCF file to be converted</li>"
+            "  <li>Output Vector Format - The output vector format</li>"
+            "  <li>Output Raster Format - The output raster format</li>"
+            "  <li>Output Profile - For GPKG outputs only - will determine how layers are grouped into databases. "
+            "Options:</li>"
+            "  <ol>"
+            "    <li>SEPARATE will write each layer into its own database. "
             "TUFLOW commands that read multiple geometry types on a single line will all be converted into a single "
-            "database.<p>"
-            "       b) GROUP BY CONTROL FILE 1 - will group layers by control file<p>"
-            "       c) GROUP BY CONTROL FILE 2 - similar to GROUP BY CONTROL FILE 1 but will consider "
-            "TEF and TRD files as separate control files<p>"
-            "       d) ALL IN ONE - will output every layer into one centralised database<p>"
-            " 5. Output Folder - optional output location for the converted model and files. If none is specified "
-            "a folder is created in the same location as the TCF<p>"
-            " 6. Root Folder - only required if the tool can't find the the root folder (traditionally named 'TUFLOW') "
-            "where all modelling files sit beneath<p>"
+            "database.</li>"
+            "    <li>GROUP BY CONTROL FILE 1 - will group layers by control file</li>"
+            "    <li>GROUP BY CONTROL FILE 2 - similar to GROUP BY CONTROL FILE 1 but will consider "
+            "TEF and TRD files as separate control files</li>"
+            "    <li>ALL IN ONE - will output every layer into one centralised database</li>"
+            "  </ol>"
+            "  <li>Output Folder - optional output location for the converted model and files. If none is specified "
+            "a folder is created in the same location as the TCF</li>"
+            "  <li>Root Folder - only required if the tool can't find the the root folder (traditionally named 'TUFLOW') "
+            "where all modelling files sit beneath</li>"
+            "  <li>Scenarios: The conversion can be restricted by specifying scenario and event names. Using this "
+            "option will stop the conversion of layers that are within an 'IF Scenario/IF Event' logic blocks if the "
+            "scenario name is not provided by the user. This option will also clean the control files and remove unused "
+            "scenario names. Event names can also be used, however they are only applied to logic blocks in the control "
+            "files and are not used to filter event sources provided in the TUFLOW Event File (.tef). To use "
+            "this functionality:</li>"
+            "  <ol>"
+            "    <li>Ensure 'Restrict Conversion by Scenario' is checked on</li>"
+            "    <li>List scenario and event names in the text edit. This should be done in the same manner as TUFLOW "
+            "batch files e.g. <tt>-s [scenario-name] -e [event-name]</tt>. The order does not matter and numbering "
+            "scenarios is not required, although is accepted (e.g. -s1 -s2)</li>"
+            "  </ol>"
+            "</ol>"
         )
 
     def shortDescription(self):

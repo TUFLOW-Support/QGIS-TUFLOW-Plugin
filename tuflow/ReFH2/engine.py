@@ -239,7 +239,8 @@ class Refh2(QObject):
 
         self.tuflowProcessingStart.emit()
 
-        mIter = len(set([x for k, x in self.inputs['output hydrograph type'].items()]))
+        # mIter = len(set([x for k, x in self.inputs['output hydrograph type'].items()]))
+        mIter = len([x for k, x in self.inputs['output hydrograph type'].items()])
         mDur = len(self.inputs['durations'])
 
         if self.inputs['do output rainfall'] or self.inputs['do output hydrograph']:

@@ -149,12 +149,13 @@ class TuContextMenu():
 		
 		self.resultsMenu = QMenu(self.tuView)
 		closeResultsIcon = QgsApplication.getThemeIcon("/mActionRemoveLayer.svg")
-		
+
 		self.load1d2dResults_action = QAction('Load Results', self.resultsMenu)
 		self.load2dResults_action = QAction('Load Results - Map Outputs', self.resultsMenu)
 		self.load1dResults_action = QAction('Load Results - Time Series', self.resultsMenu)
 		self.loadFMResults_action = QAction('Load Results - Time Series FM', self.resultsMenu)
 		self.loadParticlesResults_action = QAction('Load Results - Particles', self.resultsMenu)
+		self.loadNcGridResults_action = QAction('Load Results - NetCDF Grid', self.resultsMenu)
 		self.loadHydraulicTable_action = QAction("Import 1D Hydraulic Tables", self.resultsMenu)
 		self.remove1d2dResults_action = QAction(closeResultsIcon, 'Close Results', self.resultsMenu)
 		self.remove2dResults_action = QAction('Close Results - Map Outputs', self.resultsMenu)
@@ -167,6 +168,7 @@ class TuContextMenu():
 		self.resultsMenu.addAction(self.load1dResults_action)
 		self.resultsMenu.addAction(self.loadFMResults_action)
 		self.resultsMenu.addAction(self.loadParticlesResults_action)
+		self.resultsMenu.addAction(self.loadNcGridResults_action)
 		self.resultsMenu.addAction(self.loadHydraulicTable_action)
 		self.resultsMenu.addSeparator()
 		self.resultsMenu.addAction(self.remove1d2dResults_action)
@@ -183,6 +185,8 @@ class TuContextMenu():
 		self.signals.append(('self.loadFMResults_action.triggered', signal))
 		signal = self.loadParticlesResults_action.triggered.connect(self.tuMenuFunctions.loadParticlesResults)
 		self.signals.append(('self.loadParticlesResults_action.triggered', signal))
+		signal = self.loadNcGridResults_action.triggered.connect(self.tuMenuFunctions.loadNcGridResults)
+		self.signals.append(('self.loadNcGridResults_action.triggered', signal))
 		signal = self.load1d2dResults_action.triggered.connect(self.tuMenuFunctions.load1d2dResults)
 		self.signals.append(('self.load1d2dResults_action.triggered', signal))
 		signal = self.loadHydraulicTable_action.triggered.connect(self.tuMenuFunctions.loadHydraulicTables)
@@ -207,7 +211,44 @@ class TuContextMenu():
 		:param pos: QPoint
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-		
+
+		row = -1
+		clicked_item = self.tuView.OpenResults.itemAt(pos)
+		if clicked_item is not None and self.tuView.OpenResults.count() > 1:
+			index = self.tuView.OpenResults.indexFromItem(clicked_item)
+			row = index.row()
+
+		for action in self.resultsMenu.actions():
+			if action == self.load1d2dResults_action:
+				break
+			else:
+				self.resultsMenu.removeAction(action)
+
+		self.moveUp_action = QAction(QgsApplication.getThemeIcon('/mActionArrowUp.svg'), 'Move Up', self.resultsMenu)
+		self.moveDown_action = QAction(QgsApplication.getThemeIcon('/mActionArrowDown.svg'), 'Move Down',
+									   self.resultsMenu)
+		self.moveToTop_action = QAction('Move To Top', self.resultsMenu)
+		self.moveToBottom_action = QAction('Move To Bottom', self.resultsMenu)
+
+		if row > 0:
+			moveUp_action = QAction(QgsApplication.getThemeIcon('/mActionArrowUp.svg'), 'Move Up', self.resultsMenu)
+			moveUp_action.triggered.connect(lambda: self.tuView.reorderOpenResults(index, 'up'))
+			self.resultsMenu.insertAction(self.load1d2dResults_action, moveUp_action)
+		if row + 1 < self.tuView.OpenResults.count():
+			moveDown_action = QAction(QgsApplication.getThemeIcon('/mActionArrowDown.svg'), 'Move Down', self.resultsMenu)
+			moveDown_action.triggered.connect(lambda: self.tuView.reorderOpenResults(index, 'down'))
+			self.resultsMenu.insertAction(self.load1d2dResults_action, moveDown_action)
+		if row > 0:
+			moveToTop_action = QAction('Move To Top', self.resultsMenu)
+			moveToTop_action.triggered.connect(lambda: self.tuView.reorderOpenResults(index, 'top'))
+			self.resultsMenu.insertAction(self.load1d2dResults_action, moveToTop_action)
+		if row + 1 < self.tuView.OpenResults.count():
+			moveToBottom_action = QAction('Move To Bottom', self.resultsMenu)
+			moveToBottom_action.triggered.connect(lambda: self.tuView.reorderOpenResults(index, 'bottom'))
+			self.resultsMenu.insertAction(self.load1d2dResults_action, moveToBottom_action)
+		if row > -1:
+			self.resultsMenu.insertSeparator(self.load1d2dResults_action)
+
 		self.resultsMenu.popup(self.tuView.OpenResults.mapToGlobal(pos))
 		
 		return True

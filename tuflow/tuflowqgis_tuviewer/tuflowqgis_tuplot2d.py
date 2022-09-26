@@ -9,9 +9,12 @@ from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
 from tuflow.tuflowqgis_library import (lineToPoints, getDirection, doLinesIntersect,
                                        intersectionPoint, calculateLength, getFaceIndexes3,
                                        findMeshIntersects, writeTempPoints, writeTempPolys,
-                                       meshToPolygon, calcMidPoint, calcMidPoint2)
+                                       meshToPolygon, calcMidPoint, calcMidPoint2, getFaceIndex)
 import inspect
 from datetime import datetime, timedelta
+from tuflow.nc_grid_data_provider import NetCDFGridGeometry
+
+from nc_grid_data_provider import NetCDFGrid
 
 
 class TuPlot2D():
@@ -49,7 +52,8 @@ class TuPlot2D():
 
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
-		activeMeshLayers = self.tuResults.tuResults2D.activeMeshLayers  # list
+		activeMeshLayers = self.tuResults.tuResults2D.activeMeshLayers[:]
+		activeMeshLayers.extend([x for x in self.tuResults.tuResultsNcGrid.grids()])
 		results = self.tuResults.results  # dict
 		
 		# Check that layer is points
@@ -109,7 +113,7 @@ class TuPlot2D():
 		if not resultMesh:  # specified result meshes can be passed through kwargs (used for batch export not normal plotting)
 			resultMesh = activeMeshLayers
 		for layer in resultMesh:  # get plotting for all selected result meshes
-			if not meshRendered:
+			if isinstance(layer, QgsMeshLayer) and not meshRendered:
 				dp = layer.dataProvider()
 				mesh = QgsMesh()
 				dp.populateMesh(mesh)
@@ -147,14 +151,18 @@ class TuPlot2D():
 				if not r or r == -1:
 					continue
 				gmd = None
-				for key, item in r.items():
-					gmd = layer.dataProvider().datasetGroupMetadata(item[-1].group())
-					break
-				if gmd is None:
-					continue
+				if isinstance(layer, QgsMeshLayer):
+					for key, item in r.items():
+						gmd = layer.dataProvider().datasetGroupMetadata(item[-1].group())
+						break
+					if gmd is None:
+						continue
 
 				i += 1
-				avgmethods = self.getAveragingMethods(dataType, gmd, resultTypes)
+				if isinstance(layer, QgsMeshLayer):
+					avgmethods = self.getAveragingMethods(dataType, gmd, resultTypes)
+				else:
+					avgmethods = [None for x in range(len(resultTypes))]
 				am = avgmethods[i]
 
 				# for am in avgmethods:
@@ -231,7 +239,8 @@ class TuPlot2D():
 		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 
 		debug = self.tuView.tuOptions.writeMeshIntersects
-		activeMeshLayers = self.tuResults.tuResults2D.activeMeshLayers  # list
+		activeMeshLayers = self.tuResults.tuResults2D.activeMeshLayers[:]
+		activeMeshLayers.extend([x for x in self.tuResults.tuResultsNcGrid.grids()])
 		results = self.tuResults.results  # dict
 		
 		# Check that line is a polyline
@@ -290,145 +299,178 @@ class TuPlot2D():
 		if not resultMesh:  # specified result meshes can be passed through kwargs (used for batch export not normal plotting)
 			resultMesh = activeMeshLayers
 		for layer in resultMesh:
-			dp = layer.dataProvider()
-			mesh = QgsMesh()
-			dp.populateMesh(mesh)
-			si = QgsMeshSpatialIndex(mesh)
-
-			# get plotting for all checked result types
-			if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
-				resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(dataType)
-				
-				# deal with active scalar plotting
-				if plotActiveScalar:
-					if plotActiveScalar == 'active scalar':
-						if self.tuView.tuResults.tuResults2D.activeScalar not in resultTypes:
-							resultTypes += [self.tuView.tuResults.tuResults2D.activeScalar]
-					else:  # do both active scalar and [depth for water level] - tumap specific
-						if plotActiveScalar not in resultTypes:
-							resultTypes.append(plotActiveScalar)
-						if plotActiveScalar == 'Depth' or plotActiveScalar == 'D':
-							if 'Water Level' in self.tuResults.results[layer.name()]:
-								if 'Water Level' not in resultTypes:
-									resultTypes.append('Water Level')
-							elif 'H' in self.tuResults.results[layer.name()]:
-								if 'H' not in resultTypes:
-									resultTypes.append('H')
-				
-			for j, rtype in enumerate(resultTypes):
-				if not timestep:
-					timestep = self.tuView.tuResults.activeTime
-				if timestep == 'Maximum' or timestep == 99999 or timestep == '99999.000000':
-					isMax = True
+			try:
+				if isinstance(layer, QgsMeshLayer):
+					dp = layer.dataProvider()
+					mesh = QgsMesh()
+					dp.populateMesh(mesh)
+					si = QgsMeshSpatialIndex(mesh)
 				else:
-					isMax = self.tuView.tuResults.isMax(rtype)
-				if timestep == 'Minimum' or timestep == -99999 or timestep == '-99999.000000':
-					isMin = True
-				else:
-					isMin = self.tuView.tuResults.isMin(rtype)
-				# get result data for open mesh results, selected scalar datasets, and active time
-				tuResultsIndex = TuResultsIndex(layer.name(), rtype, timestep, isMax, isMin, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
-				if not self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower'):
-					continue
-				elif type(self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower')) is dict:
-					continue
-				elif self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower') == -1:
-					continue
-				types.append(rtype)
-				meshDatasetIndex = self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower')[-1]
-				gmd = dp.datasetGroupMetadata(meshDatasetIndex.group())
-				# if self.tuView.tuResults.isMax(rtype):
-				# if self.tuView.tuResults.isMax(gmd.name()):
-				if TuResults.isMaximumResultType(gmd.name()):
-					if rtype.lower() == 'minimum dt':
-						rtype = '{0}/Final'.format(rtype)
+					dp = None
+					mesh = None
+					si = None
+					if isinstance(layer, NetCDFGrid):
+						layer.open()
+
+				# get plotting for all checked result types
+				if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
+					resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(dataType)
+
+					# deal with active scalar plotting
+					if plotActiveScalar:
+						if plotActiveScalar == 'active scalar':
+							if self.tuView.tuResults.tuResults2D.activeScalar not in resultTypes:
+								resultTypes += [self.tuView.tuResults.tuResults2D.activeScalar]
+						else:  # do both active scalar and [depth for water level] - tumap specific
+							if plotActiveScalar not in resultTypes:
+								resultTypes.append(plotActiveScalar)
+							if plotActiveScalar == 'Depth' or plotActiveScalar == 'D':
+								if 'Water Level' in self.tuResults.results[layer.name()]:
+									if 'Water Level' not in resultTypes:
+										resultTypes.append('Water Level')
+								elif 'H' in self.tuResults.results[layer.name()]:
+									if 'H' not in resultTypes:
+										resultTypes.append('H')
+
+				for j, rtype in enumerate(resultTypes):
+					if not timestep:
+						timestep = self.tuView.tuResults.activeTime
+					if timestep == 'Maximum' or timestep == 99999 or timestep == '99999.000000':
+						isMax = True
 					else:
-						rtype = '{0}/Maximums'.format(rtype)
-				# elif self.tuView.tuResults.isMin(rtype):
-				elif TuResults.isMinimumResultType(gmd.name()):
-					rtype = '{0}/Minimums'.format(rtype)
-
-				# gmd = dp.datasetGroupMetadata(meshDatasetIndex.group())
-				avgmethods = self.getAveragingMethods(dataType, gmd, resultTypes)
-				am = avgmethods[j]
-
-				onVertices = None
-				try:
-					onVerticesCurr = gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices
-				except:  # versions earlier than ~ 3.8
-					onVerticesCurr = True  # on vertices current
-
-				# if j == 0 or onVertices != (gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices):
-				if j == 0 or onVertices is None or onVerticesCurr != onVertices:
-					try:
-						onVertices = gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices
-					except:    # versions earlier than ~ 3.8
-						onVertices = True
-
-					update = feat in self.crossSectionGeom
-
-					if update:
-						crossSectionGeom = self.crossSectionGeom[self.crossSectionGeom.index(feat)]
+						isMax = self.tuView.tuResults.isMax(rtype)
+					if timestep == 'Minimum' or timestep == -99999 or timestep == '-99999.000000':
+						isMin = True
 					else:
-						inters, ch, fcs = findMeshIntersects(si, dp, mesh, feat, crs, self.tuView.project, self.iface)
-						crossSectionGeom = CrossSectionIntersects(feat, inters, ch, fcs, crs, self.iface)
-						self.crossSectionGeom.append(crossSectionGeom)
-						#if gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices:
-						# if onVertices:
-						# 	#points = inters[:]
-						# 	points = inters[0:1]
-						# 	points.extend([calcMidPoint2(inters[i], inters[i + 1], crs) for i in range(len(inters) - 1)])
-						# 	points.append(inters[-1])
-						# 	chainage = ch[0:1]
-						# 	chainage.extend([(ch[i] + ch[i+1]) / 2. for i in range(len(ch) - 1)])
-						# 	chainage.append(ch[-1])
-						# 	faces = [None] * len(points)
-						# 	if debug:
-						# 		writeTempPoints(inters, self.tuView.project, crs, chainage, 'Chainage',
-						# 						QVariant.Double)
-						# else:
-						# 	# points = faces[:]
-						# 	points = inters[:]
-						# 	chainage = ch[:]
-						# 	faces = fcs[:]
-					inters = crossSectionGeom.inters
-					if onVertices:
-						points = crossSectionGeom.mid_points
-						chainage = crossSectionGeom.chainages_mid_points
-						faces = [None] * len(points)
+						isMin = self.tuView.tuResults.isMin(rtype)
+					# get result data for open mesh results, selected scalar datasets, and active time
+					tuResultsIndex = TuResultsIndex(layer.name(), rtype, timestep, isMax, isMin, self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
+					if not self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower'):
+						continue
+					elif type(self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower')) is dict:
+						continue
+					elif self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower') == -1:
+						continue
+					types.append(rtype)
+					meshDatasetIndex = self.tuView.tuResults.getResult(tuResultsIndex, force_get_time='next lower')[-1]
+					gmd = None
+					if isinstance(layer, QgsMeshLayer):
+						gmd = dp.datasetGroupMetadata(meshDatasetIndex.group())
+						# if self.tuView.tuResults.isMax(rtype):
+						# if self.tuView.tuResults.isMax(gmd.name()):
+						if TuResults.isMaximumResultType(gmd.name()):
+							if rtype.lower() == 'minimum dt':
+								rtype = '{0}/Final'.format(rtype)
+							else:
+								rtype = '{0}/Maximums'.format(rtype)
+						# elif self.tuView.tuResults.isMin(rtype):
+						elif TuResults.isMinimumResultType(gmd.name()):
+							rtype = '{0}/Minimums'.format(rtype)
+
+					# gmd = dp.datasetGroupMetadata(meshDatasetIndex.group())
+					if isinstance(layer, QgsMeshLayer):
+						avgmethods = self.getAveragingMethods(dataType, gmd, resultTypes)
 					else:
-						points = crossSectionGeom.inters
-						chainage = crossSectionGeom.chainages
-						faces = crossSectionGeom.faces
-					if j == 0 and debug:
-						polys = [meshToPolygon(mesh, mesh.face(x)) for x in faces]
-						writeTempPolys(polys, self.tuView.project, crs)
-						writeTempPoints(inters, self.tuView.project, crs, chainage, 'Chainage',
-										QVariant.Double)
+						avgmethods = [None for x in range(len(resultTypes))]
+					am = avgmethods[j]
 
+					onVertices = None
+					if isinstance(layer, QgsMeshLayer):
+						try:
+							onVerticesCurr = gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices
+						except:  # versions earlier than ~ 3.8
+							onVerticesCurr = True  # on vertices current
+					else:
+						onVerticesCurr = True
 
-				
-				# iterate through points and extract data
-				x = []
-				y = []
-				for i in range(len(faces)):
-					x.append(chainage[i])
-					v = self.datasetValue(layer, dp, si, mesh, meshDatasetIndex, meshRendered,
-					                      points[i], 0, dataType, am, faces[i])
-					y.append(v)
+					# if j == 0 or onVertices != (gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices):
+					if j == 0 or onVertices is None or onVerticesCurr != onVertices:
+						if isinstance(layer, NetCDFGrid):
+							onVertices = False
+						else:
+							try:
+								onVertices = gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices
+							except:    # versions earlier than ~ 3.8
+								onVertices = True
 
-					if faces[i] is not None:
-						x.append(chainage[i+1])
-						y.append(v)
+						update = feat in self.crossSectionGeom
 
-				# add to overall data list
-				xAll.append(x)
-				yAll.append(y)
+						if update:
+							crossSectionGeom = self.crossSectionGeom[self.crossSectionGeom.index(feat)]
+						else:
+							if isinstance(layer, QgsMeshLayer):
+								inters, ch, fcs = findMeshIntersects(si, dp, mesh, feat, crs, self.tuView.project, self.iface)
+								if len(fcs) + 3 == len(ch):  # start and end point of line is outside mesh
+									fcs.insert(0, None)
+									fcs.append(None)
+								elif len(fcs) + 2 == len(ch):  # one of start or end point of line is outside mesh
+									if getFaceIndex(inters[0], si, mesh):
+										fcs.append(None)
+									else:
+										fcs.insert(None)
+							elif isinstance(layer, NetCDFGrid):
+								nc_grid_geom = NetCDFGridGeometry(layer)
+								linestring = feat.geometry().asMultiPolyline() if feat.geometry().isMultipart() else feat.geometry().asPolyline()
+								fcs = nc_grid_geom.select_cells_from_linestring(linestring)
+								inters, ch = nc_grid_geom.intersects_along_linestring(linestring, fcs)
+							else:
+								continue
 
-				label = self.generateLabel(layer, resultMesh, rtype, lineNo, featName,
-										   activeMeshLayers, am, export, bypass, j, dataType)
-				labels.append(label)
-		
+							crossSectionGeom = CrossSectionIntersects(feat, inters, ch, fcs, crs, self.iface)
+							self.crossSectionGeom.append(crossSectionGeom)
+
+						inters = crossSectionGeom.inters
+						if onVertices:
+							points = crossSectionGeom.mid_points
+							chainage = crossSectionGeom.chainages_mid_points
+							faces = [None] * len(points)
+						else:
+							points = crossSectionGeom.inters
+							chainage = crossSectionGeom.chainages
+							faces = crossSectionGeom.faces
+
+						if j == 0 and not update and debug:
+							if isinstance(layer, QgsMeshLayer):
+								polys = [meshToPolygon(mesh, mesh.face(x)) for x in faces]
+							elif isinstance(layer, NetCDFGrid):
+								nc_grid_geom = NetCDFGridGeometry(layer)
+								polys = [nc_grid_geom.index_to_polygon(x) for x in fcs]
+							writeTempPolys(polys, self.tuView.project, crs)
+							writeTempPoints(inters, self.tuView.project, crs, chainage, 'Chainage',
+											QVariant.Double)
+
+					# iterate through points and extract data
+					x = []
+					y = []
+					for i in range(len(faces)):
+						x.append(chainage[i])
+						if not onVerticesCurr and faces[i] is None:
+							y.append(np.nan)
+						else:
+							v = self.datasetValue(layer, dp, si, mesh, meshDatasetIndex, meshRendered,
+												  points[i], 0, dataType, am, faces[i])
+							y.append(v)
+
+						if faces[i] is not None or not onVerticesCurr:
+							x.append(chainage[i+1])
+							if faces[i] is None and not onVerticesCurr:
+								y.append(np.nan)
+							else:
+								y.append(v)
+
+					# add to overall data list
+					xAll.append(x)
+					yAll.append(y)
+
+					label = self.generateLabel(layer, resultMesh, rtype, lineNo, featName,
+											   activeMeshLayers, am, export, bypass, j, dataType)
+					labels.append(label)
+			except Exception as e:
+				print(e)
+			finally:
+				if isinstance(layer, NetCDFGrid):
+					layer.close()
+
 		# increment line count for multi select - for updateLongPlot function
 		if bypass:  # multi select click
 			self.multiLineSelectCount += 1
@@ -1315,27 +1357,33 @@ class TuPlot2D():
 		"""
 
 		# if face, then cell centred results
-		if face is not None:
+		if face is not None and isinstance(layer, QgsMeshLayer):
 			if avgmethod is None:
 				avgmethod = self.activeAvgMethod(layer.rendererSettings())
 			return self.datasetValueAvgDep(layer, mdi, point, avgmethod, dataType, value, face)
 
-		if meshRendered:
-			if avgmethod is None:
-				return layer.datasetValue(mdi, QgsPointXY(point)).scalar()
+		if isinstance(layer, QgsMeshLayer):
+			if meshRendered:
+				if avgmethod is None:
+					return layer.datasetValue(mdi, QgsPointXY(point)).scalar()
+				else:
+					return self.datasetValueAvgDep(layer, mdi, QgsPointXY(point), avgmethod, dataType)
 			else:
-				return self.datasetValueAvgDep(layer, mdi, QgsPointXY(point), avgmethod, dataType)
-		else:
-			if ind == 0:
-				# first round - go get mesh faces that
-				# point fall in. If graphing for more than
-				# one result - don't need to do this step again
-				success = self.getFaceIndexes2(si, dp, [QgsPointXY(point)], mesh)
-				if not success:
-					return [np.nan]
-				if len(self.faceIndexes) != 1:
-					return [np.nan]
-			return self.preRenderDatasetValue(mesh, layer, si, mdi, self.faceIndexes[0], QgsPointXY(point), dataType, value, avgmethod)
+				if ind == 0:
+					# first round - go get mesh faces that
+					# point fall in. If graphing for more than
+					# one result - don't need to do this step again
+					success = self.getFaceIndexes2(si, dp, [QgsPointXY(point)], mesh)
+					if not success:
+						return [np.nan]
+					if len(self.faceIndexes) != 1:
+						return [np.nan]
+				return self.preRenderDatasetValue(mesh, layer, si, mdi, self.faceIndexes[0], QgsPointXY(point), dataType, value, avgmethod)
+		elif isinstance(layer, NetCDFGrid):
+			if face is None:
+				return layer.dataProvider().sample(QgsPointXY(point), layer.get_band_from_time(mdi))[0]
+			else:
+				return layer.fid.variables[layer._lyr_name][layer.get_band_from_time(mdi)-1, face[1], face[0]]
 
 	def preRenderDatasetValue(self, mesh, layer, si, result, faceIndex, point, dataType, value='scalar', avgmethod=None):
 		"""
@@ -1627,6 +1675,9 @@ class TuPlot2D():
 		"""
 
 		"""
+
+		if isinstance(layer, NetCDFGrid):
+			return layer.name()
 
 		if am is not None:
 			menu = self.tuPlot.tuPlotToolbar.plotDataToPlotMenu[dataType].parentWidget()

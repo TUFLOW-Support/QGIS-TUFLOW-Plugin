@@ -63,7 +63,7 @@ class TuResultsParticles():
 			# Open layer in map
 			self.tuView.project.addMapLayer(mLayer)
 			name = mLayer.name()
-			mLayer.nameChanged.connect(lambda: self.layerNameChanged(mLayer, name, mLayer.name()))  # if name is changed can capture this in indexing
+			# mLayer.nameChanged.connect(lambda: self.layerNameChanged(mLayer, name, mLayer.name()))  # if name is changed can capture this in indexing
 			
 			# add to result list widget
 			names = []
@@ -296,10 +296,9 @@ class TuResultsParticles():
 			pass
 
 		for res in resList:
-			if res in results:
-				del results[res]
-
 			if res in self.resultsParticles:
+				if res in results:
+					del results[res]
 				vlayer = self.resultsParticles[res][1]
 				if remove_vlayer:
 					try:

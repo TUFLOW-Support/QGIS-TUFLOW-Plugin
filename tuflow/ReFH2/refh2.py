@@ -1123,7 +1123,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
 
         # check for new flags
         if self.gbOutHydrograph.isChecked() and self.gbHydToGis.isChecked():
-            if self.cboInputGIS.currentText() == '-None-':
+            if self.cboInputGIS.currentText() == '-None-' or tuflowqgis_find_layer(self.cboInputGIS.currentText()) is None:
                 msg = "Must Specify Input GIS (Catchment) Layer to Output To TUFLOW GIS"
                 label = self.createLabel(msg, True)
                 self.verticalLayout_30.insertWidget(self.verticalLayout_30.count(), label)

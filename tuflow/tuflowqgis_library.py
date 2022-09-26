@@ -55,10 +55,14 @@ import codecs
 from shutil import copyfile
 # import processing
 import requests
+from collections import OrderedDict
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tuflowqgis_styles
-from pathlib import Path
+try:
+	from pathlib import Path
+except ImportError:
+	from pathlib_ import Path_ as Path
 import sqlite3
 
 # --------------------------------------------------------
@@ -166,6 +170,17 @@ def tuflowqgis_find_layer(layer_name, **kwargs):
 					return name
 		elif search_type.lower() == 'layerid':
 			if name == layer_name:
+				if return_type == 'layer':
+					return search_layer
+				elif return_type == 'layerid':
+					return name
+				elif return_type == 'name':
+					return search_layer.name()
+				else:
+					return name
+
+		elif search_type.lower() == 'datasource':
+			if search_layer.dataProvider().dataSourceUri() == layer_name:
 				if return_type == 'layer':
 					return search_layer
 				elif return_type == 'layerid':
@@ -570,7 +585,11 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 					options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
 				else:
 					options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
-					open_layer = tuflowqgis_find_layer(layername)
+					if isgpkg:
+						out_lyr_uri = '{0}|layername={1}'.format(savename, outlayer.name())
+					else:
+						out_lyr_uri = savename
+					open_layer = tuflowqgis_find_layer(out_lyr_uri, search_type='datasource')
 					if open_layer is not None:
 						QgsProject.instance().removeMapLayer(open_layer.id())
 						open_layer = None
@@ -907,11 +926,17 @@ def region_renderer(layer):
 	symbol_layer2 = None
 
 	#check if layer needs a renderer
-	fsource = layer.source() #includes full filepath and extension
-	fname = os.path.split(fsource)[1][:-4] #without extension
+	# fsource = layer.source() #includes full filepath and extension
+	# fname = os.path.split(fsource)[1][:-4] #without extension
 
+	if re.findall(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE):
+		fname = re.split(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)[1]
+	else:
+		fname = os.path.splitext(os.path.basename(layer.dataProvider().dataSourceUri()))[0]
 	if layer.dataProvider().name() == 'memory':
 		fname = layer.name()
+
+	fname = fname.lower()
 
 	if '_bcc_check_R' in fname:
 		field_name = 'Source'
@@ -949,6 +974,8 @@ def region_renderer(layer):
 			field_name = upstrm_type
 		elif layer.geometryType() == QgsWkbTypes.PointGeometry:
 			field_name = 'Unit_Type'
+	elif '2d_qnl' in fname:
+		field_name = layer.fields()[1].name() if '.gpkg|layername=' in layer.dataProvider().dataSourceUri() else layer.fields()[0].name()
 	else: #render not needed
 		return None
 
@@ -1155,6 +1182,9 @@ def region_renderer(layer):
 						symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
 					else:
 						symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Square)
+			elif '2d_qnl' in fname:
+				symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
+				layer.setOpacity(0.25)
 			elif '2d_mat' in fname:
 				symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
 				layer.setOpacity(0.25)
@@ -1242,7 +1272,7 @@ def graduatedRenderer(layer):
 	symbol.setColor(Qt.red)
 	grad_rend = QgsGraduatedSymbolRenderer('Magnitude')
 	grad_rend.setSourceSymbol(symbol)
-	grad_rend.setGraduatedMethod(QgsGraduatedSymbolRenderer.GraduatedMethod.GraduatedSize)
+	grad_rend.setGraduatedMethod(QgsGraduatedSymbolRenderer.GraduatedSize)
 	grad_rend.updateClasses(layer, QgsGraduatedSymbolRenderer.Mode.Quantile, 5)
 	grad_rend.setSymbolSizes(2., 5.)
 
@@ -1299,19 +1329,23 @@ def tuflowqgis_apply_check_tf(qgis):
 	
 
 def tuflowqgis_apply_check_tf_clayer(qgis, **kwargs):
-
 	error = False
 	message = None
 	try:
 		canvas = qgis.mapCanvas()
 	except:
-		error = True
-		message = "ERROR - Unexpected error trying to  QGIS canvas layer."
-		return error, message
+		canvas = None
+		# error = True
+		# message = "ERROR - Unexpected error trying to  QGIS canvas layer."
+		# return error, message
 	try:
 		if 'layer' in kwargs.keys():
 			cLayer = kwargs['layer']
 		else:
+			if canvas is None:
+				error = True
+				message = "ERROR - Unexpected error trying to  QGIS canvas layer."
+				return error, message
 			cLayer = canvas.currentLayer()
 	except:
 		error = True
@@ -3101,6 +3135,35 @@ def getScenariosFromControlFile(controlFile, processedScenarios):
 	return "", processedScenarios
 
 
+def getScenariosFromTCF_v2(control_file, scenarios, settings=None):
+	import sys
+	from os.path import dirname, join
+	sys.path.append(join(dirname(__file__), 'convert_tuflow_model_gis_format'))
+	from .convert_tuflow_model_gis_format.helpers.control_file import get_commands
+	from .convert_tuflow_model_gis_format.helpers.settings import ConvertSettings
+	from .convert_tuflow_model_gis_format.helpers.file import globify, TuflowPath
+
+	if settings is None:
+		control_file = TuflowPath(control_file)
+		settings_ = ConvertSettings(*['-tcf', control_file])
+		settings_.read_tcf()
+	else:
+		settings_ = settings.copy_settings(control_file, settings.output_folder)
+
+	for command in get_commands(control_file, settings_):
+		if command.is_start_define() and 'SCENARIO' in command.command:
+			s = [x.strip() for x in command.value_orig.split('|') if x.upper().strip() not in [y.upper() for y in scenarios]]
+			scenarios.extend(s)
+		elif command.is_control_file():
+			for file in command.iter_files(settings_):
+				cf = file.resolve()
+				getScenariosFromTCF_v2(cf, scenarios, settings_)
+		elif command.is_read_file():
+			for file in command.iter_files(settings_):
+				cf = file.resolve()
+				getScenariosFromTCF_v2(cf, scenarios, settings_)
+
+
 def getScenariosFromTcf(tcf):
 	"""
 
@@ -3978,7 +4041,267 @@ def loadGisFile(iface, path, group, processed_paths, processed_layers, error, lo
 		pass
 		
 	return processed_paths, processed_layers, error, log, crs
-	
+
+
+class LoadGisFiles(QObject):
+
+	start_layer_load = pyqtSignal(str)
+	finished = pyqtSignal()
+
+	def __init__(self, model_file_layers, prog_bar):
+		QObject.__init__(self)
+		self.prog_bar = prog_bar
+		self.model_file_layers = model_file_layers
+		self.err = False
+		self.msg = ''
+
+
+	def init_prog_bar(self):
+		self._prog_text = self.prog_bar.layout().itemAt(0).widget()
+		self._prog_bar = self.prog_bar.layout().itemAt(1).widget()
+		self.prog = 0
+		QgsApplication.processEvents()
+
+	def update_progress(self, lyr_name):
+		self._prog_text.setText('Loading: {0}'.format(lyr_name))
+		self.prog += 1
+		self._prog_bar.setValue(self.prog)
+		QgsApplication.processEvents()
+
+	def loadLayersIntoWorkspace(self, root, layers, options=None):
+		# lyrs = QgsProject.instance().addMapLayers(layers, False)
+		for lyr in layers:
+			self.start_layer_load.emit(lyr.name())
+			self.update_progress(lyr.name())
+			QgsProject.instance().addMapLayer(lyr, False)
+			tuflowqgis_apply_check_tf_clayer(None, layer=lyr)
+			root.addChildNode(QgsLayerTreeLayer(lyr))
+			if options is not None and options.load_raster_method == 'invisible' and isinstance(lyr, QgsRasterLayer):
+				node = root.findLayer(lyr.id())
+				node.setItemVisibilityChecked(False)
+
+	def loadGisFiles(self):
+		import sys
+		from os.path import dirname, join
+		sys.path.append(join(dirname(__file__), 'convert_tuflow_model_gis_format'))
+		from .convert_tuflow_model_gis_format.helpers.gis import (ogr_iter_geom, get_database_name, ogr_format,
+																  ogr_format_2_ext, ogr_geometry_name, ogr_basic_geom_type,
+																  GIS_SHP, gdal_format, GRID_GPKG)
+		options = LoadTcfOptions()
+		root = QgsProject.instance().layerTreeRoot()
+		layers = []
+		gis_files = []
+		self.err = False
+		files_failed = []
+
+		self.init_prog_bar()
+		for cf in self.model_file_layers:
+			for gis_file in cf.gis():
+				QgsApplication.processEvents()
+				if str(gis_file) in gis_files:
+					continue
+				db, lyrname = get_database_name(gis_file)
+				fmt = ogr_format(gis_file)
+				if fmt == GIS_SHP and Path(db).suffix.lower() == '.prj':
+					db = str(Path(db).with_suffix('.shp'))
+					gis_file = f'{db} >> {lyrname}'
+				ext = ogr_format_2_ext(fmt)
+				for geom in ogr_iter_geom(gis_file):
+					if geom is None:
+						continue  # can happen if using just a .prj for projection
+					geom = ogr_basic_geom_type(geom, True)
+					layer_uri = f'{db}|layername={lyrname}'
+					if ext == '.mif':
+						geom_name = ogr_geometry_name(geom)
+						if geom_name:
+							layer_uri = f'{layer_uri}|geometrytype={geom_name}'
+					lyr = QgsVectorLayer(layer_uri, lyrname, 'ogr')
+					if not lyr.isValid():
+						files_failed.append(layer_uri)
+						self.err = True
+						continue
+					layers.append(lyr)
+				gis_files.append(str(gis_file))
+
+			if options.load_raster_method != 'no':
+				for grid_file in cf.grid():
+					if str(grid_file) in gis_files:
+						continue
+					db, lyrname = get_database_name(grid_file)
+					fmt = gdal_format(grid_file)
+					if fmt == GRID_GPKG:
+						layer_uri = f'GPKG:{db}:{lyrname}'
+					else:
+						layer_uri = db
+
+					lyr = QgsRasterLayer(layer_uri, lyrname, 'gdal')
+					if not lyr.isValid():
+						files_failed.append(layer_uri)
+						self.err = True
+						continue
+					layers.append(lyr)
+					gis_files.append(str(grid_file))
+
+			if options.grouped:
+				group = root.addGroup(cf.name)
+				layers = sortLayers(layers)
+				self.loadLayersIntoWorkspace(group, layers, options)
+				layers.clear()
+				gis_files.clear()
+
+		if not options.grouped:
+			layers = sortLayers(layers)
+			self.loadLayersIntoWorkspace(root, layers, options)
+
+		self.msg = 'Failed to load the following layers:\n{0}'.format('\n'.join(files_failed))
+		self.finished.emit()
+
+
+class ControlFileLayers(QObject):
+
+	layer_added = pyqtSignal(str)
+
+	def __init__(self, control_file):
+		QObject.__init__(self)
+		self.name = control_file.name
+		self._paths_gis = []
+		self._paths_grid = []
+
+	def _get_name(self, path):
+		if '>>' in path.name:
+			db, lyr = [x.strip() for x in path.name.split('>>')]
+		else:
+			db, lyr = path.name, path.name
+		if Path(db).suffix.lower() == '.gpkg':
+			name = path.name
+		else:
+			name = db
+
+		return name
+
+	def count(self):
+		return len(self._paths_grid) + len(self._paths_gis)
+
+	def add_gis(self, path):
+		self._paths_gis.append(path)
+		self.layer_added.emit(self._get_name(path))
+
+	def add_grid(self, path):
+		self._paths_grid.append(path)
+		self.layer_added.emit(self._get_name(path))
+
+	def gis(self):
+		for p in self._paths_gis:
+			yield p
+
+	def grid(self):
+		for p in self._paths_grid:
+			yield p
+
+
+class ModelFileLayers(QObject):
+
+	layer_added = pyqtSignal(str)
+
+	def __init__(self):
+		QObject.__init__(self)
+		self._cfs = []
+
+	def __iter__(self):
+		order = {'.tcf': 0, '.ecf': 1, '.tbc': 2, '.tgc': 3, '.qcf': 4, 'toc': 5, 'trfcf': 6, 'trfc': 6, '': 7, None: 7}
+		for cf in sorted(self._cfs, key=lambda x: order.get(Path(x.name).suffix.lower()) if order.get(Path(x.name).suffix.lower()) is not None else 100):
+			yield cf
+
+	def count(self):
+		return sum(x.count() for x in self._cfs)
+
+	def add(self, cf):
+		self._cfs.append(cf)
+		cf.layer_added.connect(self.layer_added_)
+
+	def layer_added_(self, e):
+		self.layer_added.emit(e)
+
+class LoadGisFromControlFile(QObject):
+
+	finished = pyqtSignal()
+
+	def __init__(self, model_file_layers, control_file, settings=None, scenarios=()):
+		QObject.__init__(self)
+		self.model_file_layers = model_file_layers
+		self.control_file = control_file
+		self.settings = settings
+		self.scenarios = scenarios
+
+	def loadGisFromControlFile_v2(self):
+		import sys
+		from os.path import dirname, join
+		sys.path.append(join(dirname(__file__), 'convert_tuflow_model_gis_format'))
+		from .convert_tuflow_model_gis_format.helpers.control_file import get_commands
+		from .convert_tuflow_model_gis_format.helpers.settings import ConvertSettings
+		from .convert_tuflow_model_gis_format.helpers.file import globify, TuflowPath
+
+		control_file = TuflowPath(self.control_file)
+		cf_lyrs = ControlFileLayers(control_file)
+		self.model_file_layers.add(cf_lyrs)
+
+		if self.settings is None:
+			settings_ = ConvertSettings(*['-tcf', control_file, '-use_scenarios'])
+			settings_.read_tcf(self.scenarios)
+		else:
+			settings_ = self.settings.copy_settings(control_file, self.settings.output_folder)
+
+		for command in get_commands(control_file, settings_):
+			if command.in_scenario_block() and not command.in_scenario_block(settings_.scenarios):
+				continue
+
+			elif command.is_spatial_database_command():
+				settings_.process_spatial_database_command(command.value)
+
+			elif command.is_control_file() or command.is_read_file():
+				for file in command.iter_files(settings_):
+					cf = file.resolve()
+					load_gis = LoadGisFromControlFile(self.model_file_layers, cf, settings_)
+					load_gis.loadGisFromControlFile_v2()
+
+			elif command.is_read_gis():
+				if command.in_output_zone_block() and not command.in_output_zone_block(settings_.output_zones):
+					continue
+
+				for type_ in command.iter_geom(settings_):
+					if type_ == 'VALUE':
+						continue
+					for file in command.iter_files(settings_):
+						if type_ == 'GRID':
+							cf_lyrs.add_grid(file)
+						else:
+							cf_lyrs.add_gis(file)
+
+			elif command.is_read_grid():
+				if command.is_rainfall_grid_nc():
+					#TODO
+					continue
+
+				for type_ in command.iter_grid(settings_):
+					for file in command.iter_files(settings_):
+						if type_ == 'GRID':
+							cf_lyrs.add_grid(file)
+						else:
+							cf_lyrs.add_gis(file)
+
+			elif command.is_read_projection():
+				for file in command.iter_files(settings_):
+					if command.command == 'TIF PROJECTION':
+						cf_lyrs.add_grid(file)
+					else:
+						cf_lyrs.add_gis(file)
+
+			elif command.is_rainfall_grid_csv():
+				#TODO
+				continue
+
+		self.finished.emit()
+
 
 def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers, scenarios, variables, crs,
                            dbTCF, dbCCF, **kwargs):
@@ -5170,8 +5493,35 @@ def turnLayersOnOff(settings):
 				if nd.itemVisibilityChecked():
 					nd.setItemVisibilityChecked(False)
 
+def sorting_key(layer):
+	name = layer.name().lower()
+	name = re.sub(r'_[plr]^', '', name)
 
-def sortNodesInGroup(nodes, parent):
+
+def sorting_alg(layers):
+	lyr_wo_geom = [re.sub(r'_[plr]$', '', x.name(), flags=re.IGNORECASE) for x in layers]
+	key = {QgsWkbTypes.PointGeometry: 0, QgsWkbTypes.LineGeometry: 1, QgsWkbTypes.PolygonGeometry: 2}
+	lyr_w_geom = [f'{lyrname}_{key[lyr.geometryType()]}' for lyr, lyrname in zip(layers, lyr_wo_geom) if isinstance(lyr, QgsVectorLayer)]
+	lyr_w_geom.extend([f'{x.name()}_3' for x in layers if not isinstance(x, QgsVectorLayer)])
+	key = {lyr: name.lower() for lyr, name in zip(layers, lyr_w_geom)}
+	return sorted(layers, key=lambda x: key[x])
+
+
+def sortLayers(layers):
+	vlayers = [x for x in layers if isinstance(x, QgsVectorLayer)]
+	rlayers = [x for x in layers if isinstance(x, QgsRasterLayer)]
+	mlayers = [x for x in layers if isinstance(x, QgsMeshLayer)]
+	zlayers = [x for x in layers if x not in vlayers and x not in rlayers and x not in mlayers]  # any leftovers
+
+	vlayers = sorting_alg(vlayers)
+	rlayers = sorting_alg(rlayers)
+	mlayers = sorting_alg(mlayers)
+	mlayers = sorting_alg(mlayers)
+
+	return vlayers + rlayers + mlayers + zlayers
+
+
+def sortNodesInGroup(group, nodes=None):
 	"""
 	Sorts layers in a qgstree group alphabetically. DEMs will be put at bottom and Meshes will be just above DEMs.
 	
@@ -5179,55 +5529,70 @@ def sortNodesInGroup(nodes, parent):
 	:param parent: QgsLayerTreeNode
 	:return: void
 	"""
+
+	if nodes is None:
+		tree_layers = group.findLayers()
+	else:
+		tree_layers = nodes[:]
+	lyr2node = {x.layer(): x for x in tree_layers}
+	lyrs_sorted = sortLayers(list(lyr2node.keys()))
+	nodes_sorted = [lyr2node[x] for x in lyrs_sorted]
+
+	for node in reversed(nodes_sorted):
+		clone = node.clone()
+		group.insertChildNode(0, clone)
+		parent = node.parent()
+		parent.removeChildNode(node)
+
 	
-	# first sort nodes alphabetically by name
-	nodes_sorted = sorted(nodes, key=lambda x: x.name().lower())
-	
-	# then move rasters and mesh layers to end
-	rasters = []
-	meshes = []
-	empty = []  # layer that have failed to load or are not there i.e. (?)
-	for node in nodes_sorted:
-		layer = tuflowqgis_find_layer(node.name())
-		if layer is not None:
-			if isinstance(layer, QgsRasterLayer):  # raster
-				rasters.append(node)
-			elif isinstance(layer, QgsMeshLayer):  # mesh
-				meshes.append(node)
-		else:
-			empty.append(node)
-	for mesh in meshes:
-		nodes_sorted.remove(mesh)
-		nodes_sorted.append(mesh)
-	for raster in rasters:
-		nodes_sorted.remove(raster)
-		nodes_sorted.append(raster)
-		
-	# finally order layers in panel based on sorted list
-	unique = {}
-	for i, node in enumerate(nodes_sorted):
-		if node not in empty:
-			layer = tuflowqgis_find_layer(node.name())
-			repeated = False
-			if layer.source() in unique:
-				if unique[layer.source()][0] == layer.type():
-					if layer.type() == QgsMapLayer.VectorLayer:
-						if unique[layer.source()][1] == layer.geometryType():
-							repeated = True
-			if not repeated:
-				node_new = QgsLayerTreeLayer(layer)
-				node_new.setItemVisibilityChecked(node.itemVisibilityChecked())
-				parent.insertChildNode(i, node_new)
-				node.parent().removeChildNode(node)
-				if layer.type() == QgsMapLayer.VectorLayer:
-					unique[layer.source()] = (layer.type(), layer.geometryType())
-				else:
-					unique[layer.source()] = (layer.type(), -1)
-			else:
-				node.parent().removeChildNode(node)
-		else:
-			# if node is empty, remove from map
-			node.parent().removeChildNode(node)
+	# # first sort nodes alphabetically by name
+	# nodes_sorted = sorted(nodes, key=lambda x: x.name().lower())
+	#
+	# # then move rasters and mesh layers to end
+	# rasters = []
+	# meshes = []
+	# empty = []  # layer that have failed to load or are not there i.e. (?)
+	# for node in nodes_sorted:
+	# 	layer = tuflowqgis_find_layer(node.name())
+	# 	if layer is not None:
+	# 		if isinstance(layer, QgsRasterLayer):  # raster
+	# 			rasters.append(node)
+	# 		elif isinstance(layer, QgsMeshLayer):  # mesh
+	# 			meshes.append(node)
+	# 	else:
+	# 		empty.append(node)
+	# for mesh in meshes:
+	# 	nodes_sorted.remove(mesh)
+	# 	nodes_sorted.append(mesh)
+	# for raster in rasters:
+	# 	nodes_sorted.remove(raster)
+	# 	nodes_sorted.append(raster)
+	#
+	# # finally order layers in panel based on sorted list
+	# unique = {}
+	# for i, node in enumerate(nodes_sorted):
+	# 	if node not in empty:
+	# 		layer = tuflowqgis_find_layer(node.name())
+	# 		repeated = False
+	# 		if layer.source() in unique:
+	# 			if unique[layer.source()][0] == layer.type():
+	# 				if layer.type() == QgsMapLayer.VectorLayer:
+	# 					if unique[layer.source()][1] == layer.geometryType():
+	# 						repeated = True
+	# 		if not repeated:
+	# 			node_new = QgsLayerTreeLayer(layer)
+	# 			node_new.setItemVisibilityChecked(node.itemVisibilityChecked())
+	# 			parent.insertChildNode(i, node_new)
+	# 			node.parent().removeChildNode(node)
+	# 			if layer.type() == QgsMapLayer.VectorLayer:
+	# 				unique[layer.source()] = (layer.type(), layer.geometryType())
+	# 			else:
+	# 				unique[layer.source()] = (layer.type(), -1)
+	# 		else:
+	# 			node.parent().removeChildNode(node)
+	# 	else:
+	# 		# if node is empty, remove from map
+	# 		node.parent().removeChildNode(node)
 	
 					
 def sortLayerPanel(sort_locally=False):
@@ -5239,35 +5604,50 @@ def sortLayerPanel(sort_locally=False):
 	:param sort_locally: bool
 	:return: void
 	"""
-	
+
 	legint = QgsProject.instance().layerTreeRoot()
-	
-	# grab all nodes that are QgsMapLayers - get to node bed rock i.e. not a group
-	nodes = legint.findLayers()
-	
-	if sort_locally:
-		# get all groups
-		groups = []
-		groupedNodes = []
-		for node in nodes:
-			parent = node.parent()
-			if parent not in groups:
-				groups.append(parent)
-				groupedNodes.append([node])
-			else:
-				i = groups.index(parent)
-				groupedNodes[i].append(node)
-				
-	# sort by group
-	if sort_locally:
-		for i, group in enumerate(groups):
-			sortNodesInGroup(groupedNodes[i], group)
-	else:
-		sortNodesInGroup(nodes, legint)
-		# delete now redundant groups in layer panel
-		groups = legint.findGroups()
-		for group in groups:
+	nodes = None
+	groups = legint.findGroups(True)
+	if not groups:
+		groups = [legint]
+
+	if not sort_locally:
+		nodes = sum([x.findLayers() for x in groups], [])
+		groups = [legint]
+
+	for group in groups:
+		sortNodesInGroup(group, nodes=nodes)
+
+	if not sort_locally:
+		for group in legint.findGroups():
 			legint.removeChildNode(group)
+	
+	# # grab all nodes that are QgsMapLayers - get to node bed rock i.e. not a group
+	# nodes = legint.findLayers()
+	#
+	# if sort_locally:
+	# 	# get all groups
+	# 	groups = []
+	# 	groupedNodes = []
+	# 	for node in nodes:
+	# 		parent = node.parent()
+	# 		if parent not in groups:
+	# 			groups.append(parent)
+	# 			groupedNodes.append([node])
+	# 		else:
+	# 			i = groups.index(parent)
+	# 			groupedNodes[i].append(node)
+	#
+	# # sort by group
+	# if sort_locally:
+	# 	for i, group in enumerate(groups):
+	# 		sortNodesInGroup(groupedNodes[i], group)
+	# else:
+	# 	sortNodesInGroup(nodes, legint)
+	# 	# delete now redundant groups in layer panel
+	# 	groups = legint.findGroups()
+	# 	for group in groups:
+	# 		legint.removeChildNode(group)
 			
 			
 def getAllFolders(dir, relPath, variables, scenarios, events, output_drive=None, db=None):
@@ -5587,7 +5967,7 @@ def tuflowToGis(exe, function, workdir, mesh, dataType, timestep, **kwargs):
 	:param kwargs: dict keyword arguments
 	:return: bool error, str message
 	"""
-	
+
 	dataType2flag = {'depth': '-typed', 'water level': '-typeh', 'velocity': '-typev', 'z0': '-typez0'}
 
 	out = None
@@ -5597,11 +5977,18 @@ def tuflowToGis(exe, function, workdir, mesh, dataType, timestep, **kwargs):
 			out.append('{0}'.format(os.path.join(workdir, kwargs['out'])))
 		else:
 			out.append('{0}'.format(kwargs['out']))
-	
+
 	args = [exe, '-b', mesh]
-	if timestep.lower() == 'max' or timestep.lower() == 'maximum':
+	_2dm = Path(mesh).with_suffix('.2dm')
+	if not _2dm.exists():
+		if re.findall('\(.*\){0}$'.format(re.escape(Path(mesh).suffix)), Path(mesh).name):
+			new_2dm = re.sub('\(.*\){0}$'.format(re.escape(Path(mesh).suffix)), '.2dm', mesh)
+			if Path(new_2dm).exists():
+				args.extend(['-2dm', str(new_2dm)])
+
+	if isinstance(timestep, str) and (timestep.lower() == 'max' or timestep.lower() == 'maximum'):
 		args.append('-max')
-	elif timestep.lower() == 'all':
+	elif isinstance(timestep, str) and timestep.lower() == 'all':
 		args.append('tall')
 	else:
 		args.append('-t{0}'.format(timestep))
@@ -7723,6 +8110,9 @@ def calculateLength2(p1, p2, crs=None, units=None):
 
 	"""
 
+	if crs is None:
+		crs = QgsProject.instance().crs()
+
 	da = QgsDistanceArea()
 	da.setSourceCrs(crs, QgsCoordinateTransformContext())
 	return da.convertLengthMeasurement(da.measureLine(p1, p2), units)
@@ -8426,7 +8816,7 @@ class XMDF_Header_Info:
 					if a:
 						return a[0].key(), str(a[0].times()[0])
 				else:
-					a = [x for x in self._res_types if x.name() == item1 and x.folder() == 'Temporal']
+					a = [x for x in self._res_types if x.name() == item1]
 					if a:
 						for t in a[0].times():
 							if abs(t - float(item2)) < 0.001:
@@ -8444,9 +8834,9 @@ class XMDF_Header_Info:
 
 	def times(self, res_type=None):
 		if not res_type:
-			return sorted(list(set(sum([x.times() for x in self._res_types if x.folder() == 'Temporal'], []))))
+			return sorted(list(set(sum([x.times() for x in self._res_types], []))))
 		else:
-			return sorted(list(set(sum([x.times() for x in self._res_types if x.name() == res_type and x.folder() == 'Temporal'], []))))
+			return sorted(list(set(sum([x.times() for x in self._res_types if x.name() == res_type], []))))
 
 	def has_max(self, res_type=None):
 		if not res_type:
@@ -8501,6 +8891,37 @@ def re_ify(text, wildcards):
 	return text
 
 
+def getOutputDirs_old(path):
+	import sys
+	from os.path import dirname, join
+	sys.path.append(join(dirname(__file__), 'convert_tuflow_model_gis_format'))
+	from .convert_tuflow_model_gis_format.helpers.file import globify
+
+	output_paths = []
+
+	outputFolder1D, outputFolder2D = getOutputFolderFromTCF(path)
+
+	if not outputFolder2D:
+		return []
+
+	search_globs = ['{0}{1}**{1}{2}.xmdf'.format(outputFolder2D[0], os.sep, os.path.splitext(os.path.basename(path))[0]),
+					'{0}{1}**{1}{2}.tpc'.format(outputFolder2D[0], os.sep, os.path.splitext(os.path.basename(path))[0])]
+
+	wildcards = [r'(~[es]\d?~)']
+	re_name = re_ify(os.path.splitext(os.path.basename(path))[0], wildcards)
+	re_name = r'{0}((_[A-^`-z0-9%&]+)(\+[A-^`-z0-9%&]+)*)?'.format(re_name)
+
+	for f in search_globs:
+		pattern = globify(f, wildcards)
+		pattern = '{0}*{1}'.format(*os.path.splitext(pattern))
+		for file in glob.glob(pattern, recursive=True):
+			re_name_ = r'{0}\{1}'.format(re_name, os.path.splitext(file)[1])
+			if re.findall(re_name_, os.path.basename(file)):
+				output_paths.append(file)
+
+	return output_paths
+
+
 def getOutputDirs(path, settings=None):
 	import sys
 	from os.path import dirname, join
@@ -8533,46 +8954,89 @@ def getOutputDirs(path, settings=None):
 			if command.in_1d_domain_block():
 				continue
 
-			search_globs = [TuflowPath(command.value) / '**' / settings.tcf.with_suffix('.xmdf').name,
-							TuflowPath(command.value) / '**' / settings.tcf.with_suffix('.tpc').name]
-			for oz in settings.output_zones:
-				tcf = TuflowPath('{0}_{{{1}}}'.format(settings.tcf.stem, oz))
-				search_globs.extend([
-					TuflowPath(command.value) / '**' / tcf.with_suffix('.xmdf').name,
-					TuflowPath(command.value) / '**' / tcf.with_suffix('.tpc').name
-				])
-
 			wildcards = [r'(~[es]\d?~)']
 			re_name = re_ify(settings.tcf.with_suffix('').name, wildcards)
 			re_name = r'{0}((_[A-^`-z0-9%&]+)(\+[A-^`-z0-9%&]+)*)?'.format(re_name)
 
+			parent = settings.control_file.parent
+			search_globs = [TuflowPath(command.value) / '**' / settings.tcf.with_suffix('.xmdf').name,
+							TuflowPath(command.value) / '**' / settings.tcf.with_suffix('.tpc').name]
+			for i, sg in enumerate(search_globs[:]):
+				if sg.root:
+					if sg.drive != settings.control_file.drive:
+						parent = sg.parent.parent
+						search_globs[i] = os.path.relpath(sg, parent)
+					else:
+						search_globs[i] = os.path.relpath(sg, settings.control_file.parent)
 			for glob in search_globs:
 				pattern = globify(glob, wildcards)
-				pattern = '{0}*{1}'.format(Path(pattern).with_suffix(''), Path(pattern).suffix)
-				for file in settings.control_file.parent.glob(pattern):
+				if str(Path(pattern).with_suffix(''))[-1] != '*':
+					pattern = '{0}*{1}'.format(Path(pattern).with_suffix(''), Path(pattern).suffix)
+				for file in parent.glob(pattern):
 					re_name_ = r'{0}\{1}'.format(re_name, file.suffix)
 					if re.findall(re_name_, file.name):
 						output_paths.append(file)
+
+			for oz in settings.output_zones:
+				tcf = TuflowPath('{0}_{{{1}}}'.format(settings.tcf.stem, oz))
+				parent = settings.control_file.parent
+				search_globs = [TuflowPath(command.value) / '**' / tcf.with_suffix('.xmdf').name,
+					TuflowPath(command.value) / '**' / tcf.with_suffix('.tpc').name]
+				for i, sg in enumerate(search_globs[:]):
+					if sg.root:
+						if sg.root != settings.control_file.root:
+							parent = sg.parent.parent
+							search_globs[i] = os.path.relpath(sg, parent)
+						else:
+							search_globs[i] = os.path.relpath(sg, settings.control_file.parent)
+				for glob in search_globs:
+					pattern = globify(glob, wildcards)
+					pattern = '{0}*{1}'.format(Path(pattern).with_suffix(''), Path(pattern).suffix)
+					for file in parent.glob(pattern):
+						re_name_ = r'{0}\{1}'.format(re_name, file.suffix)
+						if re.findall(re_name_, file.name):
+							output_paths.append(file)
+
+			# wildcards = [r'(~[es]\d?~)']
+			# re_name = re_ify(settings.tcf.with_suffix('').name, wildcards)
+			# re_name = r'{0}((_[A-^`-z0-9%&]+)(\+[A-^`-z0-9%&]+)*)?'.format(re_name)
+
+			# for glob in search_globs:
+			# 	pattern = globify(glob, wildcards)
+			# 	pattern = '{0}*{1}'.format(Path(pattern).with_suffix(''), Path(pattern).suffix)
+			# 	for file in settings.control_file.parent.glob(pattern):
+			# 		re_name_ = r'{0}\{1}'.format(re_name, file.suffix)
+			# 		if re.findall(re_name_, file.name):
+			# 			output_paths.append(file)
 
 
 
 	return output_paths
 
 
-def getResultPathsFromTCF_v2(tcf_path):
+def getResultPathsFromTCF_v2(tcf_path, old_method=False):
 
-	output_paths = getOutputDirs(tcf_path)
+	if old_method:
+		output_paths = getOutputDirs_old(tcf_path)
+	else:
+		output_paths = getOutputDirs(tcf_path)
 	output_names = []
 	for op in output_paths[:]:
-		if op.suffix.lower() == '.tpc':
+		if old_method:
+			suffix = os.path.splitext(op)[1]
+			stem = os.path.splitext(os.path.basename(op))[0]
+		else:
+			suffix = op.suffix
+			stem = op.stem
+		if suffix.lower() == '.tpc':
 			if check1DResultsForData(op):
-				if op.stem not in output_names:
-					output_names.append(op.stem)
+				if stem not in output_names:
+					output_names.append(stem)
 			else:
 				output_paths.remove(op)
 		else:
-			if op.stem not in output_names:
-				output_names.append(op.stem)
+			if stem not in output_names:
+				output_names.append(stem)
 
 	return output_paths, output_names, ''
 
@@ -8621,6 +9085,131 @@ def LoadRasterMessageBox(parent, title, text):
 	dialog.exec_()
 	return LoadRasterMessageBox_result
 
+
+class LoadTcfOptions:
+
+	def __init__(self):
+		self.grouped = QSettings().value('tuflow/load_tcf_options/grouped', 'true')
+		if isinstance(self.grouped, str):
+			self.grouped = True if self.grouped.lower() == 'true' else False
+
+		self.load_raster_method = QSettings().value('tuflow/load_tcf_options/load_raster_method', 'yes')
+
+
+global loadTCFOptionsMessageBox_result
+loadTCFOptionsMessageBox_result = 'cancel'
+def loadTCFOptionsMessageBox_signal(dlg, text):
+	global loadTCFOptionsMessageBox_result
+	loadTCFOptionsMessageBox_result = text
+	dlg.accept()
+
+
+def loadTCFOptionsMessageBox_signal_rbgroup1(rb_group):
+	checked_button = rb_group.checkedButton()
+	QSettings().setValue('tuflow/load_tcf_options/grouped', checked_button.text() == 'Group by control file')
+
+
+def loadTCFOptionsMessageBox_signal_rbgroup2(rb_group):
+	checked_button = rb_group.checkedButton()
+	if checked_button.text() == 'Load Normally':
+		QSettings().setValue('tuflow/load_tcf_options/load_raster_method', 'yes')
+	elif checked_button.text() == 'Do Not Load':
+		QSettings().setValue('tuflow/load_tcf_options/load_raster_method', 'no')
+	else:
+		QSettings().setValue('tuflow/load_tcf_options/load_raster_method', 'invisible')
+
+
+
+def LoadTCFOptionsMessageBox(parent, title):
+	import tuflow.resources.tuflow
+
+	global loadTCFOptionsMessageBox_result
+	loadTCFOptionsMessageBox_result = 'cancel'
+
+	options = LoadTcfOptions()
+
+	dialog = QDialog(parent)
+	dialog.setWindowTitle(title)
+	image = QLabel()
+	image.setPixmap(QPixmap(":/icons/icons/question.svg").scaled(35, 35, Qt.KeepAspectRatio))
+	label = QLabel()
+	label.setText('<b>Load from TCF import options</b>')
+	hlayout1 = QHBoxLayout()
+	hlayout1.addWidget(image)
+	hlayout1.addWidget(label)
+	hlayout1.addStretch()
+
+	group_options_text = QLabel()
+	group_options_text.setText('Grouping Options')
+	rb1 = QRadioButton()
+	rb1.setText('Group by control file')
+	rb2 = QRadioButton()
+	rb2.setText('Ungrouped')
+	rb1.setChecked(True) if options.grouped else rb2.setChecked(True)
+	rb_group1 = QButtonGroup()
+	rb_group1.addButton(rb1)
+	rb_group1.addButton(rb2)
+	hlayout2 = QHBoxLayout()
+	hlayout2.addWidget(rb1)
+	hlayout2.addWidget(rb2)
+	hlayout2.addStretch()
+
+	raster_option_text = QLabel()
+	raster_option_text.setText('Raster Load Options')
+	rb3 = QRadioButton()
+	rb3.setText('Load Normally')
+	rb4 = QRadioButton()
+	rb4.setText('Do Not Load')
+	rb5 = QRadioButton()
+	rb5.setText('Load, but not checked on')
+	rb_group2 = QButtonGroup()
+	rb_group2.addButton(rb3)
+	rb_group2.addButton(rb4)
+	rb_group2.addButton(rb5)
+	if options.load_raster_method == 'yes':
+		rb3.setChecked(True)
+	elif options.load_raster_method == 'no':
+		rb4.setChecked(True)
+	elif options.load_raster_method == 'invisible':
+		rb5.setChecked(True)
+	else:
+		rb3.setChecked(True)
+	hlayout3 = QHBoxLayout()
+	hlayout3.addWidget(rb3)
+	hlayout3.addWidget(rb4)
+	hlayout3.addWidget(rb5)
+
+	pbOk = QPushButton()
+	pbOk.setText('OK')
+	pbCancel = QPushButton()
+	pbCancel.setText('Cancel')
+	hlayout4 = QHBoxLayout()
+	hlayout4.addStretch()
+	hlayout4.addWidget(pbOk)
+	hlayout4.addWidget(pbCancel)
+
+	vlayout = QVBoxLayout()
+	vlayout.addLayout(hlayout1)
+	vlayout.addSpacing(10)
+	vlayout.addWidget(group_options_text)
+	vlayout.addLayout(hlayout2)
+	vlayout.addWidget(raster_option_text)
+	vlayout.addLayout(hlayout3)
+	vlayout.addLayout(hlayout4)
+	dialog.setLayout(vlayout)
+
+	vlayout.setSizeConstraint(QLayout.SetFixedSize)
+
+	pbOk.clicked.connect(lambda: loadTCFOptionsMessageBox_signal(dialog, 'ok'))
+	pbCancel.clicked.connect(lambda: loadTCFOptionsMessageBox_signal(dialog, 'cancel'))
+	rb1.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup1(rb_group1))
+	rb2.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup1(rb_group1))
+	rb3.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup2(rb_group2))
+	rb4.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup2(rb_group2))
+	rb5.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup2(rb_group2))
+
+	dialog.exec_()
+	return loadTCFOptionsMessageBox_result
 
 
 if __name__ == '__main__':

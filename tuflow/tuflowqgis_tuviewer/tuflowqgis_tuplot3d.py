@@ -409,6 +409,14 @@ class TuPlot3D(TuPlot2D):
                 else:
                     self.inters, self.chainages, self.faces = findMeshIntersects(si, dp, mesh, feat, crs,
                                                                                  self.tuView.project, self.iface)
+                    if len(self.faces) + 3 == len(self.chainages):  # start and end point of line is outside mesh
+                        self.faces.insert(0, None)
+                        self.faces.append(None)
+                    elif len(self.faces) + 2 == len(self.chainages):  # one of start or end point of line is outside mesh
+                        if getFaceIndex(self.inters[0], si, mesh):
+                            self.faces.append(None)
+                        else:
+                            self.faces.insert(None)
                     curtainGeom = CurtainIntersects(feat, self.inters, self.chainages, self.faces, crs, self.iface)
                     self.curtainGeom.append(curtainGeom)
                     # update = True  # turn on update now - allow only one line at the moment
@@ -536,27 +544,32 @@ class TuPlot3D(TuPlot2D):
         #time_leftover = 0.
         for i, f in enumerate(faces):
             time = datetime.now()
-            if onFaces:
-                if layer.isFaceActive(mdi, f):
-                    data3d = dp.dataset3dValues(mdi, f, 1)
-                    vlc = data3d.verticalLevelsCount()
-                    if vlc:
-                        vlc = vlc[0]
-                    else:
-                        continue
-                    vl = data3d.verticalLevels()
-                    v = data3d.values()
-                else:
-                    v = [np.nan]
-            else:
+            if f is None:
+                v = [np.nan]
+                vl = [np.nan, np.nan]
                 vlc = 1
-                v = [self.datasetValue(layer, dp, si, mesh, mdi, False, f, 0, TuPlot.DataCurtainPlot, None)]
-                vl = self.getBedAndWaterElevation(layer, dp, si, mesh, mdi, False, f, 0, TuPlot.DataCurtainPlot, None,
-                                                  isMax, isMin, update)
-                if update:
-                    vl = [curtainGeom.bed_z[i], vl[1]]
+            else:
+                if onFaces:
+                    if layer.isFaceActive(mdi, f):
+                        data3d = dp.dataset3dValues(mdi, f, 1)
+                        vlc = data3d.verticalLevelsCount()
+                        if vlc:
+                            vlc = vlc[0]
+                        else:
+                            continue
+                        vl = data3d.verticalLevels()
+                        v = data3d.values()
+                    else:
+                        v = [np.nan]
                 else:
-                    curtainGeom.bed_z.append(vl[0])
+                    vlc = 1
+                    v = [self.datasetValue(layer, dp, si, mesh, mdi, False, f, 0, TuPlot.DataCurtainPlot, None)]
+                    vl = self.getBedAndWaterElevation(layer, dp, si, mesh, mdi, False, f, 0, TuPlot.DataCurtainPlot, None,
+                                                      isMax, isMin, update)
+                    if update:
+                        vl = [curtainGeom.bed_z[i], vl[1]]
+                    else:
+                        curtainGeom.bed_z.append(vl[0])
             #time_faces += (datetime.now() - time).total_seconds()
             #time = datetime.now()
 
@@ -579,6 +592,12 @@ class TuPlot3D(TuPlot2D):
                         d.append(m)
                     else:
                         d.append(v[j])
+            elif f is None:
+                print('here')
+                # get correct ch index - this can be different because the first point could be outside mesh
+                x.append([ch[i], ch[i + 1], ch[i + 1], ch[i]])
+                y.append([np.nan for _ in range(4)])
+                d.append(np.nan)
 
             #time_stacking += (datetime.now() - time).total_seconds()
 
@@ -617,6 +636,9 @@ class TuPlot3D(TuPlot2D):
 
         from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
+        mn, mx = self.getMinMaxValue(dp, mdi.group())
+        unit_vector = 1 / (mx - mn)
+
         uc = []
         vc = []
         x = []
@@ -631,6 +653,9 @@ class TuPlot3D(TuPlot2D):
                     continue
                 vl = data3d.verticalLevels()
                 v = data3d.values()
+                vertical_velocities = self.getVerticalVelocity(layer, dp, si, mesh, mdi, False, f, isMax, isMin)
+                if vertical_velocities is None:
+                    vertical_velocities = [0. for x in range(vlc)]
             else:
                 vlc = 1
                 v = self.datasetValue(layer, dp, si, mesh, mdi, False, f, 0, TuPlot.DataCurtainPlot, None, value='vector')
@@ -644,6 +669,7 @@ class TuPlot3D(TuPlot2D):
                     vl = [curtainGeom.bed_z[i], vl[1]]
                 else:
                     curtainGeom.bed_z.append(vl[0])
+                vertical_velocities = [0.]
 
             # line angle - rotate x,y velocity to local line angle u,v
             a = QgsGeometryUtils.lineAngle(points[i].x(), points[i].y(), points[i+1].x(), points[i+1].y())
@@ -656,8 +682,9 @@ class TuPlot3D(TuPlot2D):
                     y.append((vl[j] + vl[j + 1]) / 2.)
                     if len(v) == 2 * vlc:  # x,y components
                         vel = np.array([[v[j*2]], [-v[j*2 + 1]]])
-                        uc.append(np.dot(r, vel)[0, 0])  # u component needed only
-                        vc.append(0)
+                        uc.append(np.dot(r, vel)[0, 0] * unit_vector * self.tuView.tuOptions.curtain_vector_horizontal_factor)  # u component needed only
+                        # vc.append(0)
+                        vc.append(vertical_velocities[j] * self.tuView.tuOptions.curtain_vector_vertical_factor)
                     else:
                         QMessageBox.critical(self.tuView, "Error", "Should not be here [getVectorData]")
                         return
@@ -665,17 +692,33 @@ class TuPlot3D(TuPlot2D):
         xy = np.hstack((x, y))
         self.quiver = [x, y, uc, vc]
 
-        mn, mx = self.getMinMaxValue(dp, mdi.group())
+        # mn, mx = self.getMinMaxValue(dp, mdi.group())
+        # config = {
+        #     'scale': mx,
+        #     "scale_units": 'width',
+        #     "units": 'width',
+        #     "width": 0.005,
+        #     "headwidth": 3,
+        #     "headlength": 5,
+        # }
+        # config = dict(units='dots', scale_units='dots', scale=1 / 300, width=0.5,
+        #               headwidth=10, headlength=10, angles='uv', pivot='middle')
         config = {
-            # 'scale': 0.0025,
-            'scale': mx,
-            "scale_units": 'inches',
-            "width": 0.0025,
-            "headwidth": 2.5,
-            "headlength": 3,
+            'scale_units': self.tuView.tuOptions.curtain_vector_scale_units,
         }
+        if self.tuView.tuOptions.curtain_vector_scale >= 0.:
+            config['scale'] = self.tuView.tuOptions.curtain_vector_scale
+        if self.tuView.tuOptions.curtain_vector_units is not None:
+            config['units'] = self.tuView.tuOptions.curtain_vector_units
+        if self.tuView.tuOptions.curtain_vector_width >= 0.:
+            config['width'] = self.tuView.tuOptions.curtain_vector_width
+        if self.tuView.tuOptions.curtain_vector_head_width >= 0.:
+            config['headwidth'] = self.tuView.tuOptions.curtain_vector_head_width
+        if self.tuView.tuOptions.curtain_vector_head_length >= 0.:
+            config['headwidth'] = self.tuView.tuOptions.curtain_vector_head_length
         self.quiver.append(config)
-        self.quiver.append(mx/4)
+        # self.quiver.append(mx/4)
+        self.quiver.append(0.1)
 
     def getMinMaxValue(self, dp, mdgi):
         """
@@ -766,6 +809,49 @@ class TuPlot3D(TuPlot2D):
         wl = self.datasetValue(layer, dp, si, mesh, wlGmdMdi, meshRendered, f, ind, dataType, am)
         return [bed, wl]
 
+
+    def getVerticalVelocity(self, layer, dp, si, mesh, mdi, meshRendered, f, isMax, isMin):
+        """
+
+        """
+
+        possible_names = ['vertical velocity']
+        i_vertical_velocity = None  # bed group metadata index
+        for i in range(dp.datasetGroupCount()):
+            name = dp.datasetGroupMetadata(i).name()
+            if isMax:
+                if TuResults.isMaximumResultType(name):
+                    name = TuResults.stripMaximumName(name)
+                    if name.lower() in possible_names:
+                        i_vertical_velocity = i
+            elif isMin:
+                if TuResults.isMinimumResultType(name):
+                    name = TuResults.stripMinimumName(name)
+                    if name.lower() in possible_names:
+                        i_vertical_velocity = i
+            else:
+                if name.lower() in possible_names:
+                    i_vertical_velocity = i
+
+        if i_vertical_velocity is None:
+            return None
+
+        vertical_velocity_mdi = None
+        rt = dp.datasetMetadata(mdi).time()  # reference time
+        for i in range(dp.datasetCount(i_vertical_velocity)):
+            tmdi = QgsMeshDatasetIndex(i_vertical_velocity, i)  # test mesh dataset index
+            time = dp.datasetMetadata(tmdi).time()
+            if time == rt:
+                vertical_velocity_mdi = tmdi
+                break
+
+        if vertical_velocity_mdi is None:
+            return None
+
+        data3d = dp.dataset3dValues(vertical_velocity_mdi, f, 1)
+        vertical_velocities = data3d.values()
+
+        return vertical_velocities
 
 
 class TuCurtainLine(TuRubberBand):

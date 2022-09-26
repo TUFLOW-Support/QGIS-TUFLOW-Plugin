@@ -88,10 +88,8 @@ from .tuflowqgis_library import tuflowqgis_apply_check_tf, resetQgisSettings
 # remote debugging
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\plugins\python\helpers\pydev')
-sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\debug-eggs')
-sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\plugins\python\helpers\pydev')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\debug-eggs')
-sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\plugins\python\helpers\pydev')
 
 
 class tuflowqgis_menu:
@@ -143,7 +141,10 @@ class tuflowqgis_menu:
 		self.iface.addPluginToMenu("&TUFLOW", self.editing_menu.menuAction())
 		
 		#icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_increment_24px.png")
-		icon = QIcon(os.path.join(dir, "icons", "tuflow.png"))
+		#icon = QIcon(os.path.join(dir, "icons", "tuflow.png"))
+		icon = QIcon()
+		for size in [16, 24, 32, 48, 64]:
+			icon.addFile(os.path.join(dir, "icons", "config_proj_{0}".format(size)), QSize(size, size))
 		self.configure_tf_action = QAction(icon, "Configure / Create TUFLOW Project", self.iface.mainWindow())
 		#QObject.connect(self.configure_tf_action, SIGNAL("triggered()"), self.configure_tf)
 		self.configure_tf_action.triggered.connect(self.configure_tf)
@@ -238,6 +239,9 @@ class tuflowqgis_menu:
 		self.integrity_tool_action.triggered.connect(self.integrityToolWindow)
 		self.iface.addToolBarIcon(self.integrity_tool_action)
 		self.iface.addPluginToMenu("&TUFLOW", self.integrity_tool_action)
+
+		# configure project in toolbar
+		self.iface.addToolBarIcon(self.configure_tf_action)
 
 		# TuPLOT External Added ES 2017/11
 		#icon = QIcon(os.path.dirname(__file__) + "/icons/TuPLOT_External.PNG")
@@ -543,28 +547,29 @@ class tuflowqgis_menu:
 			dockArea = Qt.BottomDockWidgetArea
 			isTabified = False
 			tabifiedWith = []
-			if QSettings().contains("TUFLOW/tuview_defaultlayout"):
-				if QSettings().value("TUFLOW/tuview_defaultlayout", "plot") == "narrow":
-					dockArea = Qt.RightDockWidgetArea
-					if QSettings().contains("TUFLOW/tuview_docklocation"):
-						dockArea = QSettings().value("TUFLOW/tuview_docklocation", Qt.RightDockWidgetArea)
-						if type(dockArea) is str:
-							try:
-								dockArea = int(dockArea)
-							except ValueError:
-								dockArea = Qt.RightDockWidgetArea
-					isTabified = QSettings().value("TUFLOW/tuview_isdocktabified", False)
-					if type(isTabified) is str:
+			if QSettings().value("TUFLOW/tuview_defaultlayout", "previous_state") == "narrow" or \
+					(QSettings().value("TUFLOW/tuview_defaultlayout", "previous_state") == 'previous_state' and
+					 QSettings().value("TUFLOW/tuview_previouslayout", "plot") == "narrow"):
+				dockArea = Qt.RightDockWidgetArea
+				if QSettings().contains("TUFLOW/tuview_docklocation"):
+					dockArea = QSettings().value("TUFLOW/tuview_docklocation", Qt.RightDockWidgetArea)
+					if type(dockArea) is str:
 						try:
-							isTabified = bool(isTabified)
+							dockArea = int(dockArea)
 						except ValueError:
-							isTabified = False
-					if isTabified:
-						tabifiedWith = QSettings().value("TUFLOW/tuview_tabifiedwith", [])
-						if type(isTabified) is str:
-							tabifiedWith = tabifiedWith.split(",")
-						if not tabifiedWith:
-							isTabified = False
+							dockArea = Qt.RightDockWidgetArea
+				isTabified = QSettings().value("TUFLOW/tuview_isdocktabified", False)
+				if type(isTabified) is str:
+					try:
+						isTabified = bool(isTabified)
+					except ValueError:
+						isTabified = False
+				if isTabified:
+					tabifiedWith = QSettings().value("TUFLOW/tuview_tabifiedwith", [])
+					if type(isTabified) is str:
+						tabifiedWith = tabifiedWith.split(",")
+					if not tabifiedWith:
+						isTabified = False
 
 			if isTabified and qv >= 31400:
 				self.iface.addTabifiedDockWidget(dockArea, self.resultsPlottingDock, tabifiedWith, True)
@@ -749,36 +754,105 @@ class tuflowqgis_menu:
 				fpath = os.path.dirname(unicode(ds))
 			else:  # final resort to current working directory
 				fpath = os.getcwd()
-		
-		inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW TCF', fpath,
-		                                           "TCF (*.tcf)")
-		if inFileNames:
-			load_rasters = LoadRasterMessageBox(self.iface.mainWindow(), 'Load Rasters',
-												'Load raster layers into workspace (large raster layers can be slow to load)?')
-		for inFileName in inFileNames[0]:
-			if not inFileName or len(inFileName) < 1:  # empty list
+
+		old_method = sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 9)
+		inFileName, _ = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Open TUFLOW TCF', fpath,
+		                                          "TCF (*.tcf)")
+		if inFileName:
+			if old_method:
+				load_rasters = LoadRasterMessageBox(self.iface.mainWindow(), 'Load Rasters',
+													'Load raster layers into workspace (large raster layers can be slow to load)?')
+		options_called = False
+		# for inFileName in inFileNames[0]:
+		#	if not inFileNames or len(inFileName) < 1:  # empty list
+		if not inFileName:  # empty list
+			return
+		else:
+			fpath, fname = os.path.split(inFileName)
+			if fpath != os.sep and fpath.lower() != 'c://' and fpath != '':
+				settings.setValue("TUFLOW/load_TCF_last_folder", fpath)
+			if os.path.splitext(inFileName)[1].lower() != '.tcf':
+				QMessageBox.information(self.iface.mainWindow(), "Message", 'Must select TCF')
 				return
 			else:
-				fpath, fname = os.path.split(inFileName)
-				if fpath != os.sep and fpath.lower() != 'c://' and fpath != '':
-					settings.setValue("TUFLOW/load_TCF_last_folder", fpath)
-				if os.path.splitext(inFileName)[1].lower() != '.tcf':
-					QMessageBox.information(self.iface.mainWindow(), "Message", 'Must select TCF')
-					return
-				else:
+				if old_method:
 					error, message, scenarios = getScenariosFromTcf(inFileName)
-					if error:
-						if message:
-							QMessageBox.information(self.iface.mainWindow(), "Message", message)
+				else:
+					error, message = False, ''
+					scenarios = []
+					getScenariosFromTCF_v2(inFileName, scenarios)
+				if error:
+					if message:
+						QMessageBox.information(self.iface.mainWindow(), "Message", message)
+					return
+				if len(scenarios) > 0:
+					self.dialog = tuflowqgis_scenarioSelection_dialog(self.iface, inFileName, scenarios)
+					if not old_method:
+						self.dialog.setOptionsVisible(True)
+					self.dialog.exec_()
+					if not self.dialog.status:
 						return
-					if len(scenarios) > 0:
-						self.dialog = tuflowqgis_scenarioSelection_dialog(self.iface, inFileName, scenarios)
-						self.dialog.exec_()
-						scenarios = self.dialog.scenarios[:]
-					else:
-						scenarios = []
+					scenarios = self.dialog.scenarios[:]
+				else:
+					scenarios = []
+					if not options_called:
+						result = LoadTCFOptionsMessageBox(self.iface.mainWindow(), 'Load Layers from TCF')
+						options_called = True
+						if result != 'ok':
+							return
 
+				if old_method:
 					openGisFromTcf(inFileName, self.iface, scenarios, load_rasters)
+				else:
+					self.prog_dialog = QWidget(self.iface.mainWindow(), Qt.Dialog)
+					self.prog_dialog.setWindowTitle('Loading TCF Layers')
+					self.prog_label = QLabel()
+					self.prog_bar = QProgressBar()
+					self.prog_bar.setRange(0, 0)
+					layout = QVBoxLayout()
+					layout.addWidget(self.prog_label)
+					layout.addWidget(self.prog_bar)
+					self.prog_dialog.setLayout(layout)
+					self.prog_dialog.setFixedSize(QSize(500, 75))
+					self.prog_dialog.show()
+					self.model_file_layers = ModelFileLayers()
+					self.load_gis = LoadGisFromControlFile(self.model_file_layers, inFileName, None, scenarios)
+					self.thread = QThread()
+					self.load_gis.moveToThread(self.thread)
+					self.thread.started.connect(self.load_gis.loadGisFromControlFile_v2)
+					self.model_file_layers.layer_added.connect(self.layer_added)
+					self.load_gis.finished.connect(self.load_gis_files)
+					self.thread.start()
+					# loadGisFromControlFile_v2(model_file_layers, inFileName, None, scenarios)
+					# err, errmsg = loadGisFiles(model_file_layers)
+					# if err:
+					# 	QMessageBox.warning(self.iface.mainWindow(), 'Failed Load', errmsg)
+					# else:
+					# 	QMessageBox.information(self.iface.mainWindow(), 'Completed Load', 'Successfully loaded all layers')
+
+	def load_gis_files(self):
+		self.thread.terminate()
+		self.thread.wait()
+		# self.thread = QThread()
+		self.prog_bar.setRange(0, self.model_file_layers.count())
+		self.prog_bar.setValue(0)
+		self.prog_label.setText('Loading Layers')
+		QgsApplication.processEvents()
+		self.load_files = LoadGisFiles(self.model_file_layers, self.prog_dialog)
+		# self.load_files.moveToThread(self.thread)
+		# self.thread.started.connect(self.load_files.loadGisFiles)
+		self.load_files.loadGisFiles()
+		# self.load_files.start_layer_load.connect(self.layer_loading)
+		# self.load_files.finished.connect(self.finished_load_gis_files)
+		self.finished_load_gis_files()
+
+	def finished_load_gis_files(self):
+		# self.thread.terminate()
+		# self.thread.wait()
+		self.prog_dialog.close()
+
+	def layer_added(self, e):
+		self.prog_label.setText('Found Layer: {0}'.format(e))
 	
 	def reload_data(self):
 		layer = self.iface.mapCanvas().currentLayer()

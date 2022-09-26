@@ -144,9 +144,10 @@ class TuView(QDockWidget, Ui_Tuplot):
 		if qv >= 31600:
 			self.tuResults.initialiseTemporalController()
 
-		if QSettings().contains("TUFLOW/tuview_defaultlayout"):
-			if QSettings().value("TUFLOW/tuview_defaultlayout", "plot") == "narrow":
-				self.plotWindowVisibilityToggled(initialisation=True)
+		if QSettings().value("TUFLOW/tuview_defaultlayout", "previous_state") == "narrow" or \
+				(QSettings().value("TUFLOW/tuview_defaultlayout", "previous_state") == 'previous_state' and
+				QSettings().value("TUFLOW/tuview_previouslayout", "plot") == "narrow"):
+			self.plotWindowVisibilityToggled(initialisation=True)
 		
 	def __del__(self):
 		self.qgisDisconnect()
@@ -410,6 +411,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 						self.tuResults.tuResults2D.removeResults([itemName])
 			elif layer is not None and layer.name() in self.tuResults.tuResultsParticles.resultsParticles:
 				self.tuResults.tuResultsParticles.removeResults([layer.name()], remove_vlayer=False)
+			elif layer is not None and layer.name() in self.tuResults.tuResultsNcGrid.results:
+				self.tuResults.tuResultsNcGrid.removeResults([layer.name()], remove_layer=False)
 			elif layer is not None and isTSLayer(layer, self.tuResults.results):
 				name = layer.dataProvider().dataSourceUri()
 				if re.findall(re.escape(r'.gpkg|layername='), name, flags=re.IGNORECASE):
@@ -622,6 +625,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			return
 
 		if self.PlotLayout.isVisible():
+			QSettings().setValue("TUFLOW/tuview_previouslayout", "narrow")
 			self.PlotLayout.setVisible(False)
 			self.SecondMenu.setVisible(True)
 			self.OpenResultsWidget.setVisible(False)
@@ -635,6 +639,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 				if "TUFLOW Viewer" in docks:
 					self.iface.mainWindow().resizeDocks([self], [narrowWidth], Qt.Horizontal)
 		else:
+			QSettings().setValue("TUFLOW/tuview_previouslayout", "plot")
 			self.PlotLayout.setVisible(True)
 			self.SecondMenu.setVisible(False)
 			self.OpenResultsWidget.setVisible(True)
@@ -1299,3 +1304,56 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		toolbar.update()
 		toolbar.repaint()
+
+	def reorderOpenResults(self, index, action):
+		selection = [x.text() for x in self.OpenResults.selectedItems()]
+
+		# disconnect item changed signal
+		try:
+			self.OpenResults.disconnect(self.resultSelectionChangeSignal)
+			self.resultSelectionChangeSignal = None
+		except:
+			pass
+
+		item = self.OpenResults.takeItem(index.row())
+		if action == 'up':
+			self.OpenResults.insertItem(max(index.row() - 1, 0), item)
+		elif action == 'down':
+			self.OpenResults.insertItem(min(index.row() + 1, self.OpenResults.count() - 1), item)
+		elif action == 'top':
+			self.OpenResults.insertItem(0, item)
+		elif action == 'bottom':
+			self.OpenResults.addItem(item)
+
+
+		# items = [self.OpenResults.item(i).text() for i in range(self.OpenResults.count())]
+		# try:
+		# 	item = items.pop(index.row())
+		# except IndexError:
+		# 	return
+		# if action == 'up':
+		# 	items.insert(max(index.row() - 1, 0), item)
+		# elif action == 'down':
+		# 	items.insert(min(index.row() + 1, self.OpenResults.count() - 1), item)
+		# elif action == 'top':
+		# 	items.insert(0, item)
+		# elif action == 'bottom':
+		# 	items.append(item)
+		#
+		# selection = [x.text() for x in self.OpenResults.selectedItems()]
+		#
+		# disconnect item changed signal
+		# try:
+		# 	self.OpenResults.disconnect(self.resultSelectionChangeSignal)
+		# 	self.resultSelectionChangeSignal = None
+		# except:
+		# 	pass
+		#
+		# self.OpenResults.clear()
+		# self.OpenResults.addItems(items)
+		for i in range(self.OpenResults.count()):  # reapply selection
+			if self.OpenResults.item(i).text() in selection:
+				self.OpenResults.item(i).setSelected(True)
+		#
+		# reconnect signal
+		self.resultSelectionChangeSignal = self.OpenResults.itemSelectionChanged.connect(lambda: self.resultsChanged('selection changed'))

@@ -235,6 +235,7 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 				fname = os.path.basename(re.split(pattern, ds, flags=re.IGNORECASE)[0])
 				isgpkg = True
 			else:
+				ds = re.sub(r'\|layername=.*', '', ds, flags=re.IGNORECASE)
 				layername = os.path.basename(unicode(ds))
 				fname = os.path.basename(ds)
 			# ind = basename.find('|')
@@ -2850,6 +2851,7 @@ class tuflowqgis_scenarioSelection_dialog(QDialog, Ui_scenarioSelection):
 		self.tcf = tcf
 		self.scenarios = scenarios
 		self.setupUi(self)
+		self.status = 0
 		
 		for scenario in self.scenarios:
 			self.scenario_lw.addItem(scenario)
@@ -2857,8 +2859,35 @@ class tuflowqgis_scenarioSelection_dialog(QDialog, Ui_scenarioSelection):
 		self.ok_button.clicked.connect(self.run)
 		self.cancel_button.clicked.connect(self.cancel)
 		self.selectAll_button.clicked.connect(self.selectAll)
+
+		self.options = LoadTcfOptions()
+		self.init_cond()
+		self.setOptionsVisible(False)
+		self.rbGrouped.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup1(self.buttonGroup))
+		self.rbUngrouped.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup1(self.buttonGroup))
+		self.rbRasterLoad.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup2(self.buttonGroup_2))
+		self.rbRasterNoLoad.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup2(self.buttonGroup_2))
+		self.rbRasterLoadInvisible.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup2(self.buttonGroup_2))
+
+	def init_cond(self):
+		self.rbGrouped.setChecked(True) if self.options.grouped else self.rbUngrouped.setChecked(True)
+		if self.options.load_raster_method == 'yes':
+			self.rbRasterLoad.setChecked(True)
+		elif self.options.load_raster_method == 'no':
+			self.rbRasterNoLoad.setChecked(True)
+		elif self.options.load_raster_method == 'invisible':
+			self.rbRasterLoadInvisible.setChecked(True)
+		else:
+			self.rbRasterLoadInvisible.setChecked(True)
+
+	def setOptionsVisible(self, b):
+		widget = [self.label, self.rbGrouped, self.rbUngrouped, self.label_2, self.rbRasterLoad, self.rbRasterNoLoad,
+				  self.rbRasterLoadInvisible]
+		for w in widget:
+			w.setVisible(b)
 	
 	def cancel(self):
+		self.status = 0
 		self.reject()
 	
 	def selectAll(self):
@@ -2872,6 +2901,7 @@ class tuflowqgis_scenarioSelection_dialog(QDialog, Ui_scenarioSelection):
 			item = self.scenario_lw.item(i)
 			if item.isSelected():
 				self.scenarios.append(item.text())
+		self.status = 1
 		self.accept()  # destroy dialog window
 
 
@@ -3113,8 +3143,10 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		# default layout
 		if self.tuOptions.defaultLayout == "plot":
 			self.rbDefaultLayoutPlotView.setChecked(True)
+		elif self.tuOptions.defaultLayout == "narrow":
+			self.rbDefaultLayoutNarrowView.setChecked(True)
 		else:
-			self.rbDeafultLayoutNarrowView.setChecked(True)
+			self.rbDeafultLayoutPreviousState.setChecked(True)
 
 		self.colourButtonPlotBackground.setAllowOpacity(True)
 		if self.tuOptions.plotBackgroundColour == '#e5e5e5':
@@ -3148,11 +3180,28 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 
 		self.cbPlotInactiveAreas.setChecked(self.tuOptions.plotInactiveAreas)
 
+		# curtain vector
+		self.sbScale.setValue(self.tuOptions.curtain_vector_scale)
+		if self.tuOptions.curtain_vector_scale_units is None:
+			self.cboScaleUnits.setCurrentText('default')
+		else:
+			self.cboScaleUnits.setCurrentText(self.tuOptions.curtain_vector_scale_units)
+		if self.tuOptions.curtain_vector_units is None:
+			self.cboUnits.setCurrentText('default')
+		else:
+			self.cboUnits.setCurrentText(self.tuOptions.curtain_vector_units)
+		self.sbWidth.setValue(self.tuOptions.curtain_vector_width)
+		self.sbHeadWidth.setValue(self.tuOptions.curtain_vector_head_width)
+		self.sbHeadLength.setValue(self.tuOptions.curtain_vector_head_length)
+		self.sbHorizontalFactor.setValue(self.tuOptions.curtain_vector_horizontal_factor)
+		self.sbVertVelFactor.setValue(self.tuOptions.curtain_vector_vertical_factor)
+
 		
 		# Signals
 		self.leDateFormat.textChanged.connect(self.updatePreview)
 		self.rbDefaultLayoutPlotView.clicked.connect(lambda: self.saveDefaultLayout("plot"))
-		self.rbDeafultLayoutNarrowView.clicked.connect(lambda: self.saveDefaultLayout("narrow"))
+		self.rbDefaultLayoutNarrowView.clicked.connect(lambda: self.saveDefaultLayout("narrow"))
+		self.rbDeafultLayoutPreviousState.clicked.connect(lambda: self.saveDefaultLayout("previous_state"))
 		self.sbDefaultFontSize.valueChanged.connect(self.saveDefaultFontSize)
 		self.buttonBox.rejected.connect(self.cancel)
 		self.buttonBox.accepted.connect(self.run)
@@ -3160,6 +3209,75 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		self.rbByScenSelection.clicked.connect(lambda e: self.tcfLoadMethodChanged('scenario_selection'))
 		self.rbByResSelection.clicked.connect(lambda e: self.tcfLoadMethodChanged('result_selection'))
 		self.cbPlotInactiveAreas.clicked.connect(self.cbPlotInactiveAreasToggled)
+		# curtain vector
+		self.pbVectorTVDefaults.clicked.connect(self.curtain_vector_set_tuflow_viewer_defaults)
+		self.pbVectorMPLDefaults.clicked.connect(self.curtain_vector_set_mpl_defaults)
+		self.sbScale.valueChanged.connect(self.curtain_vector_scale_changed)
+		self.cboScaleUnits.currentTextChanged.connect(self.curtain_vector_scale_units_changed)
+		self.cboUnits.currentTextChanged.connect(self.curtain_vector_units_changed)
+		self.sbWidth.valueChanged.connect(self.curtain_vector_width_changed)
+		self.sbHeadWidth.valueChanged.connect(self.curtain_vector_head_width_changed)
+		self.sbHeadLength.valueChanged.connect(self.curtain_vector_head_length_changed)
+		self.sbHorizontalFactor.valueChanged.connect(self.curtain_vector_horizontal_factor_changed)
+		self.sbVertVelFactor.valueChanged.connect(self.vertical_velocity_factor_changed)
+
+	def curtain_vector_set_tuflow_viewer_defaults(self):
+		self.sbScale.setValue(0.005)
+		self.cboScaleUnits.setCurrentText('dots')
+		self.cboUnits.setCurrentText('dots')
+		self.sbWidth.setValue(0.5)
+		self.sbHeadWidth.setValue(10.)
+		self.sbHeadLength.setValue(10.)
+		self.sbHorizontalFactor.setValue(1.)
+		self.sbVertVelFactor.setValue(1.)
+
+	def curtain_vector_set_mpl_defaults(self):
+		self.sbScale.setValue(-1.)
+		self.cboScaleUnits.setCurrentText('default')
+		self.cboUnits.setCurrentText('default')
+		self.sbWidth.setValue(-1.)
+		self.sbHeadWidth.setValue(-1.)
+		self.sbHeadLength.setValue(-1.)
+		self.sbHorizontalFactor.setValue(1.)
+		self.sbVertVelFactor.setValue(1.)
+
+	def curtain_vector_scale_changed(self, e):
+		self.tuOptions.curtain_vector_scale = self.sbScale.value()
+		QSettings().setValue("TUFLOW/tuview_curtain_vector_scale", self.sbScale.value())
+
+	def curtain_vector_scale_units_changed(self, e):
+		if self.cboScaleUnits.currentText() == 'default':
+			self.tuOptions.curtain_vector_scale_units = None
+		else:
+			self.tuOptions.curtain_vector_scale_units = self.cboScaleUnits.currentText()
+		QSettings().setValue("TUFLOW/tuview_curtain_vector_scale_units", self.cboScaleUnits.currentText())
+
+	def curtain_vector_units_changed(self, e):
+		if self.cboUnits.currentText() == 'default':
+			self.tuOptions.curtain_vector_units = None
+		else:
+			self.tuOptions.curtain_vector_units = self.cboUnits.currentText()
+		QSettings().setValue("TUFLOW/tuview_curtain_vector_units", self.cboUnits.currentText())
+
+	def curtain_vector_width_changed(self, e):
+		self.tuOptions.curtain_vector_width = self.sbWidth.value()
+		QSettings().setValue("TUFLOW/tuview_curtain_vector_width", self.sbWidth.value())
+
+	def curtain_vector_head_width_changed(self, e):
+		self.tuOptions.curtain_vector_head_width = self.sbHeadWidth.value()
+		QSettings().setValue("TUFLOW/tuview_curtain_vector_head_width", self.sbHeadWidth.value())
+
+	def curtain_vector_head_length_changed(self, e):
+		self.tuOptions.curtain_vector_head_length = self.sbHeadLength.value()
+		QSettings().setValue("TUFLOW/tuview_curtain_vector_head_length", self.sbHeadLength.value())
+
+	def curtain_vector_horizontal_factor_changed(self, e):
+		self.tuOptions.curtain_vector_horizontal_factor = self.sbHorizontalFactor.value()
+		QSettings().setValue("TUFLOW/tuview_curtain_vector_horizontal_factor", self.sbHorizontalFactor.value())
+
+	def vertical_velocity_factor_changed(self, e):
+		self.tuOptions.curtain_vector_vertical_factor = self.sbVertVelFactor.value()
+		QSettings().setValue("TUFLOW/tuview_curtain_vector_vertical_factor", self.sbVertVelFactor.value())
 
 	def cbPlotInactiveAreasToggled(self, e):
 		self.tuOptions.plotInactiveAreas = bool(self.cbPlotInactiveAreas.isChecked())
@@ -3270,8 +3388,10 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		# default layout
 		if self.rbDefaultLayoutPlotView.isChecked():
 			self.tuOptions.defaultLayout = "plot"
-		else:
+		elif self.rbDefaultLayoutNarrowView.isChecked():
 			self.tuOptions.defaultLayout = "narrow"
+		else:
+			self.tuOptions.defaultLayout = "previous_state"
 
 		if self.cbPlotBackgroudGrey.isChecked():
 			self.tuOptions.plotBackgroundColour = '#e5e5e5'
@@ -4921,6 +5041,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 			times.append('Min')
 		times.extend(['{0:.03f}'.format(x) for x in self.xmdf_header.times()])
 		self.cboTimestep.addItems(times)
+		self.tuflow_to_gis_result_type_changed(None)
 
 	def tuflow_to_gis_result_type_changed(self, e):
 		if self.xmdf_header is None or not self.xmdf_header.loaded:
@@ -5537,7 +5658,7 @@ class FloodModellerResultImportDialog(QDialog, Ui_FMResDialog):
 		self.btnBrowseSectionData.clicked.connect(lambda: browse(self, 'existing file', 'TUFLOW/import_FM_Dialog',
 		                                                         'Flood Modeller Cross-Section DAT File', 'DAT (*.dat *.DAT)', self.leSectionData))
 		self.btnBrowseCSV.clicked.connect(lambda: browse(self, 'existing files', 'TUFLOW/import_FM_Dialog',
-		                                                 'Flood Modeller Result CSV Files', 'CSV (*.csv *.CSV)',
+		                                                 'Flood Modeller Result CSV Files', 'CSV ZZN (*.csv *.CSV *.zzn *.ZZN)',
 		                                                 self.lwCSVFiles, allowDuplicates=False))
 
 		# other signals

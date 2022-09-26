@@ -51,7 +51,8 @@ class SCSDock(QDockWidget, Ui_scs):
         self.gbGisApproach.clicked.connect(self.checkGisOnly)
         self.cboInputPolygons.currentIndexChanged.connect(self.populateGisFields)
         self.cboIdField.currentIndexChanged.connect(self.collectCatchIdGis)
-        self.cboCnField.currentIndexChanged.connect(self.collectCnGis)
+        self.cboCnPerField.currentIndexChanged.connect(self.collectCnPerGis)
+        self.cboCnImpField.currentIndexChanged.connect(self.collectCnImpGis)
         self.cboAreaPerField.currentIndexChanged.connect(self.collectAreaPerGis)
         self.cboAreaPerCCField.currentIndexChanged.connect(self.collectAreaPerCCGis)
         self.cboAreaImp1Field.currentIndexChanged.connect(self.collectAreaImp1Gis)
@@ -258,7 +259,8 @@ class SCSDock(QDockWidget, Ui_scs):
         self.cboAreaImp1CCField.clear()
         self.cboAreaImp2Field.clear()
         self.cboAreaImp2CCField.clear()
-        self.cboCnField.clear()
+        self.cboCnPerField.clear()
+        self.cboCnImpField.clear()
         self.cboTpTcField.clear()
         self.cboCField.clear()
         self.cboLengthField.clear()
@@ -272,7 +274,8 @@ class SCSDock(QDockWidget, Ui_scs):
             self.cboAreaImp1CCField.addItems(layer.fields().names())
             self.cboAreaImp2Field.addItems(layer.fields().names())
             self.cboAreaImp2CCField.addItems(layer.fields().names())
-            self.cboCnField.addItems(layer.fields().names())
+            self.cboCnPerField.addItems(layer.fields().names())
+            self.cboCnImpField.addItems(layer.fields().names())
             self.cboTpTcField.addItems(layer.fields().names())
             self.cboCField.addItems(layer.fields().names())
             self.cboLengthField.addItems(layer.fields().names())
@@ -292,19 +295,33 @@ class SCSDock(QDockWidget, Ui_scs):
 
         return catchIdGis
 
-    def collectCnGis(self) -> list:
+    def collectCnPerGis(self) -> list:
         """ Collect curve numbers from shapefile.
-            :return: cnGis
+            :return: cnPerGis
         """
 
         layer = tuflowqgis_find_layer(self.cboInputPolygons.currentText())
-        cnGis = []
+        cnPerGis = []
         if self.gbGisApproach.isChecked() and layer is not None:
-            cnField = self.cboCnField.currentIndex()
-            if cnField > -1:
-                cnGis = [str(f.attribute(cnField)) for f in layer.getFeatures()]
+            cnPerField = self.cboCnPerField.currentIndex()
+            if cnPerField > -1:
+                cnPerGis = [str(f.attribute(cnPerField)) for f in layer.getFeatures()]
 
-        return cnGis
+        return cnPerGis
+
+    def collectCnImpGis(self) -> list:
+        """ Collect curve numbers from shapefile.
+            :return: cnImpGis
+        """
+
+        layer = tuflowqgis_find_layer(self.cboInputPolygons.currentText())
+        cnImpGis = []
+        if self.gbGisApproach.isChecked() and layer is not None:
+            cnImpField = self.cboCnImpField.currentIndex()
+            if cnImpField > -1:
+                cnImpGis = [str(f.attribute(cnImpField)) for f in layer.getFeatures()]
+
+        return cnImpGis
 
     def collectAreaPerGis(self) -> list:
         """ Collect area pervious from shapefile.
@@ -446,14 +463,6 @@ class SCSDock(QDockWidget, Ui_scs):
 
         return slopeGis
 
-    # def activateCField(self) -> None:
-    #     """ Activate C Field when radio button is checked. """
-    #
-    #     if self.rbCGis.isChecked():
-    #         self.cboCField.setEnabled(True)
-    #     else:
-    #         self.cboCField.setEnabled(False)
-
     def checkTpOnly(self) -> None:
         """ Check only one box - Tp or Tc. """
 
@@ -523,7 +532,18 @@ class SCSDock(QDockWidget, Ui_scs):
             except ValueError:
                 QMessageBox.critical(self, "SCS to TUFLOW", "Must Specify Curve Number as an Integer or Float")
                 return
-            if float(self.leCnPer.text()) <= 0 :
+            if float(self.leCnPer.text()) <= 0:
+                QMessageBox.critical(self, "SCS to TUFLOW", "Must Specify Curve Number Above Zero")
+                return
+            if self.leCnImp.text() == '':
+                QMessageBox.critical(self, "SCS to TUFLOW", "Must Specify Curve Number")
+                return
+            try:
+                float(self.leCnImp.text())
+            except ValueError:
+                QMessageBox.critical(self, "SCS to TUFLOW", "Must Specify Curve Number as an Integer or Float")
+                return
+            if float(self.leCnImp.text()) <= 0:
                 QMessageBox.critical(self, "SCS to TUFLOW", "Must Specify Curve Number Above Zero")
                 return
             # area pervious
@@ -646,8 +666,8 @@ class SCSDock(QDockWidget, Ui_scs):
                 QMessageBox.critical(self, "SCS to TUFLOW", "Must Specify Unique Catchment IDs in Polygons Layer.")
                 return
             # curve number
-            cnGis = self.collectCnGis()
-            for cn in cnGis:
+            cnPerGis = self.collectCnPerGis()
+            for cn in cnPerGis:
                 try:
                     float(cn)
                 except ValueError:
@@ -655,6 +675,18 @@ class SCSDock(QDockWidget, Ui_scs):
                     return
                 if float(cn) <= 0:
                     QMessageBox.critical(self, "SCS to TUFLOW", "Must Specify Curve Number Above Zero in Polygons Layer.")
+                    return
+            cnImpGis = self.collectCnImpGis()
+            for cn in cnImpGis:
+                try:
+                    float(cn)
+                except ValueError:
+                    QMessageBox.critical(self, "SCS to TUFLOW",
+                                         "Must Specify Curve Number as an Integer or Float in Polygons Layer.")
+                    return
+                if float(cn) <= 0:
+                    QMessageBox.critical(self, "SCS to TUFLOW",
+                                         "Must Specify Curve Number Above Zero in Polygons Layer.")
                     return
             # area
             areaPerGis = self.collectAreaPerGis()
@@ -832,20 +864,16 @@ class SCSDock(QDockWidget, Ui_scs):
         """ Run the tool. Collect inputs and pass them to engine.py for processing. """
 
         # hardcoded variables for now
-        interval = 0.0166667
-        #intervalOut = 0.0166667
+        interval = 0.0166667 # temporary for GIS output
         iaPer = 5
         iaImp = 0
-        cnImp = 98
         uhCurve = 0.75
         uhStep = 0.1
-        # arf = 1
 
         # collect inputs - initialise with actual values where can otherwise some dummy values
         inputs = {
             # location
             'location': SCS.auckland if self.cboLocation.currentText() == 'Auckland Region (TP108)' else SCS.other,
-            # 'unitHydrograph': SCS.aucklandUh if self.cboLocation.currentText() == 'Auckland Region' else SCS.otherUh,
             # rainfall and events
             'events': [],
             '002yr': float(self.le002YearDepth.text()) if self.cb002Year.isChecked() else None,
@@ -861,13 +889,14 @@ class SCSDock(QDockWidget, Ui_scs):
             '050yrCC': float(self.le050YearDepthCC.text()) if self.cb050YearCC.isChecked() else None,
             '100yrCC': float(self.le100YearDepthCC.text()) if self.cb100YearCC.isChecked() else None,
             # simulation settings
-            'intervalIn': self.leIntervalIn.text(),
+            'intervalIn': float(self.sbIntervalIn.text()),
             'intervalOut': float(self.sbIntervalOut.text()),
             'decimals': int(self.sbDecimals.text()),
             # manual approach
             'manualApproachChecked': SCS.manualApproachChecked if self.gbManualApproach.isChecked() else None,
             'catchmentId': self.leCatchId.text() if self.gbManualApproach.isChecked() else None,
             'cnPer': float(self.leCnPer.text()) if self.gbManualApproach.isChecked() else None,
+            'cnImp': float(self.leCnImp.text()) if self.gbManualApproach.isChecked() else None,
             'areaPer': float(self.leAreaPer.text()) if self.gbManualApproach.isChecked() else None,
             'areaImp1': float(self.leAreaImp1.text()) if self.gbManualApproach.isChecked() else None,
             'areaImp2': float(self.leAreaImp2.text()) if self.gbManualApproach.isChecked() and self.cbAreaImp2.isChecked() else None,
@@ -889,7 +918,8 @@ class SCSDock(QDockWidget, Ui_scs):
             # GIS approach
             'gisApproachChecked': SCS.gisApproachChecked if self.gbGisApproach.isChecked() else None,
             'catchIdGis': [],
-            'cnGis': [],
+            'cnPerGis': [],
+            'cnImpGis': [],
             'areaPerGis': [],
             'areaPerCCGis': [],
             'areaImp1Gis': [],
@@ -915,13 +945,10 @@ class SCSDock(QDockWidget, Ui_scs):
             'sourceInflows': None,
             # hardcoded
             'interval': interval,
-            #'intervalOut': intervalOut,
             'iniLossPer': iaPer,
             'iniLossImp': iaImp,
-            'cnImp': cnImp,
             'uhCurve': uhCurve,
             'uhStep': uhStep
-            #'arf': arf,
         }
 
         # populate rest with real values
@@ -937,8 +964,10 @@ class SCSDock(QDockWidget, Ui_scs):
         if self.gbGisApproach.isChecked():
             catchIdGis = self.collectCatchIdGis()
             inputs['catchIdGis'] = catchIdGis
-            cnGis = self.collectCnGis()
-            inputs['cnGis'] = cnGis
+            cnPerGis = self.collectCnPerGis()
+            inputs['cnPerGis'] = cnPerGis
+            cnImpGis = self.collectCnImpGis()
+            inputs['cnImpGis'] = cnImpGis
             areaPerGis = self.collectAreaPerGis()
             inputs['areaPerGis'] = areaPerGis
             areaPerCCGis = self.collectAreaPerCCGis()

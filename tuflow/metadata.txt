@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.5.1
+version=3.6
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,42 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=--- 3.5.1 ---
+changelog=--- 3.6 ---
+          - New Features and Updates -
+          TUFLOW Viewer - Curtain vectors will now have a vertical component if 'W' output is found in results
+          TUFLOW Viewer - Added option to shift order of open results via right-click context menu
+          TUFLOW Viewer - Added 'Remember Previous State' layout option
+          TUFLOW Viewer - NetCDF grids now supported
+          TUFLOW Viewer - Adds Python exported CSV format for flood modeller time series results
+          TUFLOW Viewer - Adds ZZN support for flood modeller time series results
+          SCS to TUFLOW - SCS method calculated from GIS polygons
+          Load From TCF - Added progress bar
+          Load From TCF - Imported layers are automatically given TUFLOW styling
+          Load From TCF - Option to bring in layers 'grouped' or 'ungrouped'
+          Sort/Filter Layers - Improved speed and altered sorting algorithm slightly so that layers with the same name (w/o '_L', '_P', '_R' suffix) will be sorted by geometry in order of points, line, polygon
+          Convert Model GIS Format - Provides user with the option to restrict conversion by scenario name
+          Configure Project - New icon and added to toolbar
+          TUFLOW Styling - Added styling for 2d_qnl
+          TUFLOW Utilities - TUFLOW to GIS will automatically find 2dm if using a post-processed XMDF
+
+          - Bug Fixes -
+          TUFLOW Viewer - Cross-section plot lines could become offset if start or end of line was outside the mesh
+          TUFLOW Viewer - Fixes bug for long section plotting of Flood Modeller results that could sometimes produce a python error
+          TUFLOW Viewer - Fixes bug in hiding inactive area on cross-section when M column header isn't defined in GIS file
+          TUFLOW Viewer - Fixes bug with cross-section plot that wouldn't update plot when a result type was deselected
+          TUFLOW Viewer - Fixes bug when loading results from TCF which could produce a python error when ~s~ flag was just before extension .tcf in the name
+          TUFLOW Viewer - Fixes 'load results from TCF' when output path is an absolute path
+          TUFLOW Viewer - Fix bug when loading TUFLOW release 2013 time series results which could produce a python error
+          TUFLOW Viewer - New method for loading results from TCF backported to be compatible with Python versions earlier than 3.9 and QGIS versions earlier than 3.22
+          1D Integrity Tool - Fixes a bug with the ouput symbol renderer in QGIS 3.26
+          TUFLOW Utilities - Fixes bug with TUFLOW to GIS common tool using correct scalar/vector type and loading timesteps from a post-processed XMDF
+          TUFLOW Styling - Fixes a bug that would not render TUFLOW style for GPKG layers
+          Import Empty - Fixes a bug where open layers with the same name as the imported layer were removed from the workspace
+          ReFH2 to TUFLOW - Fixes bug that would cause GUI to hang if 2 different output types (within rainfall or hydrograph) was selected (e.g. Direct Runoff and Total Runoff)
+          ReFH2 to TUFLOW - Fixes python error that could occur if the selected GIS layer was removed
+          Load From TCF - Fixes bug in new routine that wasn't finding all scenario names
+
+          --- 3.5.1 ---
           Convert Model GIS Format - Updates to the latest version
 
           - Bug Fixes -

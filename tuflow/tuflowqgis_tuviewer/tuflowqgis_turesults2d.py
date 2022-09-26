@@ -887,10 +887,11 @@ class TuResults2D():
 			setActiveScalar, setActiveVector = TuResults2D.meshRenderVersion(rs)
 			setActiveScalar(activeScalarMeshIndex)
 			setActiveVector(activeVectorMeshIndex)
-			layer.setRendererSettings(rs)
 
 			# turn on / off mesh and triangles
 			self.renderNativeMesh(layer, rs)
+
+			layer.setRendererSettings(rs)
 
 		# disconnect map canvas refresh if it is connected - used for rendering after loading from project
 		try:
@@ -1032,6 +1033,8 @@ class TuResults2D():
 		for r in results:
 			if tuflowqgis_find_layer(r) is not None:
 				layer = tuflowqgis_find_layer(r)
+				if not isinstance(layer, QgsMeshLayer):
+					continue
 				for restype in results[r]:
 					if TuResults.isMapOutputType(restype):
 						# see if reference time has been changed
@@ -1208,6 +1211,9 @@ class TuResults2D():
 			if key == oldName:
 				results[newName] = entry
 				del results[oldName]
+
+		if isinstance(layer, QgsRasterLayer):
+			self.tuView.tuResults.tuResultsNcGrid.layerNameChanged(oldName, newName)
 		
 		# change name in list widget
 		selectedItems = self.tuView.OpenResults.selectedItems()
@@ -1325,24 +1331,24 @@ class TuResults2D():
 				rsMesh = rs.nativeMeshSettings()
 				rsMesh.setEnabled(False)
 				rs.setNativeMeshSettings(rsMesh)
-				layer.setRendererSettings(rs)
+				# layer.setRendererSettings(rs)
 			if rs.triangularMeshSettings().isEnabled() or self.tuView.tuOptions.showTriangles:
 				rsTriangles = rs.triangularMeshSettings()
 				rsTriangles.setEnabled(False)
 				rs.setTriangularMeshSettings(rsTriangles)
-				layer.setRendererSettings(rs)
+				# layer.setRendererSettings(rs)
 		else:
 			if rs.nativeMeshSettings().isEnabled() != self.tuView.tuOptions.showGrid:
 				rsMesh = rs.nativeMeshSettings()
 				rsMesh.setEnabled(self.tuView.tuOptions.showGrid)
 				rs.setNativeMeshSettings(rsMesh)
-				layer.setRendererSettings(rs)
+				# layer.setRendererSettings(rs)
 			self.tuView.tuPlot.tuPlotToolbar.meshGridAction.setChecked(self.tuView.tuOptions.showGrid)
 			if rs.triangularMeshSettings().isEnabled() != self.tuView.tuOptions.showTriangles:
 				rsTriangles = rs.triangularMeshSettings()
 				rsTriangles.setEnabled(self.tuView.tuOptions.showTriangles)
 				rs.setTriangularMeshSettings(rsTriangles)
-				layer.setRendererSettings(rs)
+				# layer.setRendererSettings(rs)
 
 	def getReferenceTime(self, layer, defaultZeroTime=None):
 		"""

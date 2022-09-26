@@ -80,7 +80,11 @@ class TuResults():
 			# Particles results
 			self.tuResultsParticles = tuflowqgis_turesultsParticles.TuResultsParticles(TuView)
 
-	def importResults(self, type, inFileNames):
+			# netcdf grid
+			import tuResultsNcGrid
+			self.tuResultsNcGrid = tuResultsNcGrid.TuResultsNcGrid(TuView)
+
+	def importResults(self, type, inFileNames, **kwargs):
 		"""
 		Import results 1D or 2D or Particles
 
@@ -98,6 +102,12 @@ class TuResults():
 			result = self.tuResults1D.importResults(inFileNames)
 		elif type.lower() == 'particles':
 			result = self.tuResultsParticles.importResults(inFileNames)
+		elif type.lower() == 'nc_grid':
+			try:
+				result = self.tuResultsNcGrid.importResults(inFileNames, **kwargs)
+			except Exception as e:
+				QMessageBox.warning(self.tuView, 'Load NetCDF Grid', str(e))
+				result = False
 		if not result:
 			return False
 
@@ -172,6 +182,7 @@ class TuResults():
 
 		self.updateQgsTime()
 		self.tuResultsParticles.updateActiveTime()
+		self.tuResultsNcGrid.updateActiveTime()
 
 	def timeFromString(self, time, return_rel_time=True):
 		"""
@@ -273,6 +284,7 @@ class TuResults():
 		timestepsTS = []
 		timestepsLP = []
 		timestepsParticles = []
+		timestepsNcGrid = []
 
 		r = self.results[resultName]
 		for type, t in r.items():
@@ -371,6 +383,19 @@ class TuResults():
 							timestepsParticles = [refTime + timedelta(hours=x) for x in timestepsParticles]
 						except OverflowError:
 							timestepsParticles = [refTime + timedelta(seconds=x) for x in timestepsParticles]
+			elif '_nc_grid' in type:
+				if qv < 31600:
+					timestepsNcGrid = t[0]
+				else:
+					timestepsNcGrid = sorted(y[0] for x, y in t['times'].items())
+					refTime = t['referenceTime'] if 'referenceTime' in t else self.tuView.tuOptions.zeroTime
+					if self.tuView.tuOptions.timeUnits == 's':
+						timestepsNcGrid = [refTime + timedelta(seconds=x) for x in timestepsNcGrid]
+					else:
+						try:
+							timestepsNcGrid = [refTime + timedelta(hours=x) for x in timestepsNcGrid]
+						except OverflowError:
+							timestepsNcGrid = [refTime + timedelta(seconds=x) for x in timestepsNcGrid]
 			else:
 				temporalResultTypes.append(type)
 				refTime = t['referenceTime'] if 'referenceTime' in t else self.tuView.tuOptions.zeroTime
@@ -389,7 +414,7 @@ class TuResults():
 						if ts not in timesteps:
 							timesteps.append(ts)
 
-
+		timesteps = self.joinResultTypes(timesteps, timestepsNcGrid, type='time')
 		if not self.tuView.lock2DTimesteps:
 			timesteps = self.joinResultTypes(timesteps, timestepsTS, timestepsLP, timestepsParticles, type='time')
 
@@ -846,6 +871,10 @@ class TuResults():
 		if not mapOutputs:
 			mapOutputs = [("None", 3, False)]
 
+		# add nc grids to plotting options
+		for result_name, (nc_grid, times) in self.tuResultsNcGrid.results.items():
+			self.tuView.tuPlot.tuPlotToolbar.addItemToPlotOptions(result_name, static=nc_grid.static)
+
 		timeSeries = []
 		timeSeries = timeSeries + pointTypesTS + lineTypesTS + regionTypesTS + lineTypesLP + crossSectionTypes
 		if not timeSeries:
@@ -1086,7 +1115,7 @@ class TuResults():
 							self.activeResults.append('none')
 				if resultIndex in self.activeResultsIndexes:
 					self.activeResultsIndexes.remove(resultIndex)
-				if i > 0:
+				if i >= 0:
 					self.activeResultsItems.pop(i)
 
 				if item.ds_type == 1:
@@ -1653,6 +1682,7 @@ class TuResults():
 		resultsParticles = self.tuView.tuResults.tuResultsParticles.resultsParticles
 
 		self.tuResultsParticles.removeResults(resList)
+		self.tuResultsNcGrid.removeResults(resList)
 
 		for res in resList:
 			self.tuView.crossSectionsFM.delByLayername(res)

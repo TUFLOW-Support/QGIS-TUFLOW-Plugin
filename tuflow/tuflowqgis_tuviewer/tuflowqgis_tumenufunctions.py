@@ -1,8 +1,10 @@
 import os
+import sys
 import numpy as np
 import io
 import datetime
 import re
+import glob
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5 import QtGui
@@ -24,10 +26,12 @@ from tuflow.tuflowqgis_dialog import (tuflowqgis_scenarioSelection_dialog, tuflo
 									  TuOptionsDialog, TuSelectedElementsDialog, tuflowqgis_meshSelection_dialog,
 									  TuBatchPlotExportDialog, TuUserPlotDataManagerDialog,
 									  tuflowqgis_outputZoneSelection_dialog, tuflowqgis_brokenLinks_dialog,
-                                      FloodModellerResultImportDialog, tuflowqgis_outputSelection_dialog)
+                                      FloodModellerResultImportDialog, tuflowqgis_outputSelection_dialog,
+									  getOutputFolderFromTCF)
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuanimation import TuAnimationDialog
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumap import TuMapDialog
 from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+from tuflow.nc_grid_data_provider import NetCDFGrid
 
 
 class TuMenuFunctions():
@@ -93,6 +97,8 @@ class TuMenuFunctions():
 			# import into qgis
 			if ext.upper() == '.SUP':
 				loaded = self.tuView.tuResults.importResults('mesh', sups)
+			elif ext.upper() == '.NC' and NetCDFGrid.is_nc_grid(file):
+				loaded = self.tuView.tuResults.importResults('nc_grid', file)
 			else:
 				# loaded = self.tuView.tuResults.importResults('mesh', inFileNames[0])
 				loaded = self.tuView.tuResults.importResults('mesh', [file])
@@ -288,6 +294,40 @@ class TuMenuFunctions():
 
 		return True
 
+	def loadNcGridResults(self, **kwargs):
+		if not NetCDFGrid.capable():
+			QMessageBox.warning(self.tuView, 'Python NetCDF Library Not Installed',
+								'NetCDF4 Python library not installed. Please see the following wiki page for more information:<p>'
+								'<a href="https://wiki.tuflow.com/index.php?title=TUFLOW_Viewer_-_Load_Results_-_NetCDF_Grid"'
+								'<span style=" text-decoration: underline; color:#0000ff;">wiki.tuflow.com/index.php?title=TUFLOW_Viewer_-_Load_Results_-_NetCDF_Grid'
+								'</span></a>'
+								)
+			return
+
+		inFileNames = kwargs['files'] if 'files' in kwargs else None
+
+		# Get last loaded settings
+		fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_Results/lastFolder")
+
+		# User get file
+		if inFileNames is None:
+			inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW results file',
+													   fpath,
+													   "NetCDF (*.nc)")
+
+		if not inFileNames[0]:  # empty list
+			return False
+
+		# import results
+		self.tuView.tuResults.importResults('nc_grid', inFileNames[0])
+
+		# finally save the last folder location
+		fpath = os.path.dirname(inFileNames[0][0])
+		settings = QSettings()
+		settings.setValue("TUFLOW_Results/lastFolder", fpath)
+
+		return True
+
 	def load1d2dResults(self, **kwargs):
 		"""
 		Loads 1D and 2D reuslts from TCF file.
@@ -355,7 +395,8 @@ class TuMenuFunctions():
 					res1D, res2D, mess = getResultPathsFromTCF(file, scenarios=scenarios, events=events, output_zones=selectedOutputZones)
 				elif self.tuView.tuOptions.tcfLoadMethod == 'result_selection':
 					res1D, res2D, = [], []
-					paths, names, mess = getResultPathsFromTCF_v2(file)
+					old_method = sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 9)
+					paths, names, mess = getResultPathsFromTCF_v2(file, old_method)
 					if names:
 						if len(names) > 1:
 							if self.iface is not None:
@@ -365,11 +406,15 @@ class TuMenuFunctions():
 							else:
 								names = names[:1]
 						for output in names:
-							possible_paths = [x for x in paths if output in x.stem == output]
+							possible_paths = [x for x in paths if output in os.path.splitext(os.path.basename(x))[0] == output]
 							for pp in possible_paths:
-								if pp.suffix.lower() in ['.xmdf', '.dat']:
+								if old_method:
+									suffix = os.path.splitext(pp)[1]
+								else:
+									suffix = pp.suffix
+								if suffix.lower() in ['.xmdf', '.dat']:
 									res2D.append(str(pp))
-								elif pp.suffix.lower() == '.tpc':
+								elif suffix.lower() == '.tpc':
 									res1D.append(str(pp))
 				else:
 					res1D, res2D, mess = [], [], ''

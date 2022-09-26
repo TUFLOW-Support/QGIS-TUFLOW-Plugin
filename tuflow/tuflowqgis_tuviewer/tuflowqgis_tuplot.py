@@ -1142,6 +1142,8 @@ class TuPlot():
 			for ax in figure.axes:
 				if self.qk in ax.artists:
 					if mpl_version_int() >= 35000:
+						if self.qk.Q.axes is None:
+							self.qk.Q.axes = subplot
 						self.qk.remove()
 					else:
 						ax.artists.remove(self.qk)
@@ -2964,7 +2966,7 @@ class TuPlot():
 		# if not plot:
 		# 	self.clearPlot(1)
 		# 	#self.clearedLongPlot = False
-		self.clearPlot2(TuPlot.CrossSection, clear_rubberband=False, clear_selection=False, draw=False)
+		self.clearPlot2(TuPlot.CrossSection, clear_rubberband=False, clear_selection=False)
 		
 		if plot.lower() != '1d only':
 			multi = False  # do labels need to be counted up e.g. line 1, line 2
@@ -4322,15 +4324,15 @@ class TuPlot():
 
 	def closest_point(self, artist, a, ax, ax_event, point_xy_ = None, dist_ = None):
 		if ax is None or ax_event is None:
-			return None
+			return None, None
 		try:
 			trans = ax.transData.transform
 		except:
-			return None
+			return None, None
 		try:
 			trans_event = ax_event.transData.transform
 		except:
-			return None
+			return None, None
 		if isinstance(artist, plt.Line2D):
 			d = list(zip(*artist.get_data()))
 			if artist.get_xdata().any():
@@ -4362,7 +4364,7 @@ class TuPlot():
 			else:
 				return point_xy_, dist_
 
-		return None
+		return None, None
 
 	def update_annotation(self, pos_xy, annotation, point, artist, ax, fig, event, dist, line=None, ind=None, line_data=None):
 		b = True
@@ -4510,7 +4512,7 @@ class TuPlot():
 							closest_point, dist = self.closest_point(artist, [event.xdata, event.ydata], ax, ax_event, closest_point, dist)
 						self.update_annotation(closest_point, annot, p, artist, ax_event, figure, event, dist)
 						annot.set_visible(True)
-						if type(artist) == PolyCollection:
+						if type(artist) == PolyCollection or type(artist) == Quiver:
 							p.set_visible(False)
 						elif (type(artist) == Polygon or type(artist) == TuflowPipe) and type(dist) == int and dist == 5:
 							p.set_visible(False)
@@ -4533,7 +4535,7 @@ class TuPlot():
 
 						self._blitted_draw(plotNo, annot, annot_off, p, p_off, l, l_off)
 
-						if dist < 3:
+						if dist is not None and dist < 3:
 							return
 
 					elif isinstance(artist, plt.Line2D):

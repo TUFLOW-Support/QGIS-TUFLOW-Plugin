@@ -26,7 +26,7 @@ class TuOptions():
 		if settings.contains("TUFLOW/tuview_defaultlayout"):
 			self.defaultLayout = settings.value('TUFLOW/tuview_defaultlayout')
 		else:
-			self.defaultLayout = 'plot'
+			self.defaultLayout = 'previous_state'
 		zeroTime = settings.value('TUFLOW/tuview_zeroTime')
 		if zeroTime:
 			self.zeroTime = zeroTime
@@ -79,6 +79,20 @@ class TuOptions():
 				self.plotInactiveAreas = True
 		else:
 			self.plotInactiveAreas = True
+
+		# curtain vectors
+		self.curtain_vector_scale = float(settings.value("TUFLOW/tuview_curtain_vector_scale", "0.005"))
+		self.curtain_vector_scale_units = settings.value("TUFLOW/tuview_curtain_vector_scale_units", "dots")
+		if self.curtain_vector_scale_units == 'default':
+			self.curtain_vector_scale_units = None
+		self.curtain_vector_units = settings.value("TUFLOW/tuview_curtain_vector_units", "dots")
+		if self.curtain_vector_units == 'default':
+			self.curtain_vector_units = None
+		self.curtain_vector_width = float(settings.value("TUFLOW/tuview_curtain_vector_width", "0.5"))
+		self.curtain_vector_head_width = float(settings.value("TUFLOW/tuview_curtain_vector_head_width", "10.0"))
+		self.curtain_vector_head_length = float(settings.value("TUFLOW/tuview_curtain_vector_head_length", "10.0"))
+		self.curtain_vector_horizontal_factor = float(settings.value("TUFLOW/tuview_curtain_vector_horizontal_factor", "1.0"))
+		self.curtain_vector_vertical_factor = float(settings.value("TUFLOW/tuview_curtain_vector_vertical_factor", "1.0"))
 
 	def saveProject(self, project):
 		project.writeEntry("TUVIEW", "livemaptracking", str(self.liveMapTracking))
