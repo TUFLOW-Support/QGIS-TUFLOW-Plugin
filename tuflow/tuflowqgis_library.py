@@ -3171,7 +3171,7 @@ def getScenariosFromTCF_v2(control_file, scenarios, settings=None):
 
 	if settings is None:
 		control_file = TuflowPath(control_file)
-		settings_ = ConvertSettings(*['-tcf', control_file])
+		settings_ = ConvertSettings(*['-tcf', control_file, '-rf', control_file.parent])
 		settings_.read_tcf()
 	else:
 		settings_ = settings.copy_settings(control_file, settings.output_folder)
@@ -4303,7 +4303,7 @@ class LoadGisFromControlFile(QObject):
 			self.model_file_layers.add(cf_lyrs)
 
 			if self.settings is None:
-				settings_ = ConvertSettings(*['-tcf', control_file, '-use_scenarios'])
+				settings_ = ConvertSettings(*['-tcf', control_file, '-rf', control_file.parent, '-use_scenarios'])
 				settings_.read_tcf(self.scenarios)
 			else:
 				settings_ = self.settings.copy_settings(control_file, self.settings.output_folder)
@@ -8998,7 +8998,8 @@ def getOutputDirs(path, settings=None):
 
 	output_paths = []
 	if settings is None:
-		settings = ConvertSettings(*['-tcf', path])
+		path = TuflowPath(path)
+		settings = ConvertSettings(*['-tcf', path, '-rf', path.parent])
 		settings.read_tcf()
 	else:
 		settings = settings.copy_settings(path, settings.output_folder)
