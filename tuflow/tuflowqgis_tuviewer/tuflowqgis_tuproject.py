@@ -177,12 +177,13 @@ class TuProject():
 			
 	def processResults1d(self, call_type):
 		"""Project settings for 1d results"""
-		
+		import tuflowqgis_turesults1d
+
 		if call_type == 'save':
 			results1d = self.tuView.tuResults.tuResults1D.results1d
 			results = ''
 			for i, result in enumerate(results1d):
-				if isinstance(result, TSResult):
+				if isinstance(results1d[result], TSResult) or isinstance(results1d[result], tuflowqgis_turesults1d.TSResult):
 					continue
 				if i == 0:
 					results += os.path.join(results1d[result].fpath, results1d[result].filename)

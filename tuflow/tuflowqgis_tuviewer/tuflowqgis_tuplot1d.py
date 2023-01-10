@@ -52,12 +52,16 @@ class TuPlot1D():
 		draw = kwargs['draw'] if 'draw' in kwargs.keys() else True
 		timestep = kwargs['time'] if 'time' in kwargs.keys() else None
 
+		i = 0
+		if self.tuView.currentLayer is not None:
+			i = 1 if '.gpkg|layername=' in self.tuView.currentLayer.dataProvider().dataSourceUri() else 0
+
 		if is1dTable(self.tuView.currentLayer):
-			ids = [x.attributes()[0].lower() for x in self.tuView.currentLayer.selectedFeatures()]
+			ids = [x.attributes()[i].lower() for x in self.tuView.currentLayer.selectedFeatures()]
 		elif is1dNetwork(self.tuView.currentLayer):
-			ids = [x.attributes()[0].lower() for x in self.tuView.currentLayer.selectedFeatures()]
+			ids = [x.attributes()[i].lower() for x in self.tuView.currentLayer.selectedFeatures()]
 		elif self.tuView.currentLayer in findPlotLayers(geom='L'):
-			ids = [x.attributes()[0].lower() for x in self.tuView.currentLayer.selectedFeatures()]
+			ids = [x.attributes()[i].lower() for x in self.tuView.currentLayer.selectedFeatures()]
 		else:
 			ids = []
 
@@ -186,7 +190,7 @@ class TuPlot1D():
 		if not plyrs:
 			return xAll, yAll, labels, typs
 
-		acceptedResults = ['level']
+		acceptedResults = ['level', 'water level', 'max water level']
 		rtypes = tuResults1D.typesXSRes
 		rtypes = list(filter(lambda x: x.lower() in acceptedResults, rtypes))
 
@@ -196,10 +200,21 @@ class TuPlot1D():
 				rtypeLabel = '{0}/Maximums'.format(rtype)
 				time = -99999
 				isMax = True
+			elif rtype.lower() == 'max water level':  # has to go before block below otherwise isn't triggered correctly
+				time = -99999
+				isMax = True
+				rtypeLabel = rtype
+				rtype = 'level'
 			elif 'max' in rtype.lower():
 				time = -99999
 				rtypeLabel = rtype
 				isMax = True
+			elif rtype.lower() == 'water level':
+				if timestep is None:
+					timestep = self.tuView.tuResults.activeTime
+				rtypeLabel = rtype
+				isMax = False
+				rtype = 'level'
 			else:
 				if timestep is None:
 					timestep = self.tuView.tuResults.activeTime
@@ -213,33 +228,33 @@ class TuPlot1D():
 				feat = findIntersectFeat(xs.feature, plyr)
 				if feat is None:
 					return xAll, yAll, labels, typs
-				id = feat.attributes()[0]
-				if id not in ids:
-					for result in self.tuView.OpenResults.selectedItems():
-						result = result.text()
-						if result in self.tuResults.tuResults1D.results1d:
-							res = self.tuResults.tuResults1D.results1d[result]
-							if id in res.nodes.node_name:
-								if res.formatVersion > 1:
+				id = feat.attributes()[0].strip()
+				#if id not in ids:
+				for result in self.tuView.OpenResults.selectedItems():
+					result = result.text()
+					if result in self.tuResults.tuResults1D.results1d:
+						res = self.tuResults.tuResults1D.results1d[result]
+						if id in res.nodes.node_name:
+							if res.formatVersion > 1:
 
-									tuResultsIndex = TuResultsIndex(result, '{0}_1d'.format(rtype), timestep, isMax,
-									                                False,
-									                                self.tuView.tuResults,
-									                                self.tuView.tuOptions.timeUnits)
-									time = tuResultsIndex.timestep
+								tuResultsIndex = TuResultsIndex(result, '{0}_1d'.format(rtype), timestep, isMax,
+																False,
+																self.tuView.tuResults,
+																self.tuView.tuOptions.timeUnits)
+								time = tuResultsIndex.timestep
 
-									h = res.getResAtTime(id, '1D', rtype, time)
-									if h is None or np.isnan(h):
-										continue
-									x, y = XS_results.fitResToXS2(xs, h)
-									label = '{0} - {1}'.format(id, rtypeLabel) if len(
-										self.tuView.OpenResults.selectedItems()) < 2 \
-										else '{0} - {1} - {2}'.format(result, id, rtypeLabel)
-									xAll.append(x)
-									yAll.append(y)
-									labels.append(label)
-									typs.append(rtype)
-									ids.append(id)
+								h = res.getResAtTime(id, '1D', rtype, time)
+								if h is None or np.isnan(h):
+									continue
+								x, y = XS_results.fitResToXS2(xs, h)
+								label = '{0} - {1}'.format(id, rtypeLabel) if len(
+									self.tuView.OpenResults.selectedItems()) < 2 \
+									else '{0} - {1} - {2}'.format(result, id, rtypeLabel)
+								xAll.append(x)
+								yAll.append(y)
+								labels.append(label)
+								typs.append(rtype)
+								ids.append(id)
 
 		return xAll, yAll, labels, typs
 
@@ -292,9 +307,11 @@ class TuPlot1D():
 				res = tuResults1D.results1d[result]
 
 				# get result types for all selected types
-				if re.findall(r'_TS(_[PLR])?$', result, flags=re.IGNORECASE) and isTSLayer(self.tuView.currentLayer):
+				if re.findall(r'_TS(MB|MB1d2d)?(_[PLR])?$', result, flags=re.IGNORECASE) and isTSLayer(self.tuView.currentLayer):
 					i = 1 if '.gpkg|layername=' in self.tuView.currentLayer.dataProvider().dataSourceUri().lower() else 0
 					rtypes = [f.attribute(i)[0] for f in self.tuView.currentLayer.selectedFeatures()]
+				elif re.findall(r'_TS(MB|MB1d2d)?(_[PLR])?$', result, flags=re.IGNORECASE):
+					continue
 				else:
 					rtypes = tuResults1D.typesTS[:]
 				#for rtype in tuResults1D.typesTS:

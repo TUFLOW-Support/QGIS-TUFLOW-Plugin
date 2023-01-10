@@ -573,10 +573,6 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             self.uniqueIds.finished.connect(lambda e: self.finishedDataCollection(e, text='Finished correcting non-compliant IDs'))
             self.uniqueIds.fixChannelIDs(duplicateRule, createNameRules)
 
-        if not self.uniqueIds.tmplyr2oldlyr:
-            QMessageBox.information(self, 'Integrity Tools', 'All channel IDs were compliant')
-            return
-
         if self.uniqueIds.outputLyr is not None and self.uniqueIds.outputLyr.isValid():
             QgsProject.instance().addMapLayer(self.uniqueIds.outputLyr)
             tuflowqgis_apply_check_tf_clayer(self.iface, layer=self.uniqueIds.outputLyr)

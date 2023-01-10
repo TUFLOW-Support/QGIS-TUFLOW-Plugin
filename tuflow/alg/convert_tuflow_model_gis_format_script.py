@@ -1,5 +1,6 @@
 from qgis.PyQt.QtCore import QCoreApplication
-from qgis._core import QgsProcessingParameterBoolean, QgsProcessingParameterString, QgsProcessingModelGroupBox
+from qgis._core import QgsProcessingParameterBoolean, QgsProcessingParameterString, QgsProcessingModelGroupBox, \
+    QgsProcessingParameterCrs
 from qgis.core import QgsProcessing
 from qgis.core import QgsProcessingAlgorithm
 from qgis.core import QgsProcessingParameterDefinition
@@ -52,7 +53,10 @@ def globify(text):
     return new_text
 
 
-def count_lines(file):
+def count_lines(file, write_empty=False):
+    sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'convert_tuflow_model_gis_format'))
+    from tuflow.convert_tuflow_model_gis_format.helpers.empty_files import TuflowEmptyFiles
+
     line_count = 0
     if os.path.exists(file):
         with open(file, 'r') as f:
@@ -67,6 +71,9 @@ def count_lines(file):
                     value = globify(value)
                     for cf in Path(file).parent.glob(value):
                         line_count += count_lines(cf)
+
+    if write_empty:
+        line_count += TuflowEmptyFiles.empty_count()
 
     return line_count
 
@@ -104,9 +111,22 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
                                                        optional=True)
         param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
         self.addParameter(param)
+        param = QgsProcessingParameterString('gpkg_name', 'Output GPKG Name (for grouped profiles)', optional=True)
+        param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        self.addParameter(param)
+        param = QgsProcessingParameterBoolean('write_empties', 'Write Empty Files')
+        param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        self.addParameter(param)
+        param = QgsProcessingParameterString('empty_directory', 'Write Empty Files Relative Directory ',
+                                                       optional=True)
+        param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        self.addParameter(param)
+        param = QgsProcessingParameterCrs('output_crs', 'Output CRS', optional=True)
+        param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        self.addParameter(param)
         
     def processAlgorithm(self, parameters, context, model_feedback):
-        line_count = count_lines(parameters['tcf']) + 3
+        line_count = count_lines(parameters['tcf'], parameters['write_empties']) + 3
 
         feedback = QgsProcessingMultiStepFeedback(line_count, model_feedback)
         feedback.pushInfo('line count: {0}'.format(line_count))
@@ -134,6 +154,14 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
         if use_scenarios:
             args.append('-use-scenarios')
             args.extend(scenarios)
+        if parameters['gpkg_name'].strip():
+            args.extend(['-gpkg-name', parameters['gpkg_name'].strip()])
+        if parameters['write_empties']:
+            args.append('-write-empties')
+            if parameters['empty_directory'].strip():
+                args.append(parameters['empty_directory'].strip())
+        if parameters['output_crs'] and parameters['output_crs'].isValid():
+            args.extend(['-crs', parameters['output_crs'].toWkt()])
 
         feedback.pushInfo('args: {0}'.format(args[3:]))
 
@@ -198,7 +226,7 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
             "  </ol>"
             "  <li>Output Folder - optional output location for the converted model and files. If none is specified "
             "a folder is created in the same location as the TCF</li>"
-            "  <li>Root Folder - only required if the tool can't find the the root folder (traditionally named 'TUFLOW') "
+            "  <li>Root Folder - only required if the tool can't find the the root folder (traditionally called 'TUFLOW') "
             "where all modelling files sit beneath</li>"
             "  <li>Scenarios: The conversion can be restricted by specifying scenario and event names. Using this "
             "option will stop the conversion of layers that are within an 'IF Scenario/IF Event' logic blocks if the "
@@ -212,6 +240,20 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
             "batch files e.g. <tt>-s [scenario-name] -e [event-name]</tt>. The order does not matter and numbering "
             "scenarios is not required, although is accepted (e.g. -s1 -s2)</li>"
             "  </ol>"
+            "  <li>GPKG Name - sets the output GPKG database name. Only applies to grouped output profiles. If using "
+            "a 'grouped by control file' option, then the control file extension will still be added to the name "
+            "e.g. [output_name]_TCF.gpkg</li>"
+            "  <li>Write Empty Files - creates empty files for the converted model. The location of the empty directory"
+            " will be guessed unless a relative path from the root directory (e.g. TUFLOW folder) is provided. The "
+            "projection of the empty files will be determined by the first 'Projection == ' command encountered. If "
+            "no 'Projection == ' command is present, empty files will not be created.</li>"
+            "  <li>Write Empty Files Relative Directory - optional input to be used in conjunction with the Write "
+            "Empties checkbox above. The path provided should be a relative path from the root directory (e.g. "
+            "commonly this is a folder called 'TUFLOW' - so the relative path may be 'model/gis/empty). If this is not "
+            "provided the tool will try and guess where to write empty files.</li>"
+            "  <li>Output CRS - Forces output files to be in given projection (no reprojection, or warping is "
+            "performed). Useful when converting a model with a combination of SHP and MIF files as these can generate "
+            "slightly different projection definitions. Set blank to turn off.</li>"
             "</ol>"
         )
 

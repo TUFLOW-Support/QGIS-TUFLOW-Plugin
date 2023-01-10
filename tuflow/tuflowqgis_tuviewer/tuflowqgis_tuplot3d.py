@@ -186,6 +186,7 @@ class TuPlot3D(TuPlot2D):
         plotVertMesh = []
 
         # iterate through all selected results
+        # meshRendered = False
         if not resultMesh:  # specified result meshes can be passed through kwargs (used for batch export not normal plotting)
             resultMesh = activeMeshLayers
         for layer in resultMesh:  # get plotting for all selected result meshes
@@ -416,7 +417,7 @@ class TuPlot3D(TuPlot2D):
                         if getFaceIndex(self.inters[0], si, mesh):
                             self.faces.append(None)
                         else:
-                            self.faces.insert(None)
+                            self.faces.insert(0, None)
                     curtainGeom = CurtainIntersects(feat, self.inters, self.chainages, self.faces, crs, self.iface)
                     self.curtainGeom.append(curtainGeom)
                     # update = True  # turn on update now - allow only one line at the moment
@@ -645,17 +646,20 @@ class TuPlot3D(TuPlot2D):
         y = []
         for i, f in enumerate(faces):
             if onFaces:
-                data3d = dp.dataset3dValues(mdi, f, 1)
-                vlc = data3d.verticalLevelsCount()
-                if vlc:
-                    vlc = vlc[0]
-                else:
+                if f is None:
                     continue
-                vl = data3d.verticalLevels()
-                v = data3d.values()
-                vertical_velocities = self.getVerticalVelocity(layer, dp, si, mesh, mdi, False, f, isMax, isMin)
-                if vertical_velocities is None:
-                    vertical_velocities = [0. for x in range(vlc)]
+                else:
+                    data3d = dp.dataset3dValues(mdi, f, 1)
+                    vlc = data3d.verticalLevelsCount()
+                    if vlc:
+                        vlc = vlc[0]
+                    else:
+                        continue
+                    vl = data3d.verticalLevels()
+                    v = data3d.values()
+                    vertical_velocities = self.getVerticalVelocity(layer, dp, si, mesh, mdi, False, f, isMax, isMin)
+                    if vertical_velocities is None:
+                        vertical_velocities = [0. for x in range(vlc)]
             else:
                 vlc = 1
                 v = self.datasetValue(layer, dp, si, mesh, mdi, False, f, 0, TuPlot.DataCurtainPlot, None, value='vector')

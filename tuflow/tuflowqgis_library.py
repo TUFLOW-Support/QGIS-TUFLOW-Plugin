@@ -64,6 +64,7 @@ try:
 except ImportError:
 	from pathlib_ import Path_ as Path
 import sqlite3
+from osgeo import ogr
 
 # --------------------------------------------------------
 #    tuflowqgis Utility Functions
@@ -328,6 +329,20 @@ def duplicate_database(iface, layer, db, layername, incrementDatabase, increment
 				options.layerName = layername
 				options.driverName = 'GPKG'
 				layer_temp = QgsVectorLayer('{0}|layername={1}'.format(db_old, tablename), 'temp', 'ogr')
+				if not layer_temp.crs().isValid():
+					ds = ogr.GetDriverByName('GPKG').Open(db_old)
+					if ds is not None:
+						lyr = ds.GetLayer(tablename)
+						if lyr is not None:
+							crs = QgsCoordinateReferenceSystem(lyr.GetSpatialRef().ExportToWkt())
+							if crs.isValid():
+								layer_temp.setCrs(crs)
+							lyr = None
+						ds = None
+				if not layer_temp.isSpatial():
+					if layer_temp.crs().isValid():
+						crs = layer_temp.crs().authid()
+						layer_temp = QgsVectorLayer('point?crs={0}'.format(crs), tablename, 'memory')
 				try:
 					if Qgis.QGIS_VERSION_INT >= 31030:
 						error = QgsVectorFileWriter.writeAsVectorFormatV2(layer_temp, db, QgsCoordinateTransformContext(), options)
@@ -439,19 +454,19 @@ def tuflowqgis_create_tf_dir(dialog, crs, basepath, engine, tutorial, gisFormat=
 	# Write .tcf file
 	ext = '.fvc' if engine == 'flexible mesh' else '.tcf'
 	runfile = os.path.join(basepath, parent_folder_name, "runs", "Create_Empties{0}".format(ext))
-	f = open(runfile, 'w')
-	f.write("GIS FORMAT == {0}\n".format(gisFormat))
-	if gisFormat == 'SHP':
-		f.write("SHP Projection == ..{0}model{0}gis{0}projection.prj\n".format(os.sep))
-	else:
-		f.write("GPKG Projection == ..{0}model{0}gis{0}projection.gpkg\n".format(os.sep))
-	if tutorial:
-		f.write("Tutorial Model == ON\n")
-	f.write("Write Empty GIS Files == ..{0}model{0}gis{0}empty\n".format(os.sep))
-	f.flush()
-	f.close()
-	#QMessageBox.information(qgis.mainWindow(),"Information", "{0} folder successfully created: {1}".format(parent_folder_name, basepath))
-	return None
+	create_empty_tcf(runfile, gisFormat, tutorial)
+
+
+def create_empty_tcf(tcf_path, gis_format, tutorial_model):
+	with open(tcf_path, 'w') as f:
+		f.write("GIS FORMAT == {0}\n".format(gis_format))
+		if gis_format == 'SHP':
+			f.write("SHP Projection == ..{0}model{0}gis{0}projection.prj\n".format(os.sep))
+		else:
+			f.write("GPKG Projection == ..{0}model{0}gis{0}projection.gpkg\n".format(os.sep))
+		if tutorial_model:
+			f.write("Tutorial Model == ON\n")
+		f.write("Write Empty GIS Files == ..{0}model{0}gis{0}empty\n".format(os.sep))
 
 def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines, regions, dialog,
 							   databaseOption='separate', databaseLoc='', convert=False):
@@ -508,14 +523,17 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 				else:
 					uri = fpath
 					lyrname_ = Path(fpath).with_suffix('').name
-					ext = '.shp'
+					if convert:
+						ext = '.gpkg'
+					else:
+						ext = '.shp'
 
 				layer = QgsVectorLayer(uri, "tmp", "ogr")
 				attributes = layer.dataProvider().fields()
 				name = '{0}_{1}{2}{3}'.format(type, runID, geom, ext)
 				savename = os.path.join(gis_folder, name)
 				layername = os.path.splitext(os.path.basename(savename))[0]
-				if isgpkg:
+				if isgpkg or convert:
 					if databaseOption == 'grouped':
 						name = '{0}_{1}{2}'.format(type, runID, os.path.splitext(fpath)[1])
 						savename = os.path.join(gis_folder, name)
@@ -527,13 +545,13 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 
 				empty_file_ = fpath
 				fpath = savename
-				if isgpkg:
+				if isgpkg or convert:
 					uri = '{0}|layername={1}'.format(fpath, lyrname_)
 					ext = '.gpkg'
 				else:
 					uri = fpath
 					ext = '.shp'
-				if isgpkg:
+				if isgpkg or convert:
 					if Path(fpath).exists() and layername.lower() in [x.lower() for x in get_table_names(fpath)] and not yestoall:
 						answer = QMessageBox.question(dialog, 'Layer Already Exists',
 						                              '{0} already exists in {1}\nOverwrite existing layer?'.format(layername, Path(fpath).name),
@@ -581,11 +599,11 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 				# outfile = QgsVectorFileWriter(vectorFileName=savename, fileEncoding="System",
 				# 	fields=layer.dataProvider().fields(), geometryType=layer.wkbType(), srs=layer.dataProvider().sourceCrs(), driverName="ESRI Shapefile")
 				options = QgsVectorFileWriter.SaveVectorOptions()
-				if os.path.exists(savename) and isgpkg:
+				if os.path.exists(savename) and (isgpkg or convert):
 					options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
 				else:
 					options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
-					if isgpkg:
+					if isgpkg or convert:
 						out_lyr_uri = '{0}|layername={1}'.format(savename, outlayer.name())
 					else:
 						out_lyr_uri = savename
@@ -594,7 +612,7 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 						QgsProject.instance().removeMapLayer(open_layer.id())
 						open_layer = None
 				options.layerName = layername
-				if isgpkg:
+				if isgpkg or convert:
 					options.driverName = 'GPKG'
 				else:
 					options.driverName = 'ESRI Shapefile'
@@ -623,7 +641,7 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 				# del outfile
 
 				# delete prj file and replace with empty prj - ensures it is exactly the same
-				if not isgpkg:
+				if not isgpkg and not convert:
 					correct_prj = '{0}.prj'.format(os.path.splitext(empty_file_)[0])
 					new_prj = '{0}.prj'.format(os.path.splitext(savename)[0])
 					try:
@@ -631,7 +649,7 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
 					except Exception as e:
 						pass
 
-				if isgpkg:
+				if isgpkg or convert:
 					uri = '{0}|layername={1}'.format(savename, layername)
 				else:
 					uri = savename
@@ -1287,7 +1305,7 @@ def is1dIntegrityToolOutput(layer):
 	return layer is not None and isinstance(layer, QgsVectorLayer) and layer.isValid() and \
 		   'output' in layer.name() and [(x.name(), x.type()) for x in layer.fields()][:len_] == field_mapping
 
-	
+
 def tuflowqgis_apply_check_tf(qgis):
 
 	#apply check file styles to all open shapefiles
@@ -1561,7 +1579,11 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
 		if field.name().lower() == 'fid':
 			continue
 		unique_names.append(field.name())
-		uri = '{0}&field={1}:{2}({3},{4})'.format(uri, field.name(), field.typeName(), field.length(), field.precision())
+		if field.type() == QVariant.LongLong:
+			type_name = 'int8'
+		else:
+			type_name = field.typeName()
+		uri = '{0}&field={1}:{2}({3},{4})'.format(uri, field.name(), type_name, field.length(), field.precision())
 	for field in inputLayer.fields():
 		if field.name().lower() == 'fid':
 			continue
@@ -1575,7 +1597,11 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
 			new_name = field.name()
 		unique_names.append(new_name)
 		renamed_fields.append(new_name)
-		uri = '{0}&field={1}:{2}({3},{4})'.format(uri, new_name, field.typeName(), field.length(), field.precision())
+		if field.type() == QVariant.LongLong:
+			type_name = 'int8'
+		else:
+			type_name = field.typeName()
+		uri = '{0}&field={1}:{2}({3},{4})'.format(uri, new_name, type_name, field.length(), field.precision())
 
 	out_lyr = QgsVectorLayer(uri, layername, 'memory')
 	if not out_lyr.isValid():
@@ -3898,6 +3924,20 @@ def getVariableNamesFromTCF(tcf, scenarios=()):
 							variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
 							if error:
 								return {}, True
+				if 'quadtree control file' in f.lower():
+					ind = f.lower().find('quadtree control file')
+					if '!' not in f[:ind]:
+						command, relPath = f.split('==')
+						command = command.strip()
+						relPath = relPath.split('!')[0]
+						relPath = relPath.strip()
+						if relPath.lower() == 'single level':
+							continue
+						path = getPathFromRel(dir, relPath)
+						if os.path.exists(path):
+							variables, error = getVariableNamesFromControlFile(path, variables, scenarios)
+							if error:
+								return {}, True
 		except UnicodeDecodeError:
 			msgBox = QMessageBox()
 			msgBox.setIcon(QMessageBox.Critical)
@@ -4039,7 +4079,7 @@ def loadGisFile(iface, path, group, processed_paths, processed_layers, error, lo
 			nd.setItemVisibilityChecked(visible)
 	except Exception as e:
 		pass
-		
+
 	return processed_paths, processed_layers, error, log, crs
 
 
@@ -4070,15 +4110,23 @@ class LoadGisFiles(QObject):
 
 	def loadLayersIntoWorkspace(self, root, layers, options=None):
 		# lyrs = QgsProject.instance().addMapLayers(layers, False)
+		files_failed = []
 		for lyr in layers:
-			self.start_layer_load.emit(lyr.name())
-			self.update_progress(lyr.name())
-			QgsProject.instance().addMapLayer(lyr, False)
-			tuflowqgis_apply_check_tf_clayer(None, layer=lyr)
-			root.addChildNode(QgsLayerTreeLayer(lyr))
-			if options is not None and options.load_raster_method == 'invisible' and isinstance(lyr, QgsRasterLayer):
-				node = root.findLayer(lyr.id())
+			lyrname = lyr.split('(')[1].split(',')[1].strip()
+			self.start_layer_load.emit(lyrname)
+			self.update_progress(lyrname)
+			maplyr = eval(lyr)
+			if not maplyr.isValid():
+				files_failed.append(lyrname)
+				continue
+			QgsProject.instance().addMapLayer(maplyr, False)
+			tuflowqgis_apply_check_tf_clayer(None, layer=maplyr)
+			root.addChildNode(QgsLayerTreeLayer(maplyr))
+			if options is not None and options.load_raster_method == 'invisible' and isinstance(maplyr, QgsRasterLayer):
+				node = root.findLayer(maplyr.id())
 				node.setItemVisibilityChecked(False)
+
+		return files_failed
 
 	def loadGisFiles(self):
 		import sys
@@ -4115,11 +4163,11 @@ class LoadGisFiles(QObject):
 						geom_name = ogr_geometry_name(geom)
 						if geom_name:
 							layer_uri = f'{layer_uri}|geometrytype={geom_name}'
-					lyr = QgsVectorLayer(layer_uri, lyrname, 'ogr')
-					if not lyr.isValid():
-						files_failed.append(layer_uri)
-						self.err = True
-						continue
+					lyr = "QgsVectorLayer(r'{0}', '{1}', 'ogr')".format(layer_uri, lyrname)
+					# if not lyr.isValid():
+					# 	files_failed.append(layer_uri)
+					# 	self.err = True
+					# 	continue
 					layers.append(lyr)
 				gis_files.append(str(gis_file))
 
@@ -4134,24 +4182,30 @@ class LoadGisFiles(QObject):
 					else:
 						layer_uri = db
 
-					lyr = QgsRasterLayer(layer_uri, lyrname, 'gdal')
-					if not lyr.isValid():
-						files_failed.append(layer_uri)
-						self.err = True
-						continue
+					lyr = "QgsRasterLayer(r'{0}', '{1}', 'gdal')".format(layer_uri, lyrname)
+					# if not lyr.isValid():
+					# 	files_failed.append(layer_uri)
+					# 	self.err = True
+					# 	continue
 					layers.append(lyr)
 					gis_files.append(str(grid_file))
 
 			if options.grouped:
 				group = root.addGroup(cf.name)
 				layers = sortLayers(layers)
-				self.loadLayersIntoWorkspace(group, layers, options)
+				failed_lyrs = self.loadLayersIntoWorkspace(group, layers, options)
+				if failed_lyrs:
+					self.err = True
+					files_failed.extend(failed_lyrs)
 				layers.clear()
 				gis_files.clear()
 
 		if not options.grouped:
 			layers = sortLayers(layers)
-			self.loadLayersIntoWorkspace(root, layers, options)
+			failed_lyrs = self.loadLayersIntoWorkspace(root, layers, options)
+			if failed_lyrs:
+				self.err = True
+				files_failed.extend(failed_lyrs)
 
 		self.msg = 'Failed to load the following layers:\n{0}'.format('\n'.join(files_failed))
 		self.finished.emit()
@@ -4225,6 +4279,7 @@ class ModelFileLayers(QObject):
 class LoadGisFromControlFile(QObject):
 
 	finished = pyqtSignal()
+	error = pyqtSignal(str)
 
 	def __init__(self, model_file_layers, control_file, settings=None, scenarios=()):
 		QObject.__init__(self)
@@ -4241,66 +4296,71 @@ class LoadGisFromControlFile(QObject):
 		from .convert_tuflow_model_gis_format.helpers.settings import ConvertSettings
 		from .convert_tuflow_model_gis_format.helpers.file import globify, TuflowPath
 
-		control_file = TuflowPath(self.control_file)
-		cf_lyrs = ControlFileLayers(control_file)
-		self.model_file_layers.add(cf_lyrs)
+		try:
 
-		if self.settings is None:
-			settings_ = ConvertSettings(*['-tcf', control_file, '-use_scenarios'])
-			settings_.read_tcf(self.scenarios)
-		else:
-			settings_ = self.settings.copy_settings(control_file, self.settings.output_folder)
+			control_file = TuflowPath(self.control_file)
+			cf_lyrs = ControlFileLayers(control_file)
+			self.model_file_layers.add(cf_lyrs)
 
-		for command in get_commands(control_file, settings_):
-			if command.in_scenario_block() and not command.in_scenario_block(settings_.scenarios):
-				continue
+			if self.settings is None:
+				settings_ = ConvertSettings(*['-tcf', control_file, '-use_scenarios'])
+				settings_.read_tcf(self.scenarios)
+			else:
+				settings_ = self.settings.copy_settings(control_file, self.settings.output_folder)
 
-			elif command.is_spatial_database_command():
-				settings_.process_spatial_database_command(command.value)
-
-			elif command.is_control_file() or command.is_read_file():
-				for file in command.iter_files(settings_):
-					cf = file.resolve()
-					load_gis = LoadGisFromControlFile(self.model_file_layers, cf, settings_)
-					load_gis.loadGisFromControlFile_v2()
-
-			elif command.is_read_gis():
-				if command.in_output_zone_block() and not command.in_output_zone_block(settings_.output_zones):
+			for command in get_commands(control_file, settings_):
+				if command.in_scenario_block() and not command.in_scenario_block(settings_.scenarios):
 					continue
 
-				for type_ in command.iter_geom(settings_):
-					if type_ == 'VALUE':
-						continue
+				elif command.is_spatial_database_command():
+					settings_.process_spatial_database_command(command.value)
+
+				elif command.is_control_file() or command.is_read_file():
 					for file in command.iter_files(settings_):
-						if type_ == 'GRID':
+						cf = file.resolve()
+						load_gis = LoadGisFromControlFile(self.model_file_layers, cf, settings_)
+						load_gis.loadGisFromControlFile_v2()
+
+				elif command.is_read_gis():
+					if command.in_output_zone_block() and not command.in_output_zone_block(settings_.output_zones):
+						continue
+
+					for type_ in command.iter_geom(settings_):
+						if type_ == 'VALUE':
+							continue
+						for file in command.iter_files(settings_):
+							if type_ == 'GRID':
+								cf_lyrs.add_grid(file)
+							else:
+								cf_lyrs.add_gis(file)
+
+				elif command.is_read_grid():
+					if command.is_rainfall_grid_nc():
+						#TODO
+						continue
+
+					for type_ in command.iter_grid(settings_):
+						for file in command.iter_files(settings_):
+							if type_ == 'GRID':
+								cf_lyrs.add_grid(file)
+							else:
+								cf_lyrs.add_gis(file)
+
+				elif command.is_read_projection():
+					for file in command.iter_files(settings_):
+						if command.command == 'TIF PROJECTION':
 							cf_lyrs.add_grid(file)
 						else:
 							cf_lyrs.add_gis(file)
 
-			elif command.is_read_grid():
-				if command.is_rainfall_grid_nc():
+				elif command.is_rainfall_grid_csv():
 					#TODO
 					continue
 
-				for type_ in command.iter_grid(settings_):
-					for file in command.iter_files(settings_):
-						if type_ == 'GRID':
-							cf_lyrs.add_grid(file)
-						else:
-							cf_lyrs.add_gis(file)
+			self.finished.emit()
 
-			elif command.is_read_projection():
-				for file in command.iter_files(settings_):
-					if command.command == 'TIF PROJECTION':
-						cf_lyrs.add_grid(file)
-					else:
-						cf_lyrs.add_gis(file)
-
-			elif command.is_rainfall_grid_csv():
-				#TODO
-				continue
-
-		self.finished.emit()
+		except Exception as e:
+			self.error.emit(str(e))
 
 
 def loadGisFromControlFile(controlFile, iface, processed_paths, processed_layers, scenarios, variables, crs,
@@ -5593,8 +5653,8 @@ def sortNodesInGroup(group, nodes=None):
 	# 	else:
 	# 		# if node is empty, remove from map
 	# 		node.parent().removeChildNode(node)
-	
-					
+
+
 def sortLayerPanel(sort_locally=False):
 	"""
 	Sort layers alphabetically in layer panel. Option to sort locally i.e. if layers
@@ -5621,7 +5681,7 @@ def sortLayerPanel(sort_locally=False):
 	if not sort_locally:
 		for group in legint.findGroups():
 			legint.removeChildNode(group)
-	
+
 	# # grab all nodes that are QgsMapLayers - get to node bed rock i.e. not a group
 	# nodes = legint.findLayers()
 	#
@@ -5648,7 +5708,7 @@ def sortLayerPanel(sort_locally=False):
 	# 	groups = legint.findGroups()
 	# 	for group in groups:
 	# 		legint.removeChildNode(group)
-			
+
 			
 def getAllFolders(dir, relPath, variables, scenarios, events, output_drive=None, db=None):
 	"""
@@ -6118,11 +6178,14 @@ def resToRes(exe, function, workdir, meshes, dataType, **kwargs):
 
 	if function.lower() == 'info':
 		info = ''
-		with open(file, 'r') as f:
-			for line in f:
-				info += line
-		shutil.rmtree(tmpdir)
-		return False, info  # return info instead of process log
+		try:
+			with open(file, 'r') as f:
+				for line in f:
+					info += line
+			shutil.rmtree(tmpdir)
+			return False, info  # return info instead of process log
+		except:
+			return True, info
 	else:
 		if 'saveFile' in kwargs:
 			if kwargs['saveFile']:
@@ -6233,6 +6296,7 @@ def downloadBinPackage(packageUrl, destinationFileName):
 	request = QNetworkRequest(QUrl(packageUrl))
 	request.setRawHeader(b'Accept-Encoding', b'gzip,deflate')
 
+	cache = QgsNetworkAccessManager.instance().cache().remove(QUrl(packageUrl))
 	reply = QgsNetworkAccessManager.instance().get(request)
 	evloop = QEventLoop()
 	reply.finished.connect(evloop.quit)
@@ -7082,7 +7146,7 @@ def isTSLayer(layer, results=None):
 	else:
 		name = Path(name).stem
 
-	return re.findall(r'_TS(_[PLR])?', name, flags=re.IGNORECASE) and (results is None or name in results)
+	return re.findall(r'_TS(MB|MB1d2d)?(_[PLR])?$', name, flags=re.IGNORECASE) and (results is None or name in results)
 
 
 def getRasterValue(point, raster):
@@ -8549,6 +8613,8 @@ def reload_data(layer):
 		if isinstance(layer, QgsVectorLayer):
 			layer.dataProvider().forceReload()
 			layer.triggerRepaint()
+		elif isinstance(layer, QgsMeshLayer) and Qgis.QGIS_VERSION_INT >= 32800:
+			layer.reload()
 
 
 def tuflowqgis_apply_gpkg_layername(iface):
@@ -8956,7 +9022,7 @@ def getOutputDirs(path, settings=None):
 
 			wildcards = [r'(~[es]\d?~)']
 			re_name = re_ify(settings.tcf.with_suffix('').name, wildcards)
-			re_name = r'{0}((_[A-^`-z0-9%&]+)(\+[A-^`-z0-9%&]+)*)?'.format(re_name)
+			re_name = r'{0}((_[A-^`-z0-9%&\-]+)(\+[A-^`-z0-9%&\-]+)*)?'.format(re_name)
 
 			parent = settings.control_file.parent
 			search_globs = [TuflowPath(command.value) / '**' / settings.tcf.with_suffix('.xmdf').name,
@@ -8993,7 +9059,7 @@ def getOutputDirs(path, settings=None):
 					pattern = globify(glob, wildcards)
 					pattern = '{0}*{1}'.format(Path(pattern).with_suffix(''), Path(pattern).suffix)
 					for file in parent.glob(pattern):
-						re_name_ = r'{0}\{1}'.format(re_name, file.suffix)
+						re_name_ = r'{0}_{{{1}}}\{2}'.format(re_name, oz, file.suffix)
 						if re.findall(re_name_, file.name):
 							output_paths.append(file)
 
@@ -9133,7 +9199,7 @@ def LoadTCFOptionsMessageBox(parent, title):
 	image = QLabel()
 	image.setPixmap(QPixmap(":/icons/icons/question.svg").scaled(35, 35, Qt.KeepAspectRatio))
 	label = QLabel()
-	label.setText('<b>Load from TCF import options</b>')
+	label.setText('<b>Load from Control File import options</b>')
 	hlayout1 = QHBoxLayout()
 	hlayout1.addWidget(image)
 	hlayout1.addWidget(label)

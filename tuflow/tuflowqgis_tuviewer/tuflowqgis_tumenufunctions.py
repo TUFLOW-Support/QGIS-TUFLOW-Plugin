@@ -486,6 +486,25 @@ class TuMenuFunctions():
 			layer = tuflowqgis_find_layer(result)
 			# self.tuView.project.removeMapLayer(layer)
 			if layer is not None:
+				try:
+					layer.nameChanged.disconnect()
+				except:
+					pass
+				try:
+					signal = self.tuView.tuResults.tuResults2D.layer_style_changed_signals.get(layer.id())
+					if signal is not None:
+						layer.rendererChanged.disconnect(signal)
+						del self.tuView.tuResults.tuResults2D.layer_style_changed_signals[layer.id()]
+				except:
+					print('ERROR: disconnecting style changed signal')
+				if Qgis.QGIS_VERSION_INT >= 32800:
+					try:
+						signal = self.tuView.tuResults.tuResults2D.layer_reloaded_signals.get(layer.id())
+						if signal is not None:
+							layer.reloaded.disconnect(signal)
+							del self.tuView.tuResults.tuResults2D.layer_reloaded_signals[layer.id()]
+					except:
+						pass
 				self.tuView.project.removeMapLayer(layer.id())
 
 		if self.tuView.canvas is not None:

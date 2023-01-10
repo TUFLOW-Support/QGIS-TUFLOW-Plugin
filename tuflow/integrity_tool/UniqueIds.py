@@ -8,6 +8,16 @@ MAX_FIELD_LENGTH = 36  # maximum id length - since 2020-01-AB
 MAX_ITERATIONS = 1000  # used to cap 'while' loops
 
 
+class FeatKey:
+
+    def __init__(self, lyr, feat):
+        self.feat = feat
+        self.lyr = lyr
+
+    def __hash__(self):
+        return object.__hash__(str(self.lyr.id()) + str(self.feat.id()))
+
+
 class DuplicateRule:
     """
     Rule for determining how to deal with duplicate channel ids and how
@@ -211,14 +221,15 @@ class UniqueIds(QObject):
 
             for feat in gis_layer.getFeatures():
                 id_ = feat.attributes()[iid]
+                feat_key = FeatKey(gis_layer, feat)
                 if feat.attributes()[iid+1] != NULL and feat.attributes()[iid+1].lower() != 'x' and (id_ == NULL or id_.strip() == ''):
                     self.null_id_count += 1
-                    self.null_id_feats[feat] = gis_layer
+                    self.null_id_feats[feat_key] = feat_key
                 elif feat.attributes()[iid+1] != NULL and feat.attributes()[iid+1].lower() != 'x' and id_ not in self.ids:
                     self.ids.append(id_)
                 elif feat.attributes()[iid + 1] != NULL and feat.attributes()[iid + 1].lower() != 'x':
                     self.duplicate_ids.append(id_)
-                    self.duplicate_feats[feat] = gis_layer
+                    self.duplicate_feats[feat_key] = feat_key
 
                 self.updated.emit()
 
@@ -261,9 +272,10 @@ class UniqueIds(QObject):
             return
 
         new_feats = []
-        for feat in self.duplicate_feats:
+        for feat_key in self.duplicate_feats:
+            feat = feat_key.feat
             if not feat.geometry().isEmpty():
-                is_gpkg = re.findall(re.escape(r'.gpkg|layername='), self.duplicate_feats[feat].dataProvider().dataSourceUri(), flags=re.IGNORECASE)
+                is_gpkg = re.findall(re.escape(r'.gpkg|layername='), self.duplicate_feats[feat_key].lyr.dataProvider().dataSourceUri(), flags=re.IGNORECASE)
                 iid = 1 if is_gpkg else 0
                 new_feat = QgsFeature()
                 new_feat.setGeometry(feat.geometry().pointOnSurface())
@@ -275,7 +287,8 @@ class UniqueIds(QObject):
                 ])
                 new_feats.append(new_feat)
             self.updated.emit()
-        for feat in self.null_id_feats:
+        for feat_key in self.null_id_feats:
+            feat = feat_key.feat
             if not feat.geometry().isEmpty():
                 new_feat = QgsFeature()
                 new_feat.setGeometry(feat.geometry().pointOnSurface())
@@ -302,7 +315,7 @@ class UniqueIds(QObject):
         empty IDs.
         """
 
-        # check that 'checkForDuplicates' has already been run
+            # check that 'checkForDuplicates' has already been run
         if not self.__check_has_run__():
             return
 

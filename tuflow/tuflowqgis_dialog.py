@@ -444,6 +444,12 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		self.pbSaveToProject.clicked.connect(lambda: self.saveDir('project'))
 		self.pbSaveToGlobal.clicked.connect(lambda: self.saveDir('global'))
 
+		self.cbConvertToDb.clicked.connect(self.save_settings_convert_to_database)
+		self.rbDatabaseSeparate.clicked.connect(self.save_settings_to_separate)
+		self.rbDatabaseGrouped.clicked.connect(self.save_settings_group_geometries)
+		self.rbDatabaseOne.clicked.connect(self.save_settings_group_together)
+		self.leDatabaseBrowse.textChanged.connect(self.save_settings_database)
+
 		if self.tfsettings.combined.empty_dir:
 			self.emptydir.setText(self.tfsettings.combined.empty_dir.replace('/', os.sep).replace('\\', os.sep))
 		elif self.tfsettings.combined.base_dir:
@@ -494,6 +500,37 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		w = self.width()
 		h = self.height() - self.gbSpatialDatabaseOptions.sizeHint().height()
 		self.resize(w, h)
+
+		b = QSettings().value('TUFLOW/import_empty/convert_to_dbase', False)
+		self.cbConvertToDb.setChecked(bool(b))
+
+		db_setting = QSettings().value('TUFLOW/import_empty/db_output_option', 'separate')
+		if db_setting == 'geometries':
+			self.rbDatabaseGrouped.setChecked(True)
+		elif db_setting == 'grouped':
+			self.rbDatabaseOne.setChecked(True)
+		else:
+			self.rbDatabaseSeparate.setChecked(True)
+		db_path = QSettings().value('TUFLOW/import_empty/db_path', '<Existing or New Database>')
+		self.leDatabaseBrowse.setText(db_path)
+
+	def save_settings_convert_to_database(self):
+		QSettings().setValue('TUFLOW/import_empty/convert_to_dbase', self.cbConvertToDb.isChecked())
+
+	def save_settings_to_separate(self):
+		if self.rbDatabaseSeparate.isChecked():
+			QSettings().setValue('TUFLOW/import_empty/db_output_option', 'separate')
+
+	def save_settings_group_geometries(self):
+		if self.rbDatabaseGrouped.isChecked():
+			QSettings().setValue('TUFLOW/import_empty/db_output_option', 'geometries')
+
+	def save_settings_group_together(self):
+		if self.rbDatabaseOne.isChecked():
+			QSettings().setValue('TUFLOW/import_empty/db_output_option', 'grouped')
+
+	def save_settings_database(self):
+		QSettings().setValue('TUFLOW/import_empty/db_path', self.leDatabaseBrowse.text())
 		
 	def saveDir(self, type_):
 		if type_ == 'project':
@@ -1250,6 +1287,9 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		if self.cbRun.isChecked():
 			ext = '.fvc' if engine == 'flexible mesh' else '.tcf'
 			runfile = os.path.join(basedir, parent_folder_name, "runs", "Create_Empties{0}".format(ext))
+			if not os.path.exists(runfile):
+				gisFormat = 'GPKG' if self.rbGPKG.isChecked() else 'SHP'
+				create_empty_tcf(runfile, gisFormat, tutorial)
 			#QMessageBox.information(self.iface.mainWindow(), "Running {0}".format(parent_folder_name),"Starting simulation: "+runfile+"\n Executable: "+tfexe)
 			message = run_tuflow(self.iface, tfexe, runfile)
 			if message != None:
@@ -2852,7 +2892,7 @@ class tuflowqgis_scenarioSelection_dialog(QDialog, Ui_scenarioSelection):
 		self.scenarios = scenarios
 		self.setupUi(self)
 		self.status = 0
-		
+
 		for scenario in self.scenarios:
 			self.scenario_lw.addItem(scenario)
 		
@@ -2885,7 +2925,7 @@ class tuflowqgis_scenarioSelection_dialog(QDialog, Ui_scenarioSelection):
 				  self.rbRasterLoadInvisible]
 		for w in widget:
 			w.setVisible(b)
-	
+
 	def cancel(self):
 		self.status = 0
 		self.reject()
@@ -3196,7 +3236,7 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		self.sbHorizontalFactor.setValue(self.tuOptions.curtain_vector_horizontal_factor)
 		self.sbVertVelFactor.setValue(self.tuOptions.curtain_vector_vertical_factor)
 
-		
+
 		# Signals
 		self.leDateFormat.textChanged.connect(self.updatePreview)
 		self.rbDefaultLayoutPlotView.clicked.connect(lambda: self.saveDefaultLayout("plot"))
@@ -4835,6 +4875,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 			self.downloadUtilities.updated.connect(self.progressDialog.updateProgress)
 			self.downloadUtilities.finished.connect(self.progressDialog.progressFinished)
 			self.downloadUtilities.finished.connect(self.downloadFinished)
+			self.downloadUtilities.finished.connect(self.thread.terminate)
 			self.thread.started.connect(self.downloadUtilities.download)
 			self.progressDialog.show()
 			self.thread.start()
@@ -5056,7 +5097,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 			times.append('Min')
 		times.extend(['{0:.03f}'.format(x) for x in self.xmdf_header.times(result_type)])
 		self.cboTimestep.addItems(times)
-		
+
 	def check(self):
 		if self.rbCommonFunctions.isChecked():
 			# if self.leOutputName.text():
@@ -5450,74 +5491,74 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 		self.leXSGenerator.setText(QSettings().value("TUFLOW_Utilities/xsGenerator_exe"))
 		
 	def connectBrowseButtons(self):
-		self.btnBrowseComOutputDir.clicked.connect(lambda: self.browse('existing folder',
+		self.btnBrowseComOutputDir.clicked.connect(lambda: browse(self, 'existing folder',
 		                                                               'TUFLOW_Utilities/output_directory',
 		                                                               'Output Directory', None, self.leComOutputDir))
-		self.btnBrowseDiffGrid1.clicked.connect(lambda: self.browse('existing file',
+		self.btnBrowseDiffGrid1.clicked.connect(lambda: browse(self, 'existing file',
 		                                                            'TUFLOW_Utilities/ASC_to_ASC_difference_grid1',
 		                                                            'ASC_to_ASC Difference Grid 1',
 		                                                            "All grid formats (*.asc *.ASC *.flt *.FLT *.txt *.TXT);;"
 		                                                            "ASC format(*.asc *.ASC);;"
 		                                                            "FLT format (*.flt *.FLT);;"
 		                                                            "TXT format (*.txt *.TXT", self.cboDiffGrid1))
-		self.btnBrowseDiffGrid2.clicked.connect(lambda: self.browse('existing file',
+		self.btnBrowseDiffGrid2.clicked.connect(lambda: browse(self, 'existing file',
 		                                                            'TUFLOW_Utilities/ASC_to_ASC_difference_grid2',
 		                                                            'ASC_to_ASC Difference Grid 2',
 		                                                            "All grid formats (*.asc *.ASC *.flt *.FLT *.txt *.TXT);;"
 		                                                            "ASC format(*.asc *.ASC);;"
 		                                                            "FLT format (*.flt *.FLT);;"
 		                                                            "TXT format (*.txt *.TXT", self.cboDiffGrid2))
-		self.btnBrowseGrid.clicked.connect(lambda: self.browse('existing files',
+		self.btnBrowseGrid.clicked.connect(lambda: browse(self, 'existing files',
 		                                                       'TUFLOW_Utilities/ASC_to_ASC_grid',
 		                                                       'ASC_to_ASC Input Grid',
 		                                                       "All grid formats (*.asc *.ASC *.flt *.FLT *.txt *.TXT);;"
 		                                                       "ASC format(*.asc *.ASC);;"
 		                                                       "FLT format (*.flt *.FLT);;"
 		                                                       "TXT format (*.txt *.TXT", self.cboGrid))
-		self.btnBrowseAdvWorkingDir.clicked.connect(lambda: self.browse('existing folder',
+		self.btnBrowseAdvWorkingDir.clicked.connect(lambda: browse(self, 'existing folder',
 		                                                                "TUFLOW_Utilities/advanced_working_directory",
 		                                                                "Working Directory", None,
 		                                                                self.leAdvWorkingDir))
-		self.btnBrowseAsc2Asc.clicked.connect(lambda: self.browse('existing file', "TUFLOW_Utilities/ASC_to_ASC_exe",
+		self.btnBrowseAsc2Asc.clicked.connect(lambda: browse(self, 'existing file', "TUFLOW_Utilities/ASC_to_ASC_exe",
 		                                                          "ASC_to_ASC executable location", "EXE (*.exe *.EXE)",
 		                                                          self.leAsc2Asc))
-		self.btnBrowseTUFLOW2GIS.clicked.connect(lambda: self.browse('existing file',
+		self.btnBrowseTUFLOW2GIS.clicked.connect(lambda: browse(self, 'existing file',
 		                                                             "TUFLOW_Utilities/TUFLOW_to_GIS_exe",
 		                                                             "TUFLOW_to_GIS executable location",
 		                                                             "EXE (*.exe *.EXE)", self.leTUFLOW2GIS))
-		self.btnBrowseRes2Res.clicked.connect(lambda: self.browse('existing file',
+		self.btnBrowseRes2Res.clicked.connect(lambda: browse(self, 'existing file',
 		                                                          "TUFLOW_Utilities/Res_to_Res_exe",
 		                                                          "Res_to_Res executable location",
 		                                                          "EXE (*.exe *.EXE)", self.leRes2Res))
-		self.btnBrowse12da2GIS.clicked.connect(lambda: self.browse('existing file',
+		self.btnBrowse12da2GIS.clicked.connect(lambda: browse(self, 'existing file',
 		                                                           "TUFLOW_Utilities/12da_to_from_GIS_exe",
 		                                                           "12da_to_from_GIS executable location",
 		                                                           "EXE (*.exe *.EXE)", self.le12da2GIS))
-		self.btnBrowseConvert2TS1.clicked.connect(lambda: self.browse('existing file',
+		self.btnBrowseConvert2TS1.clicked.connect(lambda: browse(self, 'existing file',
 		                                                              "TUFLOW_Utilities/Convert_to_TS1_exe",
 		                                                              "Convert_to_TS1 executable location",
 		                                                              "EXE (*.exe *.EXE)", self.leConvert2TS1))
-		self.btnBrowseTin2Tin.clicked.connect(lambda: self.browse('existing file',
+		self.btnBrowseTin2Tin.clicked.connect(lambda: browse(self, 'existing file',
 		                                                          "TUFLOW_Utilities/Tin_to_Tin_exe",
 		                                                          "Tin_to_Tin executable location",
 		                                                          "EXE (*.exe *.EXE)", self.leTin2Tin))
-		self.btnBrowseXSGenerator.clicked.connect(lambda: self.browse('existing file',
+		self.btnBrowseXSGenerator.clicked.connect(lambda: browse(self, 'existing file',
 		                                                              "TUFLOW_Utilities/xsGenerator_exe",
 		                                                              "xsGenerator executable location",
 		                                                              "EXE (*.exe *.EXE)", self.leXSGenerator))
-		self.btnBrowseMeshToGis.clicked.connect(lambda: self.browse('existing file',
+		self.btnBrowseMeshToGis.clicked.connect(lambda: browse(self, 'existing file',
 		                                                            'TUFLOW_Utilities/TUFLOW_to_GIS_mesh',
 		                                                            'XMDF or DAT location',
 		                                                            "All mesh formats (*.xmdf *.XMDF *.dat *.DAT);;"
 		                                                            "XMDF format(*.xmdf *.XMDF);;"
 		                                                            "DAT format (*.dat *.DAT)", self.leMeshToGis))
-		self.btnBrowseMeshToRes.clicked.connect(lambda: self.browse('existing file',
+		self.btnBrowseMeshToRes.clicked.connect(lambda: browse(self, 'existing file',
 		                                                            'TUFLOW_Utilities/Res_to_Res_mesh',
 		                                                            'XMDF or DAT location',
 		                                                            "All mesh formats (*.xmdf *.XMDF *.dat *.DAT);;"
 		                                                            "XMDF format(*.xmdf *.XMDF);;"
 		                                                            "DAT format (*.dat *.DAT)", self.leMeshToRes))
-		self.btnBrowseMeshMulti.clicked.connect(lambda: self.browse('existing files',
+		self.btnBrowseMeshMulti.clicked.connect(lambda: browse(self, 'existing files',
 		                                                            'TUFLOW_Utilities/TUFLOW_to_GIS_meshes',
 		                                                            'XMDF or DAT location',
 		                                                            "All mesh formats (*.xmdf *.XMDF *.dat *.DAT);;"

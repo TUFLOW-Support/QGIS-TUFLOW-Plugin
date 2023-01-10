@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
@@ -1853,7 +1854,7 @@ class TuPlot():
 		
 		# Units  (SI, Imperial, ..place holders.. , blank)
 		# can use regular expressions
-		units = {
+		units = OrderedDict({
 			r'Time of Peak.*': ('hrs', 'hrs', ''),
 			r'.*elevation.*': ('m RL', 'ft RL', ''),
 			r'level': ('m RL', 'ft RL', ''),
@@ -1904,9 +1905,12 @@ class TuPlot():
 			r'wave force': ('N/m$^2$', 'N/A', ''),
 			r'wave peak period': ('s', 's', ''),
 			r'minimum dt': ('s', 's', ''),
-		}
+			r'rf cumulative': ('mm', 'in', ''),
+			r'rf rate': ('mm/hr', 'in/hr', ''),
+			r'cum\. mat\. loss': ('mm', 'in', '')
+		})
 		
-		shortNames = {
+		shortNames = OrderedDict({
 			r'Time of Peak.*': 't',
 			r'.*elevation.*': 'h',
 			r'flow': 'Q',
@@ -1954,7 +1958,10 @@ class TuPlot():
 			r'wave peak period': 'Wvper',
 			r'wind velocity': 'W10',
 			r'minimum dt': 'dt',
-		}
+			r'rf cumulative': 'RFC',
+			r'rf rate': 'RFR',
+			r'cum\. mat\. loss': 'RFML'
+		})
 
 		# determine units i.e. metric, imperial, or unknown / blank
 		u, m = -1, ''
@@ -4307,11 +4314,19 @@ class TuPlot():
 		except:
 			return []
 		if isinstance(artist, plt.Line2D):
-			d = list(zip(*artist.get_data()))
+			a = trans_event(a)
+			la = a[0] - a[0] * 0.05  # lower a
+			ua = a[0] + a[0] * 0.05  # upper a
 			if artist.get_xdata().any():
 				if isinstance(artist.get_xdata()[0], datetime):
-					d = [(date2num(x[0]), x[1]) for x in d]
-			return [x for x in d if np.isclose(trans(x), trans_event(a), atol=5).all()]
+					d = np.array([trans((date2num(x[0]), x[1])) for x in zip(*artist.get_data())])
+				else:
+					d = np.array([trans(x) for x in zip(*artist.get_data())])
+			else:
+				d = np.array(artist.get_data())
+			d = d[(d[:,0] > la) & (d[:,0] < ua)]
+			# return [x for x in d if np.isclose(trans(x), trans_event(a), atol=5).all()]
+			return [x for x in d if np.isclose(x, a, atol=5).all()]
 		elif isinstance(artist, Polygon):
 			# return [x for x in artist.get_xy() if np.isclose(trans(x), trans_event(a), atol=5).all()]
 			contains, _ = artist.contains(event)
@@ -4334,18 +4349,37 @@ class TuPlot():
 		except:
 			return None, None
 		if isinstance(artist, plt.Line2D):
-			d = list(zip(*artist.get_data()))
+			# d = list(zip(*artist.get_data()))
+			a = trans_event(a)
 			if artist.get_xdata().any():
 				if isinstance(artist.get_xdata()[0], datetime):
-					d = [(date2num(x[0]), x[1]) for x in d]
-			close_points = np.array([(np.absolute(np.array(x) - np.array(a)).sum(), i) for i, x in enumerate(d) if np.isclose(trans(x), trans_event(a), atol=5).all()])
-			i = np.where(close_points[:,0] == np.amin(close_points[:,0]))[0][0]
+					# d = [(date2num(x[0]), x[1]) for x in d]
+					d = np.array([trans((date2num(x[0]), x[1])) for x in zip(*artist.get_data())])
+				else:
+					d = np.array([trans(x) for x in zip(*artist.get_data())])
+			else:
+				d = np.array(artist.get_data())
+			mask = (d[:, 0] > (a[0] - a[0] * 0.1)) & (d[:, 0] < (a[0] + a[0] * 0.1))
+			mask_start = np.where(mask == True)[0]
+			if mask_start.shape[0]:
+				mask_start = mask_start[0]
+			else:
+				return None, None
+			d = d[mask]
+			# close_points = np.array([(np.absolute(np.array(x) - np.array(a)).sum(), i) for i, x in enumerate(d) if np.isclose(trans(x), trans_event(a), atol=5).all()])
+			close_points = np.array([(np.absolute(np.array(x) - np.array(a)).sum(), i + mask_start) for i, x in enumerate(d) if np.isclose(x, a, atol=5).all()])
+			if not close_points.any():
+				return None, None
+			try:
+				i = np.where(close_points[:,0] == np.amin(close_points[:,0]))[0][0]
+			except:
+				_ = 1
 			point_xy = list(zip(*artist.get_data()))[int(close_points[:,1][i])]
 			if isinstance(point_xy[0], datetime):
 				pxy = (date2num(point_xy[0]), point_xy[1])
 				dist = ((trans(pxy)[0] - trans_event(a)[0]) ** 2 + (trans(pxy)[1] - trans_event(a)[1]) ** 2) ** 0.5
 			else:
-				dist = ((trans(point_xy)[0] - trans_event(a)[0]) ** 2 + (trans(point_xy)[1] - trans_event(a)[1]) ** 2) ** 0.5
+				dist = ((trans(point_xy)[0] - a[0]) ** 2 + (trans(point_xy)[1] - a[1]) ** 2) ** 0.5
 			if dist_ is None or point_xy_ is None or dist < dist_:
 				return point_xy, dist
 			else:
@@ -4401,8 +4435,8 @@ class TuPlot():
 			elif isinstance(artist, Polygon):
 				annotation.get_bbox_patch().set_facecolor('0.9')
 		elif type(artist) == PolyCollection:
-			_, ind = artist.contains(event)
-			if ind:
+			contains, ind = artist.contains(event)
+			if contains and ind:
 				z = artist.get_array()[ind['ind'][0]]
 				text = '{0:.3f}'.format(z)
 				annotation.get_bbox_patch().set_facecolor(artist.cmap(self.tuPlot3D.colSpec['norm'](z)))
@@ -4441,6 +4475,7 @@ class TuPlot():
 		return b
 
 	def hover(self, event, plotNo):
+		#start = datetime.now()
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.plotEnumerator(plotNo)
 		xlim = subplot.get_xlim()
@@ -4487,9 +4522,14 @@ class TuPlot():
 						l_off = line
 					else:
 						continue
-					if self.indata(artist, [event.xdata, event.ydata], ax, ax_event, event):
-						found = True
-						if type(artist) == PolyCollection:
+					#start1 = datetime.now()
+					# if self.indata(artist, [event.xdata, event.ydata], ax, ax_event, event):
+					#print('indata:', (datetime.now() - start1).total_seconds())
+					# found = False
+					closest_point, dist = None, None
+					if type(artist) == PolyCollection:
+						contains, _ = artist.contains(event)
+						if contains:
 							closest_point = (event.xdata, event.ydata)
 							if artist.axes != ax_event:
 								try:
@@ -4498,9 +4538,10 @@ class TuPlot():
 								except:
 									continue
 							dist = 5
-						else:
-							closest_point, dist = None, None
-							if type(artist) == Polygon or type(artist) == TuflowPipe:
+					else:
+						if type(artist) == Polygon or type(artist) == TuflowPipe:
+							contains, _ = artist.contains(event)
+							if contains:
 								closest_point = (event.xdata, event.ydata)
 								if artist.axes != ax_event:
 									try:
@@ -4509,7 +4550,15 @@ class TuPlot():
 									except:
 										continue
 								dist = 5
-							closest_point, dist = self.closest_point(artist, [event.xdata, event.ydata], ax, ax_event, closest_point, dist)
+
+						#start2 = datetime.now()
+						closest_point_, dist_ = self.closest_point(artist, [event.xdata, event.ydata], ax, ax_event, closest_point, dist)
+						if (dist is not None and dist_ < dist) or dist is None:
+							closest_point = closest_point_
+							dist = dist_
+						#print('closest_point:', (datetime.now() - start2).total_seconds())
+					if closest_point is not None:
+						found = True
 						self.update_annotation(closest_point, annot, p, artist, ax_event, figure, event, dist)
 						annot.set_visible(True)
 						if type(artist) == PolyCollection or type(artist) == Quiver:
@@ -4536,6 +4585,7 @@ class TuPlot():
 						self._blitted_draw(plotNo, annot, annot_off, p, p_off, l, l_off)
 
 						if dist is not None and dist < 3:
+							#print('total:', (datetime.now() - start).total_seconds())
 							return
 
 					elif isinstance(artist, plt.Line2D):
@@ -4600,6 +4650,7 @@ class TuPlot():
 				line2.set_visible(False)
 
 			self._blitted_draw(plotNo, annotation, annotation2, point, point2, line, line2)
+		#print('total:', (datetime.now() - start).total_seconds())
 
 	def onDraw(self, e, plotNo):
 		self._create_new_background(plotNo)

@@ -34,6 +34,10 @@ class TuResults2D():
 		self.meshProperties = {}
 		self.results2d = {}  # holds 2d properties e.g. 'path'
 		self.bRecordSpecialTime = None
+		self.layer_reloaded_signals = {}
+		self.layer_style_changed_signals = {}
+		self.active_style = None
+		self.active_style_group_name = -1
 	
 	def importResults(self, inFileNames):
 		"""
@@ -102,6 +106,11 @@ class TuResults2D():
 			self.tuView.project.addMapLayer(mLayer)
 			name = mLayer.name()
 			mLayer.nameChanged.connect(lambda: self.layerNameChanged(mLayer, name, mLayer.name()))  # if name is changed can capture this in indexing
+			signal = mLayer.rendererChanged.connect(lambda: self.layerStyleChanged(mLayer))
+			self.layer_style_changed_signals[mLayer.id()] = signal
+			if qv >= 32800:
+				signal = mLayer.reloaded.connect(lambda: self.layerReloaded(mLayer))
+				self.layer_reloaded_signals[mLayer.id()] = signal
 			
 			rs = mLayer.rendererSettings()
 			rsMesh = rs.nativeMeshSettings()
@@ -361,29 +370,29 @@ class TuResults2D():
 
 		# this is to capture minimums - loop through the result names once and figure out if there are double ups that are static
 		mdGroupNames = []
-		for i in range(dp.datasetGroupCount()):
-			mdGroupNames.append(dp.datasetGroupMetadata(i).name())
+		for i in range(layer.datasetGroupCount()):
+			mdGroupNames.append(layer.datasetGroupMetadata(QgsMeshDatasetIndex(i, -1)).name())
 		for i, name_ in enumerate(mdGroupNames):
 			if 'minimum dt' in name_.lower():
-				if TuResults.isMaximumResultType(name_, dp, i):
+				if TuResults.isMaximumResultType(name_, layer, i):
 					if '/Maximum' not in name_:
 						mdGroupNames[i] = '{0}/Maximums'.format(name_)
 						continue
 			count = mdGroupNames.count(name_)
 			if count > 1:
-				if TuResults.isStatic(name_, dp, i):
+				if TuResults.isStatic(name_, layer, i):
 					if ext.upper() == '.XMDF':
 						mdGroupNames[i] = '{0}/Minimums'.format(name_)
 
 		# for i in range(dp.datasetGroupCount()):
 		for i, name_ in enumerate(mdGroupNames):
 			# Get result type e.g. depth, velocity, max depth
-			mdGroup = dp.datasetGroupMetadata(i)  # Group Metadata
+			mdGroup = layer.datasetGroupMetadata(QgsMeshDatasetIndex(i,-1))  # Group Metadata
 			id, id2 = self.getResultTypeNames(mdGroup, ext, resultTypes, name_)
 
 			# special case for minimum dt
 			if 'minimum dt' in id.lower():
-				if TuResults.isMaximumResultType(id, dp, i):
+				if TuResults.isMaximumResultType(id, layer, i):
 					if '/Maximum' not in id:
 						id = f'{id}/Maximums'
 
@@ -394,28 +403,28 @@ class TuResults2D():
 
 			# initiate in result dict
 			results[name][id] = {'times': {},
-			                     'is3dDataset': self.is3dDataset(i, dp),
+			                     'is3dDataset': self.is3dDataset(i, layer),
 			                     'timeUnit': self.getTimeUnit(layer),
 			                     # 'referenceTime': self.tuView.tuOptions.zeroTime,
 			                     'referenceTime': self.getReferenceTime(layer, self.tuView.tuOptions.zeroTime),
-			                     'isMax': TuResults.isMaximumResultType(id, dp, i),
-			                     'isMin':TuResults.isMinimumResultType(id, dp, i),
-			                     'isStatic': TuResults.isStatic(id, dp, i),
-			                     'isTemporal': TuResults.isTemporal(id, dp, i),
+			                     'isMax': TuResults.isMaximumResultType(id, layer, i),
+			                     'isMin':TuResults.isMinimumResultType(id, layer, i),
+			                     'isStatic': TuResults.isStatic(id, layer, i),
+			                     'isTemporal': TuResults.isTemporal(id, layer, i),
 			                     'hadTemporalProperties': hadtp,
 			                     'ext': ext,
 			                     'isMesh': True,
 			                     }  # add result type to results dictionary
 			if id2 is not None:
 				results[name][id2] = {'times': {},
-				                      'is3dDataset': self.is3dDataset(i, dp),
+				                      'is3dDataset': self.is3dDataset(i, layer),
 				                      'timeUnit': self.getTimeUnit(layer),
 				                      # 'referenceTime': self.tuView.tuOptions.zeroTime,
 				                      'referenceTime': self.getReferenceTime(layer, self.tuView.tuOptions.zeroTime),
-				                      'isMax': TuResults.isMaximumResultType(id, dp, i),
-				                      'isMin':TuResults.isMinimumResultType(id, dp, i),
-				                      'isStatic': TuResults.isStatic(id, dp, i),
-				                      'isTemporal': TuResults.isTemporal(id, dp, i),
+				                      'isMax': TuResults.isMaximumResultType(id, layer, i),
+				                      'isMin':TuResults.isMinimumResultType(id, layer, i),
+				                      'isStatic': TuResults.isStatic(id, layer, i),
+				                      'isTemporal': TuResults.isTemporal(id, layer, i),
 				                      'hadTemporalProperties': hadtp,
 				                      'ext': ext,
 				                      'isMesh': True,
@@ -442,8 +451,8 @@ class TuResults2D():
 						self.applyVectorRenderSettings(layer, i, vectorProperties)
 
 			# record datasetindex for each timestep
-			for j in range(dp.datasetCount(i)):
-				md = dp.datasetMetadata(QgsMeshDatasetIndex(i, j))  # metadata for individual timestep
+			for j in range(layer.datasetCount(QgsMeshDatasetIndex(i,-1))):
+				md = layer.datasetMetadata(QgsMeshDatasetIndex(i, j))  # metadata for individual timestep
 
 				# TUFLOW special timesteps
 				st = self.recordSpecialTime(name, md.time(), id, id2, i, j, ext)
@@ -478,14 +487,14 @@ class TuResults2D():
 		else:
 			return 'h'
 
-	def is3dDataset(self, mdi, dp):
+	def is3dDataset(self, mdi, lyr):
 		"""
 
 		"""
 
-		for i in range(dp.datasetCount(mdi)):
+		for i in range(lyr.datasetCount(QgsMeshDatasetIndex(mdi, -1))):
 			try:
-				return dp.dataset3dValues(QgsMeshDatasetIndex(mdi, i), 0, 1).verticalLevelsCount()[0] > 1
+				return lyr.dataset3dValues(QgsMeshDatasetIndex(mdi, i), 0, 1).verticalLevelsCount()[0] > 1
 			except:
 				continue
 
@@ -827,7 +836,7 @@ class TuResults2D():
 
 		return newId
 
-	def updateActiveMeshLayers(self):
+	def updateActiveMeshLayers(self, *args):
 		"""
 		Updates the list of selected 2D results.
 		
@@ -843,6 +852,15 @@ class TuResults2D():
 			# find selected layer
 			layer = tuflowqgis_find_layer(item.text())
 			if layer is not None:
+				continue_ = False
+				for a in args:
+					if isinstance(a, list) and a and isinstance(a[0], str):
+						layer_for_removal = [x for x in a if tuflowqgis_find_layer(x, search_type='layerId') and tuflowqgis_find_layer(x, search_type='layerId') == layer]
+						if layer_for_removal:
+							continue_ = True
+							break
+				if continue_:
+					continue
 				if isinstance(layer, QgsMeshLayer):
 					if item.isSelected():
 						self.activeMeshLayers.append(layer)
@@ -953,7 +971,7 @@ class TuResults2D():
 		
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-
+		qv = Qgis.QGIS_VERSION_INT
 		layer = kwargs['layer'] if 'layer' in kwargs.keys() else None
 
 		try:
@@ -992,6 +1010,71 @@ class TuResults2D():
 			self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
 				lambda: self.tuView.resultsChanged('selection changed'))
 			self.tuView.resultsChanged('selection changed')
+
+	def layerReloaded(self, layer):
+		results = self.tuView.tuResults.results
+		for result_name, result_items in results.items():
+			if isinstance(result_items, dict):
+				for rtype in list(result_items.keys()):
+					if TuResults.isMapOutputType(rtype):
+						del result_items[rtype]
+
+		if layer.dataProvider().datasetGroupCount() > 0:
+			self.getResultMetaData(layer.name(), layer)
+			self.tuView.tuResults.updateResultTypes()
+
+		self.tuView.resultsChanged()
+
+	def layerStyleChanged(self, layer):
+		if Qgis.QGIS_VERSION_INT < 31600:
+			return
+
+		active_group = layer.rendererSettings().activeScalarDatasetGroup()
+		if active_group < 0:
+			self.active_style_group_name = None
+			self.active_style = None
+			return
+
+		renderer_settings = layer.rendererSettings()
+		active_dataset = layer.datasetGroupMetadata(QgsMeshDatasetIndex(renderer_settings.activeScalarDatasetGroup())).name()
+		active_dataset = TuResults.stripMaximumName(active_dataset)
+		active_dataset = TuResults.stripMinimumName(active_dataset)
+		if active_dataset != self.active_style_group_name:
+			self.active_style_group_name = active_dataset
+			self.active_style = self.scalarDatasetStyleXml(renderer_settings, renderer_settings.activeScalarDatasetGroup())
+			return
+
+		new_style = self.scalarDatasetStyleXml(renderer_settings, renderer_settings.activeScalarDatasetGroup())
+		if new_style != self.active_style:
+			self.active_style = new_style
+			for i in range(layer.datasetGroupCount()):
+				if i == active_group:
+					continue
+
+				dataset = layer.datasetGroupMetadata(QgsMeshDatasetIndex(i)).name()
+				dataset = TuResults.stripMaximumName(dataset)
+				dataset = TuResults.stripMinimumName(dataset)
+				if dataset == active_dataset:
+					doc = QDomDocument('tuflow_meshlayer')
+					statusOK, errorStr, errorLine, errorColumn = doc.setContent(self.active_style, True)
+					if not statusOK:
+						print('ERROR reading style xml')
+						return
+
+					scalar_settings = renderer_settings.scalarSettings(i)
+
+					scalar_settings.readXml(doc.documentElement())
+					renderer_settings.setScalarSettings(i, scalar_settings)
+					layer.setRendererSettings(renderer_settings)
+
+	def scalarDatasetStyleXml(self, renderer_settings, scalar_group):
+		if scalar_group < 0:
+			return
+
+		scalar_settings = renderer_settings.scalarSettings(scalar_group)
+		doc = QDomDocument('tuflow_meshlayer')
+		doc.appendChild(scalar_settings.writeXml(doc))
+		return doc.toString()
 
 	def datasetGroupsAdded(self):
 		"""

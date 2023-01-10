@@ -85,6 +85,8 @@ from tuflow.integrity_tool.IntegrityTool import IntegrityToolDock
 #par
 from .tuflowqgis_library import tuflowqgis_apply_check_tf, resetQgisSettings
 
+from .bridge_editor.BridgeEditor import ArchBridgeDock
+
 # remote debugging
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\plugins\python\helpers\pydev')
@@ -97,6 +99,7 @@ class tuflowqgis_menu:
 	def __init__(self, iface):
 		self.iface = iface
 		self.resultsPlottingDockOpened = False
+		self.archBridgeDockOpen = False
 		self.tpOpen = 'not open'
 		self.intFile = ''
 		self.cLayer = None
@@ -216,7 +219,7 @@ class tuflowqgis_menu:
 		self.clearProjectSettingsAction.triggered.connect(lambda: resetQgisSettings(scope='Project'))
 		self.removeTuviewAction.triggered.connect(self.removeTuview)
 		self.reloadTuviewAction.triggered.connect(self.reloadTuview)
-		
+
 		#top level in menu
 		
 		# Reload Data Added ES 16/07/18
@@ -242,6 +245,27 @@ class tuflowqgis_menu:
 
 		# configure project in toolbar
 		self.iface.addToolBarIcon(self.configure_tf_action)
+
+		# bridges
+		# code for icon with menu - preserved when we have more bridge editors
+		iconArch = QIcon(os.path.join(dir, "icons", "ArchBridge.png"))
+		iconClearSpan = QIcon(os.path.join(dir, "icons", "ClearSpanBridge.png"))
+		self.archBridgeAction = QAction(iconArch, "Arch Bridge", self.iface.mainWindow())
+		self.archBridgeAction.setToolTip(r'Arch Bridge Editor &#40;beta&#41;')
+		self.archBridgeAction.triggered.connect(self.archBrideEditor)
+		# clearSpanAction = QAction(iconClearSpan, "Clear Span Bridge", self.iface.mainWindow())
+		# clearSpanAction.triggered.connect(self.clearSpanBridgeEditor)
+		# toolButton = QToolButton()
+		# toolButton.setIcon(iconArch)
+		# toolButton.setToolTip("Bridge Editor")
+		# menu = QMenu()
+		# menu.addAction(archBridgeAction)
+		# menu.addAction(clearSpanAction)
+		# toolButton.setMenu(menu)
+		# toolButton.setPopupMode(QToolButton.InstantPopup)
+		# self.iface.addToolBarWidget(toolButton)
+		self.iface.addToolBarIcon(self.archBridgeAction)
+		self.iface.addPluginToMenu("&TUFLOW", self.archBridgeAction)
 
 		# TuPLOT External Added ES 2017/11
 		#icon = QIcon(os.path.dirname(__file__) + "/icons/TuPLOT_External.PNG")
@@ -318,7 +342,7 @@ class tuflowqgis_menu:
 		self.apply_style_clayer_menu.addAction(self.apply_chk_cLayer_action)
 		self.apply_style_clayer_menu.addAction(self.apply_stability_style_clayer_action)
 		self.apply_style_clayer_menu.setIcon(icon)
-		self.apply_style_clayer_menu.setToolTip("Apply TUFLOW Styles to Current Layer")
+		self.apply_style_clayer_menu.menuAction().setToolTip("Apply TUFLOW Styles to Current Layer")
 		self.apply_style_clayer_menu.setDefaultAction(self.apply_chk_cLayer_action)
 		self.style_menu_connection = self.apply_style_clayer_menu.menuAction().triggered.connect(self.apply_check_cLayer)
 		self.iface.addToolBarIcon(self.apply_style_clayer_menu.menuAction())
@@ -455,6 +479,13 @@ class tuflowqgis_menu:
 			self.clearProcessingUI()
 		except:
 			pass
+		# BRIDGE EDITOR
+		try:
+			self.archBridgeDock.close()
+			self.iface.removeDockWidget(self.archBridgeDock)
+			del self.archBridgeDock
+		except:
+			pass
 
 		self.qgisDisconnect()
 
@@ -479,6 +510,7 @@ class tuflowqgis_menu:
 		self.iface.removeToolBarIcon(self.tuflowUtilitiesAction)
 		if spatial_database_option:
 			self.iface.removeToolBarIcon(self.apply_gpkg_layernames_action)
+		self.iface.removeToolBarIcon(self.archBridgeAction)
 
 	def configure_tf(self):
 		project = QgsProject.instance()
@@ -576,7 +608,7 @@ class tuflowqgis_menu:
 			else:
 				self.iface.addDockWidget(dockArea, self.resultsPlottingDock)
 			self.resultsPlottingDockOpened = True
-			
+
 	def removeTuview(self, **kwargs):
 		no_popup = kwargs['no_popup'] if 'no_popup' in kwargs else False
 		resetQgisSettings(scope='Project', tuviewer=True, feedback=False)
@@ -598,11 +630,11 @@ class tuflowqgis_menu:
 					return
 			if not no_popup:
 				QMessageBox.information(self.iface.mainWindow(), "TUFLOW", "ERROR closing TUFLOW Viewer. Please email support@tuflow.com")
-		
+
 	def reloadTuview(self):
 		self.removeTuview(feedback=False)
 		self.openResultsPlottingWindow()
-		
+
 	#def open_tuplot_ext(self):
 	#	"""TuPLOT external function."""
 	#
@@ -756,8 +788,9 @@ class tuflowqgis_menu:
 				fpath = os.getcwd()
 
 		old_method = sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 9)
-		inFileName, _ = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Open TUFLOW TCF', fpath,
-		                                          "TCF (*.tcf)")
+		inFileName, _ = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Open TUFLOW Control File', fpath,
+		                                          "All control files (*.tcf *.ecf *.tgc *.tbc *.tef *.toc *.qcf *.trfc *.trfcf *.trd *.escf *.adcf);;"
+												  "TCF (*.tcf);;ECF (*.ecf);;TGC (*.tgc);;TBC (*.tbc);;TEF (*.tef);;TOC (*.toc);;QCF (.qcf);;TRFC (*.trfc *.trfcf);;TRD (*.trd);;ESCF (*.escf);;ADCF (*.adcf)")
 		if inFileName:
 			if old_method:
 				load_rasters = LoadRasterMessageBox(self.iface.mainWindow(), 'Load Rasters',
@@ -771,7 +804,8 @@ class tuflowqgis_menu:
 			fpath, fname = os.path.split(inFileName)
 			if fpath != os.sep and fpath.lower() != 'c://' and fpath != '':
 				settings.setValue("TUFLOW/load_TCF_last_folder", fpath)
-			if os.path.splitext(inFileName)[1].lower() != '.tcf':
+			# if os.path.splitext(inFileName)[1].lower() != '.tcf':
+			if False:
 				QMessageBox.information(self.iface.mainWindow(), "Message", 'Must select TCF')
 				return
 			else:
@@ -796,7 +830,7 @@ class tuflowqgis_menu:
 				else:
 					scenarios = []
 					if not options_called:
-						result = LoadTCFOptionsMessageBox(self.iface.mainWindow(), 'Load Layers from TCF')
+						result = LoadTCFOptionsMessageBox(self.iface.mainWindow(), 'Load Layers from Control File')
 						options_called = True
 						if result != 'ok':
 							return
@@ -805,7 +839,7 @@ class tuflowqgis_menu:
 					openGisFromTcf(inFileName, self.iface, scenarios, load_rasters)
 				else:
 					self.prog_dialog = QWidget(self.iface.mainWindow(), Qt.Dialog)
-					self.prog_dialog.setWindowTitle('Loading TCF Layers')
+					self.prog_dialog.setWindowTitle('Loading Control File Layers')
 					self.prog_label = QLabel()
 					self.prog_bar = QProgressBar()
 					self.prog_bar.setRange(0, 0)
@@ -822,6 +856,7 @@ class tuflowqgis_menu:
 					self.thread.started.connect(self.load_gis.loadGisFromControlFile_v2)
 					self.model_file_layers.layer_added.connect(self.layer_added)
 					self.load_gis.finished.connect(self.load_gis_files)
+					self.load_gis.error.connect(self.on_error)
 					self.thread.start()
 					# loadGisFromControlFile_v2(model_file_layers, inFileName, None, scenarios)
 					# err, errmsg = loadGisFiles(model_file_layers)
@@ -829,6 +864,12 @@ class tuflowqgis_menu:
 					# 	QMessageBox.warning(self.iface.mainWindow(), 'Failed Load', errmsg)
 					# else:
 					# 	QMessageBox.information(self.iface.mainWindow(), 'Completed Load', 'Successfully loaded all layers')
+
+	def on_error(self, err_msg):
+		self.thread.terminate()
+		self.thread.wait()
+		self.prog_dialog.close()
+		QMessageBox.warning(self.iface.mainWindow(), 'Load from TCF', 'Unexpected error loading GIS from TCF: {0}'.format(err_msg))
 
 	def load_gis_files(self):
 		self.thread.terminate()
@@ -865,6 +906,17 @@ class tuflowqgis_menu:
 	def tuflowUtilities(self):
 		self.tuflowUtilitiesDialog = TuflowUtilitiesDialog(self.iface)
 		self.tuflowUtilitiesDialog.exec_()
+
+	def archBrideEditor(self):
+		if self.archBridgeDockOpen:
+			self.archBridgeDock.show()
+		else:
+			self.archBridgeDock = ArchBridgeDock(self.iface)
+			self.iface.addDockWidget(Qt.RightDockWidgetArea, self.archBridgeDock)
+			self.archBridgeDockOpen = True
+
+	def clearSpanBridgeEditor(self):
+		pass
 
 	def integrityToolWindow(self):
 		if self.integrityToolOpened:

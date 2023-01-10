@@ -20,6 +20,7 @@ class LP():
 	def __init__(self): #initialise the LP data
 		self.chan_list = [] #list of channel IDs
 		self.chan_index = []  # list of index values in the ChanInfo class
+		self.chan_ids = []
 		self.node_list = []
 		self.node_index = []
 		self.node_bed = []
@@ -2001,7 +2002,7 @@ class ResData():
 			x = []
 			y = []
 			c_type = self.Channels.chan_Flags[chan_index]
-			if c_type == "R" or c_type == "C" or c_type == "I":
+			if c_type[0] == "R" or c_type[0] == "C" or c_type[0] == "I":
 				x.append(self.LP.dist_chan_inverts[-2])
 				x.append(self.LP.dist_chan_inverts[-1])
 				x.append(self.LP.dist_chan_inverts[-1])

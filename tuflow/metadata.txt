@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.6
+version=3.7
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,57 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=--- 3.6 ---
+changelog=--- 3.7 ---
+          - New Features and Updates -
+          Arch Bridge Editor - new tool
+          TUFLOW Viewer - Changing rendering style of a result type will now also change the style of the maximum and minimum type of the same name (and visa versa)
+          TUFLOW Viewer - Support reloading of mesh layers (must use reload layer tool if results have changed otherwise QGIS crashes)
+          TUFLOW Viewer - Increased hover over label speed. From testing 10,000 point dataset: prev. each label took ~1.0s to calculate and render, now = ~0.15s
+          TUFLOW Viewer - Adds units and label to y-axis for RFR, RFC, RFML outputs
+          TUFLOW Viewer - Adds 'Water Level' and 'Max Water Level' result types to cross-section (previous had to use time series 'Level' result type)
+          ARR to TUFLOW - Will download point temporal pattern CSV manually if no temporal patterns are found in the ARR_Web_Data.txt
+          ARR to TUFLOW - CSV output now includes event id
+          Import Empty - Database settings are now saved from previous tool runs
+          Reload Layer - Updated to support mesh layers in QGIS 3.28+
+          Load From TCF - Improved progress bar
+          Load From TCF - Adds ability to select any TUFLOW control file to import from
+          Convert Model GIS Format - Adds ability to specify output CRS
+          Convert Model GIS Format - Tool will now log commands that do not convert/copy any files (but should do)
+          Convert Model GIS Format - Adds option to create empty files for converted model
+          Convert Model GIS Format - Adds option to specify the output GPKG database name when using a grouped profile
+          Processing Toolbox - Added 'TMO to Points' algorithm
+          Adds file encoding prediction for all tools that read from the TCF and other control files
+
+          - Bug Fixes -
+          TUFLOW Viewer - Fixes a bug that would cause python error and not display results when trying to plot TS_P.shp and TPC results at the same time
+          TUFLOW Viewer - Fixes bug when saving project when a TS_P.shp was loaded that could cause a python error
+          TUFLOW Viewer - fixes rendering map outputs in QGIS 3.28 which could become scrambled if min dt was present (a bug is still present in QGIS that no longer renders temporal min dt)
+          TUFLOW Viewer - Fixes bug that would incorrectly carry over 1D result types to next loaded result dataset
+          TUFLOW Viewer - Stops duplicate plots of the same 1D element - can happen if the PLOT layer is duplicated in the workspace
+          TUFLOW Viewer - Fixes bug that would produce python error after closing mesh results from layers panel then trying to close 1D results
+          TUFLOW Viewer - Fixes bug in Load from TCF when a scenario name contains dashes (-)
+          TUFLOW Viewer - fixes bug in map output flow calculation which was producing a python error
+          TUFLOW Viewer - Fixes python error that could occur after closing tuflow completely and re-opening with time series result when a PLOT feature is already selected
+          TUFLOW Viewer - Unidirectional pipes now plotted correctly in long plot
+          TUFLOW Viewer - cell centre 'bed elevation' results in TUFLOW FV netCDF format will no longer check if face is active in plot window
+          TUFLOW Viewer - Load from TCF now correctly finds output zone results
+          TUFLOW Viewer - Fixes bug that would cause 1D long sections to not plot when 1D point objects were also selected
+          TUFLOW Viewer - Fixes bug when viewing results on cross-sections with mif files that would not show water levels
+          TUFLOW Viewer - Fixed bug in animation tool that could cause python error if the dataset was the first in the mesh layer (index = 0)
+          1D Integrity Tool - fixes python error that could occur when checking for non-compliant channel ids in QGIS 3.26
+          1D Integrity Tool - Fixes bug in Unique Channel ID tool that wasn't correctly flagging non-compliant ids
+          Configure Project - Fixes bug that would not create empties if 'Create Model Folder Structure' was not also ticked
+          Increment Layer Tool - Handles empty geometry layers a little nicer
+          Import Empty - Fixes 'Convert to GPKG' option which wasn't doing anything
+          Insert TUFLOW Attributes - Fixes insert '2d_mat' when using GPKG
+          Style Current Layer - Fixes tooltip
+          Load From TCF - Fixes a bug that did not load layers from ECF if using "Estry Control File == AUTO"
+          TUFLOW Utilities - info tool will error gracefully if an error occurs with the utility
+          TUFLOW Utilities - Fixes browse dialogs hanging if previous file/folder path was on a drive that is no longer connected
+          TUFLOW Utilities - Fixed bug that would crash QGIS if the download button is clicked twice in a row
+          TUFLOW Utilities - Cache is now cleared for download links so latest is always downloaded
+
+          --- 3.6 ---
           - New Features and Updates -
           TUFLOW Viewer - Curtain vectors will now have a vertical component if 'W' output is found in results
           TUFLOW Viewer - Added option to shift order of open results via right-click context menu

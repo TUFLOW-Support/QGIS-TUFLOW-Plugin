@@ -108,7 +108,7 @@ class XS_Data():
 						nheader = nheader + 1
 						header.append(line)
 
-		csvfile.close()
+		# csvfile.close()
 		header = [[y.upper() for y in x] for x in header]
 
 		# find which columns data is in
@@ -276,7 +276,7 @@ class XS_Data():
 				self.error = True
 				self.message = 'ERROR - Error reading cross section '+self.fullpath
 				return
-		csvfile.close()
+		# csvfile.close()
 
 		#checks
 		if len(self.x)!=len(self.z):
@@ -301,7 +301,7 @@ class XS_Data():
 			self.np = len(self.x)
 
 	def crossSectionPlot(self, plot_inactive_areas):
-		if plot_inactive_areas or self.flags is None or 'm' not in self.flags.lower() or not self.col3:
+		if plot_inactive_areas or self.flags is None or 'm' not in self.flags.lower() or not self.mat:
 			return np.array(list(zip(self.x, self.z)))
 
 		x, z = [], []

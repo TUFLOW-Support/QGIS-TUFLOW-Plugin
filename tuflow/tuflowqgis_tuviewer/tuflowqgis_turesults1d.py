@@ -611,36 +611,51 @@ class TuResults1D():
 			if not isPlotLayer(layer) and not isTSLayer(layer, self.tuView.tuResults.results) and not is1dNetwork(layer):
 				continue
 			for f in layer.selectedFeatures():
-				if 1 not in resVersion and 0 not in resVersion:
+				if isTSLayer(layer, self.tuView.tuResults.results):
+					i = 1 if '.gpkg|layername' in layer.dataProvider().dataSourceUri().lower() else 0
+					id = f.attributes()[i]
+					id = id.strip()
+					if id not in self.ids:
+						self.ids.append(id)
+						self.domains.append('1D')
+						self.sources.append('Q_V_')
+					continue
+				if 1 not in resVersion:
 					if 'ID' in f.fields().names() and 'Type' in f.fields().names() and 'Source' in f.fields().names():
-						self.ids.append(f['ID'].strip())
-						self.sources.append(f['Source'].strip())
-						type = f['Type'].strip()
-						if 'node' in type.lower() or 'chan' in type.lower():
-							self.domains.append('1D')
-						else:
-							self.domains.append(type)  # 2D or RL
+						id_ = f['ID'].strip()
+						if id_ not in self.ids:
+							self.ids.append(f['ID'].strip())
+							self.sources.append(f['Source'].strip())
+							type = f['Type'].strip()
+							if 'node' in type.lower() or 'chan' in type.lower():
+								self.domains.append('1D')
+							else:
+								self.domains.append(type)  # 2D or RL
 				elif 2 not in resVersion:
 					i = 1 if '.gpkg|layername' in layer.dataProvider().dataSourceUri().lower() else 0
 					id = f.attributes()[i]
 					id = id.strip()
-					self.ids.append(id)
-					self.domains.append('1D')
+					if id not in self.ids:
+						self.ids.append(id)
+						self.domains.append('1D')
 				else:  # try both
 					if 'ID' in f.fields().names() and 'Type' in f.fields().names() and 'Source' in f.fields().names():
-						self.ids.append(f['ID'].strip())
-						self.sources.append(f['Source'].strip())
-						type = f['Type'].strip()
-						if 'node' in type.lower() or 'chan' in type.lower():
-							self.domains.append('1D')
-						else:
-							self.domains.append(type)  # 2D or RL
+						id_ = f['ID'].strip()
+						if id_ not in self.ids:
+							self.ids.append(f['ID'].strip())
+							self.sources.append(f['Source'].strip())
+							type = f['Type'].strip()
+							if 'node' in type.lower() or 'chan' in type.lower():
+								self.domains.append('1D')
+							else:
+								self.domains.append(type)  # 2D or RL
 					else:
 						i = 1 if '.gpkg|layername' in layer.dataProvider().dataSourceUri().lower() else 0
 						id = f.attributes()[i]
 						id = id.strip()
-						self.ids.append(id)
-						self.domains.append('1D')
+						if id not in self.ids:
+							self.ids.append(id)
+							self.domains.append('1D')
 					
 		return True
 	
@@ -654,31 +669,43 @@ class TuResults1D():
 
 		# make sure there is between 1 and 2 selections
 		# if len(self.ids) < 3 and self.ids:
-		if self.ids:
+		ids = []
+		domains = []
+		for layerid, layer in QgsProject.instance().mapLayers().items():
+			if isPlotLayer(layer) and 'PLOT_L' in layer.name():
+				for f in layer.selectedFeatures():
+					if f['ID'].strip() not in ids:
+						ids.append(f['ID'].strip())
+						if 'node' in f['Type'].lower() or 'chan' in f['Type'].lower():
+							domains.append('1D')
+						else:
+							domains.append('2D')
+
+		if ids:
 			res.LP.connected = False
 			res.LP.static = False
 			error = False
 			
 			# one selection
-			if len(self.ids) == 1:
+			if len(ids) == 1:
 				if res.formatVersion == 1:  # 2013 version only supports 1D
-					error, message = res.LP_getConnectivity(self.ids[0], None, *self.ids)
+					error, message = res.LP_getConnectivity(ids[0], None, *ids)
 				elif res.formatVersion == 2:
-					if self.domains[0] == '1D':
-						error, message = res.LP_getConnectivity(self.ids[0], None, *self.ids)
+					if domains[0] == '1D':
+						error, message = res.LP_getConnectivity(ids[0], None, *ids)
 			
 			# two selections
-			elif len(self.ids) == 2:
+			elif len(ids) == 2:
 				if res.formatVersion == 1:
-					error, message = res.LP_getConnectivity(self.ids[0], self.ids[1], *self.ids)
+					error, message = res.LP_getConnectivity(ids[0], ids[1], *ids)
 				elif res.formatVersion == 2:
-					if self.domains[0] == '1D' and self.domains[1] == '1D':
-						error, message = res.LP_getConnectivity(self.ids[0], self.ids[1], *self.ids)
+					if domains[0] == '1D' and domains[1] == '1D':
+						error, message = res.LP_getConnectivity(ids[0], ids[1], *ids)
 
 			# more than 2 selections
 			else:
 				if res.formatVersion == 2:
-					error, message = res.LP_getConnectivity(None, None, *self.ids)  # flood modeller only
+					error, message = res.LP_getConnectivity(None, None, *ids)  # flood modeller only
 			
 			# if error -> break
 			if not error:
@@ -777,7 +804,7 @@ class TuResults1D():
 		else:
 			name = Path(name).stem
 
-		if re.findall(r'_TS(_[PLR])?', name, flags=re.IGNORECASE):
+		if re.findall(r'_TS(MB|MB1d2d)?(_[PLR])?$', name, flags=re.IGNORECASE):
 			self.results1d[name] = TSResult()
 			self.tuView.tuResults.results[name] = {}
 			self.tuView.OpenResults.addItem(name)

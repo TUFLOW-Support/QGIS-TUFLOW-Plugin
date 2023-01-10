@@ -980,6 +980,14 @@ class TuResults():
 					self.activeResultsTypes.pop(i)
 				if resultType[:-3] in self.tuResults1D.typesTS:
 					self.tuResults1D.typesTS.remove(resultType[:-3])
+				if resultType[:-3] in self.tuResults1D.pointTS:
+					self.tuResults1D.pointTS.remove(resultType[:-3])
+				if resultType[:-3] in self.tuResults1D.lineTS:
+					self.tuResults1D.lineTS.remove(resultType[:-3])
+				if resultType[:-3] in self.tuResults1D.regionTS:
+					self.tuResults1D.regionTS.remove(resultType[:-3])
+				if resultType[:-3] in self.tuResults1D.typesLP:
+					self.tuResults1D.typesLP.remove(resultType[:-3])
 
 		# if geomtype then change the TS result options
 		if geomType is not None:
@@ -1042,6 +1050,7 @@ class TuResults():
 					elif item.ds_type == 7:  # long plot
 						if item.ds_name not in self.tuResults1D.typesLP:
 							self.tuResults1D.typesLP.append(item.ds_name)
+						self.tuResults1D.typesXSRes.extend(x for x in self.tuResults1D.typesLP if x not in self.tuResults1D.typesXSRes)
 					elif item.ds_type == 8:  # XS
 						if item.ds_name not in self.tuResults1D.typesXS:
 							self.tuResults1D.lineXS.append(item.ds_name)
@@ -1129,6 +1138,8 @@ class TuResults():
 					self.tuResults1D.typesTS.remove(item.ds_name)
 				elif item.ds_name in self.tuResults1D.typesLP:
 					self.tuResults1D.typesLP.remove(item.ds_name)
+					if item.ds_name in self.tuResults1D.typesXSRes:
+						self.tuResults1D.typesXSRes.remove(item.ds_name)
 				elif item.ds_name in self.tuResults1D.typesXS:
 					self.tuResults1D.typesXS.remove(item.ds_name)
 				if item.ds_name in self.tuResults1D.pointTS:
@@ -1882,7 +1893,7 @@ class TuResults():
 
 	@staticmethod
 	def isMaximumResultType(resultType: str,
-	                        dp: QgsMeshDataProvider = QgsMeshLayer().dataProvider(),
+	                        lyr: QgsMeshLayer = QgsMeshLayer(),
 	                        groupIndex: int = -1) -> bool:
 		"""
 		Determines if the result type is a maximum or not.
@@ -1906,16 +1917,16 @@ class TuResults():
 		# will treat this as 'max'
 		# if only only one timestep, then this is the final / max value
 		if 'minimum dt' in resultType.lower():
-			if dp is not None:
-				if dp.isValid():
-					if dp.datasetCount(groupIndex) == 1:
+			if lyr is not None:
+				if lyr.isValid():
+					if lyr.datasetCount(QgsMeshDatasetIndex(groupIndex,-1)) == 1:
 						return True
 
 		return False
 
 	@staticmethod
 	def isMinimumResultType(resultType: str,
-	                        dp: QgsMeshDataProvider = QgsMeshLayer().dataProvider(),
+						lyr: QgsMeshLayer = QgsMeshLayer().dataProvider(),
 	                        groupIndex: int = -1) -> bool:
 		"""
 		Determines if the result type is a minimum or not.
@@ -1936,7 +1947,7 @@ class TuResults():
 
 	@staticmethod
 	def isStatic(resultType: str,
-                dp: QgsMeshDataProvider = QgsMeshLayer().dataProvider(),
+                lyr: QgsMeshLayer = QgsMeshLayer().dataProvider(),
                 groupIndex: int = -1) -> bool:
 		"""
         Determines if the result type is a static or not
@@ -1949,20 +1960,20 @@ class TuResults():
         :return: bool
         """
 
-		if TuResults.isMaximumResultType(resultType, dp, groupIndex) \
-				or TuResults.isMinimumResultType(resultType, dp, groupIndex):
+		if TuResults.isMaximumResultType(resultType, lyr, groupIndex) \
+				or TuResults.isMinimumResultType(resultType, lyr, groupIndex):
 			return True
 
-		if dp is not None:
-			if dp.isValid():
-				if dp.datasetCount(groupIndex) == 1:
+		if lyr is not None:
+			if lyr.isValid():
+				if lyr.datasetCount(QgsMeshDatasetIndex(groupIndex, -1)) == 1:
 					return True
 
 		return False
 
 	@staticmethod
 	def isTemporal(resultType: str,
-	               dp: QgsMeshDataProvider = QgsMeshLayer().dataProvider(),
+	               lyr: QgsMeshLayer = QgsMeshLayer().dataProvider(),
 	               groupIndex: int = -1) -> bool:
 		"""
         Determines if the result type is a static or not
@@ -1975,7 +1986,7 @@ class TuResults():
         :return: bool
         """
 
-		return not TuResults.isStatic(resultType, dp, groupIndex)
+		return not TuResults.isStatic(resultType, lyr, groupIndex)
 
 	def updateDateTimes2(self):
 		"""Supersedes updateDateTimes"""
@@ -2226,8 +2237,15 @@ class TuResults():
 		end = begin.addSecs(60*60)
 		dtr = QgsDateTimeRange(begin, end)
 		if qgsObject is not None:
+			if qv >= 31300 and self.iface is not None:
+				try:
+					self.iface.mapCanvas().temporalRangeChanged.disconnect(self.tuView.qgsTimeChanged)
+				except:
+					pass
 			qgsObject.setTemporalRange(dtr)
 			qgsObject.refresh()
+			if qv >= 31300 and self.iface is not None:
+				self.iface.mapCanvas().temporalRangeChanged.connect(self.tuView.qgsTimeChanged)
 
 	def initialiseTemporalController(self, qgsObject=None, timeSpec=None):
 		if qgsObject is None:

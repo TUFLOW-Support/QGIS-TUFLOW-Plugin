@@ -432,7 +432,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 					if itemName == name:
 						self.OpenResults.takeItem(i)
 
-		self.resultsChanged('force refresh')
+		self.resultsChanged('force refresh', removedLayers)
 				
 		return True
 	
@@ -925,6 +925,27 @@ class TuView(QDockWidget, Ui_Tuplot):
 					self.selectionChangeConnected = False
 				except:
 					pass
+
+			for layer in findAllMeshLyrs():
+				try:
+					layer.nameChanged.disconnect()
+				except:
+					pass
+				try:
+					signal = self.tuView.tuResults.tuResults2D.layer_style_changed_signals.get(layer.id())
+					if signal is not None:
+						layer.rendererChanged.disconnect(signal)
+						del self.tuView.tuResults.tuResults2D.layer_style_changed_signals[layer.id()]
+				except:
+					pass
+				if Qgis.QGIS_VERSION_INT >= 32800:
+					try:
+						signal = self.tuView.tuResults.tuResults2D.layer_reloaded_signals.get(layer.id())
+						if signal is not None:
+							layer.reloaded.disconnect(signal)
+							del self.tuView.tuResults.tuResults2D.layer_reloaded_signals[layer.id()]
+					except:
+						pass
 			
 			if completely_remove:
 				meshLayers = findAllMeshLyrs()
@@ -997,7 +1018,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.resultChangeSignalCount += 1
 			
 			# render only selected results
-			self.tuResults.tuResults2D.updateActiveMeshLayers()
+			self.tuResults.tuResults2D.updateActiveMeshLayers(*args)
 			
 			# update 2D results class
 			self.tuResults.updateResultTypes(select_first_dataset=False)

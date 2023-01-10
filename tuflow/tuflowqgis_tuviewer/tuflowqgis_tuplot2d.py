@@ -110,6 +110,7 @@ class TuPlot2D():
 		dataTypes = []
 		
 		# iterate through all selected results
+		# meshRendered = False
 		if not resultMesh:  # specified result meshes can be passed through kwargs (used for batch export not normal plotting)
 			resultMesh = activeMeshLayers
 		for layer in resultMesh:  # get plotting for all selected result meshes
@@ -296,6 +297,7 @@ class TuPlot2D():
 		dataTypes = []
 
 		# iterate through all selected results
+		# meshRendered = False
 		if not resultMesh:  # specified result meshes can be passed through kwargs (used for batch export not normal plotting)
 			resultMesh = activeMeshLayers
 		for layer in resultMesh:
@@ -725,9 +727,14 @@ class TuPlot2D():
 					if depthMag > 0:
 						velDataValue = self.datasetValue(layer, dp, si, mesh, velItem[-1], meshRendered, points[i], 0,
 						                                 TuPlot.DataFlow2D, None, faces[i], value='vector')
-						velMag = velDataValue[0]
-						velX = velDataValue[1]
-						velY = velDataValue[2]
+						if isinstance(velDataValue, float) and np.isnan(velDataValue):
+							velMag = 0
+							velX = 0
+							velY = 0
+						else:
+							velMag = velDataValue[0]
+							velX = velDataValue[1]
+							velY = velDataValue[2]
 
 						if qIsNaN(velMag):
 							velMag = 0
@@ -1280,7 +1287,7 @@ class TuPlot2D():
 
 		return rs.averagingMethod()
 
-	def datasetValueAvgDep(self, layer, res, p, avgmethod, dataType, restype='scalar', face=None):
+	def datasetValueAvgDep(self, layer, res, p, avgmethod, dataType, restype='scalar', face=None, dp=None):
 		"""
         Calculate depth average value. Not needed for 2D datasets, but will be required for subclassing
         when plotting from 3D datasets.
@@ -1316,7 +1323,7 @@ class TuPlot2D():
 			if face is None:
 				mdb = layer.datasetValue(res, p)
 			else:
-				if layer.isFaceActive(res, face):
+				if (dp is not None and dp.datasetGroupMetadata(res.group()).name().lower() == 'bed elevation') or layer.isFaceActive(res, face):
 					mdb = layer.dataProvider().datasetValue(res, face)
 				else:
 					return np.nan
@@ -1360,7 +1367,7 @@ class TuPlot2D():
 		if face is not None and isinstance(layer, QgsMeshLayer):
 			if avgmethod is None:
 				avgmethod = self.activeAvgMethod(layer.rendererSettings())
-			return self.datasetValueAvgDep(layer, mdi, point, avgmethod, dataType, value, face)
+			return self.datasetValueAvgDep(layer, mdi, point, avgmethod, dataType, value, face, dp)
 
 		if isinstance(layer, QgsMeshLayer):
 			if meshRendered:
@@ -1385,7 +1392,7 @@ class TuPlot2D():
 			else:
 				return layer.fid.variables[layer._lyr_name][layer.get_band_from_time(mdi)-1, face[1], face[0]]
 
-	def preRenderDatasetValue(self, mesh, layer, si, result, faceIndex, point, dataType, value='scalar', avgmethod=None):
+	def preRenderDatasetValue(self, mesh, layer, si, mdi_, faceIndex, point, dataType, value='scalar', avgmethod=None):
 		"""
 		Interpolate result value from face index
 		
@@ -1397,11 +1404,31 @@ class TuPlot2D():
 		:return: float value
 		"""
 
+		qv = Qgis.QGIS_VERSION_INT
+
 		# convert point to QgsPointXY
 		point = QgsPointXY(point)
 
 		# manually populate pre-rendered mesh
 		dp = layer.dataProvider()
+
+		if qv >= 31600:
+			result = None
+			index = -1
+			name_ = layer.datasetGroupMetadata(mdi_).name()
+			for i in range(dp.datasetGroupCount()):
+				if dp.datasetGroupMetadata(i).name() == name_:
+					if i == mdi_.group():
+						result = mdi_
+						break
+					elif i >= mdi_.group() and (mdi_.group() - i < index or index == -1):
+						index = i
+			if result is None and index > -1:
+				result = QgsMeshDatasetIndex(index, mdi_.dataset())
+			elif result is None and index == -1:
+				return np.nan
+		else:
+			result = mdi_
 
 		# get face
 		face = mesh.face(faceIndex)

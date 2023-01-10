@@ -740,11 +740,11 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 	crs = cfg['crs'] if 'crs' in cfg else None
 	tuResults = cfg['turesults']
 	dataset_group_index = cfg['scalar index']
-	assert (dataset_group_index)
+	# assert (dataset_group_index is not None)
 	# count = l.dataProvider().datasetCount(dataset_group_index)
 	timesteps = cfg['timesteps']
 	count = len(timesteps)
-	assert (count > 2)
+	# assert (count > 2)
 
 	time_from, time_to = cfg['time']
 

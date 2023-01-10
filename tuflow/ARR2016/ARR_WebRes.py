@@ -11,9 +11,15 @@
 import os
 import sys
 import re
+import zipfile
+
 import numpy
 import math
 import logging
+import io
+
+import requests
+
 from ARR_TUFLOW_func_lib import *
 
 
@@ -584,7 +590,15 @@ class ArrTemporal:
     
     def loadPointTpFromDownload(self, fi, tpRegion):
         self.tpRegion = tpRegion
+        code = None
         for line in fi:
+            if line.find('[TP]') >= 0:
+                for block_line in fi:
+                    if 'code' in block_line:
+                        _, code = [x.strip() for x in block_line.split(',', 1)]
+                        break
+                    if '[END_TP]' in block_line:
+                        break
             if line.find('[STARTPATTERNS]') >= 0:
                 finished = False
                 # fi.next() # skip 1st line
@@ -623,14 +637,31 @@ class ArrTemporal:
                     break
         fi.seek(0)  # rewind file
         if not self.pointincrements and self.tpRegion.upper() != 'RANGELANDS WEST AND RANGELANDS':
-            self.error = True
-            self.message = 'No temporal patterns found. Please check "ARR_web_data" to see if temporal patterns are present.'
+            if code is None:
+                self.error = True
+                self.message = 'No temporal patterns found. Please check "ARR_web_data" to see if temporal patterns are present.'
+            else:
+                self.logger.info('Temporal patterns not found in {0}. Trying to manually download....'.format(os.path.basename(fi.name)))
+                csv = self.download_point_tp(code, os.path.dirname(fi.name))
+                if csv is not None and not self.error:
+                    self.loadPointTpFromCSV(csv)
+                else:
+                    return
         self.loaded = True
         #print('Finished reading file.')
         self.logger.info('Finished reading file.')
 
     def append(self, fi):
+        code = None
+        found_something = False
         for line in fi:
+            if line.find('[TP]') >= 0:
+                for block_line in fi:
+                    if 'code' in block_line:
+                        _, code = [x.strip() for x in block_line.split(',', 1)]
+                        break
+                    if '[END_TP]' in block_line:
+                        break
             if line.find('[STARTPATTERNS]') >= 0:
                 finished = False
                 # fi.next() # skip 1st line
@@ -645,6 +676,7 @@ class ArrTemporal:
                         elif block_line == '\n':
                             continue
                         try:
+                            found_something = True
                             self.pointID.append(int(data[0]))
                             dur = int(data[1])
                             self.pointDuration.append(dur)
@@ -668,9 +700,35 @@ class ArrTemporal:
                 if finished:
                     break
         fi.seek(0)  # rewind file
+        if not found_something:
+            if code is None:
+                self.logger.warning('No temporal patterns found.')
+            else:
+                self.logger.info('Temporal patterns not found in {0}. Trying to manually download....'.format(os.path.basename(fi.name)))
+                csv = self.download_point_tp(code, os.path.dirname(fi.name))
+                if csv is not None and not self.error:
+                    self.loadPointTpFromCSV(csv)
+                else:
+                    return
         self.loaded = True
         #print('Finished reading file.')
         self.logger.info('Finished reading file.')
+
+    def download_point_tp(self, code, out_path):
+        url = 'http://data.arr-software.org//static/temporal_patterns/TP/{0}.zip'.format(code)
+        self.logger.info('URL: {0}'.format(url))
+        try:
+            r = requests.get(url)
+            z = zipfile.ZipFile(io.BytesIO(r.content))
+            z.extractall(out_path)
+            csv = [os.path.join(out_path, x.filename) for x in z.filelist if x.filename and 'INCREMENTS' in x.filename.upper()]
+            if csv:
+                return csv[0]
+            else:
+                raise Exception('Temporal pattern Increments file not found')
+        except Exception as e:
+            self.error = True
+            self.message = "ERROR: failed to download/extract point temporal pattern.\n{0}".format(e)
 
     def loadPointTpFromCSV(self, tp):
         """
@@ -1860,13 +1918,19 @@ class Arr:
 
                         line1 = "Start_Index"
                         line2 = "End_Index"
+                        line2b = 'Event ID'
 
                         tp_cc = False
                         cc_event_index = 0  # index to call correct name from cc_events
+                        k = -1
                         # create a list 1 - 10 repeated for all temporal pattern sets
                         for i in [k for k in range(1, tpCount+1)] * (len(cc_years) * len(cc_RCP) + 1):
                             line1 = line1 + ', 1'
                             line2 = line2 + ', {0}'.format(ntimes)
+                            if k + 1 >= tpCount:
+                                k = -1
+                            k += 1
+                            line2b = line2b + ',{0}'.format(ids[k])
                             if i < tpCount and not tp_cc:  # standard temporal pattern
                                 line3 = line3 + ', TP{0:02d}'.format(i)
                             elif i == tpCount and not tp_cc:  # last standard temporal pattern, make cc true so cc next iter
@@ -1882,6 +1946,8 @@ class Arr:
                             fo.write('{0}, {1}\n'.format(nid, ntimes))
                             fo.write(line1 + '\n')
                             fo.write(line2 + '\n')
+                        if out_form == 'CSV':
+                            fo.write(line2b + '\n')
                         fo.write(line3 + '\n')
                         for i in range(ntimes):
                             line = '{0}'.format(times[i])
