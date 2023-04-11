@@ -2,7 +2,7 @@ import os
 import numpy
 import csv
 import sys
-from tuflow.tuflowqgis_library import getOSIndependentFilePath
+from .tuflowqgis_library import getOSIndependentFilePath
 version = '2015-05-AA'
 
 class LP():
@@ -546,6 +546,7 @@ class ResData():
         self.Types = []
         self.LP = LP()
         self.Data_1D = Data_1D()
+        self.displayname = None
 
         self.reference_time = None
         self.has_reference_time = False
@@ -555,6 +556,7 @@ class ResData():
     def Load(self, fname, qgis):
         self.filename = fname
         self.fpath = os.path.dirname(fname)
+        self.displayname = os.path.basename(os.path.splitext(fname)[0])
         try:
             data = numpy.genfromtxt(fname, dtype=str, delimiter="==")
         except:

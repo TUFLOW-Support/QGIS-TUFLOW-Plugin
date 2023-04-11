@@ -7,9 +7,9 @@ from PyQt5 import QtGui
 from qgis.core import *
 from qgis.gui import *
 from PyQt5.QtWidgets import *
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumenufunctions import TuMenuFunctions
-from tuflow.dataset_menu import DatasetMenu
-from tuflow.spinbox_action import SingleSpinBoxAction, DoubleSpinBoxAction
+from .tuflowqgis_tumenufunctions import TuMenuFunctions
+from ..dataset_menu import DatasetMenu
+from ..spinbox_action import SingleSpinBoxAction, DoubleSpinBoxAction
 import numpy as np
 
 

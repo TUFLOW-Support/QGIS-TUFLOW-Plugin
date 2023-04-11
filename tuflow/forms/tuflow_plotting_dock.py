@@ -387,6 +387,6 @@ class Ui_Tuplot(object):
         self.btnTimePlay.setText(_translate("Tuplot", "..."))
         self.btn2dLock.setToolTip(_translate("Tuplot", "Lock Timesteps to Map Outputs"))
         self.btn2dLock.setText(_translate("Tuplot", "..."))
-from tuflow.dataset_view import DataSetView
-from tuflow.time_slider import TimeSlider
+from ..dataset_view import DataSetView
+from ..time_slider import TimeSlider
 import tuflow.resources.tuflow

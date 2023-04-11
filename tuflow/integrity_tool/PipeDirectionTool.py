@@ -2,7 +2,7 @@ from qgis.core import *
 from PyQt5.QtCore import *
 from .FeatureData import FeatureData
 from .Enumerators import *
-from tuflow.tuflowqgis_library import is1dNetwork, getNetworkMidLocation
+from ..tuflowqgis_library import is1dNetwork, getNetworkMidLocation
 
 
 class PipeDirectionTool():

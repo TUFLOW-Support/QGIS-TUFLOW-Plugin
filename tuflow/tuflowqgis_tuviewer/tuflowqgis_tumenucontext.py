@@ -5,7 +5,10 @@ from PyQt5 import QtGui
 from qgis.core import *
 from qgis.gui import *
 from PyQt5.QtWidgets import *
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumenufunctions import TuMenuFunctions
+from .tuflowqgis_tumenufunctions import TuMenuFunctions
+from ..tuflowqgis_library import tuflowqgis_find_layer
+
+from ..nc_grid_data_provider import NetCDFGrid
 
 
 class TuContextMenu():
@@ -38,7 +41,7 @@ class TuContextMenu():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		update = kwargs['update'] if 'update' in kwargs.keys() else False
 		
@@ -63,6 +66,7 @@ class TuContextMenu():
 		self.freezeAxisLimits_action = viewToolbar.freezeXYAxisButton.defaultAction()
 		self.freezeAxisXLimits_action = viewToolbar.freezeXAxisButton.defaultAction()
 		self.freezeAxisYLimits_action = viewToolbar.freezeYAxisButton.defaultAction()
+		self.flipSecondaryAxis_action = QAction('Switch Secondary Axis', self.plotMenu)
 		self.refreshCurrentPlotWindow_action = QAction(iconRefreshPlot, 'Refresh Plot Window', self.plotMenu)
 		self.clearPlotWindow_action = QAction(iconClearPlot, 'Clear Plot Window', self.plotMenu)
 		self.exportAsCSV_action = QAction('Export Plot As CSV', self.plotMenu)
@@ -77,6 +81,7 @@ class TuContextMenu():
 		self.plotMenu.addAction(self.freezeAxisLimits_action)
 		self.plotMenu.addAction(self.freezeAxisXLimits_action)
 		self.plotMenu.addAction(self.freezeAxisYLimits_action)
+		self.plotMenu.addAction(self.flipSecondaryAxis_action)
 		self.plotMenu.addSeparator()
 		self.plotMenu.addAction(viewToolbar.hGridLines_action)
 		self.plotMenu.addAction(viewToolbar.vGridLines_action)
@@ -90,8 +95,9 @@ class TuContextMenu():
 		copyMenu.addAction(self.tuView.tuMenuBar.exportDataToClipboard_action)
 		copyMenu.addAction(self.tuView.tuMenuBar.exportImageToClipboard_action)
 		exportMenu = self.plotMenu.addMenu('&Export')
-		exportMenu.addAction(toolbar[9])
 		exportMenu.addAction(self.exportAsCSV_action)
+		toolbar[9].setText('Save Plot As Image')
+		exportMenu.addAction(toolbar[9])
 		if plotNo == TuPlot.CrossSection or plotNo == TuPlot.VerticalProfile:
 			self.plotMenu.addSeparator()
 			self.plotMenu.addAction(self.tuPlot.verticalMesh_action)
@@ -103,6 +109,8 @@ class TuContextMenu():
 		self.signals.append(('self.freezeAxisXLimits_action.triggered', signal))
 		signal = self.freezeAxisYLimits_action.triggered.connect(viewToolbar.freezeYAxis)
 		self.signals.append(('self.freezeAxisYLimits_action.triggered', signal))
+		signal = self.flipSecondaryAxis_action.triggered.connect(lambda: self.tuMenuFunctions.flipSecondaryAxis(plotNo))
+		self.signals.append(('self.flipSecondaryAxis_action.triggered', signal))
 		signal = self.refreshCurrentPlotWindow_action.triggered.connect(self.tuView.refreshCurrentPlot)
 		self.signals.append(('self.refreshCurrentPlotWindow_action.triggered', signal))
 		# self.clearPlotWindow_action.triggered.connect(
@@ -230,24 +238,36 @@ class TuContextMenu():
 		self.moveToTop_action = QAction('Move To Top', self.resultsMenu)
 		self.moveToBottom_action = QAction('Move To Bottom', self.resultsMenu)
 
-		if row > 0:
-			moveUp_action = QAction(QgsApplication.getThemeIcon('/mActionArrowUp.svg'), 'Move Up', self.resultsMenu)
-			moveUp_action.triggered.connect(lambda: self.tuView.reorderOpenResults(index, 'up'))
-			self.resultsMenu.insertAction(self.load1d2dResults_action, moveUp_action)
-		if row + 1 < self.tuView.OpenResults.count():
-			moveDown_action = QAction(QgsApplication.getThemeIcon('/mActionArrowDown.svg'), 'Move Down', self.resultsMenu)
-			moveDown_action.triggered.connect(lambda: self.tuView.reorderOpenResults(index, 'down'))
-			self.resultsMenu.insertAction(self.load1d2dResults_action, moveDown_action)
-		if row > 0:
-			moveToTop_action = QAction('Move To Top', self.resultsMenu)
-			moveToTop_action.triggered.connect(lambda: self.tuView.reorderOpenResults(index, 'top'))
-			self.resultsMenu.insertAction(self.load1d2dResults_action, moveToTop_action)
-		if row + 1 < self.tuView.OpenResults.count():
-			moveToBottom_action = QAction('Move To Bottom', self.resultsMenu)
-			moveToBottom_action.triggered.connect(lambda: self.tuView.reorderOpenResults(index, 'bottom'))
-			self.resultsMenu.insertAction(self.load1d2dResults_action, moveToBottom_action)
-		if row > -1:
-			self.resultsMenu.insertSeparator(self.load1d2dResults_action)
+		if self.tuView.OpenResults.count() > 1:
+			if row > 0:
+				moveUp_action = QAction(QgsApplication.getThemeIcon('/mActionArrowUp.svg'), 'Move Up', self.resultsMenu)
+				moveUp_action.triggered.connect(lambda: self.tuView.reorderOpenResults(index, 'up'))
+				self.resultsMenu.insertAction(self.load1d2dResults_action, moveUp_action)
+			if row + 1 < self.tuView.OpenResults.count():
+				moveDown_action = QAction(QgsApplication.getThemeIcon('/mActionArrowDown.svg'), 'Move Down', self.resultsMenu)
+				moveDown_action.triggered.connect(lambda: self.tuView.reorderOpenResults(index, 'down'))
+				self.resultsMenu.insertAction(self.load1d2dResults_action, moveDown_action)
+			if row > 0:
+				moveToTop_action = QAction('Move To Top', self.resultsMenu)
+				moveToTop_action.triggered.connect(lambda: self.tuView.reorderOpenResults(index, 'top'))
+				self.resultsMenu.insertAction(self.load1d2dResults_action, moveToTop_action)
+			if row + 1 < self.tuView.OpenResults.count():
+				moveToBottom_action = QAction('Move To Bottom', self.resultsMenu)
+				moveToBottom_action.triggered.connect(lambda: self.tuView.reorderOpenResults(index, 'bottom'))
+				self.resultsMenu.insertAction(self.load1d2dResults_action, moveToBottom_action)
+			if row > -1:
+				self.resultsMenu.insertSeparator(self.load1d2dResults_action)
+
+		for action in self.resultsMenu.actions():
+			if action.text() == 'Set Reference Time':
+				self.resultsMenu.removeAction(action)
+
+		if clicked_item is not None and isinstance(tuflowqgis_find_layer(clicked_item.text()), NetCDFGrid):
+			layer = tuflowqgis_find_layer(clicked_item.text())
+			setReferenceTime_action = QAction('Set Reference Time', self.resultsMenu)
+			setReferenceTime_action.triggered.connect(lambda: self.tuMenuFunctions.setReferenceTime(layer))
+			self.resultsMenu.addSeparator()
+			self.resultsMenu.addAction(setReferenceTime_action)
 
 		self.resultsMenu.popup(self.tuView.OpenResults.mapToGlobal(pos))
 		

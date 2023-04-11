@@ -5,19 +5,20 @@ from PyQt5.QtGui import *
 from PyQt5 import QtGui
 from qgis.core import *
 from PyQt5.QtWidgets import *
-import tuflow.TUFLOW_results as TuflowResults
-import tuflow.TUFLOW_results2013 as TuflowResults2013
-from tuflow.tuflowqgis_library import (getPathFromRel, tuflowqgis_apply_check_tf_clayer, datetime2timespec,
+from ..TUFLOW_results import ResData
+from ..TUFLOW_results2013 import ResData as ResData_2013
+from ..tuflowqgis_library import (getPathFromRel, tuflowqgis_apply_check_tf_clayer, datetime2timespec,
                                        datetime2timespec, roundSeconds, isPlotLayer, isTSLayer, is1dNetwork)
 import re
-from tuflow.TUFLOW_FM_data_provider import TuFloodModellerDataProvider
+from ..TUFLOW_FM_data_provider import TuFloodModellerDataProvider
 from math import atan2, sin, cos, pi
 from pathlib import Path
 
 
-class TSResult:
+class TSResult(ResData):
 
 	def __init__(self):
+		ResData.__init__(self)
 		self.formatVersion = 0
 
 	def attname_to_float(self, name):
@@ -123,12 +124,12 @@ class TuResults1D():
 			
 			# 2013 results
 			if ext.upper() == '.INFO':
-				res = TuflowResults2013.ResData()
+				res = ResData_2013()
 				res.Load(filePath, self.iface)
 			
 			# post 2013 results
 			elif ext.upper() == '.TPC':
-				res = TuflowResults.ResData()
+				res = ResData()
 				error, message = res.Load(filePath)
 				if error:
 					self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
@@ -157,8 +158,8 @@ class TuResults1D():
 			k = openResults.findItems(res.displayname, Qt.MatchRecursive)[0]
 			k.setSelected(True)
 
-			self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
-				lambda: self.tuView.resultsChanged('selection changed'))
+		self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
+			lambda: self.tuView.resultsChanged('selection changed'))
 			
 		return True
 
@@ -588,7 +589,7 @@ class TuResults1D():
 
 		return True
 	
-	def updateSelectedResults(self, layer):
+	def updateSelectedResults(self, about_to_be_removed = ()):
 		"""
 		Updates selected 1D elements and 1D result class.
 		
@@ -609,6 +610,8 @@ class TuResults1D():
 		# collect ids and domain types
 		for layerid, layer in QgsProject.instance().mapLayers().items():
 			if not isPlotLayer(layer) and not isTSLayer(layer, self.tuView.tuResults.results) and not is1dNetwork(layer):
+				continue
+			if layerid in about_to_be_removed:
 				continue
 			for f in layer.selectedFeatures():
 				if isTSLayer(layer, self.tuView.tuResults.results):

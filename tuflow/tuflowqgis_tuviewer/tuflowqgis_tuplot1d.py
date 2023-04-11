@@ -1,9 +1,10 @@
+import os
 import re
 import numpy as np
 from PyQt5.QtWidgets import QMessageBox
-from tuflow.tuflowqgis_library import (findPlotLayers, findIntersectFeat, is1dTable, is1dNetwork, isTSLayer)
-from tuflow.TUFLOW_XS import XS_results
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
+from ..tuflowqgis_library import (findPlotLayers, findIntersectFeat, is1dTable, is1dNetwork, isTSLayer)
+from ..TUFLOW_XS import XS_results
+from .tuflowqgis_turesultsindex import TuResultsIndex
 from qgis.core import Qgis
 
 
@@ -25,7 +26,7 @@ class TuPlot1D():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 		
 		if self.tuView.tabWidget.currentIndex() == TuPlot.TimeSeries:
 			self.plot1dTimeSeries()
@@ -43,7 +44,7 @@ class TuPlot1D():
 
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
 
 		# deal with kwargs
@@ -57,11 +58,11 @@ class TuPlot1D():
 			i = 1 if '.gpkg|layername=' in self.tuView.currentLayer.dataProvider().dataSourceUri() else 0
 
 		if is1dTable(self.tuView.currentLayer):
-			ids = [x.attributes()[i].lower() for x in self.tuView.currentLayer.selectedFeatures()]
+			ids = [os.path.basename(x.attributes()[i].lower()) for x in self.tuView.currentLayer.selectedFeatures()]
 		elif is1dNetwork(self.tuView.currentLayer):
-			ids = [x.attributes()[i].lower() for x in self.tuView.currentLayer.selectedFeatures()]
+			ids = [os.path.basename(x.attributes()[i].lower()) for x in self.tuView.currentLayer.selectedFeatures()]
 		elif self.tuView.currentLayer in findPlotLayers(geom='L'):
-			ids = [x.attributes()[i].lower() for x in self.tuView.currentLayer.selectedFeatures()]
+			ids = [os.path.basename(x.attributes()[i].lower()) for x in self.tuView.currentLayer.selectedFeatures()]
 		else:
 			ids = []
 
@@ -112,7 +113,7 @@ class TuPlot1D():
 
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
 
 		# deal with kwargs
@@ -178,7 +179,7 @@ class TuPlot1D():
 
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
 
 		xAll, yAll = [], []
@@ -266,7 +267,7 @@ class TuPlot1D():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		activeMeshLayers = self.tuView.tuResults.tuResults2D.activeMeshLayers  # list
 		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
@@ -440,7 +441,7 @@ class TuPlot1D():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		qv = Qgis.QGIS_VERSION_INT
 
@@ -603,7 +604,7 @@ class TuPlot1D():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		activeMeshLayers = self.tuView.tuResults.tuResults2D.activeMeshLayers  # list
 		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object
@@ -702,7 +703,7 @@ class TuPlot1D():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		activeMeshLayers = self.tuView.tuResults.tuResults2D.activeMeshLayers  # list
 		tuResults1D = self.tuView.tuResults.tuResults1D  # TuResults1D object

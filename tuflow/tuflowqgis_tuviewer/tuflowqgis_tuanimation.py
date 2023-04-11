@@ -15,27 +15,20 @@ from qgis.core import *
 from qgis.gui import *
 from PyQt5.QtNetwork import QNetworkRequest
 from qgis.core import QgsNetworkAccessManager
-from ui_animation_dialog import Ui_AnimationDialog
-from animation_plot_properties import Ui_PlotProperties
-from label_properties import Ui_textPropertiesDialog
-from image_properties import Ui_ImageProperties
-from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, applyMatplotLibArtist, convertTimeToFormattedTime,
+from ..forms.ui_animation_dialog import Ui_AnimationDialog
+from ..forms.animation_plot_properties import Ui_PlotProperties
+from ..forms.label_properties import Ui_textPropertiesDialog
+from ..forms.image_properties import Ui_ImageProperties
+from ..tuflowqgis_library import (tuflowqgis_find_layer, applyMatplotLibArtist, convertTimeToFormattedTime,
                                        convertFormattedTimeToTime, getPolyCollectionExtents, getQuiverExtents,
                                        convertTimeToDate, convertFormattedDateToTime, addColourBarAxes, reSpecPlot,
                                        addLegend, addQuiverKey, datetime2timespec, convert_datetime_to_float,
                                        convert_float_to_datetime, qdt2dt, DownloadBinPackage)
-from animation_axis_limits_warning import Ui_animationPlotLimitsWarning
+from ..forms.animation_axis_limits_warning import Ui_animationPlotLimitsWarning
 import matplotlib
 import numpy as np
-try:
-	import matplotlib.pyplot as plt
-except:
-	current_path = os.path.dirname(__file__)
-	plugin_folder = os.path.dirname(current_path)
-	sys.path.append(os.path.join(plugin_folder, '_tk\\DLLs'))
-	sys.path.append(os.path.join(plugin_folder, '_tk\\libs'))
-	sys.path.append(os.path.join(plugin_folder, '_tk\\Lib'))
-	import matplotlib.pyplot as plt
+
+import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 from matplotlib.patches import Polygon
@@ -43,9 +36,9 @@ import matplotlib.dates as mdates
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.collections import PolyCollection
 from matplotlib.quiver import Quiver
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot3d import ColourBar
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults2d import TuResults2D
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+from ..tuflowqgis_tuviewer.tuflowqgis_tuplot3d import ColourBar
+from ..tuflowqgis_tuviewer.tuflowqgis_turesults2d import TuResults2D
+from ..tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 import requests
 
 
@@ -417,7 +410,7 @@ def transformMapCoordToLayout(layout, extent, point, margin):
 			
 def composition_set_plots(dialog, cfg, time, layout, dir, layout_type, showCurrentTime, retainFlow):
 
-	from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+	from ..tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 	qv = Qgis.QGIS_VERSION_INT
 
@@ -1425,7 +1418,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		self.populateVideoTab()
 		
 		self.cboResult.currentIndexChanged.connect(lambda: self.populateGeneralTab(ignore='results'))
-		self.btnBrowseOutput.clicked.connect(lambda: self.browse('save', 'TUFLOW/animation_outfolder', "AVI (*.avi *.AVI);;MP4 (*.mp4 *.MP4);;GIF (*.gif *.GIF)", self.editOutput))
+		self.btnBrowseOutput.clicked.connect(lambda: self.browse('save', 'TUFLOW/animation_outfolder', "MP4 (*.mp4 *.MP4);;AVI (*.avi *.AVI);;GIF (*.gif *.GIF)", self.editOutput))
 		self.btnBrowseTemplate.clicked.connect(lambda: self.browse('load', "TUFLOW/animation_template", "QGIS Print Layout (*.qpt)", self.editTemplate))
 		self.btnBrowseFfmpegPath.clicked.connect(lambda: self.browse('ffmpeg', 'TUFLOW/animation_ffmpeg', "FFmpeg (ffmpeg ffmpeg.exe avconv avconv.exe)", self.editFfmpegPath))
 		self.btnAddPlot.clicked.connect(self.addPlot)
@@ -1913,7 +1906,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		:return:
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from ..tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 		
 		# deal with kwargs
 		includeDuplicates = kwargs['include_duplicates'] if 'include_duplicates' in kwargs.keys() else False
@@ -3385,7 +3378,8 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 		self.exec_()
 
 	def minmax_from_tv(self, axis):
-		from tuflowqgis_tuplot import TuPlot
+		from ..tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+
 		tuplot = self.animationDialog.tuView.tuPlot
 		ax = tuplot.plotEnumerator(TuPlot.CrossSection)[2]
 		ax2 = tuplot.getSecondaryAxis(TuPlot.CrossSection, create=False)
@@ -3449,7 +3443,7 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 	
 	def setDefaults(self, animation, plotType, items, recalculate='', static=False, activeScalar=None, xAxisDates=False,
 	                time=None):
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from ..tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 		qv = Qgis.QGIS_VERSION_INT
 

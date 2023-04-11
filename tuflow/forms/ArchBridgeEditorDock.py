@@ -524,5 +524,5 @@ class Ui_archBridgeDock(object):
         self.btnBrowseOutFile.setText(_translate("archBridgeDock", "..."))
         self.pbReset.setText(_translate("archBridgeDock", "Reset"))
         self.pbRun.setText(_translate("archBridgeDock", "Output To TUFLOW"))
-from tuflow.bridge_editor.BridgeEditorTable import BridgeSectionTable, ChannelSectionTable
+from ..bridge_editor.BridgeEditorTable import BridgeSectionTable, ChannelSectionTable
 import tuflow.resources.tuflow

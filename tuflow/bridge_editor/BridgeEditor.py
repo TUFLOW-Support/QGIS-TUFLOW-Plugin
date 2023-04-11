@@ -13,18 +13,18 @@ from PyQt5.QtGui import *
 from qgis import processing
 from qgis.core import *
 from qgis.gui import QgisInterface
-from tuflow.forms.ArchBridgeEditorDock import Ui_archBridgeDock
+from ..forms.ArchBridgeEditorDock import Ui_archBridgeDock
 
-from tuflowqgis_library import copyStyle
+from ..tuflowqgis_library import copyStyle
 from .RubberBand import RubberBand
 from .BridgePlot import BridgePlot
 from .BridgeEditorImport import BridgeImport, BridgeEditorImportDialog
 from .ArchBridge import ArchBridge
 from .FmDatParser import fm_dat_parser
-from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, getParabolicCoord, findAllRasterLyrs, lineToPoints,
+from ..tuflowqgis_library import (tuflowqgis_find_layer, getParabolicCoord, findAllRasterLyrs, lineToPoints,
                                        getRasterValue, browse, is1dTable, is1dNetwork, getRightAngleLine,
                                        get_table_names)
-from tuflow.TUFLOW_XS import XS_Data
+from ..TUFLOW_XS import XS_Data
 from .ArchBridgeList import Ui_ArchBridgeList
 from .EofParser import EofParser
 from .BridgeEditorTable import BridgeCurveTable

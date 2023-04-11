@@ -6,8 +6,8 @@ from PyQt5 import QtGui
 from qgis.core import *
 from qgis.gui import *
 from PyQt5.QtWidgets import *
-import tuflowqgis_tumenufunctions
-from tuflow.tuflowqgis_library import about
+from .tuflowqgis_tumenufunctions import TuMenuFunctions
+from ..tuflowqgis_library import about
 
 
 class TuMenuBar():
@@ -17,7 +17,7 @@ class TuMenuBar():
 	"""
 	
 	def __init__(self, TuView, **kwargs):
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from ..tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 		self.tuView = TuView
 		self.tuPlot = TuView.tuPlot
@@ -37,7 +37,7 @@ class TuMenuBar():
 		layout.addWidget(self.window)
 
 		# menu function class
-		self.tuMenuFunctions = tuflowqgis_tumenufunctions.TuMenuFunctions(TuView)
+		self.tuMenuFunctions =  TuMenuFunctions(TuView)
 		
 		self.removeTuview = kwargs['removeTuview'] if 'removeTuview' in kwargs else None
 		self.reloadTuview = kwargs['reloadTuview'] if 'reloadTuview' in kwargs else None
@@ -77,6 +77,7 @@ class TuMenuBar():
 			self.load1dResults_action = QAction('Load Results - Time Series', self.window)
 			self.loadFMResults_action = QAction('Load Results - Time Series FM', self.window)
 			self.loadParticlesResults_action = QAction('Load Results - Particles', self.window)
+			self.loadNcGridResults_action = QAction('Load Results - NetCDF Grid', self.window)
 			self.loadHydraulicTable_action = QAction("Import 1D Hydraulic Tables", self.window)
 			self.remove1d2dResults_action = QAction(closeResultsIcon, 'Close Results', self.window)
 			self.remove2dResults_action = QAction('Close Results - Map Outputs', self.window)
@@ -88,6 +89,7 @@ class TuMenuBar():
 			self.fileMenu.addAction(self.load1dResults_action)
 			self.fileMenu.addAction(self.loadFMResults_action)
 			self.fileMenu.addAction(self.loadParticlesResults_action)
+			self.fileMenu.addAction(self.loadNcGridResults_action)
 			self.fileMenu.addAction(self.loadHydraulicTable_action)
 			self.fileMenu.addSeparator()
 			self.fileMenu.addAction(self.remove1d2dResults_action)
@@ -105,6 +107,7 @@ class TuMenuBar():
 			self.load1dResults_action.triggered.connect(self.tuMenuFunctions.load1dResults)
 			self.loadFMResults_action.triggered.connect(self.tuMenuFunctions.loadFMResults)
 			self.loadParticlesResults_action.triggered.connect(self.tuMenuFunctions.loadParticlesResults)
+			self.loadNcGridResults_action.triggered.connect(self.tuMenuFunctions.loadNcGridResults)
 			self.load1d2dResults_action.triggered.connect(self.tuMenuFunctions.load1d2dResults)
 			self.loadHydraulicTable_action.triggered.connect(self.tuMenuFunctions.loadHydraulicTables)
 			self.remove1d2dResults_action.triggered.connect(self.tuMenuFunctions.remove1d2dResults)
@@ -118,6 +121,7 @@ class TuMenuBar():
 			self.fileMenu.addAction(self.menu.load1dResults_action)
 			self.fileMenu.addAction(self.menu.loadFMResults_action)
 			self.fileMenu.addAction(self.menu.loadParticlesResults_action)
+			self.fileMenu.addAction(self.menu.loadNcGridResults_action)
 			self.fileMenu.addSeparator()
 			self.fileMenu.addAction(self.menu.remove1d2dResults_action)
 			self.fileMenu.addAction(self.menu.remove2dResults_action)
@@ -140,7 +144,7 @@ class TuMenuBar():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 		
 		update = kwargs['update'] if 'update' in kwargs.keys() else False
 		

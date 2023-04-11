@@ -9,15 +9,15 @@ from PyQt5.QtGui import *
 from PyQt5.QtXml import QDomDocument
 from qgis.core import *
 from qgis.gui import *
-from ui_map_dialog import Ui_MapDialog
-from MapExportImportDialog import Ui_MapExportImportDialog
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuanimation import (ImagePropertiesDialog, PlotProperties,
+from ..forms.ui_map_dialog import Ui_MapDialog
+from ..forms.MapExportImportDialog import Ui_MapExportImportDialog
+from ..tuflowqgis_tuviewer.tuflowqgis_tuanimation import (ImagePropertiesDialog, PlotProperties,
                                                                TextPropertiesDialog, prepare_composition,
                                                                prepare_composition_from_template, createText)
-from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, convertTimeToFormattedTime, convertFormattedTimeToTime,
+from ..tuflowqgis_library import (tuflowqgis_find_layer, convertTimeToFormattedTime, convertFormattedTimeToTime,
                                        browse)
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults2d import TuResults2D
+from ..tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+from ..tuflowqgis_tuviewer.tuflowqgis_turesults2d import TuResults2D
 from datetime import datetime, timedelta
 from matplotlib.collections import PolyCollection
 from matplotlib.quiver import Quiver
@@ -1984,7 +1984,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		self.updateProgress(0, 1)
 		self.buttonBox.setEnabled(True)
 		shutil.rmtree(tmpdir)
-		msg = "Map export was successfully!"
+		msg = "Map export was successful!"
 		if self.tuView.iface is not None:
 			QMessageBox.information(self, "Export", msg)
 		else:

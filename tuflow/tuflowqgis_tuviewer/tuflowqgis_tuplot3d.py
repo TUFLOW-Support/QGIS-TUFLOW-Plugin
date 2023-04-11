@@ -2,13 +2,13 @@ import os
 from qgis.core import QgsMesh, QgsMeshSpatialIndex, QgsGeometryUtils
 from PyQt5.QtCore import Qt, QVariant
 from PyQt5.QtWidgets import QMessageBox
-from tuflow.canvas_event import *
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turubberband import TuRubberBand, TuMarker
-from tuflow.tuflowqgis_library import (findMeshIntersects, calcMidPoint, writeTempPoints, meshToPolygon,
+from ..canvas_event import *
+from .tuflowqgis_turubberband import TuRubberBand, TuMarker
+from ..tuflowqgis_library import (findMeshIntersects, calcMidPoint, writeTempPoints, meshToPolygon,
                                        writeTempPolys, getFaceIndex)
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot2d import TuPlot2D
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+from .tuflowqgis_turesultsindex import TuResultsIndex
+from .tuflowqgis_tuplot2d import TuPlot2D
+from .tuflowqgis_turesults import TuResults
 import numpy as np
 from matplotlib.collections import PolyCollection
 from matplotlib.quiver import Quiver
@@ -130,7 +130,7 @@ class TuPlot3D(TuPlot2D):
 
     def plotVerticalProfileFromMap(self, vLayer, point, **kwargs):
 
-        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+        from .tuflowqgis_tuplot import TuPlot
 
         activeMeshLayers = self.tuResults.tuResults2D.activeMeshLayers  # list
         results = self.tuResults.results  # dict
@@ -309,7 +309,7 @@ class TuPlot3D(TuPlot2D):
         return True
 
     def plotCurtainFromMap(self, vLayer, feat, **kwargs):
-        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+        from .tuflowqgis_tuplot import TuPlot
 
         debug = self.tuView.tuOptions.writeMeshIntersects
         activeMeshLayers = self.tuResults.tuResults2D.activeMeshLayers  # list
@@ -493,7 +493,7 @@ class TuPlot3D(TuPlot2D):
 
         """
 
-        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+        from .tuflowqgis_tuplot import TuPlot
 
         x, y, vm = [], [], []
         if onFaces:
@@ -530,7 +530,7 @@ class TuPlot3D(TuPlot2D):
 
         """
 
-        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+        from .tuflowqgis_tuplot import TuPlot
 
         edgecolour = ((0,0,0,1),) if self.tuPlot.verticalMesh_action.isChecked() else 'face'
 
@@ -635,7 +635,7 @@ class TuPlot3D(TuPlot2D):
 
         """
 
-        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+        from .tuflowqgis_tuplot import TuPlot
 
         mn, mx = self.getMinMaxValue(dp, mdi.group())
         unit_vector = 1 / (mx - mn)
@@ -873,7 +873,7 @@ class TuCurtainLine(TuRubberBand):
         Overrides clearPlot method with specific plot clearing settings.
         """
 
-        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+        from .tuflowqgis_tuplot import TuPlot
 
         if firstPlot:
             self.tuPlot.clearPlot2(TuPlot.CrossSection)
@@ -910,7 +910,7 @@ class TuDepthAvRubberBand(TuRubberBand):
         Overrides clearPlot method with specific plot clearing settings.
         """
 
-        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+        from .tuflowqgis_tuplot import TuPlot
 
 
         self.tuPlot.clearPlot2(TuPlot.CrossSection, TuPlot.DataCrossSectionDepAv)
@@ -920,7 +920,7 @@ class TuDepthAvRubberBand(TuRubberBand):
         Overrides plotFromRubberBand method with specific plotting function.
         """
 
-        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+        from .tuflowqgis_tuplot import TuPlot
 
         return self.tuPlot.tuPlot3D.plotCrossSectionFromMap(None, feat, bypass=bypass, lineNo=len(self.rubberBands),
                                                             data_type=TuPlot.DataCrossSectionDepAv)
@@ -946,7 +946,7 @@ class TuDepthAvPoint(TuMarker):
 
         """
 
-        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+        from .tuflowqgis_tuplot import TuPlot
 
         #if firstTimePlotting:
         resultTypes = self.tuPlot.tuPlotToolbar.getCheckedItemsFromPlotOptions(TuPlot.DataTimeSeriesDepAv)
@@ -959,7 +959,7 @@ class TuDepthAvPoint(TuMarker):
 
         """
 
-        from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+        from .tuflowqgis_tuplot import TuPlot
 
         return self.tuPlot.tuPlot3D.plotTimeSeriesFromMap(None, point, bypass=bypass, markerNo=len(self.points),
                                                           data_type=TuPlot.DataTimeSeriesDepAv)

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>438</width>
-    <height>519</height>
+    <width>472</width>
+    <height>836</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,77 +17,87 @@
    <item>
     <layout class="QVBoxLayout" name="verticalLayout">
      <item>
-      <widget class="QLabel" name="label_1">
-       <property name="text">
-        <string>Source Layer</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QComboBox" name="sourcelayer"/>
-     </item>
-     <item>
-      <widget class="QLabel" name="label_2">
-       <property name="text">
-        <string>Output Folder</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_6">
+      <layout class="QVBoxLayout" name="verticalLayout_5">
        <item>
-        <widget class="QLineEdit" name="outfolder">
+        <widget class="QLabel" name="label_1">
          <property name="text">
-          <string>&lt;outfolder&gt;</string>
-         </property>
-         <property name="readOnly">
-          <bool>false</bool>
+          <string>Source Layer</string>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="btnBrowseDatabase">
+        <widget class="QComboBox" name="sourcelayer"/>
+       </item>
+       <item>
+        <widget class="QLabel" name="label_2">
          <property name="text">
-          <string>Browse...</string>
+          <string>Output Folder</string>
          </property>
         </widget>
        </item>
-      </layout>
-     </item>
-     <item>
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>Output File</string>
-       </property>
-       <property name="wordWrap">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <layout class="QGridLayout" name="gridLayout">
-       <item row="0" column="0">
-        <widget class="QLineEdit" name="outfilename">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_6">
+         <item>
+          <widget class="QLineEdit" name="outfolder">
+           <property name="text">
+            <string>&lt;outfolder&gt;</string>
+           </property>
+           <property name="readOnly">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btnBrowseDatabase">
+           <property name="text">
+            <string>Browse...</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QLabel" name="label">
          <property name="text">
-          <string>&lt;filename.shp&gt;</string>
+          <string>Output File</string>
          </property>
-         <property name="readOnly">
-          <bool>false</bool>
+         <property name="wordWrap">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
-       <item row="0" column="1">
-        <widget class="QPushButton" name="browseoutfile">
-         <property name="text">
-          <string>Browse...</string>
-         </property>
-         <property name="autoDefault">
-          <bool>false</bool>
-         </property>
-        </widget>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_7">
+         <item>
+          <widget class="QLineEdit" name="outfilename">
+           <property name="text">
+            <string>&lt;filename.shp&gt;</string>
+           </property>
+           <property name="readOnly">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="browseoutfile">
+           <property name="text">
+            <string>Browse...</string>
+           </property>
+           <property name="autoDefault">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
-       <item row="1" column="0" colspan="2">
+       <item>
         <widget class="QTableWidget" name="twTables">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
          <property name="columnCount">
           <number>2</number>
          </property>
@@ -143,56 +153,325 @@
       </widget>
      </item>
      <item>
-      <widget class="QGroupBox" name="gbSpatialDatabaseOptions">
-       <property name="title">
-        <string>Spatial Database Options</string>
+      <layout class="QVBoxLayout" name="verticalLayout_6">
+       <property name="spacing">
+        <number>0</number>
        </property>
-       <layout class="QVBoxLayout" name="verticalLayout_3">
-        <property name="spacing">
-         <number>0</number>
-        </property>
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_3">
+       <item>
+        <widget class="QLabel" name="label_5">
+         <property name="text">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Spatial Database Options (&lt;a href=&quot;https://wiki.tuflow.com/index.php?title=QGIS_TUFLOW_Increment_Layer#Working_with_GPKG&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;What is this?&lt;/span&gt;&lt;/a&gt;)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+         <property name="openExternalLinks">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="gbSpatialDatabaseOptions">
+         <property name="title">
+          <string/>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_3">
           <property name="spacing">
+           <number>6</number>
+          </property>
+          <property name="topMargin">
            <number>0</number>
           </property>
           <item>
-           <widget class="QRadioButton" name="rbDatabaseLayer">
-            <property name="text">
-             <string>Increment layer only</string>
+           <layout class="QHBoxLayout" name="horizontalLayout_3">
+            <property name="spacing">
+             <number>0</number>
             </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-            <attribute name="buttonGroup">
-             <string notr="true">buttonGroup_2</string>
-            </attribute>
-           </widget>
+            <item>
+             <widget class="QRadioButton" name="rbDatabaseLayer">
+              <property name="text">
+               <string>Increment layer only</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <attribute name="buttonGroup">
+               <string notr="true">buttonGroup_2</string>
+              </attribute>
+             </widget>
+            </item>
+           </layout>
           </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_2">
-          <property name="spacing">
-           <number>0</number>
-          </property>
           <item>
-           <widget class="QRadioButton" name="rbDatabaseDbLayer">
-            <property name="text">
-             <string>Increment layer and preserve database</string>
+           <layout class="QHBoxLayout" name="horizontalLayout_2">
+            <property name="spacing">
+             <number>0</number>
             </property>
-            <property name="checked">
-             <bool>false</bool>
+            <item>
+             <widget class="QRadioButton" name="rbDatabaseDbLayer">
+              <property name="text">
+               <string>Increment layer and preserve database</string>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+              <attribute name="buttonGroup">
+               <string notr="true">buttonGroup_2</string>
+              </attribute>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_4">
+            <item>
+             <widget class="QRadioButton" name="rbSaveLayerOut">
+              <property name="text">
+               <string>Save layer out into superseded folder</string>
+              </property>
+              <attribute name="buttonGroup">
+               <string notr="true">buttonGroup_2</string>
+              </attribute>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="gbSSSettings">
+            <property name="title">
+             <string>Supersede layer settings</string>
             </property>
-            <attribute name="buttonGroup">
-             <string notr="true">buttonGroup_2</string>
-            </attribute>
+            <property name="alignment">
+             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+            </property>
+            <layout class="QVBoxLayout" name="verticalLayout_4">
+             <property name="topMargin">
+              <number>9</number>
+             </property>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_13">
+               <item>
+                <spacer name="horizontalSpacer_8">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeType">
+                  <enum>QSizePolicy::Fixed</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>10</width>
+                   <height>0</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="cbRenameLayer">
+                 <property name="text">
+                  <string>Increment Layer Name</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_14">
+               <item>
+                <spacer name="horizontalSpacer_9">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeType">
+                  <enum>QSizePolicy::Fixed</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>10</width>
+                   <height>0</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="leRenameLayer"/>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_11">
+               <item>
+                <spacer name="horizontalSpacer_6">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeType">
+                  <enum>QSizePolicy::Fixed</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>10</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QRadioButton" name="rbAutoSSLayer">
+                 <property name="text">
+                  <string>Auto supersede layer</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                 <attribute name="buttonGroup">
+                  <string notr="true">buttonGroup_3</string>
+                 </attribute>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_12">
+               <item>
+                <spacer name="horizontalSpacer_7">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeType">
+                  <enum>QSizePolicy::Fixed</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>10</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QRadioButton" name="rbManualSSLayer">
+                 <property name="text">
+                  <string>Manually supersede layer</string>
+                 </property>
+                 <attribute name="buttonGroup">
+                  <string notr="true">buttonGroup_3</string>
+                 </attribute>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_9">
+               <item>
+                <spacer name="horizontalSpacer_4">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeType">
+                  <enum>QSizePolicy::Fixed</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>25</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QLabel" name="label_3">
+                 <property name="text">
+                  <string>Output Database</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_5">
+               <item>
+                <spacer name="horizontalSpacer_2">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeType">
+                  <enum>QSizePolicy::Fixed</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>25</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="leDiscardedDb"/>
+               </item>
+               <item>
+                <widget class="QPushButton" name="pbDiscardDb_browse">
+                 <property name="text">
+                  <string>Browse...</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_10">
+               <item>
+                <spacer name="horizontalSpacer_5">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeType">
+                  <enum>QSizePolicy::Fixed</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>25</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QLabel" name="label_4">
+                 <property name="text">
+                  <string>Output Layer Name</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_8">
+               <item>
+                <spacer name="horizontalSpacer_3">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeType">
+                  <enum>QSizePolicy::Fixed</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>25</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="leDiscardedLayer"/>
+               </item>
+              </layout>
+             </item>
+            </layout>
            </widget>
           </item>
          </layout>
-        </item>
-       </layout>
-      </widget>
+        </widget>
+       </item>
+      </layout>
      </item>
      <item>
       <spacer name="verticalSpacer">
@@ -245,6 +524,7 @@
  <resources/>
  <connections/>
  <buttongroups>
+  <buttongroup name="buttonGroup_3"/>
   <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup"/>
  </buttongroups>

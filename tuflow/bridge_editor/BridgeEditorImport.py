@@ -3,7 +3,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from qgis.core import *
-from tuflow.forms.BridgeEditorImportDialog import Ui_bridgeEditorImportDialog
+from ..forms.BridgeEditorImportDialog import Ui_bridgeEditorImportDialog
 
 
 class BridgeImport:

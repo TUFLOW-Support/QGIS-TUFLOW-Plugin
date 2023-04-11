@@ -19,7 +19,7 @@ class TuPlotSelection():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 		
 		self.tuPlot.tuPlot2D.plotSelectionPointFeat.clear()  # clear selected feature for plotting list
 		
@@ -63,7 +63,7 @@ class TuPlotSelection():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		self.tuPlot.tuPlot3D.plotSelectionPointFeat.clear()  # clear selected feature for plotting list
 
@@ -109,7 +109,7 @@ class TuPlotSelection():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		self.tuPlot.tuPlot2D.plotSelectionLineFeat.clear()  # clear selected feature for plotting list
 
@@ -150,7 +150,7 @@ class TuPlotSelection():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		self.tuPlot.tuPlot3D.plotSelectionLineFeat.clear()  # clear selected feature for plotting list
 
@@ -193,7 +193,7 @@ class TuPlotSelection():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		self.tuPlot.tuPlot2D.plotSelectionFlowFeat.clear()
 		
@@ -238,7 +238,7 @@ class TuPlotSelection():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		self.tuPlot.tuPlot3D.plotSelectionCurtainFeat.clear()
 
@@ -272,7 +272,7 @@ class TuPlotSelection():
 
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		self.tuPlot.tuPlot3D.plotSelectionVPFeat.clear()
 
@@ -307,7 +307,7 @@ class TuPlotSelection():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 		
 		plotType = kwargs['type'] if 'type' in kwargs.keys() else 'standard'
 		layer = kwargs['layer'] if 'layer' in kwargs else None
@@ -359,7 +359,7 @@ class TuPlotSelection():
 
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		for dataType in self.tuPlot.plotDataPlottingTypes:
 			if self.tuPlot.plotDataToSelection[dataType] is not None: self.tuPlot.plotDataToSelection[dataType].clear()

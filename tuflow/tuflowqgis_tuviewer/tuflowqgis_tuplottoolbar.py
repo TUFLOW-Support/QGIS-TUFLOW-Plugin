@@ -3,26 +3,20 @@ from PyQt5.QtGui import *
 from PyQt5 import QtGui
 from qgis.core import *
 from PyQt5.QtWidgets  import *
-from tuflow.dataset_menu import DatasetMenu, DatasetMenuDepAv
+from ..dataset_menu import DatasetMenu, DatasetMenuDepAv
 import sys
 import os
 import matplotlib
 import numpy as np
-try:
-	import matplotlib.pyplot as plt
-except:
-	current_path = os.path.dirname(__file__)
-	sys.path.append(os.path.join(current_path, '_tk\\DLLs'))
-	sys.path.append(os.path.join(current_path, '_tk\\libs'))
-	sys.path.append(os.path.join(current_path, '_tk\\Lib'))
-	import matplotlib.pyplot as plt
+
+import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 from matplotlib.patches import Polygon
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumenufunctions import TuMenuFunctions
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplottoolbar_viewtoolbar import ViewToolbar
-from tuflow.spinbox_action import SingleSpinBoxAction, DoubleSpinBoxAction
+from .tuflowqgis_tumenufunctions import TuMenuFunctions
+from .tuflowqgis_tuplottoolbar_viewtoolbar import ViewToolbar
+from ..spinbox_action import SingleSpinBoxAction, DoubleSpinBoxAction
 import numpy as np
 
 
@@ -34,7 +28,7 @@ class TuPlotToolbar():
 	"""
 	
 	def __init__(self, tuPlot):
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		self.tuPlot = tuPlot
 		self.tuView = tuPlot.tuView
@@ -149,7 +143,7 @@ class TuPlotToolbar():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		qv = Qgis.QGIS_VERSION_INT
 
@@ -280,7 +274,7 @@ class TuPlotToolbar():
 	
 	def initialiseViewToolbar(self):
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 		
 		# view menu - time series
 		self.viewToolbarTimeSeries = ViewToolbar(self, TuPlot.TimeSeries)
@@ -342,7 +336,7 @@ class TuPlotToolbar():
 	
 	def mapOutputPlottingButtonClicked(self, dataType, **kwargs):
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		menu = self.plotDataToPlotMenu[dataType]
 		graphic = self.tuPlot.plotDataToGraphic[dataType]
@@ -372,7 +366,7 @@ class TuPlotToolbar():
 	
 	def addItemToPlotOptions(self, type, dataType=None, static=False):
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		if dataType is None:
 			for dataType in self.tuPlot.plotDataPlottingTypes:
@@ -386,7 +380,7 @@ class TuPlotToolbar():
 
 	def addItemToPlotOption(self, type, dataType):
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		menu = self.plotDataToPlotMenu[dataType]
 
@@ -403,7 +397,7 @@ class TuPlotToolbar():
 	
 	def getItemsFromPlotOptions(self, plotNo, method='plot'):
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		if method == 'plot':
 			if plotNo == TuPlot.TimeSeries:
@@ -435,7 +429,7 @@ class TuPlotToolbar():
 
 	def getCheckedItemsFromPlotOptions(self, dataType, *args, **kwargs):
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		if dataType not in self.plotDataToPlotMenu:
 			return False
@@ -450,7 +444,7 @@ class TuPlotToolbar():
 
 	def setCheckedItemsPlotOptions(self, dataType, items):
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		menu = self.plotDataToPlotMenu[dataType]
 		if isinstance(menu, QAction):
@@ -500,7 +494,7 @@ class TuPlotToolbar():
 			self.averageMethodActions.append(menu)
 
 	def generateDepthAveragingAction(self, avType, parentMenu, bAdd=False):
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		if not [x for x in parentMenu.menu().actions() if avType.lower() in x.text().lower()]:
 			return None
@@ -682,7 +676,7 @@ class TuPlotToolbar():
 
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		# if groupMetadata.maximumVerticalLevelsCount() < 2: return [None]
 

@@ -54,8 +54,7 @@ def globify(text):
 
 
 def count_lines(file, write_empty=False):
-    sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'convert_tuflow_model_gis_format'))
-    from tuflow.convert_tuflow_model_gis_format.helpers.empty_files import TuflowEmptyFiles
+    from ..convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.empty_files import TuflowEmptyFiles
 
     line_count = 0
     if os.path.exists(file):
@@ -144,7 +143,8 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
             scenarios = [x.strip() for x in parameters['scenarios'].split(' ') if x.strip()]
 
         # script path
-        script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'convert_tuflow_model_gis_format', 'convert_tuflow_gis_format.py')
+        script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'convert_tuflow_model_gis_format', 'conv_tf_gis_format', 'convert_tuflow_gis_format.py')
+        sys.path.append(os.path.dirname(script))
 
         args = ['python', '-u', script, '-tcf', str(tcf), '-gis', str(gis), '-grid', str(grid), '-op', str(op)]
         if of:

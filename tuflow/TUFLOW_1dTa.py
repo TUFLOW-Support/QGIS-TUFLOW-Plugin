@@ -65,7 +65,7 @@ class HydTableData():
 								headerLen = len(a)
 								#for i, header in enumerate(a[s2:]):
 								#	self.xsHydTa_headers.append(header.strip().strip('"'))
-								self.xsHydTa_headers.append([x.strip().strip('"') for x in a[s2:]])
+								self.xsHydTa_headers.append(['(xs) {0}'.format(x.strip().strip('"')) for x in a[s2:]])
 								xsHydTa_header = True
 								header = False
 								continue
@@ -149,7 +149,7 @@ class HydTableData():
 								headerLen = len(a[s:])
 								#for i, header in enumerate(a[s:]):
 								#	self.channelHydTa_headers.append(header.strip().strip('"'))
-								self.channelHydTa_headers.append([x.strip().strip('"') for x in a[s:]])
+								self.channelHydTa_headers.append(['(nwk) {0}'.format(x.strip().strip('"')) for x in a[s:]])
 								channelHydTa_header = True
 								header = False
 								continue
@@ -196,11 +196,11 @@ class HydTableData():
 		"""
 
 		xsTaTypes = set(sum(self.xsHydTa_headers, []))
-		if 'Elevation' in xsTaTypes:
-			xsTaTypes.remove('Elevation')
+		if '(xs) Elevation' in xsTaTypes:
+			xsTaTypes.remove('(xs) Elevation')
 		chTaTypes = set(sum(self.channelHydTa_headers, []))
-		if 'Elevation' in chTaTypes:
-			chTaTypes.remove('Elevation')
+		if '(nwk) Elevation' in chTaTypes:
+			chTaTypes.remove('(nwk) Elevation')
 
 		return set(list(xsTaTypes) + list(chTaTypes))
 
@@ -248,8 +248,11 @@ class HydTableData():
 				j = propH.index(prop.lower())
 				x = data[i][:,j]
 
-				if 'elevation' in propH:
-					j = propH.index('elevation')
+				if '(xs) elevation' in propH:
+					j = propH.index('(xs) elevation')
+					y = data[i][:,j]
+				elif '(nwk) elevation' in propH:
+					j = propH.index('(nwk) elevation')
 					y = data[i][:,j]
 
 		return x, y

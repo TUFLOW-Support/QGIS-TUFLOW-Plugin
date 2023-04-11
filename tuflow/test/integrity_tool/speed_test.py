@@ -1,7 +1,7 @@
 import sys
 import os
 from qgis.core import QgsApplication, QgsVectorLayer
-from tuflow.integrity_tool.DataCollector import DataCollector
+from ..integrity_tool.DataCollector import DataCollector
 
 
 # initialise QGIS data providers

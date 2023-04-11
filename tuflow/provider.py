@@ -42,14 +42,12 @@ class TuflowAlgorithmProvider(QgsProcessingProvider):
         if not os.path.exists(self.script_folder):
             return
 
-        sys.path.append(self.script_folder)
-
         self.algs.clear()
         for file in Path(self.script_folder).glob('*.py'):
             alg = self.algorithmName(file)
             if alg is not None:
                 try:
-                    exec('from {0} import {1}'.format(file.stem, alg))
+                    exec('from .alg.{0} import {1}'.format(file.stem, alg))
                     self.algs.append(eval('{0}()'.format(alg)))
                 except:
                     continue

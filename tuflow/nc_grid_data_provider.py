@@ -2,8 +2,9 @@ import re
 from datetime import datetime, timedelta
 
 import numpy as np
-from qgis._core import QgsGeometry, QgsFeature, QgsPointXY, QgsWkbTypes
+from qgis._core import QgsGeometry, QgsFeature, QgsPointXY, QgsWkbTypes, QgsMapLayer
 from qgis.core import QgsRasterLayer, QgsSingleBandPseudoColorRenderer, QgsColorRampShader, QgsStyle
+from PyQt5.QtCore import pyqtSignal
 
 try:
     from netCDF4 import Dataset
@@ -18,7 +19,10 @@ class LoadError(Exception):
 
 class NetCDFGrid(QgsRasterLayer):
 
-    def __init__(self, uri='', base_name='', provider_type='gdal', layer_options=QgsRasterLayer.LayerOptions()):
+    nameChanged = pyqtSignal()
+
+    def __init__(self, uri='', base_name='', provider_type='gdal', layer_options=QgsRasterLayer.LayerOptions(),
+                 existing_layer=None, **kwargs):
         if not netcdf_loaded:
             raise LoadError('NetCDF4 Python library not installed. Please see the following wiki page for more information:<p>'
                             '<a href="https://wiki.tuflow.com/index.php?title=TUFLOW_Viewer_-_Load_Results_-_NetCDF_Grid"'
@@ -28,22 +32,29 @@ class NetCDFGrid(QgsRasterLayer):
         self.fid = None
         self._nc_file = ':'.join(uri.split(':')[1:-1])
         self._lyr_name = uri.split(':')[-1]
+        self._existing_layer = bool(existing_layer)
 
         if not self.is_nc_grid(self._nc_file):
             raise LoadError('Format is not recognised as a NetCDF raster.')
 
         # load as raster layer
-        QgsRasterLayer.__init__(self, uri, base_name, provider_type, layer_options)
-        if not self.isValid():
-            raise LoadError('Failed to initialise QgsRasterLayer for {0}'.format(uri))
+        if existing_layer is None:
+            QgsRasterLayer.__init__(self, uri, base_name, provider_type, layer_options)
+            if not self.isValid():
+                raise LoadError('Failed to initialise QgsRasterLayer for {0}'.format(uri))
+            self._lyr = self
+        else:
+            QgsRasterLayer.__init__(self)
+            self._lyr = existing_layer
+        self._lyr.nameChanged.connect(self._name_changed)
 
-        self._dp = self.dataProvider()
+        self._dp = self._lyr.dataProvider()
 
         # load grid properties
-        self.dx = self.rasterUnitsPerPixelX()
-        self.dy = self.rasterUnitsPerPixelY()
-        self.ox = self.extent().xMinimum()
-        self.oy = self.extent().yMinimum()
+        self.dx = self._lyr.rasterUnitsPerPixelX()
+        self.dy = self._lyr.rasterUnitsPerPixelY()
+        self.ox = self._lyr.extent().xMinimum()
+        self.oy = self._lyr.extent().yMinimum()
 
         # get time data
         self.units = 'h'
@@ -66,11 +77,23 @@ class NetCDFGrid(QgsRasterLayer):
         self._curr_band = 0
         self._set_raster_renderer_to_band(1)
 
+    def id(self):
+       return QgsRasterLayer.id(self._lyr)
+
+    def triggerRepaint(self):
+        return QgsRasterLayer.triggerRepaint(self._lyr)
+
+    def name(self):
+        return QgsRasterLayer.name(self._lyr)
+
     def update_band(self, band_number):
         if band_number is None:
             return
 
         self._set_raster_renderer_to_band(band_number)
+
+    def _name_changed(self):
+        self.nameChanged.emit()
 
     def timesteps(self, time_type='relative'):
         for time in self.times:
@@ -108,6 +131,9 @@ class NetCDFGrid(QgsRasterLayer):
             self.fid.close()
             self.fid = None
 
+    def set_reference_time(self, datetime):
+        self.reference_time = datetime
+
     def _set_raster_renderer_to_band(self, band_number):
         if self.static:
             band_number = 1
@@ -122,9 +148,9 @@ class NetCDFGrid(QgsRasterLayer):
             self._renderer.setClassificationMax(self._max)
             self._renderer.createShader(colour_ramp_gradient, QgsColorRampShader.Interpolated,
                                         QgsColorRampShader.Continuous, 5)
-            self.setRenderer(self._renderer)
+            self._lyr.setRenderer(self._renderer)
         else:
-            self._renderer = self.renderer()
+            self._renderer = self._lyr.renderer()
             if isinstance(self._renderer, QgsSingleBandPseudoColorRenderer):
                 self._renderer.setBand(band_number)
 

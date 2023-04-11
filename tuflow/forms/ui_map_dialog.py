@@ -823,4 +823,4 @@ class Ui_MapDialog(object):
 from qgscollapsiblegroupbox import QgsCollapsibleGroupBox
 from qgscolorbutton import QgsColorButton
 from qgsfontbutton import QgsFontButton
-from tuflow.DataTable import GraphicItemsTable, ImageItemsTable, MapExportTable, PlotItemsTable
+from ..DataTable import GraphicItemsTable, ImageItemsTable, MapExportTable, PlotItemsTable

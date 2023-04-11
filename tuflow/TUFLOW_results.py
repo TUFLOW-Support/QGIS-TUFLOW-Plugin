@@ -3,7 +3,7 @@ import numpy
 import csv
 import ctypes
 import re
-from tuflow.tuflowqgis_library import (getOSIndependentFilePath, NC_Error,
+from .tuflowqgis_library import (getOSIndependentFilePath, NC_Error,
 									   NcDim, NcVar, getNetCDFLibrary)
 from dateutil.parser import parse
 from datetime import timedelta
@@ -129,6 +129,8 @@ class PlotObjects():
 	def __init__(self,fullpath): #read the file
 		error = False
 		message = ''
+		if not fullpath:
+			return
 		try:
 			with open(fullpath, 'r') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
@@ -873,6 +875,8 @@ class NodeInfo():
 		self.node_channels = []
 		self.message = ''
 		self.error = False
+		if not fullpath:
+			return
 		try:
 			with open(fullpath, 'r') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
@@ -938,6 +942,8 @@ class ChanInfo():
 
 		self.message = ''
 		self.error = False
+		if not fullpath:
+			return
 		try:
 			with open(fullpath, 'r') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
@@ -2177,9 +2183,9 @@ class ResData():
 		self.formatVersion = None
 		self.units = None
 		self.displayname = None
-		self.Index = None
-		self.nodes = None #contains 1D node information if it
-		self.Channels = None #contains 1D channel information if it
+		self.Index = PlotObjects(None)
+		self.nodes = NodeInfo(None) #contains 1D node information if it
+		self.Channels = ChanInfo(None) #contains 1D channel information if it
 
 		# 2019 release additions for netcdf output format
 		self.resFileFormat = "CSV"

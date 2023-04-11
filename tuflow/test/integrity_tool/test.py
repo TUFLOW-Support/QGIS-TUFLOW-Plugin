@@ -4,14 +4,14 @@ import unittest
 from qgis.core import (
 QgsApplication, QgsVectorLayer, QgsRasterLayer, QgsPointXY
 )
-from tuflow.integrity_tool.Enumerators import *
-from tuflow.integrity_tool.FeatureData import FeatureData
-from tuflow.integrity_tool.DrapeData import DrapeData
-from tuflow.integrity_tool.DataCollector import DataCollector
-from tuflow.integrity_tool.SnappingTool import SnappingTool
-from tuflow.integrity_tool.ContinuityTool import ContinuityTool
-from tuflow.integrity_tool.FlowTraceTool import DataCollectorFlowTrace, FlowTraceTool, FlowTracePlot
-from tuflow.integrity_tool.PipeDirectionTool import PipeDirectionTool
+from ...integrity_tool.Enumerators import *
+from ...integrity_tool.FeatureData import FeatureData
+from ...integrity_tool.DrapeData import DrapeData
+from ...integrity_tool.DataCollector import DataCollector
+from ...integrity_tool.SnappingTool import SnappingTool
+from ...integrity_tool.ContinuityTool import ContinuityTool
+from ...integrity_tool.FlowTraceTool import DataCollectorFlowTrace, FlowTraceTool, FlowTracePlot
+from ...integrity_tool.PipeDirectionTool import PipeDirectionTool
 
 # initialise QGIS data providers
 argv = [bytes(x, 'utf-8') for x in sys.argv]
@@ -20,7 +20,7 @@ qgis.initQgis()
 
 # path to test map layers
 dir = os.path.dirname(__file__)
-path_dem = r"C:\TUFLOW\Tutorial_Data_QGIS\Tutorial_Data_QGIS\QGIS\Complete_Model\tuflow\model\grid\dem_m01.asc"
+path_dem = r"C:\Users\esymons\Downloads\TUFLOW\model\grid\DEM_SI_Unit_01.flt"
 path_chan_L = os.path.join(dir, "gis", "1d_nwk_M04_channels_001_L.shp")
 path_culv_L = os.path.join(dir, "gis", "1d_nwk_M04_culverts_001_L.shp")
 path_xs = os.path.join(dir, "xs", "1d_xs_M04_creek_001_L.shp")
@@ -28,8 +28,8 @@ path_pipe_L = os.path.join(dir, "gis", "1d_nwk_M07_Pipes_001_L.shp")
 path_pipe_L_broken = os.path.join(dir, "gis", "1d_nwk_M07_Pipes_001_L_Broken.shp")
 path_pits_P = os.path.join(dir, "gis", "1d_nwk_M07_Pits_001_P.shp")
 path_pits_P_broken = os.path.join(dir, "gis", "1d_nwk_M07_Pits_001_P_Broken.shp")
-path_elwood_pipes = r"C:\Users\Ellis.Symons\Desktop\Ash Wright\temporary\1d_nwk_Elwood_Pipe_L.shp"
-path_elwood_pits = r"C:\Users\Ellis.Symons\Desktop\Ash Wright\temporary\1d_nwk_Elwood_pits_P.shp"
+# path_elwood_pipes = r"C:\Users\Ellis.Symons\Desktop\Ash Wright\temporary\1d_nwk_Elwood_Pipe_L.shp"
+# path_elwood_pits = r"C:\Users\Ellis.Symons\Desktop\Ash Wright\temporary\1d_nwk_Elwood_pits_P.shp"
 
 # QgsMapLayers
 dem = QgsRasterLayer(path_dem, "dem_m01")
@@ -40,8 +40,8 @@ pipe_L = QgsVectorLayer(path_pipe_L, "1d_nwk_M07_Pipes_001_L")
 pipe_L_broken = QgsVectorLayer(path_pipe_L_broken, "1d_nwk_M07_Pipes_001_L_Broken")
 pits_P = QgsVectorLayer(path_pits_P, "1d_nwk_M07_Pits_001_P")
 pits_P_broken = QgsVectorLayer(path_pits_P_broken, "1d_nwk_M07_Pits_001_P_Broken")
-elwood_pipes = QgsVectorLayer(path_elwood_pipes, "1d_nwk_Elwood_Pipe_L")
-elwood_pits = QgsVectorLayer(path_elwood_pits, "1d_nwk_Elwood_pits_P")
+# elwood_pipes = QgsVectorLayer(path_elwood_pipes, "1d_nwk_Elwood_Pipe_L")
+# elwood_pits = QgsVectorLayer(path_elwood_pits, "1d_nwk_Elwood_pits_P")
 
 
 

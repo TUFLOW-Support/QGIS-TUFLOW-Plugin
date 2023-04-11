@@ -9,7 +9,7 @@ from .FeatureData import FeatureData
 from .DrapeData import DrapeData
 from .ConnectionData import ConnectionData
 from .NetworkVertex import NetworkVertex
-from tuflow.tuflowqgis_library import tuflowqgis_find_layer, is1dNetwork, lineToPoints, getRasterValue, readInvFromCsv
+from ..tuflowqgis_library import tuflowqgis_find_layer, is1dNetwork, lineToPoints, getRasterValue, readInvFromCsv
 from datetime import datetime, timedelta
 
 
@@ -318,7 +318,7 @@ class DataCollector(QObject):
                     self.connections[reqFeatData.id] = connectionData
             
             # do something since we've finished assessing feature
-            self.finishedFeature(f, layer, snappedFeatures, snappedLayers)
+            self.finishedFeature(f, layer, snappedFeatures, snappedLayers, self.hasStarted)
             
             # let progress bar know we've finished one feature
             self.updated.emit()
@@ -857,7 +857,7 @@ class DataCollector(QObject):
                     self.featuresToAssess += features[i:]
                     self.layersToAssess += layers[i:]
             
-    def finishedFeature(self, feature, layer, snappedFeatures, snappedLayers):
+    def finishedFeature(self, feature, layer, snappedFeatures, snappedLayers, has_started):
         """
         Place holder for flow trace object to override.
         
@@ -866,5 +866,6 @@ class DataCollector(QObject):
         :param snappedLayers: list -> QgsVectorLayer
         :return: void
         """
-        
-        self.featuresAssessed.append(feature)
+        if has_started or not self.__class__.__name__ == 'DataCollectorFlowTrace':
+            self.featuresAssessed.append(feature)
+        # self.featuresAssessed.append(feature)

@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.7
+version=3.8
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,58 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=--- 3.7 ---
+changelog=--- 3.8 ---
+          - New Features and Updates -
+          Adds latest available development version to 'About' dialog
+          Adds downloader for latest available development version
+          TUFLOW Viewer - Updates saving/loading vector styles to include streamlines and flow traces. Not backward compatible and will not load old styles
+          TUFLOW Viewer - Load results from TCF - Handles encoding errors
+          TUFLOW Viewer - Workaround added for TUFLOW FV NetCDF mesh outputs that now properly renders velocity maximums
+          TUFLOW Viewer - Adds axis labels for 1D hydraulic tables
+          TUFLOW Viewer - Adds ability to flip which axis is using a secondary axis
+          TUFLOW Viewer - Adds (xs) or (nwk) to hydraulic table results to indicate which input layer should be selected to view hydraulic property
+          TUFLOW Viewer - Animation export format default changed to MP4
+          TUFLOW Viewer - Better error handling added to FFMPEG downloader. Previously if download process crashed it sometimes didn't report anything and it looked like it was hanging
+          TUFLOW Viewer - Now possible to copy a result type style into multiple results
+          TUFLOW Viewer - Adds result name to filename for the cross-section batch plot export. Similar to the time series batch export filenames.
+          TUFLOW Viewer - NetCDF grid results now have option to change reference time
+          TUFLOW Viewer - visibility of results now try and communicate with QGIS layers panel and tries keeps them in sync (i.e. checked / unchecked) - fixes potential issue in QGIS 3.28 where they can go out of sync after using the F7 panel
+          Load From TCF - Catch errors when loading layer from TCF
+          Load From TCF - Handles encoding errors
+          Style Current Layer - Adds bg_uvpt_check
+          TUFLOW Utilities - Adds breakline function to 'common' utilities
+          TUFLOW Utilities - Adds ASC_to_ASC version to utility
+          TUFLOW Utilities - Adds output format option to ASC_to_ASC utility for 2023 version
+          Increment Layer Tool - Added new GPKG option to save a superseded version of layer so working copy can be modified
+          Configure Project - Dialog will will only close if the tool runs successfully
+
+          - Bug Fixes -
+          Removes most of the "sys.path.append" calls in the code. This should make it less likely to get tangled with other plugins or python libraries
+          Fixes bug that was not correctly unloading a couple of the tools
+          TUFLOW Viewer - Fixes 1D xs viewing when using a GPKG layer
+          TUFLOW Viewer - No longer recognised 1d_bc as a 1d_tab type
+          TUFLOW Viewer - Fixes Minimum dt display in QGIS 3.30 - now should correctly display as only one result type
+          TUFLOW Viewer - Fixes bug that would not load 1D results correctly on project load
+          TUFLOW Viewer - Fixes bug that could retain feature selection in layers that were removed or otherwise deselected
+          TUFLOW Viewer - Fixes a bug with plotting 1D cross-sections that would cause them to be plotted even though the 'XZ' type was not selected
+          TUFLOW Viewer - Fixes a bug with plotting 1D cross-sections that would stop them from being plotted after switching to a different plotting tab then coming back to the cross-section plotting tab
+          TUFLOW Viewer - Fixes a bug that would not plot cross-section hydraulic tables if the 1d_xs and source CSV were in different folders
+          TUFLOW Viewer - Fixes a bug that could cause switching between results to be really slow if multiple 1D results were loaded at the same time
+          TUFLOW Viewer - NetCDF grids are now correctly saved / loaded in qgis project
+          TUFLOW Viewer - fixes 'Move down' option when there are only 2 results open
+          TUFLOW Viewer - Fixes python error that could occur if selecting channel results when another open result only contains 2D PO results
+          TUFLOW Viewer - Fixes grammatical error in batch export map tool successful message box
+          TUFLOW Viewer - Fixes python error that could occur when batch exporting plots when data was of different lengths
+          1D Integrity Tool - Fixes X connectors not being properly handled when using flow trace tool
+          1D Integrity Tool - Fixes spelling mistake in Continuity Tool description
+          Import Empty - Fixes bug that would cause 'convert to database' always to be checked when QGIS is first opened - now correctly remembers previous setting between sessions
+          Increment Layer Tool - Fixes bug that would update a layer's name in layer panel but not the data source if an incremented layer had duplicates in the project
+          Increment Layer Tool - Fixes bug that would display "|layername=" for shp files after using 'import from tcf' tool
+          Convert TUFLOW Model GIS Format - Fixes bug that would not correctly convert TCF commands prefixed with '1D'
+          Convert TUFLOW Model GIS Format - Fixes a bug that would cause the tool to not bring in all layers if a scenario name had a decimal point in the name (e.g. If Scenario == 2.5m)
+          Configure Project - Fixes bug that would not cancel tool after user cancel request
+
+          --- 3.7 ---
           - New Features and Updates -
           Arch Bridge Editor - new tool
           TUFLOW Viewer - Changing rendering style of a result type will now also change the style of the maximum and minimum type of the same name (and visa versa)

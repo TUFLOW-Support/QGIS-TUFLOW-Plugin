@@ -76,4 +76,4 @@ class Ui_UserPlotDataManagerDialog(object):
         self.pbViewTable.setText(_translate("UserPlotDataManagerDialog", "View Data"))
         self.pbViewPlot.setText(_translate("UserPlotDataManagerDialog", "Plot Data"))
 
-from tuflow.DataTable import PlotManagerTable
+from ..DataTable import PlotManagerTable

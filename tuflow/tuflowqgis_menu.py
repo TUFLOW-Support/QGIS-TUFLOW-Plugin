@@ -19,23 +19,23 @@
  *                                                                         *
  ***************************************************************************/
 """
+import setuptools
 
 # Import the PyQt and QGIS libraries
 #from PyQt5.QtWidgets  import ( QMenu )
 
 # Import the code for the dialog
 from .tuflowqgis_dialog import *
-from tuflow.tuflowqgis_library import about
+from .tuflowqgis_library import about
 
 # Import the code for the 1D results viewer
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 #from tuflowqgis_TuPlot import *
 #from TuPLOT_external import *
 
 # Import the code for the 1D results viewer
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuview import TuView
+from .tuflowqgis_tuviewer.tuflowqgis_tuview import TuView
 
-from provider import TuflowAlgorithmProvider
+from .provider import TuflowAlgorithmProvider
 
 import tempfile
 import shutil
@@ -43,7 +43,7 @@ import os
 import glob
 
 try:
-	from tuflow.swangis.swangis.ui import *
+	from .swangis.swangis.ui import *
 	swangisSupported = True
 except ImportError:
 	swangisSupported = False
@@ -77,10 +77,10 @@ else:
 
 # from tuflow.ReFH2.refh2 import Refh2Dock
 
-from tuflow.SCS.scs import SCSDock
+from .SCS.scs import SCSDock
 
 # import for integrity tool
-from tuflow.integrity_tool.IntegrityTool import IntegrityToolDock
+from .integrity_tool.IntegrityTool import IntegrityToolDock
 
 #par
 from .tuflowqgis_library import tuflowqgis_apply_check_tf, resetQgisSettings
@@ -138,6 +138,11 @@ class tuflowqgis_menu:
 		#QObject.connect(self.check_dependancy_action, SIGNAL("triggered()"), self.check_dependencies)
 		self.check_dependancy_action.triggered.connect(self.check_dependencies)
 		self.about_menu.addAction(self.check_dependancy_action)
+
+		self.download_dev_version_action = QAction("Download Latest Development Version of TUFLOW Plugin", self.iface.mainWindow())
+		self.download_dev_version_action.triggered.connect(lambda: download_latest_dev_plugin(self.iface))
+		self.about_menu.addAction(self.download_dev_version_action)
+
 		
 		# Editing Submenu
 		self.editing_menu = QMenu(QCoreApplication.translate("TUFLOW", "&Editing"))
@@ -502,7 +507,7 @@ class tuflowqgis_menu:
 		self.iface.removeToolBarIcon(self.increment_action)
 		self.iface.removeToolBarIcon(self.import_chk_action)
 		self.iface.removeToolBarIcon(self.apply_chk_action)
-		self.iface.removeToolBarIcon(self.apply_chk_cLayer_action)
+		self.iface.removeToolBarIcon(self.apply_style_clayer_menu.menuAction())
 		self.iface.removeToolBarIcon(self.autoLabelMenu.menuAction())
 		self.iface.removeToolBarIcon(self.extract_arr2016_action)
 		self.iface.removeToolBarIcon(self.extractRefh2Action)
@@ -511,6 +516,7 @@ class tuflowqgis_menu:
 		if spatial_database_option:
 			self.iface.removeToolBarIcon(self.apply_gpkg_layernames_action)
 		self.iface.removeToolBarIcon(self.archBridgeAction)
+		self.iface.removeToolBarIcon(self.configure_tf_action)
 
 	def configure_tf(self):
 		project = QgsProject.instance()
@@ -706,7 +712,7 @@ class tuflowqgis_menu:
 	
 	def check_dependencies(self):
 		#QMessageBox.critical(self.iface.mainWindow(), "Info", "Not yet implemented!")
-		from tuflow.tuflowqgis_library import check_python_lib
+		from .tuflowqgis_library import check_python_lib
 		error = check_python_lib(self.iface)
 		if error != None:
 			QMessageBox.critical(self.iface.mainWindow(), "Error", "Not all dependencies installed.")
@@ -814,7 +820,11 @@ class tuflowqgis_menu:
 				else:
 					error, message = False, ''
 					scenarios = []
-					getScenariosFromTCF_v2(inFileName, scenarios)
+					try:
+						getScenariosFromTCF_v2(inFileName, scenarios)
+					except Exception as e:
+						error = True
+						message = str(e)
 				if error:
 					if message:
 						QMessageBox.information(self.iface.mainWindow(), "Message", message)

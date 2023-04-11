@@ -1,4 +1,4 @@
-
+import re
 import sys
 import os
 import csv
@@ -833,16 +833,21 @@ class XS():
 			error = True
 			message = 'ERROR - Expecting at least 9 fields in 1d_xs layer'
 			return error, message
+		i = 0
+		if lyr is not None:
+			gpkg = re.findall(r'\.gpkg\|layername=', lyr.dataProvider().dataSourceUri(), flags=re.IGNORECASE)
+			if gpkg:
+				i = 1
 		try:
-			f1 = str(fields.field(0).name()) #source
-			f2 = str(fields.field(1).name()) #type
-			f3 = str(fields.field(2).name()) #flags
-			f4 = str(fields.field(3).name()) #column_1
-			f5 = str(fields.field(4).name()) #column_2
-			f6 = str(fields.field(5).name()) #column_3
-			f7 = str(fields.field(6).name()) #column_4
-			f8 = str(fields.field(7).name()) #column_5
-			f9 = str(fields.field(8).name()) #column_6
+			f1 = str(fields.field(i).name()) #source
+			f2 = str(fields.field(i+1).name()) #type
+			f3 = str(fields.field(i+2).name()) #flags
+			f4 = str(fields.field(i+3).name()) #column_1
+			f5 = str(fields.field(i+4).name()) #column_2
+			f6 = str(fields.field(i+5).name()) #column_3
+			f7 = str(fields.field(i+6).name()) #column_4
+			f8 = str(fields.field(i+7).name()) #column_5
+			f9 = str(fields.field(i+8).name()) #column_6
 		except:
 			error = True
 			message = 'ERROR - Unable to extract field names'
@@ -896,6 +901,7 @@ class XS():
 				self.source.append(source)
 			self.data.append(XS_Data(fpath,source,xs_type,flags,col1,col2,col3,col4,col5,col6, feature))
 			if self.data[-1].error:
+				print('ERROR', self.data[-1].message)
 				return self.data[-1].error, self.data[-1].message
 			else: # check if we have seen this type of section before
 				if self.all_types.count(self.data[-1].type)<1:
@@ -1012,14 +1018,21 @@ class XS():
 		"""
 		Gets all source names for type e.g. 'XZ'
 		"""
-
-		#return [x.attributes()[0].lower() for x in list(filter(lambda x: x.attributes()[1].lower() == t.lower(), lyr.getFeatures()))]
-		return [x.attributes()[0].lower() for x in [x for x in [x for x in lyr.getFeatures() if x.attributes()[1] != null] if x.attributes()[0] != null] if x.attributes()[1].lower() == t.lower()]
+		i, j = 0, 1
+		if lyr is not None:
+			gpkg = re.findall(r'\.gpkg\|layername=', lyr.dataProvider().dataSourceUri(), flags=re.IGNORECASE)
+			if gpkg:
+				i, j = 1, 2
+		return [x.attributes()[i].lower() for x in [x for x in [x for x in lyr.getFeatures() if x.attributes()[j] != null] if x.attributes()[i] != null] if x.attributes()[j].lower() == t.lower()]
 
 	@staticmethod
 	def getAllTypes(lyr, null=None):
 		"""
 
 		"""
-
-		return list(set([x.attributes()[1].upper() for x in lyr.getFeatures() if x.attributes()[1] != null]))
+		i = 1
+		if lyr is not None:
+			gpkg = re.findall(r'\.gpkg\|layername=', lyr.dataProvider().dataSourceUri(), flags=re.IGNORECASE)
+			if gpkg:
+				i = 2
+		return list(set([x.attributes()[i].upper() for x in lyr.getFeatures() if x.attributes()[i] != null]))

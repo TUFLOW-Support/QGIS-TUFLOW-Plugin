@@ -5,7 +5,7 @@ from PyQt5.QtGui import *
 from PyQt5 import QtGui
 from qgis.core import *
 from PyQt5.QtWidgets import *
-from tuflow.canvas_event import *
+from ..canvas_event import *
 
 
 class TuRubberBand():
@@ -85,7 +85,7 @@ class TuRubberBand():
 			self.linePoints = []
 
 			# initialise rubberband
-			rubberBand = QgsRubberBand(self.canvas, False)  # setup rubberband class for drawing
+			rubberBand = QgsRubberBand(self.canvas)  # setup rubberband class for drawing
 			rubberBand.setWidth(2)
 			rubberBand.setColor(self.colour)
 			self.points = []  # list of x, y coords of line
@@ -724,7 +724,7 @@ class TuCrossSection(TuRubberBand):
         :param firstTimePlotting: True if first time plot is being used
         """
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		self.tuPlot.clearPlot2(TuPlot.CrossSection, TuPlot.DataCrossSection2D)
 
@@ -757,7 +757,7 @@ class TuTimeSeriesPoint(TuMarker):
 
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		if firstTimePlotting:
 			# self.tuPlot.clearPlot(0, retain_1d=True, retain_flow=True)

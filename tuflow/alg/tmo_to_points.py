@@ -14,7 +14,7 @@ from processing.gui.AlgorithmDialogBase import AlgorithmDialogBase
 from processing.gui.AlgorithmDialog import AlgorithmDialog
 from processing.gui.ParametersPanel import ParametersPanel
 
-from tmo import TMO
+from ..tmo import TMO
 try:
     from pathlib import Path
 except ImportError:

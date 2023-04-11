@@ -397,4 +397,4 @@ class Ui_archBridgeDialog(object):
         self.pbOk.setText(_translate("archBridgeDialog", "OK"))
         self.pbCancel.setText(_translate("archBridgeDialog", "Cancel"))
 
-from tuflow.bridge_editor.BridgeEditorTable import BridgeSectionTable, ChannelSectionTable
+from ..bridge_editor.BridgeEditorTable import BridgeSectionTable, ChannelSectionTable

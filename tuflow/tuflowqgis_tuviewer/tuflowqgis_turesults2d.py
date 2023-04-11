@@ -7,9 +7,8 @@ from PyQt5 import QtGui
 from qgis.core import *
 from PyQt5.QtWidgets import *
 from qgis.PyQt.QtXml import QDomDocument
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
-from tuflow.tuflowqgis_library import tuflowqgis_find_layer, findAllMeshLyrs, loadSetting, roundSeconds, \
+from .tuflowqgis_turesultsindex import TuResultsIndex
+from ..tuflowqgis_library import tuflowqgis_find_layer, findAllMeshLyrs, loadSetting, roundSeconds, \
 	getPropertiesFrom2dm, qdt2dt, dt2qdt, datetime2timespec
 import re
 
@@ -38,6 +37,7 @@ class TuResults2D():
 		self.layer_style_changed_signals = {}
 		self.active_style = None
 		self.active_style_group_name = -1
+		self.layer_averaging_methods = {}
 	
 	def importResults(self, inFileNames):
 		"""
@@ -106,6 +106,7 @@ class TuResults2D():
 			self.tuView.project.addMapLayer(mLayer)
 			name = mLayer.name()
 			mLayer.nameChanged.connect(lambda: self.layerNameChanged(mLayer, name, mLayer.name()))  # if name is changed can capture this in indexing
+			QgsProject.instance().layerTreeRoot().findLayer(mLayer.id()).visibilityChanged.connect(self.layerVisibilityChanged)
 			signal = mLayer.rendererChanged.connect(lambda: self.layerStyleChanged(mLayer))
 			self.layer_style_changed_signals[mLayer.id()] = signal
 			if qv >= 32800:
@@ -374,13 +375,16 @@ class TuResults2D():
 			mdGroupNames.append(layer.datasetGroupMetadata(QgsMeshDatasetIndex(i, -1)).name())
 		for i, name_ in enumerate(mdGroupNames):
 			if 'minimum dt' in name_.lower():
-				if TuResults.isMaximumResultType(name_, layer, i):
+				if self.tuView.tuResults.isMaximumResultType(name_, layer, i):
 					if '/Maximum' not in name_:
-						mdGroupNames[i] = '{0}/Maximums'.format(name_)
+						if '/Final' in name_:
+							mdGroupNames[i] = re.sub(r'/Final', '/Maximums', name_)
+						else:
+							mdGroupNames[i] = '{0}/Maximums'.format(name_)
 						continue
 			count = mdGroupNames.count(name_)
 			if count > 1:
-				if TuResults.isStatic(name_, layer, i):
+				if self.tuView.tuResults.isStatic(name_, layer, i):
 					if ext.upper() == '.XMDF':
 						mdGroupNames[i] = '{0}/Minimums'.format(name_)
 
@@ -392,7 +396,7 @@ class TuResults2D():
 
 			# special case for minimum dt
 			if 'minimum dt' in id.lower():
-				if TuResults.isMaximumResultType(id, layer, i):
+				if self.tuView.tuResults.isMaximumResultType(id, layer, i):
 					if '/Maximum' not in id:
 						id = f'{id}/Maximums'
 
@@ -407,13 +411,14 @@ class TuResults2D():
 			                     'timeUnit': self.getTimeUnit(layer),
 			                     # 'referenceTime': self.tuView.tuOptions.zeroTime,
 			                     'referenceTime': self.getReferenceTime(layer, self.tuView.tuOptions.zeroTime),
-			                     'isMax': TuResults.isMaximumResultType(id, layer, i),
-			                     'isMin':TuResults.isMinimumResultType(id, layer, i),
-			                     'isStatic': TuResults.isStatic(id, layer, i),
-			                     'isTemporal': TuResults.isTemporal(id, layer, i),
+			                     'isMax': self.tuView.tuResults.isMaximumResultType(id, layer, i),
+			                     'isMin':self.tuView.tuResults.isMinimumResultType(id, layer, i),
+			                     'isStatic': self.tuView.tuResults.isStatic(id, layer, i),
+			                     'isTemporal': self.tuView.tuResults.isTemporal(id, layer, i),
 			                     'hadTemporalProperties': hadtp,
 			                     'ext': ext,
 			                     'isMesh': True,
+			                     #'averagingMethod': None,
 			                     }  # add result type to results dictionary
 			if id2 is not None:
 				results[name][id2] = {'times': {},
@@ -421,20 +426,21 @@ class TuResults2D():
 				                      'timeUnit': self.getTimeUnit(layer),
 				                      # 'referenceTime': self.tuView.tuOptions.zeroTime,
 				                      'referenceTime': self.getReferenceTime(layer, self.tuView.tuOptions.zeroTime),
-				                      'isMax': TuResults.isMaximumResultType(id, layer, i),
-				                      'isMin':TuResults.isMinimumResultType(id, layer, i),
-				                      'isStatic': TuResults.isStatic(id, layer, i),
-				                      'isTemporal': TuResults.isTemporal(id, layer, i),
+				                      'isMax': self.tuView.tuResults.isMaximumResultType(id, layer, i),
+				                      'isMin':self.tuView.tuResults.isMinimumResultType(id, layer, i),
+				                      'isStatic': self.tuView.tuResults.isStatic(id, layer, i),
+				                      'isTemporal': self.tuView.tuResults.isTemporal(id, layer, i),
 				                      'hadTemporalProperties': hadtp,
 				                      'ext': ext,
 				                      'isMesh': True,
+				                      #'averagingMethod': None,
 				                      }  # add result type to results dictionary
 
 			# apply any default rendering styles to datagroup
 			if loadRenderStyle:
 				if id:
-					resultType = TuResults.stripMaximumName(mdGroup.name())
-					resultType = TuResults.stripMaximumName(resultType)
+					resultType = self.tuView.tuResults.stripMaximumName(mdGroup.name())
+					resultType = self.tuView.tuResults.stripMaximumName(resultType)
 					# try finding if style has been saved as a ramp first
 					key = 'TUFLOW_scalarRenderer/{0}_ramp'.format(resultType)
 					file = QSettings().value(key)
@@ -447,8 +453,10 @@ class TuResults2D():
 						self.applyScalarRenderSettings(layer, i, file, type='map')
 				if mdGroup.isVector() or id2:
 					vectorProperties = QSettings().value('TUFLOW_vectorRenderer/vector')
-					if vectorProperties:
+					if vectorProperties and len(vectorProperties) >= 27 and vectorProperties[:27] == '<!DOCTYPE tuflow_meshlayer>':
 						self.applyVectorRenderSettings(layer, i, vectorProperties)
+					# if vectorProperties:
+					# 	self.applyVectorRenderSettings(layer, i, vectorProperties)
 
 			# record datasetindex for each timestep
 			for j in range(layer.datasetCount(QgsMeshDatasetIndex(i,-1))):
@@ -643,6 +651,7 @@ class TuResults2D():
 		        'hadTemporalProperties': False,
 		        'ext': '.dat',
 		        'isMesh': True,
+		        'averagingMethod': None,
 		        }
 
 	def recordSpecialTime(self, name, t, id, id2, i, j, ext):
@@ -716,7 +725,7 @@ class TuResults2D():
 					results[name][specialName]['isStatic'] = True
 					return True
 			elif int(t) == 99999 and timeUnits == 'h':
-				if not TuResults.isMaximumResultType(id):
+				if not self.tuView.tuResults.isMaximumResultType(id):
 					specialName = '{0}/Maximums'.format(id)
 					results[name][specialName] = self.copyResults2dDict(results[name][id])
 					results[name][specialName]['times'] = {'99999.000000': (99999, 1, QgsMeshDatasetIndex(i, j))}
@@ -724,7 +733,7 @@ class TuResults2D():
 					results[name][specialName]['isStatic'] = True
 					results[name][specialName]['isMax'] = True
 					if id2 is not None:
-						if not TuResults.isMaximumResultType(id2):
+						if not self.tuView.tuResults.isMaximumResultType(id2):
 							specialName = '{0}/Maximums'.format(id2)
 							results[name][specialName] = self.copyResults2dDict(results[name][id2])
 							results[name][specialName]['times'] = {'99999.000000': (99999, 2, QgsMeshDatasetIndex(i, j))}
@@ -791,7 +800,7 @@ class TuResults2D():
 				if id is None:
 					# if name is not None
 					id = self.addCounter(name_, ids)
-					if TuResults.isMaximumResultType(name_) or TuResults.isMinimumResultType(name_):
+					if self.tuView.tuResults.isMaximumResultType(name_) or self.tuView.tuResults.isMinimumResultType(name_):
 						id2 = self.addCounter('{0}'.format(' Vector/'.join(name_.split('/'))), ids)
 					else:
 						id2 = self.addCounter('{0} Vector'.format(name_), ids)
@@ -803,7 +812,7 @@ class TuResults2D():
 					# 		id2 = self.addCounter('{0} Vector'.format(mdg.name()), ids)
 				else:
 					# if name is not None
-					if TuResults.isMaximumResultType(name_) or TuResults.isMinimumResultType(name_):
+					if self.tuView.tuResults.isMaximumResultType(name_) or self.tuView.tuResults.isMinimumResultType(name_):
 						id2 = self.addCounter('{0}'.format(' Vector/'.join(name_.split('/'))), ids)
 					else:
 						id2 = self.addCounter('{0} Vector'.format(name_), ids)
@@ -845,6 +854,20 @@ class TuResults2D():
 		
 		self.activeMeshLayers.clear()
 		openResults = self.tuView.OpenResults  # QListWidget
+
+		# disconnect some signals
+		meshLayers = findAllMeshLyrs()
+		nodes = []
+		for ml in meshLayers:
+			layer = tuflowqgis_find_layer(ml)
+			node = QgsProject.instance().layerTreeRoot().findLayer(layer.id())
+			if not node:
+				continue
+			try:
+				node.visibilityChanged.disconnect(self.layerVisibilityChanged)
+			except Exception:
+				pass
+			nodes.append(node)
 		
 		for r in range(openResults.count()):
 			item = openResults.item(r)
@@ -868,6 +891,10 @@ class TuResults2D():
 						self.renderMap(layers=[layer], turn_off=True)
 
 		self.renderMap()
+
+		# connect signals back up
+		for node in nodes:
+			node.visibilityChanged.connect(self.layerVisibilityChanged)
 		
 		return True
 	
@@ -886,10 +913,15 @@ class TuResults2D():
 			layers = self.activeMeshLayers[:]
 
 		for layer in layers:
+			node = QgsProject.instance().layerTreeRoot().findLayer(layer.id())
 			if turn_off:
 				activeScalarIndex = None
 				activeVectorIndex = None
+				if node is not None:
+					node.setItemVisibilityChecked(False)
 			else:
+				if node is not None:
+					node.setItemVisibilityChecked(True)
 				activeScalarIndex = TuResultsIndex(layer.name(), self.activeScalar,
 				                                   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('scalar'),
 				                                   self.tuView.tuResults.isMin('scalar'), self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
@@ -906,6 +938,9 @@ class TuResults2D():
 			setActiveScalar(activeScalarMeshIndex)
 			setActiveVector(activeVectorMeshIndex)
 
+			# override averaging method for velocity in 2D stacked NetCDF meshes
+			self.averingMethodOverride(activeScalarIndex, activeVectorIndex, rs)
+
 			# turn on / off mesh and triangles
 			self.renderNativeMesh(layer, rs)
 
@@ -918,6 +953,57 @@ class TuResults2D():
 			pass
 			
 		return True
+
+	def averingMethodOverride(self, activeScalarIndex, activeVectorIndex, rs):
+		"""
+		Issue with QGIS 3.28 where velocity maximum in 2D stacked NetCDF meshes isn't rendered correctly.
+		This routine will override the averaging method to 'single layer from top' for velocity in these cases.
+		If not velocity then then the averaging method will be set to the previous method.
+		"""
+
+		av_method_override = False
+		broken_result_types = ['velocity']
+
+		# start with basic checks to see if we want to continue
+		if Qgis.QGIS_VERSION_INT < 31300:
+			return
+
+		if (activeScalarIndex and activeScalarIndex.result and activeScalarIndex.resultType and
+				self.tuView.tuResults.results[activeScalarIndex.result].get(activeScalarIndex.resultType) and
+				self.tuView.tuResults.results[activeScalarIndex.result][activeScalarIndex.resultType]['ext'] == '.nc') or \
+				(activeVectorIndex and activeVectorIndex.result and activeVectorIndex.resultType and
+				 self.tuView.tuResults.results[activeVectorIndex.result].get(activeVectorIndex.resultType) and
+				 self.tuView.tuResults.results[activeVectorIndex.result][activeVectorIndex.resultType]['ext'] == '.nc'):
+			pass
+		else:
+			return
+
+		# get the results
+		if activeScalarIndex.result and activeScalarIndex.resultType:
+			result_name = activeScalarIndex.result
+			res = self.tuView.tuResults.results[activeScalarIndex.result][activeScalarIndex.resultType]
+		elif activeVectorIndex.result and activeVectorIndex.resultType:
+			result_name = activeVectorIndex.result
+			res = self.tuView.tuResults.results[activeVectorIndex.result][activeVectorIndex.resultType]
+		else:
+			result_name = ''
+			res = None
+
+		if (self.tuView.tuResults.isMax('scalar') or self.tuView.tuResults.isMax('vector')) and \
+				res and not res['is3dDataset']:
+			cur_av_method = rs.averagingMethod()
+			if not self.is_single_layer_from_top(cur_av_method):
+				self.layer_averaging_methods[result_name] = cur_av_method.clone()
+			new_av_method = QgsMeshMultiLevelsAveragingMethod(1, 1, True)
+			rs.setAveragingMethod(new_av_method)
+		elif self.layer_averaging_methods.get(result_name):
+			rs.setAveragingMethod(self.layer_averaging_methods.get(result_name))
+			self.layer_averaging_methods[result_name] = None
+
+	def is_single_layer_from_top(self, av_method):
+		return isinstance(av_method, QgsMeshMultiLevelsAveragingMethod) and \
+			av_method.isSingleLevel() and av_method.countedFromTop() and \
+			av_method.startVerticalLevel() == 1
 	
 	def removeResults(self, resList):
 		"""
@@ -926,8 +1012,6 @@ class TuResults2D():
 		:param resList: list -> str result name e.g. M01_5m_001
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 
 		results = self.tuView.tuResults.results
 
@@ -941,7 +1025,7 @@ class TuResults2D():
 				# remove from indexed results
 				for resultType in list(results[res].keys()):
 					# if '_ts' not in resultType and '_lp' not in resultType:
-					if TuResults.isMapOutputType(resultType):
+					if self.tuView.tuResults.isMapOutputType(resultType):
 						del results[res][resultType]
 
 				# remove from map
@@ -1016,7 +1100,7 @@ class TuResults2D():
 		for result_name, result_items in results.items():
 			if isinstance(result_items, dict):
 				for rtype in list(result_items.keys()):
-					if TuResults.isMapOutputType(rtype):
+					if self.tuView.tuResults.isMapOutputType(rtype):
 						del result_items[rtype]
 
 		if layer.dataProvider().datasetGroupCount() > 0:
@@ -1037,8 +1121,8 @@ class TuResults2D():
 
 		renderer_settings = layer.rendererSettings()
 		active_dataset = layer.datasetGroupMetadata(QgsMeshDatasetIndex(renderer_settings.activeScalarDatasetGroup())).name()
-		active_dataset = TuResults.stripMaximumName(active_dataset)
-		active_dataset = TuResults.stripMinimumName(active_dataset)
+		active_dataset = self.tuView.tuResults.stripMaximumName(active_dataset)
+		active_dataset = self.tuView.tuResults.stripMinimumName(active_dataset)
 		if active_dataset != self.active_style_group_name:
 			self.active_style_group_name = active_dataset
 			self.active_style = self.scalarDatasetStyleXml(renderer_settings, renderer_settings.activeScalarDatasetGroup())
@@ -1052,8 +1136,8 @@ class TuResults2D():
 					continue
 
 				dataset = layer.datasetGroupMetadata(QgsMeshDatasetIndex(i)).name()
-				dataset = TuResults.stripMaximumName(dataset)
-				dataset = TuResults.stripMinimumName(dataset)
+				dataset = self.tuView.tuResults.stripMaximumName(dataset)
+				dataset = self.tuView.tuResults.stripMinimumName(dataset)
 				if dataset == active_dataset:
 					doc = QDomDocument('tuflow_meshlayer')
 					statusOK, errorStr, errorLine, errorColumn = doc.setContent(self.active_style, True)
@@ -1119,7 +1203,7 @@ class TuResults2D():
 				if not isinstance(layer, QgsMeshLayer):
 					continue
 				for restype in results[r]:
-					if TuResults.isMapOutputType(restype):
+					if self.tuView.tuResults.isMapOutputType(restype):
 						# see if reference time has been changed
 						if qv >= 31600:
 							if 'referenceTime' in results[r][restype]:
@@ -1217,62 +1301,18 @@ class TuResults2D():
 		"""
 
 		qv = Qgis.QGIS_VERSION_INT
-		
+		if qv < 31600:
+			return False
+
 		rs = layer.rendererSettings()
 		rsVector = rs.vectorSettings(datasetGroupIndex)
-		if qv >= 31100:
-			rsVectorArrow = rsVector.arrowSettings()
-		
-		if 'arrow head length ratio' in vectorProperties:
-			if qv < 31100:
-				rsVector.setArrowHeadLengthRatio(vectorProperties['arrow head length ratio'])
-			else:
-				rsVectorArrow.setArrowHeadLengthRatio(vectorProperties['arrow head length ratio'])
-		if 'arrow head width ratio' in vectorProperties:
-			if qv < 31100:
-				rsVector.setArrowHeadWidthRatio(vectorProperties['arrow head width ratio'])
-			else:
-				rsVectorArrow.setArrowHeadWidthRatio(vectorProperties['arrow head width ratio'])
-		if 'color' in vectorProperties:
-			rsVector.setColor(vectorProperties['color'])
-		if 'filter max' in vectorProperties:
-			rsVector.setFilterMax(vectorProperties['filter max'])
-		if 'filter min' in vectorProperties:
-			rsVector.setFilterMin(vectorProperties['filter min'])
-		if 'line width' in vectorProperties:
-			rsVector.setLineWidth(vectorProperties['line width'])
-		
-		if 'shaft length method' in vectorProperties:
-			method = vectorProperties['shaft length method']
 
-			if qv < 31100:
-				rsVector.setShaftLengthMethod(method)
-			else:
-				rsVectorArrow.setShaftLengthMethod(method)
-		
-			if method == 0:  # min max
-				if qv < 31100:
-					rsVector.setMaxShaftLength(vectorProperties['max shaft length'])
-					rsVector.setMinShaftLength(vectorProperties['min shaft length'])
-				else:
-					rsVectorArrow.setMaxShaftLength(vectorProperties['max shaft length'])
-					rsVectorArrow.setMinShaftLength(vectorProperties['min shaft length'])
-			elif method == 1:  # scaled
-				if qv < 31100:
-					rsVector.setScaleFactor(vectorProperties['scale factor'])
-				else:
-					rsVectorArrow.setScaleFactor(vectorProperties['scale factor'])
-			elif method == 2:  # fixed
-				if qv < 31100:
-					rsVector.setFixedShaftLength(vectorProperties['fixed shaft length'])
-				else:
-					rsVectorArrow.setFixedShaftLength(vectorProperties['fixed shaft length'])
-			else:
-				return False
+		doc = QDomDocument('tuflow_meshlayer')
+		statusOK, errorStr, errorLine, errorColumn = doc.setContent(vectorProperties, True)
+		if not statusOK:
+			return False
 
-		if qv >= 31100:
-			rsVector.setArrowsSettings(rsVectorArrow)
-
+		rsVector.readXml(doc.documentElement())
 		rs.setVectorSettings(datasetGroupIndex, rsVector)
 		layer.setRendererSettings(rs)
 		
@@ -1329,8 +1369,6 @@ class TuResults2D():
 
 		qv = Qgis.QGIS_VERSION_INT
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
-
 		results = self.tuView.tuResults.results
 		firstTime = None
 		
@@ -1340,7 +1378,7 @@ class TuResults2D():
 		for resultType in results[result]:
 			if firstTime is not None:
 				break
-			if TuResults.isMapOutputType(resultType):
+			if self.tuView.tuResults.isMapOutputType(resultType):
 			# elif '_ts' not in resultType and '_lp' not in resultType and '_particles' not in resultType:
 				if len(results[result][resultType]['times']) > 1:
 					for i in results[result][resultType]['times']:
@@ -1353,7 +1391,7 @@ class TuResults2D():
 			#else:  # find time 0 values and change to firstTime
 			for resultType in results[result]:
 				#if '_ts' not in resultType and '_lp' not in resultType:
-				if TuResults.isMapOutputType(resultType):
+				if self.tuView.tuResults.isMapOutputType(resultType):
 					if len(results[result][resultType]['times']) == 1:
 						for i in list(results[result][resultType]['times'].keys())[:]:
 							#if results[result][resultType]['times'][i][0] == 0:
@@ -1483,13 +1521,13 @@ class TuResults2D():
 				bdname = name
 				continue
 			if isMax:
-				if TuResults.isMaximumResultType(name):
-					name = TuResults.stripMaximumName(name)
+				if self.tuView.tuResults.isMaximumResultType(name):
+					name = self.tuView.tuResults.stripMaximumName(name)
 					if name.lower() in possibleWlNames:
 						wlname = name
 			elif isMin:
-				if TuResults.isMinimumResultType(name):
-					name = TuResults.stripMinimumName(name)
+				if self.tuView.tuResults.isMinimumResultType(name):
+					name = self.tuView.tuResults.stripMinimumName(name)
 					if name.lower() in possibleWlNames:
 						wlname = name
 			else:
@@ -1499,3 +1537,50 @@ class TuResults2D():
 				break
 
 		return bdname, wlname
+
+	def layerVisibilityChanged(self):
+		# disconnect some signals
+		skipConnect = False
+		try:
+			self.tuView.project.layersAdded.disconnect(self.tuView.layersAdded)
+		except:
+			skipConnect = True
+			pass
+		skipConnect2 = False
+		try:
+			self.tuView.OpenResults.itemSelectionChanged.disconnect(self.tuView.resultSelectionChangeSignal)
+		except:
+			pass
+		meshLayers = findAllMeshLyrs()
+		for ml in meshLayers:
+			layer = tuflowqgis_find_layer(ml)
+			try:
+				layer.dataProvider().datasetGroupsAdded.disconnect(self.datasetGroupsAdded)
+			except:
+				pass
+			try:
+				layer.repaintRequested.disconnect(self.repaintRequested)
+			except:
+				pass
+
+		for res in self.results2d:
+			layer = tuflowqgis_find_layer(res)
+			if layer is None:
+				continue
+			node = QgsProject.instance().layerTreeRoot().findLayer(layer.id())
+			k = self.tuView.OpenResults.findItems(res, Qt.MatchRecursive)[0]
+			k.setSelected(node.itemVisibilityChecked())
+
+		updated = self.updateActiveMeshLayers()  # update list of active mesh layers
+		self.tuView.resultsChanged('selection changed')  # update tuflow viewer
+
+		# connect load signals
+		if not skipConnect:
+			self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
+		self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
+			lambda: self.tuView.resultsChanged('selection changed'))
+		meshLayers = findAllMeshLyrs()
+		for ml in meshLayers:
+			layer = tuflowqgis_find_layer(ml)
+			layer.dataProvider().datasetGroupsAdded.connect(self.datasetGroupsAdded)
+			layer.repaintRequested.connect(self.repaintRequested)

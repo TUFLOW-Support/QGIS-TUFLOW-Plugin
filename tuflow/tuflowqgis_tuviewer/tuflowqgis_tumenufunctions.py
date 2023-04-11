@@ -9,6 +9,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5 import QtGui
 from qgis.core import *
+from qgis.gui import QgsDateTimeEdit
 from PyQt5.QtWidgets import *
 from qgis.PyQt.QtXml import QDomDocument
 from matplotlib.patches import Polygon
@@ -16,22 +17,24 @@ from matplotlib.quiver import Quiver
 from matplotlib.collections import PolyCollection
 from matplotlib import cm
 from matplotlib.colors import LinearSegmentedColormap
-from tuflow.tuflowqgis_library import (loadLastFolder, getResultPathsFromTCF, getScenariosFromTcf, getEventsFromTCF,
+from ..tuflowqgis_library import (loadLastFolder, getResultPathsFromTCF, getScenariosFromTcf, getEventsFromTCF,
 									   tuflowqgis_find_layer, getUnit, getCellSizeFromTCF, getOutputZonesFromTCF,
 									   getPathFromRel, convertTimeToFormattedTime, convertFormattedTimeToTime,
 									   getResultPathsFromTLF, browse, qgsxml_as_mpl_cdict,
 									   generateRandomMatplotColours2, getResultPathsFromTCF_v2, mpl_version_int,
-									   labels_about_to_break, labels_already_broken, applyMatplotLibArtist)
-from tuflow.tuflowqgis_dialog import (tuflowqgis_scenarioSelection_dialog, tuflowqgis_eventSelection_dialog,
+									   labels_about_to_break, labels_already_broken, applyMatplotLibArtist,
+                                       qdt2dt)
+from ..tuflowqgis_dialog import (tuflowqgis_scenarioSelection_dialog, tuflowqgis_eventSelection_dialog,
 									  TuOptionsDialog, TuSelectedElementsDialog, tuflowqgis_meshSelection_dialog,
 									  TuBatchPlotExportDialog, TuUserPlotDataManagerDialog,
 									  tuflowqgis_outputZoneSelection_dialog, tuflowqgis_brokenLinks_dialog,
                                       FloodModellerResultImportDialog, tuflowqgis_outputSelection_dialog,
 									  getOutputFolderFromTCF)
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuanimation import TuAnimationDialog
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumap import TuMapDialog
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
-from tuflow.nc_grid_data_provider import NetCDFGrid
+from .tuflowqgis_tuanimation import TuAnimationDialog
+from .tuflowqgis_tumap import TuMapDialog
+from .tuflowqgis_turesults import TuResults
+from ..nc_grid_data_provider import NetCDFGrid
+
 
 
 class TuMenuFunctions():
@@ -185,9 +188,10 @@ class TuMenuFunctions():
 				self.tuView.timestepLockChanged()
 		
 		# finally save the last folder location
-		fpath = os.path.dirname(inFileNames[0][0])
-		settings = QSettings()
-		settings.setValue("TUFLOW_Results/lastFolder", fpath)
+		if askGis:  # if not ask gis then not being loaded from interface
+			fpath = os.path.dirname(inFileNames[0][0])
+			settings = QSettings()
+			settings.setValue("TUFLOW_Results/lastFolder", fpath)
 		
 		return success
 
@@ -1295,7 +1299,7 @@ class TuMenuFunctions():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		ax, plotWidget, _, artists, labels = self.tuView.tuPlot.plotEnumerator(self.tuView.tabWidget.currentIndex())[2:7]
 		labels_about_to_break_ = self.tuView.tuPlot.labels_about_to_break(self.tuView.tabWidget.currentIndex())
@@ -1558,119 +1562,44 @@ class TuMenuFunctions():
 		useClicked = kwargs['use_clicked'] if 'use_clicked' in kwargs.keys() else False
 		saveType = kwargs['save_type'] if 'save_type' in kwargs else 'default'
 		meshIndex = kwargs['mesh_index'] if 'mesh_index' in kwargs else None
-		result = kwargs['result'] if 'result' in kwargs else None
 
-		saved_style_folder = os.path.join(os.path.dirname(__file__), '_saved_styles')
-		if not os.path.exists(saved_style_folder):
-			os.mkdir(saved_style_folder)
-		
-		# what happens if there are no mesh layer or more than one active mesh layer
-		if meshIndex is not None and result is not None:
-			meshLayer = tuflowqgis_find_layer(result)
-		elif not self.tuView.tuResults.tuResults2D.activeMeshLayers:
-			if meshIndex is None:
-				QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Result Datasets')
-				return False
-		elif len(self.tuView.tuResults.tuResults2D.activeMeshLayers) > 1:
-			self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuView.tuResults.tuResults2D.activeMeshLayers)
-			self.meshDialog.exec_()
-			if self.meshDialog.selectedMesh is None:
+		meshLayer = self.activeMeshLayer(window_title='Select Result to Save Default Style From')
+		if meshLayer is None:
+			return
+
+		# get active vector layer
+		if useClicked:
+			if self.clickedResultDataType() != 2:  # not a scalar or vector result type
+				return
+			index = self.clickedGroupIndex(meshLayer)
+		elif meshIndex is not None:
+			index = meshIndex.group()
+		else:
+			index = meshLayer.rendererSettings().activeVectorDatasetGroup()
+
+		if index in [None, -1]:
+			if saveType == 'default':
+				QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Vector Dataset')
 				return False
 			else:
-				meshLayer = tuflowqgis_find_layer(self.meshDialog.selectedMesh)
-		else:
-			meshLayer = self.tuView.tuResults.tuResults2D.activeMeshLayers[0]
-			
-		# get data provider and renderer settings
-		dp = meshLayer.dataProvider()
-		rs = meshLayer.rendererSettings()
-		
-		# get the active scalar dataset
-		activeVectorGroupIndex = None
-		if useClicked:
-			resultType = self.tuView.tuContextMenu.resultTypeContextItem.ds_name
-			if self.tuView.tuContextMenu.resultTypeContextItem.isMax:
-				resultType = '{0}/Maximums'.format(resultType)
-			elif self.tuView.tuContextMenu.resultTypeContextItem.isMin:
-				resultType = '{0}/Minimums'.format(resultType)
-			if meshLayer.name() in self.tuView.tuResults.results and resultType in self.tuView.tuResults.results[meshLayer.name()]:
-				for _, (_, _, dsi) in self.tuView.tuResults.results[meshLayer.name()][resultType]['times'].items():
-					activeVectorGroupIndex = dsi.group()
-					break
-			# for i in range(dp.datasetGroupCount()):
-			# 	if self.tuView.tuContextMenu.resultTypeContextItem.isMax and \
-			# 			TuResults.isMaximumResultType(dp.datasetGroupMetadata(i).name()):
-			# 		if TuResults.stripMaximumName(dp.datasetGroupMetadata(i).name()) == resultType:
-			# 			activeVectorGroupIndex = i
-			# 			break
-			# 	else:
-			# 		if dp.datasetGroupMetadata(i).name() == resultType:
-			# 			activeVectorGroupIndex = i
-			# 			break
-		elif meshIndex is not None:
-			activeVectorGroupIndex = meshIndex.group()
-		else:
-			activeVector = rs.activeVectorDataset()
-			activeVectorGroupIndex = activeVector.group()
-			if activeVectorGroupIndex == -1:
-				if saveType == 'default':
-					QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Vector Dataset')
-					return False
-				else:
-					return ''
-		if activeVectorGroupIndex is None:
-			QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'Unexpected error saving default vector data')
-			return False
-		activeVectorType = dp.datasetGroupMetadata(activeVectorGroupIndex).name()
-		activeVectorType = TuResults.stripMaximumName(activeVectorType)
+				return ''
 
-		qv = Qgis.QGIS_VERSION_INT
-		rsVector = rs.vectorSettings(activeVectorGroupIndex)
-		if qv >= 31100:
-			rsVectorArrow = rsVector.arrowSettings()
-		
-		# get vector properties
-		if qv < 31100:
-			properties = {
-				'arrow head length ratio': rsVector.arrowHeadLengthRatio(),
-				'arrow head width ratio': rsVector.arrowHeadWidthRatio(),
-				'color': rsVector.color(),
-				'filter max': rsVector.filterMax(),
-				'filter min': rsVector.filterMin(),
-				'fixed shaft length': rsVector.fixedShaftLength(),
-				'line width': rsVector.lineWidth(),
-				'max shaft length': rsVector.maxShaftLength(),
-				'min shaft length': rsVector.minShaftLength(),
-				'scale factor': rsVector.scaleFactor(),
-				'shaft length method': rsVector.shaftLengthMethod()
-			}
-		else:
-			properties = {
-				'arrow head length ratio': rsVectorArrow.arrowHeadLengthRatio(),
-				'arrow head width ratio': rsVectorArrow.arrowHeadWidthRatio(),
-				'color': rsVector.color(),
-				'filter max': rsVector.filterMax(),
-				'filter min': rsVector.filterMin(),
-				'fixed shaft length': rsVectorArrow.fixedShaftLength(),
-				'line width': rsVector.lineWidth(),
-				'max shaft length': rsVectorArrow.maxShaftLength(),
-				'min shaft length': rsVectorArrow.minShaftLength(),
-				'scale factor': rsVectorArrow.scaleFactor(),
-				'shaft length method': rsVectorArrow.shaftLengthMethod()
-			}
-		
+		rsVector = meshLayer.rendererSettings().vectorSettings(index)
+		doc = QDomDocument('tuflow_meshlayer')
+		doc.appendChild(rsVector.writeXml(doc))
+
 		if saveType == 'default':
 			# save as default for that result type
 			key = "TUFLOW_vectorRenderer/vector"
 			settings = QSettings()
-			settings.setValue(key, properties)
+			settings.setValue(key, doc.toString())
 		else:  # save to project
-			return properties
-		
+			return doc.toString()
+
 		QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'Saved default style for vectors')
-		
+
 		return True
-	
+
 	def loadDefaultStyleScalar(self, **kwargs):
 		"""
 		Loads the default scalar style for result type.
@@ -1750,12 +1679,24 @@ class TuMenuFunctions():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
+		if Qgis.QGIS_VERSION_INT < 31600:
+			return
+
 		useClicked = kwargs['use_clicked'] if 'use_clicked' in kwargs.keys() else False
 		
 		# what happens if there are no active mesh layers
 		if not self.tuView.tuResults.tuResults2D.activeMeshLayers:
 			QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Result Datasets')
 			return False
+
+		value = QSettings().value('TUFLOW_vectorRenderer/vector', None)
+		if not value or len(value) < 27 or value[:27] != '<!DOCTYPE tuflow_meshlayer>':
+			return
+		doc = QDomDocument('tuflow_meshlayer')
+		statusOK, errorStr, errorLine, errorColumn = doc.setContent(value, True)
+		if not statusOK:
+			QMessageBox.critical(self.tuView, 'Paste Style', 'Error loading style: {0}'.format(errorStr))
+			return
 		
 		for layer in self.tuView.tuResults.tuResults2D.activeMeshLayers:
 			# get renderers and data provider
@@ -1764,34 +1705,17 @@ class TuMenuFunctions():
 			
 			# get active dataset and check if it is vector
 			if useClicked:
-				resultType = self.tuView.tuContextMenu.resultTypeContextItem.ds_name
-				for i in range(dp.datasetGroupCount()):
-					if self.tuView.tuContextMenu.resultTypeContextItem.isMax and \
-							TuResults.isMaximumResultType(dp.datasetGroupMetadata(i).name()):
-						if TuResults.stripMaximumName(dp.datasetGroupMetadata(i).name()) == resultType:
-							activeVectorGroupIndex = i
-							break
-					else:
-						if dp.datasetGroupMetadata(i).name() == resultType:
-							activeVectorGroupIndex = i
-							break
+				index = self.clickedGroupIndex(layer)
 			else:
-				activeVector = rs.activeVectorDataset()
-				activeVectorGroupIndex = activeVector.group()
-				if not activeVector.isValid():
-					QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Scalar Dataset')
+				index = rs.activeVectorDatasetGroup()
+				if index in [None, -1]:
+					QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Vector Dataset')
 					return False
-				
-			# get the name and try and apply default styling
-			mdGroup = dp.datasetGroupMetadata(activeVectorGroupIndex)
-			if mdGroup.isVector():  # should be vector considering we used activeScalarDataset
-				resultType = mdGroup.name()
-				resultType = TuResults.stripMaximumName(resultType)
-				mdGroup = dp.datasetGroupMetadata(activeVectorGroupIndex)
-				rsVector = rs.vectorSettings(activeVectorGroupIndex)
-				vectorProperties = QSettings().value('TUFLOW_vectorRenderer/vector')
-				if vectorProperties:
-					self.tuView.tuResults.tuResults2D.applyVectorRenderSettings(layer, activeVectorGroupIndex, vectorProperties)
+
+			rsVector = rs.vectorSettings(index)
+			rsVector.readXml(doc.documentElement())
+			rs.setVectorSettings(index, rsVector)
+			layer.setRendererSettings(rs)
 					
 		return True
 	
@@ -1927,9 +1851,9 @@ class TuMenuFunctions():
 					mesh_rendered=False, **kwargs)
 			elif vLayer.geometryType() == QgsWkbTypes.LineGeometry:
 				if nameIndex is not None:
-					name = '{0}'.format(f.attributes()[nameIndex])
+					name = '{1}_{0}'.format(f.attributes()[nameIndex], mLayers[0].name())
 				else:
-					name = 'Cross_Section_{0}'.format(f.id())
+					name = 'Cross_Section_{1}_{0}'.format(f.id(), mLayers[0].name())
 				self.tuView.tuPlot.tuPlot2D.plotCrossSectionFromMap(
 					vLayer, f, bypass=True, mesh=mLayers, types=resultTypes, export=format,
 					export_location=outputFolder, name=name, time=timestepKey, time_formatted=timestep, export_format=imageFormat,
@@ -1950,7 +1874,7 @@ class TuMenuFunctions():
 		:return:
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 		
 		self.userPlotDataDialog = TuUserPlotDataManagerDialog(self.iface, self.tuView.tuPlot.userPlotData, **kwargs)
 		if 'add_data' not in kwargs:
@@ -2149,18 +2073,28 @@ class TuMenuFunctions():
 
 		self.iface.addDockWidget(area, self.tuView)
 
-	def activeMeshLayer(self):
+	def activeMeshLayer(self, allow_multiple=False, window_title=''):
 		if not self.tuView.tuResults.tuResults2D.activeMeshLayers:
 			return None
 		elif len(self.tuView.tuResults.tuResults2D.activeMeshLayers) > 1:
 			self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuView.tuResults.tuResults2D.activeMeshLayers)
+			if window_title:
+				self.meshDialog.setWindowTitle(window_title)
+			if allow_multiple:
+				self.meshDialog.mesh_lw.setSelectionMode(QAbstractItemView.ExtendedSelection)
 			self.meshDialog.exec_()
 			if self.meshDialog.selectedMesh is None:
 				return None
 			else:
-				return tuflowqgis_find_layer(self.meshDialog.selectedMesh)
+				if allow_multiple:
+					return[tuflowqgis_find_layer(x) for x in self.meshDialog.selectedMesh]
+				else:
+					return tuflowqgis_find_layer(self.meshDialog.selectedMesh)
 		else:
-			return self.tuView.tuResults.tuResults2D.activeMeshLayers[0]
+			if allow_multiple:
+				return self.tuView.tuResults.tuResults2D.activeMeshLayers
+			else:
+				return self.tuView.tuResults.tuResults2D.activeMeshLayers[0]
 
 	def clickedResultDataType(self):
 		return self.tuView.tuContextMenu.resultTypeContextItem.ds_type
@@ -2179,7 +2113,7 @@ class TuMenuFunctions():
 		return None
 
 	def copyStyle(self):
-		meshLayer = self.activeMeshLayer()
+		meshLayer = self.activeMeshLayer(window_title='Select Result to Copy Style From')
 
 		if meshLayer is None:
 			return
@@ -2212,7 +2146,7 @@ class TuMenuFunctions():
 		clipboard.setMimeData(mimeData)
 
 	def pasteStyle(self):
-		meshLayer = self.activeMeshLayer()
+		meshLayer = self.activeMeshLayer(allow_multiple=True, window_title='Select Result(s) to Paste Style Into')
 
 		if meshLayer is None:
 			return
@@ -2228,29 +2162,90 @@ class TuMenuFunctions():
 			vector = True
 			mimeType = "application/tuflow_viewer_vector.style"
 
-		index = self.clickedGroupIndex(meshLayer)
-		rs = meshLayer.rendererSettings()
-		rsScalar = rs.scalarSettings(index)
-		rsVector = rs.vectorSettings(index)
+		for ml in meshLayer:
+			index = self.clickedGroupIndex(ml)
+			rs = ml.rendererSettings()
+			rsScalar = rs.scalarSettings(index)
+			rsVector = rs.vectorSettings(index)
 
-		clipboard = QApplication.clipboard()
-		mimeData = clipboard.mimeData()
+			clipboard = QApplication.clipboard()
+			mimeData = clipboard.mimeData()
 
-		if not mimeData.hasFormat(mimeType):
+			if not mimeData.hasFormat(mimeType):
+				return
+
+			doc = QDomDocument('tuflow_meshlayer')
+			statusOK, errorStr, errorLine, errorColumn = doc.setContent(mimeData.data(mimeType), True)
+			if not statusOK:
+				QMessageBox.critical(self.tuView, 'Paste Style', 'Error pasting style: {0}'.format(errorStr))
+				return
+
+			if scalar:
+				rsScalar.readXml(doc.documentElement())
+				rs.setScalarSettings(index, rsScalar)
+			if vector:
+				rsVector.readXml(doc.documentElement())
+				rs.setVectorSettings(index, rsVector)
+			ml.setRendererSettings(rs)
+
+			ml.triggerRepaint()
+
+	def setReferenceTime(self, layer):
+
+		class DateTimeEdit(QObject):
+			def __init__(self, dt):
+				QObject.__init__(self, None)
+				self.dialog = QDialog()
+				self.dialog.setWindowTitle('NetCDF Grid Reference Time')
+				self.label = QLabel()
+				self.label.setText('Use box below to change the reference time.')
+				self.datetime_select = QgsDateTimeEdit()
+				self.datetime_select.setDateTime(dt)
+				self.cb = QCheckBox()
+				self.cb.setChecked(True)
+				self.cb.setText('Set TUFLOW Viewer Zero Time to the Same')
+				self.pbOk = QPushButton()
+				self.pbOk.setText('OK')
+				self.pbOk.clicked.connect(self.dialog.accept)
+				self.pbCancel = QPushButton()
+				self.pbCancel.clicked.connect(self.dialog.reject)
+				self.pbCancel.setText('Cancel')
+				self.dialog.setMinimumWidth(self.label.sizeHint().width())
+				self.dialog.setMinimumHeight(self.label.sizeHint().height())
+				layout = QVBoxLayout()
+				layout.addWidget(self.label)
+				layout.addWidget(self.datetime_select)
+				layout.addWidget(self.cb)
+				pb_layout = QHBoxLayout()
+				pb_layout.addWidget(self.pbOk)
+				pb_layout.addWidget(self.pbCancel)
+				pb_layout.setAlignment(Qt.AlignRight)
+				layout.addLayout(pb_layout)
+				self.dialog.setLayout(layout)
+
+			def exec_(self):
+				return self.dialog.exec_()
+
+		datetime_select = DateTimeEdit(layer.reference_time)
+		accepted = datetime_select.exec_()
+		if not accepted:
 			return
 
-		doc = QDomDocument('tuflow_meshlayer')
-		statusOK, errorStr, errorLine, errorColumn = doc.setContent(mimeData.data(mimeType), True)
-		if not statusOK:
-			QMessageBox.critical(self.tuView, 'Paste Style', 'Error pasting style: {0}'.format(errorStr))
-			return
+		dt = qdt2dt(datetime_select.datetime_select.dateTime())
+		dt = datetime.datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute)  # remove seconds
+		layer.set_reference_time(dt)
+		if datetime_select.cb.isChecked():
+			self.tuView.tuOptions.zeroTime = dt
+		self.tuView.tuResults.updateDateTimes()
+		if Qgis.QGIS_VERSION_INT >= 31600:
+			self.tuView.tuResults.updateResultTypes()
 
-		if scalar:
-			rsScalar.readXml(doc.documentElement())
-			rs.setScalarSettings(index, rsScalar)
-		if vector:
-			rsVector.readXml(doc.documentElement())
-			rs.setVectorSettings(index, rsVector)
-		meshLayer.setRendererSettings(rs)
-
-		meshLayer.triggerRepaint()
+	def flipSecondaryAxis(self, plotNo):
+		if self.tuView.tuOptions.secondary_axis_types[plotNo] == 'x-axis':
+			self.tuView.tuOptions.secondary_axis_types[plotNo] = 'y-axis'
+		else:
+			self.tuView.tuOptions.secondary_axis_types[plotNo] = 'x-axis'
+		QSettings().setValue('TUFLOW/tuview_secondary_axis_type_{0}'.format(plotNo), self.tuView.tuOptions.secondary_axis_types[plotNo])
+		if self.tuView.tuPlot.getSecondaryAxis(plotNo, create=False):
+			self.tuView.tuPlot.secondary_axis_flipped[plotNo] = True
+			self.tuView.tuPlot.updateCurrentPlot(plotNo)

@@ -2,7 +2,7 @@
 import sys
 import numpy as np
 from qgis.core import NULL
-from tuflow.tuflowqgis_library import *
+from ..tuflowqgis_library import *
 
 
 class DownstreamConnectivity(QObject):

@@ -244,4 +244,4 @@ class Ui_UserPlotDataImportDialog(object):
         self.pbCancel.setText(_translate("UserPlotDataImportDialog", "Cancel"))
 
 from qgscollapsiblegroupbox import QgsCollapsibleGroupBox
-from tuflow.DataTable import TableCheckableComboBox
+from ..DataTable import TableCheckableComboBox

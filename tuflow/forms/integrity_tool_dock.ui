@@ -73,9 +73,9 @@
        <property name="geometry">
         <rect>
          <x>0</x>
-         <y>-104</y>
+         <y>0</y>
          <width>583</width>
-         <height>783</height>
+         <height>956</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_8">
@@ -193,7 +193,7 @@
            <string>Input Network Points</string>
           </property>
           <property name="collapsed">
-           <bool>true</bool>
+           <bool>false</bool>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_2">
            <item>
@@ -740,7 +740,7 @@
             <item>
              <widget class="QLabel" name="label_12">
               <property name="text">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Check entire netowrk for downstream pipe continuity.&lt;/span&gt;&lt;/p&gt;&lt;p&gt;Documentation:&lt;br/&gt;&lt;a href=&quot;https://wiki.tuflow.com/index.php?title=1D_Integrity_Tool_-_Continuity&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://wiki.tuflow.com/index.php?title=1D_Integrity_Tool_-_Continuity&lt;br/&gt;&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Check entire network for downstream pipe continuity.&lt;/span&gt;&lt;/p&gt;&lt;p&gt;Documentation:&lt;br/&gt;&lt;a href=&quot;https://wiki.tuflow.com/index.php?title=1D_Integrity_Tool_-_Continuity&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://wiki.tuflow.com/index.php?title=1D_Integrity_Tool_-_Continuity&lt;br/&gt;&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="wordWrap">
                <bool>true</bool>

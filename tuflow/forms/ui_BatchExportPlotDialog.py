@@ -168,4 +168,4 @@ class Ui_BatchPlotExport(object):
         self.label_7.setText(_translate("BatchPlotExport", "Add from file:"))
         self.btnAddRes.setText(_translate("BatchPlotExport", "..."))
 
-from tuflow.DataTable import TableCheckableComboBox
+from ..DataTable import TableCheckableComboBox

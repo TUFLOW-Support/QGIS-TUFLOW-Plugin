@@ -8,7 +8,7 @@ import numpy as np
 from PyQt5.QtCore import QObject, pyqtSignal, QVariant
 from PyQt5.QtWidgets import QMessageBox
 from qgis.core import QgsVectorFileWriter, QgsFields, QgsField, QgsWkbTypes, QgsFeature, NULL
-from tuflow.tuflowqgis_library import convertFormattedTimeToTime
+from ..tuflowqgis_library import convertFormattedTimeToTime
 import hashlib
 
 # try:

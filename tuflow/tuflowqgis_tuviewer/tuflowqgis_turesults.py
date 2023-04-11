@@ -4,19 +4,25 @@ from PyQt5.QtGui import *
 from PyQt5 import QtGui
 from qgis.core import *
 from PyQt5.QtWidgets import *
-import tuflowqgis_turesults1d
-import tuflowqgis_turesults2d
-import tuflowqgis_turesultsParticles
-from tuflow.dataset_view import DataSetModel
-from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, convertFormattedTimeToTime,
+from .tuflowqgis_turesults1d import TuResults1D
+from .tuflowqgis_turesults2d import TuResults2D
+from .tuflowqgis_turesultsParticles import TuResultsParticles
+from .tuResultsNcGrid import TuResultsNcGrid
+from ..dataset_view import DataSetModel
+from ..tuflowqgis_library import (tuflowqgis_find_layer, convertFormattedTimeToTime,
                                        convertTimeToFormattedTime, findAllMeshLyrs, roundSeconds,
                                        isSame_float, dt2qdt, roundSeconds2, datetime2timespec, qdt2dt,
                                        isSame_time)
-from tuflow.dataset_menu import DatasetMenuDepAv
-from tuflow.TUFLOW_XS import XS
+from ..dataset_menu import DatasetMenuDepAv
+from ..TUFLOW_XS import XS
 import numpy as np
 import re
-from pathlib import Path
+try:
+	from pathlib import Path
+except ImportError:
+	from ..pathlib_ import Path_ as Path
+
+
 
 
 class TuResults():
@@ -28,7 +34,7 @@ class TuResults():
 	Results2D = [1, 2]
 	Results1D = [4, 5, 6, 7, 8]
 	TimePrecision = 0.000001
-	OtherTypes = ['_ts', '_lp', '_particles', '_cs']
+	OtherTypes = ['_ts', '_lp', '_particles', '_cs', '_nc_grid']
 
 	def __init__(self, TuView=None):
 		qv = Qgis.QGIS_VERSION_INT
@@ -72,17 +78,16 @@ class TuResults():
 			self.loadedTimeSpec = 1
 
 			# 1D results
-			self.tuResults1D = tuflowqgis_turesults1d.TuResults1D(TuView)
+			self.tuResults1D = TuResults1D(TuView)
 
 			# 2D results
-			self.tuResults2D = tuflowqgis_turesults2d.TuResults2D(TuView)
+			self.tuResults2D = TuResults2D(TuView)
 
 			# Particles results
-			self.tuResultsParticles = tuflowqgis_turesultsParticles.TuResultsParticles(TuView)
+			self.tuResultsParticles = TuResultsParticles(TuView)
 
 			# netcdf grid
-			import tuResultsNcGrid
-			self.tuResultsNcGrid = tuResultsNcGrid.TuResultsNcGrid(TuView)
+			self.tuResultsNcGrid = TuResultsNcGrid(TuView)
 
 	def importResults(self, type, inFileNames, **kwargs):
 		"""
@@ -461,7 +466,7 @@ class TuResults():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		# kwargs
 		select_first_dataset = kwargs['select_first_dataset'] if'select_first_dataset' in kwargs else True
@@ -638,7 +643,7 @@ class TuResults():
 
 		qv = Qgis.QGIS_VERSION_INT
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		sliderTime = self.tuView.sliderTime  # QSlider
 		cboTime = self.tuView.cboTime  # QComboBox
@@ -781,7 +786,7 @@ class TuResults():
 
 		qv = Qgis.QGIS_VERSION_INT
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		sliderTime = self.tuView.sliderTime  # QSlider
 		cboTime = self.tuView.cboTime  # QComboBox
@@ -946,8 +951,10 @@ class TuResults():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 		openResultTypes = self.tuView.OpenResultTypes
+
+		self.tuView.setTsTypesEnabled(context='update_active_1d_types')
 
 		# remove all active results if no longer available at all (i.e. results have been closed)
 		for resultType in self.activeResults:
@@ -966,6 +973,9 @@ class TuResults():
 									if resultType[:-3] in metadata:
 										found = True
 										break
+						elif isinstance(resType3, dict) and resultType.strip('_CS') in resType3:
+							found = True
+							break
 						if found:
 							break
 				else:
@@ -988,6 +998,10 @@ class TuResults():
 					self.tuResults1D.regionTS.remove(resultType[:-3])
 				if resultType[:-3] in self.tuResults1D.typesLP:
 					self.tuResults1D.typesLP.remove(resultType[:-3])
+				if resultType[:-3] in self.tuResults1D.typesXS:
+					self.tuResults1D.typesXS.remove(resultType[:-3])
+				if resultType[:-3] in self.tuResults1D.lineXS:
+					self.tuResults1D.lineXS.remove(resultType[:-3])
 
 		# if geomtype then change the TS result options
 		if geomType is not None:
@@ -2115,6 +2129,11 @@ class TuResults():
 			for restype in self.results[result]:
 				rt = None
 				if 'referenceTime' in self.results[result][restype]:
+					if restype == '_nc_grid':
+						lyr = self.tuResultsNcGrid.results.get(result)
+						if lyr is not None:
+							lyr = lyr[0]
+							self.results[result][restype]['referenceTime'] = lyr.reference_time
 					rt = self.results[result][restype]['referenceTime']
 				if rt is not None:
 					if 'times' in self.results[result][restype]:
@@ -2345,7 +2364,7 @@ class TuResults():
 
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		updateOpenResults = False
 		if lyr.name() not in self.results:
@@ -2367,7 +2386,7 @@ class TuResults():
 
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		if displayName not in self.results:
 			self.results[displayName] = {}

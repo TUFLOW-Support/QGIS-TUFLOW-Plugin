@@ -6,10 +6,10 @@ from PyQt5.QtGui import *
 from qgis.core import *
 from qgis.gui import *
 from PyQt5.QtWidgets import *
-from tuflow.forms.integrity_tool_dock import Ui_IntegrityTool
-from tuflow.tuflowqgis_library import (findAllRasterLyrs, findAllVectorLyrs, tuflowqgis_find_layer,
+from ..forms.integrity_tool_dock import Ui_IntegrityTool
+from ..tuflowqgis_library import (findAllRasterLyrs, findAllVectorLyrs, tuflowqgis_find_layer,
                                        is1dNetwork, is1dTable, tuflowqgis_apply_check_tf_clayer, copyStyle)
-from tuflow.tuflowqgis_dialog import StackTraceDialog
+from ..tuflowqgis_dialog import StackTraceDialog
 from .DataCollector import DataCollector
 from .SnappingTool import SnappingTool
 from .ContinuityTool import ContinuityTool

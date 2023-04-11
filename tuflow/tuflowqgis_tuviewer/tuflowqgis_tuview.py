@@ -8,25 +8,26 @@ from PyQt5 import QtGui
 from qgis.core import *
 from qgis.gui import *
 from PyQt5.QtWidgets import *
-from tuflow.forms.tuflow_plotting_dock import Ui_Tuplot
-from tuflow.dataset_view import DataSetModel
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import tuflowqgis_turesults
-import tuflowqgis_tuplot
-from tuflowqgis_tuplot import TuPlot
-import tuflowqgis_tumenubar
-import tuflowqgis_tuoptions
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tumenucontext import TuContextMenu
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuproject import TuProject
-from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, findAllMeshLyrs, convertTimeToFormattedTime,
+from ..forms.tuflow_plotting_dock import Ui_Tuplot
+from ..dataset_view import DataSetModel
+from .tuflowqgis_turesults import TuResults
+from .tuflowqgis_tuplot import TuPlot
+from .tuflowqgis_tumenubar import TuMenuBar
+from .tuflowqgis_tuoptions import TuOptions
+from .tuflowqgis_tumenucontext import TuContextMenu
+from .tuflowqgis_tuproject import TuProject
+from ..tuflowqgis_library import (tuflowqgis_find_layer, findAllMeshLyrs, convertTimeToFormattedTime,
                                        is1dTable, findTableLayers, is1dNetwork, isPlotLayer, isTSLayer)
-from tuflow.tuflowqgis_dialog import tuflowqgis_meshSelection_dialog
-from tuflow.TUFLOW_XS import XS
-from tuflow.TUFLOW_1dTa import HydTables
+from ..tuflowqgis_dialog import tuflowqgis_meshSelection_dialog
+from ..TUFLOW_XS import XS
+from ..TUFLOW_1dTa import HydTables
 from datetime import timedelta
-from tuflow.TUFLOW_FM_data_provider import FM_XS
+from ..TUFLOW_FM_data_provider import FM_XS
 import numpy as np
-from pathlib import Path
+try:
+	from pathlib import Path
+except ImportError:
+	from ..pathlib_ import Path_ as Path
 
 
 class TuView(QDockWidget, Ui_Tuplot):
@@ -58,23 +59,24 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.resultChangeSignalCount = 0
 		self.progressBar.setVisible(False)
 
+		self.in_results_changed = False
+
 		# project
 		self.tuProject = None
 
 		# options
-		self.tuOptions = tuflowqgis_tuoptions.TuOptions()
+		self.tuOptions = TuOptions()
 
 		# results class
-		self.tuResults = tuflowqgis_turesults.TuResults(self)
+		self.tuResults = TuResults(self)
 
 		# plot class
-		self.tuPlot = tuflowqgis_tuplot.TuPlot(self)
+		self.tuPlot = TuPlot(self)
 		
 		# main menu bar
 		removeTuview = kwargs['removeTuview'] if 'removeTuview' in kwargs else None
 		reloadTuview = kwargs['reloadTuview'] if 'reloadTuview' in kwargs else None
-		self.tuMenuBar = tuflowqgis_tumenubar.TuMenuBar(self, removeTuview=removeTuview, reloadTuview=reloadTuview,
-		                                                layout=self.mainMenu)
+		self.tuMenuBar = TuMenuBar(self, removeTuview=removeTuview, reloadTuview=reloadTuview, layout=self.mainMenu)
 		self.tuMenuBar.loadFileMenu()
 		self.tuMenuBar.loadViewMenu(0)
 		self.tuMenuBar.loadSettingsMenu(0)
@@ -84,9 +86,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 		#self.tuMenuBar.connectMenu()
 
 		# secondary menu bar
-		self.tuMenuBarSecond = tuflowqgis_tumenubar.TuMenuBar(self, removeTuview=removeTuview,
-		                                                      reloadTuview=reloadTuview, menu_bar=self.tuMenuBar,
-		                                                      layout=self.mainMenuSecond)
+		self.tuMenuBarSecond = TuMenuBar(self, removeTuview=removeTuview, reloadTuview=reloadTuview,
+		                                 menu_bar=self.tuMenuBar, layout=self.mainMenuSecond)
 		self.tuMenuBarSecond.loadFileMenu()
 		self.tuMenuBarSecond.loadViewMenu(0)
 		self.tuMenuBarSecond.loadSettingsMenu(0)
@@ -118,6 +119,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.connected = False  # Signal connection
 		self.connectSave = False
 		self.firstConnection = True
+		self.layer_selection_signals = []
 		self.qgisConnect()
 		
 		# check for already open mesh layers
@@ -186,20 +188,25 @@ class TuView(QDockWidget, Ui_Tuplot):
 		"""
 
 		# disconnect layer
-		if self.selectionChangeConnected:
-			try:
-				if self.currentLayer is not None:
-					self.currentLayer.selectionChanged.disconnect(self.selectionChanged)
-			except:
-				pass
-			self.selectionChangeConnected = False
+		# if self.selectionChangeConnected:
+		# 	try:
+		# 		if self.currentLayer is not None:
+		# 			self.currentLayer.selectionChanged.disconnect(self.selectionChanged)
+		# 	except:
+		# 		pass
+		# 	self.selectionChangeConnected = False
 		
 		# get the active layer
 		if self.iface is not None:
 			self.currentLayer = self.iface.activeLayer()
+
+			if isPlotLayer(self.currentLayer):
+				if self.currentLayer.id() not in self.layer_selection_signals:
+					self.currentLayer.selectionChanged.connect(self.selectionChanged)
+					self.layer_selection_signals.append(self.currentLayer.id())
 		
 		if self.currentLayer is not None:
-			self.setTsTypesEnabled()
+			# self.setTsTypesEnabled()
 			self.loadXsType()
 			# self.tuPlot.tuPlot1D.plot1dCrossSection(bypass=True, draw=True)
 
@@ -267,12 +274,16 @@ class TuView(QDockWidget, Ui_Tuplot):
 						dir = os.path.dirname(lyr.source())
 						crossSection.addFromFeature(dir, lyr.fields(), sel, lyr)
 
-	def setTsTypesEnabled(self):
+	def setTsTypesEnabled(self, context=None):
 		"""
 		Sets time series types to disabled or enabled based on selected layer
 		"""
 
 		if self.currentLayer is None:
+			# for lyrid, lyr in QgsProject.instance().mapLayers().items():
+			# 	if isPlotLayer(lyr):
+			# 		self.currentLayer = lyr
+			# 		break
 			# self.OpenResultTypes.model().setEnabled(0)
 			# self.tuResults.tuResults1D.activeType = -1
 			return
@@ -285,6 +296,9 @@ class TuView(QDockWidget, Ui_Tuplot):
 			except:
 				pass
 		else:
+			return
+
+		if context == 'update_active_1d_types':
 			return
 
 		if is1dTable(self.currentLayer) or is1dNetwork(self.currentLayer) or isPlotLayer(self.currentLayer) or \
@@ -399,7 +413,11 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
+		update_1d_ids = True
 		for rlayer in removedLayers:
+			if rlayer in self.layer_selection_signals:
+				update_1d_ids = True
+				self.layer_selection_signals.remove(rlayer)
 			layer = tuflowqgis_find_layer(rlayer, search_type='layerId')
 			if layer == self.currentLayer:
 				self.currentLayer = None
@@ -433,6 +451,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 						self.OpenResults.takeItem(i)
 
 		self.resultsChanged('force refresh', removedLayers)
+		if update_1d_ids:
+			self.tuResults.tuResults1D.updateSelectedResults(removedLayers)
 				
 		return True
 	
@@ -455,7 +475,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:return:
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		# update list of types with max activated
 		self.tuResults.updateMinMaxTypes(event, 'max')
@@ -546,7 +566,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		
 		# update the enabled result types
 		# self.currentLayerChanged()
-		self.setTsTypesEnabled()
+		# self.setTsTypesEnabled()
 		# self.tuPlot.updateCurrentPlot(self.tabWidget.currentIndex(), plot='1d only')
 
 	def moveOpenResults(self, layoutType):
@@ -733,7 +753,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 					self.iface.mapCanvas().temporalRangeChanged.connect(self.qgsTimeChanged)
 			
 			# results
-			self.OpenResults.itemClicked.connect(lambda: self.resultsChanged('item clicked'))
+			# self.OpenResults.itemClicked.connect(lambda: self.resultsChanged('item clicked'))
 			self.resultSelectionChangeSignal = self.OpenResults.itemSelectionChanged.connect(lambda: self.resultsChanged('selection changed'))
 			
 			# result types
@@ -850,10 +870,10 @@ class TuView(QDockWidget, Ui_Tuplot):
 				self.OpenResults.itemSelectionChanged.disconnect()
 			except:
 				pass
-			try:
-				self.OpenResults.itemClicked.disconnect()
-			except:
-				pass
+			# try:
+			# 	self.OpenResults.itemClicked.disconnect()
+			# except:
+			# 	pass
 			
 			# result types
 			try:
@@ -1013,6 +1033,11 @@ class TuView(QDockWidget, Ui_Tuplot):
 		:return:
 		"""
 
+		if self.in_results_changed:
+			return
+
+		self.in_results_changed = True
+
 		# check if routine has been called already - there are 2 signals and no point doubling up
 		if self.resultChangeSignalCount == 0:
 			self.resultChangeSignalCount += 1
@@ -1022,7 +1047,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			
 			# update 2D results class
 			self.tuResults.updateResultTypes(select_first_dataset=False)
-			self.timeSliderChanged()
+			# self.timeSliderChanged()
 			
 			# render map
 			self.renderMap()
@@ -1045,7 +1070,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 					self.renderMap()
 					
 			self.resultChangeSignalCount = 0
-			
+
+		self.in_results_changed = False
 		
 	def resultTypesChanged(self, event):
 		"""
@@ -1128,7 +1154,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		"""
 
 		# update 1D results class
-		self.tuResults.tuResults1D.updateSelectedResults(self.currentLayer)
+		self.tuResults.tuResults1D.updateSelectedResults()
 		
 		# make sure selected result match active results
 		self.tuResults.checkSelectedResults()
@@ -1340,41 +1366,15 @@ class TuView(QDockWidget, Ui_Tuplot):
 		if action == 'up':
 			self.OpenResults.insertItem(max(index.row() - 1, 0), item)
 		elif action == 'down':
-			self.OpenResults.insertItem(min(index.row() + 1, self.OpenResults.count() - 1), item)
+			self.OpenResults.insertItem(min(index.row() + 1, self.OpenResults.count()), item)
 		elif action == 'top':
 			self.OpenResults.insertItem(0, item)
 		elif action == 'bottom':
 			self.OpenResults.addItem(item)
 
-
-		# items = [self.OpenResults.item(i).text() for i in range(self.OpenResults.count())]
-		# try:
-		# 	item = items.pop(index.row())
-		# except IndexError:
-		# 	return
-		# if action == 'up':
-		# 	items.insert(max(index.row() - 1, 0), item)
-		# elif action == 'down':
-		# 	items.insert(min(index.row() + 1, self.OpenResults.count() - 1), item)
-		# elif action == 'top':
-		# 	items.insert(0, item)
-		# elif action == 'bottom':
-		# 	items.append(item)
-		#
-		# selection = [x.text() for x in self.OpenResults.selectedItems()]
-		#
-		# disconnect item changed signal
-		# try:
-		# 	self.OpenResults.disconnect(self.resultSelectionChangeSignal)
-		# 	self.resultSelectionChangeSignal = None
-		# except:
-		# 	pass
-		#
-		# self.OpenResults.clear()
-		# self.OpenResults.addItems(items)
 		for i in range(self.OpenResults.count()):  # reapply selection
 			if self.OpenResults.item(i).text() in selection:
 				self.OpenResults.item(i).setSelected(True)
-		#
+
 		# reconnect signal
 		self.resultSelectionChangeSignal = self.OpenResults.itemSelectionChanged.connect(lambda: self.resultsChanged('selection changed'))

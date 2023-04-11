@@ -2,8 +2,8 @@ from PyQt5.QtCore import Qt
 from qgis._core import QgsProject
 from qgis.core import Qgis
 
-from nc_grid_data_provider import NetCDFGrid, LoadError
-from tuflow.tuflowqgis_dialog import tuflowqgis_scenarioSelection_dialog
+from ..nc_grid_data_provider import NetCDFGrid, LoadError
+from ..tuflowqgis_dialog import tuflowqgis_scenarioSelection_dialog
 
 try:
     from pathlib import Path
@@ -54,7 +54,7 @@ class TuResultsNcGrid:
 
             for layer in selected_layers:
                 # Load
-                mLayer, name = self._load_file(f, layer)
+                mLayer, name = self._load_file(f, layer, **kwargs)
 
                 self.tuView.tuResults.updateDateTimes()
 
@@ -64,7 +64,8 @@ class TuResultsNcGrid:
                     return False
 
                 # Open layer in map
-                self.tuView.project.addMapLayer(mLayer)
+                if kwargs.get('add_map_layer') is None or kwargs.get('add_map_layer'):
+                    self.tuView.project.addMapLayer(mLayer)
                 mLayer.nameChanged.connect(lambda: self.tuView.tuResults.tuResults2D.layerNameChanged(mLayer, name,
                                                                          mLayer.name()))  # if name is changed can capture this in indexing
 
@@ -85,11 +86,11 @@ class TuResultsNcGrid:
 
         return True
 
-    def _load_file(self, filename, layer_name):
+    def _load_file(self, filename, layer_name, **kwargs):
         display_name = '{0} - {1}'.format(Path(filename).stem, layer_name)
         uri = 'NetCDF:{0}:{1}'.format(filename, layer_name)
         try:
-            nc_grid = NetCDFGrid(uri, display_name)
+            nc_grid = NetCDFGrid(uri, display_name, **kwargs)
         except LoadError as e:
             print(e)
             return

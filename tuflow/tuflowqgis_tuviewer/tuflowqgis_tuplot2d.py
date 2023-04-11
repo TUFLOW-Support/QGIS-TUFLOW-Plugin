@@ -5,16 +5,16 @@ from PyQt5.QtGui import *
 from PyQt5 import QtGui
 from qgis.core import *
 from PyQt5.QtWidgets  import *
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesultsindex import TuResultsIndex
-from tuflow.tuflowqgis_library import (lineToPoints, getDirection, doLinesIntersect,
+from .tuflowqgis_turesultsindex import TuResultsIndex
+from ..tuflowqgis_library import (lineToPoints, getDirection, doLinesIntersect,
                                        intersectionPoint, calculateLength, getFaceIndexes3,
                                        findMeshIntersects, writeTempPoints, writeTempPolys,
                                        meshToPolygon, calcMidPoint, calcMidPoint2, getFaceIndex)
 import inspect
 from datetime import datetime, timedelta
-from tuflow.nc_grid_data_provider import NetCDFGridGeometry
+from ..nc_grid_data_provider import NetCDFGridGeometry
 
-from nc_grid_data_provider import NetCDFGrid
+from ..nc_grid_data_provider import NetCDFGrid
 
 
 class TuPlot2D():
@@ -50,7 +50,7 @@ class TuPlot2D():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_tuplot import TuPlot
 
 		activeMeshLayers = self.tuResults.tuResults2D.activeMeshLayers[:]
 		activeMeshLayers.extend([x for x in self.tuResults.tuResultsNcGrid.grids()])
@@ -236,8 +236,8 @@ class TuPlot2D():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+		from .tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_turesults import TuResults
 
 		debug = self.tuView.tuOptions.writeMeshIntersects
 		activeMeshLayers = self.tuResults.tuResults2D.activeMeshLayers[:]
@@ -510,8 +510,8 @@ class TuPlot2D():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+		from .tuflowqgis_tuplot import TuPlot
+		from .tuflowqgis_turesults import TuResults
 
 		debug = self.tuView.tuOptions.writeMeshIntersects
 		activeMeshLayers = self.tuResults.tuResults2D.activeMeshLayers  # list

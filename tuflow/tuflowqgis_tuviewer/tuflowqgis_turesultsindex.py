@@ -1,5 +1,5 @@
 from qgis.core import Qgis
-from .tuflowqgis_turesults import TuResults
+from datetime import timedelta
 
 
 class TuResultsIndex():
@@ -51,5 +51,72 @@ class TuResultsIndex():
 				self.timestep = '-99999'
 			else:
 				self.resultType = resultType
-				self.timestep = TuResults.findTimeClosest_31600(tuResults, result, resultType, timestep, units=units)
+				if result in tuResults.results and '_nc_grid' in tuResults.results[result] and result == resultType:
+					self.resultType = '_nc_grid'
+				self.timestep = self.findTimeClosest_31600(tuResults, result, self.resultType, timestep, units=units)
 
+	@staticmethod
+	def findTimeClosest_31600(tuResults, key1, key2, key3, times=(), method='lower', units='h'):
+		"""
+        Finds the next available time after specified time
+        """
+
+		# for 1d results change key2 so it can be found in results dict
+		if key1 is not None and key2 is not None:
+			if key1 in tuResults.results:
+				if '_1d' in key2:
+					for type_1d in ['point_ts', 'line_ts', 'region_ts', 'line_lp']:
+						if type_1d in tuResults.results[key1]:
+							if 'times' in tuResults.results[key1][type_1d]:
+								key2 = type_1d
+								break
+
+		if not times:
+			if key1 not in tuResults.results:
+				return
+			if key2 not in tuResults.results[key1]:
+				return
+		if key3 is None:
+			return
+
+		if not times:
+			if 'times' not in tuResults.results[key1][key2]:
+				return
+			times = sorted(y[0] for x, y in tuResults.results[key1][key2]['times'].items())
+
+		if 'referenceTime' not in tuResults.results[key1][key2]:
+			return
+		rt = tuResults.results[key1][key2]['referenceTime']
+		for i, time in enumerate(times):
+			if units == 's':
+				date = rt + timedelta(seconds=time)
+			else:
+				try:
+					date = rt + timedelta(hours=time)
+				except OverflowError:
+					date = rt + timedelta(seconds=time)
+			if method == 'higher':
+				if date >= key3:
+					return time
+			elif method == 'lower':
+				if date == key3:
+					return time
+				elif date > key3:
+					return times[max(0, i - 1)]
+			else:  # closest
+				if date == key3:
+					return time
+				if i == 0:
+					diff = abs((date - key3).total_seconds())
+				if time > key3:
+					diff2 = abs((date - key3).total_seconds())
+					if diff <= diff2:
+						return times[max(0, i - 1)]
+					else:
+						return time
+				else:
+					diff = abs((date - key3).total_seconds())
+		if not times:
+			return None
+		else:
+			return time

@@ -14,7 +14,7 @@ elif pythonV == 2:
 import requests, zipfile, io, json
 import traceback
 
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))  # this script is always called through cmd so this will only be temporary
 from __version__ import version
 
 

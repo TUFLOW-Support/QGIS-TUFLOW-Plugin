@@ -2,7 +2,7 @@ from PyQt5.QtCore import *
 from qgis.core import *
 from math import pi
 from .Enumerators import *
-from tuflow.tuflowqgis_library import getNetworkMidLocation, interpolateObvert
+from ..tuflowqgis_library import getNetworkMidLocation, interpolateObvert
 from .FlowTraceLongPlot_V2 import Connectivity
 
 

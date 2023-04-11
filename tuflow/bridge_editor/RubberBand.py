@@ -2,7 +2,7 @@ from qgis.core import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
-from tuflow.canvas_event import *
+from ..canvas_event import *
 
 
 class RubberBand(QObject):
@@ -22,7 +22,7 @@ class RubberBand(QObject):
         # set up graphic layers
         self.linePoints = []
         self.lineMarkers = []
-        self.rubberBand = QgsRubberBand(self.canvas, False)
+        self.rubberBand = QgsRubberBand(self.canvas)
         self.rubberBand.setWidth(2)
         self.rubberBand.setColor(QColor(Qt.red))
         self.rubberBand.setToGeometry(QgsGeometry.fromPolyline(self.linePoints), None)

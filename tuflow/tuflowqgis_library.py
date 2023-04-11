@@ -39,8 +39,8 @@ from math import *
 import numpy
 import matplotlib
 import glob # MJS 11/02
-from tuflow.utm.utm import from_latlon, to_latlon
-from tuflow.__version__ import version
+from .utm.utm import from_latlon, to_latlon
+from .__version__ import version
 import ctypes
 from typing import Tuple, List
 import matplotlib.gridspec as gridspec
@@ -57,14 +57,15 @@ from shutil import copyfile
 import requests
 from collections import OrderedDict
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import tuflowqgis_styles
+from .tuflowqgis_styles import TF_Styles
 try:
 	from pathlib import Path
 except ImportError:
 	from pathlib_ import Path_ as Path
 import sqlite3
 from osgeo import ogr
+
+from dataclasses import dataclass, field
 
 # --------------------------------------------------------
 #    tuflowqgis Utility Functions
@@ -129,18 +130,31 @@ class NcVar():
 		return 'id: {0}, name: {1}, type: {2}, nDim: {3}, dims: ({4})'.format(self.id, self.name, self.type, self.nDims, ', '.join(self.dimNames))
 
 
+def get_latest_dev_plugin_version():
+	try:
+		import requests
+		r = requests.get('https://downloads.tuflow.com/Private_Download/QGIS_TUFLOW_Plugin/VERSION')
+		if r.ok:
+			return r.text.strip()
+	except Exception:
+		pass
+	return 'Unable to determine latest dev version'
+
+
 def about(window):
-	from ui_AboutDialog import Ui_AboutDialog
+	from .forms.ui_AboutDialog import Ui_AboutDialog
 	class AboutDialog(QDialog, Ui_AboutDialog):
 		def __init__(self, iface, plugin_version):
 			QDialog.__init__(self)
 			self.setupUi(self)
 			self.iface = iface
 			self.textEdit.setText('{0}\t: {1}\n'
+			                      '{6}\t: {7}\n'
 								  '{2}\t\t: {3}\n'
 								  '{4}\t\t: {5}'
 								  .format("TUFLOW Plugin Version", plugin_version, "QGIS Version", Qgis.QGIS_VERSION,
-										  "Python Version", sys.version.split('(')[0].strip()))
+										  "Python Version", sys.version.split('(')[0].strip(),
+			                              "Latest Plugin Dev Version", get_latest_dev_plugin_version()))
 			self.pbClose.clicked.connect(self.accept)
 			self.pbCopyText.clicked.connect(self.copy)
 
@@ -424,8 +438,10 @@ def tuflowqgis_create_tf_dir(dialog, crs, basepath, engine, tutorial, gisFormat=
 		reply = QMessageBox.question(dialog, "Create TUFLOW Empty Files", "Projection File Already Exists\n"
 																		  "Do You Want To Overwrite The Existing File?",
 									 QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-		if reply == QMessageBox.Cancel or reply == QMessageBox.No:
-			return ""
+		if reply == QMessageBox.Cancel:
+			return "user cancelled"
+		elif reply == QMessageBox.No:
+			return
 		# elif reply == QMessageBox.Yes:
 		# 	fields = QgsFields()
 		# 	fields.append( QgsField( "notes", QVariant.String ) )
@@ -850,7 +866,7 @@ def load_project(project):
 #  tuflowqgis_import_check_tf added MJS 11/02
 def tuflowqgis_import_check_tf(qgis, basepath, runID,showchecks):
 	#import check file styles using class
-	tf_styles = tuflowqgis_styles.TF_Styles()
+	tf_styles = TF_Styles()
 	error, message = tf_styles.Load()
 	if error:
 		QMessageBox.critical(qgis.mainWindow(),"Error", message)
@@ -1313,7 +1329,7 @@ def tuflowqgis_apply_check_tf(qgis):
 	message = None
 
 	#load style layers using tuflowqgis_styles
-	tf_styles = tuflowqgis_styles.TF_Styles()
+	tf_styles = TF_Styles()
 	error, message = tf_styles.Load()
 	if error:
 		return error, message
@@ -1371,7 +1387,7 @@ def tuflowqgis_apply_check_tf_clayer(qgis, **kwargs):
 		return error, message
 	
 	#load style layers using tuflowqgis_styles
-	tf_styles = tuflowqgis_styles.TF_Styles()
+	tf_styles = TF_Styles()
 	error, message = tf_styles.Load()
 	if error:
 		return error, message
@@ -1463,7 +1479,25 @@ def tuflowqgis_apply_stability_style(layer):
 	return error, msg
 
 	
-def tuflowqgis_increment_fname(infname):
+def tuflowqgis_increment_fname(infname, use_regex=True):
+	if use_regex:
+		pattern = r'\d{2,3}(?=(?:_[PLR]$|$))'
+		file_stem = Path(infname).stem
+		regex_find_version = re.findall(pattern, file_stem, flags=re.IGNORECASE)
+		if regex_find_version:
+			version = regex_find_version[0]
+			text_length = len(version)
+			new_version = '{0:0{1}d}'.format(int(version) + 1, text_length)
+			outfname = re.sub(pattern, new_version, file_stem, flags=re.IGNORECASE)
+		else:
+			geom = re.findall(r'_[PLR]$', file_stem, flags=re.IGNORECASE)
+			if geom:
+				outfname = '{0}_001{1}'.format(file_stem, geom)
+			else:
+				outfname = '{0}_001'.format(file_stem)
+		outfname = str(Path(infname).parent / '{0}{1}'.format(outfname, Path(infname).suffix))
+		return outfname
+
 	#check for file extension (shapefile only, not expecting .mif)
 	fext = ''
 	if infname[-4:].upper() == '.SHP':
@@ -3162,12 +3196,9 @@ def getScenariosFromControlFile(controlFile, processedScenarios):
 
 
 def getScenariosFromTCF_v2(control_file, scenarios, settings=None):
-	import sys
-	from os.path import dirname, join
-	sys.path.append(join(dirname(__file__), 'convert_tuflow_model_gis_format'))
-	from .convert_tuflow_model_gis_format.helpers.control_file import get_commands
-	from .convert_tuflow_model_gis_format.helpers.settings import ConvertSettings
-	from .convert_tuflow_model_gis_format.helpers.file import globify, TuflowPath
+	from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.control_file import get_commands
+	from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.settings import ConvertSettings, FatalConvertException
+	from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.file import globify, TuflowPath
 
 	if settings is None:
 		control_file = TuflowPath(control_file)
@@ -4112,7 +4143,12 @@ class LoadGisFiles(QObject):
 		# lyrs = QgsProject.instance().addMapLayers(layers, False)
 		files_failed = []
 		for lyr in layers:
-			lyrname = lyr.split('(')[1].split(',')[1].strip()
+			try:
+				lyrname = lyr.split('(')[1].split(',')[1].strip()
+			except Exception as e:
+				print(lyr)
+				print('ERROR: {0}'.format(e))
+				continue
 			self.start_layer_load.emit(lyrname)
 			self.update_progress(lyrname)
 			maplyr = eval(lyr)
@@ -4129,10 +4165,7 @@ class LoadGisFiles(QObject):
 		return files_failed
 
 	def loadGisFiles(self):
-		import sys
-		from os.path import dirname, join
-		sys.path.append(join(dirname(__file__), 'convert_tuflow_model_gis_format'))
-		from .convert_tuflow_model_gis_format.helpers.gis import (ogr_iter_geom, get_database_name, ogr_format,
+		from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.gis import (ogr_iter_geom, get_database_name, ogr_format,
 																  ogr_format_2_ext, ogr_geometry_name, ogr_basic_geom_type,
 																  GIS_SHP, gdal_format, GRID_GPKG)
 		options = LoadTcfOptions()
@@ -4289,12 +4322,9 @@ class LoadGisFromControlFile(QObject):
 		self.scenarios = scenarios
 
 	def loadGisFromControlFile_v2(self):
-		import sys
-		from os.path import dirname, join
-		sys.path.append(join(dirname(__file__), 'convert_tuflow_model_gis_format'))
-		from .convert_tuflow_model_gis_format.helpers.control_file import get_commands
-		from .convert_tuflow_model_gis_format.helpers.settings import ConvertSettings
-		from .convert_tuflow_model_gis_format.helpers.file import globify, TuflowPath
+		from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.control_file import get_commands
+		from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.settings import ConvertSettings
+		from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.file import globify, TuflowPath
 
 		try:
 
@@ -5379,21 +5409,7 @@ def changeDataSource(iface, layer, newDataSource, isgpkg):
 
 	# rename layer in layers panel
 	legint = QgsProject.instance().layerTreeRoot()
-	# grab all nodes that are QgsMapLayers - get to node bed rock i.e. not a group
-	nodes = []
-	for child in legint.children():
-		children = [child]
-		while children:
-			nd = children[0]
-			if nd.children():
-				children += nd.children()
-			else:
-				nodes.append(nd)
-			children = children[1:]
-	# now loop through nodes and turn on/off visibility based on settings
-	for nd in nodes:
-		if nd.name() == name:
-			nd.setName(newName)
+	legint.findLayer(layer.id()).setName(newName)
 	
 	# refresh map and legend
 	layer.triggerRepaint()
@@ -5943,16 +5959,23 @@ def ascToAsc(exe, function, workdir , grids, **kwargs):
 
 	inputs = []
 	for grid in grids:
-		if type(grid) is QgsMapLayer:
-			inputs.append(grid.dataProvider().dataSourceUri())
+		if isinstance(grid, QgsMapLayer):
+			layer_helper = LayerHelper(grid)
+			inputs.append(layer_helper.tuflow_path)
 		elif grid.replace('/', os.sep).count(os.sep) == 0:
 			layer = tuflowqgis_find_layer(grid)
 			if layer is not None:
 				inputs.append(layer.dataProvider().dataSourceUri())
 		elif os.path.exists(grid):
 			inputs.append(grid)
+		elif ' >> ' in grid:
+			inputs.append(grid)
 	
 	args = [exe, '-b']
+
+	if kwargs.get('format') and kwargs.get('version', 0) >= 20230100:
+		args.append('-{0}'.format(kwargs.get('format')))
+
 	if function.lower() == 'diff':
 		if len(inputs) == 2:
 			args.append('-dif')
@@ -5981,6 +6004,10 @@ def ascToAsc(exe, function, workdir , grids, **kwargs):
 				args.append(input)
 		else:
 			return True, 'Need at least one input grid'
+	elif function.lower() == 'brkline':
+		args.append('-brkline')
+		args.append(kwargs.get('gis')[0])
+		args.append(inputs[0])
 	
 	if 'out' in kwargs:
 		if kwargs['out']:
@@ -6318,7 +6345,7 @@ def downloadBinPackage(packageUrl, destinationFileName):
 class Downloader(QObject):
 
 	updated = pyqtSignal(int)
-	finished = pyqtSignal(int)
+	finished = pyqtSignal(str)
 
 	def __init__(self, packageUrl, destinationFileName):
 		QObject.__init__(self, None)
@@ -6327,59 +6354,29 @@ class Downloader(QObject):
 
 	def start(self):
 		from urllib.request import urlopen
-		# self.r = requests.get(self.packageUrl, stream=True)
-		# if self.r.status_code != requests.codes.ok or \
-		# 		(self.r.headers['Content-Type'] != 'application/zip' and self.r.headers['Content-Type'] != 'application/x-zip-compressed'):
-			# self.finished.emit(self.r.status_code)
-			# self.finished.emit(self.r.status)
-			# self.r.close()
-			# return
 
-		# total_length = self.r.headers.get('Content-Length')
-		# total_length = self.r.length
-		# if total_length is None or self.r.headers['Content-Type'] == 'application/x-zip-compressed':
-		# 	if os.path.isfile(self.destinationFileName):
-		# 		os.unlink(self.destinationFileName)
-		# 	# self.r.close()
-		# 	# self.r = requests.get(self.packageUrl)  # not streaming
-		# 	destinationFile = open(self.destinationFileName, 'wb')
-		# 	destinationFile.write(bytearray(self.r.content))
-		# 	destinationFile.close()
-		# 	self.r.close()
-		# 	self.finished.emit(0)
-		# else:
-		# 	# total_length = int(total_length)
-		# 	if os.path.isfile(self.destinationFileName):
-		# 		os.unlink(self.destinationFileName)
-		# 	destinationFile = open(self.destinationFileName, 'wb')
-		# 	chunk_size = min(int(total_length / 100), 1024 * 1024 * 10)
-		# 	prog = 0
-		# 	for data in self.r.iter_content(chunk_size=chunk_size):
-		# 		prog += len(data)
-		# 		destinationFile.write(bytearray(data))
-		# 		done = int(prog / total_length * 100)
-		# 		self.updated.emit(done)
-		# 		if QThread().currentThread().isInterruptionRequested():
-		# 			break
-		with urlopen(self.packageUrl) as request:
-			total_length = request.length
-			if os.path.isfile(self.destinationFileName):
-				os.unlink(self.destinationFileName)
-			CHUNK = 4096
-			prog = 0
-			with open(self.destinationFileName, 'wb') as f:
-				for chunk in iter(lambda: request.read(CHUNK), ''):
-					prog += CHUNK
-					if not chunk:
-						break
-					f.write(chunk)
-					done = int(prog / total_length * 100)
-					self.updated.emit(done)
-					if QThread().currentThread().isInterruptionRequested():
-						break
+		try:
+			with urlopen(self.packageUrl) as request:
+				total_length = request.length
+				if os.path.isfile(self.destinationFileName):
+					os.unlink(self.destinationFileName)
+				CHUNK = 4096
+				prog = 0
+				with open(self.destinationFileName, 'wb') as f:
+					for chunk in iter(lambda: request.read(CHUNK), ''):
+						prog += CHUNK
+						if not chunk:
+							break
+						f.write(chunk)
+						done = int(prog / total_length * 100)
+						self.updated.emit(done)
+						if QThread().currentThread().isInterruptionRequested():
+							break
+		except Exception as e:
+			self.finished.emit(str(e))
 		# self.destinationFileName.close()
 		# self.r.close()
-		self.finished.emit(0)
+		self.finished.emit(None)
 
 
 class DownloadProgressBar(QObject):
@@ -6435,7 +6432,7 @@ class DownloadBinPackage(QObject):
 		while not self.progress_bar.is_finished:
 			QgsApplication.processEvents()
 
-		if self.progress_bar.error != 0:
+		if self.progress_bar.error:
 			raise IOError("error code {} {}".format(self.progress_bar.error, self.packageUrl))
 
 		self.thread.quit()
@@ -7085,6 +7082,9 @@ def is1dTable(layer):
 		fieldTypes.append(fieldType)
 
 	if fieldTypes == correct1dTableType:
+		i_source = 1 if isgpkg else 0
+		if fields.field(i_source).length() < 5:
+			return False
 		return True
 	else:
 		return False
@@ -7258,7 +7258,7 @@ def interpolateObvert(usInv, dsInv, size, xValues):
 
 def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
            dialogName: str = "TUFLOW", fileType: str = "ALL (*)",
-           lineEdit = None, icon: QIcon = None, action=None, allowDuplicates=True) -> None:
+           lineEdit = None, icon: QIcon = None, action=None, allowDuplicates=True, default_filename=None) -> None:
 	"""
 	Browse folder directory
 
@@ -7307,6 +7307,8 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
 				else:
 					lastFolder = os.path.dirname(lastFolder)
 					loop_count += 1
+	if default_filename:
+		startDir = os.path.join(startDir, default_filename)
 	dialog = QFileDialog(parent, dialogName, startDir, fileType)
 	f = []
 	if icon is not None:
@@ -8958,10 +8960,10 @@ def re_ify(text, wildcards):
 
 
 def getOutputDirs_old(path):
-	import sys
-	from os.path import dirname, join
-	sys.path.append(join(dirname(__file__), 'convert_tuflow_model_gis_format'))
-	from .convert_tuflow_model_gis_format.helpers.file import globify
+	try:
+		from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.file import globify
+	except ImportError:
+		from compatibility_routines import globify
 
 	output_paths = []
 
@@ -8989,12 +8991,9 @@ def getOutputDirs_old(path):
 
 
 def getOutputDirs(path, settings=None):
-	import sys
-	from os.path import dirname, join
-	sys.path.append(join(dirname(__file__), 'convert_tuflow_model_gis_format'))
-	from .convert_tuflow_model_gis_format.helpers.control_file import get_commands
-	from .convert_tuflow_model_gis_format.helpers.settings import ConvertSettings
-	from .convert_tuflow_model_gis_format.helpers.file import globify, TuflowPath
+	from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.control_file import get_commands
+	from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.settings import ConvertSettings
+	from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.file import globify, TuflowPath
 
 	output_paths = []
 	if settings is None:
@@ -9277,6 +9276,389 @@ def LoadTCFOptionsMessageBox(parent, title):
 
 	dialog.exec_()
 	return loadTCFOptionsMessageBox_result
+
+
+@dataclass
+class NetcdfDim:
+	name: str
+	size: int
+
+
+@dataclass
+class NetcdfVar:
+	name: str
+	dimensions: list[NetcdfDim]
+	fill_value: float = field(default=None)
+	attrs: dict[str, str] = field(default_factory=dict)
+	data_type: int = field(default=0)
+	shape: tuple[int] = field(init=False, default_factory=tuple)
+	dim_names: tuple[str] = field(init=False, default_factory=tuple)
+	dim_sizes_dict: dict[str, int] = field(init=False, default_factory=dict)
+
+	def __post_init__(self):
+		self.shape = tuple([dim.size for dim in self.dimensions])
+		self.dim_names = tuple([dim.name for dim in self.dimensions])
+		self.dim_sizes_dict = {dim.name: dim.size for dim in self.dimensions}
+		for key, value in self.attrs.items():
+			self.__dict__[key] = value
+
+
+class Netcdf:
+
+	def __init__(self, path):
+		self.path = path
+		self._dim = OrderedDict({})
+		self._var = OrderedDict({})
+		self.netcdf_lib = getNetCDFLibrary()
+		if self.netcdf_lib[0] == 'python':
+			self.netcdf_lib = 'pylib'
+		else:
+			self.nc_lib_path = self.netcdf_lib[1]
+			self.netcdf_lib = 'clib'
+			if not Path(self.nc_lib_path).exists():
+				raise ImportError('NetCDF library not found')
+			self.ncdll = ctypes.cdll.LoadLibrary(self.nc_lib_path)
+
+	def __enter__(self, mode='r'):
+		return self.open(mode)
+
+	def __exit__(self, exc_type, exc_val, exc_tb):
+		self.close()
+
+	def open(self, mode):
+		if self.netcdf_lib == 'pylib':
+			from netCDF4 import Dataset
+			self.ncid = Dataset(self.path, mode)
+		else:
+			file = ctypes.c_char_p(str.encode(self.path))
+			NC_NOWRITE = ctypes.c_int(0)
+			ncidp = ctypes.pointer(ctypes.c_int())
+			err = self.ncdll.nc_open(file, NC_NOWRITE, ncidp)
+			self.ncid = ncidp.contents
+
+		return self
+
+	def close(self):
+		if self.netcdf_lib == 'pylib':
+			self.ncid.close()
+		else:
+			self.ncdll.nc_close(self.ncid)
+
+	@property
+	def dimensions(self):
+		if self.netcdf_lib == 'pylib':
+			for dim in self.ncid.dimensions.values():
+				self._dim[dim.name] = NetcdfDim(dim.name, dim.size)
+		else:
+			ndims_p = ctypes.pointer(ctypes.c_int())
+			nvars_p = ctypes.pointer(ctypes.c_int())
+			natts_p = ctypes.pointer(ctypes.c_int())
+			unlimdimid_p = ctypes.pointer(ctypes.c_int())
+			err = self.ncdll.nc_inq(self.ncid, ndims_p, nvars_p, natts_p, unlimdimid_p)
+			if err:
+				raise IOError('Error reading NetCDF file dimensions')
+			for i in range(ndims_p.contents.value):
+				cstr_array = (ctypes.c_char * 256)()
+				cint_p = ctypes.pointer(ctypes.c_int())
+				err = self.ncdll.nc_inq_dim(self.ncid, ctypes.c_int(i), ctypes.byref(cstr_array), cint_p)
+				if err:
+					raise IOError('Error reading NetCDF file: dimension id {0}'.format(i))
+				name = cstr_array.value.decode('utf-8')
+				size = cint_p.contents.value
+				self._dim[name] = NetcdfDim(name, size)
+
+		return self._dim
+
+	@property
+	def variables(self):
+		if self.netcdf_lib == 'pylib':
+			for var in self.ncid.variables.values():
+				if hasattr(var, '_FillValue'):
+					fill_value = var._FillValue
+				else:
+					fill_value = None
+				self._var[var.name] = NetcdfVar(
+					var.name,
+					[self._dim[dim] for dim in var.dimensions],
+					fill_value,
+					var.__dict__
+				)
+		else:
+			ndims_p = ctypes.pointer(ctypes.c_int())
+			nvars_p = ctypes.pointer(ctypes.c_int())
+			natts_p = ctypes.pointer(ctypes.c_int())
+			unlimdimid_p = ctypes.pointer(ctypes.c_int())
+			err = self.ncdll.nc_inq(self.ncid, ndims_p, nvars_p, natts_p, unlimdimid_p)
+			if err:
+				raise IOError('Error reading NetCDF file: variable')
+
+			for i in range(nvars_p.contents.value):
+				cstr_array = (ctypes.c_char * 256)()
+				err = self.ncdll.nc_inq_varname(self.ncid, ctypes.c_int(i), ctypes.byref(cstr_array))
+
+				type_p = ctypes.pointer(ctypes.c_int())
+				ndims_p = ctypes.pointer(ctypes.c_int())
+				err = self.ncdll.nc_inq_var(self.ncid, ctypes.c_int(i), ctypes.c_int(0), type_p, ndims_p, ctypes.c_int(0), natts_p)
+				if err:
+					raise IOError('Error reading NetCDF file: variable id {0}'.format(i))
+				dimids_p = ctypes.pointer((ctypes.c_int * ndims_p.contents.value)())
+				natts_p = ctypes.pointer(ctypes.c_int())
+				err = self.ncdll.nc_inq_var(self.ncid, ctypes.c_int(i), cstr_array, type_p, ndims_p, dimids_p, natts_p)
+				if err:
+					raise IOError('Error reading NetCDF file: variable id {0}'.format(i))
+
+				name = cstr_array.value.decode('utf-8')
+
+				atts = OrderedDict({})
+				for j in range(natts_p.contents.value):
+					err = self.ncdll.nc_inq_attname(self.ncid, ctypes.c_int(i), ctypes.c_int(j), cstr_array)
+					att_name = cstr_array.value.decode('utf-8')
+					att_type_p = ctypes.pointer(ctypes.c_int())
+					len_p = ctypes.pointer(ctypes.c_int())
+					err = self.ncdll.nc_inq_att(self.ncid, ctypes.c_int(i), cstr_array, att_type_p, len_p)
+
+					if att_type_p.contents.value == 1:
+						att_val = ctypes.pointer((ctypes.c_byte * len_p.contents.value)())
+					elif att_type_p.contents.value == 2:
+						att_val = ctypes.pointer((ctypes.c_char * len_p.contents.value)())
+					elif att_type_p.contents.value == 3:
+						att_val = ctypes.pointer((ctypes.c_short * len_p.contents.value)())
+					elif att_type_p.contents.value == 4:
+						att_val = ctypes.pointer((ctypes.c_int * len_p.contents.value)())
+					elif att_type_p.contents.value == 5:
+						att_val = ctypes.pointer((ctypes.c_float * len_p.contents.value)())
+					elif att_type_p.contents.value == 6:
+						att_val = ctypes.pointer((ctypes.c_double * len_p.contents.value)())
+					elif att_type_p.contents.value == 7:
+						att_val = ctypes.pointer((ctypes.c_ubyte * len_p.contents.value)())
+					elif att_type_p.contents.value == 8:
+						att_val = ctypes.pointer((ctypes.c_ushort * len_p.contents.value)())
+					elif att_type_p.contents.value == 9:
+						att_val = ctypes.pointer((ctypes.c_uint * len_p.contents.value)())
+					elif att_type_p.contents.value == 10:
+						att_val = ctypes.pointer((ctypes.c_longlong * len_p.contents.value)())
+					elif att_type_p.contents.value == 11:
+						att_val = ctypes.pointer((ctypes.c_ulonglong * len_p.contents.value)())
+
+					err = self.ncdll.nc_get_att(self.ncid, ctypes.c_int(i), cstr_array, att_val)
+
+					if att_type_p.contents.value == 2:
+						att_val = att_val.contents.value.decode('utf-8')
+					elif att_type_p.contents.value == 5 or att_type_p.contents.value == 6:
+						att_val = float(att_val.contents[0])
+					else:
+						att_val = int(att_val.contents[0])
+
+					atts[att_name] = att_val
+
+				no_fill_p = ctypes.pointer(ctypes.c_int())
+				if type_p.contents.value == 1:
+					fill_val = ctypes.pointer(ctypes.c_byte())
+				elif type_p.contents.value == 2:
+					fill_val = ctypes.pointer(ctypes.c_char())
+				elif type_p.contents.value == 3:
+					fill_val = ctypes.pointer(ctypes.c_short())
+				elif type_p.contents.value == 4:
+					fill_val = ctypes.pointer(ctypes.c_int())
+				elif type_p.contents.value == 5:
+					fill_val = ctypes.pointer(ctypes.c_float())
+				elif type_p.contents.value == 6:
+					fill_val = ctypes.pointer(ctypes.c_double())
+				elif type_p.contents.value == 7:
+					fill_val = ctypes.pointer(ctypes.c_ubyte())
+				elif type_p.contents.value == 8:
+					fill_val = ctypes.pointer(ctypes.c_ushort())
+				elif type_p.contents.value == 9:
+					fill_val = ctypes.pointer(ctypes.c_uint())
+				elif type_p.contents.value == 10:
+					fill_val = ctypes.pointer(ctypes.c_longlong())
+				elif type_p.contents.value == 11:
+					fill_val = ctypes.pointer(ctypes.c_ulonglong())
+
+				err = self.ncdll.nc_inq_var_fill(self.ncid, ctypes.c_int(i), no_fill_p, ctypes.c_int(0))
+				if no_fill_p.contents.value != 1:
+					err = self.ncdll.nc_inq_var_fill(self.ncid, ctypes.c_int(i), no_fill_p, fill_val)
+					fill_val = fill_val.contents.value
+				else:
+					fill_val = None
+
+				dims = []
+				for j in range(ndims_p.contents.value):
+					dimid = dimids_p.contents[j]
+					for k, dim in enumerate(self.dimensions.values()):
+						if k == dimid:
+							dims.append(dim)
+
+				self._var[name] = NetcdfVar(name, dims, fill_val, atts, type_p.contents.value)
+
+		return self._var
+
+
+class LayerHelper:
+
+	__slots__ = ('_layer', '_datasource')
+
+	def __new__(cls, *args, **kwargs):
+		if isinstance(args[0], QgsVectorLayer):
+			cls = VectorLayerHelper
+		elif isinstance(args[0], QgsRasterLayer):
+			cls = RasterLayerHelper
+		else:
+			raise TypeError('LayerHelper must be initialised with a QgsVectorLayer or QgsRasterLayer')
+
+		self = object.__new__(cls)
+		self._layer = args[0]
+		self._datasource = self._layer.dataProvider().dataSourceUri()
+		return self
+
+	@property
+	def is_database(self):
+		return False
+
+	@property
+	def datasource(self):
+		return self._datasource
+
+	@property
+	def layer_name(self):
+		return self.layer.name()
+
+	@property
+	def tuflow_path(self):
+		if self.is_database:
+			return '{0} >> {1}'.format(self.datasource, self.layer_name)
+		else:
+			return self.datasource
+
+	def is_tuflow_type(self, version):
+		return False
+
+
+class VectorLayerHelper(LayerHelper):
+
+	@property
+	def is_database(self):
+		return bool(re.findall(r'\|layername=', self._datasource))
+
+	@property
+	def datasource(self):
+		ds = re.split('\|layername=', self._datasource)[0]
+		return ds.split('|')[0]
+
+	@property
+	def layer_name(self):
+		if self.is_database:
+			_, layer_name = self._datasource.split('|layername=')
+		else:
+			layer_name = Path(self._datasource).stem
+		return layer_name.split('|')[0]
+
+	def is_tuflow_type(self, version):
+		if version >= 20230100:
+			return Path(self.datasource).suffix.lower() in ['.mif', '.shp', '.gpkg']
+		else:
+			return Path(self.datasource).suffix.lower() in ['.mif', '.shp']
+
+
+class RasterLayerHelper(LayerHelper):
+
+	@property
+	def is_database(self):
+		return Path(self.datasource).suffix.lower() == '.gpkg' or Path(self.datasource).suffix.lower() == '.nc'
+
+	@property
+	def datasource(self):
+		if re.findall(r'^[A-Z]{2,}:', self._datasource):
+			return ':'.join(self._datasource.split(':')[1:-1])
+		return self._datasource
+
+	@property
+	def layer_name(self):
+		if self.is_database:
+			if re.findall(r'^[A-Z]{2,}:', self._datasource):
+				layer_name = self._datasource.split(':')[-1]
+			elif Path(self._datasource).suffix.lower() == '.gpkg':
+				conn = sqlite3.connect(self._datasource)
+				c = conn.cursor()
+				c.execute("SELECT table_name FROM gpkg_contents WHERE data_type = 'tiles'")
+				layer_name = c.fetchone()[0]
+				conn.close()
+			elif Path(self._datasource).suffix.lower() == '.nc':
+				layer_name = ''
+				with Netcdf(self._datasource) as nc:
+					x_dims = [name for name, dim in nc.dimensions.items() if name in nc.variables and hasattr(nc.variables[name], 'axis') and nc.variables[name].axis == 'X']
+					y_dims = [name for name, dim in nc.dimensions.items() if name in nc.variables and hasattr(nc.variables[name], 'axis') and nc.variables[name].axis == 'Y']
+					for name, var in nc.variables.items():
+						if len(var.shape) == 3:
+							i, j = 1, 2
+						elif len(var.shape) == 2:
+							i, j = 0, 1
+						else:
+							continue
+						if var.dimensions[i].name in y_dims and var.dimensions[j].name in x_dims:
+							layer_name = name
+							break
+		else:
+			layer_name = Path(self._datasource).stem
+
+		return layer_name
+
+	def is_tuflow_type(self, version):
+		if version >= 20230100:
+			return Path(self.datasource).suffix.lower() in ['.asc', '.dem', '.txt', '.flt', '.gpkg', '.nc', '.tif',
+			                                                 '.tiff', '.gtif', '.gtiff', '.btif', '.btiff', '.tif8',
+			                                                 '.tiff8']
+		else:
+			return Path(self.datasource).suffix.lower() in ['.asc', '.dem', '.txt', '.flt']
+
+
+def plugin_version_to_int(version_string):
+	p = version_string.split('.')
+	maj = int(p[0]) * 10000
+	if len(p) > 1:
+		min = int(p[1]) * 1000
+	else:
+		min = 0
+	if len(p) > 2:
+		patch = int(p[2]) * 100
+	else:
+		patch = 0
+	if len(p) > 3:
+		dev = int(p[3])
+	else:
+		dev = 0
+	return maj + min + patch + dev
+
+
+def download_latest_dev_plugin(iface=None):
+	parent = iface.mainWindow() if iface else None
+	_, build_vers = version()
+	latest_dev_version = get_latest_dev_plugin_version()
+	if plugin_version_to_int(latest_dev_version) <= plugin_version_to_int(build_vers):
+		QMessageBox.information(parent, 'Install Latest Dev Plugin', 'Installed version is the same or newer than the latest dev version.')
+		return
+
+	download_path = browse(parent, 'output file', "TUFLOW/download_location", 'Enter name of the file to save to...',
+	                       'ZIP (*.zip *.ZIP)', default_filename='tuflow_plugin.zip')
+	if not download_path:
+		return
+
+	url = 'https://downloads.tuflow.com/Private_Download/QGIS_TUFLOW_Plugin/tuflow_plugin.zip'
+	try:
+		downloader = DownloadBinPackage(url, download_path, 'Downloading tuflow_plugin.zip. . . ')
+		downloader.start()
+		downloader.wait()
+	except Exception as e:
+		QMessageBox.critical(parent, 'Download Error', 'Error downloading latest dev plugin: {0}'.format(e))
+		return
+
+	completed_text = 'Download complete:<p>{0}' \
+					 '<p><p>Please see the following wiki page for instructions on how to install:' \
+	                 '<p><a href=\"https://wiki.tuflow.com/index.php?title=Installing_the_Latest_Development_Version_of_the_TUFLOW_Plugin#How_to_install_the_Development_Plugin_Version\">' \
+	                 'How to manually install the TUFLOW Plugin</a>'.format(download_path)
+	QMessageBox.information(parent, 'Install Latest Dev Plugin', completed_text)
+
+
 
 
 if __name__ == '__main__':

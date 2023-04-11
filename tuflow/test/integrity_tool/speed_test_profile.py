@@ -1,7 +1,7 @@
 import sys
 import os
 from qgis.core import QgsApplication, QgsVectorLayer
-from tuflow.integrity_tool.FlowTraceTool import DataCollectorFlowTrace, FlowTraceTool, FlowTracePlot
+from ..integrity_tool.FlowTraceTool import DataCollectorFlowTrace, FlowTraceTool, FlowTracePlot
 
 # initialise QGIS data providers
 argv = [bytes(x, 'utf-8') for x in sys.argv]

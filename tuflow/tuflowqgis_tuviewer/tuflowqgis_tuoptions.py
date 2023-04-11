@@ -22,6 +22,7 @@ class TuOptions():
 		self.particlesWriteDebugInfo = False
 		self.verticalProfileInterpolated = False
 		self.timeSpec = 1
+		self.secondary_axis_types = {0: 'y-axis', 1: 'y-axis', 2: 'y-axis', 3: 'x-axis'}
 
 		if settings.contains("TUFLOW/tuview_defaultlayout"):
 			self.defaultLayout = settings.value('TUFLOW/tuview_defaultlayout')
@@ -79,6 +80,13 @@ class TuOptions():
 				self.plotInactiveAreas = True
 		else:
 			self.plotInactiveAreas = True
+
+		if settings.contains('TUFLOW/tuview_secondary_axis_type_0'):
+			self.secondary_axis_types[0] = settings.value('TUFLOW/tuview_secondary_axis_type_0')
+		if settings.contains('TUFLOW/tuview_secondary_axis_type_1'):
+			self.secondary_axis_types[1] = settings.value('TUFLOW/tuview_secondary_axis_type_1')
+		if settings.contains('TUFLOW/tuview_secondary_axis_type_3'):
+			self.secondary_axis_types[3] = settings.value('TUFLOW/tuview_secondary_axis_type_3')
 
 		# curtain vectors
 		self.curtain_vector_scale = float(settings.value("TUFLOW/tuview_curtain_vector_scale", "0.005"))

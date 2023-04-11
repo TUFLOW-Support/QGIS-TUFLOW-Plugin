@@ -5,8 +5,8 @@ from PyQt5.QtGui import *
 from PyQt5 import QtGui
 from qgis.core import *
 from PyQt5.QtWidgets import *
-from tuflow.canvas_event import *
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turubberband import TuRubberBand
+from ..canvas_event import *
+from ..tuflowqgis_tuviewer.tuflowqgis_turubberband import TuRubberBand
 
 
 class TuFlowLine(TuRubberBand):
@@ -28,7 +28,7 @@ class TuFlowLine(TuRubberBand):
 		:return: bool -> True is possible, False not possible
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+		from ..tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 
 		results = self.tuView.tuResults.results
 
@@ -93,7 +93,7 @@ class TuFlowLine2():
 		:return: bool -> True is possible, False not possible
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+		from ..tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 		
 		results = self.tuView.tuResults.results
 		
@@ -169,7 +169,7 @@ class TuFlowLine2():
 			self.linePoints = []
 			
 			# initialise rubberband
-			rubberBand = QgsRubberBand(self.canvas, False)  # setup rubberband class for drawing
+			rubberBand = QgsRubberBand(self.canvas)  # setup rubberband class for drawing
 			rubberBand.setWidth(2)
 			rubberBand.setColor(QtGui.QColor(Qt.blue))
 			self.points = []  # list of x, y coords of line

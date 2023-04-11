@@ -12,15 +12,8 @@ import re
 import matplotlib
 import numpy as np
 import numpy.ma as ma
-try:
-	import matplotlib.pyplot as plt
-except:
-	current_path = os.path.dirname(__file__)
-	plugin_folder = os.path.dirname(current_path)
-	sys.path.append(os.path.join(plugin_folder, '_tk\\DLLs'))
-	sys.path.append(os.path.join(plugin_folder, '_tk\\libs'))
-	sys.path.append(os.path.join(plugin_folder, '_tk\\Lib'))
-	import matplotlib.pyplot as plt
+
+import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 from matplotlib.patches import Polygon
@@ -35,18 +28,18 @@ from matplotlib import cm
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.dates import date2num, num2date
 # from matplotlib.backend_bases import MouseButton
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplottoolbar import TuPlotToolbar
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplotselection import TuPlotSelection
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turubberband import TuRubberBand, TuMarker
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuflowline import TuFlowLine
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot2d import TuPlot2D
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot1d import TuPlot1D
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuuserplotdata import TuUserPlotDataManager
-from tuflow.tuflowqgis_library import (applyMatplotLibArtist, getMean, roundSeconds, convert_datetime_to_float,
+from .tuflowqgis_tuplottoolbar import TuPlotToolbar
+from .tuflowqgis_tuplotselection import TuPlotSelection
+from .tuflowqgis_turubberband import TuRubberBand, TuMarker
+from .tuflowqgis_tuflowline import TuFlowLine
+from .tuflowqgis_tuplot2d import TuPlot2D
+from .tuflowqgis_tuplot1d import TuPlot1D
+from .tuflowqgis_tuuserplotdata import TuUserPlotDataManager
+from ..tuflowqgis_library import (applyMatplotLibArtist, getMean, roundSeconds, convert_datetime_to_float,
                                        generateRandomMatplotColours2, saveMatplotLibArtist,
                                        polyCollectionPathIndexFromXY, regex_dict_val, datetime2timespec,
                                        convertFormattedTimeToTime, getPolyCollectionData, mpl_version_int)
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot3d import (TuPlot3D, ColourBar)
+from .tuflowqgis_tuplot3d import (TuPlot3D, ColourBar)
 
 
 
@@ -437,6 +430,8 @@ class TuPlot():
 			TuPlot.DataHydraulicProperty: None,
 			TuPlot.DataVerticalMesh: None,
 		}
+
+		self.secondary_axis_flipped = {TuPlot.TimeSeries: False, TuPlot.CrossSection: False, TuPlot.VerticalProfile: False}
 
 		self.timeSeries_labels_about_to_break = 0
 		self.crossSection_labels_about_to_break = 0
@@ -1836,7 +1831,43 @@ class TuPlot():
 			
 		return True
 
-	def setAxisNames(self, plotNo, types, plotAsCollection=(), plotAsQuiver=(), return_unit_only=False, unit_system=None):
+	def raw_label(self, name, plotNo, dict_, axis):
+		raw_name = regex_dict_val(dict_, name)
+		if raw_name is not None:
+			return raw_name
+
+		raw_name = ''
+		if plotNo == TuPlot.TimeSeries and axis == 'x':
+			if self.tuView.tuOptions.xAxisDates:
+				raw_name = 'Date'
+			else:
+				raw_name = 'Time'
+		elif plotNo == TuPlot.CrossSection and axis == 'x':
+			raw_name = 'Offset'
+		elif plotNo == TuPlot.VerticalProfile and axis == 'y':
+			raw_name = 'Elevation'
+
+		return raw_name
+
+	def raw_unit(self, name, plotNo, dict_, axis, system_index, default_unit):
+		raw_unit = regex_dict_val(dict_, name)
+		if raw_unit is not None:
+			return raw_unit[system_index]
+
+		raw_unit = ''
+		if plotNo == TuPlot.TimeSeries and axis == 'x':
+			if self.tuView.tuOptions.xAxisDates:
+				raw_unit = ''
+			else:
+				raw_unit = 'hr'
+		elif plotNo == TuPlot.CrossSection and axis == 'x':
+			raw_unit = default_unit
+		elif plotNo == TuPlot.VerticalProfile and axis == 'y':
+			raw_unit = default_unit
+
+		return raw_unit
+
+	def setAxisNames(self, plotNo, types, plotAsCollection=(), plotAsQuiver=(), return_unit_only=False, unit_system=None, context=None):
 		"""
 		Manages the axis labels including units and secondary axis.
 
@@ -1907,7 +1938,10 @@ class TuPlot():
 			r'minimum dt': ('s', 's', ''),
 			r'rf cumulative': ('mm', 'in', ''),
 			r'rf rate': ('mm/hr', 'in/hr', ''),
-			r'cum\. mat\. loss': ('mm', 'in', '')
+			r'cum\. mat\. loss': ('mm', 'in', ''),
+			r'xz': ('m RL', 'ft RL', ''),
+			r'\(xs\).*': ('m RL', 'ft RL', ''),
+			r'\(nwk\).*': ('m RL', 'ft RL', ''),
 		})
 		
 		shortNames = OrderedDict({
@@ -1960,7 +1994,32 @@ class TuPlot():
 			r'minimum dt': 'dt',
 			r'rf cumulative': 'RFC',
 			r'rf rate': 'RFR',
-			r'cum\. mat\. loss': 'RFML'
+			r'cum\. mat\. loss': 'RFML',
+			r'xz': 'Elevation',
+			r'\(xs\).*': 'Elevation',
+			r'\(nwk\).*': 'Elevation',
+		})
+
+		# more axis names - so far only for hydraulic tables
+		additional_axis_units = OrderedDict({
+			r'\((xs|nwk)\) depth': ('m', 'ft', ''),
+			r'\((xs|nwk)\).*area': ('m$^2$', 'ft$^2$', ''),
+			r'\((xs|nwk)\).*width': ('m', 'ft', ''),
+			r'\((xs|nwk)\) k.*': ('', '', ''),
+			r'\((xs|nwk)\) p': ('m', 'ft', ''),
+			r'\((xs|nwk)\).*per.*': ('m', 'ft', ''),
+			r'\((xs|nwk)\) radius': ('m', 'ft', ''),
+			r'\((xs|nwk)\) vert res factor': ('', '', ''),
+		})
+		additional_short_names = OrderedDict({
+			r'\((xs|nwk)\) depth': 'Depth',
+			r'\((xs|nwk)\).*area': 'Area',
+			r'\((xs|nwk)\).*width': 'Width',
+			r'\((xs|nwk)\) k.*': 'K',
+			r'\((xs|nwk)\) p': 'P',
+			r'\((xs|nwk)\).*per.*': 'P',
+			r'\((xs|nwk)\) radius': 'Radius',
+			r'\((xs|nwk)\) vert res factor': 'Factor',
 		})
 
 		# determine units i.e. metric, imperial, or unknown / blank
@@ -1994,148 +2053,92 @@ class TuPlot():
 		unit[1].clear()
 
 		# get all plot data types
-		types = []
-		plotAsCollection = []
-		plotAsQuiver = []
-		for plotData, plotType in self.plotDataToPlotType.items():
-			if plotType == plotNo:
-				for line in self.plotData[plotData]:
-					if type(line) is dict:
-						types.append([val for k, val in line.items()][0])
-						if plotData == TuPlot.DataCurtainPlot:
-							if 'vector' in [val for k, val in line.items()][0].lower():
-								plotAsQuiver.append(True)
-								plotAsCollection.append(False)
+		if context != 'export csv':
+			types = []
+			plotAsCollection = []
+			plotAsQuiver = []
+			for plotData, plotType in self.plotDataToPlotType.items():
+				if plotType == plotNo:
+					for line in self.plotData[plotData]:
+						if type(line) is dict:
+							types.append([val for k, val in line.items()][0])
+							if plotData == TuPlot.DataCurtainPlot:
+								if 'vector' in [val for k, val in line.items()][0].lower():
+									plotAsQuiver.append(True)
+									plotAsCollection.append(False)
+								else:
+									plotAsCollection.append(True)
+									plotAsQuiver.append(False)
 							else:
-								plotAsCollection.append(True)
+								plotAsCollection.append(False)
 								plotAsQuiver.append(False)
-						else:
-							plotAsCollection.append(False)
-							plotAsQuiver.append(False)
 
-		# create a copy of types - keep any changes local
-		# curtain plot y-axis needs to be changed to elevation
-		# types = types[:]
-		for i, t in enumerate(types[:]):
-			if plotAsQuiver and plotAsQuiver[i]:
-				types[i] = ''
-			elif plotAsCollection and plotAsCollection[i]:
-				types[i] = 'water level'
+			# create a copy of types - keep any changes local
+			# curtain plot y-axis needs to be changed to elevation
+			# types = types[:]
+			for i, t in enumerate(types[:]):
+				if plotAsQuiver and plotAsQuiver[i]:
+					types[i] = ''
+				elif plotAsCollection and plotAsCollection[i]:
+					types[i] = 'water level'
 
-		if self.tuView.tuMenuBar.freezeAxisLabels_action.isChecked():
-			xAxisLabel = subplot.get_xlabel()
-			yAxisLabelNewFirst = subplot.get_ylabel()
-			if isSecondaryAxis[0]:
-				subplot2 = self.getSecondaryAxis(plotNo)
-				yAxisLabelNewSecond = subplot2.get_ylabel()
-			else:
-				yAxisLabelNewSecond = ''
-			return xAxisLabel, yAxisLabelNewFirst, yAxisLabelNewSecond
-
-		# # determine units i.e. metric, imperial, or unknown / blank
-		# u, m = -1, ''
-		# if self.canvas is not None:
-		# 	if self.canvas.mapUnits() == QgsUnitTypes.DistanceMeters or self.canvas.mapUnits() == QgsUnitTypes.DistanceKilometers or \
-		# 			self.canvas.mapUnits() == QgsUnitTypes.DistanceCentimeters or self.canvas.mapUnits() == QgsUnitTypes.DistanceMillimeters:  # metric
-		# 		u, m = 0, 'm'
-		# 	elif self.canvas.mapUnits() == QgsUnitTypes.DistanceFeet or self.canvas.mapUnits() == QgsUnitTypes.DistanceNauticalMiles or \
-		# 			self.canvas.mapUnits() == QgsUnitTypes.DistanceYards or self.canvas.mapUnits() == QgsUnitTypes.DistanceMiles:  # imperial
-		# 		u, m = 1, 'ft'
-		# else:  # use blank
-		# 	u, m = -1, ''
+			if self.tuView.tuMenuBar.freezeAxisLabels_action.isChecked():
+				xAxisLabel = subplot.get_xlabel()
+				yAxisLabelNewFirst = subplot.get_ylabel()
+				if isSecondaryAxis[0]:
+					subplot2 = self.getSecondaryAxis(plotNo)
+					yAxisLabelNewSecond = subplot2.get_ylabel()
+				else:
+					yAxisLabelNewSecond = ''
+				return xAxisLabel, yAxisLabelNewFirst, yAxisLabelNewSecond
 
 		x = ''
 		y1 = ''
 		y2 = ''
-		# get x axis name
-		if plotNo == TuPlot.TimeSeries:
-			if self.tuView.tuOptions.xAxisDates:
-				x = 'Date'
-			else:
-				x = 'Time (hr)'
-		elif plotNo == TuPlot.CrossSection:
-			x = 'Offset ({0})'.format(m)
-		elif plotNo == TuPlot.CrossSection1D:
-			pass
-		elif plotNo == TuPlot.VerticalProfile:
-			x = 'Elevation ({0})'.format(m)
-		
-		# get y axis name
-		for i, name in enumerate(types):
-			if name not in self.tuView.tuResults.secondaryAxisTypes:
-				
-				# remove '_1d' from name of 1d types
-				if '_1d' in name:
-					name = name.strip('_1d')
-				
-				# first axis label
-				# if name.lower() in shortNames.keys():
-				if regex_dict_val(shortNames, name) is not None:
-					#shortName = shortNames[name.lower()]
-					shortName = regex_dict_val(shortNames, name)
-					if shortName not in yAxisLabelTypes[0]:
-						yAxisLabelTypes[0].append(shortName)  # add to list of labels so no double ups
-				# unitNew = units[name.lower()][u] if name.lower() in units.keys() else ''
-				unitNew = regex_dict_val(units, name)[u] if regex_dict_val(units, name) is not None else ''
-				if not unit[0]:
-					unit[0].append(unitNew)
-				else:
-					if unitNew:
-						if unitNew != unit[0][0]:
-							unit[0][0] = ''
-			else:
-				
-				# remove '_1d' from name of 1d types
-				if '_1d' in name:
-					name = name.strip('_1d')
-				
-				# secondary axis label
-				# if name.lower() in shortNames.keys():
-				if regex_dict_val(shortNames, name) is not None:
-					# shortName = shortNames[name.lower()]
-					shortName = regex_dict_val(shortNames, name)
-					if shortName not in yAxisLabelTypes[1]:
-						yAxisLabelTypes[1].append(shortName)
-				# unitNew = units[name.lower()][u] if name.lower() in units.keys() else ''
-				unitNew = regex_dict_val(units, name)[u] if regex_dict_val(units, name) is not None else ''
-				if not unit[1]:
-					unit[1].append(unitNew)
-				else:
-					if unitNew:
-						if unitNew != unit[1][0]:
-							unit[1][0] = ''
-		
-		# set final axis label for first axis
-		for i, label in enumerate(yAxisLabelTypes[0]):
-			if i == 0:
-				y1 = '{0}'.format(label)
-			else:
-				y1 = '{0}, {1}'.format(y1, label)
-		if unit[0]:
-			if unit[0][0]:
-				y1 = '{0} ({1})'.format(y1, unit[0][0])
-		
-		# set final axis label for second axis
-		for i, label in enumerate(yAxisLabelTypes[1]):
-			if i == 0:
-				y2 = '{0}'.format(label)
-			else:
-				y2 = '{0}, {1}'.format(y2, label)
-		if unit[1]:
-			if unit[1][0]:
-				y2 = '{0} ({1})'.format(y2, unit[1][0])
 
-		# finalise axis labels depending on plot type
-		if plotNo != TuPlot.VerticalProfile:
-			xAxisLabel = x
-			yAxisLabelNewFirst = y1
-			yAxisLabelNewSecond = y2
+		x1_label = AxisLabelBuilder()
+		x2_label = AxisLabelBuilder()
+		y1_label = AxisLabelBuilder()
+		y2_label = AxisLabelBuilder()
+
+		# get axis names
+		for name in types:
+			name_ = name.strip('_1d')
+			if not name_:
+				continue
+
+			if plotNo == TuPlot.VerticalProfile:
+				x_label = self.raw_label(name_, plotNo, shortNames, 'x')
+				x_unit = self.raw_unit(name_, plotNo, units, 'x', u, m)
+				y_label = self.raw_label(name_, plotNo, additional_short_names, 'y')
+				y_unit = self.raw_unit(name_, plotNo, additional_axis_units, 'y', u, m)
+			else:
+				x_label = self.raw_label(name_, plotNo, additional_short_names, 'x')
+				x_unit = self.raw_unit(name_, plotNo, additional_axis_units, 'x', u, m)
+				y_label = self.raw_label(name_, plotNo, shortNames, 'y')
+				y_unit = self.raw_unit(name_, plotNo, units, 'y', u, m)
+
+			if name in self.tuView.tuResults.secondaryAxisTypes and self.tuView.tuOptions.secondary_axis_types[plotNo] == 'x-axis':
+				x2_label.add_result_type(x_label)
+				x2_label.add_unit(x_unit)
+				y1_label.add_result_type(y_label)
+				y1_label.add_unit(y_unit)
+			elif name in self.tuView.tuResults.secondaryAxisTypes:
+				x1_label.add_result_type(x_label)
+				x1_label.add_unit(x_unit)
+				y2_label.add_result_type(y_label)
+				y2_label.add_unit(y_unit)
+			else:
+				x1_label.add_result_type(x_label)
+				x1_label.add_unit(x_unit)
+				y1_label.add_result_type(y_label)
+				y1_label.add_unit(y_unit)
+
+		# now figure out what to return
+		if self.tuView.tuOptions.secondary_axis_types[plotNo] == 'x-axis':
+			return x1_label.build(), y1_label.build(), x2_label.build()
 		else:
-			xAxisLabel = y1
-			yAxisLabelNewFirst = x
-			yAxisLabelNewSecond = y2
-		
-		return xAxisLabel, yAxisLabelNewFirst, yAxisLabelNewSecond
+			return x1_label.build(), y1_label.build(), y2_label.build()
 	
 	def createSecondaryAxisAnnotation(self, plotNo, ax):
 		if plotNo == TuPlot.TimeSeries:
@@ -2185,20 +2188,41 @@ class TuPlot():
 		
 		parentLayout, figure, subplot, plotWidget, isSecondaryAxis, artists, labels, unit, yAxisLabelTypes, yAxisLabels, xAxisLabels, xAxisLimits, yAxisLimits = \
 			self.plotEnumerator(plotNo)
-		
+
+		if isSecondaryAxis[0] and self.secondary_axis_flipped[plotNo]:
+			isSecondaryAxis[0] = False
+			if plotNo == TuPlot.TimeSeries:
+				del self.axis2TimeSeries
+			elif plotNo == TuPlot.CrossSection:
+				del self.axis2LongPlot
+			elif plotNo == TuPlot.VerticalProfile:
+				del self.axis2VerticalPlot
+
+		self.secondary_axis_flipped[plotNo] = False
+
+		secondary_axis_type = self.tuView.tuOptions.secondary_axis_types
 		if not isSecondaryAxis[0]:
 			if create:
 				isSecondaryAxis[0] = True
 				if plotNo == TuPlot.TimeSeries:
-					self.axis2TimeSeries = subplot.twinx()
+					if secondary_axis_type[TuPlot.TimeSeries] == 'x-axis':
+						self.axis2TimeSeries = subplot.twiny()
+					else:
+						self.axis2TimeSeries = subplot.twinx()
 					self.createSecondaryAxisAnnotation(plotNo, self.axis2TimeSeries)
 					return self.axis2TimeSeries
 				elif plotNo == TuPlot.CrossSection:
-					self.axis2LongPlot = subplot.twinx()
+					if secondary_axis_type[TuPlot.CrossSection] == 'x-axis':
+						self.axis2LongPlot = subplot.twiny()
+					else:
+						self.axis2LongPlot = subplot.twinx()
 					self.createSecondaryAxisAnnotation(plotNo, self.axis2LongPlot)
 					return self.axis2LongPlot
 				elif plotNo == TuPlot.VerticalProfile:
-					self.axis2VerticalPlot = subplot.twiny()
+					if secondary_axis_type[TuPlot.VerticalProfile] == 'y-axis':
+						self.axis2VerticalPlot = subplot.twinx()
+					else:
+						self.axis2VerticalPlot = subplot.twiny()
 					self.createSecondaryAxisAnnotation(plotNo, self.axis2VerticalPlot)
 					return self.axis2VerticalPlot
 			else:
@@ -2606,9 +2630,7 @@ class TuPlot():
 				if yAxisLabelFirst:
 					subplot.set_ylabel(yAxisLabelFirst, fontsize=axisLabelFontSize)
 				if isSecondaryAxis[0]:
-					#if not isSecondaryAxisLocal:
-					#	subplot2 = self.getSecondaryAxis(plotNo)
-					if plotNo != TuPlot.VerticalProfile:
+					if self.tuView.tuOptions.secondary_axis_types[plotNo] == 'y-axis':
 						subplot2.set_ylabel(yAxisLabelSecond, fontsize=axisLabelFontSize)
 					else:
 						subplot2.set_xlabel(yAxisLabelSecond, fontsize=axisLabelFontSize)
@@ -3619,7 +3641,7 @@ class TuPlot():
 		newLabels, newArtists = self.getNewPlotProperties(plotNo, labels, None, rtype='lines')  # newArtists not used for csv
 		
 		# convert axis names to user defined labels (or default label if user has not changed it)
-		xAxisLabel, yAxisLabelFirst, yAxisLabelSecond = self.setAxisNames(plotNo, types)
+		xAxisLabel, yAxisLabelFirst, yAxisLabelSecond = self.setAxisNames(plotNo, types, context='export csv')
 		oldAxisNames = [xAxisLabel, yAxisLabelFirst, yAxisLabelSecond]
 		newAxisNames = self.getNewPlotProperties(plotNo, oldAxisNames, None, rtype='axis labels')  # only need X axis name for csv
 		
@@ -3640,8 +3662,23 @@ class TuPlot():
 		datastring = ''
 		for i in range(maxLength):  # iterate through longest series
 			for j in range(len(data)):  # iterate through the different data sets
-				x = data[j][0][i]
-				y = data[j][1][i]
+				if plotNo == TuPlot.TimeSeries and len(data[j][0]) < i + 1:
+					x = None
+					for jj in range(len(data)):  # find timestep from another result
+						if len(data[jj][0]) >= i + 1:
+							x = data[jj][0][i]
+							break
+					if x is None:
+						continue
+					# use last recorded value
+					k = len(data[j][0]) - 1
+					y = data[j][1][k]
+				elif plotNo != TuPlot.TimeSeries and len(data[j][0]) < i + 1:
+					x = ''
+					y = ''
+				else:
+					x = data[j][0][i]
+					y = data[j][1][i]
 				if qIsNaN(x):
 					x = ''
 				if qIsNaN(y):
@@ -4849,3 +4886,40 @@ class CursorMarker:
 			s = (plot_x - min_) / (max_ - min_)
 			dist = geom.length() * s
 			return geom.interpolate(dist).asPoint()
+
+
+class AxisLabelBuilder:
+
+	def __init__(self):
+		self._result_types = []
+		self._units = []
+
+	def add_result_type(self, result_type):
+		if result_type not in self._result_types:
+			self._result_types.append(result_type)
+
+	def add_unit(self, unit):
+		if unit not in self._units:
+			self._units.append(unit)
+
+	def build(self):
+		label = ''
+		for i, type_ in enumerate(self._result_types):
+			if i == 0:
+				label = type_
+			else:
+				label = '{0}, {1}'.format(label, type_)
+
+		unit_label = ''
+		for i, unit in enumerate(self._units):
+			if i == 0:
+				unit_label = unit
+			elif unit != unit_label:
+				unit_label = ''
+
+		if unit_label:
+			final_label = '{0} ({1})'.format(label, unit_label)
+		else:
+			final_label = label
+
+		return final_label

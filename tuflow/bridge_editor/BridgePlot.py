@@ -6,12 +6,12 @@ from matplotlib.patches import Patch, Polygon
 from matplotlib.collections import PolyCollection, PathCollection
 import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
-from tuflow.forms.ArchBridgePlot import Ui_BridgePlot
+from ..forms.ArchBridgePlot import Ui_BridgePlot
 import numpy as np
 import math
-from tuflow.dataset_menu import DatasetMenu
+from ..dataset_menu import DatasetMenu
 
-from bridge_editor.Plotter import Plotter
+from .Plotter import Plotter
 
 
 def make_patch_spines_invisible(ax):

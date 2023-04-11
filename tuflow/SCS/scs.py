@@ -8,9 +8,9 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import QIcon, QRegExpValidator, QPalette
 from PyQt5.QtWidgets import (QDockWidget, QLineEdit, QFileDialog,
                              QComboBox, QMessageBox, QLabel)
-from tuflow.forms.scs_dock import Ui_scs
+from ..forms.scs_dock import Ui_scs
 from .engine import SCS
-from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, browse, makeDir)
+from ..tuflowqgis_library import (tuflowqgis_find_layer, browse, makeDir)
 
 
 

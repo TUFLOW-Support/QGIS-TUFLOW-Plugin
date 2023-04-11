@@ -20,6 +20,8 @@
  ***************************************************************************/
  This script initializes the plugin, making it known to QGIS.
 """
+import re
+
 from qgis.core import *
 import sys
 
@@ -54,6 +56,9 @@ def openTuview(event, tuflowqgis):
         tuviewOpen = QgsProject().instance().readEntry("TUVIEW", "dock_opened")[0]
         if tuviewOpen == 'Open':
             tuflowqgis.openResultsPlottingWindow(showmessage=False)
+            for lyrid, lyr in QgsProject.instance().mapLayers().items():
+                if re.findall('_PLOT_[PLR]$', lyr.name(), re.IGNORECASE):
+                    tuflowqgis.resultsPlottingDock.currentLayer = lyr
             tuflowqgis.resultsPlottingDock.loadProject()
             tuflowqgis.resultsPlottingDock.canvas.mapCanvasRefreshed.connect(
                 tuflowqgis.resultsPlottingDock.tuResults.tuResults2D.renderMap)

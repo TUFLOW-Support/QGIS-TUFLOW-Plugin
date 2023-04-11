@@ -1,8 +1,68 @@
 import re
 import os
 import numpy as np
-from TUFLOW_results import ResData, Timeseries, NodeInfo, ChanInfo
-from TUFLOW_XS import XS, XS_Data
+from .TUFLOW_results import ResData, Timeseries, NodeInfo, ChanInfo
+from .TUFLOW_XS import XS, XS_Data
+try:
+    from pathlib import Path
+except ImportError:
+    from pathlib_ import Path_ as Path
+
+
+class PythonExportCSV:
+
+    def __init__(self, file):
+        self._file = Path(file)
+        self._res_types = np.array([])
+        self._a = np.array([])
+        self.labels = []
+        self.res_types = []
+        self.nnodes = 0
+        with self._file.open('r') as f:
+            self._res_types = np.array([x.strip().lower() for x in f.readline().split(',')])
+            self._res_types = np.insert(self._res_types, 0, '')
+            self.nnodes = self._res_types[self._res_types == self._res_types[2]].shape[0]
+            self.res_types = list(set(self._res_types[2:].tolist()))
+            found = False
+            for type_ in  ['flow', 'stage', 'velocity', 'froude', 'mode', 'state']:
+                if type_ in self.res_types:
+                    found = True
+                    break
+            if not found:
+                raise TypeError('Could not find any result types in first row')
+            found = False
+            f.seek(0)
+            for count, line in enumerate(f):
+                if 'Time (hr)' in line:
+                    found = True
+                    break
+            if not found:
+                raise TypeError('Could not find "Time (hr)" header in file')
+            f.seek(0)
+            for i, line in enumerate(f):
+                if i == count - 1:
+                    self.labels = [x.strip() for x in line.split(',')][1:self.nnodes+1]
+                    break
+
+        self._a = np.loadtxt(file, dtype=np.float64, delimiter=',', skiprows=count+1)
+        if not self._a.any():
+            raise EOFError
+        timesteps = np.array([i + 1 for i in range(self._a.shape[0])])
+        self._a = np.insert(self._a, 0, timesteps, axis=1)
+        self.timestep_count = timesteps.shape[0]
+
+    def get_time_series_data(self, type_):
+        map = {'h': 'stage', 'v': 'velocity', 'q': 'flow'}
+        res = map.get(type_.lower())
+        if res is None or res not in self.res_types:
+            raise KeyError('Result type not availaable: {}'.format(type_))
+
+        index = self._res_types == res
+        if not index.any():
+            raise Exception('Index array is empty')
+
+        index[0:2] = True
+        return self._a[:,index]
 
 
 class FM_Node:
@@ -159,21 +219,69 @@ class FM_ChanInfo(ChanInfo):
 class FM_Timeseries(Timeseries):
     """Inherits from estry timeseries class"""
 
-    def Load(self, fullpath, prefix, simID, fo):
+    def Load(self, fo, format, type_=None):
         """
         Overrides Load function so can be tailored
         for Flood Modeller results.
         """
 
-        error = False
-        msg = ""
-
+        err, msg = False, ''
         self.nCol = 1
         self.ID.clear()
         self.uID.clear()
         self.null_data = -9999.99  # different than estry
         self.nVals = 0
 
+        if format == 'zzn':
+            err, msg = self._load_zzn(fo, type_)
+        elif format == 'interface_export':
+            err, msg = self._load_csv_interface_export(fo)
+        elif format == 'python_export':
+            err, msg = self._load_csv_python_export(fo, type_)
+
+        return err, msg
+
+    def _load_zzn(self, zzn, type_):
+        self.Header = ['Timestep', 'Time']
+        self.Header.extend(zzn.labels())
+        self.nLocs = zzn.node_count()
+        self.ID = zzn.labels()
+        self.nVals = zzn.timestep_count()
+        try:
+            values = zzn.get_time_series_data(type_).astype(np.float64, casting='same_kind')
+        except EOFError:
+            return True, 'End of file encountered - possibly incomplete result file'
+        timesteps = np.array([[x + 1, (x * zzn.output_interval()) / 3600] for x in range(self.nVals)])
+        try:
+            values = np.insert(values, 0, timesteps[:,1], axis=1)
+            values = np.insert(values, 0, timesteps[:,0], axis=1)
+        except IndexError:
+            return True, 'Possibly incomplete result file'
+        self.Values = np.ma.masked_values(values, self.null_data)
+        self.loaded = True
+
+        return False, ''
+
+    def _load_csv_python_export(self, csv, type_):
+        self.Header = ['Timestep', 'Time']
+        self.Header.extend(csv.labels)
+        self.nLocs = csv.nnodes
+        self.ID = csv.labels[:]
+        self.nVals = csv.timestep_count
+        try:
+            self.Values = csv.get_time_series_data(type_)
+        except KeyError as e:
+            return True, str(e)
+        except Exception as e:
+            return True, 'Unexpected error occured loading {0} results: {1}'.format(type_, e)
+
+        self.loaded = True
+
+        return False, ''
+
+    def _load_csv_interface_export(self, fo):
+        error = False
+        msg = ""
         values = []
         for line in fo:
             if line == '\n':
@@ -190,7 +298,7 @@ class FM_Timeseries(Timeseries):
 
         try:
             a = np.array(values, dtype=np.float64)
-            timesteps = np.array([x+1 for x in range(self.nVals)])
+            timesteps = np.array([x + 1 for x in range(self.nVals)])
             a = np.insert(a, 0, timesteps, axis=1)
             ma = np.ma.masked_equal(a, self.null_data)
             self.Values = ma
@@ -303,18 +411,136 @@ class TuFloodModellerDataProvider(ResData):
         error = False
         message = []
         self.displayname = os.path.splitext(os.path.basename(fname))[0]  # initially set to filename
-        valid_restypes = ['stage', 'flow', 'velocity']
-
         self.formatVersion = 2
         self.units = 'METRIC'  # not sure if this can change or if it's reflected in the output
+        if not os.path.exists(fname):
+            return True, ['File does not exist: {0}'.format(fname)]
 
+        ext = os.path.splitext(fname)[-1].lower()
+        if ext == '.zzn':
+            error, message = self._load_zzn(fname)
+        else:
+            csv_version = TuFloodModellerDataProvider.fm_find_csv_version(fname)
+            if csv_version is None:
+                return True, ['CSV format not supported, or does not contain supported result types']
+            elif csv_version == 'interface':
+                error, message = self._load_csv_interface_export(fname)
+            elif csv_version == 'python':
+                error, message = self._load_csv_python_export(fname)
+            else:
+                error = True
+                message.append('Unexpected error - should not be here')
+
+        return error, message
+
+    @staticmethod
+    def fm_find_csv_version(fname):
+        valid_restypes = ['stage', 'flow', 'velocity']
+        with open(fname, 'r') as fo:
+            for line in fo:
+                if 'output data from file' in line.lower():
+                    return 'interface'
+                elif line.strip().lower() in valid_restypes:
+                    return 'interface'
+                elif len(line.split(',')) > 1 and line.split(',')[1].strip().lower() in valid_restypes:
+                    return 'python'
+                else:
+                    return
+
+    def _load_zzn(self, fname):
+        error = False
+        message = []
+        try:
+            from .zzn import ZZN
+        except ImportError:
+            return True, ['Dependency check failed - please upgrade to a more recent version of QGIS for reading ZZN files.']
+
+        try:
+            zzn = ZZN(fname)
+        except FileNotFoundError:
+            return True, ['.zzl not found - make sure .zzl is next to .zzn file']
+        except Exception as e:
+            return True, ['Unexpected error when loading ZZN: {}'.format(e)]
+
+        self.displayname = zzn.result_name()
+
+        err, msg = self.Data_1D.H.Load(zzn, 'zzn', 'H')
+        if err:
+            error = True
+            message.append(msg)
+        else:
+            self.Types.append('1D Water Levels')
+            self.times = self.Data_1D.H.Values[:, 1]
+
+        err, msg = self.Data_1D.Q.Load(zzn, 'zzn', 'Q')
+        if err:
+            error = True
+            message.append(msg)
+        else:
+            self.Types.append('1D Flows')
+            self.times = self.Data_1D.Q.Values[:, 1]
+
+        err, msg = self.Data_1D.V.Load(zzn, 'zzn', 'V')
+        if err:
+            error = True
+            message.append(msg)
+        else:
+            self.Types.append('1D Velocities')
+            self.times = self.Data_1D.V.Values[:, 1]
+
+        return error, message
+
+    def _load_csv_python_export(self, fname):
+        error = False
+        message = []
+
+        try:
+            csv = PythonExportCSV(fname)
+        except ValueError as e:
+            return True, ['File does not match expected format: {}'.format(e)]
+        except EOFError:
+            return True, ['EOF encountered, possibly incomplete results']
+        except Exception as e:
+            return True, ['Unexpected error when loading CSV: {}'.format(e)]
+
+        if 'stage' in csv.res_types:
+            err, msg = self.Data_1D.H.Load(csv, 'python_export', 'H')
+            if err:
+                error = True
+                message.append(msg)
+            else:
+                self.Types.append('1D Water Levels')
+                self.times = self.Data_1D.H.Values[:, 1]
+        if 'flow' in csv.res_types:
+            err, msg = self.Data_1D.Q.Load(csv, 'python_export', 'Q')
+            if err:
+                error = True
+                message.append(msg)
+            else:
+                self.Types.append('1D Flows')
+                self.times = self.Data_1D.Q.Values[:, 1]
+        if 'velocity' in csv.res_types:
+            err, msg = self.Data_1D.V.Load(csv, 'python_export', 'V')
+            if err:
+                error = True
+                message.append(msg)
+            else:
+                self.Types.append('1D Velocities')
+                self.times = self.Data_1D.V.Values[:, 1]
+
+        return error, message
+
+    def _load_csv_interface_export(self, fname):
+        error = False
+        message = []
+        valid_restypes = ['stage', 'flow', 'velocity']
         with open(fname, 'r') as fo:
             for line in fo:
                 if 'output data from file' in line.lower():
                    self.displayname = os.path.splitext(os.path.basename(line.strip()))[0]
                 if line.strip().lower() in valid_restypes:
                     if line.strip().lower() == 'stage':
-                        err, msg = self.Data_1D.H.Load(fname, None, None, fo)
+                        err, msg = self.Data_1D.H.Load(fo, 'interface_export')
                         if err:
                             error = True
                             message.append(msg)
@@ -322,7 +548,7 @@ class TuFloodModellerDataProvider(ResData):
                             self.Types.append('1D Water Levels')
                             self.times = self.Data_1D.H.Values[:,1]
                     elif line.strip().lower() == 'flow':
-                        err, msg = self.Data_1D.Q.Load(fname, None, None, fo)
+                        err, msg = self.Data_1D.Q.Load(fo, 'interface_export')
                         if err:
                             error = True
                             message.append(msg)
@@ -330,7 +556,7 @@ class TuFloodModellerDataProvider(ResData):
                             self.Types.append('1D Flows')
                             self.times = self.Data_1D.Q.Values[:, 1]
                     elif line.strip().lower() == 'velocity':
-                        err, msg = self.Data_1D.V.Load(fname, None, None, fo)
+                        err, msg = self.Data_1D.V.Load(fo, 'interface_export')
                         if err:
                             error = True
                             message.append(msg)
@@ -493,13 +719,21 @@ class TuFloodModellerDataProvider(ResData):
         simname = os.path.splitext(os.path.basename(fname))[0]
         valid_restypes = ['stage', 'flow', 'velocity']
 
-        with open(fname, 'r') as fo:
-            for line in fo:
-                if 'output data from file' in line.lower():
-                   simname = os.path.splitext(os.path.basename(line.strip()))[0]
-                   break
-                elif line.strip().lower() in valid_restypes:
-                    break
+        ext = os.path.splitext(fname)[-1].lower()
+        if ext == '.zzn':
+            pass
+        else:
+            csv_version = TuFloodModellerDataProvider.fm_find_csv_version(fname)
+            if csv_version == 'interface':
+                with open(fname, 'r') as fo:
+                    for line in fo:
+                        if 'output data from file' in line.lower():
+                           simname = os.path.splitext(os.path.basename(line.strip()))[0]
+                           break
+                        elif line.strip().lower() in valid_restypes:
+                            break
+            else:
+                pass
 
         return simname
 

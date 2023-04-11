@@ -5,10 +5,10 @@ from datetime import timedelta, datetime
 from qgis.core import *
 from PyQt5.QtCore import Qt, QVariant
 from qgis.core import QgsVectorLayer, QgsFeature, QgsPointXY, QgsGeometry, QgsField, Qgis
-from tuflow.tuflowqgis_library import isSame_float, roundSeconds, datetime2timespec
+from ..tuflowqgis_library import isSame_float, roundSeconds, datetime2timespec
 
 try:
-	from tuflow.TUFLOW_particles_data_provider import TuParticlesDataProvider
+	from ..TUFLOW_particles_data_provider import TuParticlesDataProvider
 	have_netCDF4 = True
 except ImportError:
 	have_netCDF4 = False
@@ -338,7 +338,7 @@ class TuResultsParticles():
 		Loads a new set of particles for next timestep
 		"""
 
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults  # ES
+		from .tuflowqgis_turesults import TuResults  # ES
 		self.debug = self.tuView.tuOptions.particlesWriteDebugInfo  # ES
 
 		if time is None:

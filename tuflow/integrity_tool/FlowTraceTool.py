@@ -13,12 +13,12 @@ from .FeatureData import FeatureData
 from .Enumerators import *
 from .FlowTraceLongPlot import DownstreamConnectivity
 from .FlowTraceLongPlot_V2 import Connectivity, ContinuityLimits
-from tuflow.forms.flowtrace_plot_widget import Ui_flowTracePlotWidget
+from ..forms.flowtrace_plot_widget import Ui_flowTracePlotWidget
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
-from tuflow.dataset_menu import DatasetMenu
-from tuflow.tuflowqgis_library import browse
+from ..dataset_menu import DatasetMenu
+from ..tuflowqgis_library import browse
 
 
 
@@ -210,7 +210,7 @@ class DataCollectorFlowTrace(DataCollector):
                                   startLocs, flowTrace)
         self.removeUnassessedFeatures()
     
-    def finishedFeature(self, feature, layer, snappedFeatures, snappedLayers):
+    def finishedFeature(self, feature, layer, snappedFeatures, snappedLayers, has_started):
         """
         Place holder for flow trace object to override.
         
@@ -220,10 +220,13 @@ class DataCollectorFlowTrace(DataCollector):
         :return: void
         """
         
-        DataCollector.finishedFeature(self, feature, layer, snappedFeatures, snappedLayers)
+        super().finishedFeature(feature, layer, snappedFeatures, snappedLayers, has_started)
         
         for i, feature in enumerate(snappedFeatures):
-            if feature not in self.featuresAssessed and feature not in self.featuresToAssess:
+            if feature in self.featuresToAssess and feature.attribute(1).lower() == 'x':
+                self.featuresToAssess.append(feature)
+                self.layersToAssess.append(snappedLayers[i])
+            elif feature not in self.featuresAssessed and feature not in self.featuresToAssess:
                 self.featuresToAssess.append(feature)
                 self.layersToAssess.append(snappedLayers[i])
             
@@ -1526,7 +1529,7 @@ class ChannelRubberBand:
         if iface is not None:
             self._map_canvas = iface.mapCanvas()
 
-        self._rubber_band = QgsRubberBand(self._map_canvas, False)
+        self._rubber_band = QgsRubberBand(self._map_canvas)
         self._rubber_band.setWidth(2)
         self._rubber_band.setColor(Qt.red)
 

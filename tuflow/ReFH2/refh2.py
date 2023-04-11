@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QDockWidget, QLineEdit, QFileDialog,
                              QLayout)
 from .refh2_dock import Ui_refh2
 from .engine import Refh2
-from tuflow.tuflowqgis_library import (tuflowqgis_find_layer, browse, convertFormattedTimeToTime,
+from ..tuflowqgis_library import (tuflowqgis_find_layer, browse, convertFormattedTimeToTime,
                                        makeDir, convertFormattedTimeToFormattedTime)
 
 

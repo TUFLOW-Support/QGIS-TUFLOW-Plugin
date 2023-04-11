@@ -645,4 +645,4 @@ class Ui_AnimationDialog(object):
 from qgscollapsiblegroupbox import QgsCollapsibleGroupBox
 from qgscolorbutton import QgsColorButton
 from qgsfontbutton import QgsFontButton
-from tuflow.DataTable import GraphicItemsTable, ImageItemsTable, PlotItemsTable
+from ..DataTable import GraphicItemsTable, ImageItemsTable, PlotItemsTable

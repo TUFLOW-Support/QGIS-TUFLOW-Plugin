@@ -1,10 +1,12 @@
 import os
 from PyQt5.QtGui import QColor
 from PyQt5.QtCore import *
-from qgis.core import QgsPoint, QgsPointXY, QgsGeometry, Qgis, QgsMeshLayer
+from qgis.core import QgsPoint, QgsPointXY, QgsGeometry, Qgis, QgsMeshLayer, QgsProject, QgsRasterLayer
 from qgis.gui import QgsVertexMarker, QgsRubberBand
-from tuflow.tuflowqgis_library import tuflowqgis_find_layer
-from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults1d import TSResult
+from ..tuflowqgis_library import tuflowqgis_find_layer
+from ..tuflowqgis_tuviewer.tuflowqgis_turesults1d import TSResult
+from ..tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
+from ..tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 
 
 
@@ -34,16 +36,16 @@ class TuProject():
 		self.processResults1d('save')
 		
 		# active results
-		self.processActiveResults('save')
+		# self.processActiveResults('save')
 		
 		# active result types
-		self.processActiveResultTypes('save')
+		# self.processActiveResultTypes('save')
 		
 		# active time
-		self.processActiveTime('save')
+		# self.processActiveTime('save')
 		
 		# max and secondary types
-		self.processMaxSecondaryTypes('save')
+		# self.processMaxSecondaryTypes('save')
 		
 		# styles
 		self.processMeshStyles('save')
@@ -74,7 +76,6 @@ class TuProject():
 		
 	def load(self):
 		"""Loads settings for project"""
-
 		if Qgis.QGIS_VERSION_INT >= 30400:
 
 			# should dock be visible?
@@ -88,7 +89,7 @@ class TuProject():
 			self.processResults1d('load')
 			
 			# active results
-			self.processActiveResults('load')
+			# self.processActiveResults('load')
 			self.tuView.tuResults.updateResultTypes()
 			self.tuView.resultChangeSignalCount = 0
 
@@ -96,10 +97,10 @@ class TuProject():
 			#self.processActiveResultTypes('load')
 			
 			# active time
-			self.processActiveTime('load')
+			# self.processActiveTime('load')
 			
 			# max and secondary types
-			self.processMaxSecondaryTypes('load')
+			# self.processMaxSecondaryTypes('load')
 			
 			# styles
 			self.processMeshStyles('load')
@@ -159,6 +160,12 @@ class TuProject():
 							if results[res][r]['isMesh']:
 								hastp += "~~{0}:{1}".format(res, results[res][r]['hadTemporalProperties'])
 			self.project.writeEntry("TUVIEW", "results2d", hastp)
+
+			nc_grids = ''
+			for res, restype in results.items():
+				if restype.get('_nc_grid'):
+					nc_grids = '{0}~~{1}'.format(nc_grids, res)
+			self.project.writeEntry("TUVIEW", "nc_grids", nc_grids)
 		else:  # load
 			results = self.project.readEntry("TUVIEW", "results2d")[0]
 			if results:
@@ -174,16 +181,28 @@ class TuProject():
 						self.hastp = False
 					else:
 						self.hastp = True
+
+			nc_grids = self.project.readEntry("TUVIEW", 'nc_grids', '')
+			if nc_grids[1]:
+				nc_grids = [x for x in nc_grids[0].split('~~') if x]
+			else:
+				nc_grids = []
+			for layerid, layer in QgsProject.instance().mapLayers().items():
+				if layer.name() in nc_grids and isinstance(layer, QgsRasterLayer):
+					uri = layer.dataProvider().dataSourceUri()
+					filename, result_type = uri.rsplit(':', 1)
+					_, filename = filename.split(':', 1)
+					self.tuView.tuResults.tuResultsNcGrid.importResults([filename], layers=[result_type],
+					                                                    add_map_layer=False, existing_layer=layer)
 			
 	def processResults1d(self, call_type):
 		"""Project settings for 1d results"""
-		import tuflowqgis_turesults1d
 
 		if call_type == 'save':
 			results1d = self.tuView.tuResults.tuResults1D.results1d
 			results = ''
 			for i, result in enumerate(results1d):
-				if isinstance(results1d[result], TSResult) or isinstance(results1d[result], tuflowqgis_turesults1d.TSResult):
+				if isinstance(results1d[result], TSResult) or isinstance(results1d[result], TSResult):
 					continue
 				if i == 0:
 					results += os.path.join(results1d[result].fpath, results1d[result].filename)
@@ -403,8 +422,6 @@ class TuProject():
 
 	def processMeshStyles(self, call_type):
 		"""Project settings for scalar and vector mesh styles."""
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
-
 
 		results = self.tuView.tuResults.results
 		menuFunctions = self.tuView.tuMenuBar.tuMenuFunctions
@@ -437,16 +454,7 @@ class TuProject():
 								elif dtype == 2:  # vector
 									style = menuFunctions.saveDefaultStyleVector(mesh_index=mindex, save_type='project',
 									                                             result=result)
-									for key, item in style.items():
-										if key == 'color':
-											item = item.name()
-										rtypeFormatted = rtype.replace('/', '_')
-										rtypeFormatted = rtypeFormatted.replace(' ', '_')
-										keyFormatted = key.replace(' ', '_')
-										self.project.writeEntry("TUVIEW",
-										                        "vectorstyle_{0}_{1}_{2}".format(
-											                        result, rtypeFormatted, keyFormatted),
-										                        "{0}".format(item))
+									self.project.writeEntry("TUVIEW", "vectorstyle_{0}_{1}".format(result, rtype), style)
 								
 								break  # only do first timestep
 		else:  # load
@@ -474,35 +482,9 @@ class TuProject():
 										results2D.applyScalarRenderSettings(layer, gindex, style, 'map',
 										                                    save_type='project')
 									elif dtype == 2:
-										propertyDict = {}
-										propertyList = [
-											'arrow head length ratio',
-											'arrow head width ratio',
-											'color',
-											'filter max',
-											'filter min',
-											'fixed shaft length',
-											'line width',
-											'max shaft length',
-											'min shaft length',
-											'scale factor',
-											'shaft length method'
-										]
-										for property in propertyList:
-											propertyFormatted = property.replace(' ', '_')
-											value = self.project.readEntry("TUVIEW",
-											                               "vectorstyle_{0}_{1}_{2}".format(
-												                               result, rtypeFormatted, propertyFormatted))[0]
-											if value == '':
-												continue
-											if property == 'color':
-												item = QColor(value)
-											elif property == 'shaft length method':
-												item = int(value)
-											else:
-												item = float(value)
-											propertyDict[property] = item
-										results2D.applyVectorRenderSettings(layer, gindex, propertyDict)
+										value = self.project.readEntry("TUVIEW", "vectorstyle_{0}_{1}".format(result, rtypeFormatted))[0]
+										if value and len(value) >= 27 and value[:27] == '<!DOCTYPE tuflow_meshlayer>':
+											results2D.applyVectorRenderSettings(layer, gindex, value)
 								except:
 									pass
 								break
@@ -534,8 +516,6 @@ class TuProject():
 	
 	def processMapPlotting(self, call_type):
 		"""Project settings for 2D mapoutput plotting."""
-
-		from tuflow.tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 		
 		cbo = self.tuView.cboSelectType
 		toolbar = self.tuView.tuPlot.tuPlotToolbar
@@ -1074,7 +1054,7 @@ class TuProject():
 								marker.setIconType(QgsVertexMarker.ICON_DOUBLE_TRIANGLE)
 							marker.setCenter(QgsPointXY(point))
 							markers.append(marker)
-					line = QgsRubberBand(self.tuView.canvas, False)
+					line = QgsRubberBand(self.tuView.canvas)
 					line.setWidth(2)
 					if suffix == 'cs':
 						line.setColor(QColor(Qt.red))
