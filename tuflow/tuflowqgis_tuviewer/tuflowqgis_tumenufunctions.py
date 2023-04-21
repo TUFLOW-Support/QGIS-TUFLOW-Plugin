@@ -1445,13 +1445,13 @@ class TuMenuFunctions():
 		elif not self.tuView.tuResults.tuResults2D.activeMeshLayers:
 				QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Result Datasets')
 				return False
-		elif len(self.tuView.tuResults.tuResults2D.activeMeshLayers) > 1:
-			self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuView.tuResults.tuResults2D.activeMeshLayers)
-			self.meshDialog.exec_()
-			if self.meshDialog.selectedMesh is None:
-				return False
-			else:
-				meshLayer = tuflowqgis_find_layer(self.meshDialog.selectedMesh)
+		# elif len(self.tuView.tuResults.tuResults2D.activeMeshLayers) > 1:
+		# 	self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuView.tuResults.tuResults2D.activeMeshLayers)
+		# 	self.meshDialog.exec_()
+		# 	if self.meshDialog.selectedMesh is None:
+		# 		return False
+		# 	else:
+		# 		meshLayer = tuflowqgis_find_layer(self.meshDialog.selectedMesh)
 		else:
 			meshLayer = self.tuView.tuResults.tuResults2D.activeMeshLayers[0]
 
@@ -2076,20 +2076,20 @@ class TuMenuFunctions():
 	def activeMeshLayer(self, allow_multiple=False, window_title=''):
 		if not self.tuView.tuResults.tuResults2D.activeMeshLayers:
 			return None
-		elif len(self.tuView.tuResults.tuResults2D.activeMeshLayers) > 1:
-			self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuView.tuResults.tuResults2D.activeMeshLayers)
-			if window_title:
-				self.meshDialog.setWindowTitle(window_title)
-			if allow_multiple:
-				self.meshDialog.mesh_lw.setSelectionMode(QAbstractItemView.ExtendedSelection)
-			self.meshDialog.exec_()
-			if self.meshDialog.selectedMesh is None:
-				return None
-			else:
-				if allow_multiple:
-					return[tuflowqgis_find_layer(x) for x in self.meshDialog.selectedMesh]
-				else:
-					return tuflowqgis_find_layer(self.meshDialog.selectedMesh)
+		# elif len(self.tuView.tuResults.tuResults2D.activeMeshLayers) > 1:
+		# 	self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuView.tuResults.tuResults2D.activeMeshLayers)
+		# 	if window_title:
+		# 		self.meshDialog.setWindowTitle(window_title)
+		# 	if allow_multiple:
+		# 		self.meshDialog.mesh_lw.setSelectionMode(QAbstractItemView.ExtendedSelection)
+		# 	self.meshDialog.exec_()
+		# 	if self.meshDialog.selectedMesh is None:
+		# 		return None
+		# 	else:
+		# 		if allow_multiple:
+		# 			return[tuflowqgis_find_layer(x) for x in self.meshDialog.selectedMesh]
+		# 		else:
+		# 			return tuflowqgis_find_layer(self.meshDialog.selectedMesh)
 		else:
 			if allow_multiple:
 				return self.tuView.tuResults.tuResults2D.activeMeshLayers

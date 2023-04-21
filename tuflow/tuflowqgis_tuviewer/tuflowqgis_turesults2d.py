@@ -85,7 +85,7 @@ class TuResults2D():
 				if not skipConnect:
 					self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
 				self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
-					lambda: self.tuView.resultsChanged('selection changed'))
+					lambda: self.tuView.resultsChanged('item clicked'))
 				return False
 			
 			# Load Results
@@ -127,7 +127,7 @@ class TuResults2D():
 				if not skipConnect:
 					self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
 				self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
-					lambda: self.tuView.resultsChanged('selection changed'))
+					lambda: self.tuView.resultsChanged('item clicked'))
 				return False
 
 			if qv >= 31600:
@@ -153,7 +153,7 @@ class TuResults2D():
 		if not skipConnect:
 			self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
 		self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
-			lambda: self.tuView.resultsChanged('selection changed'))
+			lambda: self.tuView.resultsChanged('item clicked'))
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml)
@@ -1045,7 +1045,7 @@ class TuResults2D():
 					del self.results2d[res]
 
 		self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
-			lambda: self.tuView.resultsChanged('selection changed'))
+			lambda: self.tuView.resultsChanged('item clicked'))
 						
 		return True
 	
@@ -1092,8 +1092,8 @@ class TuResults2D():
 
 		if need2connect:
 			self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
-				lambda: self.tuView.resultsChanged('selection changed'))
-			self.tuView.resultsChanged('selection changed')
+				lambda: self.tuView.resultsChanged('item clicked'))
+			self.tuView.resultsChanged('item clicked')
 
 	def layerReloaded(self, layer):
 		results = self.tuView.tuResults.results
@@ -1572,13 +1572,13 @@ class TuResults2D():
 			k.setSelected(node.itemVisibilityChecked())
 
 		updated = self.updateActiveMeshLayers()  # update list of active mesh layers
-		self.tuView.resultsChanged('selection changed')  # update tuflow viewer
+		self.tuView.resultsChanged('item clicked')  # update tuflow viewer
 
 		# connect load signals
 		if not skipConnect:
 			self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
 		self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
-			lambda: self.tuView.resultsChanged('selection changed'))
+			lambda: self.tuView.resultsChanged('item clicked'))
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml)

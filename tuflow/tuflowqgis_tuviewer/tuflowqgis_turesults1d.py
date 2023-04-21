@@ -133,13 +133,13 @@ class TuResults1D():
 				error, message = res.Load(filePath)
 				if error:
 					self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
-						lambda: self.tuView.resultsChanged('selection changed'))
+						lambda: self.tuView.resultsChanged('item clicked'))
 					QMessageBox.critical(self.tuView, "TUFLOW Viewer", message)
 					return False
 				
 			else:
 				self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
-					lambda: self.tuView.resultsChanged('selection changed'))
+					lambda: self.tuView.resultsChanged('item clicked'))
 				return False
 			
 			# index results
@@ -159,7 +159,7 @@ class TuResults1D():
 			k.setSelected(True)
 
 		self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
-			lambda: self.tuView.resultsChanged('selection changed'))
+			lambda: self.tuView.resultsChanged('item clicked'))
 			
 		return True
 

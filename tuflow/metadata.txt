@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.8
+version=3.8.1
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,16 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=--- 3.8 ---
+changelog=--- 3.8.1 ---
+          - Bug Fixes -
+           TUFLOW Viewer - A rogue import statement was causing the plugin to not load
+           TUFLOW Viewer - fixes bug that would not correctly update newly selected result in open result widget
+           TUFLOW Viewer - fixes bug when importing results from TCF when some input layers are using absolute path references that could cause a python error
+           TUFLOW Viewer - No longer prompt user about saving default styles - could prompt (many times) when saving a project
+           TUFLOW Toolbox - tmo_to_points wasn't being loaded
+           Utilities - Fixes issue when running 'info' function and non-ascii characters are logged which may cause the tool to error
+
+          --- 3.8 ---
           - New Features and Updates -
           Adds latest available development version to 'About' dialog
           Adds downloader for latest available development version

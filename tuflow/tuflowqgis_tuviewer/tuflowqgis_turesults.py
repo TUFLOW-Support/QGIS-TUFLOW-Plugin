@@ -932,7 +932,7 @@ class TuResults():
 		self.applyPreviousResultTypeSelections(currentPlotData, currentTime, **kwargs)
 		self.tuResults2D.repaintRequested()  # this is the step that changes the 'reference time' property in the result dict
 		self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
-			lambda: self.tuView.resultsChanged('selection changed'))
+			lambda: self.tuView.resultsChanged('item clicked'))
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml)
 			layer.repaintRequested.connect(self.tuResults2D.repaintRequested)

@@ -1,7 +1,6 @@
 import struct
 from os.path import basename, dirname, splitext, join, exists, isdir
 import numpy as np
-import wx.core
 
 
 class TMO:

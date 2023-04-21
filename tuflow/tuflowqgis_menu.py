@@ -19,7 +19,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-import setuptools
+# import setuptools
 
 # Import the PyQt and QGIS libraries
 #from PyQt5.QtWidgets  import ( QMenu )
@@ -822,9 +822,11 @@ class tuflowqgis_menu:
 					scenarios = []
 					try:
 						getScenariosFromTCF_v2(inFileName, scenarios)
-					except Exception as e:
+					except Exception:
 						error = True
-						message = str(e)
+						exc_type, exc_value, exc_traceback = sys.exc_info()
+						message = ''.join(traceback.extract_tb(exc_traceback).format()) + '{0}{1}'.format(exc_type,
+						                                                                               exc_value)
 				if error:
 					if message:
 						QMessageBox.information(self.iface.mainWindow(), "Message", message)

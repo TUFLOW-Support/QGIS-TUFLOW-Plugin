@@ -754,7 +754,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			
 			# results
 			# self.OpenResults.itemClicked.connect(lambda: self.resultsChanged('item clicked'))
-			self.resultSelectionChangeSignal = self.OpenResults.itemSelectionChanged.connect(lambda: self.resultsChanged('selection changed'))
+			self.resultSelectionChangeSignal = self.OpenResults.itemSelectionChanged.connect(lambda: self.resultsChanged('item clicked'))
 			
 			# result types
 			self.OpenResultTypes.secondAxisClicked.connect(self.secondaryAxisResultTypesChanged)
@@ -1100,17 +1100,17 @@ class TuView(QDockWidget, Ui_Tuplot):
 		#self.doubleClickEvent = True
 		
 		# what happens if there is more than one active mesh layer
-		if len(self.tuResults.tuResults2D.activeMeshLayers) > 1:
-			if self.iface is not None:
-				self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuResults.tuResults2D.activeMeshLayers,
-				                                                  'Select Which Result To Open Properties For...')
-				self.meshDialog.exec_()
-				if self.meshDialog.selectedMesh is None:
-					return False
-				else:
-					meshLayer = tuflowqgis_find_layer(self.meshDialog.selectedMesh)
-		else:
-			meshLayer = self.tuResults.tuResults2D.activeMeshLayers[0]
+		# if len(self.tuResults.tuResults2D.activeMeshLayers) > 1:
+		# 	if self.iface is not None:
+		# 		self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuResults.tuResults2D.activeMeshLayers,
+		# 		                                                  'Select Which Result To Open Properties For...')
+		# 		self.meshDialog.exec_()
+		# 		if self.meshDialog.selectedMesh is None:
+		# 			return False
+		# 		else:
+		# 			meshLayer = tuflowqgis_find_layer(self.meshDialog.selectedMesh)
+		# else:
+		meshLayer = self.tuResults.tuResults2D.activeMeshLayers[0]
 		
 		if event is not None:
 			if event['parent'].ds_name == 'Map Outputs':

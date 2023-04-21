@@ -6198,15 +6198,16 @@ def resToRes(exe, function, workdir, meshes, dataType, **kwargs):
 			out, err = proc.communicate()
 		except subprocess.TimeoutExpired:
 			out, err = proc.communicate(input=b'\n')
-			return True, out.decode('utf-8')
+			if err or 'Finished.' not in out.decode('utf-8', errors='ignore'):
+				return True, out.decode('utf-8', errors='ignore')
 
 		if not os.path.exists(file) or err:
-			return True, out
+			return True, out.decode('utf-8', errors='ignore')
 
 	if function.lower() == 'info':
 		info = ''
 		try:
-			with open(file, 'r') as f:
+			with open(file, 'r', errors='ignore') as f:
 				for line in f:
 					info += line
 			shutil.rmtree(tmpdir)
