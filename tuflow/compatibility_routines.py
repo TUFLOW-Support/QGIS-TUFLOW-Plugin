@@ -269,6 +269,17 @@ def sanitise_field_defn(field_defn, fmt):
     return field_defn
 
 
+def suffix_2_geom_type(suffix):
+    """Convert OGR geometry type to TUFLOW suffix."""
+
+    if suffix == '_P':
+        return ogr.wkbPoint
+    if suffix == '_L':
+        return ogr.wkbLineString
+    if suffix == '_R':
+        return ogr.wkbPolygon
+
+
 def tuflow_type_requires_feature_iter(layername):
     """
     Returns the indexes of fields that could require a file copy e.g. for 1d_xs.

@@ -1777,6 +1777,14 @@ class TuResults():
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml)
 			self.tuResults2D.getResultMetaData(ml, layer, loadRenderStyle=False)
+
+			# update 1D results based on new reference time for mesh layer
+			for result in self.results:
+				if result == layer.name():
+					for result_type in self.results[result]:
+						if self.isTimeSeriesType(result_type):
+							self.results[result][result_type]['referenceTime'] = self.tuResults2D.getReferenceTime(layer, self.tuView.tuOptions.defaultZeroTime)
+
 		self.updateResultTypes()
 
 	def checkSelectedResults(self):

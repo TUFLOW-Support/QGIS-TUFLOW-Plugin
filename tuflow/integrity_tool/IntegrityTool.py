@@ -322,6 +322,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                                               outputLyr=self.outputLyr, exclRadius=exclRadius,
                                               dataCollectorPoints=self.dataCollectorPoints)
         self.outputLyr = self.snappingToolLines.outputLyr
+        self.snappingToolPoints = None
         if inputPoints:
             self.snappingToolPoints = SnappingTool(iface=self.iface, dataCollector=self.dataCollectorPoints,
                                                    outputLyr=self.outputLyr, exclRadius=exclRadius,
@@ -1269,6 +1270,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             return
 
         for tmplyrs in new_lyrs:
+            if tmplyrs is None:
+                continue
             for tmplyrname, oldlyrname in tmplyrs.items():
                 lyr = tuflowqgis_find_layer(tmplyrname)
                 if lyr is None:

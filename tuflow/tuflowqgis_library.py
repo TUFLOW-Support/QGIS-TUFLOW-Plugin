@@ -63,7 +63,7 @@ try:
 except ImportError:
 	from pathlib_ import Path_ as Path
 import sqlite3
-from osgeo import ogr
+from osgeo import ogr, gdal
 
 from dataclasses import dataclass, field
 
@@ -450,17 +450,50 @@ def tuflowqgis_create_tf_dir(dialog, crs, basepath, engine, tutorial, gisFormat=
 		# 	if outfile.hasError() != QgsVectorFileWriter.NoError:
 		# 		return "Failure creating output shapefile: " + outfile.errorMessage()
 	# else:
-	if gisFormat == 'SHP':
-		fields = QgsFields()
-		fields.append( QgsField( "notes", QVariant.String ) )
-		outfile = QgsVectorFileWriter(prjname, "System", fields, 1, crs, "ESRI Shapefile")
-
-		if outfile.hasError() != QgsVectorFileWriter.NoError:
-			return "Failure creating output shapefile: " + outfile.errorMessage()
+	# if gisFormat == 'SHP':
+	# 	fields = QgsFields()
+	# 	fields.append( QgsField( "notes", QVariant.String ) )
+	# 	outfile = QgsVectorFileWriter(prjname, "System", fields, 1, crs, "ESRI Shapefile")
+	#
+	# 	if outfile.hasError() != QgsVectorFileWriter.NoError:
+	# 		return "Failure creating output shapefile: " + outfile.errorMessage()
+	# else:
+	uri = "point?crs={0}&field=notes:string".format(crs.authid())
+	layer = QgsVectorLayer(uri, 'projection', 'memory')
+	options = QgsVectorFileWriter.SaveVectorOptions()
+	if os.path.exists(prjname) and gisFormat == 'GPKG':
+		options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
 	else:
-		uri = "point?crs={0}&field=notes:string".format(crs.authid())
-		layer = QgsVectorLayer(uri, 'projection', 'memory')
-		err, msg = QgsVectorFileWriter.writeAsVectorFormat(layer, prjname, 'SYSTEM')
+		options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
+		if gisFormat == 'GPKG':
+			out_lyr_uri = '{0}|layername={1}'.format(prjname, 'projection')
+		else:
+			out_lyr_uri = prjname
+		open_layer = tuflowqgis_find_layer(out_lyr_uri, search_type='datasource')
+		if open_layer is not None:
+			QgsProject.instance().removeMapLayer(open_layer.id())
+			open_layer = None
+	options.layerName = 'projection'
+	if gisFormat == 'GPKG':
+		options.driverName = 'GPKG'
+	else:
+		options.driverName = 'ESRI Shapefile'
+
+	if Qgis.QGIS_VERSION_INT >= 32000:
+		outfile = QgsVectorFileWriter.writeAsVectorFormatV3(layer, prjname, QgsCoordinateTransformContext(),
+		                                                    options)
+		if outfile[0] != QgsVectorFileWriter.NoError:
+			msg = outfile[1]
+			return msg
+	elif Qgis.QGIS_VERSION_INT >= 31030:
+		outfile = QgsVectorFileWriter.writeAsVectorFormatV2(layer, prjname, QgsCoordinateTransformContext(),
+		                                                    options)
+		if outfile[0] != QgsVectorFileWriter.NoError:
+			msg = outfile[1]
+			return msg
+	else:
+		err, msg = QgsVectorFileWriter.writeAsVectorFormat(layer, prjname, 'SYSTEM', layer.crs(),
+		                                                   options.driverName, datasourceOptions=['OVERWRITE=YES'])
 		if err != 0:
 			return msg
 
@@ -1481,18 +1514,22 @@ def tuflowqgis_apply_stability_style(layer):
 	
 def tuflowqgis_increment_fname(infname, use_regex=True):
 	if use_regex:
-		pattern = r'\d{2,3}(?=(?:_[PLR]$|$))'
+		pattern = r'\d{2,3}[A-z]?(?=(?:_[PLR]$|$))'
 		file_stem = Path(infname).stem
 		regex_find_version = re.findall(pattern, file_stem, flags=re.IGNORECASE)
 		if regex_find_version:
 			version = regex_find_version[0]
-			text_length = len(version)
-			new_version = '{0:0{1}d}'.format(int(version) + 1, text_length)
+			if re.findall(r'[A-z]', version):
+				v = re.findall(r'\d{2,3}', version)[0]
+			else:
+				v = version
+			text_length = len(v)
+			new_version = '{0:0{1}d}'.format(int(v) + 1, text_length)
 			outfname = re.sub(pattern, new_version, file_stem, flags=re.IGNORECASE)
 		else:
 			geom = re.findall(r'_[PLR]$', file_stem, flags=re.IGNORECASE)
 			if geom:
-				outfname = '{0}_001{1}'.format(file_stem, geom)
+				outfname = '{0}_001{1}'.format(file_stem, geom[0])
 			else:
 				outfname = '{0}_001'.format(file_stem)
 		outfname = str(Path(infname).parent / '{0}{1}'.format(outfname, Path(infname).suffix))
@@ -3195,7 +3232,7 @@ def getScenariosFromControlFile(controlFile, processedScenarios):
 	return "", processedScenarios
 
 
-def getScenariosFromTCF_v2(control_file, scenarios, settings=None):
+def getScenariosFromTCF_v2(control_file, scenarios, events, settings=None):
 	from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.control_file import get_commands
 	from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.settings import ConvertSettings, FatalConvertException
 	from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.file import globify, TuflowPath
@@ -3211,14 +3248,17 @@ def getScenariosFromTCF_v2(control_file, scenarios, settings=None):
 		if command.is_start_define() and 'SCENARIO' in command.command:
 			s = [x.strip() for x in command.value_orig.split('|') if x.upper().strip() not in [y.upper() for y in scenarios]]
 			scenarios.extend(s)
+		elif command.is_start_define() and 'EVENT' in command.command and 'IF' in command.command:
+			e = [x.strip() for x in command.value_orig.split('|') if x.upper().strip() not in [y.upper() for y in events]]
+			events.extend(e)
 		elif command.is_control_file():
 			for file in command.iter_files(settings_):
 				cf = file.resolve()
-				getScenariosFromTCF_v2(cf, scenarios, settings_)
+				getScenariosFromTCF_v2(cf, scenarios, events, settings_)
 		elif command.is_read_file():
 			for file in command.iter_files(settings_):
 				cf = file.resolve()
-				getScenariosFromTCF_v2(cf, scenarios, settings_)
+				getScenariosFromTCF_v2(cf, scenarios, events, settings_)
 
 
 def getScenariosFromTcf(tcf):
@@ -4171,13 +4211,14 @@ class LoadGisFiles(QObject):
 		options = LoadTcfOptions()
 		root = QgsProject.instance().layerTreeRoot()
 		layers = []
+		layers_order_key = {}
 		gis_files = []
 		self.err = False
 		files_failed = []
-
 		self.init_prog_bar()
 		for cf in self.model_file_layers:
 			for gis_file in cf.gis():
+				gis_file_ = gis_file
 				QgsApplication.processEvents()
 				if str(gis_file) in gis_files:
 					continue
@@ -4192,7 +4233,7 @@ class LoadGisFiles(QObject):
 						continue  # can happen if using just a .prj for projection
 					geom = ogr_basic_geom_type(geom, True)
 					layer_uri = f'{db}|layername={lyrname}'
-					if ext == '.mif':
+					if ext.lower() == '.mif':
 						geom_name = ogr_geometry_name(geom)
 						if geom_name:
 							layer_uri = f'{layer_uri}|geometrytype={geom_name}'
@@ -4201,7 +4242,10 @@ class LoadGisFiles(QObject):
 					# 	files_failed.append(layer_uri)
 					# 	self.err = True
 					# 	continue
+
 					layers.append(lyr)
+					i = self.model_file_layers.index(cf, gis_file_)
+					layers_order_key[lyr] = i
 				gis_files.append(str(gis_file))
 
 			if options.load_raster_method != 'no':
@@ -4220,21 +4264,25 @@ class LoadGisFiles(QObject):
 					# 	files_failed.append(layer_uri)
 					# 	self.err = True
 					# 	continue
+
 					layers.append(lyr)
+					i = self.model_file_layers.index(cf, grid_file)
+					layers_order_key[lyr] = i
 					gis_files.append(str(grid_file))
 
 			if options.grouped:
 				group = root.addGroup(cf.name)
-				layers = sortLayers(layers)
+				layers = sortLayers(layers, options, layers_order_key)
 				failed_lyrs = self.loadLayersIntoWorkspace(group, layers, options)
 				if failed_lyrs:
 					self.err = True
 					files_failed.extend(failed_lyrs)
 				layers.clear()
+				layers_order_key.clear()
 				gis_files.clear()
 
 		if not options.grouped:
-			layers = sortLayers(layers)
+			layers = sortLayers(layers, options, layers_order_key)
 			failed_lyrs = self.loadLayersIntoWorkspace(root, layers, options)
 			if failed_lyrs:
 				self.err = True
@@ -4253,6 +4301,7 @@ class ControlFileLayers(QObject):
 		self.name = control_file.name
 		self._paths_gis = []
 		self._paths_grid = []
+		self._paths_all = []
 
 	def _get_name(self, path):
 		if '>>' in path.name:
@@ -4266,8 +4315,18 @@ class ControlFileLayers(QObject):
 
 		return name
 
+	def index(self, path):
+		paths_all = [str(p) for p in self._paths_all]
+		if str(path) in paths_all:
+			return paths_all.index(str(path))
+		else:
+			return -1
+
 	def count(self):
 		return len(self._paths_grid) + len(self._paths_gis)
+
+	def add_lyr(self, path):
+		self._paths_all.append(path)
 
 	def add_gis(self, path):
 		self._paths_gis.append(path)
@@ -4299,6 +4358,14 @@ class ModelFileLayers(QObject):
 		for cf in sorted(self._cfs, key=lambda x: order.get(Path(x.name).suffix.lower()) if order.get(Path(x.name).suffix.lower()) is not None else 100):
 			yield cf
 
+	def index(self, cf, path):
+		if cf not in self._cfs:
+			return -1
+		i = self._cfs.index(cf)
+		cf_ = self._cfs[i]
+		count = sum(x.count() for x in self._cfs[:i])
+		return count + cf.index(path)
+
 	def count(self):
 		return sum(x.count() for x in self._cfs)
 
@@ -4314,12 +4381,12 @@ class LoadGisFromControlFile(QObject):
 	finished = pyqtSignal()
 	error = pyqtSignal(str)
 
-	def __init__(self, model_file_layers, control_file, settings=None, scenarios=()):
+	def __init__(self, model_file_layers, control_file, settings=None, scenarios=(), events=()):
 		QObject.__init__(self)
 		self.model_file_layers = model_file_layers
 		self.control_file = control_file
 		self.settings = settings
-		self.scenarios = scenarios
+		self.scenarios = scenarios + events
 
 	def loadGisFromControlFile_v2(self):
 		from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.control_file import get_commands
@@ -4363,6 +4430,7 @@ class LoadGisFromControlFile(QObject):
 								cf_lyrs.add_grid(file)
 							else:
 								cf_lyrs.add_gis(file)
+							cf_lyrs.add_lyr(file)
 
 				elif command.is_read_grid():
 					if command.is_rainfall_grid_nc():
@@ -4375,13 +4443,17 @@ class LoadGisFromControlFile(QObject):
 								cf_lyrs.add_grid(file)
 							else:
 								cf_lyrs.add_gis(file)
+							cf_lyrs.add_lyr(file)
 
 				elif command.is_read_projection():
 					for file in command.iter_files(settings_):
 						if command.command == 'TIF PROJECTION':
-							cf_lyrs.add_grid(file)
+							# cf_lyrs.add_grid(file)
+							cf_lyrs.layer_added.emit('')  # in case the progress bar requires the counts to be the same
+							pass
 						else:
 							cf_lyrs.add_gis(file)
+							cf_lyrs.add_lyr(file)
 
 				elif command.is_rainfall_grid_csv():
 					#TODO
@@ -5574,27 +5646,59 @@ def sorting_key(layer):
 	name = re.sub(r'_[plr]^', '', name)
 
 
+class Layer:
+
+	def __init__(self, layer):
+		if isinstance(layer, QgsMapLayer):
+			self.name = layer.name()
+			if isinstance(layer, QgsVectorLayer):
+				self.geom_type = layer.geometryType()
+			else:
+				self.geom_type = QgsWkbTypes.PointGeometry
+		else:
+			self.name = layer.split(',')[1].strip(" \t\n'")
+			uri = layer.split(',')[0].split('(')[1].strip(" \t\n'")
+			if re.findall(r'_p$', uri, flags=re.IGNORECASE):
+				self.geom_type = QgsWkbTypes.PointGeometry
+			elif re.findall(r'_l$', uri, flags=re.IGNORECASE):
+				self.geom_type = QgsWkbTypes.LineGeometry
+			elif re.findall(r'_r$', uri, flags=re.IGNORECASE):
+				self.geom_type = QgsWkbTypes.PolygonGeometry
+			else:
+				self.geom_type = QgsWkbTypes.PointGeometry
+
+
 def sorting_alg(layers):
-	lyr_wo_geom = [re.sub(r'_[plr]$', '', x.name(), flags=re.IGNORECASE) for x in layers]
+	lyr_wo_geom = [re.sub(r'_[plr]$', '', Layer(x).name, flags=re.IGNORECASE) for x in layers]
 	key = {QgsWkbTypes.PointGeometry: 0, QgsWkbTypes.LineGeometry: 1, QgsWkbTypes.PolygonGeometry: 2}
-	lyr_w_geom = [f'{lyrname}_{key[lyr.geometryType()]}' for lyr, lyrname in zip(layers, lyr_wo_geom) if isinstance(lyr, QgsVectorLayer)]
-	lyr_w_geom.extend([f'{x.name()}_3' for x in layers if not isinstance(x, QgsVectorLayer)])
+	lyr_w_geom = [f'{lyrname}_{key[Layer(lyr).geom_type]}' for lyr, lyrname in zip(layers, lyr_wo_geom) if 'QgsVectorLayer' in str(lyr)]
+	lyr_w_geom.extend([f'{Layer(x).name}_3' for x in layers if 'QgsVectorLayer' not in str(x)])
 	key = {lyr: name.lower() for lyr, name in zip(layers, lyr_w_geom)}
 	return sorted(layers, key=lambda x: key[x])
 
 
-def sortLayers(layers):
-	vlayers = [x for x in layers if isinstance(x, QgsVectorLayer)]
-	rlayers = [x for x in layers if isinstance(x, QgsRasterLayer)]
-	mlayers = [x for x in layers if isinstance(x, QgsMeshLayer)]
+def sortLayers(layers, options=None, sort_key=None):
+	vlayers = [x for x in layers if 'QgsVectorLayer' in str(x)]
+	rlayers = [x for x in layers if 'QgsRasterLayer' in str(x)]
+	mlayers = [x for x in layers if 'QgsMeshLayer' in str(x)]
 	zlayers = [x for x in layers if x not in vlayers and x not in rlayers and x not in mlayers]  # any leftovers
 
-	vlayers = sorting_alg(vlayers)
-	rlayers = sorting_alg(rlayers)
-	mlayers = sorting_alg(mlayers)
-	mlayers = sorting_alg(mlayers)
+	if options is not None and options.order_method == 'control_file' and sort_key is not None:
+		layers_sorted = sorted(layers, key=lambda x: sort_key[x])
+		return list(reversed(layers_sorted))
+	elif options is not None and options.order_method == 'control_file_group_rasters' and sort_key is not None:
+		vlayers = list(reversed(sorted(vlayers, key=lambda x: sort_key[x])))
+		rlayers = list(reversed(sorted(rlayers, key=lambda x: sort_key[x])))
+		mlayers = list(reversed(sorted(mlayers, key=lambda x: sort_key[x])))
+		zlayers = list(reversed(sorted(zlayers, key=lambda x: sort_key[x])))
+		return vlayers + rlayers + mlayers + zlayers
+	else:
+		vlayers = sorting_alg(vlayers)
+		rlayers = sorting_alg(rlayers)
+		mlayers = sorting_alg(mlayers)
+		zlayers = sorting_alg(zlayers)
+		return vlayers + rlayers + mlayers + zlayers
 
-	return vlayers + rlayers + mlayers + zlayers
 
 
 def sortNodesInGroup(group, nodes=None):
@@ -7011,8 +7115,11 @@ def is1dNetwork(layer):
 
 	if isgpkg:
 		correct1dNetworkType.insert(0, QVariant.LongLong)
+		correct1dNetworkType2.insert(0, QVariant.LongLong)
+		correct1dNetworkType3.insert(0, QVariant.LongLong)
+		correct1dNetworkType4.insert(0, QVariant.LongLong)
 		count = 21
-		i = 1
+		i = 0
 	else:
 		count = 20
 		i = 0
@@ -7050,15 +7157,21 @@ def is1dTable(layer):
 	if not isinstance(layer, QgsVectorLayer):
 		return False
 
-	try:
-		if not re.findall(r'^1d_', layer.name(), flags=re.IGNORECASE):
-			return False
-	except RuntimeError:
-		return False
-
 	isgpkg = False
 	if re.findall(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), re.IGNORECASE):
 		isgpkg = True
+
+	try:
+		if isgpkg:
+			lyrname = re.split(r'\.gpkg\|layername=', layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)[1]
+		else:
+			lyrname = Path(layer.dataProvider().dataSourceUri()).stem
+		if '|' in lyrname:
+			lyrname = lyrname.split('|')[0]
+		if not re.findall(r'^1d_', lyrname, flags=re.IGNORECASE):
+			return False
+	except RuntimeError:
+		return False
 
 	if isgpkg:
 		correct1dTableType = [QVariant.LongLong, QVariant.String, QVariant.String, QVariant.String, QVariant.String, QVariant.String,
@@ -9161,6 +9274,7 @@ class LoadTcfOptions:
 			self.grouped = True if self.grouped.lower() == 'true' else False
 
 		self.load_raster_method = QSettings().value('tuflow/load_tcf_options/load_raster_method', 'yes')
+		self.order_method = QSettings().value('tuflow/load_tcf_options/order_method', 'alphabetical')
 
 
 global loadTCFOptionsMessageBox_result
@@ -9184,6 +9298,16 @@ def loadTCFOptionsMessageBox_signal_rbgroup2(rb_group):
 		QSettings().setValue('tuflow/load_tcf_options/load_raster_method', 'no')
 	else:
 		QSettings().setValue('tuflow/load_tcf_options/load_raster_method', 'invisible')
+
+
+def loadTCFOptionsMessageBox_signal_rbgroup3(rb_group):
+	checked_button = rb_group.checkedButton()
+	if checked_button.text() == 'Control File':
+		QSettings().setValue('tuflow/load_tcf_options/order_method', 'control_file')
+	elif checked_button.text() == 'Control File (Group Rasters)':
+		QSettings().setValue('tuflow/load_tcf_options/order_method', 'control_file_group_rasters')
+	else:
+		QSettings().setValue('tuflow/load_tcf_options/order_method', 'alphabetical')
 
 
 
@@ -9246,6 +9370,30 @@ def LoadTCFOptionsMessageBox(parent, title):
 	hlayout3.addWidget(rb4)
 	hlayout3.addWidget(rb5)
 
+	order_option_text = QLabel()
+	order_option_text.setText('Ordering Options')
+	rb6 = QRadioButton()
+	rb6.setText('Alphabetical')
+	rb7 = QRadioButton()
+	rb7.setText('Control File')
+	rb8 = QRadioButton()
+	rb8.setText('Control File (Group Rasters)')
+	rb_group3 = QButtonGroup()
+	rb_group3.addButton(rb6)
+	rb_group3.addButton(rb7)
+	rb_group3.addButton(rb8)
+	if options.order_method == 'control_file':
+		rb7.setChecked(True)
+	elif options.order_method == 'control_file_group_rasters':
+		rb8.setChecked(True)
+	else:
+		rb6.setChecked(True)
+	hlayout5 = QHBoxLayout()
+	hlayout5.addWidget(rb6)
+	hlayout5.addWidget(rb7)
+	hlayout5.addWidget(rb8)
+	hlayout5.addStretch()
+
 	pbOk = QPushButton()
 	pbOk.setText('OK')
 	pbCancel = QPushButton()
@@ -9258,6 +9406,8 @@ def LoadTCFOptionsMessageBox(parent, title):
 	vlayout = QVBoxLayout()
 	vlayout.addLayout(hlayout1)
 	vlayout.addSpacing(10)
+	vlayout.addWidget(order_option_text)
+	vlayout.addLayout(hlayout5)
 	vlayout.addWidget(group_options_text)
 	vlayout.addLayout(hlayout2)
 	vlayout.addWidget(raster_option_text)
@@ -9274,6 +9424,9 @@ def LoadTCFOptionsMessageBox(parent, title):
 	rb3.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup2(rb_group2))
 	rb4.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup2(rb_group2))
 	rb5.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup2(rb_group2))
+	rb6.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup3(rb_group3))
+	rb7.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup3(rb_group3))
+	rb8.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup3(rb_group3))
 
 	dialog.exec_()
 	return loadTCFOptionsMessageBox_result
@@ -9659,6 +9812,211 @@ def download_latest_dev_plugin(iface=None):
 	                 'How to manually install the TUFLOW Plugin</a>'.format(download_path)
 	QMessageBox.information(parent, 'Install Latest Dev Plugin', completed_text)
 
+
+def get_driver_by_extension(driver_type, ext):
+	if not ext:
+		return
+
+	ext = ext.lower()
+	if ext[0] == '.':
+		ext = ext[1:]
+
+	for i in range(gdal.GetDriverCount()):
+		drv = gdal.GetDriver(i)
+		md = drv.GetMetadata_Dict()
+		if ('DCAP_RASTER' in md and driver_type == 'raster') or ('DCAP_VECTOR' in md and driver_type == 'vector'):
+			if not drv.GetMetadataItem(gdal.DMD_EXTENSIONS):
+				continue
+			driver_extensions = drv.GetMetadataItem(gdal.DMD_EXTENSIONS).split(' ')
+			for drv_ext in driver_extensions:
+				if drv_ext.lower() == ext:
+					return drv.ShortName
+
+
+global has_kart, kart_version_
+has_kart = False
+kart_version_ = None
+
+
+def kart_executable():
+	if os.name == "nt":
+		defaultFolder = os.path.join(os.environ["PROGRAMFILES"], "Kart")
+	elif sys.platform == "darwin":
+		defaultFolder = "/Applications/Kart.app/Contents/MacOS/"
+	else:
+		defaultFolder = "/opt/kart"
+	folder = defaultFolder
+	for exe_name in ("kart.exe", "kart_cli_helper", "kart_cli", "kart"):
+		path = os.path.join(folder, exe_name)
+		if os.path.isfile(path):
+			return path
+	return path
+
+
+def get_kart_version():
+	global has_kart, kart_version_
+	if has_kart:
+		return kart_version_
+	elif kart_version_ == -1:
+		return kart_version_
+	else:
+		try:
+			proc = subprocess.run([kart_executable(), '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=subprocess.CREATE_NO_WINDOW)
+			v = proc.stdout.decode('utf-8', errors='ignore').split(',')[0]
+			v = re.findall('\d+', v)
+			i = 1000
+			v_ = 0
+			for n in v:
+				v_ += int(n) * i
+				i /= 10
+			kart_version_ = int(v_)
+			has_kart = True
+		except Exception as e:
+			kart_version_ = -1
+	return kart_version_
+
+
+def kart_gpkg(kart_repo):
+	kart_folder = actual_kart_folder(kart_repo)
+	if not kart_folder:
+		return
+	config = Path(kart_folder) / 'config'
+	if not config.exists():
+		return
+	with config.open() as f:
+		contents = f.read()
+	if '[kart "workingcopy"]' not in contents:
+		return
+	try:
+		working_copy = re.split(r'\[kart "workingcopy"\]', contents)[1].split('[')[0]
+		working_copy_settings = zip(working_copy.split('=')[::2], working_copy.split('=')[1::2])
+		for param, value in working_copy_settings:
+			if param.strip() == 'location':
+				gpkg = Path(kart_repo) / value.strip()
+				return str(os.path.abspath(gpkg))
+	except Exception as e:
+		return
+
+
+def actual_kart_folder(repo_path):
+	git = Path(repo_path) / '.git'
+	if git.exists():
+		try:
+			kart_dir = None
+			with git.open() as f:
+				for line in f:
+					if 'gitdir' in line:
+						kart_dir = git.parent / line.split(':')[1].strip()
+			if kart_dir and kart_dir.exists():
+				config = kart_dir / 'config'
+				with config.open() as f:
+					contents = f.read()
+				if re.findall(r'\[kart', contents):
+					return str(kart_dir)
+		except Exception as e:
+			return ''
+	else:
+		return ''
+
+
+def kart_repo_from_empty_folder(empty_path):
+	git = Path(empty_path).parent
+	if actual_kart_folder(git):
+		return os.path.abspath(git)
+	return ''
+
+
+class EmptyFileData:
+
+	def __init__(self, out_name, out_file, empty_file, geom):
+		self.out_name = out_name
+		self.out_file = out_file
+		self.empty_file = empty_file
+		self.geom = geom
+
+
+class ImportEmpty:
+	"""Currently only used for kart."""
+
+	def __init__(self, empty_dir, run_id, database_option, database, convert_to_gpkg):
+		self.empty_dir = empty_dir
+		self.gis_dir = str(Path(empty_dir).parent / 'gis')
+		self.run_id = run_id
+		self.database_option = database_option
+		self.database = database
+		self.convert_to_gpkg = convert_to_gpkg
+		self.empty_files = []
+
+	def _empty_file(self, empty_type, geom_ext):
+		for file in Path(self.empty_dir).glob('{0}_empty*'.format(empty_type, geom_ext)):
+			if re.findall(r'_[PLR]$', file.name):
+				if re.findall(r'_[PLR]$', file.name)[0] == geom_ext:
+					return str(file)
+			else:
+				return str(file)
+
+	def _out_file(self, empty_type, geom_ext, ext, database_option, database):
+		out_name = '{0}_{1}'.format(empty_type, self.run_id)
+		if ext.lower != '.gpkg' or database_option == 'separate':
+			file = '{0}{1}{2} >> {0}{1}'.format(out_name, geom_ext, ext)
+		elif database_option == 'grouped':
+			file = '{0}{2} >> {0}{1}'.format(out_name, geom_ext, ext)
+		else:
+			file = '{0} >> {1}{2}'.format(database, out_name, geom_ext)
+		return file
+
+	def add(self, empty_type, geom_ext):
+		from .compatibility_routines import suffix_2_geom_type
+		empty_file = self._empty_file(empty_type, geom_ext)
+		if not empty_file:
+			return
+		out_file = self._out_file(empty_type, geom_ext, Path(empty_file).suffix, self.database_option, self.database)
+		db, lyr_name = out_file.split(' >> ')
+		empty_file_data = EmptyFileData(lyr_name, db, empty_file, suffix_2_geom_type(geom_ext))
+		self.empty_files.append(empty_file_data)
+
+	def validate_layers(self, layers, gpkg):
+		from .compatibility_routines import GPKG
+		gpkg_layers = [x.lower() for x in GPKG(gpkg).layers()]
+		return [x for x in layers if x.lower() in gpkg_layers]
+
+	def validate_kart_layers(self, kart_repo):
+		try:
+			gpkg = kart_gpkg(kart_repo)
+			layers = [x.out_name for x in self.empty_files]
+			return self.validate_layers(layers, gpkg)
+		except Exception as e:
+			pass
+
+		return 'Could not find kart GPKG'
+
+	def import_to_kart(self, kart_exe, kart_repo):
+		from .compatibility_routines import copy_field_defn, sanitise_field_defn, GIS_GPKG
+		wkdir = actual_kart_folder(kart_repo)
+		temp_dir = tempfile.mkdtemp(prefix='import_empty')
+		for empty_file in self.empty_files:
+			tmp_out = str(Path(temp_dir) / Path(empty_file.out_file).name)
+			driver_name = get_driver_by_extension('vector', Path(empty_file.empty_file).suffix)
+			if not driver_name:
+				return 'Error getting driver for {0}'.format(empty_file.empty_file.stem)
+			ds_in = ogr.GetDriverByName(driver_name).Open(empty_file.empty_file)
+			lyr_in = ds_in.GetLayer()
+			sr = lyr_in.GetSpatialRef()
+			ds_out = ogr.GetDriverByName('GPKG').CreateDataSource(tmp_out)
+			lyr_out = ds_out.CreateLayer(empty_file.out_name, sr, empty_file.geom)
+			layer_defn = lyr_in.GetLayerDefn()
+			for i in range(0, layer_defn.GetFieldCount()):
+				fieldDefn = copy_field_defn(layer_defn.GetFieldDefn(i))
+				fieldDefn = sanitise_field_defn(fieldDefn, GIS_GPKG)
+				lyr_out.CreateField(fieldDefn)
+			sr = None
+			ds_out, lyr_out = None, None
+			ds_in, lyr_in = None, None
+			proc = subprocess.run([kart_exe, 'import', '{0}'.format(tmp_out), empty_file.out_name], cwd=wkdir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			Path(tmp_out).unlink()
+			shutil.rmtree(temp_dir)
+			if proc.returncode != 0:
+				return proc.stderr.decode('utf-8', errors='ignore')
 
 
 

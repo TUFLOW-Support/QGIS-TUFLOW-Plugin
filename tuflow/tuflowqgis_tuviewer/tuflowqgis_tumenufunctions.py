@@ -629,6 +629,7 @@ class TuMenuFunctions():
 			# 	self.tuView.tuResults.timekey2time.clear()
 			# 	self.tuView.tuResults.timekey2time = {'{0:.6f}'.format(x): x for x in times}
 
+			self.tuView.tuResults.updateTimeUnits()
 			self.tuView.tuResults.updateDateTimes()
 
 			if qv >= 31600:

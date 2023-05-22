@@ -351,7 +351,7 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 			return
 
 		if self.isgpkg:
-			pattern = r'\d{2,3}(?=(?:_[PLR]$|$))'
+			pattern = r'\d{2,3}[A-z]?(?=(?:_[PLR]$|$))'
 			db, lyrname = re.split(r'\|layername=', layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)
 			new_lyrname = tuflowqgis_increment_fname(lyrname)
 			new_lyrname = new_lyrname.split('|')[0]
@@ -361,6 +361,8 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 					new_db = re.sub(pattern, vers_num, Path(db).stem, flags=re.IGNORECASE)
 				else:
 					new_db = tuflowqgis_increment_fname(Path(db).stem)
+			else:
+				new_db = new_lyrname
 			db = str(Path(db).parent / '{0}{1}'.format(new_db, Path(db).suffix))
 		else:
 			# name_ = re.split(r'\|layername=', layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)[0]
@@ -646,7 +648,7 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 			copyLayerStyle(self.iface, layer, oldLayer)
 			
 		self.accept()
-			
+
 
 # ----------------------------------------------------------
 #    tuflowqgis import empty tuflow files
@@ -725,30 +727,23 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 			
 		# load empty types
 		self.dirChanged()
-		# self.emptyType.clear()
-		# if self.emptydir.text() == "ERROR - Project not loaded":
-		# 	self.emptyType.addItem('No empty directory')
-		# elif not os.path.exists(self.emptydir.text()):
-		# 	self.emptyType.addItem('Empty directory not valid')
-		# else:
-		# 	exts = ['shp', 'gpkg']
-		# 	files = []
-		# 	for ext in exts:
-		# 		search_string = '{0}{1}*.{2}'.format(self.emptydir.text(), os.path.sep, ext)
-		# 		f = glob.glob(search_string)
-		# 		if not f:
-		# 			search_string = '{0}{1}*.{2}'.format(self.emptydir.text(), os.path.sep, ext.upper())
-		# 			f = glob.glob(search_string)
-		# 		files += f
-		# 	empty_list = []
-		# 	for file in files:
-		# 		if len(file.split('_empty')) < 2:
-		# 			continue
-		# 		empty_type = os.path.basename(file.split('_empty')[0])
-		# 		if empty_type not in empty_list:
-		# 			empty_list.append(empty_type)
-		# 	empty_list = sorted(empty_list)
-		# 	self.emptyType.addItems(empty_list)
+
+		kart_version = get_kart_version()
+		if kart_version > -1:
+			self.cb_import_into_kart.setEnabled(True)
+			self.le_kart_repo.setEnabled(True)
+			self.cb_import_into_kart.setChecked(QSettings().value('TUFLOW/import_empty/kart_cb', 'False') == 'True')
+			kart_repo = QSettings().value('TUFLOW/import_empty/kart_repo', '')
+			if not kart_repo:
+				kart_repo = kart_repo_from_empty_folder(self.emptydir.text())
+			self.le_kart_repo.setText(kart_repo)
+			self.cb_import_into_kart.toggled.connect(lambda state: QSettings().setValue('TUFLOW/import_empty/kart_cb', str(state)))
+			self.le_kart_repo.textEdited.connect(lambda text: QSettings().setValue('TUFLOW/import_empty/kart_repo', text))
+		else:
+			self.cb_import_into_kart.setEnabled(False)
+			self.cb_import_into_kart.setChecked(False)
+			self.le_kart_repo.setEnabled(False)
+			self.le_kart_repo.setText('')
 
 		self.gbSpatialDatabaseOptions.setVisible(spatial_database_option)
 		w = self.width()
@@ -981,7 +976,40 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		convert = True if self.cbConvertToDb.isChecked() else False
 
 		# run create dir script
-		message = tuflowqgis_import_empty_tf(self.iface, basedir, runID, empty_types, points, lines, regions, self, databaseOption, databaseLoc, convert)
+		if self.cb_import_into_kart.isChecked():
+			import_empty = ImportEmpty(self.emptydir.text(), self.txtRunID.text(), databaseOption, databaseLoc, convert)
+			for empty_type in empty_types:
+				if points:
+					import_empty.add(empty_type, '_P')
+				if lines:
+					import_empty.add(empty_type, '_L')
+				if regions:
+					import_empty.add(empty_type, '_R')
+
+			invalid_layers = import_empty.validate_kart_layers(self.le_kart_repo.text())
+			if invalid_layers and isinstance(invalid_layers, str):
+				QMessageBox.warning(self.iface.mainWindow(), 'Import Empty', invalid_layers)
+				return
+			if invalid_layers:
+				# question = QMessageBox.question(self.iface.mainWindow(), 'Import Empty',
+				#                                 'The following layers already exist in the Kart repository.\n{0}\n\n'
+				#                                 'Do you want to override existing layers?'.format('\n'.join(invalid_layers)),
+				#                                 QMessageBox.Yes | QMessageBox.Cancel)
+				# if question == QMessageBox.Cancel:
+				# 	return
+				QMessageBox.warning(self.iface.mainWindow(), 'Import Empty', 'The following layers already exist in the Kart repository.\n{0}\n\n'.format('\n'.join(invalid_layers)))
+				return
+			message = import_empty.import_to_kart(kart_executable(), self.le_kart_repo.text())
+			if message:
+				QMessageBox.warning(self.iface.mainWindow(), 'Import Empty', message)
+				return
+			for empty_file in import_empty.empty_files:
+				uri = '{0}|layername={1}'.format(kart_gpkg(self.le_kart_repo.text()), empty_file.out_name)
+				layer = QgsVectorLayer(uri, empty_file.out_name, 'ogr')
+				if layer.isValid():
+					QgsProject.instance().addMapLayer(layer)
+		else:
+			message = tuflowqgis_import_empty_tf(self.iface, basedir, runID, empty_types, points, lines, regions, self, databaseOption, databaseLoc, convert)
 		#message = tuflowqgis_create_tf_dir(self.iface, crs, basedir)
 		if message == 'pass':
 			pass
@@ -3146,20 +3174,36 @@ from .forms.ui_tuflowqgis_scenarioSelection import *
 
 
 class tuflowqgis_scenarioSelection_dialog(QDialog, Ui_scenarioSelection):
-	def __init__(self, iface, tcf, scenarios):
+	def __init__(self, iface, tcf, scenarios, events):
 		QDialog.__init__(self)
+		self.setupUi(self)
+		self.scenario_lw.setStyleSheet("QListWidget:!active { selection-color: white; selection-background-color: #1383DC }")
+		self.event_lw.setStyleSheet("QListWidget:!active { selection-color: white; selection-background-color: #1383DC }")
 		self.iface = iface
 		self.tcf = tcf
 		self.scenarios = scenarios
-		self.setupUi(self)
+		self.events = events
 		self.status = 0
 
-		for scenario in self.scenarios:
-			self.scenario_lw.addItem(scenario)
+		if not scenarios:
+			self.scenario_lw_label.hide()
+			self.scenario_lw.hide()
+			self.selectAll_button_scenarios.hide()
+		else:
+			for scenario in self.scenarios:
+				self.scenario_lw.addItem(scenario)
+		if not events:
+			self.event_lw_label.hide()
+			self.event_lw.hide()
+			self.selectAll_button_events.hide()
+		else:
+			for event in self.events:
+				self.event_lw.addItem(event)
 		
 		self.ok_button.clicked.connect(self.run)
 		self.cancel_button.clicked.connect(self.cancel)
-		self.selectAll_button.clicked.connect(self.selectAll)
+		self.selectAll_button_scenarios.clicked.connect(self.selectAll_scenarios)
+		self.selectAll_button_events.clicked.connect(self.selectAll_events)
 
 		self.options = LoadTcfOptions()
 		self.init_cond()
@@ -3169,6 +3213,9 @@ class tuflowqgis_scenarioSelection_dialog(QDialog, Ui_scenarioSelection):
 		self.rbRasterLoad.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup2(self.buttonGroup_2))
 		self.rbRasterNoLoad.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup2(self.buttonGroup_2))
 		self.rbRasterLoadInvisible.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup2(self.buttonGroup_2))
+		self.rbOrderAlpha.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup3(self.buttonGroup_3))
+		self.rbOrderCF.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup3(self.buttonGroup_3))
+		self.rbOrderCFRev.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup3(self.buttonGroup_3))
 
 	def init_cond(self):
 		self.rbGrouped.setChecked(True) if self.options.grouped else self.rbUngrouped.setChecked(True)
@@ -3181,6 +3228,13 @@ class tuflowqgis_scenarioSelection_dialog(QDialog, Ui_scenarioSelection):
 		else:
 			self.rbRasterLoadInvisible.setChecked(True)
 
+		if self.options.order_method == 'control_file':
+			self.rbOrderCF.setChecked(True)
+		elif self.options.order_method == 'control_file_group_rasters':
+			self.rbOrderCFRev.setChecked(True)
+		else:
+			self.rbOrderAlpha.setChecked(True)
+
 	def setOptionsVisible(self, b):
 		widget = [self.label, self.rbGrouped, self.rbUngrouped, self.label_2, self.rbRasterLoad, self.rbRasterNoLoad,
 				  self.rbRasterLoadInvisible]
@@ -3191,17 +3245,27 @@ class tuflowqgis_scenarioSelection_dialog(QDialog, Ui_scenarioSelection):
 		self.status = 0
 		self.reject()
 	
-	def selectAll(self):
+	def selectAll_scenarios(self):
 		for i in range(self.scenario_lw.count()):
 			item = self.scenario_lw.item(i)
+			item.setSelected(True)
+
+	def selectAll_events(self):
+		for i in range(self.event_lw.count()):
+			item = self.event_lw.item(i)
 			item.setSelected(True)
 	
 	def run(self):
 		self.scenarios = []
+		self.events = []
 		for i in range(self.scenario_lw.count()):
 			item = self.scenario_lw.item(i)
 			if item.isSelected():
 				self.scenarios.append(item.text())
+		for i in range(self.event_lw.count()):
+			item = self.event_lw.item(i)
+			if item.isSelected():
+				self.events.append(item.text())
 		self.status = 1
 		self.accept()  # destroy dialog window
 

@@ -36,9 +36,10 @@ from .tuflowqgis_tuplot2d import TuPlot2D
 from .tuflowqgis_tuplot1d import TuPlot1D
 from .tuflowqgis_tuuserplotdata import TuUserPlotDataManager
 from ..tuflowqgis_library import (applyMatplotLibArtist, getMean, roundSeconds, convert_datetime_to_float,
-                                       generateRandomMatplotColours2, saveMatplotLibArtist,
-                                       polyCollectionPathIndexFromXY, regex_dict_val, datetime2timespec,
-                                       convertFormattedTimeToTime, getPolyCollectionData, mpl_version_int)
+                                  generateRandomMatplotColours2, saveMatplotLibArtist,
+                                  polyCollectionPathIndexFromXY, regex_dict_val, datetime2timespec,
+                                  convertFormattedTimeToTime, getPolyCollectionData, mpl_version_int,
+                                  findAllMeshLyrs, tuflowqgis_find_layer)
 from .tuflowqgis_tuplot3d import (TuPlot3D, ColourBar)
 
 
@@ -2857,6 +2858,8 @@ class TuPlot():
 		# 	else:
 		# 		self.clearPlot(0, retain_flow=retainFlow)
 
+		self.make_1d_2d_rt_consistent(self.tuView.tuResults.results)
+
 		self.clearPlot2(TuPlot.TimeSeries, clearType, clear_rubberband=False, clear_selection=False)
 		
 		if plot.lower() != '1d only' and plot.lower() != 'flow only' and update != '1d only':
@@ -2995,6 +2998,7 @@ class TuPlot():
 		# if not plot:
 		# 	self.clearPlot(1)
 		# 	#self.clearedLongPlot = False
+		self.make_1d_2d_rt_consistent(self.tuView.tuResults.results)
 		self.clearPlot2(TuPlot.CrossSection, clear_rubberband=False, clear_selection=False)
 		
 		if plot.lower() != '1d only':
@@ -3154,6 +3158,8 @@ class TuPlot():
 							time = zt + datetime.timedelta(hours=time)
 						else:
 							time = datetime.datetime.strptime(time, self.tuView.tuResults.dateFormat)
+
+		self.make_1d_2d_rt_consistent(self.tuView.tuResults.results)
 
 		self.clearPlot2(TuPlot.VerticalProfile, clear_rubberband=False, clear_selection=False)
 
@@ -4813,6 +4819,30 @@ class TuPlot():
 		self.timeSeries_labels_about_to_break = 0
 		self.crossSection_labels_about_to_break = 0
 		self.verticalProfile_labels_about_to_break = 0
+
+	def make_1d_2d_rt_consistent(self, results):
+		meshLayers = findAllMeshLyrs()
+		ref_time_changed = False
+		for ml in meshLayers:
+			ml = tuflowqgis_find_layer(ml)
+			if ml is None:
+				continue
+			if ml.name() not in results:
+				continue
+			for result_type in results[ml.name()]:
+				if not self.tuView.tuResults.isTimeSeriesType(result_type):
+					continue
+				rt = self.tuView.tuResults.tuResults2D.getReferenceTime(ml, self.tuView.tuOptions.defaultZeroTime)
+				if 'referenceTime' not in results[ml.name()][result_type]:
+					ref_time_changed = True
+				elif results[ml.name()][result_type]['referenceTime'] != rt:
+					ref_time_changed = True
+				if ref_time_changed:
+					results[ml.name()][result_type]['referenceTime'] = rt
+
+		if ref_time_changed:
+			self.tuView.tuResults.updateDateTimes()
+			# self.tuView.tuResults.updateResultTypes()
 
 
 class TuflowPipe(Polygon):

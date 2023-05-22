@@ -1,6 +1,7 @@
 __VK__ = '0000000000-000000000000-000000000000'
 import os, sys
 import re
+from datetime import datetime, timedelta
 from qgis.core import (QgsApplication, QgsMapLayer, QgsVectorLayer,
                        QgsProject, QgsWkbTypes, QgsUnitTypes)
 import processing
@@ -10,11 +11,9 @@ from PyQt5.QtGui import QIcon, QRegExpValidator, QPalette
 from PyQt5.QtWidgets import (QDockWidget, QLineEdit, QFileDialog,
                              QComboBox, QMessageBox, QLabel, QListWidgetItem,
                              QWidget, QCheckBox, QHBoxLayout, QSpacerItem, QSizePolicy,
-                             QLayout)
+                             QLayout, QTableWidgetItem, QListWidget)
 from .refh2_dock import Ui_refh2
 from .engine import Refh2
-from ..tuflowqgis_library import (tuflowqgis_find_layer, browse, convertFormattedTimeToTime,
-                                       makeDir, convertFormattedTimeToFormattedTime)
 
 
 
@@ -1397,3 +1396,255 @@ class Refh2Dock(QDockWidget, Ui_refh2):
             self.btnOutfile.clicked.disconnect()
         except:
             pass
+
+
+def tuflowqgis_find_layer(layer_name, **kwargs):
+    search_type = kwargs['search_type'] if 'search_type' in kwargs.keys() else 'name'
+    return_type = kwargs['return_type'] if 'return_type' in kwargs else 'layer'
+
+    for name, search_layer in QgsProject.instance().mapLayers().items():
+        if search_type.lower() == 'name':
+            if search_layer.name() == layer_name:
+                if return_type == 'layer':
+                    return search_layer
+                elif return_type == 'layerid':
+                    return name
+                elif return_type == 'name':
+                    return search_layer.name()
+                else:
+                    return name
+        elif search_type.lower() == 'layerid':
+            if name == layer_name:
+                if return_type == 'layer':
+                    return search_layer
+                elif return_type == 'layerid':
+                    return name
+                elif return_type == 'name':
+                    return search_layer.name()
+                else:
+                    return name
+
+        elif search_type.lower() == 'datasource':
+            if search_layer.dataProvider().dataSourceUri() == layer_name:
+                if return_type == 'layer':
+                    return search_layer
+                elif return_type == 'layerid':
+                    return name
+                elif return_type == 'name':
+                    return search_layer.name()
+                else:
+                    return name
+
+    return None
+
+
+def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
+           dialogName: str = "TUFLOW", fileType: str = "ALL (*)",
+           lineEdit=None, icon: QIcon = None, action=None, allowDuplicates=True, default_filename=None) -> None:
+    """
+    Browse folder directory
+
+    :param parent: QWidget Parent widget
+    :param type: str browse type 'folder' or 'file'
+    :param key: str settings key
+    :param dialogName: str dialog box label
+    :param fileType: str file extension e.g. "AVI files (*.avi)"
+    :param lineEdit: QLineEdit to be updated by browsing
+    :param icon: QIcon dialog window icon
+    :param action: lambda function
+    :param bool: noDuplicates - if adding to list widget, don't allow duplicate entries
+    :return: str
+    """
+
+    settings = QSettings()
+    lastFolder = settings.value(key)
+
+    startDir = os.getcwd()
+    if lineEdit is not None:
+        if type(lineEdit) is QLineEdit:
+            if not re.findall(r'^<.*>$', lineEdit.text()) and lineEdit.text():
+                startDir = lineEdit.text()
+        elif type(lineEdit) is QComboBox:
+            if not re.findall(r'^<.*>$', lineEdit.currentText()) and lineEdit.currentText():
+                startDir = lineEdit.currentText()
+
+    if lastFolder and startDir == os.getcwd():  # if outFolder no longer exists, work backwards in directory until find one that does
+        if os.path.exists(os.path.splitdrive(lastFolder)[0]):
+            pattern = r'[a-z]\:\\$'  # windows root drive directory
+            loop_limit = 100
+            loop_count = 0
+            while lastFolder:
+                if os.path.exists(lastFolder):
+                    startDir = lastFolder
+                    break
+                elif not lastFolder:
+                    startDir = lastFolder
+                    break
+                elif re.findall(pattern, lastFolder, re.IGNORECASE):
+                    startDir = ''
+                    break
+                elif loop_count > loop_limit:
+                    startDir = ''
+                    break
+                else:
+                    lastFolder = os.path.dirname(lastFolder)
+                    loop_count += 1
+    if default_filename:
+        startDir = os.path.join(startDir, default_filename)
+    dialog = QFileDialog(parent, dialogName, startDir, fileType)
+    f = []
+    if icon is not None:
+        dialog.setWindowIcon(icon)
+    if browseType == 'existing folder':
+        dialog.setAcceptMode(QFileDialog.AcceptOpen)
+        dialog.setFileMode(QFileDialog.Directory)
+        dialog.setOption(QFileDialog.ShowDirsOnly)
+        dialog.setViewMode(QFileDialog.Detail)
+    # f = QFileDialog.getExistingDirectory(parent, dialogName, startDir)
+    elif browseType == 'existing file':
+        dialog.setAcceptMode(QFileDialog.AcceptOpen)
+        dialog.setFileMode(QFileDialog.ExistingFile)
+        dialog.setViewMode(QFileDialog.Detail)
+    # f = QFileDialog.getOpenFileName(parent, dialogName, startDir, fileType)[0]
+    elif browseType == 'existing files':
+        dialog.setAcceptMode(QFileDialog.AcceptOpen)
+        dialog.setFileMode(QFileDialog.ExistingFiles)
+        dialog.setViewMode(QFileDialog.Detail)
+    # f = QFileDialog.getOpenFileNames(parent, dialogName, startDir, fileType)[0]
+    elif browseType == 'output file':
+        dialog.setAcceptMode(QFileDialog.AcceptSave)
+        dialog.setFileMode(QFileDialog.AnyFile)
+        dialog.setViewMode(QFileDialog.Detail)
+    elif browseType == 'output database':
+        dialog.setAcceptMode(QFileDialog.AcceptSave)
+        dialog.setFileMode(QFileDialog.AnyFile)
+        dialog.setViewMode(QFileDialog.Detail)
+        dialog.setOptions(QFileDialog.DontConfirmOverwrite)
+    # f = QFileDialog.getSaveFileName(parent, dialogName, startDir, fileType)[0]
+    else:
+        return
+    if dialog.exec():
+        f = dialog.selectedFiles()
+    if f:
+        if type(f) is list:
+            fs = ''
+            for i, a in enumerate(f):
+                if i == 0:
+                    value = a.replace('/', os.sep).replace('\\', os.sep)
+                    fs += a.replace('/', os.sep).replace('\\', os.sep)
+                else:
+                    fs += ';;' + a.replace('/', os.sep).replace('\\', os.sep)
+            f = fs
+        else:
+            f = f.replace('/', os.sep).replace('\\', os.sep)
+            value = f
+        f = re.sub(r'[\\/]', re.escape(os.sep), f)  # os slashes
+        settings.setValue(key, value)
+        if lineEdit is not None:
+            if type(lineEdit) is QLineEdit:
+                lineEdit.setText(f)
+            elif type(lineEdit) is QComboBox:
+                lineEdit.setCurrentText(f)
+            elif type(lineEdit) is QTableWidgetItem:
+                lineEdit.setText(f)
+            elif type(lineEdit) is QModelIndex:
+                lineEdit.model().setData(lineEdit, f, Qt.EditRole)
+            elif type(lineEdit) is QListWidget:
+                items = [lineEdit.item(x).text() for x in range(lineEdit.count())]
+                for f2 in f.split(';;'):
+                    if not allowDuplicates:
+                        if f2 not in items:
+                            lineEdit.addItem(f2)
+                    else:
+                        lineEdit.addItem(f2)
+                for i in range(lineEdit.count()):
+                    item = lineEdit.item(i)
+                    if item.text() in f.split(';;'):
+                        item.setSelected(True)
+        else:
+            if browseType == 'existing files':
+                return f.split(';;')
+            else:
+                return f
+
+        if action is not None:
+            action()
+
+
+def convertFormattedTimeToTime(formatted_time, hour_padding=2, unit='h'):
+    """
+    Converts formatted time hh:mm:ss.ms to time (hours or seconds)
+
+    :param formatted_time: str
+    :return: float
+    """
+
+    t = formatted_time.split(':')
+    if len(t) < 3:
+        return 0
+    h = int(t[0]) if t[0] != '' else 0
+    m = int(t[1]) if t[1] != '' else 0
+    s = float(t[2]) if t[2] != '' else 0
+
+    d = timedelta(hours=h, minutes=m, seconds=s)
+
+    if unit == 's':
+        return d.total_seconds()
+    else:
+        return d.total_seconds() / 3600
+
+
+def makeDir(path: str) -> bool:
+    """
+    Makes directory - will brute force make a directory
+
+    :param path: str full path to dir
+    :return: bool
+    """
+
+    # make sure separators are in
+    # operating system format
+    ospath = path.replace("/", os.sep)
+    path_comp = ospath.split(os.sep)
+
+    # work out where directories
+    # need to be made
+    i = 0
+    j = len(path_comp) + 1
+    testpath = os.sep.join(path_comp)
+    while not os.path.exists(testpath):
+        i += 1
+        testpath = os.sep.join(path_comp[:j - i])
+        if not testpath:
+            return False
+
+    # now work in reverse and create all
+    # required directories
+    for k in range(i - 1):
+        i -= 1
+        try:
+            os.mkdir(os.sep.join(path_comp[:j - i]))
+        except FileNotFoundError:
+            return False
+        except OSError:
+            return False
+
+    return True
+
+
+def convertFormattedTimeToFormattedTime(formatted_time: str, return_format: str = '{0:02d}:{1:02d}:{2:02.0f}') -> str:
+    """
+    Converts formatted time hh:mm:ss.ms to another formatted time string. Benefit is that it can
+    take non digit characters e.g. '_'
+
+    :param formatted_time: str
+    :param return_format: str format of the return time string
+    :return: str
+    """
+
+    t = formatted_time.split(':')
+    h = int(t[0]) if t[0] != '' else 0
+    m = int(t[1]) if t[1] != '' else 0
+    s = float(t[2]) if t[2] != '' else 0
+
+    return return_format.format(h, m, s)

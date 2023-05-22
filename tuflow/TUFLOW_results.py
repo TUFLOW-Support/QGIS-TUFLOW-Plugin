@@ -3588,7 +3588,7 @@ class ResData():
 			elif '1D NODE FLOW REGIME' in type.upper():
 				if 'Flow Regime' not in types:
 					types.append('Flow Regime')
-			elif 'DEPTH' in type.upper() and 'GROUNDWATER' not in type.upper():
+			elif 'DEPTH' in type.upper() and 'GROUNDWATER' not in type.upper() and 'GW' not in type.upper():
 				types.append('Depth')
 			else:
 				res = self.Data_2D.dynamic_results.get(type)
@@ -3632,7 +3632,7 @@ class ResData():
 					types.append('Flow Regime')
 			elif '1D CHANNEL LOSSES' in type.upper():
 				types.append('Losses')
-			elif 'FLOW' in type.upper() and 'GROUNDWATER' not in type.upper():
+			elif 'FLOW' in type.upper() and 'GROUNDWATER' not in type.upper() and 'GW' not in type.upper():
 				types.append('Flow')
 			#elif 'DEPTH' in type.upper():
 			#	types.append('Depth')

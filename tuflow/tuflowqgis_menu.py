@@ -67,12 +67,14 @@ if os.path.exists(os.path.join(refh2dir, 'refh2.pyd')):
 	                os.path.join(tmpdir, "refh2.pyd"))
 		sys.path.append(tmpdir)
 		from refh2 import Refh2Dock
-	except:
+	except Exception as e:
+		print(e)
 		Refh2Dock = None
 else:
 	try:
-		from tuflow.ReFH2.refh2 import Refh2Dock
-	except:
+		from .ReFH2.refh2 import Refh2Dock
+	except Exception as e:
+		print(e)
 		Refh2Dock = None
 
 # from tuflow.ReFH2.refh2 import Refh2Dock
@@ -817,11 +819,12 @@ class tuflowqgis_menu:
 			else:
 				if old_method:
 					error, message, scenarios = getScenariosFromTcf(inFileName)
+					events = []
 				else:
 					error, message = False, ''
-					scenarios = []
+					scenarios, events = [], []
 					try:
-						getScenariosFromTCF_v2(inFileName, scenarios)
+						getScenariosFromTCF_v2(inFileName, scenarios, events)
 					except Exception:
 						error = True
 						exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -831,16 +834,17 @@ class tuflowqgis_menu:
 					if message:
 						QMessageBox.information(self.iface.mainWindow(), "Message", message)
 					return
-				if len(scenarios) > 0:
-					self.dialog = tuflowqgis_scenarioSelection_dialog(self.iface, inFileName, scenarios)
+				if scenarios or events:
+					self.dialog = tuflowqgis_scenarioSelection_dialog(self.iface, inFileName, scenarios, events)
 					if not old_method:
 						self.dialog.setOptionsVisible(True)
 					self.dialog.exec_()
 					if not self.dialog.status:
 						return
 					scenarios = self.dialog.scenarios[:]
+					events = self.dialog.events[:]
 				else:
-					scenarios = []
+					scenarios, events = [], []
 					if not options_called:
 						result = LoadTCFOptionsMessageBox(self.iface.mainWindow(), 'Load Layers from Control File')
 						options_called = True
@@ -862,7 +866,7 @@ class tuflowqgis_menu:
 					self.prog_dialog.setFixedSize(QSize(500, 75))
 					self.prog_dialog.show()
 					self.model_file_layers = ModelFileLayers()
-					self.load_gis = LoadGisFromControlFile(self.model_file_layers, inFileName, None, scenarios)
+					self.load_gis = LoadGisFromControlFile(self.model_file_layers, inFileName, None, scenarios, events)
 					self.thread = QThread()
 					self.load_gis.moveToThread(self.thread)
 					self.thread.started.connect(self.load_gis.loadGisFromControlFile_v2)

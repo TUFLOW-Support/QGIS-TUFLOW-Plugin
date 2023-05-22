@@ -913,7 +913,16 @@ class TuResults2D():
 			layers = self.activeMeshLayers[:]
 
 		for layer in layers:
-			node = QgsProject.instance().layerTreeRoot().findLayer(layer.id())
+			try:
+				node = QgsProject.instance().layerTreeRoot().findLayer(layer.id())
+			except RuntimeError:
+				try:
+					self.activeMeshLayers.remove(layer)
+				except ValueError:
+					pass
+				except RuntimeError:
+					pass
+				continue
 			if turn_off:
 				activeScalarIndex = None
 				activeVectorIndex = None

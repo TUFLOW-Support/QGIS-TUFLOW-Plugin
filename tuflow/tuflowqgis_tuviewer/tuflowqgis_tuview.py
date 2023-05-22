@@ -1314,6 +1314,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 	def showAsDatesToggled(self):
 		self.tuOptions.xAxisDates = self.cbShowAsDates.isChecked()
 		self.tuResults.updateTimeUnits()
+		self.tuResults.updateDateTimes()
 
 	def iconSizeChanged(self, size):
 		self.toolbarIconSizeChanged(size, self.tuPlot.tuPlotToolbar.mpltoolbarTimeSeries, self.mplToolbarFrame)

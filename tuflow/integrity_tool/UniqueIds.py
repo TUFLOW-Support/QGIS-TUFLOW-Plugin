@@ -1,6 +1,7 @@
 import re
 from PyQt5.QtCore import QObject, pyqtSignal
 from qgis.core import QgsVectorLayer, NULL, QgsProject, QgsFeature, QgsField
+from datetime import datetime
 
 
 MAX_FIELD_LENGTH_PRE_2020_01_AB = 12
@@ -13,9 +14,11 @@ class FeatKey:
     def __init__(self, lyr, feat):
         self.feat = feat
         self.lyr = lyr
+        self.index = datetime.timestamp(datetime.now())
+        self.id = str(self.lyr.id()) + str(self.feat.id()) + str(self.index)
 
     def __hash__(self):
-        return object.__hash__(str(self.lyr.id()) + str(self.feat.id()))
+        return object.__hash__(self.id)
 
 
 class DuplicateRule:

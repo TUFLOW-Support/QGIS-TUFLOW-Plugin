@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.8.1
+version=3.8.2
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,28 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=--- 3.8.1 ---
+changelog=--- 3.8.2 ---
+          - New Features and Updates -
+          Load from TCF - Adds new option to load layers sorted by control file order (exactly or group raster separately)
+          Load From TCF - Layers inside an 'IF Event' logic block will now be available for selection - previously only 'IF Scenario' options would be available to the user
+          Load from TCF - Keep blue highlighting in selection widgets even when they lose focus
+          Import Empty - Adds 'Import into Kart Repo' option
+
+          - Bug Fixes -
+          TUFLOW Viewer - Fixes bug that could cause strange plotting behaviour when 1D/2D results were both loaded and the reference time was changed for the 2D results
+          TUFLOW Viewer - not always picking up 1d_xs layers from GPKG
+          TUFLOW Viewer - Fixes bug that would sometimes not show all available groundwater PO outputs
+          TUFLOW Viewer - Fixes bug that could cause python error when trying to close a result just after TUFLOW is started overrided the same result layer
+          Load from TCF - Fixes bug that could cause a load error if the output folder was a Windows path variable
+          Load From TCF - MIF layers with 2 geometry types will now correctly load in line types which could sometimes not load in correctly
+          ReFH2 to TUFLOW - Fixes tool not initialising correctly when plugin is loaded which was causing 'unexpected' error when the tool was opened by user
+          Arch Bridge Editor - fixes bug that would not recognise GPKG input layers as 1d_nwk
+          1D Integrity Tool - fixes python error that could occur if no points where included when running the snapping tool
+          1D Integrity Tool - Fixes bug that could cause python error due to non-unique indexing internally
+          Increment Layer - Fixes a bug that would lead to strange autofilled increment names (or python errors) when the source layer name was using letters along side version number e.g. '002b'
+          Configure Project - Updates to latest vector file creation functions in QGIS. Projection.shp causes error in QGIS 3.30
+
+          --- 3.8.1 ---
           - Bug Fixes -
            TUFLOW Viewer - A rogue import statement was causing the plugin to not load
            TUFLOW Viewer - fixes bug that would not correctly update newly selected result in open result widget
