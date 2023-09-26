@@ -783,11 +783,26 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 						timetext = dialog.tuView.tuResults.time2date_tspec[time]
 						timetext = dialog.tuView.tuResults._dateFormat.format(timetext)
 		else:
-			if dialog.tuView.tuOptions.xAxisDates:
-				timetext = dialog.tuView.tuResults._dateFormat.format(time)
+			if 'layout' in cfg and 'time' in cfg['layout'] and 'format' in cfg['layout']['time'] and cfg['layout']['time']['format']:
+				if dialog.tuView.tuOptions.xAxisDates:
+					timetext = time.strftime(cfg['layout']['time']['format'])
+				else:
+					hrs = (time - cfg['reference_time']).total_seconds() / 60. / 60.
+					t = datetime(2000, 1, 1) + timedelta(hours=hrs)
+					if '%d' in cfg['layout']['time']['format']:
+						days = hrs // 24
+						fmt = cfg['layout']['time']['format'].replace('%d', '{:d}'.format(int(days)))
+						timetext = t.strftime(fmt)
+					else:
+						timetext = t.strftime(cfg['layout']['time']['format'])
+				if '%f' in cfg['layout']['time']['format']:
+					timetext = timetext[:-4]
 			else:
-				hrs = (time - cfg['reference_time']).total_seconds() / 60. / 60.
-				timetext = convertTimeToFormattedTime(hrs, unit='h')
+				if dialog.tuView.tuOptions.xAxisDates:
+					timetext = dialog.tuView.tuResults._dateFormat.format(time)
+				else:
+					hrs = (time - cfg['reference_time']).total_seconds() / 60. / 60.
+					timetext = convertTimeToFormattedTime(hrs, unit='h')
 		cfg['time text'] = timetext
 
 
@@ -963,16 +978,16 @@ def legend(ax, position):
 def createDefaultSymbol(gtype):
 	if gtype == 'rubberband profile':
 		color = '255, 0, 0'
-		symbol = QgsSymbol.defaultSymbol(1)
+		symbol = QgsSymbol.defaultSymbol(QgsWkbTypes.LineGeometry)
 	elif gtype == 'rubberband flow':
 		color = '0, 0, 255'
-		symbol = QgsSymbol.defaultSymbol(1)
+		symbol = QgsSymbol.defaultSymbol(QgsWkbTypes.LineGeometry)
 	elif gtype == 'curtain':
 		color = '0, 255, 0'
-		symbol = QgsSymbol.defaultSymbol(1)
+		symbol = QgsSymbol.defaultSymbol(QgsWkbTypes.LineGeometry)
 	elif gtype == 'marker':
 		color = '255, 0, 0'
-		symbol = QgsSymbol.defaultSymbol(1)
+		symbol = QgsSymbol.defaultSymbol(QgsWkbTypes.LineGeometry)
 	layer_style = {}
 	layer_style['color'] = color
 	layer_style['outline'] = '#000000'
@@ -2648,6 +2663,16 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 				else:
 					print(msg)
 				return
+		if self.groupTime.isChecked():
+			if self.le_time_format.text():
+				try:
+					_ = datetime.now().strftime(self.le_time_format.text())
+				except Exception as e:
+					if self.tuView.iface is not None:
+						QMessageBox.information(self, 'Input Error', 'Invalid Time Format: error message - {0}'.format(e))
+					else:
+						print('Invalid Time Format: error message - {0}'.format(e))
+					return
 
 		# Video Tab
 		if not preview:
@@ -2929,6 +2954,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			titleProp['position'] = self.cboPosTitle.currentIndex()
 		timeProp = {}
 		if self.groupTime.isChecked():
+			timeProp['format'] = self.le_time_format.text()
 			timeProp['label'] = self.labelTime.text()
 			timeProp['font'] = self.fbtnTime.currentFont()
 			timeProp['font colour'] = self.colorTimeText.color()

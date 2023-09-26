@@ -26,7 +26,7 @@
          <x>0</x>
          <y>0</y>
          <width>534</width>
-         <height>1770</height>
+         <height>1785</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_17">
@@ -1326,20 +1326,51 @@
                 </layout>
                </item>
                <item>
-                <spacer name="verticalSpacer">
-                 <property name="orientation">
-                  <enum>Qt::Vertical</enum>
+                <widget class="QLabel" name="label_28">
+                 <property name="text">
+                  <string>FEH Rainfall Model</string>
                  </property>
-                 <property name="sizeType">
-                  <enum>QSizePolicy::Fixed</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>20</width>
-                   <height>10</height>
-                  </size>
-                 </property>
-                </spacer>
+                </widget>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_52">
+                 <item>
+                  <widget class="QRadioButton" name="rbRainfall2022">
+                   <property name="text">
+                    <string>2022</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                   <attribute name="buttonGroup">
+                    <string notr="true">buttonGroup_5</string>
+                   </attribute>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QRadioButton" name="rbRainfall2013">
+                   <property name="text">
+                    <string>2013</string>
+                   </property>
+                   <attribute name="buttonGroup">
+                    <string notr="true">buttonGroup_5</string>
+                   </attribute>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_39">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
                </item>
                <item>
                 <widget class="QLabel" name="label_11">
@@ -1424,19 +1455,6 @@
                   </spacer>
                  </item>
                 </layout>
-               </item>
-               <item>
-                <spacer name="verticalSpacer_3">
-                 <property name="orientation">
-                  <enum>Qt::Vertical</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>20</width>
-                   <height>10</height>
-                  </size>
-                 </property>
-                </spacer>
                </item>
                <item>
                 <widget class="QLabel" name="label_9">
@@ -2932,18 +2950,19 @@
  </customwidgets>
  <resources>
   <include location="../resources/tuflow.qrc"/>
-  <include location="../resources/TUFLOW_logo.qrc"/>
+  <include location="../resources/tuflow.qrc"/>
  </resources>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_4"/>
-  <buttongroup name="buttonGroup"/>
-  <buttongroup name="buttonGroup_9"/>
-  <buttongroup name="buttonGroup_2"/>
-  <buttongroup name="buttonGroup_10"/>
-  <buttongroup name="buttonGroup_8"/>
-  <buttongroup name="buttonGroup_3"/>
   <buttongroup name="buttonGroup_7"/>
   <buttongroup name="buttonGroup_6"/>
+  <buttongroup name="buttonGroup_10"/>
+  <buttongroup name="buttonGroup_8"/>
+  <buttongroup name="buttonGroup_9"/>
+  <buttongroup name="buttonGroup_3"/>
+  <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup_5"/>
  </buttongroups>
 </ui>

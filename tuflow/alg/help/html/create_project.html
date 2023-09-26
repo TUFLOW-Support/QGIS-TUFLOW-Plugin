@@ -1,0 +1,22 @@
+<h3>Description</h3>
+
+<p>This tool creates a TUFLOW project with the following features:
+* Creates the TUFLOW folder structure
+* Generates the empty input files
+* Creates a template TUFLOW control files (.tcf, .tgc, etc.)
+* Saves the settings to the QGIS project and JSON file which can be used by the other TUFLOW tools. JSON file allows settings to be copied and shared between users and projects more easily.</p>
+
+<p>Note this tool currently only supports TUFLOW Classic / HPC.</p>
+
+<h3>Parameters</h3>
+
+<ol>
+<li><strong>Project Name</strong>: The name of the project. This will be used to help name the input files. The name should  avoid spaces and other characters not supported in file paths (e.g. <code>/\:*?"&lt;&gt;|</code>).</li>
+<li><strong>Project Folder</strong>: The location of the project folder.</li>
+<li><strong>Project CRS</strong>: The Co-ordinate Reference System used for the project.</li>
+<li><strong>Default GIS Format</strong>: The default GIS format (GPKG, SHP, MIF) to use for the project.</li>
+<li><strong>TUFLOW Executable</strong>: The location of the TUFLOW executable.</li>
+<li><strong>Create Empty Files</strong>: If checked, will (re)generate empty files.</li>
+<li><strong>Create Folder Structure</strong>: If checked, will create the TUFLOW folder structure. Only creates the folder structure if it does not already exist.</li>
+<li><strong>Setup Control File Templates</strong>: If checked, will create a series of template control files that can be used as inputs to TUFLOW. Note, the templates are not complete and require further editing by the user before use. The settings and inputs used in the templates are not considered to be final and appropriate for all models, in fact most of them are simply examples and should be treated as such.</li>
+</ol>

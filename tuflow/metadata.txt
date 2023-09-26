@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.8.2
+version=3.9
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,52 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=--- 3.8.2 ---
+changelog=--- 3.9 ---
+          - New Features and Enhancements -
+          TUFLOW Viewer - Adds BC tables check file (1D)
+          TUFLOW Viewer - Animation supports user defined time formatting
+          TUFLOW Viewer - Flood modeller results can now be shown on cross-section even if they don't intersect the PLOT_P points if they have the same name
+          ReFH2 to TUFLOW - Rainfall model FEH2022 now supported in tool
+          TUFLOW Plugin Downloader - Adds button to copy the download path to the clipboard
+          Increment Layer - New tool in layer context menu (new tools but similar to existing import empty tool)
+          Import Empty - New tool in TUFLOW processing toolbox (very similar to existing import empty)
+          Create Project - New tool in TUFLOW processing toolbox (very similar to configure project)
+          Adds new/missing empty types to the empty tooltips (2d_bg, 1d_bg, 1d_lc)
+          Adds Filter Message by ID to TUFLOW context menu for messages_P layers
+          Adds TUFLOW Context menu to QGIS Layers Panel
+          Adds 'Copy TUFLOW Command' tool to TUFLOW context menu
+          Package Model - Package Model (using TUFLOW.exe) added to the TUFLOW toolbox
+          TUFLOW Utilities - GPKG rasters now supported when adding opened layers
+          Apply GPKG Layer Names - GPKG rasters now supported
+          Load from TCF - Older style 'ESTRY CONTROL FILE AUTO' syntax now supported
+          SWAN GIS - updated version to latest available
+          Style Current Layer - _ccA_L result file now has default styling
+          ARR to TUFLOW - LIMB data will now be processed if available
+          ARR to TUFLOW - Removes longitude limit (>153.2999)
+          Incremenet Layer - Adds user check when overwriting an existing layer in a GPKG
+
+          - Bug Fixes -
+          TUFLOW Viewer - Time series results are now loaded correctly using 'utf-8' encoding which enables handling of special characters
+          TUFLOW Viewer - Loading NetCDF Grids will now try and load all selected layers before reporting errors
+          TUFLOW Viewer - Results with only maximums will now appear in relevant plot menus
+          TUFLOW Viewer - fixes loading netCDF raster as mesh
+          TUFLOW Viewer - XS deactivation was only working when using the MAT approach
+          TUFLOW Viewer - Loading mesh layers on when TUFLOW Viewer is opened was getting tangled if layers of different types (vector layers / mesh layers) had the same name
+          TUFLOW Viewer - Fixes flood modeller result cross-sections not loading when X,Y coordinate did not contain a space between them in DAT file
+          TUFLOW Viewer - Fixes animations with embedded plots not working in QGIS 3.30
+          TUFLOW Viewer - Fixes bug introduced in 3.8.2 that prevented NetCDF grid results from being loaded (produced python error about missing 'events' argument)
+          TUFLOW Utilities - Fixes bug in asc_to_asc brkline tool where the vector layer was being passed into the utility instead of the raster layer
+          TUFLOW Utilities - Fixes bug where no 'browse' buttons were working
+          TUFLOW Utilities - Downloader was hanging indefinitely due to a python error on a separate thread in QGIS 3.32 (caused by new numpy version)
+          Configure Project - Fixes bug that would not correctly save empty file location for TUFLOW FV
+          TUFLOW Styling - Fixes default styling for sac_check_R
+          TUFLOW Styling - ISIS 1d_nwk layers are now given a single styling previously would cause python error because they are not guaranteed to have the standard 1d_nwk fields
+          Convert Model GIS Format - Fixes bug that cause new filepaths to be incorrect when convert filename that were only a number (e.g. 001.tgc)
+          Load from TCF - fixes bug that would not load layers if brackets were included in file path
+          Load from TCF - fixes issue that would cause a python error if there was a '|' at the end of a GIS input command
+
+
+          --- 3.8.2 ---
           - New Features and Updates -
           Load from TCF - Adds new option to load layers sorted by control file order (exactly or group raster separately)
           Load From TCF - Layers inside an 'IF Event' logic block will now be available for selection - previously only 'IF Scenario' options would be available to the user

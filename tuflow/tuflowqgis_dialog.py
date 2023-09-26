@@ -506,6 +506,10 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		return SuperSededRun(str(db), lyrname, str(out_db), out_lyrname)
 
 	def run(self):
+		try:
+			from .convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.gis import GPKG
+		except ImportError:
+			from .compatibility_routines import GPKG
 		# ss layer
 		if self.isgpkg and self.rbSaveLayerOut.isChecked():
 			ss_run = self.setup_ss_run()
@@ -553,10 +557,20 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		# check if file exists
 		if os.path.isfile(savename):
 			# ask if the user wants to override data
-			override_existing = QMessageBox.question(self, "Increment Layer", 'File alreay exists. Do you want to replace the existing file?',
+			override_existing = QMessageBox.question(self, "Increment Layer", 'File already exists. Do you want to replace the existing file?',
 			                                         QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
 			if override_existing == QMessageBox.No or override_existing == QMessageBox.Cancel:
 				return
+
+		try:
+			if self.isgpkg and outname in GPKG(outfolder).layers():
+				override_existing = QMessageBox.question(self, "Increment Layer", '{0} already exists within output GPKG database. Do you want to replace the existing layer?'.format(outname),
+				                                         QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+				if override_existing != QMessageBox.Yes:
+					return
+		except Exception as e:
+			print('Error determining if layer exists in GPKG database.')
+			print(e)
 		
 		# duplicate layer with incremented name
 		if self.isgpkg:
@@ -670,18 +684,13 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		self.sizes = self.splitter.sizes()
 		if not showToolTip:
 			self.sizes[1] = 20
-		
+
 		# find out which tuflow engine to use
 		self.engine = 'classic'  # set a default - other option is 'flexible mesh'
 		self.tfsettings = TF_Settings()
 		error, message = self.tfsettings.Load()
 		if self.tfsettings.project_settings.engine:
 			self.engine = self.tfsettings.project_settings.engine
-		
-		# load stored settings
-		error, message = self.tfsettings.Load()
-		if error:
-			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Settings: "+message)
 			
 		engine = self.tfsettings.combined.engine
 		self.parent_folder_name = 'TUFLOWFV' if engine == 'flexible mesh' else 'TUFLOW'
@@ -1534,10 +1543,11 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		self.tfsettings.project_settings.base_dir = basedir
 		self.tfsettings.project_settings.engine = engine
 		self.tfsettings.project_settings.tutorial = tutorial
+		tf_folder = 'TUFLOW' if engine == 'classic' else 'TUFLOWFV'
 		if re.findall(r'TUFLOW\\?$', basedir, flags=re.IGNORECASE):
 			empty_dir = os.path.join(basedir, 'model', 'gis', 'empty')
 		else:
-			empty_dir = os.path.join(basedir, 'TUFLOW', 'model', 'gis', 'empty')
+			empty_dir = os.path.join(basedir, tf_folder, 'model', 'gis', 'empty')
 
 		self.tfsettings.project_settings.empty_dir = empty_dir
 		error, message = self.tfsettings.Save_Project()
@@ -2518,6 +2528,11 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 				else:
 					preburst_pattern_dur = self.cboDurTP.currentText()
 
+		# LIMB data
+		limb = 'none'
+		if self.cbLIMB.isChecked():
+			limb = self.cboLIMB.currentText()
+
 		
 		# get system arguments and call ARR2016 tool
 		# use QThread so that progress bar works properly
@@ -2543,7 +2558,8 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			            '-complete_storm', complete_storm, '-preburst_pattern_method', preburst_pattern,
 			            '-preburst_pattern_dur', preburst_pattern_dur, '-preburst_pattern_tp', preburst_pattern_tp,
 			            '-preburst_dur_proportional', preburst_proportional,
-			            '-global_continuing_loss', globalCL]
+			            '-global_continuing_loss', globalCL,
+			            '-limb', limb]
 			self.arr2016.append(sys_args, name_list[i])
 			
 		self.arr2016.moveToThread(self.thread)
@@ -3174,7 +3190,7 @@ from .forms.ui_tuflowqgis_scenarioSelection import *
 
 
 class tuflowqgis_scenarioSelection_dialog(QDialog, Ui_scenarioSelection):
-	def __init__(self, iface, tcf, scenarios, events):
+	def __init__(self, iface, tcf, scenarios, events=()):
 		QDialog.__init__(self)
 		self.setupUi(self)
 		self.scenario_lw.setStyleSheet("QListWidget:!active { selection-color: white; selection-background-color: #1383DC }")
@@ -3237,7 +3253,7 @@ class tuflowqgis_scenarioSelection_dialog(QDialog, Ui_scenarioSelection):
 
 	def setOptionsVisible(self, b):
 		widget = [self.label, self.rbGrouped, self.rbUngrouped, self.label_2, self.rbRasterLoad, self.rbRasterNoLoad,
-				  self.rbRasterLoadInvisible]
+				  self.rbRasterLoadInvisible, self.label_3, self.rbOrderAlpha, self.rbOrderCF, self.rbOrderCFRev]
 		for w in widget:
 			w.setVisible(b)
 
@@ -5157,6 +5173,8 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 		self.xmdf_header = None
 		self.cboToGisMeshDataset.currentIndexChanged.connect(self.tuflow_to_gis_result_type_changed)
 
+		self.connectBrowseButtons()
+
 	def toggle_output_format(self):
 		QSettings().setValue('TUFLOW/asc_to_asc_output_format', self.cbo_output_format.currentText())
 
@@ -5202,7 +5220,6 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 				break
 
 		self.toggle_new_asc_format()
-		self.connectBrowseButtons()
 
 	def findFile(self):
 		if not self.leAdvWorkingDir.text():
@@ -5259,7 +5276,10 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 		             'res_to_res': self.leRes2Res, '12da_to_from_gis': self.le12da2GIS,
 		             'convert_to_ts1': self.leConvert2TS1, 'tin_to_tin': self.leTin2Tin,
 		             'xsGenerator': self.leXSGenerator}
-		
+		if self.downloadUtilities.error:
+			QMessageBox.critical(self, "TUFLOW Utilities", self.downloadUtilities.errmsg)
+			self.progressDialog.accept()
+			return
 		for key, value in e.items():
 			utilities[key].setText(value)
 		self.progressDialog.accept()
@@ -5302,7 +5322,8 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 			else:
 				layer = tuflowqgis_find_layer(self.cboGrid.currentText().strip('"').strip("'"))
 				if layer is not None:
-					dataSource = layer.dataProvider().dataSourceUri()
+					layer_helper = LayerHelper(layer)
+					dataSource = layer_helper.tuflow_path
 					self.lwGrids.addItem(dataSource)
 		self.cboGrid.setCurrentText('')
 	
@@ -5674,8 +5695,16 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 					if not workdir:
 						workdir = os.path.dirname(self.cboDiffGrid1.currentText().strip('"').strip("'"))
 					function = 'diff'
-					grids = [self.cboDiffGrid1.currentText().strip('"').strip("'"),
+					inps = [self.cboDiffGrid1.currentText().strip('"').strip("'"),
 					         self.cboDiffGrid2.currentText().strip('"').strip("'")]
+					grids = []
+					for inp in inps:
+						if tuflowqgis_find_layer(inp):
+							layer_helper = LayerHelper(tuflowqgis_find_layer(inp))
+							ds = layer_helper.tuflow_path
+						else:
+							ds = inp
+						grids.append(ds)
 				elif self.rbBrklineFunc.isChecked():
 					if not workdir:
 						if tuflowqgis_find_layer(self.cboBrkline_vector.currentText()):
@@ -5688,10 +5717,11 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 
 					# get raster
 					if tuflowqgis_find_layer(self.cboBrkline_raster.currentText()):
-						layer = tuflowqgis_find_layer(self.cboBrkline_raster.currentText())
+						layer_helper = LayerHelper(tuflowqgis_find_layer(self.cboBrkline_raster.currentText()))
+						ds = layer_helper.tuflow_path
 					else:
-						layer = self.cboBrkline_raster.currentText()
-					grids = [layer]
+						ds = self.cboBrkline_raster.currentText()
+					grids = [ds]
 
 					# get vector layer
 					if tuflowqgis_find_layer(self.cboBrkline_vector.currentText()):
@@ -5705,7 +5735,13 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 						workdir = os.path.dirname(self.lwGrids.item(0).text())
 					grids = []
 					for i in range(self.lwGrids.count()):
-						grids.append(self.lwGrids.item(i).text())
+						inp = self.lwGrids.item(i).text()
+						if tuflowqgis_find_layer(inp):
+							layer_helper = LayerHelper(tuflowqgis_find_layer(inp))
+							ds = layer_helper.tuflow_path
+						else:
+							ds = inp
+						grids.append(ds)
 					# Max
 					if self.rbAscMax.isChecked():
 						function = 'max'
@@ -6096,6 +6132,7 @@ class UtilityDownloadProgressBar(QDialog, Ui_downloadUtilityProgressDialog):
 		self.progressBar.setRange(0, 0)
 		self.progressCount = 0
 		self.start = True
+		self.timer = None
 		
 	def updateProgress(self, e, start_again=True):
 		self.label.setText('Downloading {0}'.format(e) + ' .' * self.progressCount)
@@ -6115,9 +6152,10 @@ class UtilityDownloadProgressBar(QDialog, Ui_downloadUtilityProgressDialog):
 			self.timer.start()
 		
 	def progressFinished(self, e):
-		self.timer.stop()
-		self.progressBar.setRange(100, 100)
-		self.label.setText('Complete')
+		if self.timer:
+			self.timer.stop()
+			self.progressBar.setRange(100, 100)
+			self.label.setText('Complete')
 
 
 class DownloadTuflowUtilities(QObject):
@@ -6127,11 +6165,22 @@ class DownloadTuflowUtilities(QObject):
 	utilities = ['asc_to_asc', 'tuflow_to_gis', 'res_to_res', '12da_to_from_gis', 'convert_to_ts1', 'tin_to_tin',
 	             'xsGenerator']
 	paths = {}
+
+	def __init__(self):
+		super().__init__()
+		self.error = False
+		self.errmsg = ''
 	
 	def download(self):
 		for utility in self.utilities:
 			self.updated.emit(utility)
-			path = downloadUtility(utility)
+			try:
+				path = downloadUtility(utility)
+			except Exception as e:
+				self.error = True
+				self.errmsg = str(e)
+				self.finished.emit(self.paths)
+				return
 			self.paths[utility] = path
 		
 		self.finished.emit(self.paths)

@@ -31,6 +31,7 @@ class TuResultsNcGrid:
         except:
             skipConnect = True
 
+        errors = []
         for j, f in enumerate(inFileNames):
             if 'layers' in kwargs:
                 selected_layers = kwargs['layers']
@@ -55,6 +56,9 @@ class TuResultsNcGrid:
             for layer in selected_layers:
                 # Load
                 mLayer, name = self._load_file(f, layer, **kwargs)
+                if mLayer is None:
+                    errors.append(name)
+                    continue
 
                 self.tuView.tuResults.updateDateTimes()
 
@@ -84,6 +88,8 @@ class TuResultsNcGrid:
         if not skipConnect:
             self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
 
+        if errors:
+            raise Exception('\n'.join(errors))
         return True
 
     def _load_file(self, filename, layer_name, **kwargs):
@@ -92,8 +98,7 @@ class TuResultsNcGrid:
         try:
             nc_grid = NetCDFGrid(uri, display_name, **kwargs)
         except LoadError as e:
-            print(e)
-            return
+            return None, str(e)
 
         defaultRefTime = self.tuView.tuOptions.zeroTime
         self.tuView.tuResults.results[display_name] = {}

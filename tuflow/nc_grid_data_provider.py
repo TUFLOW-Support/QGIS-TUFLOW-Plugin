@@ -30,6 +30,7 @@ class NetCDFGrid(QgsRasterLayer):
                             '</span></a>')
 
         self.fid = None
+        self.canvas = None
         self._nc_file = ':'.join(uri.split(':')[1:-1])
         self._lyr_name = uri.split(':')[-1]
         self._existing_layer = bool(existing_layer)
@@ -41,7 +42,7 @@ class NetCDFGrid(QgsRasterLayer):
         if existing_layer is None:
             QgsRasterLayer.__init__(self, uri, base_name, provider_type, layer_options)
             if not self.isValid():
-                raise LoadError('Failed to initialise QgsRasterLayer for {0}'.format(uri))
+                raise LoadError('Failed to initialise QgsRasterLayer for {0} - Check if there is data'.format(uri))
             self._lyr = self
         else:
             QgsRasterLayer.__init__(self)
@@ -92,6 +93,20 @@ class NetCDFGrid(QgsRasterLayer):
 
         self._set_raster_renderer_to_band(band_number)
 
+    def connect_temporal_controller(self, qgs_canvas):
+        self.canvas = qgs_canvas
+        qgs_canvas.temporalRangeChanged.connect(self._update_band_from_time)
+
+    def _update_band_from_time(self):
+        if not self.canvas or not self.canvas.temporalRange().begin().isValid():
+            return
+        dt = self.canvas.temporalRange().begin()
+        dt = datetime(dt.date().year(), dt.date().month(), dt.date().day(), dt.time().hour(), dt.time().minute(), dt.time().second())
+        time = (dt - self.reference_time).total_seconds() / 3600.
+        band = self.get_band_from_time(time)
+        self.update_band(band)
+        self.triggerRepaint()
+
     def _name_changed(self):
         self.nameChanged.emit()
 
@@ -113,7 +128,7 @@ class NetCDFGrid(QgsRasterLayer):
 
         i = 1
         for i, time_ in enumerate(self.times):
-            if time_ == time:
+            if abs(time_ - time) < 0.001:
                 return i + 1
             elif time_ > time:
                 if abs(time_ - time) * 3600. > 0.001:

@@ -926,7 +926,7 @@ class TuResults2D():
 			if turn_off:
 				activeScalarIndex = None
 				activeVectorIndex = None
-				if node is not None:
+				if node is not None and not turn_off:
 					node.setItemVisibilityChecked(False)
 			else:
 				if node is not None:
@@ -1079,7 +1079,11 @@ class TuResults2D():
 			meshLayers = findAllMeshLyrs()
 		
 		for ml in meshLayers:
-			layer = tuflowqgis_find_layer(ml)
+			# layer = tuflowqgis_find_layer(ml)
+			layer = None
+			for layer_ in QgsProject.instance().mapLayersByName(ml):
+				if isinstance(layer_, QgsMeshLayer):
+					layer = layer_
 			if layer is not None:
 				
 				if layer.dataProvider().datasetGroupCount() == 0:

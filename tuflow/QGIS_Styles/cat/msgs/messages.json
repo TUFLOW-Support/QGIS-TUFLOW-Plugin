@@ -1,0 +1,15 @@
+{
+	"random_color": true,
+	"field_expression": "array_get(regexp_matches(\"Message\", '((?:CHECK|WARNING|ERROR)(?:\\\\s\\\\d{4})?)', ''), 0)",
+	"symbols": [
+		{
+			"class": "geometry_default",
+			"symbol_layer_class": "QgsSimpleMarkerSymbolLayer",
+			"layer_style": {
+				"color": "${color}",
+				"size": 2.0,
+				"name": "circle"
+			}
+		}
+	]
+}

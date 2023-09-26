@@ -1,0 +1,7 @@
+!________________________________________________________
+! GIS INPUTS - TODO Uncomment lines below as required
+! Read GIS Network == <path/to/1d_nwk>
+
+!________________________________________________________
+! SIMULATION SETTINGS
+Timestep == 0.5  ! TODO update to an appropriate value

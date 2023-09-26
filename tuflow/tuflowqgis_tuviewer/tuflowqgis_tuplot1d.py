@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import QMessageBox
 from ..tuflowqgis_library import (findPlotLayers, findIntersectFeat, is1dTable, is1dNetwork, isTSLayer)
 from ..TUFLOW_XS import XS_results
 from .tuflowqgis_turesultsindex import TuResultsIndex
-from qgis.core import Qgis
+from qgis.core import Qgis, QgsFeatureRequest, QgsExpression
 
 
 class TuPlot1D():
@@ -227,6 +227,11 @@ class TuPlot1D():
 
 			for plyr in plyrs:
 				feat = findIntersectFeat(xs.feature, plyr)
+				try:
+					if feat is None and xs.feature['provider'] == 'FM':
+						feat = [x for x in plyr.getFeatures(QgsFeatureRequest(QgsExpression(f'"ID" = \'{xs.source}\'')))][0]
+				except (KeyError, IndexError):
+					pass
 				if feat is None:
 					return xAll, yAll, labels, typs
 				id = feat.attributes()[0].strip()

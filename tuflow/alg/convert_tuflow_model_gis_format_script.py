@@ -58,7 +58,7 @@ def count_lines(file, write_empty=False):
 
     line_count = 0
     if os.path.exists(file):
-        with open(file, 'r') as f:
+        with open(file, 'r', errors='ignore') as f:
             for line in f:
                 if line.strip():
                     line_count += 1

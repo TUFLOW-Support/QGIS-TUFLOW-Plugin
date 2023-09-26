@@ -1,0 +1,15 @@
+{
+	"random_color": true,
+	"field_name": "Type",
+	"symbols": [
+		{
+			"class": "geometry_default",
+			"symbol_layer_class": "QgsSimpleMarkerSymbolLayer",
+			"layer_style": {
+				"color": "${color}",
+				"outline": "#000000",
+				"size": 2.0
+			}
+		}
+	]
+}

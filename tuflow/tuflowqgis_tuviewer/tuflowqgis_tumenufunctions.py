@@ -100,8 +100,8 @@ class TuMenuFunctions():
 			# import into qgis
 			if ext.upper() == '.SUP':
 				loaded = self.tuView.tuResults.importResults('mesh', sups)
-			elif ext.upper() == '.NC' and NetCDFGrid.is_nc_grid(file):
-				loaded = self.tuView.tuResults.importResults('nc_grid', file)
+			# elif ext.upper() == '.NC' and NetCDFGrid.is_nc_grid(file):
+			# 	loaded = self.tuView.tuResults.importResults('nc_grid', file)
 			else:
 				# loaded = self.tuView.tuResults.importResults('mesh', inFileNames[0])
 				loaded = self.tuView.tuResults.importResults('mesh', [file])
@@ -472,6 +472,30 @@ class TuMenuFunctions():
 		settings.setValue("TUFLOW_Results/lastFolder", fpath)
 		
 		return True
+
+	def loadBcTables(self, **kwargs):
+		inFileNames = kwargs['files'] if 'files' in kwargs else None
+
+		# Get last loaded settings
+		fpath = loadLastFolder(self.tuView.currentLayer, "TUFLOW_Results/lastFolder")
+
+		# User get TCF file
+		if inFileNames is None:
+			inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(),
+			                                           'Open TUFLOW 2d_bc_tables_check file',
+			                                           fpath,
+			                                           "CSV (*.csv *.CSV)")
+
+		if not inFileNames[0]:  # empty list
+			return False
+
+		# import results
+		success = self.tuView.tuResults.importResults('timeseries', inFileNames[0])
+		fpath = os.path.dirname(inFileNames[0][0])
+		settings = QSettings()
+		settings.setValue("TUFLOW_Results/lastFolder", fpath)
+
+		return success
 	
 	def remove1d2dResults(self):
 		"""

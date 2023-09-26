@@ -317,9 +317,13 @@ class Refh2Dock(QDockWidget, Ui_refh2):
                 QMessageBox.critical(self, "ReFH2 to TUFLOW", "Output File Locked:\n{0}".format(inputs['output file']))
                 return
         # rainmodel - only 2013 available in this tool for now but can add 1999 later if needed
-        rainModel = '2013'
+        # 2022 now available
+        rainModel = '2013' if self.rbRainfall2013.isChecked() else '2022'
         inputs['rain model'] = rainModel
 
+        if inputs['rain model'] == '2022' and inputs['engine version'] == 2.2:
+            QMessageBox.critical(self, 'ReFH2 to TUFLOW', 'Cannot use 2022 rainfall with 2.2 engine')
+            return
             
         # setup run process on a separate thread
         # so that an infinite progress bar can be used

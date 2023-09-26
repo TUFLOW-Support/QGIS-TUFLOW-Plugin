@@ -36,6 +36,11 @@ class Path_:
     def __bool__(self):
         return self._path
 
+    @property
+    def parts(self):
+        p = os.path.normpath(self._path)
+        return p.split(os.sep)
+
     def open(self, mode='r'):
         self._fo = open(self._path, mode)
         return self._fo
@@ -56,6 +61,13 @@ class Path_:
             return self.parent / name
         else:
             return Path_(name)
+
+    def iterdir(self):
+        for file in os.listdir(str(self)):
+            yield Path_(os.path.join(str(self), file))
+
+    def is_dir(self):
+        return os.path.isdir(str(self))
 
     def glob(self, pattern):
         for file in glob.glob(os.path.join(str(self), pattern)):

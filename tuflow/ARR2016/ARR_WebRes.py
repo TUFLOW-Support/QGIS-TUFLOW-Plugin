@@ -21,6 +21,7 @@ import io
 import requests
 
 from ARR_TUFLOW_func_lib import *
+from BOM_WebRes import Bom
 
 
 class ArrMeta:
@@ -1016,6 +1017,81 @@ class ArrTemporal:
             self.tpCount = int(count / 3)
 
 
+class Limb:
+
+    def __init__(self):
+        self.logger = logging.getLogger('ARR2019')
+        self.has_limb = False
+        self.ifd = Bom()
+
+    def load(self, fi, limb_data):
+        if limb_data == 'enveloped':
+            source = 'LIMBifdenv'
+        elif limb_data == 'high res':
+            source = 'LIMBifdhr'
+        elif limb_data == 'bom res':
+            source = 'LIMBifdbom'
+        else:
+            self.logger.info('WARNING LIMB IFD type not recognised, defaulting to Enveloped')
+            source = 'LIMBifdenv'
+
+        durs = []
+        aeps = []
+        aep_names = []
+        vals = []
+        i = 0
+        for line in fi:
+            i += 1
+            if '[{0}]'.format(source) in line:
+                self.has_limb = True
+                # collect AEP header info
+                header = fi.readline().split(',')
+                i += 1
+                for x in header:
+                    try:
+                        aep = float(x)
+                        aep_name = '{0}%'.format(x.strip())
+                        aeps.append(aep)
+                        aep_names.append(aep_name)
+                    except ValueError:
+                        continue
+                continue
+            elif '[{0}_META]'.format(source) in line or '[END_{0}]'.format(source) in line:
+                self.ifd.loaded = True
+                break
+            if not self.has_limb:
+                continue
+            data = line.split(',')
+            try:
+                dur = data[0].split('(')[0].strip()
+            except IndexError:
+                self.ifd.error = True
+                self.ifd.message = 'Error splitting LIMB IFD row: {0}, line: {1}'.format(i, line)
+                break
+            try:
+                durs.append(int(dur))
+            except ValueError:
+                self.ifd.error = True
+                self.ifd.message = 'Error converting LIMB IFD duration to integer: {0}, line: {1}'.format(i, line)
+                break
+            try:
+                row = [float(x) for x in data[1:]]
+            except (ValueError, IndexError):
+                self.ifd.error = True
+                self.ifd.message = 'Error converting LIMB IFD row to float: {0}, line: {1}'.format(i, line)
+                break
+            vals.append(row)
+
+        self.ifd.aep = aeps
+        self.ifd.aep_names = aep_names
+        self.ifd.naep = len(aep_names)
+        self.ifd.duration = durs
+        self.ifd.ndur = len(durs)
+        self.ifd.depths = np.array(vals)
+
+        fi.seek(0)
+
+
 # noinspection PyBroadException,PyBroadException,PyBroadException,PyBroadException,PyBroadException,PyBroadException
 class Arr:
     def __init__(self):  # initialise the ARR class
@@ -1029,6 +1105,7 @@ class Arr:
         self.PreBurst = ArrPreburst()
         self.Losses = ArrLosses()
         self.Arf = ArrArf()
+        self.Limb = Limb()
         self.logger = logging.getLogger('ARR2019')
 
     def load(self, fname, area, **kwargs):
@@ -1040,6 +1117,7 @@ class Arr:
         user_initial_loss = kwargs['user_initial_loss'] if 'user_initial_loss' in kwargs else None
         user_continuing_loss = kwargs['user_continuing_loss'] if 'user_continuing_loss' in kwargs else None
         areal_tp_download = kwargs['areal_tp_download'] if 'areal_tp_download' in kwargs else None
+        limb_data = kwargs['limb_data'] if 'limb_data' in kwargs else None
 
         #print('Loading ARR website output .txt file')
         self.logger.info('Loading ARR website output .txt file')
@@ -1157,6 +1235,17 @@ class Arr:
             #print('Return message = {0}'.format(self.PreBurst.message))
             self.logger.error('Return message = {0}'.format(self.PreBurst.message))
 
+        # LIMB data
+        if limb_data is not None:
+            self.logger.info('Loading LIMB data: {0}'.format(limb_data))
+            self.Limb.load(fi, limb_data)
+            if not self.Limb.has_limb:
+                self.logger.info('No LIMB data found')
+            if self.Limb.has_limb and self.Limb.ifd.error:
+                self.logger.error(self.Limb.ifd.message)
+            if self.Limb.has_limb and not self.Limb.ifd.error:
+                self.logger.info('Finished loading LIMB data')
+
         #print('Data Loaded')
         self.logger.info('Data Loaded')
 
@@ -1199,6 +1288,138 @@ class Arr:
         # convert cc years if 'all' is specified
         if str(cc_years).lower() == 'all':
             cc_years = self.CCF.Year
+
+        # overwrite BOM rainfall data with LIMB data
+        if self.Limb.has_limb and not self.Limb.ifd.error:
+            min_dur, max_dur = min(self.Limb.ifd.duration), max(self.Limb.ifd.duration)
+            min_aep_, max_aep_ = max(self.Limb.ifd.aep), min(self.Limb.ifd.aep)
+            min_aep = self.Limb.ifd.aep_names[self.Limb.ifd.aep.index(min_aep_)]
+            max_aep = self.Limb.ifd.aep_names[self.Limb.ifd.aep.index(max_aep_)]
+            self.logger.info('CHECK: Overwriting BOM data with LIMB data where available.\n'
+                             'Data outside of LIMB range (min dur = {0} min, max dur = {1} min, min aep = {2}, max aep = {3})\n'
+                             'will adopt BOM values. Values not listed in LIMB data but within the data range '
+                             'will be interpolated from the LIMB data.'.format(min_dur, max_dur, min_aep, max_aep))
+            bom_ = bom
+            bom = self.Limb.ifd
+
+            # note 12EY does not equal 99.9% AEP, but this need a value and needs to have the highest value so 99.9 used as dummy value
+            conv2aep = {'12EY': 99.9, '6EY': 99.75, '4EY': 98.17, '3EY': 95.02, '2EY': 86.47, '1EY': 63.23,
+                        '0.5EY': 39.35, '0.2EY': 18.13, '1 in 200': 0.5, '1 in 500': 0.2, '1 in 1000': 0.1,
+                        '1 in 2000': 0.05, '63.2%': 63.23}
+
+            # order bom aeps correctly from frequent to extreme
+            bom_aeps = []
+            bom_aep2aep_name = {}
+            bom_aep2aep = {}
+            for i, aep_name in enumerate(bom_.aep_names):
+                if aep_name in conv2aep:
+                    bom_aeps.append(conv2aep[aep_name])
+                else:
+                    bom_aeps.append(bom_.aep[i])
+                bom_aep2aep_name[bom_aeps[-1]] = aep_name
+                bom_aep2aep[bom_aeps[-1]] = bom_.aep[i]
+            ind = list(reversed(np.argsort(bom_aeps)))
+            bom_aeps = np.array(bom_aeps)[ind].tolist()
+            bom_.aep = np.array(bom_.aep)[ind].tolist()
+            bom_.aep_names = np.array(bom_.aep_names)[ind].tolist()
+            bom_.depths = bom_.depths[:,ind]
+
+            # keep copy of original data
+            self.Limb.ifd.depths_ = self.Limb.ifd.depths
+            self.Limb.ifd.duration_ = self.Limb.ifd.duration
+            self.Limb.ifd.aep_ = self.Limb.ifd.aep
+            self.Limb.ifd.aep_names_ = self.Limb.ifd.aep_names
+
+            depths = []
+            durs = []
+            aeps = []
+            aep_names = []
+            aep_ids = []
+            for i, dur_ in enumerate(bom_.duration):
+                row = []
+                for j, aep_ in enumerate(bom_aeps):
+                    if aep_ < max_aep_ or aep_ > min_aep_:
+                        if dur_ not in self.Limb.ifd.duration:
+                            continue
+                        row.append(bom_.depths[i,j])
+                        if dur_ not in durs:
+                            durs.append(dur_)
+                        aep__ = bom_.aep[j]
+                        if aep_ not in aep_ids:
+                            aeps.append(aep__)
+                            aep_ids.append(aep_)
+                            aep_name = bom_.aep_names[j]
+                            aep_names.append(aep_name)
+                    elif dur_ in self.Limb.ifd.duration and aep_ in self.Limb.ifd.aep:
+                        i_ = self.Limb.ifd.duration.index(dur_)
+                        j_ = self.Limb.ifd.aep.index(aep_)
+                        row.append(self.Limb.ifd.depths[i_,j_])
+                        if dur_ not in durs:
+                            durs.append(dur_)
+                        if aep_ not in aep_ids:
+                            aeps.append(bom_aep2aep[aep_])
+                            aep_ids.append(aep_)
+                            aep_name = bom_aep2aep_name[aep_]
+                            aep_names.append(aep_name)
+                if row:
+                    depths.append(row)
+
+            # set new values but keep old values for record
+            self.Limb.ifd.depths = np.array(depths)
+            self.Limb.ifd.duration = durs
+            self.Limb.ifd.aep = aeps
+            self.Limb.ifd.aep_names = aep_names
+
+            depths = []
+            durs = []
+            aeps = []
+            aep_names = []
+            aep_aep = []
+            aep_ids = []
+            for i, aep_name in enumerate(self.Limb.ifd.aep_names):
+                if aep_name in conv2aep:
+                    aep_aep.append(conv2aep[aep_name])
+                else:
+                    aep_aep.append(self.Limb.ifd.aep[i])
+            for i, dur_ in enumerate(bom_.duration):
+                row = []
+                for j, aep_ in enumerate(bom_aeps):
+                    if dur_ < min_dur or dur_ > max_dur:
+                        if aep_ not in aep_aep:
+                            continue
+                        row.append(bom_.depths[i, j])
+                        if dur_ not in durs:
+                            durs.append(dur_)
+                        aep__ = bom_.aep[j]
+                        if aep_ not in aep_ids:
+                            aeps.append(aep__)
+                            aep_ids.append(aep_)
+                            aep_name = bom_.aep_names[j]
+                            aep_names.append(aep_name)
+                    elif dur_ in self.Limb.ifd.duration and aep_ in aep_aep:
+                        i_ = self.Limb.ifd.duration.index(dur_)
+                        j_ = aep_aep.index(aep_)
+                        row.append(self.Limb.ifd.depths[i_, j_])
+                        if dur_ not in durs:
+                            durs.append(dur_)
+                        try:
+                            aep__ = self.Limb.ifd.aep[j_]
+                        except IndexError:
+                            print('here')
+                        if aep_ not in aep_ids:
+                            aeps.append(aep__)
+                            aep_ids.append(aep_)
+                            aep_name = self.Limb.ifd.aep_names[j_]
+                            aep_names.append(aep_name)
+                depths.append(row)
+
+            # set new values but keep old values for record
+            self.Limb.ifd.depths = np.array(depths)
+            self.Limb.ifd.duration = durs
+            self.Limb.ifd.aep = aeps
+            self.Limb.ifd.aep_names = aep_names
+            self.Limb.ifd.ndur = len(durs)
+            self.Limb.ifd.naep = len(aeps)
 
         # create year dictionary with index as the value so the appropriate multiplier can be called from self.CCF
         # later on
@@ -1266,56 +1487,57 @@ class Arr:
         dur_list.sort()
 
         # write out Areal Reduction Factors and rainfall depths with ARF applied
-        if catchment_area > 1.0:
-            arf_array = arf_factors(catchment_area, bom.duration, bom.aep_names,
-                                    self.Arf.param['a'],
-                                    self.Arf.param['b'],
-                                    self.Arf.param['c'],
-                                    self.Arf.param['d'],
-                                    self.Arf.param['e'],
-                                    self.Arf.param['f'],
-                                    self.Arf.param['g'],
-                                    self.Arf.param['h'],
-                                    self.Arf.param['i'], ARF_frequent, min_ARF)
-            arf_file = os.path.join(fpath, 'data', '{0}_ARF_Factors.csv'.format(site_name))
-            if not os.path.exists(os.path.dirname(arf_file)):  # check output directory exists
-                os.mkdir(os.path.dirname(arf_file))
-            try:
-                arf_file_open = open(arf_file, 'w')
-            except IOError:
-                self.error = True
-                self.message = 'Unexpected error opening file {0}'.format(arf_file)
-                return
-            arf_file_open.write(
-                'This file has been generated using ARR_to_TUFLOW. Areal Reducation Factors have been calculated '
-                'based on equations from ARR2016 using parameters extracted from the ARR datahub.\n')
-            arf_file_open.write('Duration (mins), {0}\n'.format(",".join(map(str, bom.aep_names))))
-            for i in range(len(bom.duration)):
+        if catchment_area > 1.0 or self.Limb.has_limb and not self.Limb.ifd.error:
+            if catchment_area > 1.0:
+                arf_array = arf_factors(catchment_area, bom.duration, bom.aep_names,
+                                        self.Arf.param['a'],
+                                        self.Arf.param['b'],
+                                        self.Arf.param['c'],
+                                        self.Arf.param['d'],
+                                        self.Arf.param['e'],
+                                        self.Arf.param['f'],
+                                        self.Arf.param['g'],
+                                        self.Arf.param['h'],
+                                        self.Arf.param['i'], ARF_frequent, min_ARF)
+                arf_file = os.path.join(fpath, 'data', '{0}_ARF_Factors.csv'.format(site_name))
+                if not os.path.exists(os.path.dirname(arf_file)):  # check output directory exists
+                    os.mkdir(os.path.dirname(arf_file))
+                try:
+                    arf_file_open = open(arf_file, 'w')
+                except IOError:
+                    self.error = True
+                    self.message = 'Unexpected error opening file {0}'.format(arf_file)
+                    return
                 arf_file_open.write(
-                    '{0}, {1}\n'.format(bom.duration[i], ",".join(map(str, arf_array[i].tolist()))))
-            arf_file_open.write('\n\n**WARNING: Minimum ARF value has been set at {0}'.format(min_ARF))
-            arf_file_open.flush()
-            arf_file_open.close()
-            neg_arf = float((arf_array < 0).sum())  # total number of negative entries
-            if ARF_frequent:
-                if '63.2%' in aep_list or frequent_events:
-                    #print('WARNING: ARF being applied to frequent events is outside recommended '
-                    #      'bounds (50% - 0.05%)')
-                    self.logger.warning('WARNING: ARF being applied to frequent events is outside recommended '
-                                        'bounds (50% - 0.05%)')
-            if neg_arf > 0:
-                #print('WARNING: {0:.0f} ARF entries have a negative value. ' \
-                #      'Check "Rainfall_ARF_Factors.csv" output.'.format(neg_arf))
-                self.logger.warning('WARNING: {0:.0f} ARF entries have a negative value. ' \
-                                    'Check "Rainfall_ARF_Factors.csv" output.'.format(neg_arf))
-            # Save Figure
-            fig_name = os.path.join(fpath, 'data', '{0}_ARF_Factors.png'.format(site_name))
-            make_figure(fig_name, bom.duration, arf_array, 1, 10000, 0, 1.2, 'Duration (mins)', 'ARF',
-                        'ARF Factors: {0}'.format(site_name), bom.aep_names, xlog=True)
+                    'This file has been generated using ARR_to_TUFLOW. Areal Reducation Factors have been calculated '
+                    'based on equations from ARR2016 using parameters extracted from the ARR datahub.\n')
+                arf_file_open.write('Duration (mins), {0}\n'.format(",".join(map(str, bom.aep_names))))
+                for i in range(len(bom.duration)):
+                    arf_file_open.write(
+                        '{0}, {1}\n'.format(bom.duration[i], ",".join(map(str, arf_array[i].tolist()))))
+                arf_file_open.write('\n\n**WARNING: Minimum ARF value has been set at {0}'.format(min_ARF))
+                arf_file_open.flush()
+                arf_file_open.close()
+                neg_arf = float((arf_array < 0).sum())  # total number of negative entries
+                if ARF_frequent:
+                    if '63.2%' in aep_list or frequent_events:
+                        #print('WARNING: ARF being applied to frequent events is outside recommended '
+                        #      'bounds (50% - 0.05%)')
+                        self.logger.warning('WARNING: ARF being applied to frequent events is outside recommended '
+                                            'bounds (50% - 0.05%)')
+                if neg_arf > 0:
+                    #print('WARNING: {0:.0f} ARF entries have a negative value. ' \
+                    #      'Check "Rainfall_ARF_Factors.csv" output.'.format(neg_arf))
+                    self.logger.warning('WARNING: {0:.0f} ARF entries have a negative value. ' \
+                                        'Check "Rainfall_ARF_Factors.csv" output.'.format(neg_arf))
+                # Save Figure
+                fig_name = os.path.join(fpath, 'data', '{0}_ARF_Factors.png'.format(site_name))
+                make_figure(fig_name, bom.duration, arf_array, 1, 10000, 0, 1.2, 'Duration (mins)', 'ARF',
+                            'ARF Factors: {0}'.format(site_name), bom.aep_names, xlog=True)
 
-            # multiply rainfall by ARF
-            bom.depths = numpy.multiply(bom.depths, arf_array)
-            # write out rainfall depths
+                # multiply rainfall by ARF
+                bom.depths = numpy.multiply(bom.depths, arf_array)
+                # write out rainfall depths
             f_arf_depths = os.path.join(fpath, 'data', 'BOM_Rainfall_Depths_{0}.csv'.format(site_name))
             try:
                 fo_arf_depths = open(f_arf_depths, 'w')
@@ -2327,7 +2549,7 @@ class Arr:
             else:
                 materials_open.write('{1:.0f},,"<<IL_{0}>>, <<CL_{0}>>",,,,! Design ARR2016 Losses for catchment {0}\n'.format(site_name, catch_no + increment))
             materials_open.close()
-        
+
         rareMag2Name = {'0.5%': '1 in 200', '0.2%': '1 in 500', '0.1%': '1 in 1000',
                         '0.05%': '1 in 2000'}
         # write trd losses file

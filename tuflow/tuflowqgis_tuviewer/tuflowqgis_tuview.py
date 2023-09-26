@@ -17,7 +17,8 @@ from .tuflowqgis_tuoptions import TuOptions
 from .tuflowqgis_tumenucontext import TuContextMenu
 from .tuflowqgis_tuproject import TuProject
 from ..tuflowqgis_library import (tuflowqgis_find_layer, findAllMeshLyrs, convertTimeToFormattedTime,
-                                       is1dTable, findTableLayers, is1dNetwork, isPlotLayer, isTSLayer)
+                                  is1dTable, findTableLayers, is1dNetwork, isPlotLayer, isTSLayer,
+                                  isBcLayer)
 from ..tuflowqgis_dialog import tuflowqgis_meshSelection_dialog
 from ..TUFLOW_XS import XS
 from ..TUFLOW_1dTa import HydTables
@@ -150,6 +151,9 @@ class TuView(QDockWidget, Ui_Tuplot):
 				(QSettings().value("TUFLOW/tuview_defaultlayout", "previous_state") == 'previous_state' and
 				QSettings().value("TUFLOW/tuview_previouslayout", "plot") == "narrow"):
 			self.plotWindowVisibilityToggled(initialisation=True)
+
+		# import pydevd_pycharm
+		# pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
 		
 	def __del__(self):
 		self.qgisDisconnect()
@@ -199,8 +203,10 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# get the active layer
 		if self.iface is not None:
 			self.currentLayer = self.iface.activeLayer()
+			if self.currentLayer and self.currentLayer.type() == QgsMapLayer.VectorLayer and not self.tuResults.tuResults1D.activeType:
+				self.tuResults.updateActiveResultTypes(None, geomType=self.currentLayer.geometryType())
 
-			if isPlotLayer(self.currentLayer):
+			if isPlotLayer(self.currentLayer) or isBcLayer(self.currentLayer):
 				if self.currentLayer.id() not in self.layer_selection_signals:
 					self.currentLayer.selectionChanged.connect(self.selectionChanged)
 					self.layer_selection_signals.append(self.currentLayer.id())
@@ -280,13 +286,16 @@ class TuView(QDockWidget, Ui_Tuplot):
 		"""
 
 		if self.currentLayer is None:
+			self.currentLayerChanged()
+			if self.currentLayer is None:
+				return
 			# for lyrid, lyr in QgsProject.instance().mapLayers().items():
 			# 	if isPlotLayer(lyr):
 			# 		self.currentLayer = lyr
 			# 		break
 			# self.OpenResultTypes.model().setEnabled(0)
 			# self.tuResults.tuResults1D.activeType = -1
-			return
+			# return
 
 		if isinstance(self.currentLayer, QgsVectorLayer):
 			self.OpenResultTypes.model().setEnabled(4, 5, 6, 7, 8)

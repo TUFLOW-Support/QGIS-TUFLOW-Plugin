@@ -8,7 +8,9 @@ from PyQt5.QtWidgets import *
 from ..TUFLOW_results import ResData
 from ..TUFLOW_results2013 import ResData as ResData_2013
 from ..tuflowqgis_library import (getPathFromRel, tuflowqgis_apply_check_tf_clayer, datetime2timespec,
-                                       datetime2timespec, roundSeconds, isPlotLayer, isTSLayer, is1dNetwork)
+                                  datetime2timespec, roundSeconds, isPlotLayer, isTSLayer, is1dNetwork,
+                                  isBcLayer)
+from ..bc_tables import BC_Tables, BC_Tables_2D, BC_Tables_1D
 import re
 from ..TUFLOW_FM_data_provider import TuFloodModellerDataProvider
 from math import atan2, sin, cos, pi
@@ -136,7 +138,19 @@ class TuResults1D():
 						lambda: self.tuView.resultsChanged('item clicked'))
 					QMessageBox.critical(self.tuView, "TUFLOW Viewer", message)
 					return False
-				
+			elif ext.upper() == '.CSV':
+				if '1d_bc_tables_check' in fname.lower():
+					res = BC_Tables_1D()
+				elif '2d_bc_tables_check' in fname.lower():
+					res = BC_Tables_2D()
+				else:
+					res = BC_Tables()
+				error, message = res.Load(filePath)
+				if error:
+					self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
+						lambda: self.tuView.resultsChanged('item clicked'))
+					QMessageBox.critical(self.tuView, "TUFLOW Viewer", message)
+					return False
 			else:
 				self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
 					lambda: self.tuView.resultsChanged('item clicked'))
@@ -609,7 +623,7 @@ class TuResults1D():
 		
 		# collect ids and domain types
 		for layerid, layer in QgsProject.instance().mapLayers().items():
-			if not isPlotLayer(layer) and not isTSLayer(layer, self.tuView.tuResults.results) and not is1dNetwork(layer):
+			if not isPlotLayer(layer) and not isTSLayer(layer, self.tuView.tuResults.results) and not is1dNetwork(layer) and not isBcLayer(layer):
 				continue
 			if layerid in about_to_be_removed:
 				continue
@@ -624,16 +638,26 @@ class TuResults1D():
 						self.sources.append('Q_V_')
 					continue
 				if 1 not in resVersion:
-					if 'ID' in f.fields().names() and 'Type' in f.fields().names() and 'Source' in f.fields().names():
-						id_ = f['ID'].strip()
-						if id_ not in self.ids:
-							self.ids.append(f['ID'].strip())
-							self.sources.append(f['Source'].strip())
-							type = f['Type'].strip()
-							if 'node' in type.lower() or 'chan' in type.lower():
-								self.domains.append('1D')
-							else:
-								self.domains.append(type)  # 2D or RL
+					if isPlotLayer(layer):
+						if 'ID' in f.fields().names() and 'Type' in f.fields().names() and 'Source' in f.fields().names():
+							id_ = f['ID'].strip()
+							if id_ not in self.ids:
+								self.ids.append(f['ID'].strip())
+								self.sources.append(f['Source'].strip())
+								type = f['Type'].strip()
+								if 'node' in type.lower() or 'chan' in type.lower():
+									self.domains.append('1D')
+								else:
+									self.domains.append(type)  # 2D or RL
+					elif isBcLayer(layer):
+						try:
+							id = f['Name'].strip()
+						except TypeError:
+							id = ''
+						if id not in self.ids:
+							self.ids.append(id)
+							self.domains.append('2D')
+							self.sources.append('BC')
 				elif 2 not in resVersion:
 					i = 1 if '.gpkg|layername' in layer.dataProvider().dataSourceUri().lower() else 0
 					id = f.attributes()[i]

@@ -301,7 +301,7 @@ class XS_Data():
 			self.np = len(self.x)
 
 	def crossSectionPlot(self, plot_inactive_areas):
-		if plot_inactive_areas or self.flags is None or 'm' not in self.flags.lower() or not self.mat:
+		if plot_inactive_areas or self.flags is None:
 			return np.array(list(zip(self.x, self.z)))
 
 		x, z = [], []

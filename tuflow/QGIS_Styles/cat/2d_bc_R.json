@@ -1,0 +1,13 @@
+{
+	"random_color": true,
+	"field_name": "Type",
+	"symbols": [
+		{
+			"class": "geometry_default",
+			"symbol_layer_class": "QgsSimpleFillSymbolLayer",
+			"layer_style": {
+				"color": "${color}"
+			}
+		}
+	]
+}

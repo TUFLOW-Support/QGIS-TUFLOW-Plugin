@@ -1,0 +1,2 @@
+Name,Source,Column 1,Column 2,Add Col 1,Mult Col 2,Add Col 2,Column 3,Column 4
+<boundary_name>,<path/to/source>,<time_column_name>,<inflow_column_name>,,,,,  ! TODO update/populate

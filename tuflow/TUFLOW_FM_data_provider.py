@@ -1,5 +1,7 @@
 import re
 import os
+import struct
+
 import numpy as np
 from .TUFLOW_results import ResData, Timeseries, NodeInfo, ChanInfo
 from .TUFLOW_XS import XS, XS_Data
@@ -1079,6 +1081,64 @@ class FM_XS_Data(XS_Data):
         self.message = message
 
 
+def unpack_fixed_field(input_string, col_widths):
+    """
+    Unpacks input string based on fixed field lengths described in col_widths.
+    The function will return a list of the split columns.
+
+    The function will handle most situations where the input string length
+    is shorter than the input fixed fields.
+
+    :param input_string: str
+    :param col_widths: tuple[int] - list of column widths
+    :return:  list[str]
+    """
+
+    sum_ = 0
+    new_widths = []
+    for len_ in col_widths:
+        if len(input_string) <= sum_ + len_:
+            if len(input_string) - sum_ < 1:
+                break
+            else:
+                new_widths.append(len(input_string) - sum_)
+                break
+        else:
+            new_widths.append(len_)
+            sum_ += len_
+
+    fmtstring = ' '.join('{0}{1}'.format(abs(len_), 'x' if len_ < 0 else 's') for len_ in new_widths)
+    return [x.decode('utf-8') for x in struct.unpack_from(fmtstring, input_string.encode())]
+
+
+def fixed_field_length(filepath: str) -> int:
+    """
+    Extract the label fixed field length from the DAT file header
+
+    :param filepath: str - dat file path
+    :return: int
+    """
+
+    fixed_field_length = 12  # default to latest
+    try:
+        with open(filepath, 'r') as fo:
+            for line in fo:
+                if '#REVISION#' in line:
+                    line = fo.readline()
+                    header = unpack_fixed_field(line, [10] * 7)
+                    if len(header) >= 6:
+                        fixed_field_length = int(header[5])
+                    break
+    except IOError:
+        pass
+    except ValueError:
+        pass
+    except Exception:
+        pass
+
+    return fixed_field_length
+
+
 class FM_XS(XS):
 
     def __init__(self):
@@ -1095,6 +1155,7 @@ class FM_XS(XS):
         error = False
         msg = []
         self.fm_dat = fpath
+        fixed_field_width = fixed_field_length(fpath)
         with open(fpath, 'r') as fo:
             startRiver = False
             i = 1
@@ -1117,9 +1178,10 @@ class FM_XS(XS):
                         data = FM_XS_Data()
                         section = fo.readline().strip()  # SECTION line
                         i += 1
-                        label = fo.readline().split(' ')[0].strip()  # label line
-                        if len(label) > 12:
-                            label = label[:12]  # fixed field format
+                        labels = [x.strip() for x in unpack_fixed_field(fo.readline().strip(), [fixed_field_width] * 7)]
+                        label = labels[0]  # label line
+                        # if len(label) > 12:
+                        #     label = label[:12]  # fixed field format
                         i += 1
                         chainage = fo.readline().strip()  # chainage line
                         i += 1
@@ -1140,10 +1202,11 @@ class FM_XS(XS):
                         error2 = False
                         message = ""
                         for i in range(np):
-                            subline = fo.readline().strip()
+                            # subline = fo.readline().strip()
+                            subline = unpack_fixed_field(fo.readline(), [10] * 8)
                             i += 1
-                            a = [x for x in subline.split(' ') if x]
-                            b = [x.strip('LEFTRIGHTBED*\n') for x in a]
+                            # a = [x for x in subline.split(' ') if x]
+                            b = [x.strip('LEFTRIGHTBED*\n') for x in subline]
                             try:
                                 x, y = b[:2]
                                 x = float(x)
@@ -1162,7 +1225,7 @@ class FM_XS(XS):
                             except:
                                 pass
                             try:
-                                xcoord, ycoord = b[4:6]
+                                xcoord, ycoord = b[5:7]
                                 xcoord = float(xcoord)
                                 ycoord = float(ycoord)
                                 if xcoord == 0 or ycoord == 0:

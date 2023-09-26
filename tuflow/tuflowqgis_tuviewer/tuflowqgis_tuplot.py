@@ -1898,6 +1898,7 @@ class TuPlot():
 			r'atmospheric pressure': ('hPA', 'hPa', ''),
 			r'bed shear stress': ('N/m$^2$', 'lbf/ft$^2$', 'pdl/ft%^2$', ''),
 			r'depth': ('m', 'ft', ''),
+			r'rainfall depth': ('mm', 'inches', ''),
 			r'([^a-z]|^)vel': ('m/s', 'ft/s', ''),
 			r'cumulative infiltration': ('mm', 'inches', ''),
 			r'depth to groundwater': ('m', 'ft', ''),

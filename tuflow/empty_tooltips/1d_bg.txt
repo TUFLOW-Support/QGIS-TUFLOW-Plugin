@@ -1,0 +1,5 @@
+location == Estry Control File (.ecf)
+
+command == Read GIS Table Links
+
+description == Reads links to tabular inputs associated with bridges losses

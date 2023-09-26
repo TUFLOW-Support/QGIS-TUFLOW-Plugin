@@ -1,6 +1,6 @@
 location == Geometry Control File (.tgc)
 
-command == Read Tin Zpts
+command == Create Tin Zpts
 
 description == Used to update topography within a model.
 

@@ -89,6 +89,9 @@ from .tuflowqgis_library import tuflowqgis_apply_check_tf, resetQgisSettings
 
 from .bridge_editor.BridgeEditor import ArchBridgeDock
 
+from .menu_provider import TuflowContextMenuProvider
+
+
 # remote debugging
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\plugins\python\helpers\pydev')
@@ -100,6 +103,7 @@ class tuflowqgis_menu:
 
 	def __init__(self, iface):
 		self.iface = iface
+		self.plugin_dir = Path(os.path.realpath(__file__)).parent
 		self.resultsPlottingDockOpened = False
 		self.archBridgeDockOpen = False
 		self.tpOpen = 'not open'
@@ -111,8 +115,28 @@ class tuflowqgis_menu:
 		self.defaultPath = 'C:\\'
 		self.integrityToolOpened = False
 		self.lambdaConnections = []
+		self.icons = {}
 
 		self.provider = TuflowAlgorithmProvider()
+		self.menu_provider = TuflowContextMenuProvider(self.iface)
+
+	def icon(self, icon_name: str) -> QIcon:
+		"""Get icon."""
+		if icon_name in self.icons:
+			return self.icons[icon_name]
+		p = self.plugin_dir / 'icons'
+		for p_ in p.glob(f'{icon_name}.*'):
+			icon = QIcon(str(p_))
+			self.icons[icon_name] = icon
+			return icon
+		icon = QIcon()
+		for p_ in p.glob(f'{icon_name}*'):
+			regex = icon_name + r'_\d{2}$'
+			if re.findall(regex, p_.stem):
+				size = int(p_.stem[-2:])
+				icon.addFile(str(p_), QSize(size, size))
+		self.icons[icon_name] = icon
+		return icon
 
 	def initProcessing(self):
 		"""Create the Processing provider"""
@@ -120,6 +144,11 @@ class tuflowqgis_menu:
 
 	def initGui(self):
 		self.initProcessing()
+		self.menu_provider.init_menu()
+		self.menu_provider.register_menu()
+		for layer in QgsProject.instance().mapLayers().values():
+			self.menu_provider.register_layer(layer)
+		QgsProject.instance().layersAdded.connect(self.menu_provider.register_layers)
 
 		dir = os.path.dirname(__file__)
 		icon = QIcon(os.path.join(dir, "tuflow.png"))
@@ -445,6 +474,8 @@ class tuflowqgis_menu:
 		QgsProject.instance().cleared.connect(self.clearBuilderUI)
 
 	def unload(self):
+		self.menu_provider.unregister_menu()
+		
 		# tuflow viewer
 		self.removeTuview(no_popup=True)
 
@@ -907,6 +938,8 @@ class tuflowqgis_menu:
 		# self.thread.terminate()
 		# self.thread.wait()
 		self.prog_dialog.close()
+		if self.load_files.err:
+			QMessageBox.critical(self.iface.mainWindow(), 'Failed Files', self.load_files.msg)
 
 	def layer_added(self, e):
 		self.prog_label.setText('Found Layer: {0}'.format(e))

@@ -188,7 +188,7 @@ class Bom:
         # print('Read {0} duration rows.'.format(nDur))
         if len(vals) != ndur:
             self.error = True
-            self.message = 'Number of duration volues does not macth number of rows of data read.'
+            self.message = 'Number of duration values does not match number of rows of data read.'
             return
 
         # Load Very Frequent AEP IFD
@@ -344,7 +344,7 @@ class Bom:
             # print('Read {0} duration rows.'.format(nDur))
             if len(vals) != ndur:
                 self.error = True
-                self.message = 'Number of duration volues does not macth number of rows of data read.'
+                self.message = 'Number of duration values does not match number of rows of data read.'
                 return
         else:
             aep_frequent = []
@@ -500,7 +500,7 @@ class Bom:
             # print('Read {0} duration rows.'.format(nDur))
             if len(vals) != ndur:
                 self.error = True
-                self.message = 'Number of duration volues does not macth number of rows of data read.'
+                self.message = 'Number of duration values does not match number of rows of data read.'
                 return
         else:
             aep_rare = []
@@ -566,6 +566,7 @@ class Bom:
         except PermissionError:
             self.error = True
             self.message = 'File is locked for editing: {0}'.format(fname)
+            return
         except IOError:
             self.error = True
             self.message = 'Unexpected error opening file {0}'.format(fname)

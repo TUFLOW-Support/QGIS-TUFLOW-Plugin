@@ -31,6 +31,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from qgis.gui import *
 from qgis.core import *
+from qgis.utils import plugins
 from PyQt5.QtWidgets import *
 from PyQt5.QtXml import *
 from PyQt5.QtNetwork import QNetworkRequest
@@ -66,6 +67,8 @@ import sqlite3
 from osgeo import ogr, gdal
 
 from dataclasses import dataclass, field
+
+from .utils import layer_name_from_data_source
 
 # --------------------------------------------------------
 #    tuflowqgis Utility Functions
@@ -990,7 +993,10 @@ def tuflowqgis_import_check_tf(qgis, basepath, runID,showchecks):
 def region_renderer(layer):
 	from random import randrange
 	registry = QgsSymbolLayerRegistry()
+	symbol_layer = None
 	symbol_layer2 = None
+	renderer = None
+	symbol = None
 
 	#check if layer needs a renderer
 	# fsource = layer.source() #includes full filepath and extension
@@ -1005,15 +1011,15 @@ def region_renderer(layer):
 
 	fname = fname.lower()
 
-	if '_bcc_check_R' in fname:
+	if '_bcc_check_r' in fname.lower():
 		field_name = 'Source'
-	elif '_1d_to_2d_check_R' in fname:
+	elif '_1d_to_2d_check_R' in fname.lower():
 		field_name = 'Primary_No'
-	elif '_2d_to_2d_R' in fname:
+	elif '_2d_to_2d_r' in fname.lower():
 		field_name = 'Primary_No'
-	elif '_sac_check_R' in fname:
+	elif '_sac_check_r' in fname.lower():
 		field_name = 'BC_Name'
-	elif '2d_bc' in fname or '2d_mat' in fname or '2d_soil' in fname or '1d_bc' in fname:
+	elif '2d_bc' in fname.lower() or '2d_mat' in fname.lower() or '2d_soil' in fname.lower() or '1d_bc' in fname.lower():
 		i = 0
 		for field in layer.fields():
 			if field.name() == 'fid':
@@ -1021,9 +1027,10 @@ def region_renderer(layer):
 			if i == 0:
 				field_name = field.name()
 			i += 1
-	elif '1d_nwk' in fname or '1d_nwkb' in fname or '1d_nwke' in fname or '1d_mh' in fname or '1d_pit' in fname or \
-		 '1d_nd' in fname:
+	elif '1d_nwk' in fname.lower() or '1d_nwkb' in fname.lower() or '1d_nwke' in fname.lower() or '1d_mh' in fname.lower() or '1d_pit' in fname.lower() or \
+		 '1d_nd' in fname.lower():
 		i = 0
+		field_name = None
 		for field in layer.fields():
 			if field.name() == 'fid':
 				continue
@@ -1041,14 +1048,13 @@ def region_renderer(layer):
 			field_name = upstrm_type
 		elif layer.geometryType() == QgsWkbTypes.PointGeometry:
 			field_name = 'Unit_Type'
-	elif '2d_qnl' in fname:
+	elif '2d_qnl' in fname.lower():
 		field_name = layer.fields()[1].name() if '.gpkg|layername=' in layer.dataProvider().dataSourceUri() else layer.fields()[0].name()
 	else: #render not needed
 		return None
 
 			
 	# Thankyou Detlev  @ http://gis.stackexchange.com/questions/175068/apply-symbol-to-each-feature-categorized-symbol
-
 	
 	# get unique values
 	vals = layer.dataProvider().fieldNameIndex(field_name)
@@ -1200,6 +1206,33 @@ def region_renderer(layer):
 			root_rule.appendChild(rule)
 		root_rule.removeChildAt(0)
 		return renderer
+	elif field_name is None and '1d_nwk' in fname.lower():
+		color = '%d, %d, %d' % (randrange(0,256), randrange(0,256), randrange(0,256))
+		layer_style = {}
+		layer_style['color'] = color
+		layer_style['outline'] = '#000000'
+		symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+		symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
+		if layer.geometryType() == QgsWkbTypes.LineGeometry:
+			symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+			symbol_layer.setWidth(1)
+			symbol_layer2 = QgsMarkerLineSymbolLayer.create({'placement': 'lastvertex'})
+			layer_style['color_border'] = color
+			markerSymbol = QgsSimpleMarkerSymbolLayer.create(layer_style)
+			markerSymbol.setShape(QgsSimpleMarkerSymbolLayerBase.ArrowHeadFilled)
+			markerSymbol.setSize(5)
+			marker = QgsMarkerSymbol()
+			marker.changeSymbolLayer(0, markerSymbol)
+			symbol_layer2.setSubSymbol(marker)
+		elif layer.geometryType() == QgsWkbTypes.PointGeometry:
+			symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
+			symbol_layer.setSize(1.5)
+			symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Square)
+		if symbol_layer is not None:
+			symbol.changeSymbolLayer(0, symbol_layer)
+			if symbol_layer2 is not None:
+				symbol.appendSymbolLayer(symbol_layer2)
+		return QgsSingleSymbolRenderer(symbol)
 	else:
 		# define categories
 		categories = []
@@ -1213,7 +1246,7 @@ def region_renderer(layer):
 			layer_style['color'] = color
 			layer_style['outline'] = '#000000'
 			symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
-			if '2d_bc' in fname:
+			if '2d_bc' in fname.lower():
 				if layer.geometryType() == QgsWkbTypes.LineGeometry:
 					#QMessageBox.information(qgis.mainWindow(), "DEBUG", 'line 446')
 					symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
@@ -1222,7 +1255,7 @@ def region_renderer(layer):
 					symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
 					symbol_layer.setSize(2)
 					symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
-			elif '1d_nwk' in fname or '1d_nwkb' in fname or '1d_nwke' in fname or '1d_pit' in fname or '1d_nd' in fname:
+			elif '1d_nwk' in fname.lower() or '1d_nwkb' in fname.lower() or '1d_nwke' in fname.lower() or '1d_pit' in fname.lower() or '1d_nd' in fname.lower():
 				if layer.geometryType() == QgsWkbTypes.LineGeometry:
 					#QMessageBox.information(qgis.mainWindow(), "DEBUG", 'line 446')
 					symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
@@ -1249,16 +1282,16 @@ def region_renderer(layer):
 						symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
 					else:
 						symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Square)
-			elif '2d_qnl' in fname:
+			elif '2d_qnl' in fname.lower():
 				symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
 				layer.setOpacity(0.25)
-			elif '2d_mat' in fname:
+			elif '2d_mat' in fname.lower():
 				symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
 				layer.setOpacity(0.25)
-			elif '2d_soil' in fname:
+			elif '2d_soil' in fname.lower():
 				symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
 				layer.setOpacity(0.25)
-			elif '1d_bc' in fname:
+			elif '1d_bc' in fname.lower():
 				if layer.geometryType() == QgsWkbTypes.PointGeometry:
 					symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
 					symbol_layer.setSize(1.5)
@@ -4184,7 +4217,7 @@ class LoadGisFiles(QObject):
 		files_failed = []
 		for lyr in layers:
 			try:
-				lyrname = lyr.split('(')[1].split(',')[1].strip()
+				lyrname = '('.join(lyr.split('(')[1:]).split(',')[1].strip()
 			except Exception as e:
 				print(lyr)
 				print('ERROR: {0}'.format(e))
@@ -4216,6 +4249,7 @@ class LoadGisFiles(QObject):
 		self.err = False
 		files_failed = []
 		self.init_prog_bar()
+
 		for cf in self.model_file_layers:
 			for gis_file in cf.gis():
 				gis_file_ = gis_file
@@ -4224,13 +4258,23 @@ class LoadGisFiles(QObject):
 					continue
 				db, lyrname = get_database_name(gis_file)
 				fmt = ogr_format(gis_file)
+				is_prj = False
 				if fmt == GIS_SHP and Path(db).suffix.lower() == '.prj':
+					is_prj = True
 					db = str(Path(db).with_suffix('.shp'))
 					gis_file = f'{db} >> {lyrname}'
 				ext = ogr_format_2_ext(fmt)
 				for geom in ogr_iter_geom(gis_file):
 					if geom is None:
-						continue  # can happen if using just a .prj for projection
+						if not is_prj:
+							self.err = True
+							if gis_file.suffix.lower() != '.gpkg':
+								db, lyr = get_database_name(gis_file)
+								files_failed.append(str(db))
+							else:
+								files_failed.append(str(gis_file))
+						continue
+
 					geom = ogr_basic_geom_type(geom, True)
 					layer_uri = f'{db}|layername={lyrname}'
 					if ext.lower() == '.mif':
@@ -6576,7 +6620,7 @@ def getUtilityDownloadPaths(util_dict, util_path_file):
 	if not os.path.exists(util_path_file):
 		return ""
 
-	file_contents = numpy.loadtxt(util_path_file, dtype=numpy.str, delimiter="==")
+	file_contents = numpy.genfromtxt(util_path_file, dtype=str, delimiter="==")
 	d = {x[0].lower().strip(): x[1].strip() for x in file_contents}
 	for key in util_dict:
 		if key.lower() in d:
@@ -6616,10 +6660,9 @@ def downloadUtility(utility, parent_widget=None):
 	# }
 	
 	# downloadBaseUrl = 'https://www.tuflow.com/Download/TUFLOW/Utilities/'
-	
 	destFolder = os.path.join(os.path.dirname(__file__), '_utilities')
 	if not os.path.exists(destFolder):
-		os.mkdir(destFolder)
+		os.makedirs(destFolder)
 	exePath = os.path.join(destFolder, exe)
 	# url = downloadBaseUrl + exe
 	url = downloadBaseUrl + "/" + latestUtilities[utility]
@@ -6646,10 +6689,12 @@ def downloadUtility(utility, parent_widget=None):
 		return os.path.join(destFolder, extracted_name)
 	except IOError as err:
 		qApp.restoreOverrideCursor()
-		QMessageBox.critical(parent_widget,
-							 'Could Not Download {0}'.format(utility),
-							 "Download of {0} failed. Please try again or contact support@tuflow.com for "
-							 "further assistance.\n\n(Error: {1})".format(utility, err))
+		raise Exception('Download of {0} failed. Please try again or contact support@tuflow.com for '
+		 				'further assistance.\n\n(Error: {1})'.format(utility, err))
+		# QMessageBox.critical(parent_widget,
+		# 					 'Could Not Download {0}'.format(utility),
+		# 					 "Download of {0} failed. Please try again or contact support@tuflow.com for "
+		# 					 "further assistance.\n\n(Error: {1})".format(utility, err))
 
 
 def convertTimeToFormattedTime(time, hour_padding=2, unit='h'):
@@ -7158,12 +7203,17 @@ def is1dTable(layer):
 		return False
 
 	isgpkg = False
+	is_memory = False
 	if re.findall(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), re.IGNORECASE):
 		isgpkg = True
+	elif re.findall(re.escape('memory?geometry'), layer.dataProvider().dataSourceUri()):
+		is_memory = True
 
 	try:
 		if isgpkg:
 			lyrname = re.split(r'\.gpkg\|layername=', layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)[1]
+		elif is_memory:
+			lyrname = layer.name()
 		else:
 			lyrname = Path(layer.dataProvider().dataSourceUri()).stem
 		if '|' in lyrname:
@@ -7261,6 +7311,13 @@ def isTSLayer(layer, results=None):
 		name = Path(name).stem
 
 	return re.findall(r'_TS(MB|MB1d2d)?(_[PLR])?$', name, flags=re.IGNORECASE) and (results is None or name in results)
+
+
+def isBcLayer(layer: QgsVectorLayer):
+	if not layer or layer.type() != QgsMapLayer.VectorLayer:
+		return False
+	name = layer_name_from_data_source(layer.dataProvider().dataSourceUri())
+	return bool(re.findall(r'(^[12]d_(?:bc|sa|rf))', name, flags=re.IGNORECASE))
 
 
 def getRasterValue(point, raster):
@@ -8760,6 +8817,12 @@ def tuflowqgis_apply_gpkg_layername(iface):
 					if nd.name() == layername:
 						nd.setName(tablename)
 						break
+		elif layer.type() == QgsMapLayer.RasterLayer:
+			ds = layer.dataProvider().dataSourceUri()
+			if 'GPKG:' in ds:
+				_, lyrname = ds.rsplit(':', 1)
+				nd = QgsProject.instance().layerTreeRoot().findLayer(layer.id())
+				nd.setName(lyrname)
 
 
 def qcolor_to_mplcolor(color):
@@ -9722,36 +9785,17 @@ class RasterLayerHelper(LayerHelper):
 
 	@property
 	def datasource(self):
-		if re.findall(r'^[A-Z]{2,}:', self._datasource):
-			return ':'.join(self._datasource.split(':')[1:-1])
+		if 'GPKG:' in self._datasource or 'NetCDF:' in self._datasource:
+			_, ds = self._datasource.split(':', 1)
+			ds, _ = ds.rsplit(':', 1)
+			return ds
 		return self._datasource
 
 	@property
 	def layer_name(self):
 		if self.is_database:
-			if re.findall(r'^[A-Z]{2,}:', self._datasource):
-				layer_name = self._datasource.split(':')[-1]
-			elif Path(self._datasource).suffix.lower() == '.gpkg':
-				conn = sqlite3.connect(self._datasource)
-				c = conn.cursor()
-				c.execute("SELECT table_name FROM gpkg_contents WHERE data_type = 'tiles'")
-				layer_name = c.fetchone()[0]
-				conn.close()
-			elif Path(self._datasource).suffix.lower() == '.nc':
-				layer_name = ''
-				with Netcdf(self._datasource) as nc:
-					x_dims = [name for name, dim in nc.dimensions.items() if name in nc.variables and hasattr(nc.variables[name], 'axis') and nc.variables[name].axis == 'X']
-					y_dims = [name for name, dim in nc.dimensions.items() if name in nc.variables and hasattr(nc.variables[name], 'axis') and nc.variables[name].axis == 'Y']
-					for name, var in nc.variables.items():
-						if len(var.shape) == 3:
-							i, j = 1, 2
-						elif len(var.shape) == 2:
-							i, j = 0, 1
-						else:
-							continue
-						if var.dimensions[i].name in y_dims and var.dimensions[j].name in x_dims:
-							layer_name = name
-							break
+			_, lyrname = self._datasource.rsplit(':', 1)
+			return lyrname
 		else:
 			layer_name = Path(self._datasource).stem
 
@@ -9787,10 +9831,10 @@ def plugin_version_to_int(version_string):
 def download_latest_dev_plugin(iface=None):
 	parent = iface.mainWindow() if iface else None
 	_, build_vers = version()
-	latest_dev_version = get_latest_dev_plugin_version()
-	if plugin_version_to_int(latest_dev_version) <= plugin_version_to_int(build_vers):
-		QMessageBox.information(parent, 'Install Latest Dev Plugin', 'Installed version is the same or newer than the latest dev version.')
-		return
+	# latest_dev_version = get_latest_dev_plugin_version()
+	# if plugin_version_to_int(latest_dev_version) <= plugin_version_to_int(build_vers):
+	# 	QMessageBox.information(parent, 'Install Latest Dev Plugin', 'Installed version is the same or newer than the latest dev version.')
+	# 	return
 
 	download_path = browse(parent, 'output file', "TUFLOW/download_location", 'Enter name of the file to save to...',
 	                       'ZIP (*.zip *.ZIP)', default_filename='tuflow_plugin.zip')
@@ -9810,7 +9854,17 @@ def download_latest_dev_plugin(iface=None):
 					 '<p><p>Please see the following wiki page for instructions on how to install:' \
 	                 '<p><a href=\"https://wiki.tuflow.com/index.php?title=Installing_the_Latest_Development_Version_of_the_TUFLOW_Plugin#How_to_install_the_Development_Plugin_Version\">' \
 	                 'How to manually install the TUFLOW Plugin</a>'.format(download_path)
-	QMessageBox.information(parent, 'Install Latest Dev Plugin', completed_text)
+	message_box = QMessageBox(parent)
+	message_box.setText(completed_text)
+	message_box.setIcon(QMessageBox.Information)
+	message_box.addButton(QMessageBox.Close)
+	btn = QPushButton()
+	btn.setText('Copy Path to Clipboard')
+	message_box.addButton(btn, QMessageBox.ActionRole)
+	btn.disconnect()
+	btn.clicked.connect(lambda: QApplication.clipboard().setText(download_path))
+	message_box.open()
+	# QMessageBox.information(parent, 'Install Latest Dev Plugin', completed_text)
 
 
 def get_driver_by_extension(driver_type, ext):

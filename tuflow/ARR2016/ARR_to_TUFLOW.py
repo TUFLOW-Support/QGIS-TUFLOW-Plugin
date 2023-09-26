@@ -74,6 +74,7 @@ access_web = True  # once the .html files have been read, they are saved and you
 bom_raw_fname = None  # str or None
 arr_raw_fname = None  # str or None
 catchment_no = 0  # used in batch mode if specifying more than one catchment. Iterate in cmd to append catchments.
+limb_data = None
 
 # batch inputs (system/cmd arguments). If not running from GIS, will use above inputs as defaults so be careful.
 try:
@@ -126,7 +127,7 @@ arg_map = {'name': 0, 'coords': 1, 'area': 2, 'mag': 3, 'dur': 4, 'nonstnd': 5, 
            'urban_initial_loss': 21, 'urban_continuing_loss': 22,
            'global_continuing_loss': 22.5, 'addtp': 23,
            'point_tp': 24, 'areal_tp': 25, 'arffreq': 26, 'minarf': 27, 'out': 28, 'offline_mode': 29, 'arr_file': 30,
-           'bom_file': 31, 'catchment_no': 32}
+           'bom_file': 31, 'catchment_no': 32, 'limb': 33}
 for key in sorted(args, key=lambda k: arg_map[k]):
     value = args[key]
     #print('{0}={1};'.format(key, ",".join(map(str,value))))
@@ -442,6 +443,13 @@ if 'preburst_dur_proportional' in args.keys():
         bPreburst_dur_proportional = True
     else:
         bPreburst_dur_proportional = False
+
+# limb data
+if 'limb' in args.keys():
+    if args['limb'][0].lower() == 'none' or args['limb'][0].lower() == 'false':
+        limb_data = None
+    else:
+        limb_data = args['limb'][0].lower()
         
 warnings = []
 
@@ -572,7 +580,6 @@ if catchment_area <= 1.0:  # no catchment area, so no ARF. otherwise write out r
     #print('Done saving file.')
     logger.info('Done saving file.')
 
-
 # ARR data
 # Open and save raw ARR information
 areal_tp_download = None
@@ -585,19 +592,19 @@ if access_web:
     # longitude changed if greater than 153.2999 - set to 153.2999
     # this seems to be a limit for ARR datahub as of June 2019
     # only affects south-eastern most point of qld and north-eatern most point of NSW
-    if longitude > 153.2999:
-        long_changed = 153.2999
-        #print('\nWARNING: Longitude changed from {0} to {1}:\n'
-        #      '   ARR datahub does not support longitudes greater than {1}.\n'
-        #      '   If this is no longer the case and you would like have this switch removed please contact support@tuflow.com.\n'
-        #      '   Longitude for BOM IFD extraction has not been altered.\n'.format(longitude, long_changed))
-        logger.warning('\nWARNING: Longitude changed from {0} to {1}:\n'
-                       '   ARR datahub does not support longitudes greater than {1}.\n'
-                       '   If this is no longer the case and you would like have this switch removed please contact support@tuflow.com.\n'
-                       '   Longitude for BOM IFD extraction has not been altered.\n'.format(longitude, long_changed))
-    else:
-        long_changed = longitude
-    url = 'http://data.arr-software.org/?lon_coord={0}5&lat_coord={1}&type=text&All=1'.format(long_changed, -abs(latitude))
+    # if longitude > 153.2999:
+    #     long_changed = 153.2999
+    #     #print('\nWARNING: Longitude changed from {0} to {1}:\n'
+    #     #      '   ARR datahub does not support longitudes greater than {1}.\n'
+    #     #      '   If this is no longer the case and you would like have this switch removed please contact support@tuflow.com.\n'
+    #     #      '   Longitude for BOM IFD extraction has not been altered.\n'.format(longitude, long_changed))
+    #     logger.warning('\nWARNING: Longitude changed from {0} to {1}:\n'
+    #                    '   ARR datahub does not support longitudes greater than {1}.\n'
+    #                    '   If this is no longer the case and you would like have this switch removed please contact support@tuflow.com.\n'
+    #                    '   Longitude for BOM IFD extraction has not been altered.\n'.format(longitude, long_changed))
+    # else:
+    #     long_changed = longitude
+    url = 'http://data.arr-software.org/?lon_coord={0}5&lat_coord={1}&type=text&All=1'.format(longitude, -abs(latitude))
 
     # seems to require a dummy browser, or ARR rejects the connection
     user_agent = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'
@@ -777,7 +784,7 @@ ARR = ARR_WebRes.Arr()
 try:
     ARR.load(arr_raw_fname, catchment_area, add_tp=add_tp, point_tp=point_tp_csv, areal_tp=areal_tp_csv,
              user_initial_loss=user_initial_loss, user_continuing_loss=user_continuing_loss,
-             areal_tp_download=areal_tp_download)
+             areal_tp_download=areal_tp_download, limb_data=limb_data)
 except Exception as e:
     logger.error("ERROR: Unable to load ARR data: {0}".format(e))
     logging.shutdown()

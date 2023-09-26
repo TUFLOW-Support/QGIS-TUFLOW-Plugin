@@ -345,10 +345,22 @@ class TuResults():
 					if ['Flow Regime', 4, False] in pTypeTS and ['Flow Regime', 5, True] in lTypeTS:
 						lTypeTS.remove(['Flow Regime', 5, True])
 				elif type == 'region_ts':
+					types = []
 					if qv < 31600:
-						rTypeTS = [(x, 6, True) for x in t[0]]
+						if 'point_ts' in r:
+							for type_ in t[0]:
+								if type_ not in r['points_ts'][0]:
+									types.append(type_)
+						else:
+							types = t[0]
 					else:
-						rTypeTS = [(x, 6, True) for x in t['metadata'][0]]
+						if 'point_ts' in r:
+							for type_ in t['metadata'][0]:
+								if type_ not in r['point_ts']['metadata'][0]:
+									types.append(type_)
+						else:
+							types = t['metadata'][0]
+					rTypeTS = [(x, 6, True) for x in types]
 			elif '_lp' in type:
 				if qv < 31600:
 					timestepsLP = t[-1]
@@ -873,6 +885,7 @@ class TuResults():
 							mapOutputs.append(info)
 						else:
 							break
+					self.tuView.tuPlot.tuPlotToolbar.addItemToPlotOptions(rtype, static=True)
 		if not mapOutputs:
 			mapOutputs = [("None", 3, False)]
 

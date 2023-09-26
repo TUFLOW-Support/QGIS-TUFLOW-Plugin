@@ -1,4 +1,5 @@
 import os
+import sys
 import numpy
 import csv
 import ctypes
@@ -132,7 +133,7 @@ class PlotObjects():
 		if not fullpath:
 			return
 		try:
-			with open(fullpath, 'r') as csvfile:
+			with open(fullpath, 'r', encoding='utf-8', errors='ignore') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
 				self.ID = []
 				self.domain = []
@@ -209,7 +210,7 @@ class Timeseries():
 		error = False
 		message = ''
 		try:
-			with open(fullpath, 'r') as csvfile:
+			with open(fullpath, 'r', encoding='utf-8', errors='ignore') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
 				header = next(reader)
 		except:
@@ -255,10 +256,12 @@ class Timeseries():
 				self.uID.append(header[i - 1])
 		self.Header = header
 		try:
-			if prefix == "F":
-				values = numpy.genfromtxt(fullpath, delimiter=",", skip_header=1, dtype=str)
-			else:
-				values = numpy.genfromtxt(fullpath, delimiter=",", skip_header=1)
+			with open(fullpath, 'r', encoding='utf-8', errors='ignore') as csvfile:
+				next(csvfile)
+				if prefix == "F":
+					values = numpy.genfromtxt(csvfile, delimiter=",", skip_header=0, dtype=str, encoding='utf-8')
+				else:
+					values = numpy.genfromtxt(csvfile, delimiter=",", skip_header=0, encoding='utf-8')
 			# null_array = values == self.null_data)
 			# self.Values = numpy.ma.masked_array(values,null_array)
 			if values.dtype == numpy.float64:
@@ -484,7 +487,7 @@ class Node_Max():
 		tHmax = True
 		EMax = True
 		try:
-			with open(fullpath, 'r') as csvfile:
+			with open(fullpath, 'r', encoding='utf-8', errors='ignore') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
 				header = next(reader)
 				# find out what's in the file
@@ -531,8 +534,16 @@ class Node_Max():
 			message = 'Cannot find the following file: \n{0}'.format(fullpath)
 			error = True
 			return error, message
-		except:
-			message = 'ERROR - Error reading data from: '+fullpath
+		except Exception as e:
+			try:
+				import traceback
+				exc_type, exc_value, exc_traceback = sys.exc_info()
+				message = ''.join(traceback.extract_tb(exc_traceback).format()) + '{0}{1}'.format(exc_type,
+																								  exc_value)
+				message = 'ERROR - Error reading data from: ' + fullpath + '\n' + message
+			except:
+				pass
+				message = 'ERROR - Error reading data from: '+fullpath
 			error = True
 			return error, message
 
@@ -562,7 +573,7 @@ class Chan_Max():
 		vmax = True
 		tvmax = True
 		try:
-			with open(fullpath, 'r') as csvfile:
+			with open(fullpath, 'r', encoding='utf-8', errors='ignore') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
 				header = next(reader)
 				# find out what's in the file
@@ -646,7 +657,7 @@ class RL_P_Max():
 		error = False
 		message = ''
 		try:
-			with open(fullpath, 'r') as csvfile:
+			with open(fullpath, 'r', encoding='utf-8', errors='ignore') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
 				header = next(reader)
 				for row in reader:
@@ -721,7 +732,7 @@ class RL_L_Max():
 		error = False
 		message = ''
 		try:
-			with open(fullpath, 'r') as csvfile:
+			with open(fullpath, 'r', encoding='utf-8', errors='ignore') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
 				header = next(reader)
 				for row in reader:
@@ -800,7 +811,7 @@ class RL_R_Max():
 		error = False
 		message = ''
 		try:
-			with open(fullpath, 'r') as csvfile:
+			with open(fullpath, 'r', encoding='utf-8', errors='ignore') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
 				header = next(reader)
 				for row in reader:
@@ -878,7 +889,7 @@ class NodeInfo():
 		if not fullpath:
 			return
 		try:
-			with open(fullpath, 'r') as csvfile:
+			with open(fullpath, 'r', encoding='utf-8', errors='ignore') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
 				header = next(reader)
 				for (counter, row) in enumerate(reader):
@@ -945,7 +956,7 @@ class ChanInfo():
 		if not fullpath:
 			return
 		try:
-			with open(fullpath, 'r') as csvfile:
+			with open(fullpath, 'r', encoding='utf-8', errors='ignore') as csvfile:
 				reader = csv.reader(csvfile, delimiter=',', quotechar='"')
 				header = next(reader)
 				for (counter, row) in enumerate(reader):
@@ -2204,7 +2215,7 @@ class ResData():
 
 	def getResFileFormat(self):
 		try:
-			data = numpy.genfromtxt(self.filename, dtype=str, delimiter="==")
+			data = numpy.genfromtxt(self.filename, dtype=str, delimiter="==", encoding='utf-8')
 		except:
 			error = True
 			message = 'ERROR - Unexpected error, Unable to load data.'
@@ -2261,7 +2272,7 @@ class ResData():
 
 		# find netcdf filepath
 		try:
-			data = numpy.genfromtxt(self.filename, dtype=str, delimiter="==")
+			data = numpy.genfromtxt(self.filename, dtype=str, delimiter="==", encoding='utf-8')
 		except:
 			error = True
 			message = 'ERROR - Unexpected error, Unable to load data.'
@@ -2402,7 +2413,7 @@ class ResData():
 		error = False
 		message = ""
 		try:
-			data = numpy.genfromtxt(self.filename, dtype=str, delimiter="==")
+			data = numpy.genfromtxt(self.filename, dtype=str, delimiter="==", encoding='utf-8')
 		except IOError:
 			message = 'Cannot find the following file: \n{0}'.format(self.fpath)
 			error = True

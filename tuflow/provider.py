@@ -2,8 +2,50 @@ import os
 import sys
 import re
 from PyQt5.QtGui import QIcon
+from qgis._core import Qgis
 from qgis.core import QgsProcessingProvider
 from pathlib import Path
+
+
+class Directive:
+
+    def __new__(cls, line: str):
+        if DirectiveQgisVersion.matches(line):
+            cls = DirectiveQgisVersion
+        self = super().__new__(cls)
+        self.valid = False
+        self._init(line)
+        return self
+
+    def __bool__(self):
+        return self.valid
+
+    def _init(self, line: str):
+        self.line = line
+
+    def qualifies(self):
+        return True
+
+
+class DirectiveQgisVersion(Directive):
+
+    def _init(self, line: str):
+        super()._init(line)
+        try:
+            self.version = int(re.findall(r'\d{5}', line)[0])
+            self.check = re.findall(r'[><=]{1,2}', line)[0]
+            self.valid = True
+        except Exception:
+            pass
+
+    @staticmethod
+    def matches(line) -> bool:
+        r = r'^# QGIS_VERSION[><=]{1,2}\d{5}'
+        return bool(re.findall(r, line))
+
+    def qualifies(self):
+        qv = Qgis.QGIS_VERSION_INT
+        return eval('{0}{1}{2}'.format(qv, self.check, self.version))
 
 
 class TuflowAlgorithmProvider(QgsProcessingProvider):
@@ -38,7 +80,6 @@ class TuflowAlgorithmProvider(QgsProcessingProvider):
         """
         Loads all scripts found under the specified sub-folder
         """
-
         if not os.path.exists(self.script_folder):
             return
 
@@ -58,6 +99,9 @@ class TuflowAlgorithmProvider(QgsProcessingProvider):
         with open(file, 'r') as f:
             in_multi_line_comment = False
             for line in f:
+                directive = Directive(line)
+                if directive and not directive.qualifies():
+                    return None
                 text = [x.strip() for x in line.split('#', 1)]
                 if len(text) == 2:
                     text, comment = text

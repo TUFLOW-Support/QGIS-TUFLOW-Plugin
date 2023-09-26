@@ -1,0 +1,2 @@
+Soil ID, Method, USDA Type, Initial Moisture, Max Ponding Depth, Horizontal Hydraulic Conductivity
+1,GA,"CLAY",0,0,0  ! TODO dummy values - requires update/populate
