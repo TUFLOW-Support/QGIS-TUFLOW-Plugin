@@ -1,0 +1,20 @@
+<h3>Description</h3>
+
+<p>Utility to automatically create TUFLOW cross-sections.</p>
+
+<h3>Parameters</h3>
+
+<ol>
+<li><strong>1D Network Channel Layer</strong>: The layer that will have cross-sections created for it. Cross-sections will be created perpendicular to the lines in this layer. This layer does not need to be a 1d_nwk layer, however if it is, only 'S' and 'G' types will have cross-sections created (blank types are assumed to be 'G' types).</li>
+<li><strong>Cross-Section Position</strong>:
+<ol>
+<li><strong>At Ends</strong>: Cross-sections will be created at the ends of each channel.</li>
+<li><strong>At Midpoints</strong>: Cross-sections will be created at the midpoints of each channel.</li>
+</ol></li>
+<li><strong>Cross-Section Line Length</strong>: The length of the cross-section lines to be created (in map units).</li>
+<li><strong>Clip Cross-Sections to Layer</strong>: If checked, cross-sections will be clipped to the boundary of the polygon layer specified in <strong>Clip Layer</strong>.</li>
+<li><strong>Clip Layer</strong>: The polygon layer to clip cross-sections to. Only applicable if <strong>Clip Cross-Sections to Layer</strong> is checked.</li>
+<li><strong>Export Cross-Sections to CSV</strong>: If checked, cross-sections will be exported to a CSV file. The CSV files will be created in the same directory as the output file (in a folder called 'csv') if a location is not specified in <strong>CSV Output Directory</strong>. If checked, the user must either specify a <strong>CSV Output Directory</strong> or a location for the output layer (cannot be a temporary layer).</li>
+<li><strong>CSV Output Directory</strong>: The directory to export CSV files to. If left blank, CSV files will be created in the same directory as the output file (in a folder called 'csv').</li>
+<li><strong>Elevation Raster</strong>: Raster to extract elevations from for CSV output. Must be specified if <strong>Export Cross-Sections to CSV</strong> is checked.</li>
+</ol>

@@ -3,7 +3,7 @@ from PyQt5.QtGui import QColor
 from PyQt5.QtCore import *
 from qgis.core import QgsPoint, QgsPointXY, QgsGeometry, Qgis, QgsMeshLayer, QgsProject, QgsRasterLayer
 from qgis.gui import QgsVertexMarker, QgsRubberBand
-from ..tuflowqgis_library import tuflowqgis_find_layer
+from tuflow.toc.toc import tuflowqgis_find_layer
 from ..tuflowqgis_tuviewer.tuflowqgis_turesults1d import TSResult
 from ..tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 from ..tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
@@ -201,13 +201,16 @@ class TuProject():
 		if call_type == 'save':
 			results1d = self.tuView.tuResults.tuResults1D.results1d
 			results = ''
-			for i, result in enumerate(results1d):
-				if isinstance(results1d[result], TSResult) or isinstance(results1d[result], TSResult):
-					continue
-				if i == 0:
-					results += os.path.join(results1d[result].fpath, results1d[result].filename)
-				else:
-					results += '~~{0}'.format(os.path.join(results1d[result].fpath, results1d[result].filename))
+			i = -1
+			for result_ in results1d:
+				for result in results1d[result_]:
+					i += 1
+					if isinstance(result, TSResult) or isinstance(result, TSResult):
+						continue
+					if i == 0:
+						results += os.path.join(result.fpath, result.filename)
+					else:
+						results += '~~{0}'.format(os.path.join(result.fpath, result.filename))
 			self.project.writeEntry("TUVIEW", "results1d", results)
 		else:  # load
 			results = self.project.readEntry("TUVIEW", "results1d")[0]

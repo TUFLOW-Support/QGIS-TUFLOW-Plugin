@@ -4,6 +4,8 @@ from qgis.core import Qgis
 
 from ..nc_grid_data_provider import NetCDFGrid, LoadError
 from ..tuflowqgis_dialog import tuflowqgis_scenarioSelection_dialog
+from .tmp_result import TmpResult
+from ..gui import Logging
 
 try:
     from pathlib import Path
@@ -17,6 +19,7 @@ class TuResultsNcGrid:
         self.tuView = tuView
         self.iface = tuView.iface
         self.results = {}
+        self.copied_results = {}
 
     def importResults(self, inFileNames, **kwargs):
         qv = Qgis.QGIS_VERSION_INT
@@ -31,8 +34,25 @@ class TuResultsNcGrid:
         except:
             skipConnect = True
 
+        copy_res = self.tuView.tuOptions.copy_mesh
         errors = []
         for j, f in enumerate(inFileNames):
+            # copy result stuff
+            if j == 0 and self.tuView.tuOptions.show_copy_mesh_dlg and NetCDFGrid.capable():
+                copy_res = TmpResult.ask_copy_res_dlg(self.tuView, self.tuView.tuOptions)
+            if copy_res:
+                tmp_res = TmpResult(f)
+                if tmp_res.valid:
+                    try:
+                        f = tmp_res.copy(self.tuView)
+                    except RuntimeError as e:
+                        Logging.error('Error copying result file to temporary directory', 'Python error: {0}'.format(e))
+                        return
+                else:
+                    Logging.error('Could not create temporary directory for result file',
+                                  'Temporary directory: {0}'.format(tmp_res.tmp_dir))
+                    return
+
             if 'layers' in kwargs:
                 selected_layers = kwargs['layers']
             else:
@@ -59,6 +79,9 @@ class TuResultsNcGrid:
                 if mLayer is None:
                     errors.append(name)
                     continue
+
+                if copy_res:
+                    self.copied_results[mLayer] = tmp_res
 
                 self.tuView.tuResults.updateDateTimes()
 
@@ -93,15 +116,24 @@ class TuResultsNcGrid:
         return True
 
     def _load_file(self, filename, layer_name, **kwargs):
+
         display_name = '{0} - {1}'.format(Path(filename).stem, layer_name)
         uri = 'NetCDF:{0}:{1}'.format(filename, layer_name)
         try:
-            nc_grid = NetCDFGrid(uri, display_name, **kwargs)
+            nc_grid = NetCDFGrid(uri, display_name, default_reference_time=self.tuView.tuOptions.zeroTime, **kwargs)
         except LoadError as e:
             return None, str(e)
 
-        defaultRefTime = self.tuView.tuOptions.zeroTime
-        self.tuView.tuResults.results[display_name] = {}
+        self.getResultMetaData(display_name, nc_grid)
+
+        # load first step
+        self.updateActiveTime()
+
+        return nc_grid, display_name
+
+    def getResultMetaData(self, display_name, nc_grid):
+        if display_name not in self.tuView.tuResults.results:
+            self.tuView.tuResults.results[display_name] = {}
 
         # populate resdata
         timekey2time = self.tuView.tuResults.timekey2time  # dict
@@ -119,17 +151,29 @@ class TuResultsNcGrid:
         for t in timesteps:
             timekey2time['{0:.6f}'.format(t)] = t
 
-        self.tuView.tuResults.results[display_name]["_nc_grid"] = {
+        self.tuView.tuResults.results[display_name]["_nc_grid"] = \
+        {
             'times': {'{0:.6f}'.format(x): [x] for x in timesteps},
-            'referenceTime': nc_grid.reference_time}
+            'referenceTime': nc_grid.reference_time
+        }
 
         # add to internal storage
         self.results[display_name] = [nc_grid, timesteps]
 
-        # load first step
-        self.updateActiveTime()
+    def layerReloaded(self, layer):
+        if layer is None and hasattr(self.tuView, 'timer') and self.tuView.timer is not None:  # start timer to reload results
+            self.tuView.timer.start(300)
+            return
 
-        return nc_grid, display_name
+        results = self.tuView.tuResults.results
+        display_name = layer.name()
+        if display_name in results:
+            if '_nc_grid' in results[display_name]:
+                del results[display_name]['_nc_grid']
+
+        self.getResultMetaData(display_name, layer)
+        self.tuView.tuResults.updateResultTypes()
+        self.tuView.resultsChanged()
 
     def layerNameChanged(self, old_name, new_name):
         if old_name in self.results:
@@ -146,6 +190,8 @@ class TuResultsNcGrid:
         selectedResults = [x.text() for x in self.tuView.OpenResults.selectedItems()]
         for res_name, data in self.results.items():
             nc_grid = data[0]
+            if nc_grid.static:
+                continue
 
             if res_name not in selectedResults or active_date is None:
                 time_index = None

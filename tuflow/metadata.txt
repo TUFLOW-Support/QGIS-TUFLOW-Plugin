@@ -11,7 +11,7 @@ about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.9
+version=3.9.0.110
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 
@@ -20,7 +20,175 @@ email=support@tuflow.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=--- 3.9 ---
+changelog=--- 3.9.0.110---
+          Arch Bridge Editor - Fixes bug where the tool would error when running if features were drawn and saved while the editor was open
+
+          --- 3.9.0.106---
+          1D Integrity Tool - Fixes bug where a cover limit of exactly zero wasn't flagging any cover issues
+          1D Integrity Tool - More robust recognition of 1d nwk layers
+
+          --- 3.9.0.105---
+          1D Integrity Tool - Fixes Python error that could occur when loading layers into a workspace with raster layers
+
+          --- 3.9.0.101---
+          Load From TCF - Commands where no files are loaded are now reported.
+
+          --- 3.9.0.99---
+          Import Empty (Toobox) - Fixes bug that could potentially not correctly bring in new GPKG layer if GPKG contained more than one layer
+
+          --- 3.9.0.98---
+          Apply GPKG Name - Fixes bug where name wasn't applied to raster layers where the database only containes one raster layer
+
+          --- 3.9.0.96---
+          TUFLOW Viewer - Fixes bug where Flood Modeller cross-sections weren't plotting due to the change in inactive area handling in TUFLOW Plugin v3.9
+
+          --- 3.9.0.95---
+          Increment Layer - Fixes bug that would cause python error if a layer group was selected
+
+          --- 3.9.0.93---
+          Configure TUFLOW Project (toolbox) - Updates HPC template control files with missing commands
+
+          --- 3.9.0.92---
+          Convert TUFLOW Model GIS Format - Fixes bug on tool initialisation when using network drivers (caused python error)
+
+          --- 3.9.0.83---
+          TUFLOW Viewer - Disable matplotlib 3.5.1 "legend about to break" check and message
+
+          --- 3.9.0.82 ---
+          TUFLOW Viewer - Fixes bug when loading a cross-section that starts with a valid float number in the header
+
+          --- 3.9.0.73 ---
+          TUFLOW Viewer - Fixes python error that prevented TUFLOW Viewer from loading when there was a 1d_xs
+
+          --- 3.9.0.72 ---
+          TUFLOW Viewer - Fixes hover over plot labelling for matplotlib 3.7
+
+          --- 3.9.0.71 ---
+          Load Layers from TCF - SWMM inp file will be converted to a GPKG and loaded
+
+          --- 3.9.0.69 ---
+          TUFLOW Viewer - Selecting 1d node results will no longer affect any 1d long section results
+
+          --- 3.9.0.67 ---
+          TUFLOW Viewer - fixes a bug that stopped loading tpc result when a '#' was present in the flow regime result
+
+          --- 3.9.0.51 ---
+          TUFLOW Viewer - unchecking a mesh layer in the Layers Panel will no longer unselect the corresponding result in TUFLOW Viewer
+
+          --- 3.9.0.50 ---
+          Toolbox - Adds new tool 'Create CN Lines' - port of mitools 'Create TUFLOW CN Lines' tool
+
+          --- 3.9.0.48 ---
+          Toolbox - Adds new tool 'Create Cross-Section Lines' - port of mitools 'Create TUFLOW XS' tool
+
+          --- 3.9.0.47 ---
+          Toolbox - Adds new tool 'Create Water Level Lines' - port of mitools 'Create TUFLOW WLL' tool
+
+          --- 3.9.0.42 ---
+          Load from TCF - Fixes python error that would occur if an xf layer was being referenced
+
+          --- 3.9.0.41 ---
+          Import Empty - Adds 2d_wrf tooltip
+
+          --- 3.9.0.40 ---
+          TUFLOW Viewer - Removes duplicate result types from 2d_bc_tables
+          TUFLOW Viewer - Updates SWMM results to reflect changes from TUFLOW
+
+          --- 3.9.0.39 ---
+          TUFLOW Viewer - SWMM gpkg time series format is not supported within load from TCF/TLF functions
+
+          --- 3.9.0.37 ---
+          TUFLOW Viewer - Sets the event duration for GPKG time series vector layers temporal properties
+
+          --- 3.9.0.36 ---
+          TUFLOW Viewer - QGIS canvas temporal range set correctly based on result output timestep (only affects GPKG time series results)
+
+          --- 3.9.0.35 ---
+          TUFLOW Viewer - NetCDF rasters and GPKG time series working in animation export tool
+
+          --- 3.9.0.34 ---
+          TUFLOW Viewer - Temporary copy now works for NetCDF rasters
+
+          --- 3.9.0.33 ---
+          TUFLOW Viewer - GPKG time series results GIS layers are no longer re-loaded on project load
+
+          --- 3.9.0.32 ---
+          TUFLOW Viewer - Static NetCDF grid results no longer affect the time slider
+
+          --- 3.9.0.27 ---
+          TUFLOW Viewer - Implemented special reload method for netcdf mesh results as these can't be overwritten
+
+          --- 3.9.0.26 ---
+          Import Empty Toolbox - Empty directory can point to either the Project folder or Empty Directory
+
+          --- 3.9.0.24 ---
+          TUFLOW Viewer - User option to delete copied results on close. Button to delete all copied results added.
+
+          --- 3.9.0.23 ---
+          TUFLOW Viewer - Implemented new reload data functionality using copied results which stops conflict between TUFLOW and QGIS if simulation is still running
+
+          --- 3.9.0.21 ---
+          1D Integrity Tool - Vector layer input comboxes will no longer reset if a layer is added/removed from workspace
+
+          --- 3.9.0.20 ---
+          1D Integrity Tool - Error is shown to user if selected channels are not connected when using the flow trace tool. Previously this would error silently and progress bar looked to hang.
+
+          --- 3.9.0.19 ---
+          1D Integrity Tool - Remembers selected DEM which could reset if layers were added/removed from workspace
+
+          --- 3.9.0.18 ---
+          1D Integrity Tool - Fixes python error that could occur if an aerial image was accidentally used as ground surface
+
+          --- 3.9.0.17 ---
+          TUFLOW Styling - Temporal styling options for GPKG time series results even if TUFLOW Viewer is not open
+
+          --- 3.9.0.16 ---
+          Changed default styling for GPKG TS results to Pretty Breaks
+          Better logging for GPKG TS results
+
+          --- 3.9.0.15 ---
+          GPKG time series styling added to GIS layer context menu
+
+          --- 3.9.0.14 ---
+          TUFLOW Viewer - GPKG time series - better gis layer checking so that an exception isn't thrown (exception should only be thrown on unexpected error)
+
+          --- 3.9.0.13 ---
+          TUFLOW Viewer - Explicitly linked GPKG time series results with their GIS layer
+
+          --- 3.9.0.12 ---
+          Run TUFLOW - Fixes bug that can cause Python error when browsing for TUFLOW.exe
+
+          --- 3.9.0.11 ---
+          TUFLOW Viewer - Optimised GPKG long profiles routines
+
+          --- 3.9.0.10 ---
+          TUFLOW Viewer - Adds long profiles for GPKG time series results
+
+          --- 3.9.0.8 ---
+          TUFLOW Viewer - Adds GPKG timeseries temporal styling
+
+          --- 3.9.0.7 ---
+          TUFLOW Viewer - fix bug that crept in (3.9.0.5) where TPC GIS layers were not being loaded
+
+          --- 3.9.0.6 ---
+          TUFLOW-SWMM Tools added
+
+          --- 3.9.0.5 ---
+          TUFLOW Viewer - Adds GPKG time series results (currently written by TUFLOW-SWMM)
+
+          --- 3.9.0.4 ---
+          TUFLOW Viewer - Optimised code relating to feature selection when viewing time series results
+
+          --- 3.9.0.3 ---
+          Import Empty (Toolbox) - Removes duplicate empty types from list
+
+          --- 3.9.0.2 ---
+          TUFLOW Viewer - Long profile results are not shown if only 2D results are available (Time Series results)
+
+          --- 3.9.0.1 ---
+          Copy TUFLOW Command - A little more clever when searching for control files in case it finds an erroneous 'TUFLOW' folder
+
+          --- 3.9 ---
           - New Features and Enhancements -
           TUFLOW Viewer - Adds BC tables check file (1D)
           TUFLOW Viewer - Animation supports user defined time formatting

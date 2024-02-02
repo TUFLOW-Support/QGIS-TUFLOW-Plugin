@@ -18,12 +18,13 @@ from matplotlib.collections import PolyCollection
 from matplotlib import cm
 from matplotlib.colors import LinearSegmentedColormap
 from ..tuflowqgis_library import (loadLastFolder, getResultPathsFromTCF, getScenariosFromTcf, getEventsFromTCF,
-									   tuflowqgis_find_layer, getUnit, getCellSizeFromTCF, getOutputZonesFromTCF,
+                                  getUnit, getCellSizeFromTCF, getOutputZonesFromTCF,
 									   getPathFromRel, convertTimeToFormattedTime, convertFormattedTimeToTime,
 									   getResultPathsFromTLF, browse, qgsxml_as_mpl_cdict,
 									   generateRandomMatplotColours2, getResultPathsFromTCF_v2, mpl_version_int,
 									   labels_about_to_break, labels_already_broken, applyMatplotLibArtist,
                                        qdt2dt)
+from tuflow.toc.toc import tuflowqgis_find_layer
 from ..tuflowqgis_dialog import (tuflowqgis_scenarioSelection_dialog, tuflowqgis_eventSelection_dialog,
 									  TuOptionsDialog, TuSelectedElementsDialog, tuflowqgis_meshSelection_dialog,
 									  TuBatchPlotExportDialog, TuUserPlotDataManagerDialog,
@@ -35,6 +36,10 @@ from .tuflowqgis_tumap import TuMapDialog
 from .tuflowqgis_turesults import TuResults
 from ..nc_grid_data_provider import NetCDFGrid
 
+from ..gui import Logging
+
+from ..compatibility_routines import Path
+from ..tuflow_results_gpkg import ResData_GPKG
 
 
 class TuMenuFunctions():
@@ -140,7 +145,7 @@ class TuMenuFunctions():
 			# User get 1D result file
 			inFileNames = QFileDialog.getOpenFileNames(self.iface.mainWindow(), 'Open TUFLOW 1D results file',
 			                                           fpath,
-			                                           "TUFLOW 1D Results (*.tpc *.info)")
+			                                           "TUFLOW 1D Results (*.tpc *.info *.gpkg);;TPC (*.tpc);;INFO (*.info);;GPKG (*.gpkg)")
 			if not inFileNames[0]:  # empty list
 				return False
 			
@@ -164,8 +169,14 @@ class TuMenuFunctions():
 		
 		# Prompt user if they want to load in GIS files
 		for inFileName in inFileNames[0]:
+			if os.path.splitext(inFileName)[1].lower() == '.gpkg':
+				if askGis:
+					alsoOpenGis = QMessageBox.Yes
+				else:
+					alsoOpenGis = QMessageBox.No
+				break
 			alsoOpenGis = QMessageBox.No
-			if os.path.splitext(inFileName)[1].lower() == '.tpc':
+			if os.path.splitext(inFileName)[1].lower() in ['.tpc']:
 				if askGis:
 					alsoOpenGis = QMessageBox.question(self.iface.mainWindow(),
 					                                   "TUFLOW Viewer", 'Do you also want to open result GIS layer?',
@@ -174,13 +185,15 @@ class TuMenuFunctions():
 					if openGis is not None:
 						alsoOpenGis = QMessageBox.Yes if openGis else QMessageBox.No
 			break  # only need to ask once
-		if alsoOpenGis == QMessageBox.Yes:
-			self.tuView.tuResults.tuResults1D.openGis(inFileNames[0][0])
-		elif alsoOpenGis == QMessageBox.Cancel:
+		# if alsoOpenGis == QMessageBox.Yes:
+		# 	self.tuView.tuResults.tuResults1D.openGis(inFileNames[0][0])
+		if alsoOpenGis == QMessageBox.Cancel:
 			return False
 		
 		# import results
 		success = self.tuView.tuResults.importResults('timeseries', inFileNames[0])
+		if success:
+			self.tuView.tuResults.tuResults1D.open_gis(alsoOpenGis == QMessageBox.Yes)
 		
 		# unlock map output timesteps only
 		if unlock:
@@ -411,6 +424,12 @@ class TuMenuFunctions():
 								names = names[:1]
 						for output in names:
 							possible_paths = [x for x in paths if output in os.path.splitext(os.path.basename(x))[0] == output]
+							for p in paths:
+								if '_swmm_ts.gpkg' in os.path.basename(p):
+									n = os.path.splitext(os.path.basename(p))[0]
+									n = n.replace('_swmm_ts', '')
+									if n == output:
+										possible_paths.append(p)
 							for pp in possible_paths:
 								if old_method:
 									suffix = os.path.splitext(pp)[1]
@@ -418,7 +437,7 @@ class TuMenuFunctions():
 									suffix = pp.suffix
 								if suffix.lower() in ['.xmdf', '.dat']:
 									res2D.append(str(pp))
-								elif suffix.lower() == '.tpc':
+								elif suffix.lower() in ['.tpc', '.gpkg']:
 									res1D.append(str(pp))
 				else:
 					res1D, res2D, mess = [], [], ''
@@ -442,6 +461,15 @@ class TuMenuFunctions():
 		kwargs['result_2D'] = results2D
 		kwargs['result_1D'] = results1D
 		kwargs['unlock'] = False
+
+		ts_gpkg = [x for x in res1D if Path(x).suffix == '.gpkg']
+		if ts_gpkg:
+			res = ResData_GPKG()
+			err, msg = res.Load(ts_gpkg[0])
+			if not err:
+				rt = res.reference_time
+				self.tuView.tuResults.tmp_reference_time = rt
+				res.close()
 
 		# load 2D results
 		if results2D:
@@ -470,6 +498,9 @@ class TuMenuFunctions():
 		fpath = os.path.dirname(inFileNames[0][0])
 		settings = QSettings()
 		settings.setValue("TUFLOW_Results/lastFolder", fpath)
+
+		if self.tuView.tuResults.tmp_reference_time is not None:
+			self.tuView.tuResults.tmp_reference_time = None
 		
 		return True
 
@@ -552,7 +583,8 @@ class TuMenuFunctions():
 		for item in self.tuView.OpenResults.selectedItems():
 			if self.tuView.hydTables.getData(item.text()) is None:
 				layer = tuflowqgis_find_layer(item.text())
-				self.tuView.project.removeMapLayer(layer.id())
+				if layer:
+					self.tuView.project.removeMapLayer(layer.id())
 
 		if self.tuView.canvas is not None:
 			self.tuView.canvas.refresh()
@@ -1328,7 +1360,9 @@ class TuMenuFunctions():
 
 		ax, plotWidget, _, artists, labels = self.tuView.tuPlot.plotEnumerator(self.tuView.tabWidget.currentIndex())[2:7]
 		labels_about_to_break_ = self.tuView.tuPlot.labels_about_to_break(self.tuView.tabWidget.currentIndex())
-		if labels_about_to_break_ == 1:
+		if labels_about_to_break_ == -1:
+			pass
+		elif labels_about_to_break_ == 1:
 			labels_about_to_break_ = 2
 		elif mpl_version_int() >= 35000 and labels_already_broken(labels[0]):
 			labels_about_to_break_ = 2

@@ -2,7 +2,7 @@ from PyQt5.QtCore import *
 from qgis.core import *
 from math import pi
 from .Enumerators import *
-from ..tuflowqgis_library import getNetworkMidLocation, interpolateObvert
+from tuflow.tuflowqgis_library import getNetworkMidLocation, interpolateObvert
 from .FlowTraceLongPlot_V2 import Connectivity
 
 
@@ -248,7 +248,7 @@ class ContinuityTool(QObject):
             invert = fData.invertDs
             if invert != -99999:
                 invertDs = self.getInvert(cData.linesDs, NETWORK.Downstream)
-                
+
                 if invertDs is not None:
                     if invert < invertDs:
                         uniqueId = (fData.endVertex.x(), fData.endVertex.y())
@@ -339,7 +339,7 @@ class ContinuityTool(QObject):
                     if ground is not None:
                         cover = ground - obvert
                         if cover < self.limitCover and cover < min_cover:
-                            min_cover = max(cover, 0.)
+                            min_cover = min(min_cover, cover)
                             min_ground = ground
                             min_obvert = obvert
                             min_chainage = chainages[i]
@@ -459,11 +459,8 @@ class ContinuityTool(QObject):
             if id not in self.dataCollector.features:
                 continue
             fData = self.dataCollector.features[id]
-            if fData.type.upper() == 'R':
-                totalArea += fData.numberOf * fData.width * fData.height
-            elif fData.type.upper() == 'C':
-                totalArea += fData.numberOf * pi * (fData.width / 2.0) ** 2
-        
+            totalArea += fData.area
+
         if totalArea == 0:
             return None
         else:

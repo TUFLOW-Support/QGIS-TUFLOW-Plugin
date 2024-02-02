@@ -1,6 +1,6 @@
 location == ESTRY Control file (.ecf)
 
-command == Read GIS Node
+command == Read GIS Table Links
 
 description == Used to set nodal surface areas.
 

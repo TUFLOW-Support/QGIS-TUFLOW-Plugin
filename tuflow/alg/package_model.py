@@ -282,7 +282,7 @@ class PackageModel(QgsProcessingAlgorithm):
     def shortHelpString(self) -> typing.AnyStr:
         folder = Path(os.path.realpath(__file__)).parent
         help_filename = folder / 'help' / 'html' / 'package_model.html'
-        return help_filename.open().read()
+        return self.tr(help_filename.open().read().replace('\n', '<p>'))
 
     def shortDescription(self) -> typing.AnyStr:
         return self.tr("Package a TUFLOW model")

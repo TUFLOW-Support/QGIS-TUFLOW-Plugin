@@ -14,8 +14,9 @@ from ..forms.MapExportImportDialog import Ui_MapExportImportDialog
 from ..tuflowqgis_tuviewer.tuflowqgis_tuanimation import (ImagePropertiesDialog, PlotProperties,
                                                                TextPropertiesDialog, prepare_composition,
                                                                prepare_composition_from_template, createText)
-from ..tuflowqgis_library import (tuflowqgis_find_layer, convertTimeToFormattedTime, convertFormattedTimeToTime,
-                                       browse)
+from ..tuflowqgis_library import (convertTimeToFormattedTime, convertFormattedTimeToTime,
+                                  browse)
+from tuflow.toc.toc import tuflowqgis_find_layer
 from ..tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 from ..tuflowqgis_tuviewer.tuflowqgis_turesults2d import TuResults2D
 from datetime import datetime, timedelta
@@ -1945,14 +1946,14 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 
 			asd = QgsMeshDatasetIndex(-1, 0)
 			if qv < 31600:
-				for j in range(layer.dataProvider().datasetCount(scalarInd)):
+				for j in range(layer.datasetCount(scalarInd)):
 					ind = QgsMeshDatasetIndex(scalarInd, j)
-					if '{0:.2f}'.format(layer.dataProvider().datasetMetadata(ind).time()) == '{0:.2f}'.format(time):
+					if '{0:.2f}'.format(layer.datasetMetadata(ind).time()) == '{0:.2f}'.format(time):
 						asd = ind
 				avd = QgsMeshDatasetIndex(-1, 0)
-				for j in range(layer.dataProvider().datasetCount(vectorInd)):
+				for j in range(layer.datasetCount(vectorInd)):
 					ind = QgsMeshDatasetIndex(vectorInd, j)
-					if '{0:.2f}'.format(layer.dataProvider().datasetMetadata(ind).time()) == '{0:.2f}'.format(time):
+					if '{0:.2f}'.format(layer.datasetMetadata(ind).time()) == '{0:.2f}'.format(time):
 						avd = ind
 			else:
 				asd = scalarInd

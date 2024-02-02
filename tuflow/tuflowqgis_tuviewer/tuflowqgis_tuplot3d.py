@@ -16,7 +16,7 @@ from matplotlib.colorbar import ColorbarBase
 from matplotlib import cm
 from matplotlib.colors import Normalize
 from matplotlib.colors import LinearSegmentedColormap
-from mpl_toolkits.axes_grid1 import make_axes_locatable
+# from mpl_toolkits.axes_grid1 import make_axes_locatable
 from datetime import datetime, timedelta
 from math import sin, cos, pi
 import statistics
@@ -594,7 +594,6 @@ class TuPlot3D(TuPlot2D):
                     else:
                         d.append(v[j])
             elif f is None:
-                print('here')
                 # get correct ch index - this can be different because the first point could be outside mesh
                 x.append([ch[i], ch[i + 1], ch[i + 1], ch[i]])
                 y.append([np.nan for _ in range(4)])
@@ -796,10 +795,10 @@ class TuPlot3D(TuPlot2D):
         if not update:
             bedGmdMdi = QgsMeshDatasetIndex(iBedGmd, 0)  # bed elevation is constant
         wlGmdMdi = None
-        rt = dp.datasetMetadata(mdi).time()  # reference time
-        for i in range(dp.datasetCount(iWlGmd)):
+        rt = layer.datasetMetadata(mdi).time()  # reference time
+        for i in range(layer.datasetCount(QgsMeshDatasetIndex(iWlGmd))):
             tmdi = QgsMeshDatasetIndex(iWlGmd, i)  # test mesh dataset index
-            time = dp.datasetMetadata(tmdi).time()
+            time = layer.datasetMetadata(tmdi).time()
             if time == rt:
                 wlGmdMdi =  tmdi
                 break
@@ -841,10 +840,10 @@ class TuPlot3D(TuPlot2D):
             return None
 
         vertical_velocity_mdi = None
-        rt = dp.datasetMetadata(mdi).time()  # reference time
-        for i in range(dp.datasetCount(i_vertical_velocity)):
+        rt = layer.datasetMetadata(mdi).time()  # reference time
+        for i in range(layer.datasetCount(i_vertical_velocity)):
             tmdi = QgsMeshDatasetIndex(i_vertical_velocity, i)  # test mesh dataset index
-            time = dp.datasetMetadata(tmdi).time()
+            time = layer.datasetMetadata(tmdi).time()
             if time == rt:
                 vertical_velocity_mdi = tmdi
                 break

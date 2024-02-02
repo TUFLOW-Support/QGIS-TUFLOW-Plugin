@@ -1,6 +1,6 @@
 location == Estry Control File (.ecf)
 
-command == Read GIS Network
+command == Read GIS Pit
 
 description == Defines the location and attributes associated with virtual pipes and pits.
 

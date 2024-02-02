@@ -21,7 +21,7 @@ def unique_empty_names(folder: Path) -> list[str]:
         if empty_file.suffix.lower() not in ['.shp', '.mif', '.gpkg']:
             continue
         empty_type = get_empty_type(empty_file.stem)
-        if empty_type and empty_file.stem not in empty_names:
+        if empty_type and empty_type not in empty_names:
             empty_names.append(empty_type)
     return empty_names
 
@@ -30,6 +30,9 @@ def empty_types_from_project_folder(folder: typing.Union[str, Path]) -> list[str
     if isinstance(folder, str):
         folder = Path(folder)
     hpc = folder / 'model' / 'gis' / 'empty'
+    if not hpc.exists():
+        # maybe provided folder is empty folder - allow this
+        return unique_empty_names(folder)
     return unique_empty_names(hpc)
 
 
@@ -90,18 +93,31 @@ class EmptyCreator:
         self.proj_folder = Path(project_folder)
         self.overwrite = overwrite
         self.feedback = feedback
+        self.using_empty_folder = False  # user has specified empty folder and not project folder
+
+        self.hpc_empty_dir = self.proj_folder / 'model' / 'gis' / 'empty'
+        self.fv_empty_dir = self.proj_folder / 'model' / 'gis' / 'empty'
+        self._solver = ''
+
+        if not self.hpc_empty_dir.exists() and not self.fv_empty_dir.exists() and unique_empty_names(self.proj_folder):
+            self.using_empty_folder = True
+            self.hpc_empty_dir = self.proj_folder
+            self.fv_empty_dir = self.proj_folder
+            empty_types = unique_empty_names(self.proj_folder)
+            if len(empty_types) > 10:
+                self._solver = 'hpc'
+            else:
+                self._solver = 'fv'
 
         # hpc
-        self.hpc_empty_dir = self.proj_folder / 'model' / 'gis' / 'empty'
         self.hpc_gis_dir = self.hpc_empty_dir.parent
         self.hpc_gis_type = self.gis_type(self.hpc_empty_dir, 'gpkg')
         self.hpc_empty_types = unique_empty_names(self.hpc_empty_dir)
 
         # fv
-        self.hpc_empty_dir = self.proj_folder / 'model' / 'gis' / 'empty'
-        self.hpc_gis_dir = self.hpc_empty_dir.parent
+        self.fv_gis_dir = self.fv_empty_dir.parent
         self.fv_gis_type = 'shp'
-        self.fv_empty_types = []
+        self.fv_empty_types = unique_empty_names(self.hpc_empty_dir)
 
         # gpkg settings
         self.gpkg_export_type = gpkg_export_type
@@ -116,6 +132,8 @@ class EmptyCreator:
         return default
 
     def solver(self, empty_type: str):
+        if self._solver:
+            return self._solver
         if empty_type in self.hpc_empty_types:
             return 'hpc'
         elif empty_type in self.fv_empty_types:
@@ -214,20 +232,33 @@ class EmptyCreator:
         out_lyr = QgsVectorLayer(f'{self.geom_to_uri(geom)}?crs={in_lyr.crs().authid()}', out_name, 'memory')
         if not out_lyr.isValid():
             raise Exception('Could not initialise output layer')
+        out_lyr.setProviderEncoding('UTF-8')
+        for field in in_lyr.fields():
+            self.feedback.pushInfo(f'Adding field: {field.name()}')
         out_lyr.dataProvider().addAttributes(in_lyr.fields())
         out_lyr.updateFields()
+        self.feedback.pushInfo('\nOutput layer fields:')
+        for field in out_lyr.fields():
+            self.feedback.pushInfo(f'Field:  {field.name()}')
 
         # write to disk
         options = QgsVectorFileWriter.SaveVectorOptions()
         options.driverName = self.gis_driver(solver)
         options.layerName = out_name
+        options.fileEncoding = 'UTF-8'
         action_on_existing_ = self.action_on_existing(solver, out_db, out_name)
         if action_on_existing_ is None:  # exists and not overwrite
             return None, None
         options.actionOnExistingFile = action_on_existing_
 
+        self.feedback.pushInfo(f'Using encoding: {options.fileEncoding}')
         ret = QgsVectorFileWriter.writeAsVectorFormatV3(out_lyr, out_db, QgsCoordinateTransformContext(), options)
         if ret[0] != QgsVectorFileWriter.NoError:
             raise Exception(ret[1])
 
-        return out_db, out_name
+        if options.driverName == 'GPKG':
+            uri = f'{out_db}|layername={out_name}'
+        else:
+            uri = out_db
+
+        return uri, out_name

@@ -65,6 +65,80 @@ class GPKG:
 
         return res
 
+    def vector_layers(self):
+        import sqlite3
+        res = []
+
+        if not os.path.exists(self.gpkg_path):
+            return res
+
+        conn = sqlite3.connect(self.gpkg_path)
+        cur = conn.cursor()
+
+        try:
+            cur.execute(
+                f'SELECT contents.table_name FROM gpkg_contents AS contents '
+                f'  INNER JOIN gpkg_geometry_columns AS columns ON contents.table_name = columns.table_name '
+                f' WHERE columns.geometry_type_name != "GEOMETRY";'
+            )
+            res = [x[0] for x in cur.fetchall()]
+        except Exception:
+            pass
+        finally:
+            cur.close()
+
+        return res
+
+    def raster_layers(self):
+        import sqlite3
+        res = []
+
+        if not os.path.exists(self.gpkg_path):
+            return res
+
+        conn = sqlite3.connect(self.gpkg_path)
+        cur = conn.cursor()
+
+        try:
+            cur.execute(
+                f'SELECT table_name FROM gpkg_contents WHERE data_type = "2d-gridded-coverage";'
+            )
+            res = cur.fetchall()
+            if res:
+                res = [x[0] for x in res]
+            else:
+                res = []
+        except Exception:
+            pass
+        finally:
+            cur.close()
+
+        return res
+
+    def non_spatial_layers(self):
+        import sqlite3
+        res = []
+
+        if not os.path.exists(self.gpkg_path):
+            return res
+
+        conn = sqlite3.connect(self.gpkg_path)
+        cur = conn.cursor()
+
+        try:
+            cur.execute(
+                f'SELECT contents.table_name FROM gpkg_contents AS contents '
+                f'  INNER JOIN gpkg_geometry_columns AS columns ON contents.table_name = columns.table_name '
+                f' WHERE columns.geometry_type_name = "GEOMETRY";'
+            )
+            res = [x[0] for x in cur.fetchall()]
+        except Exception:
+            pass
+        finally:
+            cur.close()
+
+        return res
+
     def geometry_type(self, layer_name):
         conn = sqlite3.connect(self.gpkg_path)
         cur = conn.cursor()

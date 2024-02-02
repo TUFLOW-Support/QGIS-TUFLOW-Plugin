@@ -521,11 +521,34 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>pbOk</tabstop>
+  <tabstop>pbCancel</tabstop>
+  <tabstop>sourcelayer</tabstop>
+  <tabstop>outfolder</tabstop>
+  <tabstop>btnBrowseDatabase</tabstop>
+  <tabstop>outfilename</tabstop>
+  <tabstop>browseoutfile</tabstop>
+  <tabstop>twTables</tabstop>
+  <tabstop>cbMoveToSS</tabstop>
+  <tabstop>rbRemoveSource</tabstop>
+  <tabstop>rbKeepSource</tabstop>
+  <tabstop>rbDatabaseLayer</tabstop>
+  <tabstop>rbDatabaseDbLayer</tabstop>
+  <tabstop>rbSaveLayerOut</tabstop>
+  <tabstop>cbRenameLayer</tabstop>
+  <tabstop>leRenameLayer</tabstop>
+  <tabstop>rbAutoSSLayer</tabstop>
+  <tabstop>rbManualSSLayer</tabstop>
+  <tabstop>leDiscardedDb</tabstop>
+  <tabstop>pbDiscardDb_browse</tabstop>
+  <tabstop>leDiscardedLayer</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_3"/>
   <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup_3"/>
   <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

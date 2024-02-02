@@ -49,7 +49,7 @@ class NullGeometry(QObject):
             if gis_layer is None or type(gis_layer) is not QgsVectorLayer or not gis_layer.isValid() or gis_layer.geometryType() == QgsWkbTypes.NullGeometry:
                 continue
 
-            is_gpkg = re.findall(re.escape(r'.gpkg|layername='), gis_layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)
+            is_gpkg = gis_layer.storageType() == 'GPKG'
             iid = 1 if is_gpkg else 0
 
             for feat in gis_layer.getFeatures():
@@ -100,7 +100,7 @@ class NullGeometry(QObject):
                 self.finised.emit(self)
                 return
             self.tmpLyrs.append(out_lyr)
-            self.tmplyr2oldlyr[tempLyrName] = layer.name()
+            self.tmplyr2oldlyr[out_lyr.id()] = layer.id()
 
             out_lyr.dataProvider().addAttributes(layer.fields())
             out_lyr.updateFields()

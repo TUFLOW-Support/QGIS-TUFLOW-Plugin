@@ -1,0 +1,1 @@
+This tool adds tables representing SWMM sections to an existing GeoPackage. The formatting works with the TUFLOW-SWMM tools for writing SWMM inp files.

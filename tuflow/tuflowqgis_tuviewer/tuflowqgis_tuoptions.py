@@ -23,6 +23,9 @@ class TuOptions():
 		self.verticalProfileInterpolated = False
 		self.timeSpec = 1
 		self.secondary_axis_types = {0: 'y-axis', 1: 'y-axis', 2: 'y-axis', 3: 'x-axis'}
+		self.copy_mesh = True if settings.value('TUFLOW/tuview_copy_mesh', 'false') in ['True', 'true', True] else False
+		self.show_copy_mesh_dlg = True if settings.value('TUFLOW/tuview_show_copy_mesh_dlg', 'false') in ['True', 'true', True] else False
+		self.del_copied_res = True if settings.value('TUFLOW/tuview_del_copied_res', 'true') in ['True', 'true', True] else False
 
 		if settings.contains("TUFLOW/tuview_defaultlayout"):
 			self.defaultLayout = settings.value('TUFLOW/tuview_defaultlayout')

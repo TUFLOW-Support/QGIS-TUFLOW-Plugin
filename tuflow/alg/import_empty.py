@@ -2,7 +2,7 @@ import os
 import typing
 from pathlib import Path
 
-from PyQt5.QtCore import QEvent, QTimer, QDir
+from PyQt5.QtCore import QEvent, QTimer, QDir, QCoreApplication
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QListView, QLabel, QTextBrowser, QToolButton, QLineEdit, QFileDialog
 
@@ -164,7 +164,7 @@ class ImportEmpty(QgsProcessingAlgorithm):
         # empty directory
         self.addParameter(
             QgsProcessingParameterFile(
-                'project_directory', 'Project Directory',
+                'project_directory', 'Project Directory / Empty Directory',
                 behavior=QgsProcessingParameterFile.Folder,
                 fileFilter='All files (*.*)',
                 defaultValue=str(project.folder) if str(project.folder) else None
@@ -262,14 +262,14 @@ class ImportEmpty(QgsProcessingAlgorithm):
         for empty_type in empty_types:
             for geometry_type in geometry_types:
                 feedback.pushInfo(f'Creating {empty_type} {geometry_type} empty...')
-                file, name = creator.create_empty(empty_type, geometry_type, run_id)
-                if not file:
+                uri, name = creator.create_empty(empty_type, geometry_type, run_id)
+                if not uri:
                     feedback.pushWarning('Empty file already exists. Skipping...')
                     continue
-                results['OUTPUT'].append(name)
+                # results['OUTPUT'].append(name)
                 # open output file
                 alg_params = {
-                    'INPUT': file,
+                    'INPUT': uri,
                     'NAME': name
                 }
                 processing.run('native:loadlayer', alg_params, context=context, feedback=feedback,
@@ -296,7 +296,7 @@ class ImportEmpty(QgsProcessingAlgorithm):
     def shortHelpString(self) -> str:
         folder = Path(os.path.realpath(__file__)).parent
         help_filename = folder / 'help' / 'html' / 'import_empty.html'
-        return help_filename.open().read()
+        return self.tr(help_filename.open().read().replace('\n', '<p>'))
 
     def group(self):
         return ''
@@ -306,3 +306,6 @@ class ImportEmpty(QgsProcessingAlgorithm):
 
     def createInstance(self):
         return ImportEmpty()
+
+    def tr(self, string):
+        return QCoreApplication.translate('Processing', string)

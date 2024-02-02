@@ -28,6 +28,8 @@ class BC_Tables(ResData):
     def Load(self, fname: str) -> typing.Tuple[bool, str]:
         err, msg = False, ''
         fname = Path(fname)
+        self.fpath = str(fname.parent)
+        self.filename = fname.name
         if not fname.exists():
             err, msg = True, 'File {0} does not exist'.format(fname.name)
             return err, msg
@@ -122,11 +124,13 @@ class BC_Tables_2D(BC_Tables):
 
     def regionResultTypesTS(self) -> typing.List[str]:
         types = []
+        line_result_types = self.lineResultTypesTS()
         for bndry in self.bndry_parser:
             if bndry.type in types:
                 continue
             if isinstance(bndry, Boundary_SA) or isinstance(bndry, Boundary_RF):
-                types.append(bndry.type)
+                if bndry.type not in line_result_types:
+                    types.append(bndry.type)
         return types
 
 

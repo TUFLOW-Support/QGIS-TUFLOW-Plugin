@@ -8,7 +8,27 @@ from .tuflowqgis_library import (getOSIndependentFilePath, NC_Error,
 									   NcDim, NcVar, getNetCDFLibrary)
 from dateutil.parser import parse
 from datetime import timedelta
+# from .utils.map_layer import layer_name_from_data_source
+from .compatibility_routines import Path
 version = '2018-03-AA' #added reporting location regions
+
+
+def clean_data_source(data_source: str) -> str:
+	if '|layername=' in data_source:
+		return '|'.join(data_source.split('|')[:2])
+	else:
+		return '|'.join(data_source.split('|')[:1])
+
+
+def file_from_data_source(data_source: str) -> Path:
+	return Path(data_source.split('|')[0])
+
+
+def layer_name_from_data_source(data_source: str) -> str:
+	if '|layername=' in data_source:
+		return data_source.split('|')[1].split('=')[1]
+	else:
+		return Path(clean_data_source(data_source)).stem
 
 
 class DynamicResult:
@@ -46,6 +66,8 @@ class LP():
 		self.culv_verts = []
 		self.adverseH = LP_Adverse()
 		self.adverseE = LP_Adverse()
+		self.id1 = None
+		self.id2 = None
 
 class LP_Adverse():
 	"""
@@ -259,7 +281,7 @@ class Timeseries():
 			with open(fullpath, 'r', encoding='utf-8', errors='ignore') as csvfile:
 				next(csvfile)
 				if prefix == "F":
-					values = numpy.genfromtxt(csvfile, delimiter=",", skip_header=0, dtype=str, encoding='utf-8')
+					values = numpy.genfromtxt(csvfile, delimiter=",", skip_header=0, dtype=str, encoding='utf-8', comments='!')
 				else:
 					values = numpy.genfromtxt(csvfile, delimiter=",", skip_header=0, encoding='utf-8')
 			# null_array = values == self.null_data)
@@ -1040,6 +1062,26 @@ class ResData():
 	"""
 	ResData class for reading and processing results
 	"""
+
+	def __eq__(self, other):
+		if type(other) is type(self):
+			return self.fpath == other.fpath
+		return False
+
+	@property
+	def gis_line_layer_name(self) -> str:
+		if self.GIS.L:
+			return layer_name_from_data_source(self.GIS.L)
+
+	@property
+	def gis_point_layer_name(self) -> str:
+		if self.GIS.P:
+			return layer_name_from_data_source(self.GIS.P)
+
+	@property
+	def gis_region_layer_name(self) -> str:
+		if self.GIS.R:
+			return layer_name_from_data_source(self.GIS.R)
 
 	def getResAtTime(self, id, dom, res, time, time_interpolate='previous'):
 		"""
@@ -1894,11 +1936,16 @@ class ResData():
 
 			if not i:
 				branches.append(chan_ids)
+				if end_chan is None:
+					found = True
 
 		return found
 
 	def LP_iterate_downstream_channels(self, channel_id):
-		ds_node = self.Channels.chan_DS_Node[self.Channels.chan_name.index(channel_id)]
+		try:
+			ds_node = self.Channels.chan_DS_Node[self.Channels.chan_name.index(channel_id)]
+		except (ValueError, IndexError):
+			return
 		for i, node in enumerate(self.Channels.chan_US_Node):
 			if node == ds_node:
 				yield self.Channels.chan_name[i]
@@ -2440,11 +2487,11 @@ class ResData():
 			elif dat_type == 'Simulation ID':
 				self.displayname = rdata
 			elif dat_type == 'GIS Plot Layer Points':
-				self.GIS.P = rdata[2:]
+				self.GIS.P = os.path.realpath(os.path.join(self.fpath, rdata[2:]))
 			elif dat_type == 'GIS Plot Layer Lines':
-				self.GIS.L = rdata[2:]
+				self.GIS.L = os.path.realpath(os.path.join(self.fpath, rdata[2:]))
 			elif dat_type == 'GIS Plot Layer Regions':
-				self.GIS.R = rdata[2:]
+				self.GIS.R = os.path.realpath(os.path.join(self.fpath, rdata[2:]))
 			elif dat_type == 'GIS Plot Objects':
 				fullpath = getOSIndependentFilePath(self.fpath, rdata)
 				self.Index = PlotObjects(fullpath)
@@ -3614,7 +3661,7 @@ class ResData():
 		
 		:return: list -> str result type e.g. 'flows'
 		"""
-		
+
 		types = []
 		
 		for type in self.Types:
@@ -3652,9 +3699,8 @@ class ResData():
 				if res is not None and res.geom == 'line':
 					types.append(type)
 
-		if self.nodes is not None:
-			point_types = self.pointResultTypesTS()
-			if 'Level' in point_types:
+		if self.nodes and self.nodes.node_channels:
+			if '1D Water Levels' in self.Types:
 				if 'US Levels' not in types:
 					types.append('US Levels')
 				if 'DS Levels' not in types:
@@ -3700,7 +3746,7 @@ class ResData():
 		
 		types = []
 		
-		if self.nodes is not None:
+		if self.nodes is not None and self.Data_1D.nNode:
 			for type in self.Types:
 				if 'WATER LEVELS' in type.upper():
 					types.append('Water Level')

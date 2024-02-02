@@ -8,7 +8,7 @@ if __name__ == "__main__":
     help_folder = Path(__file__).parent
     print(f'Help folder: {help_folder}')
     print(help_folder.exists())
-    markdown_files = list(help_folder.glob('md/*.md'))
+    markdown_files = list(help_folder.glob('.//**//*.md'))
     print(markdown_files)
     output_files = [help_folder / f'html/{x.stem}.html' for x in markdown_files]
     print(output_files)

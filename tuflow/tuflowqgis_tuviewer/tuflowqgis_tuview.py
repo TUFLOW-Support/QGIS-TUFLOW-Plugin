@@ -16,9 +16,10 @@ from .tuflowqgis_tumenubar import TuMenuBar
 from .tuflowqgis_tuoptions import TuOptions
 from .tuflowqgis_tumenucontext import TuContextMenu
 from .tuflowqgis_tuproject import TuProject
-from ..tuflowqgis_library import (tuflowqgis_find_layer, findAllMeshLyrs, convertTimeToFormattedTime,
+from ..tuflowqgis_library import (convertTimeToFormattedTime,
                                   is1dTable, findTableLayers, is1dNetwork, isPlotLayer, isTSLayer,
                                   isBcLayer)
+from tuflow.toc.toc import tuflowqgis_find_layer, findAllMeshLyrs
 from ..tuflowqgis_dialog import tuflowqgis_meshSelection_dialog
 from ..TUFLOW_XS import XS
 from ..TUFLOW_1dTa import HydTables
@@ -109,6 +110,8 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# Expand result type tree
 		self.initialiseDataSetView()
 
+		self.layer_selection_signals = []
+
 		# 1D cross sections
 		self.selectionChangeConnected = False
 		self.crossSections1D = XS()
@@ -120,7 +123,6 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.connected = False  # Signal connection
 		self.connectSave = False
 		self.firstConnection = True
-		self.layer_selection_signals = []
 		self.qgisConnect()
 		
 		# check for already open mesh layers
@@ -151,9 +153,6 @@ class TuView(QDockWidget, Ui_Tuplot):
 				(QSettings().value("TUFLOW/tuview_defaultlayout", "previous_state") == 'previous_state' and
 				QSettings().value("TUFLOW/tuview_previouslayout", "plot") == "narrow"):
 			self.plotWindowVisibilityToggled(initialisation=True)
-
-		# import pydevd_pycharm
-		# pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
 		
 	def __del__(self):
 		self.qgisDisconnect()
@@ -210,11 +209,11 @@ class TuView(QDockWidget, Ui_Tuplot):
 				if self.currentLayer.id() not in self.layer_selection_signals:
 					self.currentLayer.selectionChanged.connect(self.selectionChanged)
 					self.layer_selection_signals.append(self.currentLayer.id())
-		
+
 		if self.currentLayer is not None:
 			# self.setTsTypesEnabled()
 			self.loadXsType()
-			# self.tuPlot.tuPlot1D.plot1dCrossSection(bypass=True, draw=True)
+			self.tuPlot.tuPlot1D.plot1dCrossSection(bypass=True, draw=True)
 
 		# repaint viewport to reflect changes
 		self.OpenResultTypes.viewport().update()
@@ -317,8 +316,10 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.tuResults.updateActiveResultTypes(None, geomType=self.currentLayer.geometryType())
 			if not self.selectionChangeConnected:
 				if self.currentLayer is not None:
-					self.currentLayer.selectionChanged.connect(self.selectionChanged)
-					self.selectionChangeConnected = True
+					if self.currentLayer.id() not in self.layer_selection_signals:
+						self.currentLayer.selectionChanged.connect(self.selectionChanged)
+						self.layer_selection_signals.append(self.currentLayer.id())
+
 
 
 		## Change the enabled/disabled status based on selected layer
@@ -424,10 +425,18 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		update_1d_ids = True
 		for rlayer in removedLayers:
+			layer = QgsProject.instance().mapLayer(rlayer)
 			if rlayer in self.layer_selection_signals:
 				update_1d_ids = True
+				layer.selectionChanged.disconnect(self.selectionChanged)
 				self.layer_selection_signals.remove(rlayer)
-			layer = tuflowqgis_find_layer(rlayer, search_type='layerId')
+			# layer = tuflowqgis_find_layer(rlayer, search_type='layerId')
+
+			if layer in self.tuResults.tuResults2D.copied_results:
+				if self.tuOptions.del_copied_res:
+					self.tuResults.tuResults2D._copied_res_for_rem.append(self.tuResults.tuResults2D.copied_results[layer])
+				del self.tuResults.tuResults2D.copied_results[layer]
+
 			if layer == self.currentLayer:
 				self.currentLayer = None
 			if layer is not None and isinstance(layer, QgsMeshLayer):
@@ -462,6 +471,12 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.resultsChanged('force refresh', removedLayers)
 		if update_1d_ids:
 			self.tuResults.tuResults1D.updateSelectedResults(removedLayers)
+
+		if self.tuResults.tuResults2D._copied_res_for_rem:
+			self.timer = QTimer()
+			self.timer.setSingleShot(True)
+			self.timer.timeout.connect(self.tuResults.tuResults2D.clear_cached_results)
+			self.timer.start(1000)
 				
 		return True
 	
@@ -778,11 +793,11 @@ class TuView(QDockWidget, Ui_Tuplot):
 			
 			# switching between plots
 			self.tabWidget.currentChanged.connect(self.plottingViewChanged)
-			
+
 			# interface
 			if self.iface is not None:
 				self.iface.currentLayerChanged.connect(self.currentLayerChanged)
-			
+
 			# project
 			if self.firstConnection:
 				self.project.layersWillBeRemoved.connect(self.layersRemoved)
@@ -1161,6 +1176,12 @@ class TuView(QDockWidget, Ui_Tuplot):
 
 		:return:
 		"""
+
+		sender = self.sender()
+		if sender and isinstance(sender, QgsVectorLayer) and sender != self.currentLayer:
+			if not sender.selectedFeatureCount() and sender.id() in self.layer_selection_signals:
+				sender.selectionChanged.disconnect(self.selectionChanged)
+				self.layer_selection_signals.remove(sender.id())
 
 		# update 1D results class
 		self.tuResults.tuResults1D.updateSelectedResults()

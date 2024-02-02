@@ -1,0 +1,40 @@
+{
+	"field_name": "${name}",
+	"color": "green",
+	"classification_method": "$import QgsClassificationQuantile",
+	"graduated_method": "Qgis.GraduatedMethod.Color",
+	"number_of_classifications": 5,
+	"min_symbol_size": 1.5,
+	"max_symbol_size": 3.5,
+	"color_ramp_name": "Spectral",
+	"color_ramp_inverted": true,
+	"symbols": [
+		{
+			"class": "geometry_default",
+			"symbol_layer_class": "$import QgsSimpleLineSymbolLayer",
+			"layer_style": {
+				"outline": "#000000",
+				"color": "${color}",
+				"width": 1,
+				"color_border": "${color}"
+			}
+		},
+		{
+			"symbol_layer_class": "$import QgsMarkerLineSymbolLayer",
+			"layer_style": {
+				"placement": "lastvertex"
+			},
+			"sub_symbol": {
+				"class": "$import QgsMarkerSymbol",
+				"symbol_layer_class": "$import QgsSimpleMarkerSymbolLayer",
+				"layer_style": {
+					"outline": "#000000",
+					"color": "${color}",
+					"size": 5,
+					"name": "filled_arrowhead",
+					"color_border": "${color}"
+				}
+			}
+		}
+	]
+}

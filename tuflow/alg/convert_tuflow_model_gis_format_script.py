@@ -65,8 +65,10 @@ def count_lines(file, write_empty=False):
                 command, value = strip_command(line)
                 if command in CONTROL_FILES:
                     line_count += 1
-                    if value.upper() == 'AUTO':
+                    if value.upper() == 'AUTO' or command.upper() == 'ESTRY CONTROL FILE AUTO':
                         value = '{0}.ecf'.format(os.path.splitext(os.path.basename(value))[0])
+                    value = (Path(file).parent / value).resolve()
+                    value = os.path.relpath(value, Path(file).parent.resolve())
                     value = globify(value)
                     for cf in Path(file).parent.glob(value):
                         line_count += count_lines(cf)
@@ -123,6 +125,9 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
         param = QgsProcessingParameterCrs('output_crs', 'Output CRS', optional=True)
         param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
         self.addParameter(param)
+        param = QgsProcessingParameterBoolean('tuflow_dir_struct', 'Force TUFLOW Directory Structure')
+        param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        self.addParameter(param)
         
     def processAlgorithm(self, parameters, context, model_feedback):
         line_count = count_lines(parameters['tcf'], parameters['write_empties']) + 3
@@ -162,6 +167,8 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
                 args.append(parameters['empty_directory'].strip())
         if parameters['output_crs'] and parameters['output_crs'].isValid():
             args.extend(['-crs', parameters['output_crs'].toWkt()])
+        if parameters['tuflow_dir_struct']:
+            args.append('-tuflow-dir-struct')
 
         feedback.pushInfo('args: {0}'.format(args[3:]))
 
@@ -254,6 +261,8 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
             "  <li>Output CRS - Forces output files to be in given projection (no reprojection, or warping is "
             "performed). Useful when converting a model with a combination of SHP and MIF files as these can generate "
             "slightly different projection definitions. Set blank to turn off.</li>"
+            "  <li>Force TUFLOW Directory Structure - If this flag is present, the output files will try and be placed "
+            "in a standard TUFLOW directory structure (ignoring the input directory structure completely)</li>"
             "</ol>"
         )
 

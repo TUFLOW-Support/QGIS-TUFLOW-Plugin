@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_tuflowqgis_import_empty(object):
     def setupUi(self, tuflowqgis_import_empty):
         tuflowqgis_import_empty.setObjectName("tuflowqgis_import_empty")
-        tuflowqgis_import_empty.resize(604, 619)
+        tuflowqgis_import_empty.resize(604, 668)
         self.verticalLayout_3 = QtWidgets.QVBoxLayout(tuflowqgis_import_empty)
         self.verticalLayout_3.setObjectName("verticalLayout_3")
         self.splitter = QtWidgets.QSplitter(tuflowqgis_import_empty)
@@ -264,6 +264,27 @@ class Ui_tuflowqgis_import_empty(object):
 
         self.retranslateUi(tuflowqgis_import_empty)
         QtCore.QMetaObject.connectSlotsByName(tuflowqgis_import_empty)
+        tuflowqgis_import_empty.setTabOrder(self.pbOk, self.pbCancel)
+        tuflowqgis_import_empty.setTabOrder(self.pbCancel, self.pbHideToolTip)
+        tuflowqgis_import_empty.setTabOrder(self.pbHideToolTip, self.pbShowToolTip)
+        tuflowqgis_import_empty.setTabOrder(self.pbShowToolTip, self.emptydir)
+        tuflowqgis_import_empty.setTabOrder(self.emptydir, self.browsedir)
+        tuflowqgis_import_empty.setTabOrder(self.browsedir, self.pbSaveToProject)
+        tuflowqgis_import_empty.setTabOrder(self.pbSaveToProject, self.pbSaveToGlobal)
+        tuflowqgis_import_empty.setTabOrder(self.pbSaveToGlobal, self.emptyType)
+        tuflowqgis_import_empty.setTabOrder(self.emptyType, self.txtRunID)
+        tuflowqgis_import_empty.setTabOrder(self.txtRunID, self.checkPoint)
+        tuflowqgis_import_empty.setTabOrder(self.checkPoint, self.checkLine)
+        tuflowqgis_import_empty.setTabOrder(self.checkLine, self.checkRegion)
+        tuflowqgis_import_empty.setTabOrder(self.checkRegion, self.cbConvertToDb)
+        tuflowqgis_import_empty.setTabOrder(self.cbConvertToDb, self.rbDatabaseSeparate)
+        tuflowqgis_import_empty.setTabOrder(self.rbDatabaseSeparate, self.rbDatabaseGrouped)
+        tuflowqgis_import_empty.setTabOrder(self.rbDatabaseGrouped, self.rbDatabaseOne)
+        tuflowqgis_import_empty.setTabOrder(self.rbDatabaseOne, self.btnDatabaseBrowse)
+        tuflowqgis_import_empty.setTabOrder(self.btnDatabaseBrowse, self.leDatabaseBrowse)
+        tuflowqgis_import_empty.setTabOrder(self.leDatabaseBrowse, self.cb_import_into_kart)
+        tuflowqgis_import_empty.setTabOrder(self.cb_import_into_kart, self.le_kart_repo)
+        tuflowqgis_import_empty.setTabOrder(self.le_kart_repo, self.teToolTip)
 
     def retranslateUi(self, tuflowqgis_import_empty):
         _translate = QtCore.QCoreApplication.translate

@@ -153,6 +153,43 @@
         </widget>
        </item>
        <item>
+        <widget class="QGroupBox" name="groupBox_12">
+         <property name="title">
+          <string>Mesh Loading</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_13">
+          <item>
+           <widget class="QCheckBox" name="cb_copy_mesh">
+            <property name="text">
+             <string>Copy Mesh Before Loading (use if loading results while simulation is running)</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="cb_show_mesh_copy_dlg">
+            <property name="text">
+             <string>Always Show Copy Mesh Dialog</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="cb_del_copied_mesh">
+            <property name="text">
+             <string>Delete Copied Mesh When Results are Closed</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_del_all_cache_res">
+            <property name="text">
+             <string>Delete All Copied Results</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
         <spacer name="verticalSpacer_3">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -1306,11 +1343,11 @@
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="buttonGroup_3"/>
-  <buttongroup name="buttonGroup"/>
-  <buttongroup name="buttonGroup_2"/>
-  <buttongroup name="DefaultLayout"/>
   <buttongroup name="MeanSelection"/>
   <buttongroup name="LiveCursorTracking"/>
+  <buttongroup name="DefaultLayout"/>
+  <buttongroup name="buttonGroup_3"/>
+  <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

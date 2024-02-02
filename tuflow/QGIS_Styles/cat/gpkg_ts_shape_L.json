@@ -1,0 +1,33 @@
+{
+    "random_color": true,
+	"field_name": "Shape",
+	"symbols": [
+		{
+			"class": "geometry_default",
+			"symbol_layer_class": "$import QgsSimpleLineSymbolLayer",
+			"layer_style": {
+				"outline": "#000000",
+				"color": "${color}",
+				"width": 1,
+				"color_border": "${color}"
+			}
+		},
+		{
+			"symbol_layer_class": "$import QgsMarkerLineSymbolLayer",
+			"layer_style": {
+				"placement": "lastvertex"
+			},
+			"sub_symbol": {
+				"class": "$import QgsMarkerSymbol",
+				"symbol_layer_class": "$import QgsSimpleMarkerSymbolLayer",
+				"layer_style": {
+					"outline": "#000000",
+					"color": "${color}",
+					"size": 5,
+					"name": "filled_arrowhead",
+					"color_border": "${color}"
+				}
+			}
+		}
+	]
+}

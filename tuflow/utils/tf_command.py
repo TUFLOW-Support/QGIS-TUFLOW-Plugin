@@ -11,6 +11,7 @@ from .map_layer import file_from_data_source, layer_name_from_data_source
 from .file import find_parent_dir, find_highest_matching_file
 from ..compatibility_routines import Path
 
+from tuflow.toc.toc import node_to_layer
 
 def get_command_properties(name: str) -> typing.Dict[str, typing.Any]:
     empty_dir = plugins['tuflow'].plugin_dir / 'empty_tooltips'
@@ -37,7 +38,7 @@ def try_find_control_file(file: Path, cf: str) -> Path:
     tf_dir = find_parent_dir(file, 'tuflow')
     model_dir = find_parent_dir(file, 'model')
     if tf_dir and model_dir:
-        if len(tf_dir.parts) - len(model_dir.parts) > 4:
+        if len(model_dir.parts) - len(tf_dir.parts) > 3 or len(tf_dir.parts) <= 2:
             root = model_dir.parent
         else:
             root = tf_dir
@@ -173,7 +174,8 @@ class TuflowCommandGPKG(TuflowCommandSHP):
             return super().command_right
         dbs = [x for x, y in self.db_iter()]
         if self.valid and len(dbs) == 1:
-            return '{0} >> {1}'.format(TuflowCommand.command_right.fget(self), ' && '.join([x.name for x in self.command_iter()]))
+            return '{0} >> {1}'.format(TuflowCommand.command_right.fget(self),
+                                       ' && '.join([x.name for x in self.command_iter()]))
         elif self.valid:
             commands = []
             for db, command in self.db_iter():
@@ -203,26 +205,24 @@ def create_tuflow_command(type_: str = 'path') -> str:
     i = -1
     command_str = ''
     while idxs:
-        i += 1
         idx = idxs.pop(0)
         node = tree_view.index2node(idx)
-        layer = None
-        if isinstance(node, QgsLayerTreeLayer):
-            layer = node.layer()
-        else:  # when opened via API, it is sometimes not given a QgsLayerTreeLayer type
-            if 'LAYER:' in node.dump():
-                try:
-                    info = {x.split('=')[0].strip(): x.split('=')[1].strip() for x in node.dump().split(' ')[2:]}
-                    layer = QgsProject.instance().mapLayer(info['id'])
-                except (IndexError, KeyError):
-                    pass
+        layer = node_to_layer(node)
         if not layer:
             continue
+        i += 1
         command = TuflowCommand(layer)
         if isinstance(command, TuflowCommandGPKG):
             command.type = type_
-        while idxs and command.append(tree_view.index2node(idxs[0]).layer()):
-            idxs.pop(0)
+        while idxs:
+            lyr = node_to_layer(tree_view.index2node(idxs[0]))
+            if not lyr:
+                idxs.pop(0)
+                continue
+            if command.append(lyr):
+                idxs.pop(0)
+            else:
+                break
         if i == 0:
             command_str = command.command
         else:

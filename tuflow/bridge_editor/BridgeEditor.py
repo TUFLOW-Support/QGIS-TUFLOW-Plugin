@@ -1,6 +1,8 @@
 import os
 import sys
 import re
+from typing import Sequence
+
 try:
     from pathlib import Path
 except ImportError:
@@ -21,9 +23,10 @@ from .BridgePlot import BridgePlot
 from .BridgeEditorImport import BridgeImport, BridgeEditorImportDialog
 from .ArchBridge import ArchBridge
 from .FmDatParser import fm_dat_parser
-from ..tuflowqgis_library import (tuflowqgis_find_layer, getParabolicCoord, findAllRasterLyrs, lineToPoints,
-                                       getRasterValue, browse, is1dTable, is1dNetwork, getRightAngleLine,
-                                       get_table_names)
+from ..tuflowqgis_library import (getParabolicCoord, lineToPoints,
+                                  getRasterValue, browse, is1dTable, is1dNetwork, getRightAngleLine,
+                                  get_table_names)
+from tuflow.toc.toc import tuflowqgis_find_layer, findAllRasterLyrs
 from ..TUFLOW_XS import XS_Data
 from .ArchBridgeList import Ui_ArchBridgeList
 from .EofParser import EofParser
@@ -261,7 +264,6 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         
     def run(self) -> None:
         """Creates TUFLOW input layers for arch bridge."""
-
         # process bridge and 1d_nwk layer
         nwklyr = tuflowqgis_find_layer(self.cboNwkLayer.currentText())
         lyr = tuflowqgis_find_layer(self.cboNwkLayer.currentText())
@@ -285,7 +287,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                                                          'output in TUFLOW as the type attribute will be cut short.')
                 return
 
-        nwkFeat = self.getFeatureFromID(lyr, nwklyr, self.cboNwkFeature.currentIndex())
+        nwkFeat = self.getFeatureFromCbo(lyr, nwklyr)
         if nwkFeat is None:
             QMessageBox.critical(self, 'Arch Bridge', 'Unexpected error occurred after creating refactored layer '
                                                       'and could not find arch bridge feature')
@@ -342,16 +344,32 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                 success = xslyr.isValid()
                 if not success:
                     QMessageBox.critical(self, 'Arch Bridge', 'Error creating cross section layer')
+                    return
             elif self.cboOutputType.currentIndex() == 1:  # append to existing layer
                 xslyr = tuflowqgis_find_layer(self.cboXsLayerOut.currentText())
             else:  # overwrite existing
                 xslyr = tuflowqgis_find_layer(self.cboXsLayer.currentText())
+
+            if xslyr and self.xsFeat:
+                feats = [f for f in xslyr.getFeatures()]
+                if self.xsFeat not in feats:
+                    featIntersects = self.findCrossSection(nwkFeat, xslyr)
+                    if featIntersects:
+                        self.xsFeat = featIntersects[0]
+                    else:
+                        QMessageBox.critical(self, 'Arch Bridge', 'Error finding existing cross-section - please try selecting "-None-" then the cross-section layer again in the 1d_xs Layer dropdown box')
+                        return
 
             # get feature
             if success:
                 if self.cboOutputType.currentIndex() == 2 and self.xsFeat is not None:
                     xsFeat = self.xsFeat
                     xslyr.startEditing()
+                elif self.xsFeat is not None:
+                    xsGeom = self.xsFeat.geometry()
+                    xsFeat = QgsFeature()
+                    xsFeat.setGeometry(xsGeom)
+                    xsFeat.setFields(xslyr.fields())
                 else:
                     xsGeom = getRightAngleLine(nwkFeat.geometry(), 10)
                     if xsGeom is None:
@@ -399,11 +417,11 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                             QMessageBox.critical(self, 'Arch Bridge', 'Error committing changes to cross section layer')
                 else:
                     xslyr.commitChanges()
-            else:
+            elif success:
                 xslyr.dataProvider().truncate()
                 success = xslyr.dataProvider().addFeature(xsFeat)
                 if not success:
-                    QMessageBox.critical(self, 'Arch Bridge', 'Error udding cross section to output layer')
+                    QMessageBox.critical(self, 'Arch Bridge', 'Error adding cross section to output layer')
 
             if success:
                 xslyr.updateExtents()
@@ -491,7 +509,9 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
             return
 
         bridgeSuccess = True
-        success = nwklyr.startEditing()
+        success = True
+        if not nwklyr.isEditable():
+            success = nwklyr.startEditing()
         if not success:
             QMessageBox.critical(self, 'Arch Bridge', 'Could not open the layer for editing')
             return
@@ -659,8 +679,19 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         else:
             QMessageBox.information(self, 'Arch Bridge', 'Successfully ran Arch Bridge tool')
 
-    def getFeatureFromID(self, lyr, new_lyr, fid):
+    def getFeatureFromCbo(self, lyr, new_lyr):
+        fid = list(self.fid2nwklyr)[self.cboNwkFeature.currentIndex()]
         feat = lyr.getFeature(fid)
+        if not feat:
+            i = self.cboNwkFeature.currentIndex()
+            self.populateFeatureCombobox(self.cboNwkLayer.currentIndex())
+            self.cboNwkFeature.setCurrentIndex(i)
+            fid = list(self.fid2nwklyr)[self.cboNwkFeature.currentIndex()]
+            feat = [f for f in lyr.getFeatures() if f.id() == fid]
+
+        if not feat:
+            return None
+
         if lyr == new_lyr:
             return feat
 
@@ -1807,8 +1838,9 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
             return
         i_id = 1 if '.gpkg|layername=' in lyr.dataProvider().dataSourceUri() else 0
 
-        # fid = newSel[0]
-        # feat = [f for f in lyr.getFeatures() if f.id() == fid][0]
+        fid = newSel[0]
+        if fid not in self.fid2nwklyr:
+            self.populateFeatureCombobox(self.cboNwkLayer.currentIndex())
         self.cboNwkFeature.setCurrentText(self.fid2nwklyr[newSel[0]])
 
     def endInteractiveSelection(self):
@@ -1912,8 +1944,9 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                         self.fid2nwklyr[feat.id()] = name
                     else:
                         self.fid2nwklyr[feat.id()] = 'Blank ID [feature id: {0}]'.format(feat.id())
+                    self.cboNwkFeature.addItem(self.fid2nwklyr[feat.id()], feat)
 
-        self.cboNwkFeature.addItems(list(self.fid2nwklyr.values()))
+        # self.cboNwkFeature.addItems(list(self.fid2nwklyr.values()))
         
         if currentFid is not None and currentFid in self.fid2nwklyr:
             self.cboNwkFeature.setCurrentText(self.fid2nwklyr[currentFid])
@@ -1960,6 +1993,12 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         # retrieve feature
         fid = list(self.fid2nwklyr)[self.cboNwkFeature.currentIndex()]
         feat = [f for f in lyr.getFeatures() if f.id() == fid]
+        if not feat:
+            i = self.cboNwkFeature.currentIndex()
+            self.populateFeatureCombobox(self.cboNwkLayer.currentIndex())
+            self.cboNwkFeature.setCurrentIndex(i)
+            fid = list(self.fid2nwklyr)[self.cboNwkFeature.currentIndex()]
+            feat = [f for f in lyr.getFeatures() if f.id() == fid]
         # feats = [x[i_id] for x in lyr.getFeatures()]
         # count = feats.count(self.cboNwkFeature.currentText())
         # if count == 0:
@@ -2112,7 +2151,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         i_type = 2 if '.gpkg|layername=' in lyr.dataProvider().dataSourceUri() else 1
         i_source = i_type - 1
         for f in lyr.getFeatures():
-            if f[i_type].lower() == 'xz' or f[i_type].lower() == NULL:
+            if f[i_type] == NULL or f[i_type].lower() == 'xz' or f[i_type].lower() == NULL:
                 if f.geometry().intersects(feat.geometry()):
                     featIntersects.append(f)
                     if f[i_source] != NULL and f[i_source].strip():
@@ -2409,10 +2448,11 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                         continue
                     try:
                         lyr.editCommandEnded.disconnect(self.editedNwkLayerSignal)
-                        self.editedNwkLayerSignal = None
-                        break
                     except Exception as e:
                         pass
+                    finally:
+                        self.editedNwkLayerSignal = None
+                        break
 
             if self.editedXsLayerSignal is not None:
                 for i in range(self.cboXsLayer.count()):

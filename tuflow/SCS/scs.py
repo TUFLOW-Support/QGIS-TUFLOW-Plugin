@@ -10,8 +10,8 @@ from PyQt5.QtWidgets import (QDockWidget, QLineEdit, QFileDialog,
                              QComboBox, QMessageBox, QLabel)
 from ..forms.scs_dock import Ui_scs
 from .engine import SCS
-from ..tuflowqgis_library import (tuflowqgis_find_layer, browse, makeDir)
-
+from ..tuflowqgis_library import (browse, makeDir)
+from tuflow.toc.toc import tuflowqgis_find_layer
 
 
 class SCSDock(QDockWidget, Ui_scs):

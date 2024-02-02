@@ -1,0 +1,194 @@
+[OPTIONS]
+;;Option            Value              
+;;----------------  ----------------   
+FLOW_UNITS          CMS                
+INFILTRATION        GREEN_AMPT         
+FLOW_ROUTING        DYNWAVE            
+LINK_OFFSETS        DEPTH              
+FORCE_MAIN_EQUATION H-W                
+IGNORE_RAINFALL     YES                
+IGNORE_SNOWMELT     YES                
+IGNORE_GROUNDWATER  YES                
+IGNORE_RDII         YES                
+IGNORE_QUALITY      YES                
+ALLOW_PONDING       YES                
+SKIP_STEADY_STATE   YES                
+SYS_FLOW_TOL        1                  
+LAT_FLOW_TOL        1                  
+START_DATE          01/01/2020         
+START_TIME          00:00              
+END_DATE            01/01/2000         
+END_TIME            06:00              
+REPORT_START_DATE   01/01/2000         
+REPORT_START_TIME   00:00              
+SWEEP_START         01/01              
+SWEEP_END           01/01              
+DRY_DAYS            0                  
+REPORT_STEP         00:05:00           
+WET_STEP            00:00:30           
+DRY_STEP            00:30:00           
+ROUTING_STEP        30                 
+LENGTHENING_STEP    1                  
+VARIABLE_STEP       0                  
+MINIMUM_STEP        0.001              
+INERTIAL_DAMPING    PARTIAL            
+NORMAL_FLOW_LIMITED BOTH               
+MIN_SURFAREA        25                 
+MAX_TRIALS          20                 
+HEAD_TOLERANCE      0.001              
+THREADS             8                  
+
+[FILES]
+;;Operation         Filetype            Filename           
+;;----------------  ----------------    ----------------   
+SAVE                RAINFALL            rainfall_save.dat  
+SAVE                RUNOFF              runoff_save.dat    
+
+[JUNCTIONS]
+;;Name              Elev                Ymax                Y0                  Ysur                Apond              
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
+FC01.1_R.1          45.4                0.0                 0.0                 0                   200.0              
+FC01.2_R.1          37.6                0.0                 0.0                 0                   200.0              
+FC04.1_C.1          43.35               0.0                 0.0                 0                   200.0              
+Pit10               40.8                0.0                 0.0                 0                   5.0                
+Pit11               40.6                0.0                 0.0                 0                   5.0                
+Pit13               40.0                0.0                 0.0                 0                   5.0                
+Pit14               41.36872            0.0                 0.0                 50                  0.0                
+Pit15               41.4739             0.0                 0.0                 0                   5.0                
+Pit17               41.81778            0.0                 0.0                 50                  0.0                
+Pit18               41.91283            0.0                 0.0                 0                   5.0                
+Pit19               42.19779            0.0                 0.0                 0                   5.0                
+Pit2                41.96784            0.0                 0.0                 0                   5.0                
+Pit3                41.84937            0.0                 0.0                 50                  0.0                
+Pit4                41.95067            0.0                 0.0                 0                   5.0                
+Pit5                42.4                0.0                 0.0                 0                   5.0                
+Pit6                42.35               0.0                 0.0                 0                   5.0                
+Pit7                41.65546            0.0                 0.0                 0                   5.0                
+Pit9                41.30769            0.0                 0.0                 0                   5.0                
+
+[OUTFALLS]
+;;Name              Elev                Type                Param1              Gated               RouteTo            
+;;                                      FREE                Gated               RouteTo            
+;;                                      FIXED               Stage               Gated               RouteTo            
+;;                                      TIDAL               Tcurve              Gated               RouteTo            
+;;                                      TIMESERIES          Tseries             Gated               RouteTo            
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
+FC01.1_R.2          44.5                FIXED               44.5                NO                                     
+FC01.2_R.2          37.5                FIXED               37.5                NO                                     
+FC04.1_C.2          42.75               FIXED               42.75               NO                                     
+Node20              39.5                FIXED               39.5                NO                                     
+
+[CONDUITS]
+;;Name              From Node           To Node             Length              Roughness           InOffset            OutOffset           InitFlow            MaxFlow            
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
+FC01.1_R            FC01.1_R.1          FC01.1_R.2          10.448842123329754  0.012               0.0                 0.0                 0.0                 0.0                
+FC01.2_R            FC01.2_R.1          FC01.2_R.2          12.588983854356742  0.012               0.0                 0.0                 0.0                 0.0                
+FC04.1_C            FC04.1_C.1          FC04.1_C.2          23.94297071650529   0.012               0.0                 0.0                 0.0                 0.0                
+Pipe1               Pit2                Pit3                24.68854872061488   0.012               0.0                 0.0                 0.0                 0.0                
+Pipe10              Pit7                Pit9                58.41171509127623   0.012               0.0                 0.0                 0.0                 0.0                
+Pipe11              Pit9                Pit10               32.73527310956456   0.012               0.0                 0.0                 0.0                 0.0                
+Pipe13              Pit10               Pit11               21.294806231828503  0.012               0.0                 0.0                 0.0                 0.0                
+Pipe14              Pit11               Pit13               45.018723479729736  0.012               0.0                 0.0                 0.0                 0.0                
+Pipe15              Pit14               Pit13               10.845702345901804  0.012               0.0                 0.0                 0.0                 0.0                
+Pipe16              Pit13               Node20              72.9535045539079    0.012               0.0                 0.0                 0.0                 0.0                
+Pipe2               Pit6                Pit17               18.246647826737167  0.012               0.0                 0.0                 0.0                 0.0                
+Pipe20              Pit4                Pit3                20.976136099963174  0.012               0.0                 0.0                 0.0                 0.0                
+Pipe3               Pit5                Pit4                43.089634269485536  0.012               0.0                 0.0                 0.0                 0.0                
+Pipe4               Pit3                Pit15               69.49671189241431   0.012               0.0                 0.0                 0.0                 0.0                
+Pipe6               Pit15               Pit14               30.651396884146173  0.012               0.0                 0.0                 0.0                 0.0                
+Pipe7               Pit19               Pit18               21.038529458406636  0.012               0.0                 0.0                 0.0                 0.0                
+Pipe8               Pit18               Pit17               13.425430476930742  0.012               0.0                 0.0                 0.0                 0.0                
+Pipe9               Pit17               Pit7                28.794652021328762  0.012               0.0                 0.0                 0.0                 0.0                
+
+[LOSSES]
+;;Link              Kentry              Kexit               Kavg                Flap                Seepage            
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
+FC01.1_R            0.5                 1.0                 0.0                                                        
+FC01.2_R            0.5                 1.0                 0.0                                                        
+FC04.1_C            0.5                 1.0                 0.0                                                        
+Pipe1               0.2                 0.4                 0.0                                                        
+Pipe10              0.2                 0.4                 0.0                                                        
+Pipe11              0.2                 0.4                 0.0                                                        
+Pipe13              0.2                 0.4                 0.0                                                        
+Pipe14              0.2                 0.4                 0.0                                                        
+Pipe15              0.2                 0.4                 0.0                                                        
+Pipe16              0.2                 0.4                 0.0                                                        
+Pipe2               0.2                 0.4                 0.0                                                        
+Pipe20              0.2                 0.4                 0.0                                                        
+Pipe3               0.2                 0.4                 0.0                                                        
+Pipe4               0.2                 0.4                 0.0                                                        
+Pipe6               0.2                 0.4                 0.0                                                        
+Pipe7               0.2                 0.4                 0.0                                                        
+Pipe8               0.2                 0.4                 0.0                                                        
+Pipe9               0.2                 0.4                 0.0                                                        
+
+[XSECTIONS]
+;;Link              XsecType            Param1              Param2              Param3              Param4              Param5              Param6             
+;;                  Default             Geom1               Geom2               Geom3               Geom4               Barrels             Culvert            
+;;                  CUSTOM              Geom1               Curve               Geom3               Geom4               Barrels            
+;;                  IRREGULAR           Tsect              
+;;                  STREET              Street             
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
+FC01.1_R            RECT_CLOSED         1.8                 1.8                 0.0                 0.0                 3                   53                 
+FC01.2_R            RECT_OPEN           1.2                 2.4                 0.0                 0.0                 5                                      
+FC04.1_C            CIRCULAR            1.2                 0.0                 0.0                 0.0                 3                                      
+Pipe1               CIRCULAR            0.9                 0.0                 0.0                 0.0                 1                                      
+Pipe10              CIRCULAR            0.9                 0.0                 0.0                 0.0                 1                                      
+Pipe11              CIRCULAR            0.9                 0.0                 0.0                 0.0                 1                                      
+Pipe13              CIRCULAR            0.5                 0.0                 0.0                 0.0                 1                                      
+Pipe14              CIRCULAR            0.6                 0.0                 0.0                 0.0                 1                                      
+Pipe15              CIRCULAR            0.9                 0.0                 0.0                 0.0                 1                                      
+Pipe16              RECT_OPEN           0.6                 1.5                 0.0                 0.0                 1                                      
+Pipe2               CIRCULAR            0.9                 0.0                 0.0                 0.0                 1                                      
+Pipe20              CIRCULAR            0.9                 0.0                 0.0                 0.0                 1                                      
+Pipe3               CIRCULAR            0.9                 0.0                 0.0                 0.0                 1                                      
+Pipe4               CIRCULAR            0.9                 0.0                 0.0                 0.0                 1                                      
+Pipe6               CIRCULAR            0.9                 0.0                 0.0                 0.0                 1                                      
+Pipe7               CIRCULAR            0.9                 0.0                 0.0                 0.0                 1                                      
+Pipe8               CIRCULAR            0.9                 0.0                 0.0                 0.0                 1                                      
+Pipe9               CIRCULAR            0.9                 0.0                 0.0                 0.0                 1                                      
+
+[STREETS]
+;;Name              Tcrown              Hcurb               Sx                  nRoad               a                   W                   Sides               Tback               Sback               nBack              
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
+Xsec1               10.0                0.2                 4.0                 0.016               0.0                 0.0                 1                   5.0                 8.0                 0.016              
+
+[INLETS]
+;;Name              Type                Param1              Param2              Param3              Param4              Param5             
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
+Combo1              GRATE               1.5                 0.5                 P_BAR-50                                                   
+Combo1              CURB                1.5                 0.2                 VERTICAL                                                   
+
+[REPORT]
+;;Format            Value              
+;;----------------  ----------------   
+LINKS               ALL                
+NODES               ALL                
+SUBCATCHMENTS       ALL                
+
+[COORDINATES]
+;;Name              X-Coord             Y-Coord            
+;;----------------  ----------------    ----------------   
+FC01.1_R.1          293121.546          6177714.215        
+FC01.1_R.2          293130.65           6177719.344        
+FC01.2_R.1          293289.143          6178191.781        
+FC01.2_R.2          293292.068          6178204.025        
+FC04.1_C.1          293431.161          6177837.16         
+FC04.1_C.2          293407.916          6177842.899        
+Node20              293262.21303615446  6178212.918410681  
+Pit10               293174.508          6178101.704        
+Pit11               293178.514          6178122.618        
+Pit13               293189.4            6178166.301        
+Pit14               293179.212          6178162.582        
+Pit15               293149.275          6178169.165        
+Pit17               293057.279          6178078.329000001  
+Pit18               293055.004          6178065.098        
+Pit19               293050.995          6178044.445        
+Pit2                293083.061          6178211.344        
+Pit3                293082.021          6178186.677        
+Pit4                293072.965          6178167.757        
+Pit5                293066.359          6178125.177        
+Pit6                293060.867          6178096.219        
+Pit7                293084.447          6178087.87         
+Pit9                293142.341          6178095.632        
+

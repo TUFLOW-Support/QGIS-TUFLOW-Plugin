@@ -15,6 +15,11 @@ import re
 from ..TUFLOW_FM_data_provider import TuFloodModellerDataProvider
 from math import atan2, sin, cos, pi
 from pathlib import Path
+from ..tuflow_results_gpkg import ResData_GPKG
+from ..gui import apply_tf_style_gpkg_ts
+from ..utils import set_vector_temporal_properties
+
+from ..gui import Logging
 
 
 class TSResult(ResData):
@@ -99,6 +104,7 @@ class TuResults1D():
 		self.typesXS = []  # 1D cross section types
 		self.lineXS = []  # 1D cross section line types
 		self.typesXSRes = []  # store results that can be plotted on XS (i.e. water level)
+		self.new_results = []
 
 	def importResults(self, inFilePaths):
 		"""
@@ -117,7 +123,8 @@ class TuResults1D():
 			self.tuView.OpenResults.itemSelectionChanged.disconnect(self.tuView.resultSelectionChangeSignal)
 		except:
 			pass
-		
+
+		self.new_results = []
 		for filePath in inFilePaths:
 			
 			# parse file names, ext, directory
@@ -132,6 +139,14 @@ class TuResults1D():
 			# post 2013 results
 			elif ext.upper() == '.TPC':
 				res = ResData()
+				error, message = res.Load(filePath)
+				if error:
+					self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
+						lambda: self.tuView.resultsChanged('item clicked'))
+					QMessageBox.critical(self.tuView, "TUFLOW Viewer", message)
+					return False
+			elif ext.upper() == '.GPKG':
+				res = ResData_GPKG()
 				error, message = res.Load(filePath)
 				if error:
 					self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
@@ -158,7 +173,12 @@ class TuResults1D():
 			
 			# index results
 			index = self.getResultMetaData(res)
-			self.results1d[res.displayname] = res
+			if res.displayname not in self.results1d:
+				self.results1d[res.displayname] = []
+			if res not in self.results1d[res.displayname]:
+				self.results1d[res.displayname].append(res)
+			if res.displayname not in self.new_results:
+				self.new_results.append(res.displayname)
 
 			if qv >= 31600:
 				self.tuView.tuResults.updateDateTimes()
@@ -194,7 +214,7 @@ class TuResults1D():
 
 			simname = TuFloodModellerDataProvider.getSimulationName(filePath)
 			if simname in self.results1d:
-				res = self.results1d[simname]
+				res = self.results1d[simname][0]
 			else:
 				res = TuFloodModellerDataProvider()
 
@@ -357,7 +377,7 @@ class TuResults1D():
 
 			# index results
 			index = self.getResultMetaData(res, hasMax=False)
-			self.results1d[res.displayname] = res
+			self.results1d[res.displayname] = [res]
 
 			if qv >= 31600:
 				self.tuView.tuResults.updateDateTimes()
@@ -428,6 +448,71 @@ class TuResults1D():
 				
 		return True
 	
+	def open_gis(self, load: bool):
+		if load:
+			for result_name in self.new_results:
+				for res in self.results1d[result_name]:
+					# regions
+					if res.GIS.R and res.gis_region_layer_name:
+						lyr = QgsVectorLayer(res.GIS.R, res.gis_region_layer_name, 'ogr')
+						if lyr.isValid() and lyr.featureCount():
+							QgsProject.instance().addMapLayer(lyr)
+							set_vector_temporal_properties(lyr)
+							QgsProject.instance().writeEntry('TUFLOW', '{0}/gis_region_lyrid'.format(result_name), lyr.id())
+							if isinstance(res, ResData_GPKG):
+								pass
+							else:
+								tuflowqgis_apply_check_tf_clayer(self.iface, layer=lyr)
+					# lines
+					if res.GIS.L and res.gis_line_layer_name:
+						lyr = QgsVectorLayer(res.GIS.L, res.gis_line_layer_name, 'ogr')
+						if lyr.isValid() and lyr.featureCount():
+							QgsProject.instance().addMapLayer(lyr)
+							set_vector_temporal_properties(lyr)
+							QgsProject.instance().writeEntry('TUFLOW', '{0}/gis_line_lyrid'.format(result_name), lyr.id())
+							if isinstance(res, ResData_GPKG):
+								# pass layer into result for later use
+								res.gis_line_layer = lyr
+								try:
+									rt = 'Flow' if 'Flow' in res.lineResultTypesTS() else res.lineResultTypesTS()[0]
+									apply_tf_style_gpkg_ts(lyr, 'Flow', rt)
+								except IndexError:
+									pass
+							else:
+								tuflowqgis_apply_check_tf_clayer(self.iface, layer=lyr)
+					# points
+					if res.GIS.P and res.gis_point_layer_name:
+						lyr = QgsVectorLayer(res.GIS.P, res.gis_point_layer_name, 'ogr')
+						if lyr.isValid() and lyr.featureCount():
+							QgsProject.instance().addMapLayer(lyr)
+							set_vector_temporal_properties(lyr)
+							QgsProject.instance().writeEntry('TUFLOW', '{0}/gis_point_lyrid'.format(result_name), lyr.id())
+							if isinstance(res, ResData_GPKG):
+								# pass layer into result for later use
+								res.gis_point_layer = lyr
+								try:
+									rt = 'Depth' if 'Depth' in res.pointResultTypesTS() else res.pointResultTypesTS()[0]
+									apply_tf_style_gpkg_ts(lyr, 'Depth', rt)
+								except IndexError:
+									pass
+							else:
+								tuflowqgis_apply_check_tf_clayer(self.iface, layer=lyr)
+		else:
+			for result_name in self.new_results:
+				for res in self.results1d[result_name]:
+					if isinstance(res, ResData_GPKG):
+						gis_region_lyrid, exists = QgsProject.instance().readEntry('TUFLOW', '{0}/gis_region_lyrid'.format(result_name), '')
+						if exists:
+							res.gis_region_layer = QgsProject.instance().mapLayer(gis_region_lyrid)
+						gis_line_lyrid, exists = QgsProject.instance().readEntry('TUFLOW', '{0}/gis_line_lyrid'.format(result_name), '')
+						if exists:
+							res.gis_line_layer = QgsProject.instance().mapLayer(gis_line_lyrid)
+						gis_point_lyrid, exists = QgsProject.instance().readEntry('TUFLOW', '{0}/gis_point_lyrid'.format(result_name), '')
+						if exists:
+							res.gis_point_layer = QgsProject.instance().mapLayer(gis_point_lyrid)
+
+		self.new_results.clear()
+
 	def loadVectorLayer(self, fpath):
 		"""
 		Load the vector layer i.e. .shp or .mif
@@ -479,7 +564,7 @@ class TuResults1D():
 			results[result.displayname] = {}
 
 		if self.tuView.OpenResults.count() == 0:
-			self.tuView.tuOptions.zeroTime = datetime2timespec(self.getReferenceTime(result, defaultZeroTime=zeroTime),
+			self.tuView.tuOptions.zeroTime = datetime2timespec(self.getReferenceTime(result),
 			                                                   1, self.tuView.tuResults.timeSpec)
 			if qv >= 31300:
 				self.tuView.tuOptions.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
@@ -553,7 +638,7 @@ class TuResults1D():
 			results[result.displayname] = {}
 
 		if self.tuView.OpenResults.count() == 0:
-			self.tuView.tuOptions.zeroTime = datetime2timespec(self.getReferenceTime(result, defaultZeroTime=zeroTime),
+			self.tuView.tuOptions.zeroTime = datetime2timespec(self.getReferenceTime(result),
 			                                                   1, self.tuView.tuResults.timeSpec)
 			if qv >= 31300:
 				if self.iface is not None:
@@ -567,39 +652,70 @@ class TuResults1D():
 		timesteps = result.timeSteps()
 		for t in timesteps:
 			timekey2time['{0:.6f}'.format(t)] = t
-		results[result.displayname]['point_ts'] = {'times': {'{0:.6f}'.format(x): [x] for x in timesteps},
-		                                           'referenceTime': result.reference_time,
-		                                           'hasMax': hasMax}
-		results[result.displayname]['line_ts'] = {'times': {'{0:.6f}'.format(x): [x] for x in timesteps},
-		                                          'referenceTime': result.reference_time,
-		                                          'hasMax': hasMax}
-		results[result.displayname]['region_ts'] = {'times': {'{0:.6f}'.format(x): [x] for x in timesteps},
-		                                            'referenceTime': result.reference_time,
-		                                            'hasMax': hasMax}
-		results[result.displayname]['line_lp'] = {'times': {'{0:.6f}'.format(x): [x] for x in timesteps},
-		                                          'referenceTime': result.reference_time,
-		                                          'hasMax': hasMax}
+
+		d = {'times': {'{0:.6f}'.format(x): [x] for x in timesteps},
+		     'referenceTime': result.reference_time,
+		     'hasMax': hasMax}
+		if 'point_ts' not in results[result.displayname]:
+			results[result.displayname]['point_ts'] = {}
+		results[result.displayname]['point_ts'].update(d)
+
+		d = {'times': {'{0:.6f}'.format(x): [x] for x in timesteps},
+		     'referenceTime': result.reference_time,
+		     'hasMax': hasMax}
+		if 'line_ts' not in results[result.displayname]:
+			results[result.displayname]['line_ts'] = {}
+		results[result.displayname]['line_ts'].update(d)
+
+		d = {'times': {'{0:.6f}'.format(x): [x] for x in timesteps},
+		     'referenceTime': result.reference_time,
+		     'hasMax': hasMax}
+		if 'region_ts' not in results[result.displayname]:
+			results[result.displayname]['region_ts'] = {}
+		results[result.displayname]['region_ts'].update(d)
+
+		d = {'times': {'{0:.6f}'.format(x): [x] for x in timesteps},
+		     'referenceTime': result.reference_time,
+		     'hasMax': hasMax}
+		if 'line_lp' not in results[result.displayname]:
+			results[result.displayname]['line_lp'] = {}
+		results[result.displayname]['line_lp'].update(d)
+
+		# ts types
+		if 'metadata' not in results[result.displayname]['point_ts']:
+			results[result.displayname]['point_ts']['metadata'] = [[]]
+		if 'metadata' not in results[result.displayname]['line_ts']:
+			results[result.displayname]['line_ts']['metadata'] = [[]]
+		if 'metadata' not in results[result.displayname]['region_ts']:
+			results[result.displayname]['region_ts']['metadata'] = [[]]
+		resultTypes_ = results[result.displayname]['point_ts']['metadata'] + results[result.displayname]['line_ts']['metadata'] + results[result.displayname]['region_ts']['metadata']
+		resultTypes_ = sum(resultTypes_, [])
 
 		resultTypes = result.pointResultTypesTS()
-		metadata1d = [resultTypes]
-		results[result.displayname]['point_ts']['metadata'] = metadata1d
+		for rt in resultTypes:
+			if rt not in resultTypes_:
+				results[result.displayname]['point_ts']['metadata'][0].append(rt)
 
 		# if 'line_ts' not in results[result.displayname].keys():
 		resultTypes = result.lineResultTypesTS()
-		if 'Velocity' in resultTypes and 'Velocity' in result.pointResultTypesTS():
-			resultTypes.remove('Velocity')
-		metadata1d = [resultTypes]
-		results[result.displayname]['line_ts']['metadata'] = metadata1d
+		for rt in resultTypes:
+			if rt not in resultTypes_:
+				results[result.displayname]['line_ts']['metadata'][0].append(rt)
 
 		# if 'region_ts' not in results[result.displayname].keys():
 		resultTypes = result.regionResultTypesTS()
-		metadata1d = [resultTypes]
-		results[result.displayname]['region_ts']['metadata'] = metadata1d
+		for rt in resultTypes:
+			if rt not in resultTypes_:
+				results[result.displayname]['region_ts']['metadata'][0].append(rt)
 
 		# if 'line_lp' not in results[result.displayname].keys():
 		resultTypes = result.lineResultTypesLP()
-		metadata1d = [resultTypes]
-		results[result.displayname]['line_lp']['metadata'] = metadata1d
+		if 'metadata' not in results[result.displayname]['line_lp']:
+			results[result.displayname]['line_lp']['metadata'] = [[]]
+		resultTypes_ = sum(results[result.displayname]['line_lp']['metadata'], [])
+		for rt in resultTypes:
+			if rt not in resultTypes_:
+				results[result.displayname]['line_lp']['metadata'][0].append(rt)
 
 		return True
 	
@@ -619,7 +735,7 @@ class TuResults1D():
 		resVersion = []
 		for result in self.tuView.OpenResults.selectedItems():
 			if result.text() in self.tuView.tuResults.tuResults1D.results1d.keys():
-				resVersion.append(self.tuView.tuResults.tuResults1D.results1d[result.text()].formatVersion)
+				resVersion.append(self.tuView.tuResults.tuResults1D.results1d[result.text()][0].formatVersion)
 		
 		# collect ids and domain types
 		for layerid, layer in QgsProject.instance().mapLayers().items():
@@ -627,9 +743,12 @@ class TuResults1D():
 				continue
 			if layerid in about_to_be_removed:
 				continue
+			is_ts_lyr = isTSLayer(layer, self.tuView.tuResults.results)
+			is_plot_lyr = isPlotLayer(layer)
+			is_bc_lyr = isBcLayer(layer)
 			for f in layer.selectedFeatures():
-				if isTSLayer(layer, self.tuView.tuResults.results):
-					i = 1 if '.gpkg|layername' in layer.dataProvider().dataSourceUri().lower() else 0
+				if is_ts_lyr:
+					i = 1 if layer.storageType() == 'GPKG' else 0
 					id = f.attributes()[i]
 					id = id.strip()
 					if id not in self.ids:
@@ -638,28 +757,27 @@ class TuResults1D():
 						self.sources.append('Q_V_')
 					continue
 				if 1 not in resVersion:
-					if isPlotLayer(layer):
-						if 'ID' in f.fields().names() and 'Type' in f.fields().names() and 'Source' in f.fields().names():
-							id_ = f['ID'].strip()
-							if id_ not in self.ids:
-								self.ids.append(f['ID'].strip())
-								self.sources.append(f['Source'].strip())
-								type = f['Type'].strip()
-								if 'node' in type.lower() or 'chan' in type.lower():
-									self.domains.append('1D')
-								else:
-									self.domains.append(type)  # 2D or RL
-					elif isBcLayer(layer):
+					if is_plot_lyr:
+						id_ = f['ID'].strip()
+						if id_ not in self.ids:
+							self.ids.append(f['ID'].strip())
+							self.sources.append(f['Source'].strip())
+							type = f['Type'].strip()
+							if 'node' in type.lower() or 'chan' in type.lower():
+								self.domains.append('1D')
+							else:
+								self.domains.append(type)  # 2D or RL
+					elif is_bc_lyr:
 						try:
 							id = f['Name'].strip()
-						except TypeError:
+						except:
 							id = ''
 						if id not in self.ids:
 							self.ids.append(id)
 							self.domains.append('2D')
 							self.sources.append('BC')
 				elif 2 not in resVersion:
-					i = 1 if '.gpkg|layername' in layer.dataProvider().dataSourceUri().lower() else 0
+					i = 1 if layer.storageType() == 'GPKG' else 0
 					id = f.attributes()[i]
 					id = id.strip()
 					if id not in self.ids:
@@ -677,7 +795,7 @@ class TuResults1D():
 							else:
 								self.domains.append(type)  # 2D or RL
 					else:
-						i = 1 if '.gpkg|layername' in layer.dataProvider().dataSourceUri().lower() else 0
+						i = 1 if layer.storageType() == 'GPKG' else 0
 						id = f.attributes()[i]
 						id = id.strip()
 						if id not in self.ids:
@@ -698,20 +816,36 @@ class TuResults1D():
 		# if len(self.ids) < 3 and self.ids:
 		ids = []
 		domains = []
+		types = []
 		for layerid, layer in QgsProject.instance().mapLayers().items():
-			if isPlotLayer(layer) and 'PLOT_L' in layer.name():
+			if isPlotLayer(layer):
 				for f in layer.selectedFeatures():
 					if f['ID'].strip() not in ids:
 						ids.append(f['ID'].strip())
-						if 'node' in f['Type'].lower() or 'chan' in f['Type'].lower():
+						types.append(f['Type'].strip())
+						if 'node' in f['Type'].lower() or 'chan' in f['Type'].lower() or 'conduits' in f['Type'].lower():
 							domains.append('1D')
 						else:
 							domains.append('2D')
 
 		if ids:
-			res.LP.connected = False
-			res.LP.static = False
+			# res.LP.connected = False
+			# res.LP.static = False
 			error = False
+			if type(res) is ResData or type(res) is ResData_GPKG:  # not flood modeller
+				ids_ = ids[:]
+				domains_ = domains[:]
+				types_ = types[:]
+				ids, domains, types = [], [], []
+				while ids_:
+					id_ = ids_.pop(0)
+					domain = domains_.pop(0)
+					type_ = types_.pop(0)
+					if id_ in res.Channels.chan_name and type_ != 'Node':
+						ids.append(id_)
+						domains.append(domain)
+						types.append(type_)
+
 			
 			# one selection
 			if len(ids) == 1:
@@ -767,6 +901,9 @@ class TuResults1D():
 					del results[res]
 							
 			if res in self.results1d:
+				for res_ in self.results1d[res][:]:
+					if isinstance(res_, ResData_GPKG):
+						self.remove_gpkg_gis(res_)
 				del self.results1d[res]
 			
 			for i in range(self.tuView.OpenResults.count()):
@@ -776,6 +913,39 @@ class TuResults1D():
 						self.tuView.OpenResults.takeItem(i)
 		
 		return True
+
+	def remove_gpkg_gis(self, res):
+		try:
+			self.tuView.project.layersWillBeRemoved.disconnect(self.tuView.layersRemoved)
+		except RuntimeError:
+			Logging.warning('Could not disconnect layersWillBeRemoved signal')
+		if res.gis_point_layer:
+			try:
+				if res.gis_point_layer.id() in self.tuView.layer_selection_signals:
+					res.gis_point_layer.selectionChanged.disconnect(self.tuView.selectionChanged)
+					self.tuView.layer_selection_signals.remove(res.gis_point_layer.id())
+				self.tuView.project.removeMapLayer(res.gis_point_layer)
+			except RuntimeError:
+				Logging.warning('Could not remove gis_point_layer')
+		if res.gis_line_layer:
+			try:
+				if res.gis_line_layer.id() in self.tuView.layer_selection_signals:
+					res.gis_line_layer.selectionChanged.disconnect(self.tuView.selectionChanged)
+					self.tuView.layer_selection_signals.remove(res.gis_line_layer.id())
+				self.tuView.project.removeMapLayer(res.gis_line_layer)
+			except RuntimeError:
+				Logging.warning('Could not remove gis_line_layer')
+		if res.gis_region_layer:
+			try:
+				if res.gis_region_layer.id() in self.tuView.layer_selection_signals:
+					res.gis_region_layer.selectionChanged.disconnect(self.tuView.selectionChanged)
+					self.tuView.layer_selection_signals.remove(res.gis_region_layer.id())
+				self.tuView.project.removeMapLayer(res.gis_region_layer)
+			except RuntimeError:
+				Logging.warning('Could not remove gis_region_layer')
+		self.tuView.project.layersWillBeRemoved.connect(self.tuView.layersRemoved)
+		if self.tuView.iface:
+			self.tuView.iface.mapCanvas().refresh()
 
 	def getReferenceTime(self, result, defaultZeroTime=None):
 		"""
@@ -816,10 +986,10 @@ class TuResults1D():
 		"""
 
 		if resname in self.results1d:
-			result = self.results1d[resname]
-			if not result.has_reference_time:
-				result.reference_time = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
-			self.getResultMetaData(result)
+			for result in resname:
+				if not result.has_reference_time:
+					result.reference_time = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
+				self.getResultMetaData(result)
 
 	def loadTSResultLayer(self, layer):
 		name = layer.dataProvider().dataSourceUri()
@@ -832,7 +1002,9 @@ class TuResults1D():
 			name = Path(name).stem
 
 		if re.findall(r'_TS(MB|MB1d2d)?(_[PLR])?$', name, flags=re.IGNORECASE):
-			self.results1d[name] = TSResult()
+			if isPlotLayer(layer):
+				return
+			self.results1d[name] = [TSResult()]
 			self.tuView.tuResults.results[name] = {}
 			self.tuView.OpenResults.addItem(name)
 			k = self.tuView.OpenResults.findItems(name, Qt.MatchRecursive)[0]

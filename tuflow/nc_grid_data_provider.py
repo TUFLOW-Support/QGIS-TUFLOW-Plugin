@@ -60,9 +60,9 @@ class NetCDFGrid(QgsRasterLayer):
         # get time data
         self.units = 'h'
         with Dataset(self._nc_file) as nc:
-            self.reference_time = self._reference_time(nc)
-            self.times = self._times(nc)
+            self.reference_time = self._reference_time(nc, **kwargs)
             self.static = self._is_static(nc)
+            self.times = self._times(nc)
 
         # get min/max data for rendering - this is what can slow down loading
         self._min, self._max = 9e29, -9e29
@@ -70,6 +70,8 @@ class NetCDFGrid(QgsRasterLayer):
             max_dataset = 'maximum_{0}'.format(self._lyr_name)  # try and be clever and find maximum dataset
             dataset = max_dataset if max_dataset in nc.variables else self._lyr_name
             ds = nc.variables[dataset][:]
+            if np.ma.is_masked(np.nanmin(ds)) and np.nanmin(ds).mask.all():
+                ds = nc.variables[self._lyr_name][:]
             self._min = min(self._min, np.nanmin(ds))
             self._max = max(self._max, np.nanmax(ds))
 
@@ -87,6 +89,13 @@ class NetCDFGrid(QgsRasterLayer):
     def name(self):
         return QgsRasterLayer.name(self._lyr)
 
+    def setDataSource(self, dataSource, baseName, provider, *__args):
+        uri = 'NETCDF:{0}:{1}'.format(dataSource, self._lyr_name)
+        self._nc_file = dataSource
+        super().setDataSource(uri, baseName, provider, *__args)
+        with Dataset(self._nc_file) as nc:
+            self.times = self._times(nc)
+
     def update_band(self, band_number):
         if band_number is None:
             return
@@ -95,12 +104,14 @@ class NetCDFGrid(QgsRasterLayer):
 
     def connect_temporal_controller(self, qgs_canvas):
         self.canvas = qgs_canvas
-        qgs_canvas.temporalRangeChanged.connect(self._update_band_from_time)
+        qgs_canvas.temporalRangeChanged.connect(self.update_band_from_time)
 
-    def _update_band_from_time(self):
-        if not self.canvas or not self.canvas.temporalRange().begin().isValid():
+    def update_band_from_time(self, temporal_range=None):
+        if temporal_range is None and (not self.canvas or not self.canvas.temporalRange().begin().isValid()):
             return
-        dt = self.canvas.temporalRange().begin()
+        if temporal_range is None:
+            temporal_range = self.canvas.temporalRange()
+        dt = temporal_range.begin()
         dt = datetime(dt.date().year(), dt.date().month(), dt.date().day(), dt.time().hour(), dt.time().minute(), dt.time().second())
         time = (dt - self.reference_time).total_seconds() / 3600.
         band = self.get_band_from_time(time)
@@ -180,9 +191,12 @@ class NetCDFGrid(QgsRasterLayer):
         if self.reference_time is None:
             return []
 
+        if self.static:  # self.static may not be populated at this stage
+            return []
+
         return nc.variables['time'][:].tolist()
 
-    def _reference_time(self, nc):
+    def _reference_time(self, nc, default_reference_time=None, **kwargs):
         if 'time' not in nc.variables:
             return
 
@@ -195,6 +209,8 @@ class NetCDFGrid(QgsRasterLayer):
             self.units = units.split(' ')[0]
 
         if not re.findall(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}', units):
+            if default_reference_time:
+                return default_reference_time
             return datetime(2000, 1, 1)  # a default value
 
         return datetime.strptime(re.findall(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}', units)[0], '%Y-%m-%d %H:%M')

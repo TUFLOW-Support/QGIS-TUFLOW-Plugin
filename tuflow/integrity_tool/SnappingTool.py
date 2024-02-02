@@ -112,7 +112,6 @@ class SnappingTool:
                             while tempLyrName in lyrnames:
                                 cnt += 1
                                 tempLyrName = '{0}_SN{1}'.format(name_, cnt)
-                            self.tmplyr2oldlyr[tempLyrName] = v.layer.name()
 
                             if tempLyrName not in [x.name() for x in self.tmpLyrs]:
                                 lyr = self.copyLayerToTemp(v.layer, tempLyrName)
@@ -120,7 +119,8 @@ class SnappingTool:
                             else:
                                 i = [x.name() for x in self.tmpLyrs].index(tempLyrName)
                                 lyr = self.tmpLyrs[i]
-                            
+
+                            self.tmplyr2oldlyr[lyr.id()] = v.layer.id()
                             lyr.startEditing()
                             
                             # get position to move to

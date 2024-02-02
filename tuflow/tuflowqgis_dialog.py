@@ -22,24 +22,20 @@
 
 #import csv
 import os.path
-import operator
-import re
 
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
-from qgis.core import *
-import glob
 import logging
+
+from tuflow.toc.toc import findAllRasterLyrs, findAllMeshLyrs, findAllVectorLyrs
+
 # import processing
 from .tuflowqgis_library import *
 from PyQt5.QtWidgets import *
-from qgis.gui import QgsProjectionSelectionWidget
 from qgis.utils import active_plugins, plugins
 from datetime import datetime
 import sys
 import subprocess
-import numpy as np
-import matplotlib
 import dateutil.parser
 try:
 	from pathlib import Path
@@ -218,13 +214,17 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 			                                                   "Spatial Database", "GPKG (*.gpkg *.GPKG)",
 			                                                   self.leDiscardedDb))
 
-		i = 0
-		for name, layer in QgsProject.instance().mapLayers().items():
-			if layer.type() == QgsMapLayer.VectorLayer:
-				self.sourcelayer.addItem(layer.name())
-				if layer.name() == cLayer.name():
-					self.sourcelayer.setCurrentIndex(i)
-				i = i + 1
+		self.sourcelayer.addItems([x.name() for x in QgsProject.instance().mapLayers().values()])
+		if self.iface.activeLayer() is not None:
+			self.sourcelayer.setCurrentText(self.iface.activeLayer().name())
+		else:
+			layer_tree = self.iface.layerTreeView()
+			idxs = layer_tree.selectionModel().selectedIndexes()
+			if idxs:
+				idx = idxs[0]
+				nd = layer_tree.index2node(idx)
+				if nd.findLayers():
+					self.sourcelayer.setCurrentText(nd.findLayers()[0].name())
 
 		if self.sourcelayer.currentIndex() == -1:
 			self.outfolder.setText('No layer currently selected!')
@@ -668,7 +668,8 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 #    tuflowqgis import empty tuflow files
 # ----------------------------------------------------------
 from .forms.ui_tuflowqgis_import_empties import *
-from .tuflowqgis_settings import TF_Settings
+
+
 class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 	def __init__(self, iface, project):
 		QDialog.__init__(self)
@@ -1032,7 +1033,8 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 #    tuflowqgis Run TUFLOW (Simple)
 # ----------------------------------------------------------
 from .forms.ui_tuflowqgis_run_tf_simple import *
-from .tuflowqgis_settings import TF_Settings
+
+
 class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 	def __init__(self, iface, project):
 		QDialog.__init__(self)
@@ -1045,8 +1047,8 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 		error, message = self.tfsettings.Load()
 		if error:
 			QMessageBox.information( self.iface.mainWindow(),"Error", "Error Loading Settings: "+message)
-		
-		
+
+		self.exefolder = QDir().homePath()
 		if self.tfsettings.combined.tf_exe:
 			tfexe = self.tfsettings.combined.tf_exe
 			self.exefolder, dum  = os.path.split(tfexe)
@@ -1101,7 +1103,7 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 	def browse_exe(self):
 		# Get the file name
 		inFileName = QFileDialog.getOpenFileName(self, 'Select TUFLOW exe', self.exefolder, "TUFLOW Executable (*.exe)")
-		inFileName = str(inFileName)
+		inFileName = inFileName[0]
 		if len(inFileName) == 0: # If the length is 0 the user pressed cancel 
 			return
 		# Store the exe location and path we just looked in
@@ -1328,8 +1330,8 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 #    tuflowqgis configure tuflow project
 # ----------------------------------------------------------
 from .forms.ui_tuflowqgis_configure_tuflow_project import *
-from .tuflowqgis_settings import TF_Settings
-from qgis.gui import QgsProjectionSelectionTreeWidget
+
+
 class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 	def __init__(self, iface, project, parent=None):
 		QDialog.__init__(self, parent)
@@ -1742,7 +1744,8 @@ class tuflowqgis_flowtrace_dialog(QDialog, Ui_tuflowqgis_flowtrace):
 #    tuflowqgis import check files
 # ----------------------------------------------------------
 from .forms.ui_tuflowqgis_import_check import *
-from .tuflowqgis_settings import TF_Settings
+
+
 class tuflowqgis_import_check_dialog(QDialog, Ui_tuflowqgis_import_check):
 	def __init__(self, iface, project):
 		QDialog.__init__(self)
@@ -1808,8 +1811,7 @@ class tuflowqgis_import_check_dialog(QDialog, Ui_tuflowqgis_import_check):
 #    tuflowqgis extract ARR2016
 # ----------------------------------------------------------
 from .forms.ui_tuflowqgis_arr2016 import *
-from .tuflowqgis_settings import TF_Settings
-import webbrowser
+
 
 class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 
@@ -3604,6 +3606,36 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		self.sbHeadLength.valueChanged.connect(self.curtain_vector_head_length_changed)
 		self.sbHorizontalFactor.valueChanged.connect(self.curtain_vector_horizontal_factor_changed)
 		self.sbVertVelFactor.valueChanged.connect(self.vertical_velocity_factor_changed)
+		# copy mesh
+		self.cb_copy_mesh.setChecked(self.tuOptions.copy_mesh)
+		self.cb_show_mesh_copy_dlg.setChecked(self.tuOptions.show_copy_mesh_dlg)
+		self.cb_del_copied_mesh.setChecked(self.tuOptions.del_copied_res)
+		self.cb_copy_mesh.toggled.connect(self.cb_copy_mesh_toggled)
+		self.cb_show_mesh_copy_dlg.toggled.connect(self.cb_show_mesh_copy_dlg_toggled)
+		self.cb_del_copied_mesh.toggled.connect(self.cb_del_copied_mesh_toggled)
+		self.btn_del_all_cache_res.clicked.connect(self.del_all_cache_res)
+
+	def cb_copy_mesh_toggled(self, e):
+		self.tuOptions.copy_mesh = e
+		QSettings().setValue('TUFLOW/tuview_copy_mesh', self.tuOptions.copy_mesh)
+
+	def cb_show_mesh_copy_dlg_toggled(self, e):
+		self.tuOptions.show_copy_mesh_dlg = e
+		QSettings().setValue('TUFLOW/tuview_show_copy_mesh_dlg', self.tuOptions.show_copy_mesh_dlg)
+
+	def cb_del_copied_mesh_toggled(self, e):
+		self.tuOptions.del_copied_res = e
+		QSettings().setValue('TUFLOW/tuview_del_copied_res', self.tuOptions.del_copied_res)
+
+	def del_all_cache_res(self):
+		from .tuflowqgis_tuviewer.tmp_result import TmpResult
+		from .gui import Logging
+		folders = TmpResult.clear_cache()
+		if folders:
+			folders = '\n'.join([str(x) for x in folders])
+			Logging.error('Errors occurred deleting some copied results', 'The following folders could not be deleted:\n{0}'.format(folders))
+		else:
+			Logging.info('Successfully Deleted Copied Results')
 
 	def curtain_vector_set_tuflow_viewer_defaults(self):
 		self.sbScale.setValue(0.005)

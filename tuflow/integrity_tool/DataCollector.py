@@ -9,14 +9,17 @@ from .FeatureData import FeatureData
 from .DrapeData import DrapeData
 from .ConnectionData import ConnectionData
 from .NetworkVertex import NetworkVertex
-from ..tuflowqgis_library import tuflowqgis_find_layer, is1dNetwork, lineToPoints, getRasterValue, readInvFromCsv
+from tuflow.tuflowqgis_library import is1dNetwork, lineToPoints, getRasterValue, readInvFromCsv
+from tuflow.toc.toc import tuflowqgis_find_layer
 from datetime import datetime, timedelta
 
+from tuflow_swmm.swmm_gis_info import is_swmm_network_layer
 
 import sys
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\plugins\python\helpers\pydev')
 
+from tuflow.integrity_tool.helpers import EstryHelper
 
 class DataCollector(QObject):
     """
@@ -81,6 +84,11 @@ class DataCollector(QObject):
         self.startLocs = []
         self.flowTrace = False
 
+        self.helper = EstryHelper()
+
+    def setHelper(self, helper):
+        self.helper = helper
+
     def collectData(self, inputs=(), dem=None, lines=(), lineDataCollector=None, exclRadius=15, tables=(),
                     startLocs=(), flowTrace=False):
         """
@@ -128,6 +136,7 @@ class DataCollector(QObject):
         #for layer in inputs:
             #if layer is not None:
         if inputs:
+            geomType = inputs[0].geometryType()
             if inputs[0].geometryType() == QgsWkbTypes.LineGeometry:
                 self.geomType = GEOM_TYPE.Line
             else:
@@ -135,7 +144,7 @@ class DataCollector(QObject):
 
         # check if layer is a 1d_nwk
         for layer in inputs:
-            if is1dNetwork(layer):
+            if is_swmm_network_layer(layer) or is1dNetwork(layer):
                 # start by indexing all fid and features
                 if layer.name() in self.spatialIndexes:
                     spatialIndex = self.spatialIndexes[layer.name()]
@@ -198,7 +207,7 @@ class DataCollector(QObject):
                     closestVertexToUs = NetworkVertex(id, VERTEX.Point, layer, f)
                     self.vertexes[id] = closestVertexToUs
                 closestVertexToDs = None
-            
+
             # create buffer object then find features in buffered region
             request = self.createRequest(featureData, exclRadius)
             if lines and self.geomType == GEOM_TYPE.Point:
@@ -342,7 +351,7 @@ class DataCollector(QObject):
         """
 
         # create feature data object
-        featureData = FeatureData(layer, feature, self.nullCounter)
+        featureData = FeatureData(self.helper, layer, feature, self.nullCounter)
 
         # store feature data in dictionary for easy lookup later
         id = featureData.id
@@ -742,8 +751,9 @@ class DataCollector(QObject):
                 for fid in index.intersects(rect):
                     feature = allTableFeatures[fid]
                     if feature.geometry().intersects(QgsGeometry.fromPointXY(featureData.startVertex)):
-                        source = os.path.join(os.path.dirname(layer.source()), feature.attribute(0))
-                        typ = feature.attribute(1)
+                        source = os.path.join(os.path.dirname(layer.source()),
+                                              self.helper.get_feature_id(layer, feature))
+                        typ = self.helper.get_nwk_type(feature)
                         
                         if os.path.isfile(source):
                             inv = readInvFromCsv(source, typ)
@@ -761,8 +771,9 @@ class DataCollector(QObject):
                 for fid in index.intersects(rect):
                     feature = allTableFeatures[fid]
                     if feature.geometry().intersects(QgsGeometry.fromPointXY(featureData.endVertex)):
-                        source = os.path.join(os.path.dirname(layer.source()), feature.attribute(0))
-                        typ = feature.attribute(1)
+                        source = os.path.join(os.path.dirname(layer.source()),
+                                              self.helper.get_feature_id(layer, feature))
+                        typ = self.helper.get_nwk_type(feature)
                 
                         if os.path.exists(source):
                             inv = readInvFromCsv(source, typ)
@@ -780,8 +791,9 @@ class DataCollector(QObject):
             for fid in index.intersects(rect):
                 feature = allTableFeatures[fid]
                 if feature.geometry().intersects(featureData.feature.geometry()):
-                    source = os.path.join(os.path.dirname(layer.source()), feature.attribute(0))
-                    typ = feature.attribute(1)
+                    source = os.path.join(os.path.dirname(layer.source()),
+                                              self.helper.get_feature_id(layer, feature))
+                    typ = self.helper.get_nwk_type(feature)
     
                     if os.path.exists(source):
                         inv = readInvFromCsv(source, typ)
@@ -818,12 +830,12 @@ class DataCollector(QObject):
         idmapping = {}
         
         # get x connectors first
-        key = lambda x: 0 if x.attribute(1).lower() == 'x' else 1
+        key = lambda x: 0 if self.helper.get_nwk_type(x).lower() == 'x' else 1
         for layer in inputs:
             if is1dNetwork(layer):
                 try:
                     for f in sorted(layer.getFeatures(), key=key):
-                        if f.attribute(1).lower() == 'x':
+                        if self.helper.get_nwk_type(f).lower() == 'x':
                             self.featuresToAssess.append(f)
                             self.layersToAssess.append(layer)
                         else:
@@ -845,18 +857,19 @@ class DataCollector(QObject):
                             self.layersToAssess.append(layer)
         else:
             for layer in inputs:
-                if is1dNetwork(layer):
+                if is_swmm_network_layer(layer) or is1dNetwork(layer):
                     features = [f for f in sorted(layer.getFeatures(), key=key)]
                     layers = [layer for x in range(layer.featureCount())]
                     i = 0
                     for i, f in enumerate(features):
-                        if f.attribute(1).lower() == 'x':
+                        if self.helper.get_nwk_type(f).lower() == 'x':
                             continue
                         else:
                             break
                     self.featuresToAssess += features[i:]
                     self.layersToAssess += layers[i:]
-            
+
+
     def finishedFeature(self, feature, layer, snappedFeatures, snappedLayers, has_started):
         """
         Place holder for flow trace object to override.

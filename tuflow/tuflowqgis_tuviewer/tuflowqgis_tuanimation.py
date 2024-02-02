@@ -19,11 +19,12 @@ from ..forms.ui_animation_dialog import Ui_AnimationDialog
 from ..forms.animation_plot_properties import Ui_PlotProperties
 from ..forms.label_properties import Ui_textPropertiesDialog
 from ..forms.image_properties import Ui_ImageProperties
-from ..tuflowqgis_library import (tuflowqgis_find_layer, applyMatplotLibArtist, convertTimeToFormattedTime,
-                                       convertFormattedTimeToTime, getPolyCollectionExtents, getQuiverExtents,
-                                       convertTimeToDate, convertFormattedDateToTime, addColourBarAxes, reSpecPlot,
-                                       addLegend, addQuiverKey, datetime2timespec, convert_datetime_to_float,
-                                       convert_float_to_datetime, qdt2dt, DownloadBinPackage)
+from ..tuflowqgis_library import (applyMatplotLibArtist, convertTimeToFormattedTime,
+                                  convertFormattedTimeToTime, getPolyCollectionExtents, getQuiverExtents,
+                                  convertTimeToDate, convertFormattedDateToTime, addColourBarAxes, reSpecPlot,
+                                  addLegend, addQuiverKey, datetime2timespec, convert_datetime_to_float,
+                                  convert_float_to_datetime, qdt2dt, DownloadBinPackage)
+from tuflow.toc.toc import tuflowqgis_find_layer
 from ..forms.animation_axis_limits_warning import Ui_animationPlotLimitsWarning
 import matplotlib
 import numpy as np
@@ -40,6 +41,7 @@ from ..tuflowqgis_tuviewer.tuflowqgis_tuplot3d import ColourBar
 from ..tuflowqgis_tuviewer.tuflowqgis_turesults2d import TuResults2D
 from ..tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 import requests
+from ..nc_grid_data_provider import NetCDFGrid
 
 
 # http://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
@@ -726,6 +728,7 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 	dpi = 96
 	cfg["dpi"] = dpi
 	l = cfg['layer']
+	n = cfg['name']
 	w, h = cfg['img_size']
 	imgfile = cfg['tmp_imgfile']
 	layers = cfg['layers'] if 'layers' in cfg else [l.id()]
@@ -738,11 +741,13 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 	timesteps = cfg['timesteps']
 	count = len(timesteps)
 	# assert (count > 2)
+	nc_grid = cfg['nc_grid']
 
 	time_from, time_to = cfg['time']
 
 	# store original values
-	original_rs = l.rendererSettings()
+	if not nc_grid and l:
+		original_rs = l.rendererSettings()
 
 	# render selected mesh layer and turn off others
 	dialog.tuView.tuResults.tuResults2D.renderMap(turn_off=True)
@@ -807,22 +812,23 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 
 
 		# Set to render next timesteps
-		rs = l.rendererSettings()
-		asd = cfg['scalar index']
-		if qv < 31300:
-			asd = QgsMeshDatasetIndex(asd, i)
-		#rs.setActiveScalarDataset(QgsMeshDatasetIndex(asd, i))
-		avd = cfg['vector index']
-		if qv < 31300:
-			avd = QgsMeshDatasetIndex(avd, i)
-		#rs.setActiveVectorDataset(QgsMeshDatasetIndex(avd, i))
+		if not nc_grid and l:
+			rs = l.rendererSettings()
+			asd = cfg['scalar index']
+			if qv < 31300:
+				asd = QgsMeshDatasetIndex(asd, i)
+			#rs.setActiveScalarDataset(QgsMeshDatasetIndex(asd, i))
+			avd = cfg['vector index']
+			if qv < 31300:
+				avd = QgsMeshDatasetIndex(avd, i)
+			#rs.setActiveVectorDataset(QgsMeshDatasetIndex(avd, i))
 
-		# new api for 3.14
-		#if qv < 31600:
-		setActiveScalar, setActiveVector = TuResults2D.meshRenderVersion(rs)
-		setActiveScalar(asd)
-		setActiveVector(avd)
-		l.setRendererSettings(rs)
+			# new api for 3.14
+			#if qv < 31600:
+			setActiveScalar, setActiveVector = TuResults2D.meshRenderVersion(rs)
+			setActiveScalar(asd)
+			setActiveVector(avd)
+			l.setRendererSettings(rs)
 
 		# particles
 		ptms = cfg['particles']
@@ -870,7 +876,8 @@ def animation(cfg, iface, progress_fn=None, dialog=None, preview=False):
 		progress_fn(count, count)
 
 	# restore original settings
-	l.setRendererSettings(original_rs)
+	if not nc_grid and l:
+		l.setRendererSettings(original_rs)
 
 
 def set_composer_item_label(item, itemcfg):
@@ -1023,7 +1030,10 @@ def setTemporalRange(tuResults, layout, time, meshLayer, layout3d=None):
 				if meshLayer is None:
 					timeSpec = None
 				else:
-					timeSpec = meshLayer.temporalProperties().referenceTime().timeSpec()
+					if isinstance(meshLayer, QgsMeshLayer):
+						timeSpec = meshLayer.temporalProperties().referenceTime().timeSpec()
+					else:
+						timeSpec = 1
 			# 	if layout_map is not None:
 			# 		layout_map.setIsTemporal(True)
 			# 		tuResults.updateQgsTime(qgsObject=layout_map, time=time, timeSpec=timeSpec)
@@ -1036,6 +1046,8 @@ def setTemporalRange(tuResults, layout, time, meshLayer, layout3d=None):
 					if layoutItem is not None and isinstance(layoutItem, QgsLayoutItemMap):
 						layoutItem.setIsTemporal(True)
 						tuResults.updateQgsTime(qgsObject=layoutItem, time=time, timeSpec=timeSpec)
+						if isinstance(meshLayer, NetCDFGrid):
+							meshLayer.update_band_from_time(layoutItem.temporalRange())
 
 
 def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, dialog, show_current_time=True,
@@ -1886,13 +1898,15 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		scalarResults, vectorResults = ['-None-'], ['-None-']
 		activeScalar, activeVector = 0, 0
 		scalarCount, vectorCount = 0, 0
-		
 		if resultName:
 			result = self.tuView.tuResults.results[resultName]  # dict -> e.g. { 'Depth': { '0.000': ( timestep, scalar / vector type, QgsMeshDatasetIndex ) } }
 			for  rtype, ts in result.items():
 				if rtype == 'Bed Elevation':
 					continue
-				if 'times' in ts:
+				if rtype == '_nc_grid':
+					scalarCount += 1
+					scalarResults.append(resultName)
+				elif 'times' in ts:
 					ts = ts['times']
 					if '_ts' not in rtype and '_lp' not in rtype and '/Maximums' not in rtype:  # temporal map output result type
 						for key, item in ts.items():
@@ -2577,13 +2591,13 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			else:
 				print(msg)
 			return
-		if self.cboScalar.currentText() == '-None-' and self.cboVector.currentText() == '-None-':
-			msg = 'Must Choose at Least One Scalar or Vector Result Type'
-			if self.tuView.iface is not None:
-				QMessageBox.information(self, 'Input Error', msg)
-			else:
-				print(msg)
-			return
+		# if self.cboScalar.currentText() == '-None-' and self.cboVector.currentText() == '-None-':
+		# 	msg = 'Must Choose at Least One Scalar or Vector Result Type'
+		# 	if self.tuView.iface is not None:
+		# 		QMessageBox.information(self, 'Input Error', msg)
+		# 	else:
+		# 		print(msg)
+		# 	return
 		if self.tuView.tuOptions.xAxisDates:
 			startTimeConverted = self.tuView.tuPlot.convertDateToTime(self.cboStart.currentText(),
 			                                                          unit=self.tuView.tuOptions.timeUnits)
@@ -2624,15 +2638,15 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 				print(msg)
 			return
 		self.layer = tuflowqgis_find_layer(self.cboResult.currentText())
-		if self.layer is None:
+		if self.layer is None and self.cboResult.currentText() not in self.tuView.tuResults.tuResults1D.results1d:
 			msg = 'Cannot Find Result File in QGIS: {0}'.format(self.cboResult.currentText())
 			if self.tuView.iface is not None:
 				QMessageBox.information(self, 'Input Error', msg)
 			else:
 				print(msg)
 			return
-		if self.layer.type() != QgsMapLayer.MeshLayer:
-			msg = 'Error finding Result Mesh Layer: {0}'.format(self.cboResult.currentText())
+		if self.layer and self.layer.type() != QgsMapLayer.MeshLayer and not isinstance(self.layer, NetCDFGrid):
+			msg = 'Error finding Result Layer: {0}'.format(self.cboResult.currentText())
 			if self.tuView.iface is not None:
 				QMessageBox.information(self, 'Input Error',  msg)
 			else:
@@ -2860,13 +2874,22 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		#		asd = i
 		#	if self.layer.dataProvider().datasetGroupMetadata(i).name() == avd:
 		#		avd = i
-		for resultType in self.tuView.tuResults.results[self.layer.name()]:
+		nc_grid = False
+		n = self.layer.name() if self.layer else self.cboResult.currentText()
+		for resultType in self.tuView.tuResults.results[n]:
+			if resultType == '_nc_grid':
+				nc_grid = True
+				asd = -1
+				break
 			if resultType == asd:
 				for time in self.tuView.tuResults.results[self.layer.name()][resultType]['times']:
 					asd = self.tuView.tuResults.results[self.layer.name()][resultType]['times'][time][-1].group()
 			if resultType == avd:
 				for time in self.tuView.tuResults.results[self.layer.name()][resultType]['times']:
 					avd = self.tuView.tuResults.results[self.layer.name()][resultType]['times'][time][-1].group()
+		ts_res = False
+		if asd == -1 and avd == -1 and n in self.tuView.tuResults.tuResults1D.results1d:
+			ts_res = True
 
 		# particles
 		ptm_res = []  # particles dataprovider
@@ -2884,9 +2907,13 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 				resultType = self.layer.dataProvider().datasetGroupMetadata(asd).name()
 			elif avd != -1:
 				resultType = self.layer.dataProvider().datasetGroupMetadata(avd).name()
+			elif nc_grid:
+				resultType = self.cboScalar.currentText()
+			elif ts_res:
+				resultType = None
 			else:
 				resultType = 'Bed Elevation'
-		rt = self.tuView.tuResults.results[self.layer.name()][
+		rt = self.tuView.tuResults.results[n][
 			'referenceTime'] if 'referenceTime' in self.tuView.tuResults.results else self.tuView.tuOptions.zeroTime
 		if qv < 31600:
 			if self.tuView.tuOptions.xAxisDates:
@@ -3087,6 +3114,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 
 		# put collected data into dictionary for easy access later
 		d = {'layer': self.layer,
+			 'name': n,
 			 'time': (tStart, tEnd),
 			 'img_size': (w, h),
 			 'tmp_imgfile': img_output_tpl,
@@ -3097,6 +3125,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			 # 'crs': self.canvas.mapSettings().destinationCrs(),
 			 'crs': self.crs,
 			 'layout': layout,
+			 'nc_grid': nc_grid,
 		     'scalar index': asd,
 		     'vector index': avd,
 		     'active scalar': self.cboScalar.currentText(),

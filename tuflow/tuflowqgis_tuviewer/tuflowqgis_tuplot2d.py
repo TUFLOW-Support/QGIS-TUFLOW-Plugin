@@ -1415,7 +1415,7 @@ class TuPlot2D():
 		if qv >= 31600:
 			result = None
 			index = -1
-			name_ = layer.datasetGroupMetadata(mdi_).name()
+			name_ = layer.dataProvider().datasetGroupMetadata(mdi_).name()
 			for i in range(dp.datasetGroupCount()):
 				if dp.datasetGroupMetadata(i).name() == name_:
 					if i == mdi_.group():

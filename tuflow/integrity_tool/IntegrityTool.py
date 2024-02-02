@@ -7,8 +7,9 @@ from qgis.core import *
 from qgis.gui import *
 from PyQt5.QtWidgets import *
 from ..forms.integrity_tool_dock import Ui_IntegrityTool
-from ..tuflowqgis_library import (findAllRasterLyrs, findAllVectorLyrs, tuflowqgis_find_layer,
-                                       is1dNetwork, is1dTable, tuflowqgis_apply_check_tf_clayer, copyStyle)
+from ..tuflowqgis_library import (is1dNetwork, is1dTable, tuflowqgis_apply_check_tf_clayer, copyStyle)
+from tuflow.toc.toc import tuflowqgis_get_geopackage_from_layer, tuflowqgis_find_layer_in_datasource, tuflowqgis_find_layer, \
+    findAllRasterLyrs, findAllVectorLyrsWithGroups
 from ..tuflowqgis_dialog import StackTraceDialog
 from .DataCollector import DataCollector
 from .SnappingTool import SnappingTool
@@ -18,6 +19,9 @@ from .PipeDirectionTool import PipeDirectionTool
 from .Enumerators import *
 from .UniqueIds import UniqueIds, DuplicateRule, CreateNameRule, CreateNameRules
 from .NullGeometry import NullGeometry, NullGeometryDialog
+
+from tuflow_swmm.swmm_gis_info import is_swmm_network_layer
+from .helpers import SwmmHelper
 
 
 class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
@@ -73,12 +77,10 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         self.populateGrids()
         self.populateInputs()
 
-        # connect browse buttons
-        self.connectBrowseButtons()
-
         # what happens when a layer is added or removed from the workspace
-        QgsProject.instance().layersAdded.connect(self.layersAdded)
+        QgsProject.instance().legendLayersAdded.connect(self.layersAdded)
         QgsProject.instance().layersRemoved.connect(self.layersRemoved)
+        QgsProject.instance().layerTreeRoot().layerOrderChanged.connect(self.layerOrderChanged)
 
         # connect input add and remove buttons
         self.btnAddLines.clicked.connect(lambda: self.addItem(self.cboInputLines,
@@ -102,7 +104,11 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         """Disconnect signals"""
 
         try:
-            QgsProject.instance().layersAdded.disconnect(self.layersAdded)
+            QgsProject.instance().layerTreeRoot().layerOrderChanged.disconnect(self.layerOrderChanged)
+        except:
+            pass
+        try:
+            QgsProject.instance().legendLayersAdded.disconnect(self.layersAdded)
         except:
             pass
         try:
@@ -153,8 +159,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         # check all input layers exist in the workspace
         inputTypes = ['lines', 'points', 'tables']
         for inputType in inputTypes:
-            for input in self.getInputs(inputType, bReturnName=True):
-                if tuflowqgis_find_layer(input) is None:
+            for input in self.getInputs(inputType):
+                if input is None:
                     QMessageBox.critical(self, "Integrity Tool",
                                          "Layer Does Not Exist In Workspace: {0}".format(input))
                     return
@@ -168,7 +174,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         for inputType in inputTypes:
             for layer in self.getInputs(inputType):
                 if inputType == 'lines' or inputType == 'points':
-                    if not is1dNetwork(layer):
+                    if not is_swmm_network_layer(layer) and not is1dNetwork(layer, True):
                         # QMessageBox.critical(self, "Integrity Tool",
                         #                      "Layer Is Not a 1d_nwk Type: {0}".format(layer.name()))
                         question = QMessageBox.warning(self, "Integrity Tool",
@@ -240,7 +246,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             exc_type, exc_value, exc_traceback = sys.exc_info()
             trace = ''.join(traceback.extract_tb(exc_traceback).format()) + '{0}{1}'.format(exc_type, exc_value)
             message = "Unexpected Error Occurred.\nPlease Email Stack Trace To support@tuflow.com" \
-                      .format(exc_value)
+                .format(exc_value)
             self.runStatus.setText("Unexpected Error")
             self.progressBar.setValue(100)
             QMessageBox.critical(self, "Integrity Tool", message)
@@ -278,15 +284,16 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
         self.nullGeometry = NullGeometry()
         self.nullGeometry.updated.connect(self.updateProgressDataCollection)
-        self.nullGeometry.finished.connect(lambda e: self.finishedDataCollection(e, text='Finished checking for empty geometry'))
+        self.nullGeometry.finished.connect(
+            lambda e: self.finishedDataCollection(e, text='Finished checking for empty geometry'))
         self.nullGeometry.checkForNullGeometries(layers)
 
         return self.nullGeometry.null_geom_count == 0
 
     def copyStyle(self, lyrs):
-        for tmplyrname, oldlyrname in lyrs.items():
-            tmplyr = tuflowqgis_find_layer(tmplyrname)
-            oldlyr = tuflowqgis_find_layer(oldlyrname)
+        for tmplyrid, oldlyrid in lyrs.items():
+            tmplyr = tuflowqgis_find_layer(tmplyrid, search_type='layerid')
+            oldlyr = tuflowqgis_find_layer(oldlyrid, search_type='layerid')
             if tmplyr is None or oldlyr is None:
                 continue
             errmsg = copyStyle(oldlyr, tmplyr)
@@ -313,7 +320,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         # run data collectors
         self.runDataCollectors(inputLines, inputPoints, inputTables, dem, tool='Snapping Tool')
         self.outputLyr = None
-        
+
         # get exlusion radius
         exclRadius = self.sbExclRadius.value() if self.cbExclRadius.isChecked() else 99999
 
@@ -342,7 +349,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                     QgsProject.instance().addMapLayer(lyr)
 
                 self.copyStyle(self.snappingToolPoints.tmplyr2oldlyr)
-            
+
             noAutoSnap = True
             if self.snappingToolLines.tmpLyrs:
                 noAutoSnap = False
@@ -353,8 +360,9 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                 QMessageBox.information(self.iface.mainWindow(), "Integrity Tool",
                                         "No auto snapping operations performed.")
             else:
-                self.replaceInputs([self.snappingToolLines.tmplyr2oldlyr, self.snappingToolPoints.tmplyr2oldlyr], TOOL_TYPE.Snapping)
-    
+                self.replaceInputs([self.snappingToolLines.tmplyr2oldlyr, self.snappingToolPoints.tmplyr2oldlyr],
+                                   TOOL_TYPE.Snapping)
+
     def runContinuityTool(self):
         """
         
@@ -363,6 +371,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
         # Get inputs
         # input dem
+
         if self.gbDem.isChecked():
             dem = tuflowqgis_find_layer(self.cboDem.currentText())
         else:
@@ -375,23 +384,23 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         # run data collectors
         self.runDataCollectors(inputLines, inputPoints, inputTables, dem, tool='Continuity Tool')
         self.outputLyr = None
-        
+
         # user limits
         limitAngle = self.sbContinuityAngle.value()
         limitCover = self.sbContinuityCover.value()
         limitArea = self.sbContinuityArea.value()
-        
+
         # user checks
         checkArea = self.cbContinuityArea.isChecked()
         checkInvert = self.cbContinuityInverts.isChecked()
         checkAngle = self.cbContinuityAngle.isChecked()
         checkCover = self.cbContinuityCover.isChecked()
-        
+
         # continuity tool
         self.continuityTool = ContinuityTool(self.iface, self.dataCollectorLines, self.outputLyr, limitAngle,
                                              limitCover, limitArea, checkArea, checkAngle, checkInvert, checkCover)
         self.outputLyr = self.continuityTool.outputLyr
-        
+
     def runFlowTraceTool(self):
         """
         
@@ -422,7 +431,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                 if lyr.id() not in startLocs_:
                     startLocs_[lyr.id()] = []
                 startLocs_[lyr.id()].append(fid)
-        
+
         if not startLocs:
             QMessageBox.critical(self, "Flow Trace", "Need to select at least one feature to start the flow trace from")
             return
@@ -452,7 +461,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                                            self.dataCollectorPoints)
         self.outputLyr = self.flowTraceTool.outputLyr
         self.selectedFeats = {x: y for x, y in startLocs_.items()}
-        
+
         if self.cbFlowTraceLongPlots.isChecked():
             self.dotCount = 0
             self.message = "Generating Long Profiles"
@@ -467,7 +476,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             self.plot.updateMaxSteps_.connect(self.updateMaxProgressSteps)
 
             self.plot.run_plotter()
-            
+
     def showPlot(self):
         self.runStatus.setText("Finished Generating Long Plot")
         self.progressBar.setValue(100)
@@ -495,12 +504,19 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         except:
             pass
 
-    def catchPlotError(self):
+    def catchPlotError(self, message_ = ''):
         self.setGuiActive(True)
-        message = "Unexpected Error Occurred.\nPlease Email Stack Trace To support@tuflow.com"
-        self.runStatus.setText("Unexpected Error")
+        if message_:
+            message = message_
+            self.runStatus.setText(message)
+        else:
+            message = "Unexpected Error Occurred.\nPlease Email Stack Trace To support@tuflow.com"
+            self.runStatus.setText("Unexpected Error")
         self.progressBar.setValue(100)
+        self.progressBar.setRange(0, 100)
         QMessageBox.critical(self, "Integrity Tool", message)
+        if message_:
+            return
         msg = self.plot.errmsg if self.plot.errmsg is not None else ''
         stackTraceDialog = StackTraceDialog(msg)
         stackTraceDialog.exec_()
@@ -533,7 +549,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
             # reconnect signals
             self.uniqueIds.updated.connect(self.updateProgressDataCollection)
-            self.uniqueIds.finished.connect(lambda e: self.finishedDataCollection(e, text='Finished flagging non-compliant IDs'))
+            self.uniqueIds.finished.connect(
+                lambda e: self.finishedDataCollection(e, text='Finished flagging non-compliant IDs'))
 
             # run process
             self.uniqueIds.findNonCompliantIds()
@@ -571,7 +588,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             # pass rules to class and run
             # reconnect signals
             self.uniqueIds.updated.connect(self.updateProgressDataCollection)
-            self.uniqueIds.finished.connect(lambda e: self.finishedDataCollection(e, text='Finished correcting non-compliant IDs'))
+            self.uniqueIds.finished.connect(
+                lambda e: self.finishedDataCollection(e, text='Finished correcting non-compliant IDs'))
             self.uniqueIds.fixChannelIDs(duplicateRule, createNameRules)
 
         if self.uniqueIds.outputLyr is not None and self.uniqueIds.outputLyr.isValid():
@@ -588,7 +606,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
         self.nullGeometry = NullGeometry()
         self.nullGeometry.updated.connect(self.updateProgressDataCollection)
-        self.nullGeometry.finished.connect(lambda e: self.finishedDataCollection(e, text='Finished checking for empty geometry'))
+        self.nullGeometry.finished.connect(
+            lambda e: self.finishedDataCollection(e, text='Finished checking for empty geometry'))
         self.nullGeometry.checkForNullGeometries(layers, write_null_geom_errors=False)
 
         if not self.nullGeometry.null_geom_count:
@@ -626,7 +645,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
         # reconnect signals
         self.nullGeometry.updated.connect(self.updateProgressDataCollection)
-        self.nullGeometry.finished.connect(lambda e: self.finishedDataCollection(e, text='Finished deleting empty geometry'))
+        self.nullGeometry.finished.connect(
+            lambda e: self.finishedDataCollection(e, text='Finished deleting empty geometry'))
         # delete empty geometries
         self.nullGeometry.deleteNullGeometry()
 
@@ -642,7 +662,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
     def updateStatusBar(self):
         self.updateProgressDataCollection()
-        
+
     def updateMessage(self, msg_no):
         messages = {
             LongPlotMessages.CollectingBranches: 'Collecting long plot branches . . .',
@@ -659,13 +679,13 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
         inputLines = self.getInputs('lines')
         pipeDirectionTool = PipeDirectionTool(self.iface)
-        
+
         if self.cbBasedOnInverts.isChecked():
             pipeDirectionTool.byGradient(inputLines)
         if self.cbBasedOnContinuity.isChecked():
             self.runDataCollectors(inputLines=inputLines, tool="Pipe Direction Tool")
             pipeDirectionTool.byContinuity(inputLines, self.dataCollectorLines)
-        
+
         self.outputLyr = pipeDirectionTool.outputLyr
         for lyr in pipeDirectionTool.tmpLyrs:
             QgsProject.instance().addMapLayer(lyr)
@@ -695,6 +715,9 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
         # lines
         if inputLines:
+            if is_swmm_network_layer(inputLines[0]):
+                self.dataCollectorLines.helper = SwmmHelper()
+
             self.setupDataCollectorProgressBar(inputLines, 'lines')
             self.dataCollectorLines.updated.connect(self.updateProgressDataCollection)
             self.dataCollectorLines.finished.connect(
@@ -705,6 +728,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
         # points
         if inputPoints:
+            if is_swmm_network_layer(inputPoints[0]):
+                self.dataCollectorPoints.helper = SwmmHelper()
             self.setupDataCollectorProgressBar(inputPoints, 'points')
             self.dataCollectorPoints.updated.connect(self.updateProgressDataCollection)
             self.dataCollectorPoints.finished.connect(
@@ -716,7 +741,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         # tables
         if inputTables:
             pass
-        
+
     def runFlowTraceCollectors(self, inputLines, inputPoints, inputTables, dem, startLocs, tool=''):
         """
         
@@ -737,16 +762,21 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
         # lines
         if inputLines:
+            if is_swmm_network_layer(inputLines[0]):
+                self.dataCollectorLines.helper = SwmmHelper()
+
             self.setupDataCollectorProgressBar(inputLines, 'lines')
             self.dataCollectorLines.updated.connect(self.updateProgressDataCollection)
             self.dataCollectorLines.finished.connect(
                 lambda e: self.finishedDataCollection(e, text='Finished {0}'.format(tool)))
             self.dataCollectorLines.collectData(inputLines, dem, exclRadius=exclRadius, flowTrace=True,
                                                 startLocs=startLocs, tables=inputTables)
-            
 
         # points
         if inputPoints:
+            if is_swmm_network_layer(inputPoints[0]):
+                self.dataCollectorPoints.helper = SwmmHelper()
+
             self.setupDataCollectorProgressBar(inputPoints, 'points')
             self.dataCollectorPoints.updated.connect(self.updateProgressDataCollection)
             self.dataCollectorPoints.finished.connect(
@@ -758,7 +788,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         if inputTables:
             pass
 
-    def getInputs(self, inputType, bReturnName=False):
+    def getInputs(self, inputType):
         """
         Get a list of the input types
 
@@ -772,32 +802,62 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         if inputType == 'lines' or 'lines' in inputType:
             for i in range(self.lwLines.count()):
                 item = self.lwLines.item(i)
-                itemText = item.text()
-                if bReturnName:  # append just the text name
-                    inputs.append(itemText)
-                else:  # append the QgsVectorLayer
-                    layer = tuflowqgis_find_layer(itemText)
-                    inputs.append(layer)
+                layer_id = item.data(Qt.UserRole)
+                layer = tuflowqgis_find_layer(layer_id, search_type='layerid')
+                inputs.append(layer)
         if inputType == 'points' or 'points' in inputType:
             for i in range(self.lwPoints.count()):
                 item = self.lwPoints.item(i)
-                itemText = item.text()
-                if bReturnName:  # append just the text name
-                    inputs.append(itemText)
-                else:  # append the QgsVectorLayer
-                    layer = tuflowqgis_find_layer(itemText)
-                    inputs.append(layer)
+                layer_id = item.data(Qt.UserRole)
+                layer = tuflowqgis_find_layer(layer_id, search_type='layerid')
+                inputs.append(layer)
         if inputType == 'tables' or 'tables' in inputType:
             for i in range(self.lwTables.count()):
                 item = self.lwTables.item(i)
-                itemText = item.text()
-                if bReturnName:  # append just the text name
-                    inputs.append(itemText)
-                else:  # append the QgsVectorLayer
-                    layer = tuflowqgis_find_layer(itemText)
-                    inputs.append(layer)
+                layer_id = item.data(Qt.UserRole)
+                layer = tuflowqgis_find_layer(layer_id, search_type='layerid')
+                inputs.append(layer)
 
+        # remove any Nones
         return inputs
+
+    def removeInvalidInputs(self) -> None:
+        """
+        Remove items that point to removed layers
+        """
+
+        inputs = []
+
+        indices_to_remove = []
+        for i in range(self.lwLines.count()):
+            item = self.lwLines.item(i)
+            layer_id = item.data(Qt.UserRole)
+            layer = tuflowqgis_find_layer(layer_id, search_type='layerid')
+            if layer is None:
+                indices_to_remove.append(i)
+        for index in reversed(indices_to_remove):
+            self.lwLines.takeItem(index)
+
+        indices_to_remove = []
+        for i in range(self.lwPoints.count()):
+            item = self.lwPoints.item(i)
+            layer_id = item.data(Qt.UserRole)
+            layer = tuflowqgis_find_layer(layer_id, search_type='layerid')
+            if layer is None:
+                indices_to_remove.append(i)
+        for index in reversed(indices_to_remove):
+            self.lwPoints.takeItem(index)
+
+        indices_to_remove = []
+        for i in range(self.lwTables.count()):
+            item = self.lwTables.item(i)
+            layer_id = item.data(Qt.UserRole)
+            layer = tuflowqgis_find_layer(layer_id, search_type='layerid')
+            if layer is None:
+                indices_to_remove.append(i)
+            for index in reversed(indices_to_remove):
+                self.lwTables.takeItem(index)
+
 
     def setupDataCollectorProgressBar(self, layers, inputType):
         """
@@ -888,18 +948,12 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         """
 
         # icons to use
-        folderIcon = QgsApplication.getThemeIcon('/mActionFileOpen.svg')
         addIcon = QgsApplication.getThemeIcon('mActionAdd.svg')
         removeIcon = QgsApplication.getThemeIcon('symbologyRemove.svg')
 
-        # buttons to apply icons to
-        browseButtons = [self.browseInputLines, self.browseInputPoints, self.browseInputTables]
         addButtons = [self.btnAddLines, self.btnAddPoints, self.btnAddTables]
         removeButtons = [self.btnRemoveLines, self.btnRemovePoints, self.btnRemoveTables]
 
-        # loop through buttons and apply icon
-        for button in browseButtons:
-            button.setIcon(folderIcon)
         for button in addButtons:
             button.setIcon(addIcon)
         for button in removeButtons:
@@ -936,7 +990,10 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         cbos = [self.cboDem]
 
         # clear comboboxes
+        cbo_prev = {}
         for cbo in cbos:
+            if cbo.currentText():
+                cbo_prev[cbo] = cbo.currentText()
             cbo.clear()
 
         # rasters / grids to add
@@ -945,6 +1002,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         # add rasters to combo box
         for cbo in cbos:
             cbo.addItems(rasters)
+            if cbo in cbo_prev and cbo_prev[cbo] in rasters:
+                cbo.setCurrentText(cbo_prev[cbo])
 
     def populateInputs(self):
         """
@@ -958,102 +1017,80 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         pointCbos = [self.cboInputPoints]
 
         # clear comboboxes
+        cbo_prev = {}
         for cbo in lineCbos:
+            if cbo.currentText():
+                cbo_prev[cbo] = cbo.currentText()
             cbo.clear()
         for cbo in pointCbos:
+            if cbo.currentText():
+                cbo_prev[cbo] = cbo.currentText()
             cbo.clear()
 
         # vector layers
-        vectors = findAllVectorLyrs()
+        vector_layer_toc_ids = findAllVectorLyrsWithGroups()
 
-        # add vector layers to comboboxe if appropriate geometry type
-        for vector in vectors:
-            layer = tuflowqgis_find_layer(vector)
+        # add vector layers to combobox if appropriate geometry type
+        for layer_toc, layer_id in vector_layer_toc_ids:
+            layer = tuflowqgis_find_layer(layer_id, search_type='layerid')
             if layer is not None:
+                if layer.type() != QgsMapLayer.VectorLayer:
+                    continue
                 if layer.geometryType() == QgsWkbTypes.LineGeometry:
                     for cbo in lineCbos:
-                        cbo.addItem(vector)
+                        cbo.addItem(layer_toc, layer_id)
                 elif layer.geometryType() == QgsWkbTypes.PointGeometry:
                     for cbo in pointCbos:
-                        cbo.addItem(vector)
+                        cbo.addItem(layer_toc, layer_id)
 
-    def browse(self, browseType, key, dialogName, fileType, lineEdit):
-        """
-        Browse folder directory
+        for cbo in lineCbos:
+            if cbo in cbo_prev and cbo_prev[cbo] in [cbo.itemText(i) for i in range(cbo.count())]:
+                cbo.setCurrentText(cbo_prev[cbo])
+        for cbo in pointCbos:
+            if cbo in cbo_prev and cbo_prev[cbo] in [cbo.itemText(i) for i in range(cbo.count())]:
+                cbo.setCurrentText(cbo_prev[cbo])
 
-        :param type: str browse type 'folder' or 'file'
-        :param key: str settings key
-        :param dialogName: str dialog box label
-        :param fileType: str file extension e.g. "AVI files (*.avi)"
-        :param lineEdit: QLineEdit to be updated by browsing
-        :return: void
-        """
+        # for vector in vectors:
+        #     layer = tuflowqgis_find_layer(vector)
+        #     if layer is not None:
+        #         if layer.geometryType() == QgsWkbTypes.LineGeometry:
+        #             for cbo in lineCbos:
+        #                 cbo.addItem(vector)
+        #         elif layer.geometryType() == QgsWkbTypes.PointGeometry:
+        #             for cbo in pointCbos:
+        #                 cbo.addItem(vector)
 
-        settings = QSettings()
-        lastFolder = settings.value(key)
-        if type(lineEdit) is QLineEdit:
-            startDir = lineEdit.text()
-        elif type(lineEdit) is QComboBox:
-            startDir = lineEdit.currentText()
-        else:
-            startDir = None
-        if lastFolder:  # if outFolder no longer exists, work backwards in directory until find one that does
-            while lastFolder:
-                if os.path.exists(lastFolder):
-                    startDir = lastFolder
-                    break
-                else:
-                    lastFolder = os.path.dirname(lastFolder)
-        if browseType == 'existing folder':
-            f = QFileDialog.getExistingDirectory(self, dialogName, startDir)
-        elif browseType == 'existing file':
-            f = QFileDialog.getOpenFileName(self, dialogName, startDir, fileType)[0]
-        elif browseType == 'existing files':
-            f = QFileDialog.getOpenFileNames(self, dialogName, startDir, fileType)[0]
-        else:
-            return
-        if f:
-            if type(f) is list:
-                fs = ''
-                for i, a in enumerate(f):
-                    if i == 0:
-                        value = a
-                        fs += a
-                    else:
-                        fs += ';;' + a
-                f = fs
+
+    def layerOrderChanged(self):
+        self.populateInputs()
+        self.populateGrids()
+
+        # Update names of layers in the list boxes
+        layers_layerids = findAllVectorLyrsWithGroups()
+        for layer_name, layer_id in layers_layerids:
+            lyr = tuflowqgis_find_layer(layer_id, search_type='layerid')
+            if lyr is None:
+                continue
+
+            if lyr.type() != QgsMapLayer.VectorLayer:
+                continue
+
+            lws = []
+
+            if lyr.geometryType() == QgsWkbTypes.GeometryType.PointGeometry:
+                lws = [self.lwPoints]
+            elif lyr.geometryType() == QgsWkbTypes.GeometryType.LineGeometry:
+                lws = [self.lwLines, self.lwTables]
             else:
-                value = f
-            if type(lineEdit) is QLineEdit:
-                lineEdit.setText(f)
-            elif type(lineEdit) is QComboBox:
-                lineEdit.setCurrentText(f)
-            settings.setValue(key, value)
+                continue
 
-    def connectBrowseButtons(self):
-        """
-        Connects the browse buttons.
-
-        :return: void
-        """
-
-        self.browseInputLines.clicked.connect(lambda: self.browse('existing files',
-                                                                  'TUFLOW_IntegrityTool/LineInput',
-                                                                  '1D Network Line Layer (1d_nwk_L)',
-                                                                  "SHP format(*.shp *.SHP);;",
-                                                                  self.cboInputLines))
-
-        self.browseInputPoints.clicked.connect(lambda: self.browse('existing files',
-                                                                   'TUFLOW_IntegrityTool/PointInput',
-                                                                   '1D Network Point Layer (1d_nwk_P)',
-                                                                   "SHP format(*.shp *.SHP);;",
-                                                                   self.cboInputPoints))
-
-        self.browseInputTables.clicked.connect(lambda: self.browse('existing files',
-                                                                   'TUFLOW_IntegrityTool/TableInput',
-                                                                   '1D Network Table Layer (1d_xs, 1d_cs)',
-                                                                   "SHP format(*.shp *.SHP);;",
-                                                                   self.cboInputTables))
+            # See if the layer is in the appropriate list boxes and update the name if needed
+            for lw in lws:
+                for i in range(lw.count()):
+                    item = lw.item(i)
+                    lw_layer_id = item.data(Qt.UserRole)
+                    if lw_layer_id == layer_id and item.text() != layer_name:
+                        item.setText(layer_name)
 
     def layersAdded(self, e):
         """
@@ -1081,6 +1118,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         self.populateInputs()
         self.populateGrids()
 
+        self.removeInvalidInputs()
+
     def addItem(self, cbo, lw, geometryType):
         """
         Adds specified input item to the list widget.
@@ -1091,79 +1130,30 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         :return: void
         """
 
-        # get existing items
-        addedItems = []
+        # get existing items (text, layerid)
+        addedLayerIds = []
         for i in range(lw.count()):
             item = lw.item(i)
-            itemText = item.text()
-            addedItems.append(itemText)
+            # itemText = item.text()
+            addedLayerIds.append(item.data(Qt.UserRole))
 
-        # first check if there is any text there
-        if cbo.currentText():
-            # replace path separators so they are consistent with os
-            text = cbo.currentText().replace("/", os.sep)
-
-            # check if there are multiple items to add
-            items = text.split(';;')
-
-            # loop through items and add to list widget
-            for item in items:
-                if item.count(os.sep) > 0:
-                    # file path so need to add to workspace
-                    # and check geometry type
-                    if os.path.splitext(item)[1].lower() == '.shp':
-                        try:
-                            name = os.path.basename(os.path.splitext(item)[0])
-                            # check if already open in workspace
-                            layer = tuflowqgis_find_layer(name)
-                            if layer is not None:
-                                # already open
-                                if layer.geometryType() == geometryType:
-                                    if name not in addedItems:
-                                        lw.addItem(name)
-                                        addedItems.append(name)
-                                        if lw == self.lwLines:
-                                            self.inputLineAdded.emit(layer)
-                                else:
-                                    QMessageBox.critical(self, "1D Integrity Tool",
-                                                         "Geometry type does not match required input type")
-                            else:
-                                # need to add to workspace
-                                self.iface.addVectorLayer(item, name, "ogr")
-                                layer = tuflowqgis_find_layer(name)
-                                if layer is not None:
-                                    if layer.geometryType() == geometryType:
-                                        if name not in addedItems:
-                                            lw.addItem(name)
-                                            addedItems.append(name)
-                                            if lw == self.lwLines:
-                                                self.inputLineAdded.emit(layer)
-                                    else:
-                                        QgsProject.instance().removeMapLayer(layer)
-                                        QMessageBox.critical(self, "1D Integrity Tool",
-                                                             "Geometry type does not match required input type")
-                                else:
-                                    QMessageBox.critical(self, "1D Integrity Tool",
-                                                         "Unexpected error")
-                        except:
-                            QMessageBox.critical(self, "1D Integrity Tool",
-                                                 "Error importing layer into QGIS")
-                    else:
-                        QMessageBox.critical(self, "1D Integrity Tool",
-                                             "Input layer needs to be a shp file")
+        # Handle case where combo-box is selecting a loaded layer (not user specified text)
+        if cbo.currentIndex() != -1:
+            layer_text = cbo.currentText()
+            layer_id = cbo.itemData(cbo.currentIndex())
+            layer = tuflowqgis_find_layer(layer_id, search_type='layerid')
+            if layer is not None:
+                if layer.geometryType() == geometryType:
+                    if layer_id not in addedLayerIds:
+                        new_item = QListWidgetItem(layer_text)
+                        new_item.setData(Qt.UserRole, layer_id)
+                        lw.addItem(new_item)
+                        addedLayerIds.append(layer_id)
+                        if lw == self.lwLines:
+                            self.inputLineAdded.emit(layer)
                 else:
-                    # trying to add an already open layer
-                    layer = tuflowqgis_find_layer(item)
-                    if layer is not None:
-                        if layer.geometryType() == geometryType:
-                            if item not in addedItems:
-                                lw.addItem(item)
-                                addedItems.append(item)
-                                if lw == self.lwLines:
-                                    self.inputLineAdded.emit(layer)
-                        else:
-                            QMessageBox.critical(self, "1D Integrity Tool",
-                                                 "Geometry type does not match required input type")
+                    QMessageBox.critical(self, "1D Integrity Tool",
+                                         "Geometry type does not match required input type")
 
     def removeItem(self, lw):
         """
@@ -1225,7 +1215,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         :return: void
         """
 
-        widgets = [self.browseInputLines, self.browseInputPoints, self.browseInputTables, self.btnAddLines,
+        widgets = [self.btnAddLines,
                    self.btnAddPoints, self.btnAddTables, self.btnRemoveLines, self.btnRemovePoints,
                    self.btnRemoveTables,
                    # self.rbSnapping, self.rbPipeDirection, self.rbContinuity, self.rbFlowTrace,
@@ -1253,6 +1243,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                 lyr.deselect([x.id() for x in lyr.getFeatures()])
 
     def replaceInputs(self, new_lyrs, tool):
+
         suffix = {
             TOOL_TYPE.Snapping: r'_SN\d+$',
             TOOL_TYPE.PipeDirection: r'_PD\d+$',
@@ -1263,19 +1254,27 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         if not new_lyrs or not [x for x in new_lyrs if x]:
             return
 
+        # We need to update the combo-boxes with new layers
+        self.populateInputs()
+
         answer = QMessageBox.information(self, '1D Integrity Tool', 'Replace inputs with tool outputs?',
                                          QMessageBox.Yes, QMessageBox.No)
 
         if answer != QMessageBox.Yes:
             return
 
+        layers_layerids = findAllVectorLyrsWithGroups()
+
         for tmplyrs in new_lyrs:
             if tmplyrs is None:
                 continue
-            for tmplyrname, oldlyrname in tmplyrs.items():
-                lyr = tuflowqgis_find_layer(tmplyrname)
-                if lyr is None:
+            for tmplyrid, oldlyrid in tmplyrs.items():
+                lyr = tuflowqgis_find_layer(tmplyrid, search_type='layerid')
+                # We need to find the text in "layers_layerids" where its id matches the tmplyrid
+                new_lyrs = [x for x in layers_layerids if x[1] == tmplyrid]
+                if not new_lyrs:
                     continue
+                new_layer_name = new_lyrs[0][0]
 
                 if lyr.geometryType() == QgsWkbTypes.GeometryType.PointGeometry:
                     lw = self.lwPoints
@@ -1284,7 +1283,10 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                 else:
                     continue
 
+                # Replace layers with the old id
                 for i in range(lw.count()):
                     item = lw.item(i)
-                    if item.text() == oldlyrname:
-                        item.setText(tmplyrname)
+                    lw_layer_id = item.data(Qt.UserRole)
+                    if lw_layer_id == oldlyrid:
+                        item.setText(new_layer_name)
+                        item.setData(Qt.UserRole, tmplyrid)

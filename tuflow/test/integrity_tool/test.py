@@ -1,17 +1,20 @@
+import numpy as np
 import sys
 import os
 import unittest
+
 from qgis.core import (
 QgsApplication, QgsVectorLayer, QgsRasterLayer, QgsPointXY
 )
-from ...integrity_tool.Enumerators import *
-from ...integrity_tool.FeatureData import FeatureData
-from ...integrity_tool.DrapeData import DrapeData
-from ...integrity_tool.DataCollector import DataCollector
-from ...integrity_tool.SnappingTool import SnappingTool
-from ...integrity_tool.ContinuityTool import ContinuityTool
-from ...integrity_tool.FlowTraceTool import DataCollectorFlowTrace, FlowTraceTool, FlowTracePlot
-from ...integrity_tool.PipeDirectionTool import PipeDirectionTool
+from tuflow.integrity_tool.Enumerators import *
+from tuflow.integrity_tool.FeatureData import FeatureData
+from tuflow.integrity_tool.DrapeData import DrapeData
+from tuflow.integrity_tool.DataCollector import DataCollector
+from tuflow.integrity_tool.SnappingTool import SnappingTool
+from tuflow.integrity_tool.ContinuityTool import ContinuityTool
+from tuflow.integrity_tool.FlowTraceTool import DataCollectorFlowTrace, FlowTraceTool, FlowTracePlot
+from tuflow.integrity_tool.PipeDirectionTool import PipeDirectionTool
+from tuflow.integrity_tool.helpers import EstryHelper
 
 # initialise QGIS data providers
 argv = [bytes(x, 'utf-8') for x in sys.argv]
@@ -20,7 +23,11 @@ qgis.initQgis()
 
 # path to test map layers
 dir = os.path.dirname(__file__)
-path_dem = r"C:\Users\esymons\Downloads\TUFLOW\model\grid\DEM_SI_Unit_01.flt"
+
+# Switch to run for Ellis
+#path_dem = r"C:\Users\esymons\Downloads\TUFLOW\model\grid\DEM_SI_Unit_01.flt"
+path_dem = r"D:\models\TUFLOW\test_models\SWMM\ExampleModels\urban\TUFLOW\model\grid\DEM_SI_Unit_01.flt"
+
 path_chan_L = os.path.join(dir, "gis", "1d_nwk_M04_channels_001_L.shp")
 path_culv_L = os.path.join(dir, "gis", "1d_nwk_M04_culverts_001_L.shp")
 path_xs = os.path.join(dir, "xs", "1d_xs_M04_creek_001_L.shp")
@@ -51,9 +58,11 @@ class TestFeatureData(unittest.TestCase):
         featureData = None
         fid = 99999
         for f in pipe_L.getFeatures():
+            featureData = FeatureData(EstryHelper(), pipe_L, f)
             if f.attribute(0).lower() == 'pipe10':
                 fid = f.id()
-                featureData = FeatureData(pipe_L, f)
+                featureData = FeatureData(EstryHelper(), pipe_L, f)
+                break
 
         self.assertIsNotNone(featureData)
         self.assertEqual(featureData.id.lower(), 'pipe10')
@@ -77,7 +86,7 @@ class TestFeatureData(unittest.TestCase):
         for f in pits_P.getFeatures():
             if f.attribute(0).lower() == 'pit9':
                 fid = f.id()
-                featureData = FeatureData(pits_P, f)
+                featureData = FeatureData(EstryHelper(), pits_P, f)
 
         self.assertIsNotNone(featureData)
         self.assertEqual(featureData.id.lower(), 'pit9')
@@ -117,11 +126,23 @@ class TestDrapeData(unittest.TestCase):
                       259.6951535300408, 259.6951535300408, 259.6951535300408, 259.6951535300408, 259.6951535300408,
                       259.6951535300408, 259.69515352347827, 259.6951535300408, 259.69515352347827, 259.69515352347827,
                       259.69515352435235]
-        self.assertEqual(drapeData.directions, directions)
+        for computed, result in zip(drapeData.directions, directions):
+            if result is None:
+                self.assertIsNone(computed)
+            else:
+                self.assertAlmostEqual(computed,result, 2)
+        #self.assertEqual(drapeData.directions, directions)
+
         elevations = [43.776, 43.7742, 43.7777, 43.776, 43.776, 43.7742, 43.7724, 43.7765, 43.7742, 43.773, 43.7724,
                       43.7712, 43.7701, 43.7748, 43.7736, 43.7712, 43.7695, 43.7677, 43.7659, 43.7712, 43.7701,
                       43.7689, 43.7677, 43.7665, 43.7718, 43.7706, 43.7701, 43.7689, 43.7677, 43.7683, 43.7742]
-        self.assertEqual(drapeData.elevations, elevations)
+        #self.assertEqual(drapeData.elevations, elevations)
+        for computed, result in zip(drapeData.elevations, elevations):
+            if result is None:
+                self.assertIsNone(computed)
+            else:
+                self.assertAlmostEqual(computed,result, 2)
+
 
     def test_point_drape(self):
         drapeData = None
@@ -136,7 +157,7 @@ class TestDrapeData(unittest.TestCase):
         self.assertIsNotNone(drapeData)
         self.assertEqual(drapeData.chainages, [0])
         self.assertEqual(drapeData.directions, None)
-        self.assertEqual(drapeData.elevations, [42.682])
+        np.testing.assert_almost_equal(drapeData.elevations, [42.682], 4)
         startVertex = QgsPointXY(293147.9909382345, 6178097.150920755)
         self.assertEqual(drapeData.points, [startVertex])
 

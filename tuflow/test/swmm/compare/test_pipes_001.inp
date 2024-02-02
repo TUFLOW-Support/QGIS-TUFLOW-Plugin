@@ -1,0 +1,207 @@
+[OPTIONS]
+;;Option            Value              
+;;----------------  ----------------   
+FLOW_UNITS          CMS                
+INFILTRATION        GREEN_AMPT         
+FLOW_ROUTING        DYNWAVE            
+LINK_OFFSETS        DEPTH              
+FORCE_MAIN_EQUATION H-W                
+IGNORE_RAINFALL     YES                
+IGNORE_SNOWMELT     YES                
+IGNORE_GROUNDWATER  YES                
+IGNORE_RDII         YES                
+IGNORE_QUALITY      YES                
+ALLOW_PONDING       YES                
+SKIP_STEADY_STATE   YES                
+SYS_FLOW_TOL        1                  
+LAT_FLOW_TOL        1                  
+START_DATE          01/01/2000         
+START_TIME          00:00              
+END_DATE            01/01/2000         
+END_TIME            06:00              
+REPORT_START_DATE   01/01/2000         
+REPORT_START_TIME   00:00              
+SWEEP_START         01/01              
+SWEEP_END           01/01              
+DRY_DAYS            0                  
+REPORT_STEP         00:05:00           
+WET_STEP            00:00:30           
+DRY_STEP            00:30:00           
+ROUTING_STEP        30                 
+LENGTHENING_STEP    1                  
+VARIABLE_STEP       0                  
+MINIMUM_STEP        0.001              
+INERTIAL_DAMPING    PARTIAL            
+NORMAL_FLOW_LIMITED BOTH               
+MIN_SURFAREA        25                 
+MAX_TRIALS          20                 
+HEAD_TOLERANCE      0.001              
+THREADS             8                  
+
+[JUNCTIONS]
+;;Name              Elev                Ymax                Y0                  Ysur                Apond              
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
+Pit1                41.60191                                                                                           
+Pit10               40.76555                                                                                           
+Pit11               40.6596                                                                                            
+Pit12               40.52628                                                                                           
+Pit13               40.0                                                                                               
+Pit14               40.86872                                                                                           
+Pit15               40.9739                                                                                            
+Pit16               41.14573                                                                                           
+Pit17               41.31778                                                                                           
+Pit18               41.41283                                                                                           
+Pit19               41.69779                                                                                           
+Pit2                41.46784                                                                                           
+Pit3                41.34937                                                                                           
+Pit4                41.45067                                                                                           
+Pit5                41.9                                                                                               
+Pit6                41.67196                                                                                           
+Pit7                41.15546                                                                                           
+Pit8                40.98825                                                                                           
+Pit9                40.80769                                                                                           
+
+[OUTFALLS]
+;;Name              Elev                Type                Param1              Gated               RouteTo            
+;;                                      FREE                Gated               RouteTo            
+;;                                      FIXED               Stage               Gated               RouteTo            
+;;                                      TIDAL               Tcurve              Gated               RouteTo            
+;;                                      TIMESERIES          Tseries             Gated               RouteTo            
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
+Pipe16.2            38.0                FIXED               38.0                                                       
+
+[CONDUITS]
+;;Name              From Node           To Node             Length              Roughness           InOffset            OutOffset           InitFlow            MaxFlow            
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
+Pipe0               Pit1                Pit2                0.0                 0.015               0.0                 0.0                                                        
+Pipe1               Pit2                Pit3                0.0                 0.015               0.0                 0.0                                                        
+Pipe10              Pit7                Pit8                0.0                 0.015               0.0                 0.18175000000000097                                        
+Pipe11              Pit9                Pit10               0.0                 0.015               0.0                 0.0                                                        
+Pipe12              Pit8                Pit9                0.0                 0.015               0.0                 0.0                                                        
+Pipe13              Pit10               Pit11               0.0                 0.015               0.0                 0.0                                                        
+Pipe14              Pit11               Pit12               0.0                 0.015               0.0                 0.0                                                        
+Pipe15              Pit14               Pit13               0.0                 0.015               0.0                 0.0                                                        
+Pipe16              Pit13               Pipe16.2            0.0                 0.015               0.0                 0.0                                                        
+Pipe17              Pit12               Pit13               0.0                 0.015               0.0                 0.0                                                        
+Pipe18              Pit10               Pipe16.2            0.0                 0.015               0.0                 0.0                                                        
+Pipe19              Pit3                Pit16               0.0                 0.015               0.0                 0.0                                                        
+Pipe2               Pit6                Pit17               0.0                 0.015               0.0                 0.0                                                        
+Pipe3               Pit5                Pit4                0.0                 0.015               0.0                 0.0                                                        
+Pipe4               Pit4                Pit3                0.0                 0.015               0.0                 0.0                                                        
+Pipe5               Pit16               Pit15               0.0                 0.015               0.0                 0.0                                                        
+Pipe6               Pit15               Pit14               0.0                 0.015               0.0                 0.0                                                        
+Pipe7               Pit19               Pit18               0.0                 0.015               0.0                 0.0                                                        
+Pipe8               Pit18               Pit17               0.0                 0.015               0.0                 0.0                                                        
+Pipe9               Pit17               Pit7                0.0                 0.015               0.0                 0.0                                                        
+
+[LOSSES]
+;;Link              Kentry              Kexit               Kavg                Flap                Seepage            
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
+Pipe0               0.5                 1.0                 0.0                 No                                     
+Pipe1               0.5                 1.0                 0.0                 No                                     
+Pipe10              0.5                 1.0                 0.0                 No                                     
+Pipe11              0.5                 1.0                 0.0                 No                                     
+Pipe12              0.5                 1.0                 0.0                 No                                     
+Pipe13              0.5                 1.0                 0.0                 No                                     
+Pipe14              0.5                 1.0                 0.0                 No                                     
+Pipe15              0.5                 1.0                 0.0                 No                                     
+Pipe16              0.5                 1.0                 0.0                 No                                     
+Pipe17              0.5                 1.0                 0.0                 No                                     
+Pipe18              0.5                 1.0                 0.0                 No                                     
+Pipe19              0.5                 1.0                 0.0                 No                                     
+Pipe2               0.5                 1.0                 0.0                 No                                     
+Pipe3               0.5                 1.0                 0.0                 No                                     
+Pipe4               0.5                 1.0                 0.0                 No                                     
+Pipe5               0.5                 1.0                 0.0                 No                                     
+Pipe6               0.5                 1.0                 0.0                 No                                     
+Pipe7               0.5                 1.0                 0.0                 No                                     
+Pipe8               0.5                 1.0                 0.0                 No                                     
+Pipe9               0.5                 1.0                 0.0                 No                                     
+
+[XSECTIONS]
+;;Link              XsecType            Param1              Param2              Param3              Param4              Param5              Param6             
+;;                  Default             Geom1               Geom2               Geom3               Geom4               Barrels             Culvert            
+;;                  CUSTOM              Geom1               Curve               Geom3               Geom4               Barrels            
+;;                  IRREGULAR           Tsect              
+;;                  STREET              Street             
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
+Pipe0               CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe1               CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe10              CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe11              CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe12              CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe13              CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe14              CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe15              CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe16              CIRCULAR            0.9                 0.9                 0                   0                   1                                      
+Pipe17              CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe18              CIRCULAR            0.9                 0.9                 0                   0                   1                                      
+Pipe19              CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe2               CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe3               CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe4               CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe5               CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe6               CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe7               CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe8               CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+Pipe9               CIRCULAR            0.6                 0.6                 0                   0                   1                                      
+
+[STREETS]
+;;Name              Tcrown              Hcurb               Sx                  nRoad               a                   W                   Sides               Tback               Sback               nBack              
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
+DummyStreet         10.0                0.2                 4.0                 0.016               0.0                 0.0                 1                   5.0                 8.0                 0.016              
+
+[INLETS]
+;;Name              Type                Param1              Param2              Param3              Param4              Param5             
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
+Pit1                CUSTOM              Pit1                                                                                               
+Pit10               CUSTOM              Pit10                                                                                              
+Pit11               CUSTOM              Pit11                                                                                              
+Pit12               CUSTOM              Pit12                                                                                              
+Pit13               CUSTOM              Pit13                                                                                              
+Pit14               CUSTOM              Pit14                                                                                              
+Pit15               CUSTOM              Pit15                                                                                              
+Pit16               CUSTOM              Pit16                                                                                              
+Pit17               CUSTOM              Pit17                                                                                              
+Pit18               CUSTOM              Pit18                                                                                              
+Pit19               CUSTOM              Pit19                                                                                              
+Pit2                CUSTOM              Pit2                                                                                               
+Pit3                CUSTOM              Pit3                                                                                               
+Pit4                CUSTOM              Pit4                                                                                               
+Pit5                CUSTOM              Pit5                                                                                               
+Pit6                CUSTOM              Pit6                                                                                               
+Pit7                CUSTOM              Pit7                                                                                               
+Pit8                CUSTOM              Pit8                                                                                               
+Pit9                CUSTOM              Pit9                                                                                               
+
+[REPORT]
+;;Format            Value              
+;;----------------  ----------------   
+LINKS               ALL                
+NODES               ALL                
+SUBCATCHMENTS       ALL                
+
+[COORDINATES]
+;;Name              X-Coord             Y-Coord            
+;;----------------  ----------------    ----------------   
+Pipe16.2            293286.77           6178187.74         
+Pit1                293086.2186127445   6178228.029422734  
+Pit10               293174.5080428012   6178101.7038575765 
+Pit11               293178.51439902576  6178122.618395158  
+Pit12               293183.468645446    6178148.481240878  
+Pit13               293187.46196287405  6178169.265318645  
+Pit14               293174.946811039    6178163.350795112  
+Pit15               293144.32881816867  6178170.262305917  
+Pit16               293108.7008910112   6178178.304727397  
+Pit17               293058.234459552    6178081.739902719  
+Pit18               293055.003896899    6178065.097610262  
+Pit19               293050.99478361476  6178044.444602432  
+Pit2                293083.0608302951   6178211.343963041  
+Pit3                293077.75964617264  6178185.289207044  
+Pit4                293073.0211380478   6178160.304346021  
+Pit5                293066.35897427984  6178125.176573425  
+Pit6                293060.86706898455  6178096.219254595  
+Pit7                293087.8447572238   6178086.82393496   
+Pit8                293120.012276807    6178092.347037379  
+Pit9                293147.9909382345   6178097.150920755  
+

@@ -35,6 +35,19 @@ Read Materials File == ..\model\${model_name}_mat.csv
 ! Set IWL == <Value>
 
 !_______________________________________________________
+! SIMULATION CONTROLS
+Start Time == 0
+End Time == <hrs>  ! TODO
+! Timestep == <sec>  ! TODO uncomment if using Classic
+
+!_______________________________________________________
+! OUTPUT FOLDERS
+Log Folder == log
+Output Folder == ..\results\
+Write Check Files == ..\check\
+! Write Check Files Exclude == ZPT GRD UVPT
+
+!_______________________________________________________
 ! OUPUT MAP CONFIGURATION 
 Map Output Format == XMDF
 Map Output Data Types == h v d q dt  ! TODO add data types as required

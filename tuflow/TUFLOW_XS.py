@@ -44,9 +44,14 @@ class XS_Data():
 		self.message = None
 
 		# check types
-		xs_type = xs_type.upper()
-		if flags:
+		try:
+			xs_type = xs_type.upper()
+		except AttributeError:
+			xs_type = ''
+		try:
 			flags = flags.upper()
+		except AttributeError:
+			flags = ''
 		if xs_type in ('XZ'):
 			self.type = 'XZ'
 			if flags:
@@ -98,6 +103,9 @@ class XS_Data():
 			header = []
 			for line in reader:
 				try:
+					line = [x.strip() for x in line if x.strip()]
+					if len(line) < 2:
+						raise Exception('Not enough columns')
 					for i in line[0:3]:
 						if len(i) > 0:
 							float(i)
@@ -301,7 +309,7 @@ class XS_Data():
 			self.np = len(self.x)
 
 	def crossSectionPlot(self, plot_inactive_areas):
-		if plot_inactive_areas or self.flags is None:
+		if plot_inactive_areas or not self.flags:
 			return np.array(list(zip(self.x, self.z)))
 
 		x, z = [], []

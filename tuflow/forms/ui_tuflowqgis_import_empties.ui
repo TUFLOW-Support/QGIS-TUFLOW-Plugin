@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>604</width>
-    <height>619</height>
+    <height>668</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -590,6 +590,30 @@ p, li { white-space: pre-wrap; }
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>pbOk</tabstop>
+  <tabstop>pbCancel</tabstop>
+  <tabstop>pbHideToolTip</tabstop>
+  <tabstop>pbShowToolTip</tabstop>
+  <tabstop>emptydir</tabstop>
+  <tabstop>browsedir</tabstop>
+  <tabstop>pbSaveToProject</tabstop>
+  <tabstop>pbSaveToGlobal</tabstop>
+  <tabstop>emptyType</tabstop>
+  <tabstop>txtRunID</tabstop>
+  <tabstop>checkPoint</tabstop>
+  <tabstop>checkLine</tabstop>
+  <tabstop>checkRegion</tabstop>
+  <tabstop>cbConvertToDb</tabstop>
+  <tabstop>rbDatabaseSeparate</tabstop>
+  <tabstop>rbDatabaseGrouped</tabstop>
+  <tabstop>rbDatabaseOne</tabstop>
+  <tabstop>btnDatabaseBrowse</tabstop>
+  <tabstop>leDatabaseBrowse</tabstop>
+  <tabstop>cb_import_into_kart</tabstop>
+  <tabstop>le_kart_repo</tabstop>
+  <tabstop>teToolTip</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
  <buttongroups>

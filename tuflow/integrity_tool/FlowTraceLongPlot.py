@@ -2,7 +2,10 @@
 import sys
 import numpy as np
 from qgis.core import NULL
-from ..tuflowqgis_library import *
+from tuflow.tuflowqgis_library import *
+
+
+
 
 
 class DownstreamConnectivity(QObject):
@@ -119,6 +122,8 @@ class DownstreamConnectivity(QObject):
         
         :return: void
         """
+
+
 
         # Clear branch variables
         self.bType = []
@@ -883,7 +888,7 @@ class DownstreamConnectivity(QObject):
                         connNwkNames = self.branchDnsConnectionPipe[bInd]
                         if dnsB is not None:
                             bdInd = self.branchName.index(dnsB)
-                        if connNwkNames is not 'OUTLET':
+                        if connNwkNames != 'OUTLET':
                             if connNwkNames in self.name[bdInd]:
                                 connNwkName = connNwkNames
                             else:

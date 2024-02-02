@@ -7,7 +7,9 @@ from qgis.core import QgsVectorFileWriter, QgsCoordinateTransformContext, QgsPro
 from qgis.utils import plugins
 
 from .plugin import tuflow_plugin
-from ..gui import Logging, IncrementLayerDialogBase, IncrementFileDialog, IncrementDbLyrDialog, IncrementLayerDialog
+from ..gui.logging import Logging
+from ..gui import IncrementLayerDialogBase, IncrementFileDialog, IncrementDbLyrDialog, IncrementLayerDialog
+
 from .map_layer import copy_layer_style
 
 

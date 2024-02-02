@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from PyQt5.QtCore import QCoreApplication
 from PyQt5.QtGui import QIcon
 
 # processing
@@ -185,7 +186,7 @@ class CreateTuflowProject(QgsProcessingAlgorithm):
     def shortHelpString(self) -> str:
         folder = Path(os.path.realpath(__file__)).parent
         help_filename = folder / 'help' / 'html' / 'create_project.html'
-        return help_filename.open().read()
+        return self.tr(help_filename.open().read().replace('\n', '<p>'))
 
     def name(self):
         return 'create_tuflow_project'
@@ -206,3 +207,6 @@ class CreateTuflowProject(QgsProcessingAlgorithm):
 
     def createInstance(self):
         return CreateTuflowProject()
+
+    def tr(self, string):
+        return QCoreApplication.translate('Processing', string)

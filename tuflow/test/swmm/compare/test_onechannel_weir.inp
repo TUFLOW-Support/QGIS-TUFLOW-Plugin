@@ -1,0 +1,110 @@
+[OPTIONS]
+;;Option            Value              
+;;----------------  ----------------   
+FLOW_UNITS          CMS                
+INFILTRATION        GREEN_AMPT         
+FLOW_ROUTING        DYNWAVE            
+LINK_OFFSETS        DEPTH              
+FORCE_MAIN_EQUATION H-W                
+IGNORE_RAINFALL     YES                
+IGNORE_SNOWMELT     YES                
+IGNORE_GROUNDWATER  YES                
+IGNORE_RDII         YES                
+IGNORE_QUALITY      YES                
+ALLOW_PONDING       YES                
+SKIP_STEADY_STATE   YES                
+SYS_FLOW_TOL        1                  
+LAT_FLOW_TOL        1                  
+START_DATE          01/01/2000         
+START_TIME          00:00              
+END_DATE            01/01/2000         
+END_TIME            06:00              
+REPORT_START_DATE   01/01/2000         
+REPORT_START_TIME   00:00              
+SWEEP_START         01/01              
+SWEEP_END           01/01              
+DRY_DAYS            0                  
+REPORT_STEP         00:05:00           
+WET_STEP            00:00:30           
+DRY_STEP            00:30:00           
+ROUTING_STEP        30                 
+LENGTHENING_STEP    1                  
+VARIABLE_STEP       0                  
+MINIMUM_STEP        0.001              
+INERTIAL_DAMPING    PARTIAL            
+NORMAL_FLOW_LIMITED BOTH               
+MIN_SURFAREA        25                 
+MAX_TRIALS          20                 
+HEAD_TOLERANCE      0.001              
+THREADS             8                  
+
+[JUNCTIONS]
+;;Name              Elev                Ymax                Y0                  Ysur                Apond              
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
+1                   2.0                                                                                                
+3                   1.9                                                                                                
+4                   0.7                                                                                                
+5                   1.2                                                                                                
+6                   1.1                                                                                                
+
+[OUTFALLS]
+;;Name              Elev                Type                Param1              Gated               RouteTo            
+;;                                      FREE                Gated               RouteTo            
+;;                                      FIXED               Stage               Gated               RouteTo            
+;;                                      TIDAL               Tcurve              Gated               RouteTo            
+;;                                      TIMESERIES          Tseries             Gated               RouteTo            
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
+2                   0.5                 FIXED               0.5                                                        
+
+[CONDUITS]
+;;Name              From Node           To Node             Length              Roughness           InOffset            OutOffset           InitFlow            MaxFlow            
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
+1                   1                   3                   50.0                0.03                0.0                 0.0                                                        
+2                   3                   5                   145.86330273893716  0.03                0.0                 0.0                                                        
+4                   6                   4                   211.83030220842585  0.03                0.0                 0.0                                                        
+5                   4                   2                   50.0                0.03                0.0                 0.0                                                        
+
+[WEIRS]
+;;Name              From Node           To Node             Type                CrestHt             Cd                  Gated               EC                  Cd2                 Sur                 Road_Width          Road_Surf          
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
+3                   5                   6                   TRANSVERSE          0.30000000000000004 0.577               NO                                                                                                                     
+
+[LOSSES]
+;;Link              Kentry              Kexit               Kavg                Flap                Seepage            
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
+
+[XSECTIONS]
+;;Link              XsecType            Param1              Param2              Param3              Param4              Param5              Param6             
+;;                  Default             Geom1               Geom2               Geom3               Geom4               Barrels             Culvert            
+;;                  CUSTOM              Geom1               Curve               Geom3               Geom4               Barrels            
+;;                  IRREGULAR           Tsect              
+;;                  STREET              Street             
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
+1                   RECT_CLOSED         12.0                30.0                0.0                 0.0                 1                                      
+2                   RECT_CLOSED         12.0                30.0                0.0                 0.0                 1                                      
+3                   RECT_OPEN           20.0                10.0                0.0                 0.0                 1                                      
+4                   RECT_CLOSED         12.0                30.0                0.0                 0.0                 1                                      
+5                   RECT_CLOSED         12.0                30.0                0.0                 0.0                 1                                      
+
+[STREETS]
+;;Name              Tcrown              Hcurb               Sx                  nRoad               a                   W                   Sides               Tback               Sback               nBack              
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
+DummyStreet         10.0                0.2                 4.0                 0.016               0.0                 0.0                 1                   5.0                 8.0                 0.016              
+
+[REPORT]
+;;Format            Value              
+;;----------------  ----------------   
+LINKS               ALL                
+NODES               ALL                
+SUBCATCHMENTS       ALL                
+
+[COORDINATES]
+;;Name              X-Coord             Y-Coord            
+;;----------------  ----------------    ----------------   
+1                   50.0                70.0               
+2                   550.0               70.0               
+3                   100.0               70.0               
+4                   500.0               70.0               
+5                   245.86330273893716  70.0               
+6                   288.16969779157415  70.0               
+

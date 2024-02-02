@@ -32,17 +32,21 @@ class _Logging:
 
     def info(self, msg: str) -> None:
         """Log a message with level INFO to QGIS."""
+        if not isinstance(msg, str):
+            msg = str(msg)
         if self.iface is not None:
-            self.iface.messageBar().pushMessage("TUFLOW Catch", msg, level=0)
+            self.iface.messageBar().pushMessage("TUFLOW Plugin", msg, level=0)
         else:
-            print(f'TUFLOW Catch: {msg}')
+            print(f'TUFLOW Plugin: {msg}')
 
     def warning(self, msg: str) -> None:
         """Log a message with level WARNING to QGIS."""
+        if not isinstance(msg, str):
+            msg = str(msg)
         if self.iface is not None:
-            self.iface.messageBar().pushMessage("TUFLOW Catch", msg, level=1)
+            self.iface.messageBar().pushMessage("TUFLOW Plugin", msg, level=1)
         else:
-            print(f'TUFLOW Catch: {msg}')
+            print(f'TUFLOW Plugin: {msg}')
 
     def error(self, msg: str, more_info: str = None) -> None:
         """
@@ -50,21 +54,23 @@ class _Logging:
         Has the additional option of adding more info (e.g. stack trace). This will appear as a button
         in the message bar called 'More Info'.
         """
+        if not isinstance(msg, str):
+            msg = str(msg)
         if self.iface is not None:
             if more_info:
                 self.dlg = QMessageBox()
-                self.dlg.setWindowTitle('TUFLOW Catch')
+                self.dlg.setWindowTitle('TUFLOW')
                 self.dlg.setText(msg)
                 self.dlg.setInformativeText(more_info)
                 self.dlg.setIcon(QMessageBox.Warning)
-                widget = self.iface.messageBar().createMessage("TUFLOW Catch", msg)
+                widget = self.iface.messageBar().createMessage("TUFLOW Plugin", msg)
                 button = QPushButton(widget)
                 button.setText('More Info')
                 button.clicked.connect(self.dlg.exec_)
                 widget.layout().addWidget(button)
                 self.iface.messageBar().pushWidget(widget, level=2)
             else:
-                self.iface.messageBar().pushMessage("TUFLOW Catch", msg, level=2)
+                self.iface.messageBar().pushMessage("TUFLOW Plugin", msg, level=2)
         else:
             print(f'TUFLOW Catch: {msg}')
 

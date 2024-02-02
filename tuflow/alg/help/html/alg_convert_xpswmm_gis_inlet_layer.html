@@ -1,0 +1,26 @@
+<p>Convert XPSWMM GIS Inlet Layer to SWMM</p>
+
+<p>This tool converts an XPSWMM GIS layer with 2D connectivity information for use with TUFLOW-SWMM.</p>
+
+<p>The tool works on discharges computed from the equation: Q=coefficient*depth<sup>exponent</sup></p>
+
+<h2>Usage</h2>
+
+<p>To export the GIS layer required from XPSWMM or the XPSWMM Viewer:</p>
+
+<ol>
+<li>Right click on the nodes layer and choose "Export to GIS."</li>
+<li>Expand the tree folders "Hydraulics Node\HDR Node Data"</li>
+<li>Select Node 2D Inflow Capture Flag, Gound Elevation(Spill Crest), 2D Inflow Capture Coefficient, and 2D Inflow Capture Exponent</li>
+<li>Remove the paranthesis from "Ground Elevation(Spill Crest)." <strong>Required for some versions of QGIS</strong></li>
+<li>Set the GIS filename</li>
+<li>Click Export</li>
+</ol>
+
+<p>The inlets require a  name for each combination of coefficient and exponent that must be added to the GIS layer.</p>
+
+<p>Once the layer is setup, you can run the tool and select the parameters for the appropriate fields. The Ground elevation should be used for the "Inlet elevation field." The CRS should match your TUFLOW-SWMM project.</p>
+
+<h2>Outputs</h2>
+
+<p>This processing tool generates a GIS layer that can be used to with the "Read GIS SWMM Inlet Usage" command to link SWMM inlets to a TUFLOW 2D model.</p>

@@ -1,0 +1,100 @@
+; Downloaded from OpenSWMM topic https://www.openswmm.org/Thread/11888/evaporation-snow-and-groundwater-processes on 03-Nov-2023 09:36
+;File: "Hargreaves ET example.inp"
+
+[TITLE]
+;;Project Title/Notes
+Hargreaves ET, snow and groundwater processes
+M. Heineman, CDM Smith, 2018
+
+[OPTIONS]
+;;Option             Value
+FLOW_UNITS           cfs
+INFILTRATION         MODIFIED_HORTON
+FLOW_ROUTING         STEADY
+
+START_DATE           10/01/2009
+START_TIME           00:00:00
+REPORT_START_DATE    01/01/1920
+REPORT_START_TIME    00:00:00
+END_DATE             09/30/2010
+END_TIME             00:00:00
+REPORT_STEP          01:00:00
+WET_STEP             00:15:00
+DRY_STEP             03:00:00
+ROUTING_STEP         0:15:00 
+
+[EVAPORATION]
+;;Data Source    Parameters
+;;-------------- ----------------
+TEMPERATURE 
+DRY_ONLY         NO
+
+[TEMPERATURE]
+;;Data Element     Values     
+FILE               "BostonTemperature.txt"
+WINDSPEED MONTHLY  13.7 13.7 13.6 13.1 12 11.4 11 10.8 11.3 11.9 12.7 13.4
+SNOWMELT           32 0.5 0.6 20 42.3 -16
+ADC IMPERVIOUS     0.10 0.35 0.53 0.66 0.75 0.82 0.87 0.92 0.95 0.98
+ADC PERVIOUS       0.10 0.35 0.53 0.66 0.75 0.82 0.87 0.92 0.95 0.98
+
+[RAINGAGES]
+;;Name           Format    Interval SCF      Source    
+;;-------------- --------- ------ ------ ----------
+Logan            VOLUME    1:00     1        FILE       "190770BostonNCDC.dat" *          IN   
+
+[SUBCATCHMENTS]
+;;Name           Rain Gage        Outlet           Area     %Imperv  Width    %Slope   CurbLen  SnowPack        
+;;-------------- ---------------- ---------------- -------- -------- -------- -------- -------- ----------------
+Boston           Logan            2                640      30       640      0.2      0        TypicalSnowPack 
+
+[SUBAREAS]
+;;Subcatchment   N-Imperv   N-Perv     S-Imperv   S-Perv     PctZero    RouteTo    PctRouted 
+;;-------------- ---------- ---------- ---------- ---------- ---------- ---------- ----------
+Boston           0.05       0.1        .05        0.1        25         PERVIOUS   70        
+
+[INFILTRATION]
+;;Subcatchment   MaxRate    MinRate    Decay      DryTime    MaxInfil  
+;;-------------- ---------- ---------- ---------- ---------- ----------
+Boston           3.5        .05        2          7          0         
+
+[AQUIFERS]
+;;Name           Por    WP     FC     Ksat   Kslope Tslope ETu    ETs    Seep   Ebot   Egw    Umc    ETupat 
+;;-------------- ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+Boston           0.46   0.13   0.23   1      5      0      0.5    15     0.002  0.1    3.9    0.23         
+
+[GROUNDWATER]
+;;Subcatchment   Aquifer          Node             Esurf  A1     B1     A2     B2     A3     Dsw    Egwt   Ebot   Wgr    Umc   
+;;-------------- ---------------- ---------------- ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+Boston           Boston           2                16.3   0.001  2      0      0      0      0      1.75  
+
+[SNOWPACKS]
+;;Name           Surface    Parameters
+;;-------------- ---------- ----------
+TypicalSnowPack  PLOWABLE   0.001      0.003      30         0.2        0          0          0.226     
+TypicalSnowPack  IMPERVIOUS 0.001      0.003      30         0.2        0          0          0         
+TypicalSnowPack  PERVIOUS   0.0008     0.0015     30         0.2        0          0          0         
+TypicalSnowPack  REMOVAL    0.1        0          0          1          0          0          
+
+[OUTFALLS]
+;;Name           Elevation  Type       Stage Data       Gated    Route To        
+;;-------------- ---------- ---------- ---------------- -------- ----------------
+2                0          FREE                        NO                       
+
+[COORDINATES]
+;;Node           X-Coord            Y-Coord           
+;;-------------- ------------------ ------------------
+2                4697.467           7061.524          
+
+[Polygons]
+;;Subcatchment   X-Coord            Y-Coord           
+;;-------------- ------------------ ------------------
+Boston           4697.432           7061.551          
+Boston           4697.512           7061.551          
+Boston           4697.512           7061.631          
+Boston           4697.432           7061.631          
+Boston           4697.432           7061.551          
+
+[SYMBOLS]
+;;Gage           X-Coord            Y-Coord           
+;;-------------- ------------------ ------------------
+Logan            4697.466           7061.646          

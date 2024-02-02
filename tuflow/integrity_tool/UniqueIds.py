@@ -217,7 +217,7 @@ class UniqueIds(QObject):
             if gis_layer is None or type(gis_layer) is not QgsVectorLayer or not gis_layer.isValid():
                 continue
 
-            is_gpkg = re.findall(re.escape(r'.gpkg|layername='), gis_layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)
+            is_gpkg = gis_layer.storageType() == 'GPKG'
             iid = 1 if is_gpkg else 0
             if gis_layer.fields().count() < iid + 1:
                 continue
@@ -278,7 +278,7 @@ class UniqueIds(QObject):
         for feat_key in self.duplicate_feats:
             feat = feat_key.feat
             if not feat.geometry().isEmpty():
-                is_gpkg = re.findall(re.escape(r'.gpkg|layername='), self.duplicate_feats[feat_key].lyr.dataProvider().dataSourceUri(), flags=re.IGNORECASE)
+                is_gpkg = self.duplicate_feats[feat_key].lyr.storageType() == 'GPKG'
                 iid = 1 if is_gpkg else 0
                 new_feat = QgsFeature()
                 new_feat.setGeometry(feat.geometry().pointOnSurface())
@@ -331,7 +331,7 @@ class UniqueIds(QObject):
         ok_feats = {}
         bad_lyrs = []
         for layer in self.gis_layers:
-            is_gpkg = re.findall(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)
+            is_gpkg = layer.storageType() == 'GPKG'
             iid = 1 if is_gpkg else 0
             itype = iid + 1
             for feat in layer.getFeatures():
@@ -355,7 +355,7 @@ class UniqueIds(QObject):
             ok_feats_ = ok_feats[layer.id()]
 
             # id field index
-            is_gpkg = re.findall(re.escape(r'.gpkg|layername='), layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)
+            is_gpkg = layer.storageType() == 'GPKG'
             iid = 1 if is_gpkg else 0
 
             # create tmp output 1d_nwk layer
@@ -376,7 +376,7 @@ class UniqueIds(QObject):
                 self.finised.emit(self)
                 return
             self.tmpLyrs.append(nwk)
-            self.tmplyr2oldlyr[tempLyrName] = layer.name()
+            self.tmplyr2oldlyr[nwk.id()] = layer.id()
 
             # copy fields
             fields = [x for x in layer.fields()][iid:]

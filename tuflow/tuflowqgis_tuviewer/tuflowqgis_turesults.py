@@ -9,10 +9,11 @@ from .tuflowqgis_turesults2d import TuResults2D
 from .tuflowqgis_turesultsParticles import TuResultsParticles
 from .tuResultsNcGrid import TuResultsNcGrid
 from ..dataset_view import DataSetModel
-from ..tuflowqgis_library import (tuflowqgis_find_layer, convertFormattedTimeToTime,
-                                       convertTimeToFormattedTime, findAllMeshLyrs, roundSeconds,
-                                       isSame_float, dt2qdt, roundSeconds2, datetime2timespec, qdt2dt,
-                                       isSame_time)
+from ..tuflowqgis_library import (convertFormattedTimeToTime,
+                                  convertTimeToFormattedTime, roundSeconds,
+                                  isSame_float, dt2qdt, roundSeconds2, datetime2timespec, qdt2dt,
+                                  isSame_time)
+from tuflow.toc.toc import tuflowqgis_find_layer, findAllMeshLyrs
 from ..dataset_menu import DatasetMenuDepAv
 from ..TUFLOW_XS import XS
 import numpy as np
@@ -21,6 +22,7 @@ try:
 	from pathlib import Path
 except ImportError:
 	from ..pathlib_ import Path_ as Path
+from ..tuflow_results_gpkg import ResData_GPKG
 
 
 
@@ -88,6 +90,11 @@ class TuResults():
 
 			# netcdf grid
 			self.tuResultsNcGrid = TuResultsNcGrid(TuView)
+
+			self.dt = None
+			self._res_names = [x for x in self.results.keys()]
+
+			self.tmp_reference_time = None
 
 	def importResults(self, type, inFileNames, **kwargs):
 		"""
@@ -1736,6 +1743,9 @@ class TuResults():
 					del results2d[res]
 			if res in results1d.keys():
 				if res in results1d:
+					for res_ in results1d[res]:
+						if isinstance(res_, ResData_GPKG):
+							self.tuResults1D.remove_gpkg_gis(res_)
 					del results1d[res]
 				# if res in resultsParticles:
 				#	del resultsParticles[res]
@@ -2274,7 +2284,7 @@ class TuResults():
 			else:
 				timeSpec = 1
 		begin = dt2qdt(time, 1)
-		end = begin.addSecs(60*60)
+		end = begin.addSecs(self.output_timestep() * 60. * 60.)
 		dtr = QgsDateTimeRange(begin, end)
 		if qgsObject is not None:
 			if qv >= 31300 and self.iface is not None:
@@ -2539,5 +2549,42 @@ class TuResults():
 		time = self.tuView.tuResults.timekey2time[timeKey] if timeKey in self.tuView.tuResults.timekey2time else float(
 			timeKey)
 		return time, 0
+
+	def output_timestep(self):
+		if self.dt and [x for x in self.results.keys()] == self._res_names:
+			return self.dt
+		dt = None
+		for key, value in self.results.items():
+			if 'timestep' in value:
+				pass
+			elif isinstance(value, dict):
+				for key_, value_ in value.items():
+					if 'times' in value_:
+						prev_time = None
+						for key__, value__ in value_['times'].items():
+							if (isinstance(value__, list) or isinstance(value__, tuple)) and value__:
+								x = value__[0]
+								if isinstance(x, float):
+									if prev_time is not None:
+										dt_ = x - prev_time
+										if dt:
+											dt = min(dt, dt_)
+										else:
+											dt = dt_
+									else:
+										prev_time = x
+							elif isinstance(value__, float):
+								if prev_time is not None:
+									dt_ = value__ - prev_time
+									if dt:
+										dt = min(dt, dt_)
+									else:
+										dt = dt_
+								else:
+									prev_time = value__
+
+		self.dt = dt if dt is not None else None
+		self._res_names = [x for x in self.results.keys()]
+		return dt if dt is not None else 1.0
 
 

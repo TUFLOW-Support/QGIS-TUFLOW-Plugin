@@ -8,9 +8,12 @@ from qgis.core import *
 from PyQt5.QtWidgets import *
 from qgis.PyQt.QtXml import QDomDocument
 from .tuflowqgis_turesultsindex import TuResultsIndex
-from ..tuflowqgis_library import tuflowqgis_find_layer, findAllMeshLyrs, loadSetting, roundSeconds, \
+from ..tuflowqgis_library import loadSetting, roundSeconds, \
 	getPropertiesFrom2dm, qdt2dt, dt2qdt, datetime2timespec
+from tuflow.toc.toc import tuflowqgis_find_layer, findAllMeshLyrs
 import re
+from .tmp_result import TmpResult
+from ..gui import Logging
 
 
 
@@ -38,6 +41,10 @@ class TuResults2D():
 		self.active_style = None
 		self.active_style_group_name = -1
 		self.layer_averaging_methods = {}
+
+		# copied results
+		self.copied_results = {}
+		self._copied_res_for_rem = []
 	
 	def importResults(self, inFileNames):
 		"""
@@ -73,9 +80,37 @@ class TuResults2D():
 			except:
 				pass
 
+		copy_res = self.tuView.tuOptions.copy_mesh
 		for j, f in enumerate(inFileNames):
 
+			# ask user if tuflow viewer should copy results to temporary directory
+			if j == 0 and self.tuView.tuOptions.show_copy_mesh_dlg:
+				copy_res = TmpResult.ask_copy_res_dlg(self.tuView, self.tuView.tuOptions)
+
+			if copy_res:
+				tmp_res = TmpResult(f)
+				if tmp_res.valid:
+					try:
+						_ = tmp_res.copy(self.tuView)
+					except RuntimeError as e:
+						Logging.error('Error copying result file to temporary directory', 'Python error: {0}'.format(e))
+						if not skipConnect:
+							self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
+						self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
+							lambda: self.tuView.resultsChanged('item clicked'))
+						return False
+				else:
+					Logging.error('Could not create temporary directory for result file',
+								  'Temporary directory: {0}'.format(tmp_res.tmp_dir))
+					if not skipConnect:
+						self.tuView.project.layersAdded.connect(self.tuView.layersAdded)
+					self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
+						lambda: self.tuView.resultsChanged('item clicked'))
+					return False
+
 			# Load Mesh
+			if os.path.splitext(f)[1].lower() == '.nc' and copy_res:
+				f = str(tmp_res.tmp_file)
 			if type(inFileNames) is dict:  # being loaded in from a sup file
 				m = inFileNames[f]['mesh']
 				mLayer, name, preExisting = self.loadMeshLayer(m, name=f)
@@ -93,14 +128,27 @@ class TuResults2D():
 				if type(inFileNames) is dict:  # being loaded in from a sup file
 					datasets = inFileNames[f]['datasets']
 					for d in datasets:
+						if copy_res:
+							try:
+								d = str(tmp_res.copy(self.tuView, d))
+							except Exception as e:
+								Logging.warning('Could not copy result file to temporary directory: {0}'.format(e))
+								continue
 						l = self.loadDataGroup(d, mLayer, preExisting)
+
 				else:
+					if copy_res:
+						f = str(tmp_res.tmp_file)
 					loaded = self.loadDataGroup(f, mLayer, preExisting)
 			else:
 				pass
 				#self.tuView.tuResults.tuResults3D.importResults([f])
 			#res = {'path': f}
 			#self.results2d[mLayer.name()] = res
+
+			# record copied results
+			if copy_res:
+				self.copied_results[mLayer] = tmp_res
 			
 			# Open layer in map
 			self.tuView.project.addMapLayer(mLayer)
@@ -296,8 +344,8 @@ class TuResults2D():
 		types = []
 		
 		if type(layer) == QgsMeshLayer:
-			for i in range(layer.dataProvider().datasetGroupCount()):
-				groupName = layer.dataProvider().datasetGroupMetadata(i).name()
+			for i in range(layer.datasetGroupCount()):
+				groupName = layer.datasetGroupMetadata(QgsMeshDatasetIndex(i)).name()
 				if groupName.lower() != 'bed elevation':
 					types.append(groupName)
 					
@@ -307,8 +355,8 @@ class TuResults2D():
 			# load dataset group assuming it's not pre-existing
 			self.loadDataGroup(layer, mLayer, False)
 			# loop through dataset groups as per above loop
-			for i in range(mLayer.dataProvider().datasetGroupCount()):
-				groupName = mLayer.dataProvider().datasetGroupMetadata(i).name()
+			for i in range(mLayer.datasetGroupCount()):
+				groupName = mLayer.datasetGroupMetadata(QgsMeshDatasetIndex(i)).name()
 				if groupName.lower() != 'bed elevation':
 					types.append(groupName)
 					
@@ -337,7 +385,7 @@ class TuResults2D():
 		resultTypes = []
 		dp = layer.dataProvider()  # QgsMeshDataProvider
 		if self.tuView.OpenResults.count() == 0:
-			self.tuView.tuOptions.zeroTime = datetime2timespec(self.getReferenceTime(layer, self.tuView.tuOptions.defaultZeroTime),
+			self.tuView.tuOptions.zeroTime = datetime2timespec(self.getReferenceTime(layer),
 			                                                   1, self.tuView.tuResults.timeSpec)
 			if qv >= 31300:
 				if self.iface is not None:
@@ -372,7 +420,7 @@ class TuResults2D():
 		# this is to capture minimums - loop through the result names once and figure out if there are double ups that are static
 		mdGroupNames = []
 		for i in range(layer.datasetGroupCount()):
-			mdGroupNames.append(layer.datasetGroupMetadata(QgsMeshDatasetIndex(i, -1)).name())
+			mdGroupNames.append(layer.datasetGroupMetadata(QgsMeshDatasetIndex(i)).name())
 		for i, name_ in enumerate(mdGroupNames):
 			if 'minimum dt' in name_.lower():
 				if self.tuView.tuResults.isMaximumResultType(name_, layer, i):
@@ -391,7 +439,7 @@ class TuResults2D():
 		# for i in range(dp.datasetGroupCount()):
 		for i, name_ in enumerate(mdGroupNames):
 			# Get result type e.g. depth, velocity, max depth
-			mdGroup = layer.datasetGroupMetadata(QgsMeshDatasetIndex(i,-1))  # Group Metadata
+			mdGroup = layer.datasetGroupMetadata(QgsMeshDatasetIndex(i))  # Group Metadata
 			id, id2 = self.getResultTypeNames(mdGroup, ext, resultTypes, name_)
 
 			# special case for minimum dt
@@ -410,7 +458,7 @@ class TuResults2D():
 			                     'is3dDataset': self.is3dDataset(i, layer),
 			                     'timeUnit': self.getTimeUnit(layer),
 			                     # 'referenceTime': self.tuView.tuOptions.zeroTime,
-			                     'referenceTime': self.getReferenceTime(layer, self.tuView.tuOptions.zeroTime),
+			                     'referenceTime': self.getReferenceTime(layer),
 			                     'isMax': self.tuView.tuResults.isMaximumResultType(id, layer, i),
 			                     'isMin':self.tuView.tuResults.isMinimumResultType(id, layer, i),
 			                     'isStatic': self.tuView.tuResults.isStatic(id, layer, i),
@@ -425,7 +473,7 @@ class TuResults2D():
 				                      'is3dDataset': self.is3dDataset(i, layer),
 				                      'timeUnit': self.getTimeUnit(layer),
 				                      # 'referenceTime': self.tuView.tuOptions.zeroTime,
-				                      'referenceTime': self.getReferenceTime(layer, self.tuView.tuOptions.zeroTime),
+				                      'referenceTime': self.getReferenceTime(layer),
 				                      'isMax': self.tuView.tuResults.isMaximumResultType(id, layer, i),
 				                      'isMin':self.tuView.tuResults.isMinimumResultType(id, layer, i),
 				                      'isStatic': self.tuView.tuResults.isStatic(id, layer, i),
@@ -929,18 +977,21 @@ class TuResults2D():
 				if node is not None and not turn_off:
 					node.setItemVisibilityChecked(False)
 			else:
-				if node is not None:
-					node.setItemVisibilityChecked(True)
+				# if node is not None:
+				# 	node.setItemVisibilityChecked(True)
 				activeScalarIndex = TuResultsIndex(layer.name(), self.activeScalar,
-				                                   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('scalar'),
-				                                   self.tuView.tuResults.isMin('scalar'), self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
+												   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('scalar'),
+												   self.tuView.tuResults.isMin('scalar'), self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
 				activeVectorIndex = TuResultsIndex(layer.name(), self.activeVector,
-				                                   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('vector'),
-				                                   self.tuView.tuResults.isMin('vector'), self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
+												   self.tuView.tuResults.activeTime, self.tuView.tuResults.isMax('vector'),
+												   self.tuView.tuResults.isMin('vector'), self.tuView.tuResults, self.tuView.tuOptions.timeUnits)
+			# if node is not None and not node.isVisible():
+			# 	pass
+			# else:
 			activeScalarMeshIndex = self.tuView.tuResults.getResult(activeScalarIndex, force_get_time='next lower',
-			                                                        mesh_index_only=True)
+																	mesh_index_only=True)
 			activeVectorMeshIndex = self.tuView.tuResults.getResult(activeVectorIndex, force_get_time='next lower',
-			                                                        mesh_index_only=True)
+																	mesh_index_only=True)
 			# render active datasets
 			rs = layer.rendererSettings()
 			setActiveScalar, setActiveVector = TuResults2D.meshRenderVersion(rs)
@@ -1074,21 +1125,27 @@ class TuResults2D():
 			need2connect = False
 		
 		if layer:
-			meshLayers = [layer]
+			if not isinstance(layer, list):
+				layer = [layer]
+			meshLayers = layer
 		else:
 			meshLayers = findAllMeshLyrs()
 		
 		for ml in meshLayers:
 			# layer = tuflowqgis_find_layer(ml)
 			layer = None
-			for layer_ in QgsProject.instance().mapLayersByName(ml):
-				if isinstance(layer_, QgsMeshLayer):
-					layer = layer_
+			if isinstance(ml, QgsMeshLayer):
+				layer = ml
+				ml = layer.name()
+			else:
+				for layer_ in QgsProject.instance().mapLayersByName(ml):
+					if isinstance(layer_, QgsMeshLayer):
+						layer = layer_
 			if layer is not None:
 				
-				if layer.dataProvider().datasetGroupCount() == 0:
+				if layer.datasetGroupCount() == 0:
 					return
-				elif layer.dataProvider().datasetGroupCount() > 0:
+				elif layer.datasetGroupCount() > 0:
 					self.getResultMetaData(ml, layer, loadRenderStyle=False)
 					self.tuView.OpenResults.addItem(ml)
 
@@ -1116,7 +1173,16 @@ class TuResults2D():
 					if self.tuView.tuResults.isMapOutputType(rtype):
 						del result_items[rtype]
 
-		if layer.dataProvider().datasetGroupCount() > 0:
+		types = [layer.datasetGroupMetadata(QgsMeshDatasetIndex(i)).name() for i in range(layer.datasetGroupCount())]
+		leng = len(types)
+		if types and types == ['Bed Elevation'] + ['' for _ in range(leng - 1)]:
+			layer.rollBackFrameEditing(QgsCoordinateTransform(), False)  # this is a hack to reset mDatasetGroupStore
+
+		if hasattr(self.tuView, 'timer') and self.tuView.timer is not None:  # start timer to reload results
+			self.tuView.timer.start(300)
+			return
+
+		if layer.datasetGroupCount() > 0:
 			self.getResultMetaData(layer.name(), layer)
 			self.tuView.tuResults.updateResultTypes()
 
@@ -1185,9 +1251,9 @@ class TuResults2D():
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml)
 			if layer is not None:
-				if layer.dataProvider().datasetGroupCount() == 0:
+				if layer.datasetGroupCount() == 0:
 					return
-				elif layer.dataProvider().datasetGroupCount() > 0:
+				elif layer.datasetGroupCount() > 0:
 					self.getResultMetaData(ml, layer)
 					self.tuView.tuResults.updateResultTypes()
 
@@ -1505,6 +1571,8 @@ class TuResults2D():
 			if defaultZeroTime is not None:
 				# return datetime2timespec(defaultZeroTime, 1, self.tuView.tuResults.timeSpec)
 				return defaultZeroTime
+			elif self.tuView.tuResults.tmp_reference_time is not None:
+				return self.tuView.tuResults.tmp_reference_time
 			else:
 				# return datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, self.tuView.tuResults.timeSpec)
 				return datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
@@ -1528,8 +1596,8 @@ class TuResults2D():
 		possibleBdNames = ['bed elevation']
 		wlname = None
 		bdname = None
-		for i in range(layer.dataProvider().datasetGroupCount()):
-			name = layer.dataProvider().datasetGroupMetadata(i).name()
+		for i in range(layer.datasetGroupCount()):
+			name = layer.datasetGroupMetadata(QgsMeshDatasetIndex(i)).name()
 			if name.lower() in possibleBdNames:
 				bdname = name
 				continue
@@ -1552,6 +1620,7 @@ class TuResults2D():
 		return bdname, wlname
 
 	def layerVisibilityChanged(self):
+		return
 		# disconnect some signals
 		skipConnect = False
 		try:
@@ -1597,3 +1666,9 @@ class TuResults2D():
 			layer = tuflowqgis_find_layer(ml)
 			layer.dataProvider().datasetGroupsAdded.connect(self.datasetGroupsAdded)
 			layer.repaintRequested.connect(self.repaintRequested)
+
+	def clear_cached_results(self):
+		for tmp_res in self._copied_res_for_rem:
+			tmp_res.clear_result_cache()
+		self._copied_res_for_rem.clear()
+		self.tuView.timer = None

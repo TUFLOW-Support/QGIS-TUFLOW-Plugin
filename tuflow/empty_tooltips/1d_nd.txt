@@ -1,6 +1,6 @@
 location == Estry Control File (.ecf)
 
-command == Read GIS Node
+command == Read GIS Table Links
 
 description == Used to define 1D node locations and attributes.
 

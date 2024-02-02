@@ -2,9 +2,15 @@ import os
 import sys
 import re
 from PyQt5.QtGui import QIcon
-from qgis._core import Qgis
+from qgis._core import Qgis, QgsMessageLog
 from qgis.core import QgsProcessingProvider
 from pathlib import Path
+import traceback
+
+# We need this path setup for the SWMM alg functions to find the tuflow_swmm folder. It is here instead of
+# in those scripts so it will only happen once
+script = os.path.dirname(__file__)
+sys.path.append(script)
 
 
 class Directive:
@@ -80,6 +86,7 @@ class TuflowAlgorithmProvider(QgsProcessingProvider):
         """
         Loads all scripts found under the specified sub-folder
         """
+
         if not os.path.exists(self.script_folder):
             return
 
@@ -90,12 +97,24 @@ class TuflowAlgorithmProvider(QgsProcessingProvider):
                 try:
                     exec('from .alg.{0} import {1}'.format(file.stem, alg))
                     self.algs.append(eval('{0}()'.format(alg)))
-                except:
+                except SyntaxError as err:
+                    QgsMessageLog.logMessage(f"Syntax error loading processing algorithm from file: {file}\n"
+                                             f"  {err.__class__.__name__} {err.args[0]} on line {err.lineno}",
+                                             'TUFLOW',
+                                             level=Qgis.Warning)
+                except Exception as err:
+                    cl, exc, tb = sys.exc_info()
+                    line_number = traceback.extract_tb(tb)[-1][1]
+                    QgsMessageLog.logMessage(f"Exception loading processing algorithm from file: {file}\n"
+                                             f"  {err.__class__.__name__} {err.args[0]}",
+                                             'TUFLOW',
+                                             level=Qgis.Warning)
                     continue
 
     def algorithmName(self, file):
         """Extract the algorithm name from python file - assumes only one exists in file."""
-
+        # TEMP
+        #pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
         with open(file, 'r') as f:
             in_multi_line_comment = False
             for line in f:
@@ -117,6 +136,10 @@ class TuflowAlgorithmProvider(QgsProcessingProvider):
 
                 if code and not in_multi_line_comment:
                     if re.findall(r'^class [A-z]*\(QgsProcessingAlgorithm\):', code):
+                        return code.split('class ')[1].split('(')[0]
+
+                if code and not in_multi_line_comment:
+                    if re.findall(r'^class [A-z]*\(QgsProcessingFeatureBasedAlgorithm\):', code):
                         return code.split('class ')[1].split('(')[0]
 
                 if re.findall(r'"{3}', line):

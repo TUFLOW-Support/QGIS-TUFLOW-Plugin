@@ -9,7 +9,7 @@ class FeatureData():
 
     """
 
-    def __init__(self, layer=None, feature=None, nullCounter=0):
+    def __init__(self, helper, layer=None, feature=None, nullCounter=0):
         self.id = None
         self.geomType = None
         self.feature = None
@@ -20,22 +20,25 @@ class FeatureData():
         self.type = None
         self.invertUs = None
         self.invertDs = None
+        self.invertOffsetUs = 0.0 # SWMM stores offsets to node elevations to have pipes not at manhole elev
+        self.invertOffsetDs = 0.0
         self.width = None
         self.height = None
         self.numberOf = None
         self.length = None
         self.height_ = None
         self.nullCounter = nullCounter
+        self.area = 0.0
 
         if feature is not None:
             if feature.geometry():
                 # User ID (not the same as fid)
-                id = feature.attribute(0)
+                id = helper.get_feature_id(layer, feature)
                 if id == NULL:
-                    if feature.attribute(1).lower() == 'x':
+                    if helper.get_nwk_type(feature).lower() == 'x':
                         id = '__connector__{0}'.format(nullCounter)
                     else:
-                        id = '{0}_{1}'.format(feature.attribute(1), nullCounter)
+                        id = '{0}_{1}'.format(helper.get_nwk_type(feature), nullCounter)
                     self.nullCounter += 1
                 self.id = id
 
@@ -47,33 +50,6 @@ class FeatureData():
 
                 # QgsFeatureId
                 self.fid = feature.id()
-
-                # type i.e. C, R, S etc
-                self.type = feature.attribute(1)
-
-                # inverts
-                self.invertUs = feature.attribute(6)
-                self.invertDs = feature.attribute(7)
-                if self.type:
-                    if self.type.lower()[0] == 'b':
-                        self.invertDs = self.invertUs
-                if self.invertUs == NULL:
-                    self.invertUs = -99999
-                if self.invertDs == NULL:
-                    self.invertDs = -99999
-
-                # size
-                self.width = feature.attribute(13)
-                if self.width == NULL:
-                    self.width = 0
-                self.height = feature.attribute(14)
-                if self.height == NULL:
-                    self.height = 0
-                self.numberOf = feature.attribute(15)
-                if self.numberOf == 0 or self.numberOf == NULL:
-                    self.numberOf = 1
-                self.height_ = self.width if self.type.lower()[0] == 'c' else self.height
-                self.length = feature.attribute(4) if feature.attribute(4) != NULL and feature.attribute(4) > 0. else feature.geometry().length()
 
                 # start and end vertex QgsPointXY
                 if layer.geometryType() == QgsWkbTypes.PointGeometry:
@@ -91,6 +67,51 @@ class FeatureData():
                         line = feature.geometry().asPolyline()
                         self.startVertex = line[0]
                         self.endVertex = line[-1]
+
+                # Attributes must come through helper
+                atts = helper.get_feature_attributes(layer, feature)
+                self.type = atts['type']
+                self.invertUs = atts['invertUs']
+                self.invertDs = atts['invertDs']
+                self.width = atts['width']
+                self.height = atts['height']
+                self.numberOf = atts['numberOf']
+                self.height_ = atts['height_']
+                self.length = atts['length']
+                self.area = atts['area']
+
+                if 'invertOffsetUs' in atts:
+                    self.invertOffsetUs = atts['invertOffsetUs']
+                if 'invertOffsetDs' in atts:
+                    self.invertOffsetDs = atts['invertOffsetDs']
+
+                # # type i.e. C, R, S etc
+                # self.type = feature.attribute(1)
+                #
+                # # inverts
+                # self.invertUs = feature.attribute(6)
+                # self.invertDs = feature.attribute(7)
+                # if self.type:
+                #     if self.type.lower()[0] == 'b':
+                #         self.invertDs = self.invertUs
+                # if self.invertUs == NULL:
+                #     self.invertUs = -99999
+                # if self.invertDs == NULL:
+                #     self.invertDs = -99999
+                #
+                # # size
+                # self.width = feature.attribute(13)
+                # if self.width == NULL:
+                #     self.width = 0
+                # self.height = feature.attribute(14)
+                # if self.height == NULL:
+                #     self.height = 0
+                # self.numberOf = feature.attribute(15)
+                # if self.numberOf == 0 or self.numberOf == NULL:
+                #     self.numberOf = 1
+                # self.height_ = self.width if self.type.lower()[0] == 'c' else self.height
+                # self.length = feature.attribute(4) if feature.attribute(4) != NULL and feature.attribute(4) > 0. else feature.geometry().length()
+
 
     def getNullCounter(self):
         """

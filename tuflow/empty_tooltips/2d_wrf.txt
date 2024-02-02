@@ -1,0 +1,8 @@
+location == Geometry Control File (.tgc)
+
+command == Read GIS WRF
+
+description == Weir adjustment factor
+
+manual link == https://downloads.tuflow.com/TUFLOW/Releases/2020-10/TUFLOW%20Release%20Notes.2020-10-AF.pdf
+manual page == 87

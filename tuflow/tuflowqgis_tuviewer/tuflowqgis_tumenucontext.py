@@ -6,7 +6,7 @@ from qgis.core import *
 from qgis.gui import *
 from PyQt5.QtWidgets import *
 from .tuflowqgis_tumenufunctions import TuMenuFunctions
-from ..tuflowqgis_library import tuflowqgis_find_layer
+from tuflow.toc.toc import tuflowqgis_find_layer
 
 from ..nc_grid_data_provider import NetCDFGrid
 

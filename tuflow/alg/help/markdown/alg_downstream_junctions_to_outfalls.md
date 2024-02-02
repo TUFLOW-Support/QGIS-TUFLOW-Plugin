@@ -1,0 +1,6 @@
+This tool converts junctions on the downstream side of a network to outfall nodes as required by SWMM.
+
+__Note: This tool relies on the "From Node" and "To Node" fields to determine position in the network so make sure they are up-to-date.
+
+## Usage
+Provide the junction and associated conduit layers. An outfall layer with the converted will be created along with a modified junction layer (outfall nodes removed). The contents of these layers needs to be copied into the appropriate layers in the SWMM GeoPackage.

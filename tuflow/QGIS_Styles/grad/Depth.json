@@ -1,0 +1,20 @@
+{
+	"field_name": "${name}",
+	"color": "red",
+	"classification_method": "$import QgsClassificationPrettyBreaks",
+	"graduated_method": "Qgis.GraduatedMethod.Size",
+	"number_of_classifications": 5,
+	"min_symbol_size": 1.5,
+	"max_symbol_size": 3.0,
+	"symobols": [
+		{
+			"class": "geometry_default",
+			"symbol_layer_class": "$import QgsSimpleMarkerSymbolLayer",
+			"layer_style": {
+				"color": "${color}",
+				"size": 2.0,
+				"name": "circle"
+			}
+		}
+	]
+}

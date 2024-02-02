@@ -4,7 +4,7 @@
 	"symbols": [
 		{
 			"class": "geometry_default",
-			"symbol_layer_class": "QgsSimpleMarkerSymbolLayer",
+			"symbol_layer_class": "$import QgsSimpleMarkerSymbolLayer",
 			"layer_style": {
 				"color": "${color}",
 				"size": 2.0,

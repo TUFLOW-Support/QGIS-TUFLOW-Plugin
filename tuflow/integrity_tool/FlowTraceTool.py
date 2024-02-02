@@ -13,14 +13,12 @@ from .FeatureData import FeatureData
 from .Enumerators import *
 from .FlowTraceLongPlot import DownstreamConnectivity
 from .FlowTraceLongPlot_V2 import Connectivity, ContinuityLimits
-from ..forms.flowtrace_plot_widget import Ui_flowTracePlotWidget
+from tuflow.forms.flowtrace_plot_widget import Ui_flowTracePlotWidget
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
-from ..dataset_menu import DatasetMenu
-from ..tuflowqgis_library import browse
-
-
+from tuflow.dataset_menu import DatasetMenu
+from tuflow.tuflowqgis_library import browse
 
 class Annotation:
 
@@ -293,7 +291,7 @@ class DataCollectorFlowTrace(DataCollector):
                 for fid in spatialIndex.intersects(rect):
                     feat = allFeatures[fid]
                     # if fData.feature.geometry().intersects(feat.geometry()):
-                    if self.isSnapped(fData, FeatureData(layer, feat)):
+                    if self.isSnapped(fData, FeatureData(self.helper, layer, feat)):
                         if feat not in self.featuresToAssess:
                             self.featuresToAssess.append(feat)
                             self.layersToAssess.append(layer)
@@ -303,7 +301,7 @@ class FlowTracePlot(QWidget, Ui_flowTracePlotWidget):
 
     finished_ = pyqtSignal()
     updated_ = pyqtSignal()
-    error_ = pyqtSignal()
+    error_ = pyqtSignal(str)
     updateMessage_ = pyqtSignal(int)
     updateMaxSteps_ = pyqtSignal(int)
 
@@ -547,6 +545,7 @@ class FlowTracePlot(QWidget, Ui_flowTracePlotWidget):
         continuityLimits = ContinuityLimits(QgsUnitTypes.DistanceMeters, self.flowTraceTool)
 
         if not self.downstreamConnectivity.valid:
+            self.error_.emit('No valid paths found between selected pipes.')
             return
 
         self.thread.started.disconnect(self.downstreamConnectivity.getBranches)
@@ -574,7 +573,7 @@ class FlowTracePlot(QWidget, Ui_flowTracePlotWidget):
         self.thread.terminate()
         self.thread = None
         self.errmsg = self.downstreamConnectivity.errmsg
-        self.error_.emit()
+        self.error_.emit('')
 
     def startedPopulate(self):
         max_steps = int(sum([len(x) for x in self.downstreamConnectivity.branches]))
@@ -791,7 +790,7 @@ class FlowTracePlot(QWidget, Ui_flowTracePlotWidget):
             import traceback
             exc_type, exc_value, exc_traceback = sys.exc_info()
             self.errmsg = ''.join(traceback.extract_tb(exc_traceback).format()) + '{0}{1}'.format(exc_type, exc_value)
-            self.error_.emit()
+            self.error_.emit('')
             return
 
     def addLabels(self):
@@ -883,7 +882,7 @@ class FlowTracePlot(QWidget, Ui_flowTracePlotWidget):
                 import traceback
                 exc_type, exc_value, exc_traceback = sys.exc_info()
                 self.errmsg = ''.join(traceback.extract_tb(exc_traceback).format()) + '{0}{1}'.format(exc_type, exc_value)
-                self.error_.emit()
+                self.error_.emit('')
                 return
 
         self.fig.canvas.draw()

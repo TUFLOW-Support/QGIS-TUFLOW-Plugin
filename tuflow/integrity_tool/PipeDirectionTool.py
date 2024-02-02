@@ -2,23 +2,25 @@ from qgis.core import *
 from PyQt5.QtCore import *
 from .FeatureData import FeatureData
 from .Enumerators import *
-from ..tuflowqgis_library import is1dNetwork, getNetworkMidLocation
+from tuflow.tuflowqgis_library import is1dNetwork, getNetworkMidLocation
+from .helpers import EstryHelper
 
+from tuflow_swmm.swmm_gis_info import is_swmm_network_layer
 
 class PipeDirectionTool():
-    
+
     def __init__(self, iface=None, outputLyr=None):
         self.iface = iface
         self.outputLyr = outputLyr
         self.tmpLyrs = []
         self.tmplyr2oldlyr = {}
-        
+
         self.flagGradientPoint = []
         self.flagGradientMessage = []
-        
+
         self.flagContinuityPoint = []
         self.flagContinuityMessage = []
-        
+
         # prepare the outputlyr
         if outputLyr is not None:
             self.outputLyr = outputLyr
@@ -36,29 +38,32 @@ class PipeDirectionTool():
                                    QgsField("Tool", QVariant.String),
                                    QgsField("Magnitude", QVariant.Double)])
             self.outputLyr.updateFields()
-            
+
+        self.helper = EstryHelper()
+
     def byGradient(self, inputs=()):
         """
         
         :param inputs:
         :return:
         """
-        
+
         if not self.tmpLyrs:
             for layer in inputs:
-                if is1dNetwork(layer):
+                if is_swmm_network_layer(layer) or is1dNetwork(layer):
                     lyr = self.copyLayerToTemp(layer, '{0}_tmp'.format(layer.name()))
                     self.tmpLyrs.append(lyr)
-            
-        
+
         for layer in self.tmpLyrs:
             for f in layer.getFeatures():
-                fData = FeatureData(layer, f)
+                fData = FeatureData(self.helper, layer, f)
                 if fData.type.lower() != 'x':
                     if fData.invertUs != -99999 and fData.invertDs != -99999:
                         if fData.invertUs < fData.invertDs:
                             # flip line direction
-                            geom = f.geometry().asMultiPolyline()
+                            geomMulti = f.geometry()
+                            geomMulti.convertToMultiType()
+                            geom = geomMulti.asMultiPolyline()
                             layer.startEditing()
                             for g in geom:
                                 reversedGeom = g[::-1]
@@ -67,14 +72,14 @@ class PipeDirectionTool():
                                 layer.changeAttributeValue(f.id(), 6, fData.invertDs, fData.invertUs)
                                 layer.changeAttributeValue(f.id(), 7, fData.invertUs, fData.invertDs)
                             layer.commitChanges()
-                            
+
                             # log change
                             midPoint = getNetworkMidLocation(f)
                             self.flagGradientPoint.append(midPoint)
                             message = '{0} has been reversed based on inverts ' \
                                       '({1:.3f}RL, {2:.3f}RL)'.format(fData.id, fData.invertUs, fData.invertDs)
                             self.flagGradientMessage.append(message)
-                            
+
         # add features to outputlyr
         feats = []
         for i, point in enumerate(self.flagGradientPoint):
@@ -88,7 +93,7 @@ class PipeDirectionTool():
             feats.append(feat)
         self.dp.addFeatures(feats)
         self.outputLyr.updateExtents()
-        
+
     def byContinuity(self, inputs=(), dataCollector=None):
         """
         
@@ -99,18 +104,18 @@ class PipeDirectionTool():
 
         if not self.tmpLyrs:
             for layer in inputs:
-                if is1dNetwork(layer):
+                if is_swmm_network_layer(layer) or is1dNetwork(layer):
                     lyrnames = [x.name() for _, x in QgsProject.instance().mapLayers().items()]
                     cnt = 1
                     tmplyrname = '{0}_PD{1}'.format(layer.name(), cnt)
                     while tmplyrname in lyrnames:
                         cnt += 1
                         tmplyrname = '{0}_PD{1}'.format(layer.name(), cnt)
-                    self.tmplyr2oldlyr[tmplyrname] = layer.name()
 
                     lyr = self.copyLayerToTemp(layer, tmplyrname, dataCollector)
                     self.tmpLyrs.append(lyr)
-                    
+                    self.tmplyr2oldlyr[lyr.id()] = layer.id()
+
         for id in dataCollector.ids:
             if '__connector__' not in id:
                 if id in dataCollector.connections:
@@ -118,19 +123,21 @@ class PipeDirectionTool():
                     linesUs = dataCollector.connections[id].linesUs
                     linesDsDs = dataCollector.connections[id].linesDsDs
                     linesUsUs = dataCollector.connections[id].linesUsUs
-                    
+
                     if linesDsDs and linesUsUs and not linesDs and not linesUs:
                         # reverse direction
                         layer = dataCollector.features[id].tmpLayer
                         f = dataCollector.features[id].tmpFeature
-                        geom = f.geometry().asMultiPolyline()
+                        geomMulti = f.geometry()
+                        geomMulti.convertToMultiType()
+                        geom = geomMulti.asMultiPolyline()
                         layer.startEditing()
                         for g in geom:
                             reversedGeom = g[::-1]
                             for i in range(len(g)):
                                 layer.moveVertex(reversedGeom[i].x(), reversedGeom[i].y(), f.id(), i)
                         layer.commitChanges()
-    
+
                         # log change
                         midPoint = getNetworkMidLocation(f)
                         self.flagContinuityPoint.append(midPoint)
@@ -167,20 +174,20 @@ class PipeDirectionTool():
             uri = 'point?crs={0}'.format(epsg)
         lyr = QgsVectorLayer(uri, name, "memory")
         dp = lyr.dataProvider()
-    
+
         fields = copylyr.fields()
         dp.addAttributes(fields)
         lyr.updateFields()
-        
+
         for i, f in enumerate(copylyr.getFeatures()):
             feat = QgsFeature(f)
             dp.addFeature(feat)
             lyr.updateExtents()
-            
+
             if dataCollector is not None:
                 # update fData with a tmp feature and layer the vertex can be moved if necessary
                 id = dataCollector.getIdFromFid(copylyr.name(), f.id())
                 dataCollector.features[id].tmpLayer = lyr
                 dataCollector.features[id].tmpFeature = feat
-    
+
         return lyr

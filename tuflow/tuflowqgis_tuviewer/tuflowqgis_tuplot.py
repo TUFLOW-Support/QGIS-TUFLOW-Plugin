@@ -19,7 +19,7 @@ from matplotlib.patches import Patch
 from matplotlib.patches import Polygon
 import matplotlib.dates as mdates
 import matplotlib.ticker
-from mpl_toolkits.axes_grid1 import make_axes_locatable
+# from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.quiver import Quiver
 from matplotlib.collections import PolyCollection, PathCollection
 import matplotlib.gridspec as gridspec
@@ -38,8 +38,8 @@ from .tuflowqgis_tuuserplotdata import TuUserPlotDataManager
 from ..tuflowqgis_library import (applyMatplotLibArtist, getMean, roundSeconds, convert_datetime_to_float,
                                   generateRandomMatplotColours2, saveMatplotLibArtist,
                                   polyCollectionPathIndexFromXY, regex_dict_val, datetime2timespec,
-                                  convertFormattedTimeToTime, getPolyCollectionData, mpl_version_int,
-                                  findAllMeshLyrs, tuflowqgis_find_layer)
+                                  convertFormattedTimeToTime, getPolyCollectionData, mpl_version_int)
+from tuflow.toc.toc import tuflowqgis_find_layer, findAllMeshLyrs
 from .tuflowqgis_tuplot3d import (TuPlot3D, ColourBar)
 
 
@@ -203,7 +203,7 @@ class TuPlot():
 		self.frozenLPProperties = {}  # dictionary object to save user defined names and styles
 		self.frozenLPAxisLabels = {}  # dictionary object to save user defined axis labels
 		cid = self.figLongPlot.canvas.mpl_connect('draw_event', self.resize)
-		cid2 = self.figLongPlot.canvas.mpl_connect('resize_event', self.resize)
+		# cid2 = self.figLongPlot.canvas.mpl_connect('resize_event', self.resize)
 
 		# cross section
 		self.artistsCrossSectionFirst = []
@@ -4061,7 +4061,7 @@ class TuPlot():
 		if axisNo == 1:
 			if plotNo == TuPlot.TimeSeries:
 				if len(subplot.texts) > 1:
-					[subplot.texts.pop(i) for i in range(len(subplot.texts)) if i > 0]
+					[subplot.texts[i].remove() for i in range(len(subplot.texts)) if i > 0]
 				if len(subplot.texts) == 1:
 					del self.timeSeriesAnnot
 					self.timeSeriesAnnot = subplot.texts[0]
@@ -4145,7 +4145,7 @@ class TuPlot():
 
 			if plotNo == TuPlot.CrossSection1D:
 				if len(subplot.texts) > 1:
-					[subplot.texts.pop(i) for i in range(len(subplot.texts)) if i > 0]
+					[subplot.texts[i].remove() for i in range(len(subplot.texts)) if i > 0]
 				if len(subplot.texts) == 1:
 					del self.crossSectionAnnot
 					self.crossSectionAnnot = subplot.texts[0]
@@ -4182,7 +4182,7 @@ class TuPlot():
 
 			if plotNo == TuPlot.VerticalProfile:
 				if len(subplot.texts) > 1:
-					[subplot.texts.pop(i) for i in range(len(subplot.texts)) if i > 0]
+					[subplot.texts[i].remove() for i in range(len(subplot.texts)) if i > 0]
 				if len(subplot.texts) == 1:
 					del self.verticalProfileAnnot
 					self.verticalProfileAnnot = subplot.texts[0]
@@ -4223,7 +4223,7 @@ class TuPlot():
 
 			if plotNo == TuPlot.TimeSeries:
 				if len(subplot2.texts) > 1:
-					[subplot2.texts.pop(i) for i in range(len(subplot2.texts)) if i > 0]
+					[subplot2.texts[i].remove() for i in range(len(subplot2.texts)) if i > 0]
 				if len(subplot2.texts) == 1:
 					del self.timeSeriesAnnot2
 					self.timeSeriesAnnot2 = subplot2.texts[0]
@@ -4260,7 +4260,7 @@ class TuPlot():
 
 			if plotNo == TuPlot.CrossSection:
 				if len(subplot2.texts) > 1:
-					[subplot2.texts.pop(i) for i in range(len(subplot2.texts)) if i > 0]
+					[subplot2.texts[i].remove() for i in range(len(subplot2.texts)) if i > 0]
 				if len(subplot2.texts) == 1:
 					del self.longPlotAnnot2
 					self.longPlotAnnot2 = subplot2.texts[0]
@@ -4307,7 +4307,7 @@ class TuPlot():
 
 			if plotNo == TuPlot.VerticalProfile:
 				if len(subplot2.texts) > 1:
-					[subplot2.texts.pop(i) for i in range(len(subplot2.texts)) if i > 0]
+					[subplot2.texts[i].remove() for i in range(len(subplot2.texts)) if i > 0]
 				if len(subplot2.texts) == 1:
 					del self.verticalProfileAnnot2
 					self.verticalProfileAnnot2 = subplot2.texts[0]
@@ -4612,7 +4612,10 @@ class TuPlot():
 						else:
 							p.set_visible(True)
 						if ax.texts:
-							figure.texts.append(ax.texts.pop())
+							text = ax.texts[-1]
+							text.remove()
+							figure.texts.append(text)
+							# figure.texts.append(ax.texts.pop())
 							if annot.axes is None:
 								annot.axes = ax
 							if annot.figure is None:
@@ -4665,7 +4668,9 @@ class TuPlot():
 							l_off.set_visible(False)
 						annot.set_visible(True)
 						if ax.texts:
-							figure.texts.append(ax.texts.pop())
+							text = ax.texts[-1]
+							text.remove()
+							figure.texts.append(text)
 							if annot.axes is None:
 								annot.axes = ax
 							if annot.figure is None:
@@ -4800,13 +4805,14 @@ class TuPlot():
 			self.cursorMarker.setVisible(False)
 
 	def labels_about_to_break(self, plotNo):
-		labels_about_to_break = [self.timeSeries_labels_about_to_break, self.crossSection_labels_about_to_break,
-								 None, self.verticalProfile_labels_about_to_break]
-
-		if plotNo + 1 > len(labels_about_to_break):
-			return
-
-		return labels_about_to_break[plotNo]
+		return -1
+		# labels_about_to_break = [self.timeSeries_labels_about_to_break, self.crossSection_labels_about_to_break,
+		# 						 None, self.verticalProfile_labels_about_to_break]
+		#
+		# if plotNo + 1 > len(labels_about_to_break):
+		# 	return
+		#
+		# return labels_about_to_break[plotNo]
 
 	def set_labels_about_to_break(self, plotNo, value):
 		if plotNo == 0:
@@ -4833,7 +4839,7 @@ class TuPlot():
 			for result_type in results[ml.name()]:
 				if not self.tuView.tuResults.isTimeSeriesType(result_type):
 					continue
-				rt = self.tuView.tuResults.tuResults2D.getReferenceTime(ml, self.tuView.tuOptions.defaultZeroTime)
+				rt = self.tuView.tuResults.tuResults2D.getReferenceTime(ml)
 				if 'referenceTime' not in results[ml.name()][result_type]:
 					ref_time_changed = True
 				elif results[ml.name()][result_type]['referenceTime'] != rt:

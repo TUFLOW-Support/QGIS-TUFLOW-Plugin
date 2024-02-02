@@ -224,6 +224,26 @@ class Ui_tuflowqgis_increment(object):
 
         self.retranslateUi(tuflowqgis_increment)
         QtCore.QMetaObject.connectSlotsByName(tuflowqgis_increment)
+        tuflowqgis_increment.setTabOrder(self.pbOk, self.pbCancel)
+        tuflowqgis_increment.setTabOrder(self.pbCancel, self.sourcelayer)
+        tuflowqgis_increment.setTabOrder(self.sourcelayer, self.outfolder)
+        tuflowqgis_increment.setTabOrder(self.outfolder, self.btnBrowseDatabase)
+        tuflowqgis_increment.setTabOrder(self.btnBrowseDatabase, self.outfilename)
+        tuflowqgis_increment.setTabOrder(self.outfilename, self.browseoutfile)
+        tuflowqgis_increment.setTabOrder(self.browseoutfile, self.twTables)
+        tuflowqgis_increment.setTabOrder(self.twTables, self.cbMoveToSS)
+        tuflowqgis_increment.setTabOrder(self.cbMoveToSS, self.rbRemoveSource)
+        tuflowqgis_increment.setTabOrder(self.rbRemoveSource, self.rbKeepSource)
+        tuflowqgis_increment.setTabOrder(self.rbKeepSource, self.rbDatabaseLayer)
+        tuflowqgis_increment.setTabOrder(self.rbDatabaseLayer, self.rbDatabaseDbLayer)
+        tuflowqgis_increment.setTabOrder(self.rbDatabaseDbLayer, self.rbSaveLayerOut)
+        tuflowqgis_increment.setTabOrder(self.rbSaveLayerOut, self.cbRenameLayer)
+        tuflowqgis_increment.setTabOrder(self.cbRenameLayer, self.leRenameLayer)
+        tuflowqgis_increment.setTabOrder(self.leRenameLayer, self.rbAutoSSLayer)
+        tuflowqgis_increment.setTabOrder(self.rbAutoSSLayer, self.rbManualSSLayer)
+        tuflowqgis_increment.setTabOrder(self.rbManualSSLayer, self.leDiscardedDb)
+        tuflowqgis_increment.setTabOrder(self.leDiscardedDb, self.pbDiscardDb_browse)
+        tuflowqgis_increment.setTabOrder(self.pbDiscardDb_browse, self.leDiscardedLayer)
 
     def retranslateUi(self, tuflowqgis_increment):
         _translate = QtCore.QCoreApplication.translate

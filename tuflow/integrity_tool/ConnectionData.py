@@ -48,7 +48,7 @@ class ConnectionData():
             if fData1.geomType == GEOM_TYPE.Point and fData2.geomType == GEOM_TYPE.Line and cData2 is not None:
                 cData2.pointDs = fData1.id
                 if fData2.invertDs == -99999:
-                    fData2.invertDs = fData1.invertDs
+                    fData2.invertDs = fData1.invertDs + fData2.invertOffsetDs
                 vname = '{0}{1}'.format(cData2.id, VERTEX.Last)
                 if vname in dataCollectorLine.vertexes:
                     v = dataCollectorLine.vertexes[vname]
@@ -63,7 +63,7 @@ class ConnectionData():
                 vDataUs.snapped = True
                 cData2.pointUs = fData1.id
                 if fData2.invertUs == -99999:
-                    fData2.invertUs = fData1.invertDs
+                    fData2.invertUs = fData1.invertDs + fData2.invertOffsetUs
                 vname = '{0}{1}'.format(cData2.id, VERTEX.First)
                 if vname in dataCollectorLine.vertexes:
                     v = dataCollectorLine.vertexes[vname]

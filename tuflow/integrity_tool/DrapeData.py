@@ -1,7 +1,7 @@
 from qgis.core import *
 from .Enumerators import *
 from PyQt5.QtWidgets import QMessageBox
-from ..tuflowqgis_library import lineToPoints, getRasterValue
+from tuflow.tuflowqgis_library import lineToPoints, getRasterValue
 
 
 class DrapeData():

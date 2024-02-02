@@ -4,7 +4,7 @@
 	"symbols": [
 		{
 			"class": "geometry_default",
-			"symbol_layer_class": "QgsSimpleLineSymbolLayer",
+			"symbol_layer_class": "$import QgsSimpleLineSymbolLayer",
 			"layer_style": {
 				"outline": "#000000",
 				"color": "${color}",

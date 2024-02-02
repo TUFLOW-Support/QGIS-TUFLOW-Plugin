@@ -91,12 +91,19 @@ from .bridge_editor.BridgeEditor import ArchBridgeDock
 
 from .menu_provider import TuflowContextMenuProvider
 
+from .gui import Logging
+from .gui.tuflowdrophandler import TuflowDropHandler
+
 
 # remote debugging
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\plugins\python\helpers\pydev')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\plugins\python\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2023.1.3\debug-eggs')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2023.1.3\plugins\python\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2023.2.1\debug-eggs')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2023.2.1\plugins\python\helpers\pydev')
 
 
 class tuflowqgis_menu:
@@ -117,8 +124,10 @@ class tuflowqgis_menu:
 		self.lambdaConnections = []
 		self.icons = {}
 
+		self.dropHandler = TuflowDropHandler(iface)
 		self.provider = TuflowAlgorithmProvider()
 		self.menu_provider = TuflowContextMenuProvider(self.iface)
+		Logging.init_logging(iface)
 
 	def icon(self, icon_name: str) -> QIcon:
 		"""Get icon."""
@@ -149,6 +158,8 @@ class tuflowqgis_menu:
 		for layer in QgsProject.instance().mapLayers().values():
 			self.menu_provider.register_layer(layer)
 		QgsProject.instance().layersAdded.connect(self.menu_provider.register_layers)
+
+		self.iface.registerCustomDropHandler(self.dropHandler)
 
 		dir = os.path.dirname(__file__)
 		icon = QIcon(os.path.join(dir, "tuflow.png"))
@@ -457,6 +468,11 @@ class tuflowqgis_menu:
 		self.plotlibrary = None							#The plotting library to use
 		self.textquit0 = "Click for polyline and double click to end (right click to cancel then quit)"
 		self.textquit1 = "Select the polyline in a vector layer (Right click to quit)"
+
+		# SWMM tools - all in processing tools for now
+		#self.swmmMenu = QMenu(QCoreApplication.translate("TUFLOW", "SWMM"))
+		#self.swmmAction = QAction("SWMM Tools", self.iface.mainWindow())
+		#self.iface.addPluginToMenu('&TUFLOW', self.swmmAction)
 
 		# swangis
 		self.builderUI = None
@@ -938,8 +954,13 @@ class tuflowqgis_menu:
 		# self.thread.terminate()
 		# self.thread.wait()
 		self.prog_dialog.close()
+		msg = ''
+		if self.load_gis.settings.no_files_copied:
+			msg = 'No files were loaded for the following commands:\n{0}'.format('"\n- '.join([': '.join(x) for x in self.load_gis.settings.no_files_copied]))
 		if self.load_files.err:
-			QMessageBox.critical(self.iface.mainWindow(), 'Failed Files', self.load_files.msg)
+			msg = '{0}\n\nError importing file into QGIS:\n{1}'.format(msg, self.load_files.msg)
+		if msg:
+			QMessageBox.critical(self.iface.mainWindow(), 'Load from TCF', msg)
 
 	def layer_added(self, e):
 		self.prog_label.setText('Found Layer: {0}'.format(e))
