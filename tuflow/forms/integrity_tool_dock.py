@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'integrity_tool_dock.ui'
+# Form implementation generated from reading ui file 'C:\Users\esymons\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\tuflow\forms\integrity_tool_dock.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.4
 #
@@ -40,7 +40,7 @@ class Ui_IntegrityTool(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName("scrollArea")
         self.scrollAreaWidgetContents = QtWidgets.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 695, 1072))
+        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 583, 956))
         self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
         self.verticalLayout_8 = QtWidgets.QVBoxLayout(self.scrollAreaWidgetContents)
         self.verticalLayout_8.setObjectName("verticalLayout_8")
@@ -696,12 +696,12 @@ class Ui_IntegrityTool(object):
         IntegrityTool.setWindowTitle(_translate("IntegrityTool", "1D Integrity Tool"))
         self.label_34.setText(_translate("IntegrityTool", "<html><head/><body><p><a href=\"https://wiki.tuflow.com/index.php?title=1D_Integrity_Tool\"><span style=\" text-decoration: underline; color:#0000ff;\">Documentation</span></a></p></body></html>"))
         self.gbLines.setTitle(_translate("IntegrityTool", "Input Network Lines"))
-        self.label.setText(_translate("IntegrityTool", "1D Network Line Layers (1d_nwk_L.shp)"))
+        self.label.setText(_translate("IntegrityTool", "1D Network Line Layers (1d_nwk_L)"))
         self.inputLinesToolTip.setText(_translate("IntegrityTool", "<html><head/><body><p><span style=\" font-weight:600;\">(?)</span></p></body></html>"))
         self.btnAddLines.setText(_translate("IntegrityTool", "..."))
         self.btnRemoveLines.setText(_translate("IntegrityTool", "..."))
         self.gbPoints.setTitle(_translate("IntegrityTool", "Input Network Points"))
-        self.label_2.setText(_translate("IntegrityTool", "1D Point Layers (1d_nwk_P.shp)"))
+        self.label_2.setText(_translate("IntegrityTool", "1D Point Layers (1d_nwk_P)"))
         self.inputPointsToolTip.setText(_translate("IntegrityTool", "<html><head/><body><p><span style=\" font-weight:600;\">(?)</span></p></body></html>"))
         self.btnAddPoints.setText(_translate("IntegrityTool", "..."))
         self.btnRemovePoints.setText(_translate("IntegrityTool", "..."))

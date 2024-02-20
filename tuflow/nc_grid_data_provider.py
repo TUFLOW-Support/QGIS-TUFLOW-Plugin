@@ -6,11 +6,17 @@ from qgis._core import QgsGeometry, QgsFeature, QgsPointXY, QgsWkbTypes, QgsMapL
 from qgis.core import QgsRasterLayer, QgsSingleBandPseudoColorRenderer, QgsColorRampShader, QgsStyle
 from PyQt5.QtCore import pyqtSignal
 
+netcdf_loaded = False
 try:
+    raise ImportError
     from netCDF4 import Dataset
     netcdf_loaded = True
 except ImportError:
-    netcdf_loaded = False
+    try:
+        from .netCDF4_ import Dataset_ as Dataset
+        netcdf_loaded = True
+    except ImportError:
+        pass
 
 
 class LoadError(Exception):

@@ -74,8 +74,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>695</width>
-         <height>1072</height>
+         <width>583</width>
+         <height>956</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_8">
@@ -98,7 +98,7 @@
                <item>
                 <widget class="QLabel" name="label">
                  <property name="text">
-                  <string>1D Network Line Layers (1d_nwk_L.shp)</string>
+                  <string>1D Network Line Layers (1d_nwk_L)</string>
                  </property>
                 </widget>
                </item>
@@ -196,7 +196,7 @@
                <item>
                 <widget class="QLabel" name="label_2">
                  <property name="text">
-                  <string>1D Point Layers (1d_nwk_P.shp)</string>
+                  <string>1D Point Layers (1d_nwk_P)</string>
                  </property>
                 </widget>
                </item>
@@ -2018,7 +2018,7 @@
  </resources>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

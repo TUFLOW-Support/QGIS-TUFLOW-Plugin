@@ -844,8 +844,8 @@ class tuflowqgis_menu:
 
 		old_method = sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 9)
 		inFileName, _ = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Open TUFLOW Control File', fpath,
-		                                          "All control files (*.tcf *.ecf *.tgc *.tbc *.tef *.toc *.qcf *.trfc *.trfcf *.trd *.escf *.adcf);;"
-												  "TCF (*.tcf);;ECF (*.ecf);;TGC (*.tgc);;TBC (*.tbc);;TEF (*.tef);;TOC (*.toc);;QCF (.qcf);;TRFC (*.trfc *.trfcf);;TRD (*.trd);;ESCF (*.escf);;ADCF (*.adcf)")
+		                                          "All control files (*.tcf *.ecf *.tgc *.tbc *.tef *.toc *.qcf *.trfc *.trfcf *.trd *.escf *.adcf *.tscf);;"
+												  "TCF (*.tcf);;ECF (*.ecf);;TGC (*.tgc);;TBC (*.tbc);;TEF (*.tef);;TOC (*.toc);;QCF (.qcf);;TRFC (*.trfc *.trfcf);;TRD (*.trd);;ESCF (*.escf);;ADCF (*.adcf);;TSCF (*.tscf)")
 		if inFileName:
 			if old_method:
 				load_rasters = LoadRasterMessageBox(self.iface.mainWindow(), 'Load Rasters',

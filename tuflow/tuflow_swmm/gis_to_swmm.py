@@ -327,8 +327,7 @@ def gis_to_swmm(gpkg_filename,
     feedback.pushInfo(f'Finished writing file')
 
 
-def add_polyline_node_names(gdf_polylines: gpd.GeoDataFrame, gdf_nodes: gpd.GeoDataFrame, first_coords: bool,
-                            column_name: str) -> gpd.GeoDataFrame:
+def add_polyline_node_names(gdf_polylines, gdf_nodes, first_coords, column_name: str) :
     index = 0 if first_coords else -1
     coords = gdf_polylines["geometry"].apply(lambda g: g.coords[index])
     coords = pd.DataFrame([[x, y] for x, y in coords])

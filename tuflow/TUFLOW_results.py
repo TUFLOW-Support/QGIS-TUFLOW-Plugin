@@ -88,6 +88,8 @@ class Data_1D():
 		self.V = Timeseries()
 		self.Q = Timeseries()
 		self.A = Timeseries()
+		self.Vol = Timeseries()
+		self.QI = Timeseries()
 		self.Node_Max = Node_Max()
 		self.Chan_Max = Chan_Max()
 
@@ -338,7 +340,10 @@ class Timeseries():
 			self.nLocs = dims[0]
 			self.ID.clear()
 			for i in range(self.nLocs):
-				self.ID.append("".join([x.decode("utf-8") for x in ncopen[resType][i,:].tolist()]).strip())
+				try:
+					self.ID.append("".join([x.decode("utf-8") for x in ncopen[resType][i,:].tolist()]).strip())
+				except AttributeError:
+					self.ID.append('')
 		else:
 			return False, ""
 		self.Header = ['Timestep', 'Time'] + self.ID[:]
@@ -361,7 +366,7 @@ class Timeseries():
 			a = ncopen[resName][:,:]
 			if len(a.shape) == 3:
 				# convert 3rd dimension which is just an array of char to single string: ['E', ''] -> 'E'
-				a = numpy.array([[''.join([x.decode('UTF-8') for x in a[y,x,:]]).strip() for x in range(a.shape[1])] for y in range(a.shape[0])])
+				a = numpy.array([[''.join([x.decode('UTF-8') for x in a[y,x,:]]).strip() for x in range(a.shape[1])] for y in range(a.shape[0])], dtype='U16')
 				ndv = None
 			if a.dtype == numpy.float32:
 				a = a.astype(numpy.float64)
@@ -1116,7 +1121,27 @@ class ResData():
 	def getTSData(self, id, dom, res, geom):
 		message = None
 		if (dom.upper() == "1D"):
-			if(res.upper() in ("H", "H_", "LEVEL","LEVELS")):
+			if res.upper() in ['VOL', 'VOLUME', 'VOLUMES']:
+				if self.Data_1D.Vol.loaded:
+					try:
+						ind = self.Data_1D.Vol.Header.index(id)
+						data = self.Data_1D.Vol.Values[:,ind]
+						self.times = self.Data_1D.Vol.Values[:,1]
+						return True, data, message
+					except:
+						message = 'Data not found for 1D H with ID: '+id
+						return False, [0.0], message
+			elif res.upper() in ['FLOW INTEGRAL', 'FLOW INTEGRALS']:
+				if self.Data_1D.QI.loaded:
+					try:
+						ind = self.Data_1D.QI.Header.index(id)
+						data = self.Data_1D.QI.Values[:, ind]
+						self.times = self.Data_1D.QI.Values[:, 1]
+						return True, data, message
+					except:
+						message = 'Data not found for 1D H with ID: ' + id
+						return False, [0.0], message
+			elif(res.upper() in ("H", "H_", "LEVEL","LEVELS")):
 				if self.Data_1D.H.loaded:
 					try:
 						ind = self.Data_1D.H.Header.index(id)
@@ -2341,7 +2366,10 @@ class ResData():
 			self.loadNetCDFHeaderCDLL()
 
 	def loadNetCDFHeaderPython(self):
-		from netCDF4 import Dataset
+		try:
+			from netCDF4 import Dataset
+		except ImportError:
+			from .netCDF4_ import Dataset_ as Dataset
 		# open .nc file
 		self.ncopen = Dataset(self.netcdf_fpath)
 
@@ -2487,11 +2515,11 @@ class ResData():
 			elif dat_type == 'Simulation ID':
 				self.displayname = rdata
 			elif dat_type == 'GIS Plot Layer Points':
-				self.GIS.P = os.path.realpath(os.path.join(self.fpath, rdata[2:]))
+				self.GIS.P = os.path.realpath(Path(self.fpath) / rdata[2:].replace('\\', os.sep).replace('/', os.sep))
 			elif dat_type == 'GIS Plot Layer Lines':
-				self.GIS.L = os.path.realpath(os.path.join(self.fpath, rdata[2:]))
+				self.GIS.L = os.path.realpath(Path(self.fpath) / rdata[2:].replace('\\', os.sep).replace('/', os.sep))
 			elif dat_type == 'GIS Plot Layer Regions':
-				self.GIS.R = os.path.realpath(os.path.join(self.fpath, rdata[2:]))
+				self.GIS.R = os.path.realpath(Path(self.fpath) / rdata[2:].replace('\\', os.sep).replace('/', os.sep))
 			elif dat_type == 'GIS Plot Objects':
 				fullpath = getOSIndependentFilePath(self.fpath, rdata)
 				self.Index = PlotObjects(fullpath)
@@ -2540,6 +2568,7 @@ class ResData():
 						if self.nTypes == 1:
 							self.times = self.Data_1D.H.Values[:,1]
 				elif self.resFileFormat == "NC":
+					print(self.ncopen)
 					if self.netcdf_fpath:
 						error, message = self.Data_1D.H.loadFromNetCDF(self.netcdf_fpath, "water_levels_1d", "node_names",
 						                                               self.netCDFLib, self.ncopen, self.ncid, self.ncdll,
@@ -2548,8 +2577,52 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('1D Water Levels')
-						if self.nTypes == 1:
+						if self.Data_1D.H.loaded:
 							self.times = self.Data_1D.H.Values[:, 1]
+			elif dat_type == '1D Node Volumes':
+				if self.resFileFormat == "CSV":
+					if rdata != 'NONE':
+						fullpath = getOSIndependentFilePath(self.fpath, rdata)
+						error, message = self.Data_1D.Vol.Load(fullpath, 'Vol', self.displayname)
+						if error:
+							return error, message
+						self.nTypes = self.nTypes + 1
+						self.Types.append('1D Volumes')
+						if self.nTypes == 1:
+							self.times = self.Data_1D.Vol.Values[:,1]
+				elif self.resFileFormat == "NC":
+					if self.netcdf_fpath:
+						error, message = self.Data_1D.Vol.loadFromNetCDF(self.netcdf_fpath, "node_storage_volume_1d", "node_names",
+						                                               self.netCDFLib, self.ncopen, self.ncid, self.ncdll,
+						                                               self.ncDims, self.ncVars)
+						if error:
+							return error, message
+						self.nTypes = self.nTypes + 1
+						self.Types.append('1D Volumes')
+						if self.Data_1D.Vol.loaded:
+							self.times = self.Data_1D.Vol.Values[:, 1]
+			elif dat_type == '1D Flow Integrals':
+				if self.resFileFormat == "CSV":
+					if rdata != 'NONE':
+						fullpath = getOSIndependentFilePath(self.fpath, rdata)
+						error, message = self.Data_1D.QI.Load(fullpath, 'QI', self.displayname)
+						if error:
+							return error, message
+						self.nTypes = self.nTypes + 1
+						self.Types.append('1D Flow Integral')
+						if self.nTypes == 1:
+							self.times = self.Data_1D.QI.Values[:,1]
+				elif self.resFileFormat == "NC":
+					if self.netcdf_fpath:
+						error, message = self.Data_1D.QI.loadFromNetCDF(self.netcdf_fpath, "integral_flow_1d", "channel_names",
+						                                               self.netCDFLib, self.ncopen, self.ncid, self.ncdll,
+						                                               self.ncDims, self.ncVars)
+						if error:
+							return error, message
+						self.nTypes = self.nTypes + 1
+						self.Types.append('1D Flow Integral')
+						if self.Data_1D.QI.loaded:
+							self.times = self.Data_1D.QI.Values[:, 1]
 			elif dat_type == '1D Energy Levels':
 				if self.resFileFormat == "CSV":
 					if rdata != 'NONE':
@@ -2570,7 +2643,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('1D Energy Levels')
-						if self.nTypes == 1:
+						if self.Data_1D.E.loaded:
 							self.times = self.Data_1D.E.Values[:, 1]
 			elif dat_type == 'Reporting Location Points Water Levels':
 				if self.resFileFormat == "CSV":
@@ -2593,7 +2666,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('RL Water Levels')
-						if self.nTypes == 1:
+						if self.Data_RL.H_P.loaded:
 							self.times = self.Data_RL.H_P.Values[:, 1]
 			elif dat_type == 'Reporting Location Lines Flows':
 				if self.resFileFormat == "CSV":
@@ -2616,7 +2689,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('RL Flows')
-						if self.nTypes == 1:
+						if self.Data_RL.Q_L.loaded == 1:
 							self.times = self.Data_RL.Q_L.Values[:, 1]
 			elif dat_type == 'Reporting Location Regions Volumes':
 				if self.resFileFormat == "CSV":
@@ -2647,7 +2720,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('RL Region Volume')
-						if self.nTypes == 1:
+						if self.Data_RL.Vol_R.loaded:
 							self.times = self.Data_RL.Vol_R.Values[:, 1]
 			elif dat_type == '1D Node Maximums':
 				if rdata != 'NONE':
@@ -2683,7 +2756,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('1D Flows')
-						if self.nTypes == 1:
+						if self.Data_1D.Q.loaded:
 							self.times = self.Data_1D.Q.Values[:, 1]
 			elif dat_type == '1D Flow Areas':
 				if self.resFileFormat == "CSV":
@@ -2707,7 +2780,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('1D Flow Area')
-						if self.nTypes == 1:
+						if self.Data_1D.A.loaded:
 							self.times = self.Data_1D.A.Values[:, 1]
 			elif dat_type == '1D Velocities':
 				if self.resFileFormat == "CSV":
@@ -2731,7 +2804,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('1D Velocities')
-						if self.nTypes == 1:
+						if self.Data_1D.V.loaded:
 							self.times = self.Data_1D.V.Values[:, 1]
 			elif dat_type.find('2D Line Flow Area') >= 0:
 				if self.resFileFormat == "CSV":
@@ -2763,7 +2836,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Line Flow Area')
-						if self.nTypes == 1:
+						if self.Data_2D.QA.loaded:
 							self.times = self.Data_2D.QA.Values[:, 1]
 			elif dat_type.find('2D Line Flow') >= 0:
 				if self.resFileFormat == "CSV":
@@ -2798,7 +2871,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Line Flow')
-						if self.nTypes == 1:
+						if self.Data_2D.Q.loaded:
 							self.times = self.Data_2D.Q.Values[:, 1]
 			elif dat_type.find('2D Line X-Flow') >= 0:
 				if self.resFileFormat == "CSV":
@@ -2826,7 +2899,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Line X-Flow')
-						if self.nTypes == 1:
+						if self.Data_2D.Qx.loaded == 1:
 							self.times = self.Data_2D.Qx.Values[:, 1]
 			elif dat_type.find('2D Line Y-Flow') >= 0:
 				if self.resFileFormat == "CSV":
@@ -2854,7 +2927,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Line Y-Flow')
-						if self.nTypes == 1:
+						if self.Data_2D.Qy.loaded:
 							self.times = self.Data_2D.Qy.Values[:, 1]
 			elif dat_type.find('2D Point Gauge Level') >= 0:
 				if self.resFileFormat == "CSV":
@@ -2888,7 +2961,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Point Gauge Level')
-						if self.nTypes == 1:
+						if self.Data_2D.GL.loaded == 1:
 							self.times = self.Data_2D.GL.Values[:, 1]
 			elif dat_type.find('2D Point Water Level') >= 0:
 				if self.resFileFormat == "CSV":
@@ -2923,7 +2996,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Point Water Level')
-						if self.nTypes == 1:
+						if self.Data_2D.H.loaded:
 							self.times = self.Data_2D.H.Values[:, 1]
 			elif dat_type.find('2D Point Depth') >= 0:
 				if self.resFileFormat == "CSV":
@@ -2958,7 +3031,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Point Depth')
-						if self.nTypes == 1:
+						if self.Data_2D.D.loaded:
 							self.times = self.Data_2D.D.Values[:, 1]
 			elif dat_type.find('2D Point X-Vel') >= 0:
 				if self.resFileFormat == "CSV":
@@ -2992,7 +3065,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Point X-Vel')
-						if self.nTypes == 1:
+						if self.Data_2D.Vx.loaded:
 							self.times = self.Data_2D.Vx.Values[:, 1]
 			elif dat_type.find('2D Point Y-Vel') >= 0:
 				if self.resFileFormat == "CSV":
@@ -3026,7 +3099,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Point Y-Vel')
-						if self.nTypes == 1:
+						if self.Data_2D.Vy.loaded:
 							self.times = self.Data_2D.Vy.Values[:, 1]
 			elif dat_type.find('2D Point u-Vel') >= 0:
 				if self.resFileFormat == "CSV":
@@ -3054,7 +3127,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Point u-Vel')
-						if self.nTypes == 1:
+						if self.Data_2D.Vu.loaded:
 							self.times = self.Data_2D.Vu.Values[:, 1]
 			elif dat_type.find('2D Point v-Vel') >= 0:
 				if self.resFileFormat == "CSV":
@@ -3082,7 +3155,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Point v-Vel')
-						if self.nTypes == 1:
+						if self.Data_2D.Vv.loaded:
 							self.times = self.Data_2D.Vv.Values[:, 1]
 			elif dat_type.find('2D Point Flow Direction') >= 0:
 				if self.resFileFormat == "CSV":
@@ -3110,7 +3183,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Point Velocity Angle')
-						if self.nTypes == 1:
+						if self.Data_2D.VA.loaded:
 							self.times = self.Data_2D.VA.Values[:, 1]
 			elif dat_type.find('2D Point Velocity') >= 0:
 				if self.resFileFormat == "CSV":
@@ -3143,7 +3216,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Point Velocity')
-						if self.nTypes == 1:
+						if self.Data_2D.V.loaded:
 							self.times = self.Data_2D.V.Values[:, 1]
 			elif dat_type.find('2D Line Integral Flow') >= 0:
 				if self.resFileFormat == "CSV":
@@ -3176,7 +3249,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Line Integral Flow')
-						if self.nTypes == 1:
+						if self.Data_2D.QI.loaded:
 							self.times = self.Data_2D.QI.Values[:, 1]
 			elif dat_type.find('2D Line Structure Flow') >= 0:
 				if self.resFileFormat == "CSV":
@@ -3209,7 +3282,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Line Structure Flow')
-						if self.nTypes == 1:
+						if self.Data_2D.QS.loaded:
 							self.times = self.Data_2D.QS.Values[:, 1]
 			elif dat_type.find('2D Line U/S Structure Water') >= 0:
 				if self.resFileFormat == "CSV":
@@ -3242,7 +3315,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D US Levels')
-						if self.nTypes == 1:
+						if self.Data_2D.HUS.loaded:
 							self.times = self.Data_2D.HUS.Values[:, 1]
 			elif dat_type.find('2D Line D/S Structure Water') >= 0:
 				if self.resFileFormat == "CSV":
@@ -3275,7 +3348,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D DS Levels')
-						if self.nTypes == 1:
+						if self.Data_2D.HDS.loaded:
 							self.times = self.Data_2D.HDS.Values[:, 1]
 			elif dat_type.find('2D Region Average Water Level') >= 0:
 				if self.resFileFormat == "CSV":
@@ -3308,7 +3381,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Region Average Water Level')
-						if self.nTypes == 1:
+						if self.Data_2D.HAvg.laoded:
 							self.times = self.Data_2D.HAvg.Values[:, 1]
 			elif dat_type.find('2D Region Max Water Level') >= 0:
 				if self.resFileFormat == "CSV":
@@ -3341,7 +3414,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Region Max Water Level')
-						if self.nTypes == 1:
+						if self.Data_2D.HMax.loaded:
 							self.times = self.Data_2D.HMax.Values[:, 1]
 			elif dat_type.find('2D Region Flow into Region') >= 0:
 				if self.resFileFormat == "CSV":
@@ -3373,7 +3446,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Region Flow into')
-						if self.nTypes == 1:
+						if self.Data_2D.QIn.loaded:
 							self.times = self.Data_2D.QIn.Values[:, 1]
 			elif dat_type.find('2D Region Flow out of Region') >= 0:
 				if self.resFileFormat == "CSV":
@@ -3405,7 +3478,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Region Flow out of')
-						if self.nTypes == 1:
+						if self.Data_2D.QOut.loaded:
 							self.times = self.Data_2D.QOut.Values[:, 1]
 			elif dat_type.find('2D Region Volume') >= 0:
 				if self.resFileFormat == "CSV":
@@ -3437,7 +3510,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Region Volume')
-						if self.nTypes == 1:
+						if self.Data_2D.Vol.loaded:
 							self.times = self.Data_2D.Vol.Values[:, 1]
 			elif dat_type.find('Region Sink/Source') >= 0:
 				if self.resFileFormat == "CSV":
@@ -3469,7 +3542,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('2D Region Sink/Source')
-						if self.nTypes == 1:
+						if self.Data_2D.SS.loaded:
 							self.times = self.Data_2D.SS.Values[:, 1]
 			elif dat_type == 'Reporting Location Points Maximums':
 				if rdata != 'NONE':
@@ -3511,7 +3584,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('1D Mass Balance Error')
-						if self.nTypes == 1:
+						if self.Data_1D.MB.loaded:
 							self.times = self.Data_1D.MB.Values[:, 1]
 			elif dat_type == "1D Node Regime":
 				if self.resFileFormat == "CSV":
@@ -3535,7 +3608,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('1D Node Flow Regime')
-						if self.nTypes == 1:
+						if self.Data_1D.NF.loaded:
 							self.times = self.Data_1D.NF.Values[:, 1]
 			elif dat_type == "1D Channel Regime":
 				if self.resFileFormat == "CSV":
@@ -3559,7 +3632,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('1D Channel Flow Regime')
-						if self.nTypes == 1:
+						if self.Data_1D.CF.loaded:
 							self.times = self.Data_1D.CF.Values[:, 1]
 			elif dat_type == "1D Channel Losses":
 				if self.resFileFormat == "CSV":
@@ -3583,7 +3656,7 @@ class ResData():
 							return error, message
 						self.nTypes = self.nTypes + 1
 						self.Types.append('1D Channel Losses')
-						if self.nTypes == 1:
+						if self.Data_1D.CL.loaded:
 							self.times = self.Data_1D.CL.Values[:, 1]
 			elif dat_type == 'Reference Time':
 				self.reference_time = parse(rdata.strip())
@@ -3641,6 +3714,8 @@ class ResData():
 				types.append("VA")
 			elif 'POINT VELOCITY' in type.upper():
 				types.append('Velocity')
+			elif 'VOLUME' in type.upper() and '1D' in type.upper():
+				types.append('Volume')
 			elif '1D MASS BALANCE ERROR' in type.upper():
 				types.append('MB')
 			elif '1D NODE FLOW REGIME' in type.upper():
@@ -3670,6 +3745,8 @@ class ResData():
 			elif 'LINE FLOW AREA' in type.upper():
 				types.append('Flow Area')
 			elif 'LINE INTEGRAL FLOW' in type.upper():
+				types.append('Flow Integral')
+			elif '1D FLOW INTEGRAL' in type.upper():
 				types.append('Flow Integral')
 			elif 'US LEVELS' in type.upper():
 				types.append('US Levels')

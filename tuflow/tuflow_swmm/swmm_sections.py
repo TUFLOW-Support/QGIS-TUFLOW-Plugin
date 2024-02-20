@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime, date
 from enum import Enum
 from itertools import chain
-from typing import List, Any, Sequence
+from typing import List, Any, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -105,11 +105,11 @@ class SwmmSection:
     def __init__(self,
                  name: str,
                  prefix: str,
-                 geomtype: GeometryType | None,
+                 geomtype: Union[GeometryType, None],
                  sec_type: SectionType,
                  cols_common_start: Sequence[tuple[str, Any]],
                  cols_keywords: dict[str, Sequence[tuple[str, Any]]] = None,
-                 keyword_col: int | None = None,
+                 keyword_col: Union[int, None] = None,
                  cols_common_end: Sequence[tuple[str, Any]] | None = None):
         self.name = name
         self.prefix = prefix

@@ -2284,7 +2284,7 @@ class TuResults():
 			else:
 				timeSpec = 1
 		begin = dt2qdt(time, 1)
-		end = begin.addSecs(self.output_timestep() * 60. * 60.)
+		end = begin.addSecs(int(self.output_timestep() * 60. * 60.))
 		dtr = QgsDateTimeRange(begin, end)
 		if qgsObject is not None:
 			if qv >= 31300 and self.iface is not None:

@@ -1,3 +1,5 @@
+import json
+
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis._core import QgsProcessingParameterBoolean, QgsProcessingParameterString, QgsProcessingModelGroupBox, \
     QgsProcessingParameterCrs
@@ -13,6 +15,8 @@ import time
 import re
 import os
 from pathlib import Path
+
+from ..gui.processing.processsing_param_conv_tuf_model_format_dir_settings import ProcessingParameterConvTufModelDirSettings
 
 
 CONTROL_FILES = [
@@ -55,6 +59,7 @@ def globify(text):
 
 def count_lines(file, write_empty=False):
     from ..convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.empty_files import TuflowEmptyFiles
+    from ..convert_tuflow_model_gis_format.conv_tf_gis_format.helpers.file import TuflowPath
 
     line_count = 0
     if os.path.exists(file):
@@ -67,7 +72,7 @@ def count_lines(file, write_empty=False):
                     line_count += 1
                     if value.upper() == 'AUTO' or command.upper() == 'ESTRY CONTROL FILE AUTO':
                         value = '{0}.ecf'.format(os.path.splitext(os.path.basename(value))[0])
-                    value = (Path(file).parent / value).resolve()
+                    value = (TuflowPath(file).parent / value).resolve()
                     value = os.path.relpath(value, Path(file).parent.resolve())
                     value = globify(value)
                     for cf in Path(file).parent.glob(value):
@@ -128,6 +133,16 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
         param = QgsProcessingParameterBoolean('tuflow_dir_struct', 'Force TUFLOW Directory Structure')
         param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
         self.addParameter(param)
+
+        struct_json = Path(__file__).parent.parent / 'convert_tuflow_model_gis_format' / 'conv_tf_gis_format' / 'data' / 'dir_relationships.json'
+        with struct_json.open() as fo:
+            default_struct = json.load(fo)
+        param = ProcessingParameterConvTufModelDirSettings('tuflow_dir_struct_settings',
+                                                           'TUFLOW Directory Structure Settings',
+                                                           optional=True,
+                                                           default=default_struct)
+        param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        self.addParameter(param)
         
     def processAlgorithm(self, parameters, context, model_feedback):
         line_count = count_lines(parameters['tcf'], parameters['write_empties']) + 3
@@ -169,6 +184,7 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
             args.extend(['-crs', parameters['output_crs'].toWkt()])
         if parameters['tuflow_dir_struct']:
             args.append('-tuflow-dir-struct')
+            args.extend(['-tuflow-dir-struct-settings', json.dumps(parameters['tuflow_dir_struct_settings'])])
 
         feedback.pushInfo('args: {0}'.format(args[3:]))
 

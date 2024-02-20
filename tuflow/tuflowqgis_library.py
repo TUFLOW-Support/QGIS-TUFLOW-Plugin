@@ -4498,6 +4498,8 @@ class LoadGisFromControlFile(QObject):
                     settings_.process_spatial_database_command(command.value)
 
                 elif command.is_control_file() or command.is_read_file():
+                    if command.is_quadtree_single_level():
+                        continue
                     i = -1
                     for i, file in enumerate(command.iter_files(settings_)):
                         cf = file.resolve()
@@ -4564,10 +4566,7 @@ class LoadGisFromControlFile(QObject):
                         crs = QgsCoordinateReferenceSystem(settings_.projection_wkt)
                     else:
                         from qgis.utils import iface
-                        if iface is not None:
-                            crs = iface.mapCanvas().crs()
-                        else:
-                            crs = QgsProject.instance().crs()
+                        crs = QgsProject.instance().crs()
                     output_path = str(command.value_.with_suffix('.gpkg'))
                     if not os.path.exists(output_path):
                         try:
@@ -8062,7 +8061,11 @@ def getNetCDFLibrary():
         from netCDF4 import Dataset
         return "python", None
     except ImportError:
-        pass
+        try:
+            from .netCDF4_ import Dataset_ as Dataset
+            return 'python', None
+        except ImportError:
+            pass
 
     try:
         from qgis.core import QgsApplication
@@ -9503,6 +9506,8 @@ def getOutputDirs(path, settings=None):
                     else:
                         pattern = '{0}*{1}'.format(Path(pattern).with_suffix(''), Path(pattern).suffix)
                         re_name_ = r'{0}\{1}'.format(re_name, Path(pattern).suffix)
+                else:
+                    re_name_ = re_name
                 for file in parent.glob(pattern):
                     # re_name_ = r'{0}\{1}'.format(re_name, file.suffix)
                     if re.findall(re_name_, file.name) and file not in output_paths:

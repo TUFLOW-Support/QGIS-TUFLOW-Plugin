@@ -758,7 +758,10 @@ class TuResults1D():
 					continue
 				if 1 not in resVersion:
 					if is_plot_lyr:
-						id_ = f['ID'].strip()
+						try:
+							id_ = f['ID'].strip()
+						except (AttributeError):
+							continue
 						if id_ not in self.ids:
 							self.ids.append(f['ID'].strip())
 							self.sources.append(f['Source'].strip())

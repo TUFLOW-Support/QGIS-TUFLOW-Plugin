@@ -168,7 +168,6 @@ class ConvertGISInletLayer(QgsProcessingAlgorithm):
                 self.tr('Inlet connection width'),
                 QgsProcessingParameterNumber.Double,
                 defaultValue=5.0,
-                minValue=0.001,
                 optional=False,
             )
         )
