@@ -147,6 +147,9 @@ class TmoToPoints_CustomDialog(AlgorithmDialog):
                 times_cbo.clear()
             return
 
+        if not hasattr(self, 'tmo_file'):
+            return
+
         if tmo_file_value == self.tmo_file:
             return
 
@@ -243,16 +246,20 @@ class TmoToPoints(QgsProcessingAlgorithm):
             field.SetWidth(15)
             field.SetPrecision(5)
             lyr.CreateField(field)
+            field = ogr.FieldDefn('Domain', ogr.OFTInteger)
+            lyr.CreateField(field)
 
             # iterate through points and create feature
             self.count = 0
             dataset.StartTransaction()
             for point in tmo.data_at_time(parameters['times'], self.call_back_log, self.call_back_prog):
+                x, y, val, dom_ind = point
                 feat = ogr.Feature(lyr.GetLayerDefn())
                 geom = ogr.Geometry(ogr.wkbPoint)
-                geom.AddPoint(point[0], point[1])
+                geom.AddPoint(x, y)
                 feat.SetGeometry(geom)
-                feat.SetField(0, float(point[2]))
+                feat.SetField(0, float(val))
+                feat.SetField(1, int(dom_ind))
                 lyr.CreateFeature(feat)
                 feat = None
             dataset.CommitTransaction()

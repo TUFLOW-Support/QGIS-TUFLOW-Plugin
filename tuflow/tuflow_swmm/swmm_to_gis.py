@@ -1,3 +1,4 @@
+import locale
 import os
 
 os.environ['USE_PYGEOS'] = '0'
@@ -176,8 +177,11 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
     for swmm_section in swmm_section_list:
         if swmm_section.geometry == swmm_sections.GeometryType.NODES and \
                 swmm_section.section_type != swmm_sections.SectionType.GEOMETRY:
-            df = dfs[swmm_section.name]
-            if df is None:
+            try:
+                df = dfs[swmm_section.name]
+                if df is None:
+                    continue
+            except:
                 continue
             id_col = 'Name' if 'Name' in df.columns else 'Node'
             if gdf_coords is not None:
@@ -476,6 +480,9 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
     if not Path(output_filename).exists():
         swmm_io.write_tuflow_version(output_filename)
 
+    # print(swmm_section_list)
+    # print(gdfs.keys())
+    # print(dfs.keys())
     for i, swmm_section in enumerate(swmm_section_list):
         if swmm_section.name in sections_to_not_write:
             continue
@@ -521,8 +528,8 @@ if __name__ == "__main__":
     #    )
     # ]
 
-    folder = Path(r"D:\models\TUFLOW\test_models\SWMM\EPA_examples\Samples_conv")
-    pattern = '*.inp'
+    folder = Path(r"D:\models\TUFLOW\test_models\SWMM\internal\PCSWMM_France")
+    pattern = '*Copy.inp'
 
     files = list(folder.glob(pattern))
     files = list(filter(lambda x: str(x).find('_conv.inp') == -1, files))

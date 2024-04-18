@@ -187,6 +187,7 @@ def xpswmm_2d_capture_to_swmm(
     gdf_inlet_usage_ext['wLocal'] = 0.0
     gdf_inlet_usage_ext['Placement'] = 'ON_SAG'
 
+    print(gdf_inlet_usage_ext)
     gdf_inlet_usage_ext.to_file(output_iu_file,
                                 layer='inlet_usage',
                                 driver='GPKG')
@@ -202,21 +203,21 @@ if __name__ == "__main__":
     pd.set_option('display.width', 300)
     pd.set_option('max_colwidth', 100)
 
-    folder = Path(r'D:\models\XPSWMM\GettingStarted_20230703\working\17 - 2D Urban Flooding\encrypted\gis_export')
-    gis_input = folder / 'urbandrainage_node_info.mif'
+    folder = Path(r'D:\models\TUFLOW\test_models\SWMM\SanAntonio\BMT\TUFLOW\model\swmm')
+    gis_input = folder / 'exported_nodes.mif'
 
     field_node_name = 'NodeName'
-    field_elev = 'SpillCrest'
+    field_elev = 'GroundElevation'
     field_2d_capture_flag = 'Node2DInflowCaptureFlag'
-    field_2d_capture_coeff = 'Capture2DCoeff'
-    field_2d_capture_exponent = 'Capture2DExponent'
+    field_2d_capture_coeff = '2DInflowCaptureCoefficient'
+    field_2d_capture_exponent = '2DInflowCaptureExponent'
 
-    connection_width = 2.0
+    connection_width = 5.0
 
     crs = 'PROJCRS["unnamed",BASEGEOGCRS["unnamed",DATUM["GRS_80",ELLIPSOID["GRS 80",6378137,298.257222101,LENGTHUNIT["metre",1,ID["EPSG",9001]]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]]],CONVERSION["Transverse Mercator",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",147,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",10000000,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1,ID["EPSG",9001]]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1,ID["EPSG",9001]]]]'
 
-    output_inp_file = folder / 'urbandrainage_xp_convert.inp'
-    output_iu_file = folder / 'urbandrainage_iu.gpkg'
+    output_inp_file = folder / 'test_xp_convert.inp'
+    output_iu_file = folder / 'test_iu.gpkg'
 
     xpswmm_2d_capture_to_swmm(
         gis_input,

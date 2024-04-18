@@ -131,7 +131,9 @@ def ctype_value2value(ctype_value, size, dtype):
         if not size:
             return
         if dtype == np.dtype('S1') or dtype == np.dtype('U'):
-            return ctype_value.value.decode('utf-8')
+            if size == 1:
+                return ctype_value.value.decode('utf-8')
+            return np.array([ctype_value[i] for i in range(size)], dtype=dtype)
         if size == 1:
             return ctype_value.contents.value
         return np.array([ctype_value[i] for i in range(size)], dtype=dtype)

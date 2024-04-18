@@ -8,7 +8,6 @@ from PyQt5.QtCore import pyqtSignal
 
 netcdf_loaded = False
 try:
-    raise ImportError
     from netCDF4 import Dataset
     netcdf_loaded = True
 except ImportError:

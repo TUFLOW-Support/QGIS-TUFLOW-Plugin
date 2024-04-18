@@ -679,10 +679,15 @@ class SwmmSection:
                     row_vals = {x: None for x in keyword_cols.keys()}
 
                     key_val = row[self.keyword_col].upper()
-                    # print(key_val)
+
+                    if key_val not in self.cols_keywords:
+                        if 'Default' not in self.cols_keywords:
+                            feedback.reportError(
+                                f'Unknown keyword {key_val} used for row {irow + 1} of section {self.name}',
+                                fatalError=True)
+
                     key_definitions = self.cols_keywords[key_val] if key_val in self.cols_keywords else \
                         self.cols_keywords['Default']
-                    # print(key_definitions)
 
                     last_key_col = i_first_key_col
                     if key_definitions is not None:
@@ -1322,6 +1327,7 @@ def swmm_section_definitions() -> list[SwmmSection]:
              ),
             {
                 'FREE': None,
+                'NORMAL': None,
                 'FIXED': (('Stage', str),),
                 'TIDAL': (('Tcurve', str),),
                 'TIMESERIES': (('Tseries', str),),

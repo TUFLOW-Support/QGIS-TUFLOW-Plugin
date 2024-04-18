@@ -1,0 +1,7 @@
+!________________________________________________________
+! EVENT DEFINITIONS
+
+! e.g. of an event definition
+! Define Event == Q100
+	! BC Event Source == ~EVENT~ | 100yr2hr
+! End Define	

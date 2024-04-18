@@ -75,6 +75,8 @@ bom_raw_fname = None  # str or None
 arr_raw_fname = None  # str or None
 catchment_no = 0  # used in batch mode if specifying more than one catchment. Iterate in cmd to append catchments.
 limb_data = None
+all_point_tp = False
+add_areal_tp = 0
 
 # batch inputs (system/cmd arguments). If not running from GIS, will use above inputs as defaults so be careful.
 try:
@@ -127,7 +129,7 @@ arg_map = {'name': 0, 'coords': 1, 'area': 2, 'mag': 3, 'dur': 4, 'nonstnd': 5, 
            'urban_initial_loss': 21, 'urban_continuing_loss': 22,
            'global_continuing_loss': 22.5, 'addtp': 23,
            'point_tp': 24, 'areal_tp': 25, 'arffreq': 26, 'minarf': 27, 'out': 28, 'offline_mode': 29, 'arr_file': 30,
-           'bom_file': 31, 'catchment_no': 32, 'limb': 33}
+           'bom_file': 31, 'catchment_no': 32, 'limb': 33, 'all_point_tp': 34, 'add_areal_tp': 35}
 for key in sorted(args, key=lambda k: arg_map[k]):
     value = args[key]
     #print('{0}={1};'.format(key, ",".join(map(str,value))))
@@ -450,6 +452,12 @@ if 'limb' in args.keys():
         limb_data = None
     else:
         limb_data = args['limb'][0].lower()
+
+# additional temporal patterns
+if 'all_point_tp' in args.keys():
+    all_point_tp = True if args['all_point_tp'][0].lower() == 'true' else False
+if 'add_areal_tp' in args.keys():
+    add_areal_tp = int(args['add_areal_tp'][0])
         
 warnings = []
 
@@ -780,11 +788,13 @@ if access_web:
                     logger.info('skipping step...')
 
 # load from file
+# import pydevd_pycharm
+# pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
 ARR = ARR_WebRes.Arr()
 try:
     ARR.load(arr_raw_fname, catchment_area, add_tp=add_tp, point_tp=point_tp_csv, areal_tp=areal_tp_csv,
              user_initial_loss=user_initial_loss, user_continuing_loss=user_continuing_loss,
-             areal_tp_download=areal_tp_download, limb_data=limb_data)
+             areal_tp_download=areal_tp_download, limb_data=limb_data, add_areal_tp=add_areal_tp)
 except Exception as e:
     logger.error("ERROR: Unable to load ARR data: {0}".format(e))
     logging.shutdown()
@@ -839,7 +849,8 @@ try:
                use_complete_storm=bComplete_storm, preburst_pattern_method=preburst_pattern_method,
                preburst_pattern_dur=preburst_pattern_dur, preburst_pattern_tp=preburst_pattern_tp,
                preburst_dur_proportional=bPreburst_dur_proportional,
-               use_global_continuing_loss=use_global_continuing_loss)
+               use_global_continuing_loss=use_global_continuing_loss,
+               all_point_tp=all_point_tp)
 except Exception as e:
     #print('ERROR: Unable to export data: {0}'.format(e))
     try:

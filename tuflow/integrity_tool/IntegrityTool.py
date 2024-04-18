@@ -185,10 +185,11 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                         if question != QMessageBox.Yes:
                             return
                     if inputType == 'lines':
+                        i = 2 if layer.storageType() == 'GPKG' else 1
                         for f in layer.getFeatures():
-                            if isinstance(f.attribute(1), QVariant):
+                            if isinstance(f.attribute(i), QVariant):
                                 QMessageBox.critical(self, "Integrity Tool",
-                                                     "Feature type must be character or string type (cannot be blank "
+                                                     'Feature "Type" must be populated (cannot be blank '
                                                      "or NULL).\nLayer: {0}\nFID: {1}".format(layer.name(), f.id()))
                                 return
                 else:  # tables
@@ -238,8 +239,12 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             elif self.tabWidget.currentIndex() == TOOL_TYPE.NullGeometry:
                 self.runNullGeometryTool()
 
-            QgsProject.instance().addMapLayer(self.outputLyr)
-            tuflowqgis_apply_check_tf_clayer(self.iface, layer=self.outputLyr)
+            try:
+                if self.outputLyr:
+                    QgsProject.instance().addMapLayer(self.outputLyr)
+                    tuflowqgis_apply_check_tf_clayer(self.iface, layer=self.outputLyr)
+            except RuntimeError:
+                self.outputLyr = None
 
         except Exception:
             # unexpected error
@@ -898,7 +903,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         """
 
         self.currentStep += 1
-        pComplete = (self.currentStep / self.maxProgressSteps) * 100
+        pComplete = int((self.currentStep / self.maxProgressSteps) * 100)
         self.progressBar.setValue(pComplete)
         QgsApplication.processEvents()
 

@@ -27,7 +27,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 import logging
 
-from tuflow.toc.toc import findAllRasterLyrs, findAllMeshLyrs, findAllVectorLyrs
+from tuflow.toc.toc import findAllRasterLyrs, findAllMeshLyrs, findAllVectorLyrs, tuflowqgis_find_layer
 
 # import processing
 from .tuflowqgis_library import *
@@ -1071,7 +1071,10 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 		#QObject.connect(self.browseexe, SIGNAL("clicked()"), self.browse_exe)
 		self.browseexe.clicked.connect(self.browse_exe)
 		#QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
-		self.buttonBox.accepted.connect(self.run)
+		# self.buttonBox.accepted.connect(self.run)
+		self.pbCancel.clicked.connect(self.reject)
+		self.pbOk.clicked.connect(self.run)
+		self.pbKillRun.clicked.connect(self.kill_run)
 
 		files = glob.glob(unicode(self.runfolder)+os.path.sep+"*.tcf")
 		self.tcfin=''
@@ -1081,6 +1084,23 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 		if (len(self.tcfin)>3):
 			self.tcf.setText(self.tcfin)
 
+		self.prog_inc = 0
+		self.progressText.hide()
+		self.pbKillRun.hide()
+		self._kill_run = False
+		self._running = False
+
+	def accept(self):
+		if self._running:
+			self.run_tuflow.terminate()
+			self._running = False
+		super().accept()
+
+	def reject(self):
+		if self._running:
+			self.run_tuflow.terminate()
+			self._running = False
+		super().reject()
 
 	def browse_tcf(self):
 		# Get the file name
@@ -1115,13 +1135,61 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 		#if head <> os.sep and head.lower() <> 'c:\\' and head <> '':
 		#	self.tfsettings.setValue("TUFLOW_Run_TUFLOW/exeDir", head)
 
+	def on_error(self, err):
+		self._running = False
+		QMessageBox.critical(self, 'Run TUFLOW', err)
+
+	def on_finish(self, text):
+		self._running = False
+		dlg = QDialog(parent=self)
+		dlg.setWindowTitle('TUFLOW')
+		layout = QHBoxLayout()
+		html_edit = QTextBrowser()
+		html_edit.setHtml(self.text2html(text))
+		layout.addWidget(html_edit)
+		dlg.setLayout(layout)
+		dlg.resize(800, 600)
+		dlg.exec_()
+
+	def update(self, finished):
+		if not finished:
+			self.prog_inc += 1
+			if self.prog_inc > 5:
+				self.prog_inc = 1
+			text = 'TUFLOW Running' + ' .' * self.prog_inc
+			self.progressText.setText(text)
+		else:
+			self.progressText.hide()
+			self.pbKillRun.hide()
+			self.pbOk.setEnabled(True)
+		return self._kill_run
+
+	def text2html(self, text):
+		text_ = text.replace('\r\n', '<p>')
+		text_ = text_.replace(' ', '&nbsp;')
+		text_ = '<tt>{0}</tt>'.format(text_)
+		return text_
+
+	def kill_run(self):
+		self._kill_run = True
+
 	def run(self):
 		tcf = unicode(self.tcf.displayText()).strip()
 		tfexe = unicode(self.TUFLOW_exe.displayText()).strip()
-		QMessageBox.information(self.iface.mainWindow(), "Running TUFLOW","Starting simulation: "+tcf+"\n Executable: "+tfexe)
-		message = run_tuflow(self.iface, tfexe, tcf)
-		if message != None:
-			QMessageBox.critical(self.iface.mainWindow(), "Running TUFLOW", message)
+		capture_output = self.cbCaptureOutput.isChecked()
+		if capture_output:
+			self.progressText.setText('TUFLOW Running')
+			self.progressText.show()
+			self.pbKillRun.show()
+		self.prog_inc = 0
+		self._kill_run = False
+		self.run_tuflow = RunTuflow(tfexe, tcf, capture_output, self.update)
+		self.run_tuflow.finished.connect(self.on_finish)
+		self.run_tuflow.error.connect(self.on_error)
+		self.run_tuflow.run()
+		if capture_output:
+			self.pbOk.setEnabled(False)
+			self._running = True
 
 # ----------------------------------------------------------
 #    tuflowqgis points to lines
@@ -2535,6 +2603,9 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		if self.cbLIMB.isChecked():
 			limb = self.cboLIMB.currentText()
 
+		# additional temporal patterns (from the same region)
+		all_point_tp = str(self.cbUseAllPointTP.isChecked())
+		add_areal_tp = str(self.sbNoAdditionalTP.value()) if self.cbAddArealTP.isChecked() else '0'
 		
 		# get system arguments and call ARR2016 tool
 		# use QThread so that progress bar works properly
@@ -2561,7 +2632,8 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			            '-preburst_pattern_dur', preburst_pattern_dur, '-preburst_pattern_tp', preburst_pattern_tp,
 			            '-preburst_dur_proportional', preburst_proportional,
 			            '-global_continuing_loss', globalCL,
-			            '-limb', limb]
+			            '-limb', limb,
+						'-all_point_tp', all_point_tp, '-add_areal_tp', add_areal_tp]
 			self.arr2016.append(sys_args, name_list[i])
 			
 		self.arr2016.moveToThread(self.thread)
@@ -2727,7 +2799,7 @@ class Arr2016(QObject):
 							if type(err) is bytes:
 								err = err.decode('utf-8')
 							errors += '{0} - {1}'.format(self.name_list[i], err)
-					except:
+					except Exception as e:
 						try:
 							proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 							out, err = proc.communicate()

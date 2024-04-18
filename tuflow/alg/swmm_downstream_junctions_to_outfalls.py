@@ -113,7 +113,7 @@ class DownstreamJunctionsToOutfalls(QgsProcessingAlgorithm):
                 self.tr('Input conduits (starts with Links--)'),
                 self.mapLayerHelperLinks.getMapLayerNames(),
                 allowMultiple=True,
-                optional=True,
+                optional=False,
             )
         )
 

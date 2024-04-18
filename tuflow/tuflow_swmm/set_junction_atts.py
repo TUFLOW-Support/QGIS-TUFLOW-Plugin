@@ -68,6 +68,9 @@ def get_junction_atts(features_junctions,
         feedback.reportError(message)
         return
 
+    # import pydevd_pycharm
+    # pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
+
     gdf_junct = gpd.GeoDataFrame.from_features(features_junctions)
 
     gdf_inlet_usage = None
@@ -76,8 +79,8 @@ def get_junction_atts(features_junctions,
         for lay_inlet_usage in lays_inlet_usage:
             gdfs_inlet_usage.append(gpd.GeoDataFrame.from_features(lay_inlet_usage.getFeatures()))
 
-        for gdf in gdfs_inlet_usage:
-            feedback.pushInfo(f'Columns: {", ".join([str(c) for c in gdf.columns])}')
+        # for gdf in gdfs_inlet_usage:
+        #    feedback.pushInfo(f'     Columns: {", ".join([str(c) for c in gdf.columns])}')
         gdf_inlet_usage = pd.concat(gdfs_inlet_usage, axis=0)
         gdf_inlet_usage = gdf_inlet_usage[['geometry', 'Inlet', 'Elevation']]
 
@@ -94,7 +97,10 @@ def get_junction_atts(features_junctions,
 
     gdfs_subcatch = []
     for lay_subcatch in lays_subcatch:
-        gdfs_subcatch.append(gpd.GeoDataFrame.from_features(lay_subcatch.getFeatures()))
+        itr_features = lay_subcatch.getFeatures()
+        if not itr_features.isValid():
+            feedback.reportError('Could not get features from sub-catchment layer')
+        gdfs_subcatch.append(gpd.GeoDataFrame.from_features(itr_features))
 
     gdf_subcatch = None
     if len(gdfs_subcatch) > 0:

@@ -1,7 +1,7 @@
 import re
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QDialog
-from qgis.core import QgsVectorLayer, NULL, QgsWkbTypes, QgsProject
+from qgis.core import QgsVectorLayer, NULL, QgsWkbTypes, QgsProject, QgsFeature
 from ..forms.ui_NullGeometryDialog import Ui_NullGeometryConfirmation
 
 
@@ -102,10 +102,23 @@ class NullGeometry(QObject):
             self.tmpLyrs.append(out_lyr)
             self.tmplyr2oldlyr[out_lyr.id()] = layer.id()
 
-            out_lyr.dataProvider().addAttributes(layer.fields())
+            fields = layer.fields()
+            if layer.storageType() == 'GPKG':  # temp layer is not a GPKG (ignore fid)
+                i = fields.indexFromName('fid')
+                fields.remove(i)
+            out_lyr.dataProvider().addAttributes(fields)
             out_lyr.updateFields()
 
-            out_lyr.dataProvider().addFeatures([x for x in layer.getFeatures() if not x.geometry().isEmpty()])
+            if layer.storageType() == 'GPKG':
+                feats = []
+                for f in layer.getFeatures():
+                    if not f.geometry().isEmpty():
+                        f_ = QgsFeature(f)
+                        f_.deleteAttribute(i)
+                        feats.append(f_)
+                out_lyr.dataProvider().addFeatures(feats)
+            else:
+                out_lyr.dataProvider().addFeatures([x for x in layer.getFeatures() if not x.geometry().isEmpty()])
             out_lyr.updateExtents()
 
             for _ in range(layer.featureCount()):

@@ -138,7 +138,10 @@ class SnappingTool:
                             if v.vertex == VERTEX.First or v.vertex == VERTEX.Point:
                                 vpos = 0
                             else:
-                                vertexes = v.feature.geometry().asMultiPolyline()[0]
+                                if v.feature.geometry().wkbType() == QgsWkbTypes.MultiLineString:
+                                    vertexes = v.feature.geometry().asMultiPolyline()[0]
+                                else:
+                                    vertexes = v.feature.geometry().asPolyline()
                                 vpos = len(vertexes) - 1
                             
                             # move vertex
@@ -203,12 +206,17 @@ class SnappingTool:
         dp = lyr.dataProvider()
         
         fields = copylyr.fields()
+        if copylyr.storageType() == 'GPKG':  # temp layer is not a GPKG (ignore fid)
+            j = fields.indexFromName('fid')
+            fields.remove(j)
         dp.addAttributes(fields)
         lyr.updateFields()
         
         feats = []
         for i, f in enumerate(copylyr.getFeatures()):
             feat = QgsFeature(f)
+            if copylyr.storageType() == 'GPKG':
+                feat.deleteAttribute(j)
             dp.addFeature(feat)
             lyr.updateExtents()
             

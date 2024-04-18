@@ -9,43 +9,36 @@ Input subcatchments layers - These layers are used to identify nodes that receiv
 Input BC Connections - These layers are used to identify nodes that are connected to 2D domains but do not have an inlet connection.
 
 ## General options
-Maximum Depth Option (Ymax) can either be set to initialize Ymax to 0.0 or leave as-is when doing edit in place. Note these options may be overriden for nodes connected to inlets.
 
-Nodes receiving subcatchment flows can either use settings normally applied or force subcatchment outlets to use 0.0 for Ysur and Apond (turns off ponding). Ponding (apond > 0) is recommended for all nodes connected to the 2D domain. When ponding is turned off, node surcharging is reported as "flooding" to SWMM and is immediately transferred to the 2D domain regardless of the 2D domain water level. Nodes without ponding will not report or use a higher water level than Ymax (in the fluid flow equations) potentially giving erroneous results. Ponded nodes consider the 2D water level when determining discharges (into our out of the pipe network). The overflow from subcatchments to 1D nodes may be throttled based on the inlet configuration leading to unreasonably high water levels at the 1D node which may cause unreasonable flow values in the network. If using subcatchment flows with ponded nodes, consider using the command "Maximum Inlet Ponded Depth" if the WSE in nodes connected to subcatchments becomes unreasonable due to throttling the outflow (should have similiar WSE in node and 2D).
+### Maximum Depth Option (Ymax)
+Recommend using 0.0 for all nodes
 
-## Junction nodes not receiving subcatchment flows connected to a 2D Domain
-When nodes do not receive flows from subcatchments, it is recommended to allow ponding (set Apond >0). This will allow the head in the node (including pressure head) as a water level. If the water level in the node exceeds the water level in the 2D domain, there will be a flow from the 1D domain to 2D domain.
+### Nodes receiving subcatchment flows
+Recommend "based on options selected below"
+For models using catchments routed to pipe networks, recommend adding command "Maximum Inlet Ponded Depth" with a value between 0.0-0.1 to the TUFLOW-SWMM Control File (tscf).
 
-### Junction nodes connected to 2D with an inlet
-At inlets, users can choose to set the maximum depth (Ymax) based on the global setting or use the inlet elevation minus the node elevation (recommended). 
+Turning off ponding forces the water level in the node to never exceed YMax underrepresenting the head at the node if set to 0.0 and can cause instabilities if YMax is based on the ground elevation. Therefore, it is recommend for all nodes to use ponding even if they are connected to subcatchments. The "Maximum Inlet Ponded Depth" helps prevent excessive energy heads in 1D nodes receiving subcatchment flows. 
 
-When nodes are connected through an inlet, either Ysur (surcharge dpeth) or Apond (area of ponding) can be used to allow the pressure head to exceed Ymax. Using a positive area of ponding may enhance stability. Generally, Apond would represent the manhole shaft or a small area. A larger area may enhance model stability but may artificially attenuate discharges. If Apond is non-zero, Ysur is ignored.
+## Nodes connected to 2D without inlets (through embankment culvert)
+Recommend converting to storage nodes with size approximate to the area of connected HX cells.
 
+If junction nodes are used, recommend using a ponding value approximately the area of the connected HX cells but storage nodes more accurately reflect storage in the system and improve stability.
+
+### Junction nodes connected to 2D with inlets (underground pipe network)
 Recommend:
-
+"Use global option" for option"
 Ysur = 0.0
+Apond = Typical area of manholes
 
-Apond = Manhole area
+If converting from an XPSWMM model, the "Set to inlet elevation - node elevation", may more closely align with previous results which may necessitate using this option if changes in results are to be avoided. However, this configuration is generally less stable as SWMM does not account for storage in the manhole or shaft between the top of connected conduits and the inlet (ground) elevation.
 
-### Junction nodes connected with a HX boundary (no inlet)
-When nodes are connected through an HX boundary such as culverts through an embankment, it is recommended to set apond (area of ponding) to the approximate area of connected cells. A larger area of ponding may improve stability but may artificially attenuate discharges. This will depend on the model cell size. Generally, a typical value is chosen that is reasonable for most of the connections and any signficantly larger or smaller structures can be modified on an individual basis. 
+### Nodes without a 2D connection (underground pipe network)
+Recommend either of the options below:
 
-Recommend:
+1. Ysur = higher than expected node depths (say 100.0) and Apond = 0.0
+2. Ysur = 0.0 (ignored if Apond > 0.0) and Apond = (Typical area of manholes)
 
-Ysur = 0.0
-
-Apond = Typical area of connected 2D cells (higher values may aid stability).
-
-### Junctions not connected to 2D domains
 Flood losses would be lost from the model resulting in mass losses and inaccurate results. Prevent by allowing ponding or making surge elevation high.
-#### Option #1
-Ysur = higher than expected node depths
-
-Apond = 0.0
-#### or Option #2
-Ysur = 0.0 (ignored)
-
-Apond = (positive number)
 
 ## Limitations
 This tool will set junction attributes based on generic rules and individual nodes may need to be modified.

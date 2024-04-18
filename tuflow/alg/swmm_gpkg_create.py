@@ -151,13 +151,14 @@ class GeoPackageCreate(QgsProcessingAlgorithm):
             self.swmm_section_long_names.index(x) for x in [
                 'Project--Title',
                 'Project--Options',
+                'Project--Report',
                 'Nodes--Junctions',
                 'Nodes--Outfalls',
+                'Nodes--Storage',
                 'Links--Conduits',
                 'Links--Streets',
                 'Inlets--Inlets',
                 #'Inlet_Usage', Generally use external layer
-                'Project--Report',
             ]
         ]
 

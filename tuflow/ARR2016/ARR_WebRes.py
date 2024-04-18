@@ -552,6 +552,9 @@ class ArrTemporal:
         self.AEP_Band = []
         self.increments = []  # list of rainfall increments, length varies depending on duration
         self.tpRegion = ''  # extracted before patterns start
+        self.dur2tptype = {}  # duration to temporal pattern type ('point' or 'areal')
+        self.add_areal_tp = 0
+        self.add_areal_messages = []
 
         self.logger = logging.getLogger('ARR2019')
     
@@ -841,17 +844,26 @@ class ArrTemporal:
             #print("Could not find {0}".format(tp))
             self.logger.error("Could not find {0}".format(tp))
             raise ("Could not find areal temporal pattern csv")
-        
-    def combineArealTp(self, area):
-        """
-        Combines point temporal pattern with areal temporal patterns
-        
-        :param area: float catchment area
-        :return: void
-        """
-        
-        # determine if areal pattern is needed
-        # if yes, which one
+
+    def findNextClosest(self, area, index):
+        if not index:
+            return area
+        area_list = [100, 200, 500, 1000, 2500, 5000, 10000, 20000, 40000]
+        actual = self.arealTpArea(area, 0)
+        if not actual:
+            return
+        area_list.remove(actual)
+        diffs = [abs(x - area) for x in area_list]
+        sorted_list = [x[1] for x in sorted(zip(diffs, area_list))]
+        if index > len(sorted_list):
+            return None
+        return sorted_list[index - 1]
+
+    def arealTpArea(self, area, closest):
+        area = self.findNextClosest(area, closest)
+        if not area:
+            return
+
         if area < 75:
             tp_area = None
         elif area <= 140:
@@ -873,35 +885,83 @@ class ArrTemporal:
         else:
             tp_area = 40000
 
+        return tp_area
+        
+    def combineArealTp(self, area):
+        """
+        Combines point temporal pattern with areal temporal patterns
+        
+        :param area: float catchment area
+        :return: void
+        """
+        
+        # determine if areal pattern is needed
+        # if yes, which one
+        tp_area = self.arealTpArea(area, 0)
+
         self.ID = self.pointID[:]
         self.Duration = self.pointDuration[:]
         self.TimeStep = self.pointTimeStep[:]
         self.Region = self.pointRegion[:]
         self.AEP_Band = self.pointAEP_Band[:]
         self.increments = self.pointincrements[:]
+
+        self.dur2tptype = {x: 'point' for x in self.Duration}
         
         # check if there are any areal temporal patterns available
         if self.arealDuration:
            # check if areal patterns are required for catchment size
             if tp_area is not None:
+                self.logger.info('Using areal temporal pattern area: {0:,}km2'.format(tp_area))
                 point_durations = self.getTemporalPatternDurations(self.pointDuration)
                 areal_durations = self.getTemporalPatternDurations(self.arealDuration[tp_area])
                 inclusions, exclusions = self.getExclusions(point_durations, areal_durations)
                 printed_messages = []
                 k = 0
+                n = 1  # nth closest areal tp
                 for i, dur in enumerate(self.Duration):
                     if dur >= inclusions[0]:
                         if dur not in exclusions:
+                            if self.dur2tptype[dur] == 'point':
+                                n = 1  # reset this as we are in a new duration
+                            self.dur2tptype[dur] = 'areal'
                             m = self.arealRegion[tp_area].index(self.Region[i])
                             j = self.arealDuration[tp_area][m:].index(dur) + m
                             if self.Region[i] == self.arealRegion[tp_area][j]:
-                                self.ID[i] = self.arealID[tp_area][j + k]
-                                self.TimeStep[i] = self.arealTimeStep[tp_area][j + k]
-                                self.increments[i] = self.arealincrements[tp_area][j + k]
-                                if k == 9:
-                                    k = 0
+                                if len(self.arealID[tp_area]) > j + k:  # 40,000km2 areal tp 168hr dur only has one tp
+                                    self.ID[i] = self.arealID[tp_area][j + k]
+                                    self.TimeStep[i] = self.arealTimeStep[tp_area][j + k]
+                                    self.increments[i] = self.arealincrements[tp_area][j + k]
+                                    if k == 9:
+                                        k = 0
+                                    else:
+                                        k += 1
                                 else:
-                                    k += 1
+                                    while True:
+                                        tp_area2 = self.arealTpArea(area, n)
+                                        message = "WARNING: {0} min duration has run out of areal temporal patterns... switching to using next closest areal temporal pattern area: {1:,}km2".format(dur, tp_area2)
+                                        if message not in printed_messages:
+                                            self.logger.warning(message)
+                                            printed_messages.append(message)
+                                        m = self.arealRegion[tp_area2].index(self.Region[i])
+                                        j = self.arealDuration[tp_area2][m:].index(dur) + m
+                                        if self.Region[i] == self.arealRegion[tp_area2][j]:
+                                            if len(self.arealID[tp_area2]) > j + k:  # 40,000km2 areal tp 168hr dur only has one tp
+                                                self.ID[i] = self.arealID[tp_area2][j + k]
+                                                self.TimeStep[i] = self.arealTimeStep[tp_area2][j + k]
+                                                self.increments[i] = self.arealincrements[tp_area2][j + k]
+                                                if k == 9:
+                                                    k = 0
+                                                else:
+                                                    k += 1
+                                                break
+                                        else:
+                                            n = n + 1  # shouldn't really get here
+                                            if n == 8:
+                                                message = "ERROR: {0} min duration has run out of areal temporal patterns... bailing out".format(dur)
+                                                self.logger.error(message)
+                                                return
+
                         else:
                             message = "WARNING: {0} min duration does not have an areal temporal pattern... using point temporal pattern".format(dur)
                             if message not in printed_messages:
@@ -911,19 +971,55 @@ class ArrTemporal:
         
         self.getTPCount()
 
-    def get_dur_aep(self, duration, aep):
+    def addArealTP(self, area, ind):
+        tp_area = self.arealTpArea(area, ind + 1)
+        if not tp_area:
+            return False
+
+        self.logger.info('Adding additional areal temporal pattern {0}: {1:,}km2'.format(ind+1, tp_area))
+
+        dur_prev = None
+        counter = 0
+        for i, dur in enumerate(self.Duration.copy()):
+            if self.dur2tptype[dur] == 'point' or dur == dur_prev:
+                continue
+            if self.AEP_Band[i].startswith('add_areal_tp'):
+                break
+            dur_prev = dur
+
+            region = self.Region[i]
+            m = self.arealRegion[tp_area].index(region)
+            j = self.arealDuration[tp_area][m:].index(dur) + m
+            if region == self.arealRegion[tp_area][j]:
+                count = self.arealDuration[tp_area][m:].count(dur)
+                if count < 10 and (tp_area, dur) not in self.add_areal_messages:
+                    self.logger.warning('WARNING: Areal TP [{0:,}km2 - {1} min] only contains {2} temporal patterns'.format(tp_area, dur, count))
+                    self.add_areal_messages.append((tp_area, dur))
+                for k in range(count):
+                    counter += 1
+                    self.ID.append(self.arealID[tp_area][j+k])
+                    self.Duration.append(dur)
+                    self.TimeStep.append(self.arealTimeStep[tp_area][j+k])
+                    self.Region.append(region)
+                    self.AEP_Band.append('add_areal_tp_{0}'.format(ind))
+                    self.increments.append(self.arealincrements[tp_area][j+k])
+
+        return True
+
+    def get_dur_aep(self, duration, aep_bands):
         # print ('Getting all events with duration {0} min and AEP band {1}'.format(duration,AEP))
         id_ = []
         increments = []
         timestep = []
-        for i in range(len(self.ID)):
-            if self.Duration[i] == duration and self.AEP_Band[i] == aep.lower():
-                id_.append(self.ID[i])
-                increments.append(self.increments[i])
-                timestep.append(self.TimeStep[i])
+        for aep_band in aep_bands:
+            for i in range(len(self.ID)):
+                if self.Duration[i] == duration and self.AEP_Band[i].lower() == aep_band.lower():
+                    id_.append(self.ID[i])
+                    increments.append(self.increments[i])
+                    timestep.append(self.TimeStep[i])
         return id_, increments, timestep
 
-    def get_dur_aep_pb(self, duration, aep, preburst_pattern_method, preburst_pattern_dur,
+    def get_dur_aep_pb(self, duration, aep_bands, preburst_pattern_method, preburst_pattern_dur,
                        preburst_pattern_tp, bpreburst_dur_proportional, aep_name):
         increments = []
         timestep = 0
@@ -946,7 +1042,7 @@ class ArrTemporal:
             dur = self.findClosestTP(dur)
             self.logger.info("For complete storm {0} {1} min "
                              "using ARR Temporal pattern for preburst: {2} mins, {3}".format(aep_name, duration, dur, preburst_pattern_tp))
-            id, increments, timestep = self.get_dur_aep(dur, aep)
+            id, increments, timestep = self.get_dur_aep(dur, aep_bands)
 
             tp = int(re.findall(r"\d{2}", preburst_pattern_tp)[0])
             increments = increments[tp]
@@ -1118,6 +1214,7 @@ class Arr:
         user_continuing_loss = kwargs['user_continuing_loss'] if 'user_continuing_loss' in kwargs else None
         areal_tp_download = kwargs['areal_tp_download'] if 'areal_tp_download' in kwargs else None
         limb_data = kwargs['limb_data'] if 'limb_data' in kwargs else None
+        add_areal_tp = kwargs.get('add_areal_tp', 0)
 
         #print('Loading ARR website output .txt file')
         self.logger.info('Loading ARR website output .txt file')
@@ -1204,26 +1301,31 @@ class Arr:
             #print('Return message = {0}'.format(self.Temporal.message))
             self.logger.error('Return message = {0}'.format(self.Temporal.message))
             raise SystemExit("ERROR: {0}".format(self.Temporal.message))
-        if add_tp != False:
-            if len(add_tp) > 0:
-                for tp in add_tp:
-                    f = "{0}_TP_{1}.txt".format(os.path.splitext(fname)[0], tp)
-                    fadd_tp = open(f, 'r')
-                    self.Temporal.append(fadd_tp)
-                    fadd_tp.close()
-                    tpCode = self.arealTemporalPatternCode(f)
-                    f = os.path.join(os.path.dirname(f), "Areal_{0}_Increments.csv".format(tpCode))
-                    if os.path.exists(f):
-                        self.Temporal.loadArealTpFromCSV(f)
-                    if self.Temporal.error:
-                        #print('An error was encountered, when reading temporal pattern: {0}'.format(tp))
-                        self.logger.error('An error was encountered, when reading temporal pattern: {0}'.format(tp))
-                        #print('Return message = {0}'.format(self.Temporal.message))
-                        self.logger.error('Return message = {0}'.format(self.Temporal.message))
-                        raise SystemExit("ERROR: {0}".format(self.Temporal.message))
-
+        if add_tp:
+            for tp in add_tp:
+                f = "{0}_TP_{1}.txt".format(os.path.splitext(fname)[0], tp)
+                fadd_tp = open(f, 'r')
+                self.Temporal.append(fadd_tp)
+                fadd_tp.close()
+                tpCode = self.arealTemporalPatternCode(f)
+                f = os.path.join(os.path.dirname(f), "Areal_{0}_Increments.csv".format(tpCode))
+                if os.path.exists(f):
+                    self.Temporal.loadArealTpFromCSV(f)
+                if self.Temporal.error:
+                    #print('An error was encountered, when reading temporal pattern: {0}'.format(tp))
+                    self.logger.error('An error was encountered, when reading temporal pattern: {0}'.format(tp))
+                    #print('Return message = {0}'.format(self.Temporal.message))
+                    self.logger.error('Return message = {0}'.format(self.Temporal.message))
+                    raise SystemExit("ERROR: {0}".format(self.Temporal.message))
+        # import pydevd_pycharm
+        # pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
         self.Temporal.combineArealTp(area)
-
+        for i in range(add_areal_tp):
+            added = self.Temporal.addArealTP(area, i)
+            if added:
+                self.Temporal.add_areal_tp += 1
+        if add_areal_tp > self.Temporal.add_areal_tp:
+            self.logger.warning('WARNING: Limiting number of additional areal temporal patterns to {0}'.format(self.Temporal.add_areal_tp))
 
         # PREBURST DEPTH
         #print('Loading median preburst data')
@@ -1281,6 +1383,7 @@ class Arr:
         preburst_pattern_tp = kwargs['preburst_pattern_tp'] if 'preburst_pattern_tp' else None
         bpreburst_dur_proportional = kwargs['preburst_dur_proportional'] if 'preburst_dur_proportional' else False
         use_global_continuing_loss = kwargs['use_global_continuing_loss'] if 'use_global_continuing_loss' else False
+        all_point_tp = kwargs.get('all_point_tp', False)
 
         # convert input RCP if 'all' is specified
         if str(cc_RCP).lower() == 'all':
@@ -1989,6 +2092,9 @@ class Arr:
                 continue
 
             # rf inflow
+            # import pydevd_pycharm
+            # pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
+            tp_count_max = tpCount
             if process_aep:  # AEP data exists
                 if all_duration:
                     # need to specify AEP_band based on AEP specified
@@ -1996,6 +2102,23 @@ class Arr:
                     dur_list = sorted(list(set(arr_durations).intersection(bom.duration)))
                 # loop through all durations
                 for d, duration in enumerate(dur_list):
+                    aep_bands = [aep_band]  # aep bands for temporal patterns
+                    aep_bands_4_pb = aep_bands.copy()  # aep bands used for preburst stuff
+                    cc_events_ = cc_events.copy()
+                    if self.Temporal.dur2tptype[duration] == 'point':
+                        tp_count = tpCount * 3 if all_point_tp else tpCount
+                        if all_point_tp:
+                            aep_bands.extend([x for x in ('frequent', 'intermediate', 'rare') if x != aep_band])
+                            cc_events_ = sum([[x for _ in range(3)] for x in cc_events], [])
+                    else:
+                        tp_count = tpCount + self.Temporal.add_areal_tp * tpCount
+                        if self.Temporal.add_areal_tp:
+                            aep_bands.extend(['add_areal_tp_{0}'.format(i) for i in range(self.Temporal.add_areal_tp)])
+                            cc_events_ = sum([[x for _ in range(self.Temporal.add_areal_tp + 1)] for x in cc_events], [])
+                            assert len(cc_events_) == tp_count * len(cc_years) * len(cc_RCP), "Should not be here - List of climate change event names is not the correct length - Actual Length: {0}, Expected Length: {1}".format(len(cc_events_), tp_count * len(cc_years) * len(cc_RCP))
+
+                    tp_count_max = max(tp_count, tp_count_max)
+
                     # print ('Duration = {0} minutes'.format(duration))
                     process_dur = True
                     try:
@@ -2014,7 +2137,7 @@ class Arr:
                                 #print("WARNING: Depths for very rare events (< 1% AEP) are not yet provided.")
                                 self.logger.warning("WARNING: Depths for very rare events (< 1% AEP) are not yet provided.")
                                 depth_available = False
-                        ids, increments, dts = self.Temporal.get_dur_aep(duration, aep_band)
+                        ids, increments, dts = self.Temporal.get_dur_aep(duration, aep_bands)
                         increments_pb = []
                         dts_pb = 0
                         pb_depth = 0
@@ -2032,7 +2155,7 @@ class Arr:
                                             "WARNING: No preburst depths exist for aep/duration [{0}/{1} min]"
                                             "... using design storm".format(aep, duration))
                                     else:
-                                        increments_pb, dts_pb = self.Temporal.get_dur_aep_pb(duration, aep_band,
+                                        increments_pb, dts_pb = self.Temporal.get_dur_aep_pb(duration, aep_bands,
                                                                                              preburst_pattern_method,
                                                                                              preburst_pattern_dur,
                                                                                              preburst_pattern_tp,
@@ -2146,21 +2269,23 @@ class Arr:
                         cc_event_index = 0  # index to call correct name from cc_events
                         k = -1
                         # create a list 1 - 10 repeated for all temporal pattern sets
-                        for i in [k for k in range(1, tpCount+1)] * (len(cc_years) * len(cc_RCP) + 1):
+                        for i in [k for k in range(1, tp_count+1)] * (len(cc_years) * len(cc_RCP) + 1):
+                            if i > len(ids):
+                                break
                             line1 = line1 + ', 1'
                             line2 = line2 + ', {0}'.format(ntimes)
-                            if k + 1 >= tpCount:
+                            if k + 1 >= tp_count:
                                 k = -1
                             k += 1
                             line2b = line2b + ',{0}'.format(ids[k])
-                            if i < tpCount and not tp_cc:  # standard temporal pattern
+                            if i < tp_count and not tp_cc:  # standard temporal pattern
                                 line3 = line3 + ', TP{0:02d}'.format(i)
-                            elif i == tpCount and not tp_cc:  # last standard temporal pattern, make cc true so cc next iter
+                            elif i == tp_count and not tp_cc:  # last standard temporal pattern, make cc true so cc next iter
                                 tp_cc = True
                                 line3 = line3 + ', TP{0:02d}'.format(i)
                             else:  # add climate change name to temporal pattern
                                 if cc:
-                                    line3 = line3 + ', TP{0:02d}_{1}'.format(i, cc_events[cc_event_index])
+                                    line3 = line3 + ', TP{0:02d}_{1}'.format(i, cc_events_[cc_event_index])
                                     cc_event_index += 1
                                 else:
                                     break
@@ -2470,7 +2595,7 @@ class Arr:
             tef.write('End Define\n\n')
 
         tef.write('!EVENT TEMPORAL PATTERNS\n')
-        for i in range(tpCount):
+        for i in range(tp_count_max):
             tef.write('Define Event == tp{0:02d}\n'.format(i + 1))
             tef.write('    BC Event Source == ~TP~ | TP{0:02d}\n'.format(i + 1))
             tef.write('End Define\n\n')

@@ -474,7 +474,7 @@ def short_arf(area, duration_list, aep_list, ARF_frequent, min_ARF):
         # print('WARNING: {0:.0f}km2 out of range of generalised equations for short duration ARF factors. '
         #       'Applying method for 1000km2, however this may not be applicable for catchment. '
         #       'Please consult ARR2016'.format(area))
-        logger.warning('WARNING: {0:.0f}km2 out of range of generalised equations for short duration ARF factors. '
+        logger.warning('WARNING: {0:,.0f}km2 out of range of generalised equations for short duration ARF factors. '
                        'Applying method for 1000km2, however this may not be applicable for catchment. '
                        'Please consult ARR'.format(area))
         arf_list = []  # ARF list that will be converted to numpy array
@@ -566,8 +566,8 @@ def medium_arf(area, duration_list, aep_list, a, b, c, d, e, f, g, h, i, ARF_fre
         # print('WARNING: {0:.0f}km2 out of range of generalised equations for medium duration ARF factors. ' \
         #       'Applying method for 30,000km2, however this may not be applicable for cathcment. ' \
         #       'Please consult ARR2016.'.format(area))
-        logger.warning('WARNING: {0:.0f}km2 out of range of generalised equations for medium duration ARF factors. ' \
-                       'Applying method for 30,000km2, however this may not be applicable for cathcment. ' \
+        logger.warning('WARNING: {0:,.0f}km2 out of range of generalised equations for medium duration ARF factors. ' \
+                       'Applying method for 30,000km2, however this may not be applicable for catchment. ' \
                        'Please consult ARR.'.format(area))
         arf_list = []  # ARF list that will be converted to numpy array
         for duration in duration_list:
@@ -660,9 +660,9 @@ def long_arf(area, duration_list, aep_list, a, b, c, d, e, f, g, h, i, ARF_frequ
         # print('WARNING: {0:.0f}km2 out of range of generalised equations for long duration ARF factors. '
         #       'Applying method for 30,000km2, however this may not be applicable for cathcment. '
         #       'Please consult ARR2016.'.format(area))
-        logger.warning('WARNING: {0:.0f}km2 out of range of generalised equations for long duration ARF factors. '
-                       'Applying method for 30,000km2, however this may not be applicable for cathcment. '
-                       'Please consult ARR2016.'.format(area))
+        logger.warning('WARNING: {0:,.0f}km2 out of range of generalised equations for long duration ARF factors. '
+                       'Applying method for 30,000km2, however this may not be applicable for catchment. '
+                       'Please consult ARR.'.format(area))
         arf_list = []  # ARF list that will be converted to numpy array
         for duration in duration_list:
             arf_row = []  # ARF row (create a list of lists so can be converted to numpy array)

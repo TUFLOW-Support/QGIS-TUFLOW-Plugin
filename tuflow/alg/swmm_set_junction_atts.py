@@ -303,6 +303,12 @@ class SetJunctionAtts(QgsProcessingFeatureBasedAlgorithm):
                                                   'Input_subcatchments',
                                                   context)
         lays_subcatch = self.mapLayerHelperSubcatchments.getLayersFromIndices(lays_subcatch_pos)
+        if len(lays_subcatch) == 0:
+            self.feedback.pushInfo('No subcatchments')
+        else:
+            self.feedback.pushInfo(f'Number of Subcatchments: {len(lays_subcatch)}')
+        for layer in lays_subcatch:
+            self.feedback.pushInfo(self.tr(f'  {layer.name()}'))
 
         # lays_subcatch = self.parameterAsLayerList(parameters,
         #                                          'Input_subcatchments',
@@ -364,6 +370,7 @@ class SetJunctionAtts(QgsProcessingFeatureBasedAlgorithm):
 
         if feedback.isCanceled():
             return {}
+
 
         self.df_atts = get_junction_atts(input_source.getFeatures(),
                                          lays_subcatch,

@@ -798,8 +798,8 @@ class FlowTracePlot(QWidget, Ui_flowTracePlotWidget):
         Add labels to plot for 1d elements
         """
 
-        self.ax.texts.clear()
-        self.fig.texts.clear()
+        # self.ax.texts.clear()
+        # self.fig.texts.clear()
 
         if self.cbLabel.isChecked():
             try:
@@ -1054,9 +1054,21 @@ class FlowTracePlot(QWidget, Ui_flowTracePlotWidget):
         if self.background is None:
             self.create_new_background()
         self.fig.canvas.restore_region(self.background)
+        if self.point and self.point.axes is None:
+            self.point.axes = self.ax
+            self.point.figure = self.fig
         self.ax.draw_artist(self.point)
+        if self.polygon and self.polygon.axes is None:
+            self.polygon.axes = self.ax
+            self.polygon.figure = self.fig
         self.ax.draw_artist(self.polygon)
+        if self.line and self.line.axes is None:
+            self.line.axes = self.ax
+            self.line.figure = self.fig
         self.ax.draw_artist(self.line)
+        if self.annot and self.annot.axes is None:
+            self.annot.axes = self.ax
+            self.annot.figure = self.fig
         self.ax.draw_artist(self.annot)
         self.fig.canvas.blit(self.ax.bbox)
 
@@ -1091,13 +1103,13 @@ class FlowTracePlot(QWidget, Ui_flowTracePlotWidget):
         self.annot.set_visible(vis)
 
         # transfer annotation to figure
-        if self.ax.texts and self.annot in self.ax.texts:
-            i = self.ax.texts.index(self.annot)
-            self.fig.texts.append(self.ax.texts.pop(i))
-            if self.annot.axes is None:
-                self.annot.axes = self.ax
-            if self.annot.figure is None:
-                self.annot.figure = self.fig
+        # if self.ax.texts and self.annot in self.ax.texts:
+        #     i = self.ax.texts.index(self.annot)
+        #     self.fig.texts.append(self.ax.texts.pop(i))
+        #     if self.annot.axes is None:
+        #         self.annot.axes = self.ax
+        #     if self.annot.figure is None:
+        #         self.annot.figure = self.fig
 
     def _get_polygon_label(self, artist_label):
         label = artist_label.split('__')
@@ -1187,25 +1199,29 @@ class FlowTracePlot(QWidget, Ui_flowTracePlotWidget):
         return point_xy, dist
 
     def _init_hover_objects(self):
+        ylim = self.ax.get_ylim()
+        xlim = self.ax.get_xlim()
         # annotation - annotation may be sitting with fig as this places it above all other artists
 
-        if self.fig.texts:
-            if self.fig.texts:
-                [self.fig.texts.pop(i) for i in range(len(self.fig.texts))]
-        if self.annot is not None and self.annot in self.ax.texts:
-            self.ax.texts.remove(self.annot)
+        # if self.fig.texts:
+        #     if self.fig.texts:
+        #         [self.fig.texts.pop(i) for i in range(len(self.fig.texts))]
+        if self.annot is not None:
+            self.annot.remove()
 
         self.annot = None
         self.annot = self.ax.annotate("debug", xy=(15, 15), xycoords='data', textcoords="offset pixels",
                                       bbox=dict(boxstyle="round", fc="w"))
         self.annot.get_bbox_patch().set_alpha(0.3)
+        self.annot.set_visible(False)
 
         # point
         if self.point is None:
             self.point = self.ax.scatter(0, 0, 20, 'red')
+            self.point.set_visible(False)
 
-        if not [x for x in self.ax.collections]:
-            self.ax.collections.append(self.point)
+        # if not [x for x in self.ax.collections]:
+        #     self.ax.collections.append(self.point)
 
         x_ = np.mean(self.ax.get_xlim())
         y_ = np.mean(self.ax.get_ylim())
@@ -1214,6 +1230,7 @@ class FlowTracePlot(QWidget, Ui_flowTracePlotWidget):
         # polygon
         if self.polygon is None:
             self.polygon = Polygon([[x_, y_], [x_, y_], [x_, y_], [x_, y_], [x_, y_]], fill=False, edgecolor='red', linewidth=2, color='red')
+            self.polygon.set_visible(False)
             self.ax.add_patch(self.polygon)
 
         if self.polygon not in self.ax.patches:
@@ -1224,11 +1241,15 @@ class FlowTracePlot(QWidget, Ui_flowTracePlotWidget):
         # line
         if self.line is None:
             self.line, = self.ax.plot([x_, x_], [y_, y_], color='red', linewidth=2)
+            self.line.set_visible(False)
 
         if self.line not in self.ax.lines:
             self.ax.add_line(self.line)
 
         self.line.set_data([x_, x_], [y_, y_])
+
+        self.ax.set_ylim(ylim)
+        self.ax.set_xlim(xlim)
 
     def _hover_get_visible(self):
         if self.annot is not None:

@@ -841,7 +841,7 @@ class TuPlot3D(TuPlot2D):
 
         vertical_velocity_mdi = None
         rt = layer.datasetMetadata(mdi).time()  # reference time
-        for i in range(layer.datasetCount(i_vertical_velocity)):
+        for i in range(layer.datasetCount(QgsMeshDatasetIndex(i_vertical_velocity))):
             tmdi = QgsMeshDatasetIndex(i_vertical_velocity, i)  # test mesh dataset index
             time = layer.datasetMetadata(tmdi).time()
             if time == rt:

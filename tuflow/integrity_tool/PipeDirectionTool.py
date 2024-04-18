@@ -176,11 +176,16 @@ class PipeDirectionTool():
         dp = lyr.dataProvider()
 
         fields = copylyr.fields()
+        if copylyr.storageType() == 'GPKG':  # temp layer is not a GPKG (ignore fid)
+            j = fields.indexFromName('fid')
+            fields.remove(j)
         dp.addAttributes(fields)
         lyr.updateFields()
 
         for i, f in enumerate(copylyr.getFeatures()):
             feat = QgsFeature(f)
+            if copylyr.storageType() == 'GPKG':
+                feat.deleteAttribute(j)
             dp.addFeature(feat)
             lyr.updateExtents()
 

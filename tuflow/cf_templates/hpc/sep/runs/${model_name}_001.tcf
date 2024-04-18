@@ -1,0 +1,63 @@
+!_______________________________________________________
+! GIS
+GIS Format == ${gis_format}
+GRID Format == TIF
+${gis_projection_command}
+! TIF Projection == <path/to.tif>  ! uncomment to specify tif projection
+
+!_______________________________________________________
+! SOLVER
+Solution scheme == HPC
+Timestep Initial == 1
+! Timestep Maximum == <timestep>  ! uncomment if required (value should be based on cell size)
+
+!_______________________________________________________
+! SGS SETTINGS
+SGS == ON
+SGS Sample Target Distance == <distance>  ! TODO update to appropriate value based on model cell size
+
+!_______________________________________________________
+! SCENARIOS / EVENTS - Uncomment as required
+! Model event == <event_name>
+! Model scenario == <scenario_name>
+! Event File == ..\model\${model_name}_events.tef
+
+!_______________________________________________________
+! CONTROL FILES - TODO uncomment as model is built (not all control files may be required)
+Geometry Control File == ..\model\${model_name}_001.tgc
+BC Control File == ..\model\${model_name}_001.tbc
+BC Database == ..\bc_dbase\bc_dbase.csv
+Read Materials File == ..\model\${model_name}_mat.csv
+! Estry Control File == ..\model\${model_name}_001.ecf
+! Read Soils File == ..\model\${model_name}_soils.tsoilf
+
+!_______________________________________________________
+! INITIAL WATER LEVEL - uncomment if required
+! Set IWL == <Value>
+
+!_______________________________________________________
+! SIMULATION CONTROLS
+Start Time == 0
+End Time == <hrs>  ! TODO
+! Timestep == <sec>  ! TODO uncomment if using Classic
+
+!_______________________________________________________
+! OUTPUT FOLDERS
+Log Folder == log
+Output Folder == ..\results\
+Write Check Files == ..\check\
+! Write Check Files Exclude == ZPT GRD UVPT
+
+!_______________________________________________________
+! OUPUT MAP CONFIGURATION 
+Map Output Format == XMDF
+Map Output Data Types == h v d q dt  ! TODO add data types as required
+Map Output Interval == 3600  ! TODO update to appropriate interval for simulation duration
+SGS Map Extent Trim == All
+SGS Depth Output == Cell Average
+! Map Cutoff Depth == 0.01  ! uncomment if required
+
+!_______________________________________________________
+! PLOT OUTPUT - uncomment as required
+! Time Series Output Interval == 60  ! TODO requires updating to sensible value to match simulation duration
+! Read GIS PO == <path/to/2d_po>

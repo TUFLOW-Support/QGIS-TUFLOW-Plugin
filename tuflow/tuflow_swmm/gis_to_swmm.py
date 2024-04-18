@@ -295,7 +295,7 @@ def gis_to_swmm(gpkg_filename,
                     df_tags = df_tags[['Object_type', df_section.columns[0], 'Tag']]
                     df_tags['Tag'] = df_tags['Tag'].str.strip()
                     df_tags = df_tags[~(df_tags['Tag'].isin(['', 'None', None]))]
-                    df_tags = df_tags.dropna(subset='Tag')
+                    df_tags = df_tags.dropna(subset=['Tag'])
                     if len(df_tags) > 0:
                         dfs_tags.append(df_tags)
 

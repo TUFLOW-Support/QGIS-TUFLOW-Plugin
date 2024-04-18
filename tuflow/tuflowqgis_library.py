@@ -23,6 +23,7 @@ import shutil
 import zipfile
 from datetime import datetime, timedelta
 import subprocess
+from time import sleep
 
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
@@ -69,6 +70,7 @@ try:
     import processing
 except ImportError:
     pass
+import webbrowser
 
 # from .utils.map_layer import layer_name_from_data_source
 
@@ -699,6 +701,82 @@ def check_python_lib(qgis):
         return None
 
 
+class RunTuflow(QObject):
+
+    error = pyqtSignal(str)
+    finished = pyqtSignal(str)
+
+    def __init__(self, tfexe, runfile, capture_output, callback):
+        super().__init__()
+        self.capture_output = capture_output
+        self.callback = callback
+        self.tfexe = tfexe
+        self.runfile = runfile
+        self.args = [tfexe, '-b', runfile]
+        self.proc = None
+        self.timer = None
+        self.stdout = []
+        self.BUFFER_SIZE = 4096
+
+    def run(self):
+        if not os.path.exists(self.tfexe):
+            self.error.emit("TUFLOW exe not found: {0}".format(self.tfexe))
+            return
+        if not os.path.exists(self.runfile):
+            self.error.emit("TUFLOW Control File (tcf, fvc) not found: {0}".format(self.runfile))
+            return
+        try:
+            if self.capture_output:
+                self.setup_timer()
+                self.timer.start()
+                self.proc = subprocess.Popen(self.args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                             creationflags=subprocess.CREATE_NO_WINDOW)
+            else:
+                self.proc = subprocess.Popen(self.args)
+        except:
+            self.error.emit("Unexpected error occurred starting TUFLOW\nargs: {0}".format(self.args))
+            self.destroy()
+
+    def setup_timer(self):
+        self.timer = QTimer()
+        self.timer.setInterval(1000)
+        self.timer.setSingleShot(False)
+        self.timer.timeout.connect(self.check_proc)
+
+    def check_proc(self):
+        stdout = self.proc.stdout.read(self.BUFFER_SIZE)
+        self.stdout.append(stdout)
+        if self.proc.poll() is not None:
+            if self.callback:
+                try:
+                    _ = self.callback(True)
+                except:
+                    pass
+            text = b''.join(self.stdout).decode('utf-8')
+            self.finished.emit(text)
+            self.destroy()
+        else:
+            if self.callback:
+                try:
+                    kill = self.callback(False)
+                except:
+                    kill = True
+                if kill:
+                    self.proc.terminate()
+
+    def terminate(self):
+        self.destroy()
+
+    def destroy(self):
+        if self.timer is not None:
+            self.timer.stop()
+            self.timer.deleteLater()
+        if self.proc is not None:
+            self.proc.terminate()
+            self.proc = None
+
+
+
 def run_tuflow(qgis, tfexe, runfile):
     # QMessageBox.Information(qgis.mainWindow(),"debug", "Running TUFLOW - tcf: "+tcf)
     try:
@@ -706,7 +784,7 @@ def run_tuflow(qgis, tfexe, runfile):
         dir, ext = os.path.splitext(runfile)
         dir = os.path.dirname(dir)
         fname = os.path.basename(runfile)
-        # tfarg = [tfexe, '-b',runfile] if ext[-1] == '.tcf' else [tfexe, runfile]
+        tfarg = [tfexe, '-b',runfile] if ext[-1] == '.tcf' else [tfexe, runfile]
         if ext.lower() == ".tcf":
             tfarg = [tfexe, '-b', runfile]
         elif ext.lower() == '.fvc':
@@ -714,7 +792,11 @@ def run_tuflow(qgis, tfexe, runfile):
             os.chdir(dir)
         else:
             return "Error input file extension is not TCF or FVC"
+        # tfarg = [tfexe, '-b', runfile]
         tf_proc = Popen(tfarg)
+        # if tf_proc.poll() is not None:
+        #     _, stderr = tf_proc.communicate()
+        #     return str(stderr)
     # tf_proc = Popen(tfarg, cwd=os.path.dirname(runfile))
     except:
         return "Error occurred starting TUFLOW"
@@ -4568,6 +4650,7 @@ class LoadGisFromControlFile(QObject):
                         from qgis.utils import iface
                         crs = QgsProject.instance().crs()
                     output_path = str(command.value_.with_suffix('.gpkg'))
+                    cont = False
                     if not os.path.exists(output_path):
                         try:
                             inputs = {
@@ -4582,7 +4665,9 @@ class LoadGisFromControlFile(QObject):
                         finally:
                             if not os.path.exists(output_path):
                                 cf_lyrs.swmm_inp_name.pop()
-                                continue
+                                cont = True
+                    if cont:
+                        continue
                     lyr_name = None
                     swmm_inp_lyrs = []
                     for i, lyr in enumerate(GPKG(output_path).vector_layers()):
@@ -7265,6 +7350,7 @@ def is1dNetwork(layer, report_where=False):
     :param layer: QgsMapLayer
     :return: bool
     """
+
     from .gui.logging import Logging
     correct1dNetworkType = [ReallyBasicFieldType.String, ReallyBasicFieldType.String, ReallyBasicFieldType.Any,
                             ReallyBasicFieldType.String, ReallyBasicFieldType.Number,
@@ -7401,7 +7487,7 @@ def isPlotLayer(layer, geom=''):
 
     if not geom:
         geom = 'PLR'
-    s = r'(?:[_\s]PLOT[_\s][{0}])|(?:_ts_[PLR])'.format(geom)
+    s = r'(?:[_\s]PLOT[_\s][{0}])|(?:_ts_([12]d_)?[PLR])'.format(geom)
     if not re.findall(s, layer.name(), flags=re.IGNORECASE):
         return False
 
@@ -8996,7 +9082,7 @@ def reload_data(layer):
     lyr_type = None
     if layer is not None:
         if isinstance(layer, QgsVectorLayer):
-            layer.dataProvider().forceReload()
+            layer.reload()
             layer.triggerRepaint()
         elif (isinstance(layer, QgsMeshLayer) and Qgis.QGIS_VERSION_INT >= 32800) or isinstance(layer, QgsRasterLayer):
 
@@ -10367,6 +10453,21 @@ class ImportEmpty:
             shutil.rmtree(temp_dir)
             if proc.returncode != 0:
                 return proc.stderr.decode('utf-8', errors='ignore')
+
+
+def goto_plugin_help():
+    url = 'https://wiki.tuflow.com/TUFLOW_QGIS_Plugin'
+    webbrowser.open(url)
+
+
+def goto_plugin_changelog():
+    url = 'https://docs.tuflow.com/qgis-tuflow-plugin/changelog/'
+    webbrowser.open(url)
+
+
+def goto_tuflow_downloads():
+    url = 'https://tuflow.com/downloads/'
+    webbrowser.open(url)
 
 
 if __name__ == '__main__':

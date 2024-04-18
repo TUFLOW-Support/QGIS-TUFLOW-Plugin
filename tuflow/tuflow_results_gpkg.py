@@ -930,7 +930,7 @@ class ChanInfo_GPKG(ChanInfo):
                     'SELECT'
                     ' ID '
                     'FROM'
-                    ' {0} '
+                    ' "{0}" '
                     'LIMIT {1};'.format(self.parent.gis_line_layer_name, self.nChan)
                 )
                 ret = self.cur.fetchall()
@@ -1191,6 +1191,7 @@ class ChanInfo_GPKG(ChanInfo):
     def chan_LBDS_Obv(self) -> list[float]:
         raise NotImplementedError('GPKG time series format does not support chan_LBDS_Obv property')
 
+
     @chan_LBDS_Obv.setter
     def chan_LBDS_Obv(self, valud: list[float]) -> None:
         pass
@@ -1198,7 +1199,6 @@ class ChanInfo_GPKG(ChanInfo):
     @property
     def chan_Blockage(self) -> list[float]:
         raise NotImplementedError('GPKG time series format does not support chan_Blockage property')
-
     @chan_Blockage.setter
     def chan_Blockage(self, valud: list[float]) -> None:
         pass
@@ -1248,7 +1248,7 @@ class NodeInfo_GPKG(NodeInfo):
                         'SELECT'
                         ' ID '
                         'FROM'
-                        ' {0} '
+                        ' "{0}" '
                         'LIMIT {1};'.format(self.parent.gis_point_layer_name, self.nNode)
                     )
                     ret = self.cur.fetchall()

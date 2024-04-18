@@ -31,6 +31,10 @@ class ProjectConfig:
             self.gis_format = self.gis_format_extension(gis_format)
         else:
             self.gis_format = gis_format
+        if self.gis_format == 'gpkg':
+            self.gis_template_type = 'db'
+        else:
+            self.gis_template_type = 'sep'
         self.run_hpc = False
         if hpcexe:
             self.run_hpc = True
@@ -161,9 +165,12 @@ class ProjectConfig:
         if fv and self.gis_format == 'gpkg':
             gis = 'shp'
         sep = os.sep
-        return f'{d[gis]} Projection == ..{sep}model{sep}gis{sep}projection.{gis}'
+        if self.gis_template_type == 'db':
+            return f'{d[gis]} Projection == ..{sep}model{sep}gis{sep}{self.name}.{gis} >> projection'
+        else:
+            return f'{d[gis]} Projection == ..{sep}model{sep}gis{sep}projection.{gis}'
 
-    def run_exe(self, exe: str, args: list, feedback, **kwargs) -> dict:
+    def run_exe(self, exe: str, args: list, feedback, **kwargs) -> None:
         """Runs an executable with arguments."""
         a = [exe] + args
         print(a)
@@ -184,7 +191,10 @@ class ProjectConfig:
             gis = 'shp'
         else:
             gis = self.gis_format
-        proj_file = gis_folder / f'projection.{gis}'
+        if self.gis_template_type == 'db':
+            proj_file = gis_folder / f'{self.name}.{gis}'
+        else:
+            proj_file = gis_folder / f'projection.{gis}'
         lyr = QgsVectorLayer(f'Point?crs={self.crs.authid()}', 'projection', 'memory')
         options = QgsVectorFileWriter.SaveVectorOptions()
         options.driverName = self.driver_name(gis)
@@ -223,6 +233,7 @@ class ProjectConfig:
         var = {
             '${model_name}': self.name,
             '${gis_format}': self.gis_format.upper(),
+            '${gis_ext}': self.gis_format,
             '${gis_projection_command}': self.projection_command(False),
             '${fv_gis_format}': 'SHP' if self.gis_format == 'gpkg' else self.gis_format.upper(),
             '${fv_gis_projection_command}': self.projection_command(True),
@@ -248,7 +259,7 @@ class ProjectConfig:
 
     def _setup_hpc_templates(self, parent_folder: Path) -> None:
         """Sets up TUFLOW HPC control file templates."""
-        hpc_template_folder = parent_folder / 'hpc'
+        hpc_template_folder = parent_folder / 'hpc' / self.gis_template_type
         self._setup_cf_templates(hpc_template_folder)
 
     def _setup_fv_templates(self, parent_folder: Path) -> None:

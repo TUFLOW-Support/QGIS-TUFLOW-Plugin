@@ -22,6 +22,8 @@ from .tuflow_swmm.swmm_io import is_tuflow_swmm_file
 from .tuflow_swmm.gis_to_swmm import gis_to_swmm
 from .tuflow_swmm.qgis.dialogs.increment_gpkg import run_increment_dlg
 
+from .utils.add_features_from_layer import run_add_features_from_layer
+
 
 class TuflowContextMenuProvider(QMenu):
 
@@ -110,6 +112,8 @@ class TuflowContextMenuProvider(QMenu):
                 try:
                     if is_tuflow_swmm_file(db):
                         self.addActions(self.add_gpkg_swmm_actions(db, layer))
+                        self.addSeparator()
+                        self.addAction(self.add_features_from_layer_action(layer))
                         return
                 except Exception as e:
                     pass  # Nothing to do action won't get added
@@ -128,6 +132,10 @@ class TuflowContextMenuProvider(QMenu):
                     self.addSeparator()
                     res.close()
                 self.addActions(self.gpkg_menu_actions())
+
+            # only do for SWMM layers for now
+            # self.addSeparator()
+            # self.addAction(self.add_features_from_layer_action(layer))
 
     def shp_menu_actions(self) -> list[QAction]:
         separator = QAction(parent=self)
@@ -205,3 +213,14 @@ class TuflowContextMenuProvider(QMenu):
                     lambda b, t=type_: apply_tf_style_temporal(t))
             actions.append(getattr(self, 'action_{0}'.format(type_)))
         return actions
+
+    def add_features_from_layer_action(self, layer: QgsMapLayer) -> QAction:
+        add_features_from_layer_action = QAction('Replace Features from Layer (beta)', self.iface.mainWindow())
+        add_features_from_layer_action.setStatusTip('Replace features from a layer with same geometry type')
+        add_features_from_layer_action.triggered.connect(
+            lambda b,
+                   lay=layer:
+            run_add_features_from_layer(lay)
+        )
+
+        return add_features_from_layer_action

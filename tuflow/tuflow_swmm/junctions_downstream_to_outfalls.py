@@ -74,11 +74,11 @@ def downstream_junctions_to_outfalls(
 
     # If we don't have any junctions or conduits stop
     if len(gdf_input_junctions) == 0:
-        feedback.reportError('No junctions provided. Aborting.', True)
+        feedback.reportError('Junctions layer is empty. Aborting.', True)
         return
 
     if len(gdf_input_conduits) == 0:
-        feedback.reportError('No conduits provided. Aborting.', True)
+        feedback.reportError('Conduits layer is empty. Aborting.', True)
         return
 
     feedback.pushInfo(f'Number of input junctions: {len(gdf_input_junctions)}')
@@ -222,11 +222,15 @@ def downstream_junctions_to_outfalls_from_qgis(
         gdfs_conduits.append(gpd.GeoDataFrame.from_features(conduit_layer.getFeatures()))
     gdf_conduits = pd.concat(gdfs_conduits)
 
-    gdf_junctions_out, gdf_outfalls_out = downstream_junctions_to_outfalls(
+    rval = downstream_junctions_to_outfalls(
         gdf_junctions,
         gdf_conduits,
         feedback
     )
+    if rval is None:
+        return
+
+    gdf_junctions_out, gdf_outfalls_out = rval
 
     feedback.pushInfo(', '.join([str(x) for x in gdf_junctions_out.columns]))
 

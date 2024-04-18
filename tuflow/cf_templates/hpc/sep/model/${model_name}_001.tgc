@@ -1,0 +1,32 @@
+!_______________________________________________________
+! 2D DOMAIN SETUP - TODO Uncomment commands as required (not all commands are required depending on which ones are used)
+! Read GIS Location == <path/to/2d_loc>  ! path to GIS line/polygon that specifies domain origin and angle (and size with polyon)
+! Origin == <X, Y>  ! alternative to above command
+! Orientation == <X, Y>  ! alternative to 'Read GIS Location'. Used in conjunction with 'Origin'
+! Orientation Angle == <X>  ! alternative to 'Orientation' command
+! Cell Size == <X>
+! Grid Size (X,Y) == <X, Y>  ! size of domain in metres (not required if using "Read GIS Location == <polygon layer>")
+
+!_______________________________________________________
+! MODEL ACTIVE CELLS
+Set Code == 1  ! TODO set to zero when GIS command below is uncommented
+! Read GIS Code == <path/to/2d_code>
+
+!_______________________________________________________
+! MODEL TOPOGRAPHY
+Set Zpts == 0
+! Read GRID Zpts == <path/to/DEM.tif>
+
+!_______________________________________________________
+! MODEL MATERIAL (LANDUSE)
+Set Mat == 1
+! Read GIS Mat == <path/to/2d_mat>  ! e.g. of reading vector layer
+! Read GRID Mat == <path/to/landuse.tif>  ! e.g. of reading raster layer
+
+!_______________________________________________________
+! Soil - Uncomment commands as required
+! below offer a series of example commands. Not all are required to be used
+! Set Soil == 1  ! defines top layer
+! Set Soil Layer 2 == 1  ! defines a second vertical layer
+! Read GIS Soil == <path/to/2d_soil>  ! e.g. of reading vector layer
+! Read GRID Soil == <path/to/soil.tif>  ! e.g. of reading raster layer

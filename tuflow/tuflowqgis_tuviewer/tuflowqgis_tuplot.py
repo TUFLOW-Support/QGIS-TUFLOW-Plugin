@@ -4854,8 +4854,8 @@ class TuPlot():
 
 class TuflowPipe(Polygon):
 
-	def __init__(self, xy, closed=True, **kwargs):
-		Polygon.__init__(self, xy, closed, **kwargs)
+	def __init__(self, xy, *, closed=True, **kwargs):
+		super().__init__(xy, closed=closed, **kwargs)
 		self.channel_id = None
 
 
@@ -4951,7 +4951,7 @@ class AxisLabelBuilder:
 		for i, unit in enumerate(self._units):
 			if i == 0:
 				unit_label = unit
-			elif unit != unit_label:
+			elif unit and unit != unit_label:
 				unit_label = ''
 
 		if unit_label:

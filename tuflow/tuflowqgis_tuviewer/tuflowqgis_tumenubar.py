@@ -7,7 +7,7 @@ from qgis.core import *
 from qgis.gui import *
 from PyQt5.QtWidgets import *
 from .tuflowqgis_tumenufunctions import TuMenuFunctions
-from ..tuflowqgis_library import about
+from ..tuflowqgis_library import about, goto_plugin_changelog, goto_tuflow_downloads
 
 
 class TuMenuBar():
@@ -471,16 +471,26 @@ class TuMenuBar():
 			# Help Menu
 			self.help_action = QAction(helpIcon, 'Help', self.window)
 			self.about_action = QAction(aboutIcon, 'About', self.window)
+			self.changelog_action = QAction('Plugin Changelog', self.window)
+			self.tuflow_downloads_page_action = QAction('TUFLOW Downloads', self.window)
 			helpMenu.addAction(self.help_action)
+			helpMenu.addAction(self.changelog_action)
 			helpMenu.addSeparator()
 			helpMenu.addAction(self.about_action)
+			helpMenu.addSeparator()
+			helpMenu.addAction(self.tuflow_downloads_page_action)
 
 			self.about_action.triggered.connect(self.about)
 			self.help_action.triggered.connect(self.help)
+			self.changelog_action.triggered.connect(goto_plugin_changelog)
+			self.tuflow_downloads_page_action.triggered.connect(goto_tuflow_downloads)
 		else:
 			helpMenu.addAction(self.menu.help_action)
+			helpMenu.addAction(self.menu.changelog_action)
 			helpMenu.addSeparator()
 			helpMenu.addAction(self.menu.about_action)
+			helpMenu.addSeparator()
+			helpMenu.addAction(self.menu.tuflow_downloads_page_action)
 		
 	def about(self):
 		"""

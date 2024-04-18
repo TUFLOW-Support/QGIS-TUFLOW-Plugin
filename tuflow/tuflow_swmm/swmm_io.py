@@ -140,8 +140,11 @@ def parse_sections(filename):
     curr_section = None
     header_lines = []
     curr_lines = []
-    with open(filename, "r") as file:
-        for line in file:
+    with open(filename, "r", encoding='utf-8', errors='ignore') as file:
+        for iline, line in enumerate(file):
+            # Remove tabs
+            line = line.replace('\t', ' ')
+
             sec_title_start = line.find('[')
             sec_title_end = line.find(']')
             if sec_title_start != -1 and sec_title_end != -1:
@@ -185,6 +188,9 @@ def parse_sections_to_dicts(filename):
     curr_lines = defaultdict(list)
     with open(filename, "r") as file:
         for line in file:
+            # Remove tabs
+            line = line.replace('\t', ' ')
+
             sec_title_start = line.find('[')
             sec_title_end = line.find(']')
             if sec_title_start != -1 and sec_title_end != -1:

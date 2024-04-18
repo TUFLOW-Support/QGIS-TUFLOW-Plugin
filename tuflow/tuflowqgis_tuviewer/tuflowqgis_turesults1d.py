@@ -125,6 +125,7 @@ class TuResults1D():
 			pass
 
 		self.new_results = []
+		extensions = []
 		for filePath in inFilePaths:
 			
 			# parse file names, ext, directory
@@ -178,7 +179,11 @@ class TuResults1D():
 			if res not in self.results1d[res.displayname]:
 				self.results1d[res.displayname].append(res)
 			if res.displayname not in self.new_results:
-				self.new_results.append(res.displayname)
+				if ext.upper() == '.TPC' and ext.upper() in extensions:
+					pass
+				else:
+					self.new_results.append(res.displayname)
+					extensions.append(ext.upper())
 
 			if qv >= 31600:
 				self.tuView.tuResults.updateDateTimes()

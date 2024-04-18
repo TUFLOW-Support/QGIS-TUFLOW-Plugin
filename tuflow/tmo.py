@@ -112,7 +112,7 @@ class TMO:
                     if call_back_progress is not None:
                         call_back_progress()
 
-                    yield x, y, a[n,m]
+                    yield x, y, a[n,m], i
 
 
     def row_col_data_at_time(self, time_index, domain_index):

@@ -13,11 +13,33 @@ def node_to_layer(node: QgsLayerTreeLayer) -> QgsMapLayer:
     else:  # when opened via API, it is sometimes not given a QgsLayerTreeLayer type
         if 'LAYER:' in node.dump():
             try:
-                info = {x.split('=')[0].strip(): x.split('=')[1].strip() for x in node.dump().split(' ')[2:]}
+                # the one-line was replaced by this code to make it easier to check the size of the second split
+                # and skip any portions without an =
+                text_split = node.dump().split(' ')[2:]
+                info = {}
+                for text in text_split:
+                    split2 = text.split('=')
+                    if len(split2) >= 2:
+                        keyval = split2[0]
+                        value = split2[1].strip()
+                        info[keyval] = value
+                #info = {x.split('=')[0].strip(): x.split('=')[1].strip() for x in node.dump().split(' ')[2:]}
                 layer = QgsProject.instance().mapLayer(info['id'])
             except (IndexError, KeyError):
                 pass
     return layer
+
+
+def toc_selected_layers(iface):
+    if not iface:
+        return
+    tree_view = iface.layerTreeView()
+    idxs = tree_view.selectionModel().selectedIndexes()
+    for idx in idxs:
+        node = tree_view.index2node(idx)
+        layer = node_to_layer(node)
+        if layer:
+            yield layer
 
 
 def tuflowqgis_get_geopackage_from_layer(layer):
@@ -172,7 +194,8 @@ def getLyrsRecursive(node, groups, vector_layers, layer_type):
             groups.pop()
         else:
             layer = node_to_layer(child)
-            vector_layers.append((' >> '.join(itertools.chain(groups, [layer.name()])), layer.id()))
+            if layer is not None:
+                vector_layers.append((' >> '.join(itertools.chain(groups, [layer.name()])), layer.id()))
 
 # This code wasn't working for the strange case that we get QgsLayerTreeNodes instead of QgsLayerTreeLayer
 #        elif isinstance(child, QgsLayerTreeLayer):

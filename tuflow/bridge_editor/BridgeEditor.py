@@ -131,6 +131,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         self.outputTypeChanged()
 
         # initialise settings
+        # bridge
         bridge_save_setting = QSettings().value('tuflow/arch_bridge_editor/bridge_save_setting', 'csv_folder')
         bridge_save_path = QSettings().value('tuflow/arch_bridge_editor/bridge_save_path', '')
         if bridge_save_setting == 'in_place':
@@ -140,6 +141,16 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         else:
             self.bridge_csv_loc_csv_folder.setChecked(True)
         self.leCustomName.setText(bridge_save_path)
+        # cross-section
+        xs_save_setting = QSettings().value('tuflow/arch_bridge_editor/xs_save_setting', 'csv_folder')
+        xs_save_path = QSettings().value('tuflow/arch_bridge_editor/xs_save_path', '')
+        if xs_save_setting == 'in_place':
+            self.xs_csv_loc_in_place.setChecked(True)
+        elif xs_save_setting == 'custom_folder':
+            self.xs_csv_loc_custom_folder.setChecked(True)
+        else:
+            self.xs_csv_loc_csv_folder.setChecked(True)
+        self.leXSCustomName.setText(xs_save_path)
 
         self.connectAll()
 
@@ -267,7 +278,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         # process bridge and 1d_nwk layer
         nwklyr = tuflowqgis_find_layer(self.cboNwkLayer.currentText())
         lyr = tuflowqgis_find_layer(self.cboNwkLayer.currentText())
-        i_id = 1 if '.gpkg|layername=' in lyr.dataProvider().dataSourceUri() else 0
+        i_id = 1 if lyr.storageType() == 'GPKG' else 0
         i_type = i_id + 1
         field = lyr.fields().field(i_type)
         if field.length() < 5 and i_type == 1:
@@ -292,7 +303,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
             QMessageBox.critical(self, 'Arch Bridge', 'Unexpected error occurred after creating refactored layer '
                                                       'and could not find arch bridge feature')
             return
-        i_id = 1 if '.gpkg|layername=' in nwklyr.dataProvider().dataSourceUri() else 0
+
         if lyr != nwklyr:
             self.fid2nwklyr = OrderedDict({})
             for feat in nwklyr.getFeatures():
@@ -313,7 +324,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                 xsName = self.leChannelName.text()
             elif self.cboXsLayer.currentText() != '-None-' and self.xsFeat is not None:
                 xslyr = tuflowqgis_find_layer(self.cboXsLayer.currentText())
-                i_source = 1 if '.gpkg|layername=' in xslyr.dataProvider().dataSourceUri() else 0
+                i_source = 1 if xslyr.storageType() == 'GPKG' else 0
                 xsName = Path(self.xsFeat[i_source]).with_suffix('').name
             else:
                 QMessageBox.critical(self, 'Arch Bridge', 'No valid ID for cross-section found')
@@ -383,15 +394,21 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
             # source
             if self.cboOutputType.currentIndex() == 0:
                 lyrPath = Path(outdb)
+                i_source = self.cboOutFormat.currentIndex()  # conveniently shp sits at index 0 and GPKG at index 1
             else:
                 lyrPath = Path(re.split(r'\|layer=', xslyr.dataProvider().dataSourceUri(), flags=re.IGNORECASE)[0])
+                i_source = 1 if xslyr.storageType() == 'GPKG' else 0
             sourceAttr = Path(xsName).with_suffix('.csv')
-            csvPath = lyrPath.parent / sourceAttr
+            if self.xs_csv_loc_csv_folder.isChecked():
+                sourceAttr = Path('..') / 'csv' / sourceAttr
+            elif self.xs_csv_loc_custom_folder.isChecked():
+                custom_path = self.leXSCustomName.text().replace('\\', os.sep).replace('/', os.sep)
+                sourceAttr = Path(custom_path) / sourceAttr
+            csvPath = (lyrPath.parent / sourceAttr).resolve()
             if success:
-                i_source = 1 if '.gpkg|layername=' in xslyr.dataProvider().dataSourceUri() else 0
                 if xsFeat[i_source] != NULL and xsFeat[i_source]:
                     sourceAttr = Path(xsFeat[i_source]).with_name('{0}.csv'.format(xsName))
-                    csvPath = lyrPath.parent / sourceAttr
+                    csvPath = (lyrPath.parent / sourceAttr).resolve()
 
                 success = xsFeat.setAttribute(i_source, str(sourceAttr))
                 if not success:
@@ -419,7 +436,9 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                     xslyr.commitChanges()
             elif success:
                 xslyr.dataProvider().truncate()
-                success = xslyr.dataProvider().addFeature(xsFeat)
+                xslyr.startEditing()
+                success = xslyr.addFeature(xsFeat)
+                xslyr.commitChanges()
                 if not success:
                     QMessageBox.critical(self, 'Arch Bridge', 'Error adding cross section to output layer')
 
@@ -440,7 +459,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                         if outdb.exists() and outlyr.lower() in [x.lower() for x in get_table_names(outdb)]:
                             answer = QMessageBox.question(self, 'Arch Bridge',
                                                           '{0} already exists in {1}\nOverwrite layer?'.format(outlyr, outdb.name),
-                                                          QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+                                                          QMessageBox.Yes | QMessageBox.Cancel)
                             if answer == QMessageBox.Cancel:
                                 return
                     else:
@@ -450,7 +469,10 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                     # write layer
                     if not outdb.parent.exists():
                         outdb.parent.mkdir(parents=True)
-                    error = QgsVectorFileWriter.writeAsVectorFormatV2(xslyr, str(outdb), QgsCoordinateTransformContext(), options)
+                    if Qgis.QGIS_VERSION_INT >= 32000:
+                        error = QgsVectorFileWriter.writeAsVectorFormatV3(xslyr, str(outdb), QgsCoordinateTransformContext(), options)
+                    else:
+                        error = QgsVectorFileWriter.writeAsVectorFormatV2(xslyr, str(outdb), QgsCoordinateTransformContext(), options)
                     success = error[0] == QgsVectorFileWriter.NoError
                     if not success:
                         QMessageBox.critical(self, 'Arch Bridge', 'Error writing output layer: {0}'.format(error[1]))
@@ -474,6 +496,8 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                 if answer == QMessageBox.Cancel:
                     return
             if answer == QMessageBox.Yes:
+                if not csvPath.parent.exists():
+                    csvPath.parent.mkdir(parents=True)
                 while 1:
                     try:
                         with csvPath.open('w') as f:
@@ -496,7 +520,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                         break
 
         # bridge name
-        i_id = 1 if '.gpkg|layername=' in nwklyr.dataProvider().dataSourceUri() else 0
+        i_id = 1 if nwklyr.storageType() == 'GPKG' else 0
         i_bridge = i_id + 10
         if self.leBridgeName.text():
             bridgeName = self.leBridgeName.text()
@@ -517,7 +541,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
             return
 
         # id
-        if nwkFeat[i_id] == NULL or nwkFeat[i_id].strip():
+        if nwkFeat[i_id] == NULL or not nwkFeat[i_id].strip():
             success = nwkFeat.setAttribute(i_id, bridgeName)
             if not success:
                 nwklyr.commitChanges()
@@ -607,6 +631,27 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
 
             if success:
                 success = nwkFeat.setAttribute(i_id+19, self.sbUpperTransDepth.value())
+                if not success:
+                    nwklyr.commitChanges()
+                    QMessageBox.critical(self, 'Arch Bridge', 'Could not edit bridge upper transition depth (ExitC attribute)')
+                    return
+        else:
+            if success:
+                success = nwkFeat.setAttribute(i_id + 16, 0)
+                if not success:
+                    nwklyr.commitChanges()
+                    QMessageBox.critical(self, 'Arch Bridge', 'Could not edit bridge discharge coeff (HConF attribute)')
+                    return
+
+            if success:
+                success = nwkFeat.setAttribute(i_id+18, 0.)
+                if not success:
+                    nwklyr.commitChanges()
+                    QMessageBox.critical(self, 'Arch Bridge', 'Could not edit bridge lower transition depth (EntryC attribute)')
+                    return
+
+            if success:
+                success = nwkFeat.setAttribute(i_id+19, 0.)
                 if not success:
                     nwklyr.commitChanges()
                     QMessageBox.critical(self, 'Arch Bridge', 'Could not edit bridge upper transition depth (ExitC attribute)')
@@ -2342,6 +2387,18 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
     def save_bridge_output_setting_custom_folder_text(self, e=None):
         QSettings().setValue('tuflow/arch_bridge_editor/bridge_save_path', self.leCustomName.text())
 
+    def save_xs_output_setting_in_place(self, e=None):
+        QSettings().setValue('tuflow/arch_bridge_editor/xs_save_setting', 'in_place')
+
+    def save_xs_output_setting_csv_folder(self, e=None):
+        QSettings().setValue('tuflow/arch_bridge_editor/xs_save_setting', 'csv_folder')
+
+    def save_xs_output_setting_custom_folder(self, e=None):
+        QSettings().setValue('tuflow/arch_bridge_editor/xs_save_setting', 'custom_folder')
+
+    def save_xs_output_setting_custom_folder_text(self, e=None):
+        QSettings().setValue('tuflow/arch_bridge_editor/xs_save_path', self.leXSCustomName.text())
+
     def connectAll(self):
         """Connect signals"""
 
@@ -2430,10 +2487,16 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                                                                                  self.leOutName))
 
             # setting buttons
+            # bridge
             self.bridge_csv_loc_in_place.clicked.connect(self.save_bridge_output_setting_in_place)
             self.bridge_csv_loc_csv_folder.clicked.connect(self.save_bridge_output_setting_csv_folder)
             self.bridge_csv_loc_custom_folder.clicked.connect(self.save_bridge_output_setting_custom_folder)
             self.leCustomName.textChanged.connect(self.save_bridge_output_setting_custom_folder_text)
+            # cross-section
+            self.xs_csv_loc_in_place.clicked.connect(self.save_xs_output_setting_in_place)
+            self.xs_csv_loc_csv_folder.clicked.connect(self.save_xs_output_setting_csv_folder)
+            self.xs_csv_loc_custom_folder.clicked.connect(self.save_xs_output_setting_custom_folder)
+            self.leXSCustomName.textChanged.connect(self.save_xs_output_setting_custom_folder_text)
 
     def disconnectAll(self) -> None:
         """Disconnects active signals"""
