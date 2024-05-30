@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::32760" } },
+"features": [
+{ "type": "Feature", "properties": { "Severity": "INFO", "Message": "Node Node7 is linked to 2D at the invert elevation should be connected using HX or SX in a 2d_bc layer" }, "geometry": { "type": "Point", "coordinates": [ 6764391.389899999834597, 1832813.3007 ] } },
+{ "type": "Feature", "properties": { "Severity": "INFO", "Message": "Node Node8 is linked to 2D at the invert elevation should be connected using HX or SX in a 2d_bc layer" }, "geometry": { "type": "Point", "coordinates": [ 6764286.0005, 1832760.6759 ] } }
+]
+}

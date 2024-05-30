@@ -1,0 +1,20 @@
+{
+"type": "FeatureCollection",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::32760" } },
+"features": [
+{ "type": "Feature", "properties": { "Severity": "INFO", "Message": "Node C1_u/s is linked to 2D at the invert elevation should be connected using HX or SX in a 2d_bc layer" }, "geometry": { "type": "Point", "coordinates": [ 293116.098799999977928, 6177710.819899999536574 ] } },
+{ "type": "Feature", "properties": { "Severity": "INFO", "Message": "Node C3_u/s is linked to 2D at the invert elevation should be connected using HX or SX in a 2d_bc layer" }, "geometry": { "type": "Point", "coordinates": [ 293286.2041999999783, 6178187.273299999535084 ] } },
+{ "type": "Feature", "properties": { "Severity": "INFO", "Message": "Node C3_d/s is linked to 2D at the invert elevation should be connected using HX or SX in a 2d_bc layer" }, "geometry": { "type": "Point", "coordinates": [ 293290.656299999973271, 6178207.1903 ] } },
+{ "type": "Feature", "properties": { "Severity": "INFO", "Message": "Node 97 is linked to 2D at the invert elevation should be connected using HX or SX in a 2d_bc layer" }, "geometry": { "type": "Point", "coordinates": [ 293289.268099999986589, 6177968.0 ] } },
+{ "type": "Feature", "properties": { "Severity": "INFO", "Message": "Node 96 is linked to 2D at the invert elevation should be connected using HX or SX in a 2d_bc layer" }, "geometry": { "type": "Point", "coordinates": [ 293258.553000000014435, 6178022.939000000245869 ] } },
+{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive node MH-22 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293511.318000000028405, 6177805.515999999828637 ] } },
+{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive node MH-20 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293389.824000000022352, 6177728.678999999538064 ] } },
+{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive node MH-19 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293416.824000000022352, 6177828.609000000171363 ] } },
+{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive node MH-05 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293006.450000000011642, 6177921.689000000245869 ] } },
+{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive node MH-21 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293457.773999999975786, 6177846.455 ] } },
+{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive conduit MH-22-21 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293484.545999999972992, 6177825.985500000417233 ] } },
+{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive conduit MH-20-19 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293403.324000000022352, 6177778.643999999389052 ] } },
+{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive conduit MH-05-03 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293022.566500000015367, 6177997.457499999552965 ] } },
+{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive conduit MH-21-18 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293442.7955, 6177856.55599999986589 ] } }
+]
+}

@@ -4,3 +4,6 @@
 [submodule "tuflow/convert_tuflow_model_gis_format"]
 	path = tuflow/convert_tuflow_model_gis_format
 	url = https://gitlab.com/tuflow-user-group/tuflow/model-conversions/convert_tuflow_model_gis_format.git
+[submodule "tuflow/runner/tuflow-runner"]
+	path = tuflow/runner/tuflow-runner
+	url = https://gitlab.com/tuflow-user-group/tuflow/simulation-management/tuflow-runner.git
