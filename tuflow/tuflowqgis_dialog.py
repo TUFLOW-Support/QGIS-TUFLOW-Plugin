@@ -283,6 +283,8 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		self.buttonGroup_2.buttonToggled.connect(self.config_gui)
 		self.buttonGroup_3.buttonToggled.connect(self.config_ss_layer_gui)
 
+		self._d = {}
+
 	def gpkg_or_not_gui_config(self):
 		if self.isgpkg:
 			self.label_2.setText('Output Database')
@@ -545,6 +547,7 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 			filename_old, layer_old = re.split(re.escape(r"|layername="), ds, flags=re.IGNORECASE)
 		else:
 			filename_old = os.path.basename(ds.split('|')[0])
+			layer_old = None
 		if outname[-4:].upper() != '.SHP' and not self.isgpkg:
 			outname = outname+'.shp'
 			# QMessageBox.information( self.iface.mainWindow(),"Information", "Appending .shp to filename.")
@@ -573,6 +576,8 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 			print(e)
 		
 		# duplicate layer with incremented name
+		incrementDatabase = False
+		incrementDatabaseLayers = []
 		if self.isgpkg:
 			incrementDatabase = True if self.rbDatabaseDbLayer.isChecked() else False
 			incrementDatabaseLayers = self.incrementedDatabaseTableNames()
@@ -595,10 +600,36 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		else:
 			changeDataSource(self.iface, layer, savename, self.isgpkg)
 			QgsProject.instance().reloadAllLayers()
-		
+
+		self._d.clear()
+		self._d['incrementDatabase'] = incrementDatabase
+		self._d['incrementDatabaseLayers'] = incrementDatabaseLayers
+		self._d['filename_old'] = filename_old
+		self._d['layer_old'] = layer_old
+		self._d['outfolder'] = outfolder
+		self._d['layer'] = layer
+
+		self.timer = QTimer()
+		self.timer.setSingleShot(True)
+		self.timer.setInterval(300)
+		self.timer.timeout.connect(self.move_to_ss_folder)
+		self.timer.start()
+		self.accept()
+
+	def move_to_ss_folder(self):
+		incrementDatabase = self._d['incrementDatabase']
+		incrementDatabaseLayers = self._d['incrementDatabaseLayers']
+		filename_old = self._d['filename_old']
+		layer_old = self._d['layer_old']
+		outfolder = self._d['outfolder']
+		layer = self._d['layer']
+
 		# check if need to move to SS folder
+		layers_not_copied = []
+		layers_copied_orig = []
+		layers_copied_new = []
 		if self.cbMoveToSS.isChecked():
-			if self.isgpkg and not incrementDatabase:
+			if self.isgpkg and not incrementDatabase and len(incrementDatabaseLayers) > 1:
 				pass
 			else:
 				if self.isgpkg:
@@ -616,9 +647,7 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 					search = os.path.join(outfolder, name) + '.*'
 					files = glob.glob(search)
 				messages = []
-				layers_not_copied = []
-				layers_copied_orig = []
-				layers_copied_new = []
+
 				for file in files:
 					try:
 						os.rename(file, os.path.join(ssFolder, os.path.basename(file)))
@@ -660,8 +689,8 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 			# add and style old layer
 			oldLayer = self.iface.addVectorLayer(oldFile, name, "ogr")
 			copyLayerStyle(self.iface, layer, oldLayer)
-			
-		self.accept()
+
+		self._d.clear()
 
 
 # ----------------------------------------------------------
@@ -3578,7 +3607,7 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		self.datePreview.setText(self.tuOptions._dateFormat.format(self.date))
 		
 		# x axis label rotation
-		self.sbXAxisLabelRotation.setValue(self.tuOptions.xAxisLabelRotation)
+		self.sbXAxisLabelRotation.setValue(int(self.tuOptions.xAxisLabelRotation))
 			
 		# play time delay
 		self.sbPlaySpeed.setValue(self.tuOptions.playDelay)
@@ -4076,7 +4105,7 @@ class TuBatchPlotExportDialog(QDialog, Ui_BatchPlotExport):
 		gisLayer = tuflowqgis_find_layer(self.cbGISLayer.currentText())
 		if gisLayer is not None:
 			if gisLayer.geometryType() == QgsWkbTypes.PointGeometry:
-				onlyTemporal == True
+				onlyTemporal = True
 
 		firstFound = True
 		for res in self.lwResultMesh.selectedItems():

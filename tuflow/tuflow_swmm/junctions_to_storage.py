@@ -7,7 +7,7 @@ try:
 except ImportError:
     pass  # defaulted to false
 
-from tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
+from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
 
 def junctions_to_storage(gdf_junctions,

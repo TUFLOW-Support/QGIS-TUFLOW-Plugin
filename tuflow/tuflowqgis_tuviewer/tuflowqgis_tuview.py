@@ -566,7 +566,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		if self.btnTimePlay.isChecked():
 			if self.tuResults.activeResults:
 				self.timer = QTimer()
-				self.timer.setInterval(self.tuOptions.playDelay * 1000)  # sec to ms
+				self.timer.setInterval(int(self.tuOptions.playDelay * 1000))  # sec to ms
 				self.timer.setSingleShot(False)
 				self.timer.timeout.connect(self.nextTimestep)
 				self.timer.start()
@@ -605,7 +605,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		if layoutType.lower() == "narrow":
 			self.ResultTypeSplitter.addWidget(self.OpenResultsLayout)
 			totalHeight = self.ResultTypeSplitter.sizeHint().height()
-			self.ResultTypeSplitter.setSizes([totalHeight * 9/10, totalHeight * 1/10])
+			self.ResultTypeSplitter.setSizes([int(totalHeight * 9 / 10), int(totalHeight * 1 / 10)])
 		elif layoutType.lower() == "plot":
 			self.PlotOptionSplitter.insertWidget(0, self.OpenResultsLayout)
 

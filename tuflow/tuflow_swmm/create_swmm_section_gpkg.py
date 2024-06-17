@@ -16,14 +16,11 @@ try:
     has_gpd = True
 except ImportError:
     pass  # defaulted to false
-from itertools import chain
 import numpy as np
 import pandas as pd
-import shapely
-from shapely.geometry import Point, MultiPolygon, MultiPoint, LineString, Polygon
+from shapely.geometry import Point, LineString, Polygon
 
-from tuflow_swmm import swmm_io
-from tuflow_swmm import swmm_sections
+from tuflow.tuflow_swmm import swmm_sections
 
 swmm_section_list = swmm_sections.swmm_section_definitions()
 
@@ -37,7 +34,6 @@ def create_section_gdf(section_name, crs):
     section = section[0]
     # print(section)
     # name, prefix, headings, geo_source = section
-    section_heading = f'[{section.name}]'
     headings = section.get_all_column_names()
     geo_source = section.geometry
     # print(name)

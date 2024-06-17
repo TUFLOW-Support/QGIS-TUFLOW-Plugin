@@ -1,0 +1,5 @@
+! This file has some extra stuff in it (won't read in) to test that we don't change other things
+
+Read GIS Z SHAPE == copy_command_verbatim_001
+
+Read GIS BC == 1D2D_Urban_001_2d_bc_L

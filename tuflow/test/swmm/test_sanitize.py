@@ -9,7 +9,7 @@ try:
 except ImportError:
     from pathlib_ import Path_ as Path
 
-from tuflow_swmm.swmm_sanitize import sanitize_name
+from tuflow.tuflow_swmm.swmm_sanitize import sanitize_name
 
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_rows', 50)

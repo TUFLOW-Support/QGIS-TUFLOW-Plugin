@@ -31,7 +31,7 @@ try:
     from pathlib import Path
 except ImportError:
     from pathlib_ import Path_ as Path
-from toc.MapLayerParameterHelper import MapLayerParameterHelper
+from tuflow.toc.MapLayerParameterHelper import MapLayerParameterHelper
 
 
 class FindNodesForConduit(QgsProcessingFeatureBasedAlgorithm):
@@ -65,7 +65,7 @@ class FindNodesForConduit(QgsProcessingFeatureBasedAlgorithm):
         """
         Returns the translated algorithm name.
         """
-        return self.tr('Conduits - Assign node fields')
+        return self.tr('Conduits - Assign Node Fields')
 
     def flags(self):
         return QgsProcessingAlgorithm.Flag.FlagSupportsInPlaceEdits
@@ -92,7 +92,7 @@ class FindNodesForConduit(QgsProcessingFeatureBasedAlgorithm):
         return help_filename.read_text()
 
     def supportInPlaceEdit(self, layer):
-        return True
+        return layer.geometryType() == QgsWkbTypes.LineGeometry
 
     def initParameters(self, config=None):
         """
@@ -154,6 +154,11 @@ class FindNodesForConduit(QgsProcessingFeatureBasedAlgorithm):
 
     def processFeature(self, feature, context, feedback):
         tolerance = 0.001
+
+        if not feature.hasGeometry() or feature.geometry().type() != QgsWkbTypes.LineGeometry:
+            self.feedback.reportError('Feature encountered with improper geometry. Only Polylines are supported.',
+                                      fatalError=True)
+            return []
 
         # Do upstream nodes
         self.handle_conduits_side_single_feature(feature,

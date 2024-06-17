@@ -5,8 +5,8 @@ os.environ['USE_PYGEOS'] = '0'
 import pandas as pd
 from pathlib import Path
 
-from tuflow_swmm.unused.swmm_to_gis import swmm_to_gpkg
-from tuflow_swmm.unused.gis_to_swmm import gis_to_swmm
+from tuflow.tuflow_swmm.unused.swmm_to_gis import swmm_to_gpkg
+from tuflow.tuflow_swmm.unused.gis_to_swmm import gis_to_swmm
 
 if __name__ == "__main__":
     pd.set_option('display.max_columns', 500)

@@ -1,5 +1,6 @@
 import math
 import pandas as pd
+import subprocess
 import unittest
 
 try:
@@ -7,10 +8,10 @@ try:
 except ImportError:
     from pathlib_ import Path_ as Path
 
-from test_files import get_compare_path, get_output_path, get_input_full_filenames
+from test.swmm.test_files import get_compare_path, get_output_path, get_input_full_filenames
 
-from tuflow_swmm.junctions_downstream_to_outfalls import downstream_junctions_to_outfalls_from_files
-from tuflow_swmm.gis_to_swmm import gis_to_swmm
+from tuflow.tuflow_swmm.junctions_downstream_to_outfalls import downstream_junctions_to_outfalls_from_files
+from tuflow.tuflow_swmm.gis_to_swmm import gis_to_swmm
 
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_rows', 50)
@@ -29,9 +30,13 @@ class TestSWMMDownstreamJunctionsToOutfalls(unittest.TestCase):
             text2 = f2.readlines()
             # print(text1)
             # print(text2)
+            subprocess.run(['git.exe', 'diff', '--no-index', first, second], shell=True)
+
             self.assertEqual(len(text1), len(text2))
             for line_num, (l1, l2) in enumerate(zip(text1, text2)):
                 self.assertEqual(l1, l2, msg=f'Line: {line_num + 1}')
+
+
 
     def test_brs(self):
         input_filename = get_input_full_filenames(['bsr_hydraulics_001.gpkg'])[0]

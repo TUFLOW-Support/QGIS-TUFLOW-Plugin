@@ -30,8 +30,8 @@ from osgeo import ogr, gdal
 import tempfile
 
 # from .swmmutil import copy_features
-from tuflow_swmm.swmm_to_gis import swmm_to_gpkg
-from tuflowqgis_settings import TF_Settings
+from tuflow.tuflow_swmm.swmm_to_gis import swmm_to_gpkg
+from tuflow.tuflowqgis_settings import TF_Settings
 
 import os
 
@@ -99,7 +99,7 @@ class ConvertSWMMinpToGpkg(QgsProcessingAlgorithm):
         self.addParameter(
             QgsProcessingParameterFile(
                 'INPUT',
-                self.tr('SWMM Input File (inp)'),
+                self.tr('SWMM Input File (Inp)'),
                 extension='inp',
             )
         )

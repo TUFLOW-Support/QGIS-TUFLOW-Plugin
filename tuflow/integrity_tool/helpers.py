@@ -6,7 +6,7 @@ import re
 from qgis.core import QgsWkbTypes, NULL, QgsVectorLayer, QgsVectorLayerJoinInfo, QgsUnitTypes
 from qgis.utils import iface
 
-from tuflow_swmm.xs_shapes import get_max_width, get_max_area, get_max_height
+from tuflow.tuflow_swmm.xs_shapes import get_max_width, get_max_area, get_max_height
 
 has_gpd = False
 try:
@@ -19,9 +19,11 @@ except ImportError:
 has_logging = False
 try:
     from ..gui.logging import Logging
+
     has_logging = True
 except ImportError:
-    pass # defaulted to false
+    pass  # defaulted to false
+
 
 class Helper(ABC):
     def __init__(self):
@@ -43,7 +45,8 @@ class Helper(ABC):
 
 class EstryHelper(Helper):
     def __init__(self):
-        pass
+
+        super().__init__()
 
     def get_feature_id(self, layer, feature):
         is_gpkg = layer.storageType() == 'GPKG'
@@ -55,11 +58,9 @@ class EstryHelper(Helper):
         if feature.fields().at(0).name() == 'fid':
             # Assume it is a GeoPackage
             gpkg_offset = 1
-        return feature.attribute(1+gpkg_offset)
+        return feature.attribute(1 + gpkg_offset)
 
     def get_feature_attributes(self, layer, feature):
-        #import pydevd_pycharm
-        #pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
         # returns a dictionary of attributes
         gpkg_offset = 0
         if feature.fields().at(0).name() == 'fid':
@@ -115,7 +116,10 @@ class EstryHelper(Helper):
 class SwmmHelper(Helper):
     def __init__(self):
         # map of dataframes by layer id
+        super().__init__()
         self.curves = {}
+        self.offsets_are_elevations = False
+
     def __del__(self):
         pass
 
@@ -159,6 +163,7 @@ class SwmmHelper(Helper):
 
     def get_nwk_type(self, feature):
         return feature.attribute('xsec_XsecType') if 'xsec_XsecType' in feature.attributeMap() else ''
+
     def get_feature_id(self, layer, feature):
         return feature.attribute('Name')
 
@@ -166,7 +171,7 @@ class SwmmHelper(Helper):
         if iface is not None:
             use_customary_units = iface.mapCanvas().mapUnits() == QgsUnitTypes.DistanceFeet
         else:
-            use_customary_units = False # Happens in unit tests
+            use_customary_units = False  # Happens in unit tests
         # returns a dictionary of attributes
         # print(feature.attributeMap())
 
@@ -201,17 +206,23 @@ class SwmmHelper(Helper):
             if type(invertOffsetDs) == 'QVariant':
                 invertOffsetDs = invertOffsetDs.toFloat() if not invertOffsetDs.isNull() else None
 
+            if self.offsets_are_elevations:
+                invertUs = invertOffsetUs
+                invertOffsetUs = 0.0
+                invertDs = invertOffsetDs
+                invertOffsetDs = 0.0
+
             if feature.attribute('xsec_XsecType'):
                 if feature.attribute('xsec_XsecType').upper() == 'CUSTOM':
                     df = self.get_curve_data(layer, feature)
 
                     multiplier = feature['xsec_Geom1']
-                    width = df['yval'].max()*multiplier
-                    height = df['xval'].max()*multiplier
+                    width = df['yval'].max() * multiplier
+                    height = df['xval'].max() * multiplier
                     # compute area
-                    avg_widths = ((df['yval']+df['yval'].shift(1))*0.5)[1:]
+                    avg_widths = ((df['yval'] + df['yval'].shift(1)) * 0.5)[1:]
                     heights = (df['xval'] - df['xval'].shift(1))[1:]
-                    area = sum(avg_widths*heights)*multiplier**2.0
+                    area = sum(avg_widths * heights) * multiplier ** 2.0
                 else:
                     width = get_max_width(feature.attribute('xsec_XsecType'),
                                           use_customary_units,

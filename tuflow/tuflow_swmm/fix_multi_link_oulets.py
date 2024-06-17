@@ -18,7 +18,7 @@ from pathlib import Path
 
 from shapely.geometry import LineString
 
-from tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
+from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
 
 def read_and_concat_layers(filename, layerlist, other_gdfs):

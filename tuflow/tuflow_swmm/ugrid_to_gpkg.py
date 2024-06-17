@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import datetime
-from shapely.geometry import Point, LineString, Polygon
+from shapely.geometry import Point, LineString
 
 def ugrid_to_gpkg(in_filename,
                   out_filename):

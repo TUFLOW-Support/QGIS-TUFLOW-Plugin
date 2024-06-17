@@ -1,0 +1,18 @@
+{
+"type": "FeatureCollection",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::32760" } },
+"features": [
+{ "type": "Feature", "properties": { "Type": "SX", "Flags": "z", "Name": "", "f": 0.0, "d": 0.0, "td": 0.0, "a": 0.0, "b": 0.0 }, "geometry": { "type": "LineString", "coordinates": [ [ 293279.590000000025611, 6178190.589999999850988 ], [ 293294.0, 6178187.269999999552965 ] ] } },
+{ "type": "Feature", "properties": { "Type": "SX", "Flags": "z", "Name": "", "f": 0.0, "d": 0.0, "td": 0.0, "a": 0.0, "b": 0.0 }, "geometry": { "type": "LineString", "coordinates": [ [ 293115.729999999981374, 6177716.83 ], [ 293119.94, 6177707.809999999590218 ] ] } },
+{ "type": "Feature", "properties": { "Type": "SX", "Flags": "z", "Name": "", "f": 0.0, "d": 0.0, "td": 0.0, "a": 0.0, "b": 0.0 }, "geometry": { "type": "LineString", "coordinates": [ [ 293258.28000000002794, 6178027.620000000111759 ], [ 293258.53000000002794, 6178019.25 ] ] } },
+{ "type": "Feature", "properties": { "Type": "SX", "Flags": "z", "Name": "", "f": 0.0, "d": 0.0, "td": 0.0, "a": 0.0, "b": 0.0 }, "geometry": { "type": "LineString", "coordinates": [ [ 293285.13, 6178211.900000000372529 ], [ 293302.01, 6178208.089999999850988 ] ] } },
+{ "type": "Feature", "properties": { "Type": "SX", "Flags": "z", "Name": "", "f": 0.0, "d": 0.0, "td": 0.0, "a": 0.0, "b": 0.0 }, "geometry": { "type": "LineString", "coordinates": [ [ 293287.10999999998603, 6177971.450000000186265 ], [ 293287.71999999997206, 6177964.549999999813735 ] ] } },
+{ "type": "Feature", "properties": { "Type": "CN", "Flags": "", "Name": "", "f": 0.0, "d": 0.0, "td": 0.0, "a": 0.0, "b": 0.0 }, "geometry": { "type": "LineString", "coordinates": [ [ 293302.01, 6178208.089999999850988 ], [ 293290.656299999973271, 6178207.1903 ] ] } },
+{ "type": "Feature", "properties": { "Type": "CN", "Flags": "", "Name": "", "f": 0.0, "d": 0.0, "td": 0.0, "a": 0.0, "b": 0.0 }, "geometry": { "type": "LineString", "coordinates": [ [ 293279.590000000025611, 6178190.589999999850988 ], [ 293286.2041999999783, 6178187.273299999535084 ] ] } },
+{ "type": "Feature", "properties": { "Type": "CN", "Flags": "", "Name": "", "f": 0.0, "d": 0.0, "td": 0.0, "a": 0.0, "b": 0.0 }, "geometry": { "type": "LineString", "coordinates": [ [ 293289.268099999986589, 6177968.0 ], [ 293287.10999999998603, 6177971.450000000186265 ] ] } },
+{ "type": "Feature", "properties": { "Type": "CN", "Flags": "", "Name": "", "f": 0.0, "d": 0.0, "td": 0.0, "a": 0.0, "b": 0.0 }, "geometry": { "type": "LineString", "coordinates": [ [ 293258.553000000014435, 6178022.939000000245869 ], [ 293258.28000000002794, 6178027.620000000111759 ] ] } },
+{ "type": "Feature", "properties": { "Type": "CN", "Flags": "", "Name": "", "f": 0.0, "d": 0.0, "td": 0.0, "a": 0.0, "b": 0.0 }, "geometry": { "type": "LineString", "coordinates": [ [ 293115.729999999981374, 6177716.83 ], [ 293116.098799999977928, 6177710.819899999536574 ] ] } },
+{ "type": "Feature", "properties": { "Type": "QT", "Flags": "", "Name": "QT450", "f": 0.0, "d": 0.0, "td": 0.0, "a": 0.0, "b": 0.0 }, "geometry": { "type": "LineString", "coordinates": [ [ 292910.51, 6177766.120000000111759 ], [ 292914.53000000002794, 6177733.96 ], [ 292915.330000000016298, 6177711.990000000223517 ], [ 292915.01, 6177688.21 ] ] } },
+{ "type": "Feature", "properties": { "Type": "HQ", "Flags": "", "Name": "", "f": 0.0, "d": 0.0, "td": 0.0, "a": 0.0, "b": 0.01 }, "geometry": { "type": "LineString", "coordinates": [ [ 293131.82, 6178439.400000000372529 ], [ 293250.539999999979045, 6178443.440000000409782 ], [ 293297.75, 6178442.54 ], [ 293464.0, 6178437.599999999627471 ] ] } }
+]
+}

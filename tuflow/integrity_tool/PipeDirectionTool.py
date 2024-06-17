@@ -5,7 +5,7 @@ from .Enumerators import *
 from tuflow.tuflowqgis_library import is1dNetwork, getNetworkMidLocation
 from .helpers import EstryHelper
 
-from tuflow_swmm.swmm_gis_info import is_swmm_network_layer
+from tuflow.tuflow_swmm.swmm_gis_info import is_swmm_network_layer
 
 class PipeDirectionTool():
 

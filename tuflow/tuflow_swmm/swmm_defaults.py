@@ -5,10 +5,9 @@ try:
     has_gpd = True
 except ImportError:
     pass  # defaulted to false
-import numpy as np
 import pandas as pd
 
-from tuflow_swmm.create_swmm_section_gpkg import create_section_gdf, create_section_from_gdf
+from tuflow.tuflow_swmm.create_swmm_section_gpkg import create_section_gdf, create_section_from_gdf
 
 
 def default_options_table(crs, report_step, min_surfarea):

@@ -5,25 +5,19 @@ try:
     has_gpd = True
 except ImportError:
     pass  # defaulted to false
-import math
 import numpy as np
 import pandas as pd
 from pathlib import Path
 
-from tuflow_swmm.create_swmm_section_gpkg import create_section_gdf, create_section_from_gdf
-from tuflow_swmm.gis_to_swmm import gis_to_swmm
-from tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
-from tuflow_swmm.swmm_io import write_tuflow_version
+from tuflow.tuflow_swmm.create_swmm_section_gpkg import create_section_gdf, create_section_from_gdf
+from tuflow.tuflow_swmm.gis_to_swmm import gis_to_swmm
+from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
+from tuflow.tuflow_swmm.swmm_io import write_tuflow_version
+
 
 def generate_curve(curve_name, coeff, exponent, crs):
-    print(curve_name)
-    print(coeff)
-    print(exponent)
-
     depths = np.array([0.0, 0.05, 0.1, 0.2, 0.5, 1.0, 1.5, 2.0, 5.0, 10.0, 15.0])
-    print(depths)
     discharges = coeff * np.power(depths, exponent)
-    print(discharges)
 
     df_curve = pd.DataFrame(
         {
@@ -32,7 +26,6 @@ def generate_curve(curve_name, coeff, exponent, crs):
         }
     )
     df_curve['Name'] = curve_name
-    print(df_curve)
 
     curve_col_mapping = {
         'Name': 'Name',
@@ -45,42 +38,29 @@ def generate_curve(curve_name, coeff, exponent, crs):
                                                          crs,
                                                          df_curve,
                                                          curve_col_mapping)
-    gdf_curve['Type'].iloc[0] = 'RATING'
-    print(gdf_curve)
+    gdf_curve['Type'] = gdf_curve['Type'].dropna().astype(str)
+    gdf_curve.loc[gdf_curve.index[0], 'Type'] = 'RATING'
+    # gdf_curve['Type'].iloc[0] = 'RATING'
 
     return gdf_curve
 
 
-def xpswmm_2d_capture_to_swmm(
-        gis_filename,
-        field_node_name,
+def xpswmm_2d_capture_to_swmm_gpd(
+        gdf_in,
         field_elev,
         field_2d_capture_flag,
         field_2d_capture_coeff,
         field_2d_capture_exponent,
         connection_width,
         crs,
-        output_inp_file,
-        output_iu_file,
+        swmm_gdfs_layernames,
         feedback=ScreenProcessingFeedback(),
 ):
-    if not has_gpd:
-        message = ('This tool requires geopandas: to install please follow instructions on the following webpage: '
-                   'https://wiki.tuflow.com/QGIS_Intallation_with_OSGeo4W')
-        feedback.reportError(message)
-        return
-
-    gdf = gpd.read_file(gis_filename)
-    print(gdf)
-
-    gdf['curve_name'] = 'C' + gdf[field_2d_capture_coeff].astype(str).str.replace('.', '_') + '-' \
-                        + 'E' + gdf[field_2d_capture_exponent].astype(str).str.replace('.', '_')
-
-    print(gdf)
+    gdf_in['curve_name'] = 'C' + gdf_in[field_2d_capture_coeff].astype(str).str.replace('.', '_') + '-' \
+                           + 'E' + gdf_in[field_2d_capture_exponent].astype(str).str.replace('.', '_')
 
     # Create curves for unique coefficients and exponents
-    gdf_unique = gdf.drop_duplicates(subset=['curve_name'])
-    print(gdf_unique)
+    gdf_unique = gdf_in.drop_duplicates(subset=['curve_name'])
 
     curves = [
         generate_curve(curve_name,
@@ -91,19 +71,10 @@ def xpswmm_2d_capture_to_swmm(
             gdf_unique[field_2d_capture_coeff],
             gdf_unique[field_2d_capture_exponent])
     ]
-    print(curves)
 
     gdf_curves_merged = pd.concat(curves)
-    print(gdf_curves_merged)
 
-    gpkg_inp_file = output_inp_file.with_suffix(('.gpkg'))
-    gdf_curves_merged.to_file(gpkg_inp_file,
-                              layer='Curves',
-                              driver='GPKG',
-                              overwrite=True)
-
-    # Create the TUFLOW-SWMM table information
-    write_tuflow_version(gpkg_inp_file)
+    swmm_gdfs_layernames.append((gdf_curves_merged, 'Curves--Curves'))
 
     # Create a dummy streets layer
     gdf_streets, streets_layername = create_section_gdf('Streets', crs)
@@ -128,16 +99,12 @@ def xpswmm_2d_capture_to_swmm(
     gdf_streets = pd.concat([gdf_streets, gdf_street_info], axis=0)
     gdf_streets = gdf_streets[1:]  # Remove dummy row
 
-    gdf_streets.to_file(
-        gpkg_inp_file,
-        layer=streets_layername,
-        driver='GPKG'
-    )
+    swmm_gdfs_layernames.append((gdf_streets, streets_layername))
 
     # Make the inlet layer
     # don't use unique because we need to use this for inlet usage
-    #gdf_inlets = gdf_unique[gdf_unique[field_2d_capture_flag] == 1]
-    gdf_inlets = gdf[gdf[field_2d_capture_flag] == 1]
+    # gdf_inlets = gdf_unique[gdf_unique[field_2d_capture_flag] == 1]
+    gdf_inlets = gdf_in[gdf_in[field_2d_capture_flag] == 1]
     if len(gdf_inlets) > 0:
         inlet_q_to_inlets_map = {
             'curve_name': 'Name',
@@ -153,11 +120,7 @@ def xpswmm_2d_capture_to_swmm(
         gdf_inlets_q['geometry'] = None
         gdf_inlets_q = gdf_inlets_q.drop_duplicates(subset='Custom_Curve')
 
-        gdf_inlets_q.to_file(
-            gpkg_inp_file,
-            layer=inlets_layername,
-            driver='GPKG',
-        )
+        swmm_gdfs_layernames.append((gdf_inlets_q, inlets_layername))
 
     # Make the inlet usage layer
     gdf_inlets['Number'] = 1
@@ -187,10 +150,59 @@ def xpswmm_2d_capture_to_swmm(
     gdf_inlet_usage_ext['wLocal'] = 0.0
     gdf_inlet_usage_ext['Placement'] = 'ON_SAG'
 
-    print(gdf_inlet_usage_ext)
-    gdf_inlet_usage_ext.to_file(output_iu_file,
-                                layer='inlet_usage',
-                                driver='GPKG')
+    return gdf_inlet_usage_ext
+
+
+def xpswmm_2d_capture_to_swmm(
+        gis_filename,
+        field_node_name,
+        field_elev,
+        field_2d_capture_flag,
+        field_2d_capture_coeff,
+        field_2d_capture_exponent,
+        connection_width,
+        crs,
+        output_inp_file,
+        output_iu_file,
+        feedback=ScreenProcessingFeedback(),
+):
+    if not has_gpd:
+        message = ('This tool requires geopandas: to install please follow instructions on the following webpage: '
+                   'https://wiki.tuflow.com/QGIS_Intallation_with_OSGeo4W')
+        feedback.reportError(message)
+        return
+
+    gdf = gpd.read_file(gis_filename)
+    print(gdf)
+
+    gdfs_to_write = []
+
+    gdf_inlet_usage = xpswmm_2d_capture_to_swmm_gpd(
+        gdf,
+        field_elev,
+        field_2d_capture_flag,
+        field_2d_capture_coeff,
+        field_2d_capture_exponent,
+        connection_width,
+        crs,
+        gdfs_to_write,
+        feedback,
+    )
+
+    gpkg_inp_file = output_inp_file.with_suffix('.gpkg')
+
+    for gdf_to_write, layer_name in gdfs_to_write:
+        gdf_to_write.to_file(gpkg_inp_file,
+                             layer=layer_name,
+                             driver='GPKG',
+                             overwrite=True)
+
+    # Create the TUFLOW-SWMM table information
+    write_tuflow_version(gpkg_inp_file)
+
+    gdf_inlet_usage.to_file(output_iu_file,
+                            layer='inlet_usage',
+                            driver='GPKG')
 
     gis_to_swmm(gpkg_inp_file,
                 output_inp_file)

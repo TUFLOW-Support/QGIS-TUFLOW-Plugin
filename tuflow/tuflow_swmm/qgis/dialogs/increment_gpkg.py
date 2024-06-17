@@ -62,6 +62,7 @@ class Increment_gpkg(QDialog, Ui_Increment_gpkg):
         archive = self.cbxExistingOptions.currentIndex() == ExistingOptionsEnum.UNLOAD_ARCHIVE.value
         return archive
 
+
 def run_increment_dlg(gpkg_filename: str, layer: QgsMapLayer) -> None:
     iface = tuflow_plugin().iface
     dlg = Increment_gpkg(iface, gpkg_filename)

@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 
-from tuflow_swmm.xs_processing import get_normalized_hw
+from tuflow.tuflow_swmm.xs_processing import get_normalized_hw
 
 
 class TestXsProcessing(unittest.TestCase):

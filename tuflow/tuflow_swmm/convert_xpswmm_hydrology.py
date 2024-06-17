@@ -5,7 +5,7 @@ import pandas as pd
 import re
 from shapely.validation import make_valid
 
-from tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
+from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
 
 def convert_xpswmm_hydrology(gdf_gis_nodes,

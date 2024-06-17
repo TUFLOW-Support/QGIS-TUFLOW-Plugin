@@ -13,10 +13,9 @@ try:
 except ImportError:
     pass  # defaulted to false
 
-from tuflow_swmm.estry_to_swmm_gis_layers import convert_layers
-from tuflow_swmm.estry_to_swmm import array_from_csv, hw_curve_from_xz
-
-from test_files import get_compare_path, get_input_full_filenames
+from tuflow.tuflow_swmm.estry_to_swmm_gis_layers import convert_layers
+from tuflow.tuflow_swmm.estry_to_swmm import array_from_csv, hw_curve_from_xz
+from test.swmm.test_files import get_compare_path, get_input_full_filenames
 
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_rows', 50)

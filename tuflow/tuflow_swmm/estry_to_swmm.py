@@ -1,4 +1,5 @@
 from pathlib import Path
+
 has_gpd = False
 try:
     import geopandas as gpd
@@ -6,11 +7,10 @@ try:
     has_gpd = True
 except ImportError:
     pass  # defaulted to false
-import numpy as np
 import pandas as pd
 
-from tuflow_swmm.create_swmm_section_gpkg import create_section_gdf, create_section_from_gdf
-from tuflow_swmm.xs_processing import get_normalized_hw
+from tuflow.tuflow_swmm.create_swmm_section_gpkg import create_section_from_gdf
+from tuflow.tuflow_swmm.xs_processing import get_normalized_hw
 
 
 # Load the pydev pycharm if available
@@ -18,48 +18,6 @@ from tuflow_swmm.xs_processing import get_normalized_hw
 #    import pydevd_pycharm
 # except ModuleNotFoundError:
 #    pass
-
-
-def read_curves_from_textfile(text_filename,
-                              col_headings):
-    # skip lines until we get see the
-    col_nums = [None] * len(col_headings)
-    # depth_col_num = None
-    # flow_col_num = None
-    df_curve = None
-    with open(text_filename, 'r') as curve_file:
-        found = False
-        while not found:
-            line = curve_file.readline()
-            # remove anything after comments
-            comment_loc = line.find('!')
-            if comment_loc != -1:
-                line = line[:comment_loc]
-            line_vals = [x.strip() for x in line.split(',')]
-            # print(line_vals)
-            for iheading, heading in enumerate(col_headings):
-                col_nums[iheading] = line_vals.index(heading) if heading in line_vals else None
-
-            found = not any(None)
-
-            # depth_col_num = line_vals.index(row.depth_column) if row.depth_column in line_vals else None
-            # flow_col_num = line_vals.index(row.flow_column) if row.flow_column in line_vals else None
-            # if depth_col_num or flow_col_num:
-            #    found = True
-
-        # print(depth_col_num)
-        # print(flow_col_num)
-        df_curve = pd.read_csv(
-            curve_file,
-            comment='!',
-            skip_blank_lines=False,
-            skiprows=0,
-            usecols=col_nums,
-            names=col_headings,
-        )
-        df_curve['Name'] = row.name
-
-    return df_curve
 
 
 def pit_inlet_dbase_to_df(file_inlet_db, crs, feedback):
@@ -194,7 +152,7 @@ def array_from_csv(filename, col_headings):
 def hw_curve_from_xz(filename):
     values = array_from_csv(filename, ['x', 'z'])
 
-    min, max, hw = get_normalized_hw(values)
+    minval, maxval, hw = get_normalized_hw(values)
 
     df = pd.DataFrame(
         {
@@ -203,7 +161,7 @@ def hw_curve_from_xz(filename):
         }
     )
 
-    return min, max, df
+    return minval, maxval, df
 
 
 def create_hw_curves2(gdf, filename_ta_tables, crs, feedback):

@@ -40,8 +40,8 @@ except ImportError:
 
 from ..gui.logging import Logging
 
-from toc.MapLayerParameterHelper import MapLayerParameterHelper
-from tuflow_swmm.junctions_to_storage import junctions_to_storage
+from tuflow.toc.MapLayerParameterHelper import MapLayerParameterHelper
+from tuflow.tuflow_swmm.junctions_to_storage import junctions_to_storage
 
 has_gpd = False
 try:
@@ -65,7 +65,8 @@ def create_feature(row, new_layer, features_to_add):
 
     for q_field in new_layer.fields().toList():
         col = q_field.name()
-        new_feat.setAttribute(col, row[col])
+        if col != 'fid':
+            new_feat.setAttribute(col, row[col])
 
     features_to_add.append(new_feat)
 
@@ -120,7 +121,7 @@ class ConvertJunctionsToStorage(QgsProcessingAlgorithm):
         """
         Returns the translated algorithm name.
         """
-        return self.tr('Junctions - convert HX nodes to storage')
+        return self.tr('Junctions - Convert HX Nodes to Storage')
 
     def group(self):
         """
@@ -218,7 +219,7 @@ class ConvertJunctionsToStorage(QgsProcessingAlgorithm):
         self.addParameter(
             QgsProcessingParameterNumber(
                 'INPUT_storage_z',
-                self.tr('Inverse slope (run/rise) Pyramidal or Conical only'),
+                self.tr('Inverse slope (run/rise) (only used for Pyramidal or Conical)'),
                 QgsProcessingParameterNumber.Double,
                 defaultValue=0.0,
                 minValue=0.0,

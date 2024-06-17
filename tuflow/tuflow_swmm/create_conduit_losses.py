@@ -7,21 +7,16 @@ try:
 except ImportError:
     pass  # defaulted to false
 
-import math
 import numpy as np
 from shapely.geometry import Point
-import timeit
 
 from qgis.core import (QgsFeature,
                        QgsGeometry,
-                       QgsPoint,
-                       QgsVectorLayer,
-                       QgsField)
+                       QgsPoint)
 
-from PyQt5.QtCore import QVariant
+from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
+from tuflow.tuflow_swmm.xs_shapes import is_open_channel
 
-from tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
-from tuflow_swmm.xs_shapes import is_open_channel
 
 def create_loss_feature(row,
                         new_layer,
@@ -92,7 +87,6 @@ def get_conduit_loss_info(
         input_conduit_source,
         input_inlet_layers,
         feedback=ScreenProcessingFeedback()):
-
     try:
         if not has_gpd:
             message = ('This tool requires geopandas: to install please follow instructions on the following webpage: '

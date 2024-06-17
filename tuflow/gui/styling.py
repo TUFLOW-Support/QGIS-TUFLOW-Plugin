@@ -263,7 +263,7 @@ class StylingCategorized(Styling):
             for feat in layer.getFeatures():
                 context.setFeature(feat)
                 value = expression.evaluate(context)
-                if value not in unique_values:
+                if value is not None and value not in unique_values:
                     unique_values.append(value)
             return sorted(unique_values)
 

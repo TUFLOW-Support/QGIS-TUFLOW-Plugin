@@ -27,12 +27,13 @@ from qgis.core import (QgsExpressionContext,
                        QgsProcessingParameterFeatureSink,
                        QgsProcessingUtils,
                        QgsProject,
-                       QgsSpatialIndex)
+                       QgsSpatialIndex,
+                       QgsWkbTypes)
 
 from osgeo import ogr, gdal
 
 import tempfile
-from toc.MapLayerParameterHelper import MapLayerParameterHelper
+from tuflow.toc.MapLayerParameterHelper import MapLayerParameterHelper
 
 try:
     from pathlib import Path
@@ -75,13 +76,13 @@ class SetJunctionAtts(QgsProcessingFeatureBasedAlgorithm):
         """
         Returns the translated algorithm name.
         """
-        return self.tr('Junctions - Set attributes')
+        return self.tr('Junctions - Set Attributes')
 
     def flags(self):
         return QgsProcessingAlgorithm.Flag.FlagSupportsInPlaceEdits
 
     def supportInPlaceEdit(self, layer):
-        return True
+        return layer.geometryType() == QgsWkbTypes.PointGeometry
 
     def group(self):
         """
@@ -198,7 +199,7 @@ class SetJunctionAtts(QgsProcessingFeatureBasedAlgorithm):
                 self.tr('Nodes receiveing subcatchment flows option (if connected to 2D)'),
                 options=[
                     'Based on options selected below',
-                    'Set Apond = 0.0; Ysur = 0.0 (overwrites options below)',
+                    'Set Area of ponding (Apond) = 0.0; Ysur = 0.0 (overwrites options below)',
                 ],
                 allowMultiple=False,
                 defaultValue='Based on options selected below'
@@ -208,7 +209,8 @@ class SetJunctionAtts(QgsProcessingFeatureBasedAlgorithm):
         self.addParameter(
             QgsProcessingParameterNumber(
                 'Input_hx_ysur',
-                self.tr('<br><hr><b>Nodes connected to 2D without inlets (through embankment culvert)</b><br><br>Ysur (recommended 0.0)'),
+                self.tr(
+                    '<br><hr><b>Nodes connected to 2D without inlets (through embankment culvert)</b><br><br>Ysur (recommended 0.0)'),
                 QgsProcessingParameterNumber.Double,
                 defaultValue=0.0,
                 minValue=0.0,
@@ -218,7 +220,7 @@ class SetJunctionAtts(QgsProcessingFeatureBasedAlgorithm):
         self.addParameter(
             QgsProcessingParameterNumber(
                 'Input_hx_apond',
-                self.tr('Apond (recommended typical area of connected cells)'),
+                self.tr('Area of ponding (Apond). Recommend use typical area of connected cells'),
                 QgsProcessingParameterNumber.Double,
                 defaultValue=10.0,
                 minValue=0.0,
@@ -252,18 +254,18 @@ class SetJunctionAtts(QgsProcessingFeatureBasedAlgorithm):
         self.addParameter(
             QgsProcessingParameterNumber(
                 'Input_inlet_apond',
-                self.tr('Area of ponding'),
+                self.tr('Area of ponding (Apond)'),
                 QgsProcessingParameterNumber.Double,
                 defaultValue=10.0,
                 minValue=0.0,
             )
         )
 
-
         self.addParameter(
             QgsProcessingParameterNumber(
                 'Input_no_conn_ysur',
-                self.tr('<br><hr><b>Nodes without a 2D connection (underground pipe network)</b><br><br>Surcharge depth (not used if apond > 0)'),
+                self.tr(
+                    '<br><hr><b>Nodes without a 2D connection (underground pipe network)</b><br><br>Surcharge depth. Not used if Area of ponding (apond) > 0'),
                 QgsProcessingParameterNumber.Double,
                 defaultValue=50.0,
                 minValue=0.0,
@@ -273,7 +275,7 @@ class SetJunctionAtts(QgsProcessingFeatureBasedAlgorithm):
         self.addParameter(
             QgsProcessingParameterNumber(
                 'Input_no_conn_apond',
-                self.tr('Area of ponding'),
+                self.tr('Area of ponding (Apond)'),
                 QgsProcessingParameterNumber.Double,
                 defaultValue=0.0,
                 minValue=0.0,
@@ -324,8 +326,8 @@ class SetJunctionAtts(QgsProcessingFeatureBasedAlgorithm):
         #                                              context)
 
         lays_bc_conn_pos = self.parameterAsEnums(parameters,
-                                                     'INPUT_bc_conns',
-                                                     context)
+                                                 'INPUT_bc_conns',
+                                                 context)
         lays_bc_conn = self.mapLayerHelperBcConn.getLayersFromIndices(lays_bc_conn_pos)
 
         # lays_bc_conn = self.parameterAsLayerList(parameters,
@@ -370,7 +372,6 @@ class SetJunctionAtts(QgsProcessingFeatureBasedAlgorithm):
 
         if feedback.isCanceled():
             return {}
-
 
         self.df_atts = get_junction_atts(input_source.getFeatures(),
                                          lays_subcatch,

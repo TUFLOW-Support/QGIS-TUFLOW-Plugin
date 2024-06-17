@@ -9,6 +9,7 @@ import os
 os.environ['USE_PYGEOS'] = '0'
 
 has_gpd = False
+gpd = None
 try:
     import geopandas as gpd
 
@@ -16,18 +17,15 @@ try:
 except ImportError:
     pass  # defaulted to false
 
-from io import StringIO
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from shapely.geometry import LineString
 
-from tuflow_swmm.create_swmm_section_gpkg import create_section_gdf, create_section_from_gdf
-from tuflow_swmm.estry_to_swmm import *
-from tuflow_swmm.gis_to_swmm import gis_to_swmm
-from tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
-from tuflow_swmm.swmm_defaults import default_options_table, default_reporting_table
-from tuflow_swmm.swmm_gdal import delete_layer_features
+from tuflow.tuflow_swmm.create_swmm_section_gpkg import create_section_gdf, create_section_from_gdf
+from tuflow.tuflow_swmm.estry_to_swmm import hw_curve_from_xz, create_curves_from_dfs, pit_inlet_dbase_to_df
+from tuflow.tuflow_swmm.gis_to_swmm import gis_to_swmm
+from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
+from tuflow.tuflow_swmm.swmm_defaults import default_options_table, default_reporting_table
 
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_rows', 100)
@@ -104,13 +102,13 @@ def split_filename_into_path_and_layer(filename):
 
     ext_start = str_filename.find('.gpkg')
     if ext_start == -1:
-        return (str_filename, None)
+        return str_filename, None
 
     # we are a geopackage split into portions
     out_filename = str_filename[:ext_start + 5]
     out_layer = str_filename[ext_start + 6:]
 
-    return (out_filename, out_layer)
+    return out_filename, out_layer
 
 
 def drop_duplicate_points(gdf, tol):
@@ -303,7 +301,7 @@ def convert_layers(network_layers, node_layers, pit_layers, table_link_layers,
         feedback.pushInfo(f'Total number of table links: {len(gdf_all_table_links)}')
 
     if gdf_all_nwk_L is None and (gdf_all_nwk_P is not None or gdf_all_nodes is not None):
-        message = f"No Channels Provided: If nodes are provided, network channels mus be provided."
+        message = "No Channels Provided: If nodes are provided, network channels mus be provided."
         feedback.reportError(message, True)
         raise ValueError(message)
 
@@ -449,7 +447,7 @@ def convert_layers(network_layers, node_layers, pit_layers, table_link_layers,
             gdfs_junctions.append(gdf_chan_join_nodes[['Name', 'Invert', 'Type', 'Conn_1D_2D',
                                                        'Conn_Width', 'Number_of', 'Pit_elev', 0,
                                                        'Width_or_Dia', 'Height_or_WF', ]])
-        except Exception as e:
+        except Exception:
             feedback.reportError('Error appending junction data. Make sure that input files are correct.'
                                  'ERROR: str(e)')
             return
@@ -485,6 +483,7 @@ def convert_layers(network_layers, node_layers, pit_layers, table_link_layers,
         gdf_junctions = drop_duplicate_points(gdf_junctions, 0.00001)
 
     # Channel nodes - re-export channel endpoints and join to final junctions to get final nodes
+    gdf_channel_endpoint_buf_all = None
     if gdf_channel_endpoints is not None:
         gdf_channel_endpoint_buf_all = gdf_channel_endpoints.copy().set_geometry(
             gdf_channel_endpoints.buffer(snap_tolerance))
@@ -706,7 +705,7 @@ def convert_layers(network_layers, node_layers, pit_layers, table_link_layers,
         feedback.pushInfo(f'Number of pumps: {len(gdf_nwk_pumps)}')
 
         if len(gdf_nwk_pumps) > 0:
-            feedback.pushWarning(f'WARNING - Only some pump information is transferred when converting ESTRY to SWMM.'
+            feedback.pushWarning('WARNING - Only some pump information is transferred when converting ESTRY to SWMM.'
                                  '   Pump curves and on/off elevations must be provided. Verify all pump inputs.')
 
             # print(gdf_nwk_pumps)
@@ -738,7 +737,7 @@ def convert_layers(network_layers, node_layers, pit_layers, table_link_layers,
 
         if len(gdf_nwk_weirs) > 0:
             feedback.pushWarning(
-                f'WARNING - Weirs converted from ESTRY to SWMM may not be complete or optimal representation.'
+                'WARNING - Weirs converted from ESTRY to SWMM may not be complete or optimal representation.'
                 ' Verify and modify the converted weirs as needed.')
 
             # Default to transverse weir if not supported
@@ -840,6 +839,7 @@ def convert_layers(network_layers, node_layers, pit_layers, table_link_layers,
     gdf_orifices = None
     gdf_sg_xsecs = None
     orifices_layername = None
+    gdf_nwk_sg = None
     if gdf_all_nwk_L is not None:
         gdf_nwk_sg = gdf_all_nwk_L.copy(deep=True)
         gdf_nwk_sg = gdf_nwk_sg[gdf_nwk_sg['Type_mod'].str.startswith('SG')]
@@ -1210,7 +1210,7 @@ def convert_layers(network_layers, node_layers, pit_layers, table_link_layers,
     gdf_streets = None
 
     if gdf_pits is not None and len(gdf_pits) > 0:
-        feedback.pushInfo(f'Generating inlet usage information')
+        feedback.pushInfo('Generating inlet usage information')
         gdf_inlet_usage_ext, inlet_usage_ext_layername = create_inlet_usage_table(
             gdf_pits,
             street_name,
@@ -1225,7 +1225,7 @@ def convert_layers(network_layers, node_layers, pit_layers, table_link_layers,
         gdf_inlets = gdf_inlets[gdf_inlets['Name'] != '']
         if len(gdf_inlets) == 0:
             gdf_inlets = None
-            feedback.pushInfo(f'Only blank connections found. No inlets will be written.')
+            feedback.pushInfo('Only blank connections found. No inlets will be written.')
 
     gdf_streets, streets_layername = create_section_gdf('Streets', crs)
     gdf_street_info = gpd.GeoDataFrame(
@@ -1320,11 +1320,11 @@ def convert_layers(network_layers, node_layers, pit_layers, table_link_layers,
     if gdf_weirs is not None:
         if gdf_xsecs is not None:
             # Drop the columns we don't need
-            df_weir_xsecs = gdf_xsecs.drop(columns={'geometry',
+            df_weir_xsecs = gdf_xsecs.drop(columns=['geometry',
                                                     'Culvert',
                                                     'Curve',
                                                     'Tsect',
-                                                    'Street'})
+                                                    'Street'])
             # drop duplicate columns
             cols_to_drop = set(gdf_weirs.columns).intersection(
                 set(df_weir_xsecs.rename(columns=lambda x: f'xsec_{x}').columns))
@@ -1352,12 +1352,12 @@ def convert_layers(network_layers, node_layers, pit_layers, table_link_layers,
         if gdf_xsecs is not None:
             # Drop the columns we don't need (
             df_orifice_xsecs = gdf_xsecs.drop(
-                columns={
+                columns=[
                     'geometry',
                     'Culvert',
                     'Curve',
                     'Tsect',
-                    'Street'})
+                    'Street'])
             # drop duplicate columns
             cols_to_drop = set(gdf_orifices.columns).intersection(
                 set(df_orifice_xsecs.rename(columns=lambda x: f'xsec_{x}').columns))
@@ -1471,6 +1471,7 @@ if __name__ == "__main__":
     crs = 'EPSG:28356'
 
     output_filename = None
+    external_gpkg_filename = None
 
     simulation = ['Bankstown',
                   'OneChannel_base',

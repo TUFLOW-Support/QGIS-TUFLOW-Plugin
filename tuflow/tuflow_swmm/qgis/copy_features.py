@@ -1,7 +1,7 @@
-from qgis.core import (QgsExpressionContext,
-                       QgsFeature,
+from qgis.core import (QgsFeature,
                        QgsFeatureSink,
                        )
+
 
 def copy_features(input_layer, output_layer, feedback):
     output_layer.startEditing()

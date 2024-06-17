@@ -1,11 +1,11 @@
 from PyQt5.QtCore import Qt, QVariant
 from PyQt5.QtWidgets import QDialog, QApplication, QMessageBox
 
-from forms.ui_replace_features import Ui_dlg_features_from_layer
+from tuflow.forms.ui_replace_features import Ui_dlg_features_from_layer
 
 from qgis.core import QgsMapLayer, QgsWkbTypes, QgsFeatureSink, edit, QgsFeature, QgsFields
 from qgis.utils import iface
-from toc.toc import tuflowqgis_get_geopackage_from_layer, tuflowqgis_find_layer_in_datasource, tuflowqgis_find_layer, \
+from tuflow.toc.toc import tuflowqgis_get_geopackage_from_layer, tuflowqgis_find_layer_in_datasource, tuflowqgis_find_layer, \
     findAllRasterLyrs, findAllVectorLyrsWithGroups
 
 
@@ -110,5 +110,3 @@ def run_add_features_from_layer(dest_layer):
         pass
 
 
-if __name__ == '__main__':
-    run_add_features_from_layer()

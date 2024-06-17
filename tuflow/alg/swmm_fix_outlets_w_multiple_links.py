@@ -30,7 +30,7 @@ import tempfile
 
 # from .swmmutil import copy_features
 # from tuflow_swmm.swmm_to_gis import swmm_to_gpkg
-from tuflow_swmm.fix_multi_link_oulets import extend_multi_link_outfalls
+from tuflow.tuflow_swmm.fix_multi_link_oulets import extend_multi_link_outfalls
 
 import os
 
@@ -67,7 +67,7 @@ class SwmmFixOutletsMuliLinks(QgsProcessingAlgorithm):
         """
         Returns the translated algorithm name.
         """
-        return self.tr('Outfalls - Fix multiply connected links')
+        return self.tr('Outfalls - Fix Multiply Connected Links')
 
     def group(self):
         """

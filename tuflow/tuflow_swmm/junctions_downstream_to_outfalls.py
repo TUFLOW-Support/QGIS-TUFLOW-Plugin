@@ -7,13 +7,20 @@ try:
 except ImportError:
     pass  # defaulted to false
 
-from tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
-from qgis.core import (QgsFeature,
-                       QgsField,
-                       QgsPoint,
-                       QgsVectorLayerJoinInfo,
-                       )
-from PyQt5.QtCore import QVariant
+from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
+
+has_pyqt = False
+try:
+    from qgis.core import (QgsFeature,
+                           QgsField,
+                           QgsPoint,
+                           QgsVectorLayerJoinInfo,
+                           )
+    from PyQt5.QtCore import QVariant
+
+    has_pyqt = True
+except ImportError:
+    pass  # has_pyqt defaulted to false
 
 
 def create_junction_features(row, new_layer, features_to_add):

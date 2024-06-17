@@ -1,0 +1,662 @@
+NODE 134 "J1" 648.532 1043.713
+NODE 134 "J2" 1221.281 1005.760
+NODE 134 "J3" 405.287 905.702
+NODE 134 "J4" 505.345 862.573
+NODE 134 "J5" 631.281 859.123
+NODE 134 "J6" 822.772 819.444
+NODE 134 "J7" 831.398 709.035
+NODE 134 "J8" 915.930 840.146
+NODE 134 "J9" 1072.918 867.749
+NODE 134 "J10" 1254.058 640.029
+NODE 134 "J11" 1334.823 497.305
+NODE 134 "O1" 1411.468 477.401
+LINK 136 "C1" "J1" "J5"
+LINK 136 "C2" "J2" "J11"
+LINK 136 "C3" "J3" "J4"
+LINK 136 "C4" "J4" "J5"
+LINK 136 "C5" "J5" "J6"
+LINK 136 "C6" "J7" "J6"
+LINK 136 "C7" "J6" "J8"
+LINK 136 "C8" "J8" "J9"
+LINK 136 "C9" "J9" "J10"
+LINK 136 "C10" "J10" "J11"
+LINK 136 "C11" "J11" "O1"
+GLDBITEM "Rainfall" "RainGage"
+GLDBDATA R_RAIN "Rainfall" "RainGage" 24 0.0048 0.0055 0.0063 0.0107 0.0135 0.0262 0.0475 0.0197 0.0118 0.0070 0.0058 0.0050 0.0033 0.0032 0.0030 0.0028 0.0028 0.0027 0.0025 0.0025 0.0023 0.0023 0.0022 0.0022
+GLDBDATA R_DRAIN "Rainfall" "RainGage" 24 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00
+GLDBDATA R_TRAIN "Rainfall" "RainGage" 24 0.00 0.00 0.00 0.00 0.01 0.01 0.01 0.01 0.01 0.01 0.01 0.02 0.02 0.02 0.02 0.02 0.02 0.02 0.02 0.03 0.03 0.03 0.03 0.03
+GLDBDATA R_RMULTV "Rainfall" "RainGage" 1 1.000
+GLDBDATA R_HOFF "Rainfall" "RainGage" 1 0
+GLDBDATA R_THISTO "Rainfall" "RainGage" 1 5.000
+GLDBDATA R_RAINSYR "Rainfall" "RainGage" 1 1998
+GLDBDATA R_RAINSMTH "Rainfall" "RainGage" 1 1
+GLDBDATA R_RAINSDAY "Rainfall" "RainGage" 1 1
+GLDBDATA R_RAINSHR "Rainfall" "RainGage" 1 0
+GLDBDATA R_RAINSMIN "Rainfall" "RainGage" 1 0
+GLDBDATA R_RAINSSEC "Rainfall" "RainGage" 1 0
+GLDBDATA R_KTYPE "Rainfall" "RainGage" 1 1
+GLDBDATA R_KTIMEV "Rainfall" "RainGage" 1 0
+GLDBDATA R_KPREPV "Rainfall" "RainGage" 1 0
+GLDBDATA R_ROPT "Rainfall" "RainGage" 1 0
+GLDBITEM "Infiltration" "S1"
+GLDBDATA R_DECAY "Infiltration" "S1" 1 0.0018176
+GLDBDATA R_WLMAX "Infiltration" "S1" 1 4.567
+GLDBDATA R_WLMIN "Infiltration" "S1" 1 0.220
+GLDBDATA R_MAXINF "Infiltration" "S1" 1 0.000
+GLDBDATA R_WSTOR2 "Infiltration" "S1" 1 0.300
+GLDBDATA R_WSTOR1 "Infiltration" "S1" 1 0.060
+GLDBDATA R_IROUGH "Infiltration" "S1" 1 0.015
+GLDBDATA R_INFILM "Infiltration" "S1" 1 0
+GLDBDATA R_PROUGH "Infiltration" "S1" 1 0.240
+GLDBDATA R_PCTZER "Infiltration" "S1" 1 25.000
+GLDBITEM "Infiltration" "S2"
+GLDBDATA R_DECAY "Infiltration" "S2" 1 0.0018056
+GLDBDATA R_WLMAX "Infiltration" "S2" 1 4.500
+GLDBDATA R_WLMIN "Infiltration" "S2" 1 0.200
+GLDBDATA R_MAXINF "Infiltration" "S2" 1 0.000
+GLDBDATA R_WSTOR2 "Infiltration" "S2" 1 0.300
+GLDBDATA R_WSTOR1 "Infiltration" "S2" 1 0.060
+GLDBDATA R_IROUGH "Infiltration" "S2" 1 0.015
+GLDBDATA R_INFILM "Infiltration" "S2" 1 0
+GLDBDATA R_PROUGH "Infiltration" "S2" 1 0.240
+GLDBDATA R_PCTZER "Infiltration" "S2" 1 25.000
+GLDBITEM "Infiltration" "S3"
+GLDBDATA R_DECAY "Infiltration" "S3" 1 0.0018056
+GLDBDATA R_WLMAX "Infiltration" "S3" 1 4.500
+GLDBDATA R_WLMIN "Infiltration" "S3" 1 0.200
+GLDBDATA R_MAXINF "Infiltration" "S3" 1 0.000
+GLDBDATA R_WSTOR2 "Infiltration" "S3" 1 0.300
+GLDBDATA R_WSTOR1 "Infiltration" "S3" 1 0.060
+GLDBDATA R_IROUGH "Infiltration" "S3" 1 0.015
+GLDBDATA R_INFILM "Infiltration" "S3" 1 0
+GLDBDATA R_PROUGH "Infiltration" "S3" 1 0.240
+GLDBDATA R_PCTZER "Infiltration" "S3" 1 25.000
+GLDBITEM "Infiltration" "S4"
+GLDBDATA R_DECAY "Infiltration" "S4" 1 0.0018056
+GLDBDATA R_WLMAX "Infiltration" "S4" 1 4.500
+GLDBDATA R_WLMIN "Infiltration" "S4" 1 0.200
+GLDBDATA R_MAXINF "Infiltration" "S4" 1 0.000
+GLDBDATA R_WSTOR2 "Infiltration" "S4" 1 0.300
+GLDBDATA R_WSTOR1 "Infiltration" "S4" 1 0.060
+GLDBDATA R_IROUGH "Infiltration" "S4" 1 0.015
+GLDBDATA R_INFILM "Infiltration" "S4" 1 0
+GLDBDATA R_PROUGH "Infiltration" "S4" 1 0.240
+GLDBDATA R_PCTZER "Infiltration" "S4" 1 25.000
+GLDBITEM "Infiltration" "S5"
+GLDBDATA R_DECAY "Infiltration" "S5" 1 0.0018056
+GLDBDATA R_WLMAX "Infiltration" "S5" 1 4.500
+GLDBDATA R_WLMIN "Infiltration" "S5" 1 0.200
+GLDBDATA R_MAXINF "Infiltration" "S5" 1 0.000
+GLDBDATA R_WSTOR2 "Infiltration" "S5" 1 0.300
+GLDBDATA R_WSTOR1 "Infiltration" "S5" 1 0.060
+GLDBDATA R_IROUGH "Infiltration" "S5" 1 0.015
+GLDBDATA R_INFILM "Infiltration" "S5" 1 0
+GLDBDATA R_PROUGH "Infiltration" "S5" 1 0.240
+GLDBDATA R_PCTZER "Infiltration" "S5" 1 25.000
+GLDBITEM "Infiltration" "S6"
+GLDBDATA R_DECAY "Infiltration" "S6" 1 0.0018056
+GLDBDATA R_WLMAX "Infiltration" "S6" 1 4.500
+GLDBDATA R_WLMIN "Infiltration" "S6" 1 0.200
+GLDBDATA R_MAXINF "Infiltration" "S6" 1 0.000
+GLDBDATA R_WSTOR2 "Infiltration" "S6" 1 0.300
+GLDBDATA R_WSTOR1 "Infiltration" "S6" 1 0.060
+GLDBDATA R_IROUGH "Infiltration" "S6" 1 0.015
+GLDBDATA R_INFILM "Infiltration" "S6" 1 0
+GLDBDATA R_PROUGH "Infiltration" "S6" 1 0.240
+GLDBDATA R_PCTZER "Infiltration" "S6" 1 25.000
+GLDBITEM "Infiltration" "S7"
+GLDBDATA R_DECAY "Infiltration" "S7" 1 0.0018056
+GLDBDATA R_WLMAX "Infiltration" "S7" 1 4.500
+GLDBDATA R_WLMIN "Infiltration" "S7" 1 0.200
+GLDBDATA R_MAXINF "Infiltration" "S7" 1 0.000
+GLDBDATA R_WSTOR2 "Infiltration" "S7" 1 0.300
+GLDBDATA R_WSTOR1 "Infiltration" "S7" 1 0.060
+GLDBDATA R_IROUGH "Infiltration" "S7" 1 0.015
+GLDBDATA R_INFILM "Infiltration" "S7" 1 0
+GLDBDATA R_PROUGH "Infiltration" "S7" 1 0.240
+GLDBDATA R_PCTZER "Infiltration" "S7" 1 25.000
+GLDBITEM "Pollutant List" "TSS"
+GLDBITEM "Pollutant" "TSS"
+GLDBDATA R_NDIM "Pollutant" "TSS" 1 0
+GLDBDATA R_F1TAG "Pollutant" "TSS" 1 0
+GLDBDATA R_F1 "Pollutant" "TSS" 1 0.000
+GLDBDATA R_PUNIT "Pollutant" "TSS" 1 "MG"
+GLDBDATA R_PDECAY "Pollutant" "TSS" 1 0.000
+GLDBITEM "Landuse List" "Residential_1"
+GLDBITEM "Landuse" "Residential_1"
+GLDBDATA R_DLIM "Landuse" "Residential_1" 1 0.1E+26
+GLDBDATA R_DDPOW1 "Landuse" "Residential_1" 1 0
+GLDBDATA R_DDPOW2 "Landuse" "Residential_1" 1 0
+GLDBDATA R_DDFACT1 "Landuse" "Residential_1" 1 0
+GLDBDATA R_DDFACT2 "Landuse" "Residential_1" 1 0
+GLDBDATA R_METHOD "Landuse" "Residential_1" 1 0
+GLDBDATA R_JACGUT "Landuse" "Residential_1" 1 0
+GLDBITEM "Landuse List" "Residential_2"
+GLDBITEM "Landuse" "Residential_2"
+GLDBDATA R_DLIM "Landuse" "Residential_2" 1 0.1E+26
+GLDBDATA R_DDPOW1 "Landuse" "Residential_2" 1 0
+GLDBDATA R_DDPOW2 "Landuse" "Residential_2" 1 0
+GLDBDATA R_DDFACT1 "Landuse" "Residential_2" 1 0
+GLDBDATA R_DDFACT2 "Landuse" "Residential_2" 1 0
+GLDBDATA R_METHOD "Landuse" "Residential_2" 1 0
+GLDBDATA R_JACGUT "Landuse" "Residential_2" 1 0
+GLDBITEM "Landuse List" "Commercial"
+GLDBITEM "Landuse" "Commercial"
+GLDBDATA R_DLIM "Landuse" "Commercial" 1 0.1E+26
+GLDBDATA R_DDPOW1 "Landuse" "Commercial" 1 0
+GLDBDATA R_DDPOW2 "Landuse" "Commercial" 1 0
+GLDBDATA R_DDFACT1 "Landuse" "Commercial" 1 0
+GLDBDATA R_DDFACT2 "Landuse" "Commercial" 1 0
+GLDBDATA R_METHOD "Landuse" "Commercial" 1 0
+GLDBDATA R_JACGUT "Landuse" "Commercial" 1 0
+GLDBITEM "Landuse List" "Undeveloped"
+GLDBITEM "Landuse" "Undeveloped"
+GLDBDATA R_DLIM "Landuse" "Undeveloped" 1 0.1E+26
+GLDBDATA R_DDPOW1 "Landuse" "Undeveloped" 1 0
+GLDBDATA R_DDPOW2 "Landuse" "Undeveloped" 1 0
+GLDBDATA R_DDFACT1 "Landuse" "Undeveloped" 1 0
+GLDBDATA R_DDFACT2 "Landuse" "Undeveloped" 1 0
+GLDBDATA R_METHOD "Landuse" "Undeveloped" 1 0
+GLDBDATA R_JACGUT "Landuse" "Undeveloped" 1 0
+GLDBITEM "Buildup/Washoff" "Residential_1TSS"
+GLDBDATA R_GDDFACT2 "Buildup/Washoff" "Residential_1TSS" 1 0.500
+GLDBDATA R_CBUILD "Buildup/Washoff" "Residential_1TSS" 1 1
+GLDBDATA R_KACGUT "Buildup/Washoff" "Residential_1TSS" 1 2
+GLDBDATA R_EWASH "Buildup/Washoff" "Residential_1TSS" 1 0
+GLDBDATA R_COEFF "Buildup/Washoff" "Residential_1TSS" 1 2.000
+GLDBDATA R_WASHPO "Buildup/Washoff" "Residential_1TSS" 1 1.800
+GLDBDATA R_ERCOEFF "Buildup/Washoff" "Residential_1TSS" 1 2.000
+GLDBDATA R_EWASHPO "Buildup/Washoff" "Residential_1TSS" 1 1.800
+GLDBDATA R_QCOEFF1 "Buildup/Washoff" "Residential_1TSS" 1 2.000
+GLDBDATA R_QCOEFF2 "Buildup/Washoff" "Residential_1TSS" 1 1.800
+GLDBITEM "Buildup/Washoff" "Residential_2TSS"
+GLDBDATA R_GDDFACT2 "Buildup/Washoff" "Residential_2TSS" 1 0.500
+GLDBDATA R_CBUILD "Buildup/Washoff" "Residential_2TSS" 1 1
+GLDBDATA R_KACGUT "Buildup/Washoff" "Residential_2TSS" 1 2
+GLDBDATA R_EWASH "Buildup/Washoff" "Residential_2TSS" 1 0
+GLDBDATA R_COEFF "Buildup/Washoff" "Residential_2TSS" 1 4.000
+GLDBDATA R_WASHPO "Buildup/Washoff" "Residential_2TSS" 1 2.200
+GLDBDATA R_ERCOEFF "Buildup/Washoff" "Residential_2TSS" 1 4.000
+GLDBDATA R_EWASHPO "Buildup/Washoff" "Residential_2TSS" 1 2.200
+GLDBDATA R_QCOEFF1 "Buildup/Washoff" "Residential_2TSS" 1 4.000
+GLDBDATA R_QCOEFF2 "Buildup/Washoff" "Residential_2TSS" 1 2.200
+GLDBITEM "Buildup/Washoff" "CommercialTSS"
+GLDBDATA R_GDDFACT2 "Buildup/Washoff" "CommercialTSS" 1 0.200
+GLDBDATA R_CBUILD "Buildup/Washoff" "CommercialTSS" 1 1
+GLDBDATA R_KACGUT "Buildup/Washoff" "CommercialTSS" 1 2
+GLDBDATA R_EWASH "Buildup/Washoff" "CommercialTSS" 1 0
+GLDBDATA R_COEFF "Buildup/Washoff" "CommercialTSS" 1 4.000
+GLDBDATA R_WASHPO "Buildup/Washoff" "CommercialTSS" 1 2.200
+GLDBDATA R_ERCOEFF "Buildup/Washoff" "CommercialTSS" 1 4.000
+GLDBDATA R_EWASHPO "Buildup/Washoff" "CommercialTSS" 1 2.200
+GLDBDATA R_QCOEFF1 "Buildup/Washoff" "CommercialTSS" 1 4.000
+GLDBDATA R_QCOEFF2 "Buildup/Washoff" "CommercialTSS" 1 2.200
+GLDBITEM "Buildup/Washoff" "UndevelopedTSS"
+GLDBDATA R_GDDFACT2 "Buildup/Washoff" "UndevelopedTSS" 1 0.000
+GLDBDATA R_CBUILD "Buildup/Washoff" "UndevelopedTSS" 1 4
+GLDBDATA R_KACGUT "Buildup/Washoff" "UndevelopedTSS" 1 1
+GLDBDATA R_EWASH "Buildup/Washoff" "UndevelopedTSS" 1 1
+GLDBDATA R_COEFF "Buildup/Washoff" "UndevelopedTSS" 1 500.000
+GLDBDATA R_WASHPO "Buildup/Washoff" "UndevelopedTSS" 1 2.000
+GLDBDATA R_ERCOEFF "Buildup/Washoff" "UndevelopedTSS" 1 500.000
+GLDBDATA R_EWASHPO "Buildup/Washoff" "UndevelopedTSS" 1 2.000
+GLDBDATA R_QCOEFF1 "Buildup/Washoff" "UndevelopedTSS" 1 500.000
+GLDBDATA R_QCOEFF2 "Buildup/Washoff" "UndevelopedTSS" 1 2.000
+DATA Z "J1" 0 1 4973.000
+DATA GRELEV "J1" 0 1 4973.000
+DATA Y0 "J1" 0 1 0.000
+DATA FLGOUTF "J1" 0 1 0
+DATA Z "J2" 0 1 4969.000
+DATA GRELEV "J2" 0 1 4969.000
+DATA Y0 "J2" 0 1 0.000
+DATA FLGOUTF "J2" 0 1 0
+DATA Z "J3" 0 1 4973.000
+DATA GRELEV "J3" 0 1 4973.000
+DATA Y0 "J3" 0 1 0.000
+DATA FLGOUTF "J3" 0 1 0
+DATA Z "J4" 0 1 4971.000
+DATA GRELEV "J4" 0 1 4971.000
+DATA Y0 "J4" 0 1 0.000
+DATA FLGOUTF "J4" 0 1 0
+DATA Z "J5" 0 1 4969.800
+DATA GRELEV "J5" 0 1 4969.800
+DATA Y0 "J5" 0 1 0.000
+DATA FLGOUTF "J5" 0 1 0
+DATA Z "J6" 0 1 4969.000
+DATA GRELEV "J6" 0 1 4969.000
+DATA Y0 "J6" 0 1 0.000
+DATA FLGOUTF "J6" 0 1 0
+DATA Z "J7" 0 1 4971.500
+DATA GRELEV "J7" 0 1 4971.500
+DATA Y0 "J7" 0 1 0.000
+DATA FLGOUTF "J7" 0 1 0
+DATA Z "J8" 0 1 4966.500
+DATA GRELEV "J8" 0 1 4966.500
+DATA Y0 "J8" 0 1 0.000
+DATA FLGOUTF "J8" 0 1 0
+DATA Z "J9" 0 1 4964.800
+DATA GRELEV "J9" 0 1 4964.800
+DATA Y0 "J9" 0 1 0.000
+DATA FLGOUTF "J9" 0 1 0
+DATA Z "J10" 0 1 4963.800
+DATA GRELEV "J10" 0 1 4963.800
+DATA Y0 "J10" 0 1 0.000
+DATA FLGOUTF "J10" 0 1 0
+DATA Z "J11" 0 1 4963.000
+DATA GRELEV "J11" 0 1 4963.000
+DATA Y0 "J11" 0 1 0.000
+DATA FLGOUTF "J11" 0 1 0
+DATA Z "O1" 0 1 4962.000
+DATA GRELEV "O1" 0 1 4972.000
+DATA Y0 "O1" 0 1 0.000
+DATA FLGOUTF "O1" 0 1 1
+DATA NTIDE "O1" 0 1 1
+DATA GATE "O1" 0 1 0
+DATA CNAME "C1" 0 1 "C1"
+DATA LEN "C1" 0 1 185.000
+DATA ROUGH "C1" 0 1 0.050
+DATA QO "C1" 0 1 0.000
+DATA ZP1 "C1" 0 1 4973.000
+DATA ZP2 "C1" 0 1 4969.800
+DATA CNAME "C2" 0 1 "C2"
+DATA LEN "C2" 0 1 526.000
+DATA ROUGH "C2" 0 1 0.016
+DATA QO "C2" 0 1 0.000
+DATA ZP1 "C2" 0 1 4969.000
+DATA ZP2 "C2" 0 1 4967.000
+DATA CNAME "C3" 0 1 "C3"
+DATA LEN "C3" 0 1 109.000
+DATA ROUGH "C3" 0 1 0.016
+DATA QO "C3" 0 1 0.000
+DATA ZP1 "C3" 0 1 4973.000
+DATA ZP2 "C3" 0 1 4971.000
+DATA CNAME "C4" 0 1 "C4"
+DATA LEN "C4" 0 1 133.000
+DATA ROUGH "C4" 0 1 0.050
+DATA QO "C4" 0 1 0.000
+DATA ZP1 "C4" 0 1 4971.000
+DATA ZP2 "C4" 0 1 4969.800
+DATA CNAME "C5" 0 1 "C5"
+DATA LEN "C5" 0 1 207.000
+DATA ROUGH "C5" 0 1 0.050
+DATA QO "C5" 0 1 0.000
+DATA ZP1 "C5" 0 1 4969.800
+DATA ZP2 "C5" 0 1 4969.000
+DATA CNAME "C6" 0 1 "C6"
+DATA LEN "C6" 0 1 140.000
+DATA ROUGH "C6" 0 1 0.050
+DATA QO "C6" 0 1 0.000
+DATA ZP1 "C6" 0 1 4971.500
+DATA ZP2 "C6" 0 1 4969.000
+DATA CNAME "C7" 0 1 "C7"
+DATA LEN "C7" 0 1 95.000
+DATA ROUGH "C7" 0 1 0.016
+DATA QO "C7" 0 1 0.000
+DATA ZP1 "C7" 0 1 4969.000
+DATA ZP2 "C7" 0 1 4966.500
+DATA CNAME "C8" 0 1 "C8"
+DATA LEN "C8" 0 1 166.000
+DATA ROUGH "C8" 0 1 0.050
+DATA QO "C8" 0 1 0.000
+DATA ZP1 "C8" 0 1 4966.500
+DATA ZP2 "C8" 0 1 4964.800
+DATA CNAME "C9" 0 1 "C9"
+DATA LEN "C9" 0 1 320.000
+DATA ROUGH "C9" 0 1 0.050
+DATA QO "C9" 0 1 0.000
+DATA ZP1 "C9" 0 1 4964.800
+DATA ZP2 "C9" 0 1 4963.800
+DATA CNAME "C10" 0 1 "C10"
+DATA LEN "C10" 0 1 145.000
+DATA ROUGH "C10" 0 1 0.050
+DATA QO "C10" 0 1 0.000
+DATA ZP1 "C10" 0 1 4963.800
+DATA ZP2 "C10" 0 1 4963.000
+DATA CNAME "C11" 0 1 "C11"
+DATA LEN "C11" 0 1 89.000
+DATA ROUGH "C11" 0 1 0.016
+DATA QO "C11" 0 1 0.000
+DATA ZP1 "C11" 0 1 4963.000
+DATA ZP2 "C11" 0 1 4962.000
+DATA NKLASS "C1" 0 1 6
+DATA DEEP "C1" 0 1 3.000
+DATA WIDE "C1" 0 1 5.000
+DATA TTHETA "C1" 0 1 5.000
+DATA TPHI "C1" 0 1 5.000
+DATA NKLASS "C2" 0 1 6
+DATA DEEP "C2" 0 1 1.000
+DATA WIDE "C2" 0 1 0.000
+DATA TTHETA "C2" 0 1 0.000
+DATA TPHI "C2" 0 1 25.000
+DATA NKLASS "C3" 0 1 1
+DATA DEEP "C3" 0 1 2.250
+DATA WIDE "C3" 0 1 0.000
+DATA NKLASS "C4" 0 1 6
+DATA DEEP "C4" 0 1 3.000
+DATA WIDE "C4" 0 1 5.000
+DATA TTHETA "C4" 0 1 5.000
+DATA TPHI "C4" 0 1 5.000
+DATA NKLASS "C5" 0 1 6
+DATA DEEP "C5" 0 1 3.000
+DATA WIDE "C5" 0 1 5.000
+DATA TTHETA "C5" 0 1 5.000
+DATA TPHI "C5" 0 1 5.000
+DATA NKLASS "C6" 0 1 6
+DATA DEEP "C6" 0 1 3.000
+DATA WIDE "C6" 0 1 5.000
+DATA TTHETA "C6" 0 1 5.000
+DATA TPHI "C6" 0 1 5.000
+DATA NKLASS "C7" 0 1 1
+DATA DEEP "C7" 0 1 3.500
+DATA WIDE "C7" 0 1 0.000
+DATA NKLASS "C8" 0 1 6
+DATA DEEP "C8" 0 1 3.000
+DATA WIDE "C8" 0 1 5.000
+DATA TTHETA "C8" 0 1 5.000
+DATA TPHI "C8" 0 1 5.000
+DATA NKLASS "C9" 0 1 6
+DATA DEEP "C9" 0 1 3.000
+DATA WIDE "C9" 0 1 5.000
+DATA TTHETA "C9" 0 1 5.000
+DATA TPHI "C9" 0 1 5.000
+DATA NKLASS "C10" 0 1 6
+DATA DEEP "C10" 0 1 3.000
+DATA WIDE "C10" 0 1 5.000
+DATA TTHETA "C10" 0 1 5.000
+DATA TPHI "C10" 0 1 5.000
+DATA NKLASS "C11" 0 1 1
+DATA DEEP "C11" 0 1 4.750
+DATA WIDE "C11" 0 1 0.000
+VERTEX_START LINK "L_C2"
+1321.34 774.59
+1374.82 652.10
+1366.19 588.28
+VERTEX_END
+VERTEX_START LINK "L_C4"
+541.57 841.87
+VERTEX_END
+VERTEX_START LINK "L_C5"
+672.68 850.50
+712.36 829.80
+743.42 805.64
+805.52 812.54
+VERTEX_END
+VERTEX_START LINK "L_C6"
+791.72 734.91
+798.62 784.94
+VERTEX_END
+VERTEX_START LINK "L_C8"
+965.96 838.42
+995.29 831.52
+1038.42 850.50
+VERTEX_END
+VERTEX_START LINK "L_C9"
+1102.25 867.75
+1131.57 852.22
+1147.10 829.80
+1162.63 809.09
+1198.85 779.77
+1219.56 757.34
+1233.36 721.11
+1238.53 715.94
+1235.08 674.53
+1247.16 646.93
+VERTEX_END
+DATA ALPHA "" 0 1 "A site surface drainage model."
+DATA ALPHB "" 0 1 "See Site_Drainage_Model.txt for more details."
+DATA METRIC "" 0 1 0
+DATA KINE "" 0 1 0
+DATA CNTLR "" 0 1 1
+DATA YZERO "" 0 1 1998
+DATA MOZERO "" 0 1 1
+DATA DZERO "" 0 1 1
+DATA HZERO "" 0 1 0
+DATA MZERO "" 0 1 0
+DATA SZERO "" 0 1 0
+DATA YSL "" 0 1 1998
+DATA MOSL "" 0 1 1
+DATA DSL "" 0 1 1
+DATA HSL "" 0 1 6
+DATA MSL "" 0 1 0
+DATA SSL "" 0 1 0
+DATA R_IYRSTR "" 0 1 1998
+DATA R_MONTH "" 0 1 1
+DATA R_NDAY "" 0 1 1
+DATA R_NHR "" 0 1 0
+DATA R_NMN "" 0 1 0
+DATA R_NSC "" 0 1 0
+DATA R_IYRSTP "" 0 1 1998
+DATA R_STPMON "" 0 1 1
+DATA R_STPDAY "" 0 1 1
+DATA R_STPHR "" 0 1 6
+DATA R_STPMN "" 0 1 0
+DATA R_STPSC "" 0 1 0
+DATA DELT "" 0 1 15.000
+DATA SAVERES "" 0 1 60.000
+DATA SAVERES_TYPE "" 0 1 0
+DATA R_DRY "" 0 1 3600.000
+DATA R_WET "" 0 1 60.000
+DATA R_WETDRY "" 0 1 60.000
+DATA R_KWALTY "" 0 1 1
+DATA _RECNAME "" 0 1 "TSS"
+DATA R_WQTAG "J1" 0 1 1
+DATA R_WQLU "J1" 0 1 "Residential_1"
+DATA R_WQPAR "J1" 0 1 100.00
+DATA R_INFILSEL "J1" 0 1 "S1"
+DATA R_RAINSEL "J1" 0 1 "RainGage"
+DATA R_REDIR_TYPE "J1" 0 1 0
+DATA R_RFCMNT "J1" 0 1 1
+DATA R_WAREA "J1" 0 1 4.550
+DATA R_WIMP "J1" 0 1 56.800
+DATA R_WIDTH "J1" 0 1 1587.000
+DATA R_WSLOPE "J1" 0 1 0.020
+DATA R_WQTAG "J2" 0 1 1
+DATA R_WQLU "J2" 0 1 "Residential_2"
+DATA R_WQPAR "J2" 0 1 73.00
+DATA R_INFILSEL "J2" 0 1 "S2"
+DATA R_RAINSEL "J2" 0 1 "RainGage"
+DATA R_REDIR_TYPE "J2" 0 1 0
+DATA R_RFCMNT "J2" 0 1 1
+DATA R_WAREA "J2" 0 1 4.740
+DATA R_WIMP "J2" 0 1 63.000
+DATA R_WIDTH "J2" 0 1 1653.000
+DATA R_WSLOPE "J2" 0 1 0.020
+DATA R_WQTAG "J3" 0 1 1
+DATA R_WQLU "J3" 0 1 "Residential_2"
+DATA R_WQPAR "J3" 0 1 32.00
+DATA R_INFILSEL "J3" 0 1 "S3"
+DATA R_RAINSEL "J3" 0 1 "RainGage"
+DATA R_REDIR_TYPE "J3" 0 1 0
+DATA R_RFCMNT "J3" 0 1 1
+DATA R_WAREA "J3" 0 1 3.740
+DATA R_WIMP "J3" 0 1 39.500
+DATA R_WIDTH "J3" 0 1 1456.000
+DATA R_WSLOPE "J3" 0 1 0.031
+DATA R_WQTAG "J7" 0 1 1
+DATA R_WQLU "J7" 0 1 "Commercial"
+DATA R_WQPAR "J7" 0 1 26.00
+DATA R_INFILSEL "J7" 0 1 "S4"
+DATA R_RAINSEL "J7" 0 1 "RainGage"
+DATA R_REDIR_TYPE "J7" 0 1 0
+DATA R_RFCMNT "J7" 0 1 1
+DATA R_WAREA "J7" 0 1 6.790
+DATA R_WIMP "J7" 0 1 49.900
+DATA R_WIDTH "J7" 0 1 2331.000
+DATA R_WSLOPE "J7" 0 1 0.031
+DATA R_WQTAG "J10" 0 1 1
+DATA R_WQLU "J10" 0 1 "Commercial"
+DATA R_WQPAR "J10" 0 1 98.00
+DATA R_INFILSEL "J10" 0 1 "S5"
+DATA R_RAINSEL "J10" 0 1 "RainGage"
+DATA R_REDIR_TYPE "J10" 0 1 0
+DATA R_INFILSEL "J10" 1 1 "S7"
+DATA R_RAINSEL "J10" 1 1 "RainGage"
+DATA R_REDIR_TYPE "J10" 1 1 0
+DATA R_RFCMNT "J10" 0 2 1 1
+DATA R_WAREA "J10" 0 2 4.790 2.330
+DATA R_WIMP "J10" 0 2 87.700 0.000
+DATA R_WIDTH "J10" 0 2 1670.000 907.000
+DATA R_WSLOPE "J10" 0 2 0.020 0.031
+DATA R_WQTAG "J11" 0 1 1
+DATA R_WQLU "J11" 0 1 "Commercial"
+DATA R_WQPAR "J11" 0 1 100.00
+DATA R_INFILSEL "J11" 0 1 "S6"
+DATA R_RAINSEL "J11" 0 1 "RainGage"
+DATA R_REDIR_TYPE "J11" 0 1 0
+DATA R_RFCMNT "J11" 0 1 1
+DATA R_WAREA "J11" 0 1 1.980
+DATA R_WIMP "J11" 0 1 95.000
+DATA R_WIDTH "J11" 0 1 690.000
+DATA R_WSLOPE "J11" 0 1 0.020
+CATCHMENT "J1" 1 22
+             282.66 1334.81
+             111.70 1101.60
+             172.53 1062.74
+             231.66 1027.26
+             306.00 990.09
+             370.21 959.68
+             409.07 946.16
+             444.55 936.03
+             493.55 924.20
+             532.41 915.75
+             569.58 907.30
+             610.13 897.17
+             655.74 897.17
+             684.34 1318.70
+             651.04 1321.92
+             596.27 1332.66
+             551.16 1346.62
+             495.31 1367.03
+             455.57 1384.21
+             410.47 1409.99
+             386.84 1427.18
+             363.21 1442.21
+CATCHMENT "J2" 1 21
+             678.97 1238.15
+             673.58 1152.90
+             655.74 897.17
+             758.81 893.79
+             817.94 895.48
+             880.46 898.86
+             921.01 905.61
+             978.45 920.82
+             1042.66 937.72
+             1103.48 959.68
+             1159.24 985.02
+             1225.13 1010.37
+             1109.65 1274.67
+             1052.72 1400.33
+             985.06 1370.25
+             924.92 1348.77
+             861.55 1331.59
+             815.37 1325.14
+             762.74 1319.77
+             719.78 1316.55
+             684.34 1317.63
+CATCHMENT "J3" 1 27
+             109.20 1103.26
+             141.75 1081.56
+             190.59 1051.71
+             247.56 1019.16
+             304.53 989.32
+             354.72 964.90
+             398.12 949.98
+             490.17 922.51
+             477.74 883.28
+             501.99 816.07
+             556.06 778.90
+             488.48 679.21
+             422.58 729.90
+             282.35 557.56
+             179.73 633.93
+             153.96 651.56
+             107.84 693.61
+             71.22 742.44
+             48.16 785.85
+             31.88 837.39
+             29.17 886.23
+             31.88 933.70
+             38.66 967.61
+             50.87 1001.53
+             65.79 1035.44
+             87.50 1070.70
+             109.20 1103.26
+CATCHMENT "J7" 1 20
+             282.35 559.25
+             420.89 729.90
+             488.48 680.90
+             556.83 779.07
+             501.21 814.34
+             479.47 885.00
+             491.72 922.85
+             616.51 898.43
+             668.06 897.08
+             783.36 895.72
+             815.91 898.43
+             857.96 899.79
+             890.60 897.17
+             968.32 915.75
+             1042.66 937.72
+             1074.76 849.86
+             1054.48 773.83
+             1020.69 702.86
+             963.25 623.45
+             689.54 256.82
+CATCHMENT "J10" 1 13
+             1301.48 474.26
+             1271.68 445.38
+             1232.34 393.84
+             1241.84 384.34
+             1222.84 366.71
+             1233.70 355.85
+             1026.16 66.93
+             1008.53 56.08
+             708.75 275.82
+             1023.45 704.46
+             1150.64 618.81
+             1251.20 640.81
+             1328.19 519.82
+CATCHMENT "J11" 1 27
+             1334.48 519.82
+             1306.27 488.96
+             1293.38 474.21
+             1232.34 393.84
+             1241.84 381.63
+             1222.84 365.35
+             1232.34 353.14
+             1027.52 65.57
+             1012.60 56.08
+             707.39 273.11
+             688.40 254.12
+             739.95 218.85
+             788.78 159.17
+             806.41 106.27
+             813.20 1.82
+             994.96 12.67
+             1228.27 27.59
+             1222.84 115.76
+             1228.27 167.31
+             1241.84 229.71
+             1255.40 254.12
+             1279.82 302.95
+             1309.66 354.50
+             1335.43 401.97
+             1359.85 448.09
+             1370.62 475.83
+             1381.62 491.54
+CATCHMENT "J10" 1 15
+             1122.47 968.97
+             1174.01 987.28
+             1225.56 1005.59
+             1377.48 675.98
+             1391.04 642.07
+             1396.47 598.66
+             1381.62 491.54
+             1331.34 519.82
+             1249.63 640.81
+             1150.64 617.24
+             1020.73 704.46
+             1054.65 772.29
+             1076.80 848.21
+             1056.37 900.06
+             1040.66 937.77

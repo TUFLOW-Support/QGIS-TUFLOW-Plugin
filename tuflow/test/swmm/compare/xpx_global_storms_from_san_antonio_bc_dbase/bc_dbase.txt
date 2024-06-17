@@ -1,0 +1,2 @@
+Name,Source,Time,Value
+Rainfall,~event~_rf.csv,Time,Rainfall

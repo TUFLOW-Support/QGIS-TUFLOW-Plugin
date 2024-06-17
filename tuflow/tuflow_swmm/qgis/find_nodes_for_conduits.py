@@ -1,4 +1,3 @@
-from qgis.utils import iface
 
 
 def find_nodes_for_conduits(lay_conduit, layers_nodes, tolerance):

@@ -5690,14 +5690,17 @@ def changeDataSource(iface, layer, newDataSource, isgpkg):
     else:
         newName = os.path.basename(os.path.splitext(newDataSource)[0])
 
-    # create dom document to store layer properties
-    doc = QDomDocument("styles")
-    element = doc.createElement("maplayer")
-    layer.writeLayerXml(element, doc, QgsReadWriteContext())
+    if Qgis.QGIS_VERSION_INT >= 32000:
+        layer.setDataSource(newDataSource, newName, 'ogr')
+    else:
+        # create dom document to store layer properties
+        doc = QDomDocument("styles")
+        element = doc.createElement("maplayer")
+        layer.writeLayerXml(element, doc, QgsReadWriteContext())
 
-    # change datasource
-    element.elementsByTagName("datasource").item(0).firstChild().setNodeValue(newDataSource)
-    layer.readLayerXml(element, QgsReadWriteContext())
+        # change datasource
+        element.elementsByTagName("datasource").item(0).firstChild().setNodeValue(newDataSource)
+        layer.readLayerXml(element, QgsReadWriteContext())
 
     # reload layer
     layer.reload()

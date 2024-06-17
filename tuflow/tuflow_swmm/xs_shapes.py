@@ -142,7 +142,7 @@ def get_area_partial_circle(diameter, filled_height, full_area):
 
 
 def get_inches_to_units_width(customary_units):
-    conversion = (1.0 / 12.0) if customary_units else (0.0254)
+    conversion = (1.0 / 12.0) if customary_units else 0.0254
     return conversion
 
 
@@ -292,7 +292,7 @@ def get_max_area(shape, customary_units, geom1, geom2=None, geom3=None, geom4=No
 
         theta = 2.0 * math.asin(wmax / 2.0 / rbot)
         ybot = rbot * (1.0 - math.cos(theta / 2.0))
-        if (ybot > yfull):
+        if ybot > yfull:
             raise ValueError("Invalid modified basket handle shape")
 
         abot = rbot * rbot / 2.0 * (theta - math.sin(theta))

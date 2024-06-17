@@ -3,8 +3,8 @@ import pandas as pd
 from pathlib import Path
 import unittest
 
-from tuflow_swmm.fix_multi_link_oulets import extend_multi_link_outfalls
-from tuflow_swmm.gis_to_swmm import gis_to_swmm
+from tuflow.tuflow_swmm.fix_multi_link_oulets import extend_multi_link_outfalls
+from tuflow.tuflow_swmm.gis_to_swmm import gis_to_swmm
 
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_rows', 50)

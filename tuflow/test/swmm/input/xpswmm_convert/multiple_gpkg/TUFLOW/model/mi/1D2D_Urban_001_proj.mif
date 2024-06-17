@@ -1,0 +1,8 @@
+Version 300
+Charset "Neutral"
+Delimiter ","
+CoordSys Earth Projection 8, 104, "m", 177, 0, 0.9996, 500000, 10000000
+Columns 1
+  ID Char(12)
+Data
+

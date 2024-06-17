@@ -18,12 +18,11 @@ from io import StringIO
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from shapely.geometry import LineString
 
-from tuflow_swmm.create_swmm_section_gpkg import create_section_gdf, create_section_from_gdf
-from tuflow_swmm.estry_to_swmm import *
-from tuflow_swmm.gis_to_swmm import gis_to_swmm
-from tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
+from tuflow.tuflow_swmm.create_swmm_section_gpkg import create_section_gdf, create_section_from_gdf
+from tuflow.tuflow_swmm.estry_to_swmm import *
+from tuflow.tuflow_swmm.gis_to_swmm import gis_to_swmm
+from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
 # TODO
 # Do Irregular culverts (need to do spatial join with xsections)
@@ -49,7 +48,9 @@ def create_curves_from_dfs(curve_type, curve_names, df_curves, crs):
                                                crs,
                                                df,
                                                curve_col_mapping)
-        gdf_curve['Type'].iloc[0] = curve_type
+        gdf_curve['Type'] = ''
+        gdf_curve['Description'] = ''
+        gdf_curve.loc[gdf_curve.index[0], 'Type'] = curve_type
         gdf_curves.append(gdf_curve)
 
     gdf_curves_merged = pd.concat(gdf_curves)
@@ -276,7 +277,7 @@ def ConvertEstryToSwmm(check_filename,
 
     # print(gdf_check_nwk_n)
 
-    if not 'Invert' in gdf_check_nwk_n.columns:
+    if 'Invert' not in gdf_check_nwk_n.columns:
         gdf_check_nwk_n['Invert'] = gdf_check_nwk_n['Invert_Level']
 
     # we need the .1 versions (without the .1) to get the Conn_1D_2D and Conn_Width entries

@@ -12,8 +12,8 @@ except ImportError:
 import numpy as np
 import pandas as pd
 
-from tuflow_swmm import swmm_sections
-from tuflow_swmm.version import __version__ as tuflow_swmm_version
+from tuflow.tuflow_swmm import swmm_sections
+from tuflow.tuflow_swmm.version import __version__ as tuflow_swmm_version
 
 all_sections = swmm_sections.swmm_section_definitions()
 
@@ -44,6 +44,7 @@ def format_line(items: Sequence[str], header: bool = False, column_width: int = 
     if header:
         # First item start with ;;
         items_copy[0] = ';;' + items_copy[0]
+
     line = " ".join([f'{x: <{column_width - 1}}' for x in items_copy]) + '\n'
 
     return line
@@ -82,7 +83,10 @@ def df_to_swmm_section(df: pd.DataFrame,
     # print(f'Column width: {column_width}')
 
     # Write headers
-    section += format_line([str(x) for x in df.columns], True, column_width, allow_none)
+    section += format_line([str(x) for x in df.columns],
+                           True,
+                           column_width,
+                           allow_none)
     section_def = list(filter(lambda x: x.name == title, all_sections))
     if not section_def:
         raise ValueError(f"Unable to find section: {title}")
@@ -118,6 +122,9 @@ def df_to_swmm_section(df: pd.DataFrame,
             description_value = descriptions[index]
             if description_value is not None and description_value != '' and description_value != 'None':
                 section += f';{description_value}\n'
+        # This caused geometric rounding which I didn't like. May try again later with different values
+        # for geometry and other tables
+        #row_vals = [f'{x:.5g}' if isinstance(x, float) else str(x) for x in row]
         row_vals = [str(x) for x in row]
         # TODO - give error message if not enough values provided (may be influenced by keyword)
         if not allow_blanks_in_middle:
@@ -140,7 +147,7 @@ def parse_sections(filename):
     curr_section = None
     header_lines = []
     curr_lines = []
-    with open(filename, "r", encoding='utf-8', errors='ignore') as file:
+    with open(filename, "r", encoding='utf-8', errors='replace') as file:
         for iline, line in enumerate(file):
             # Remove tabs
             line = line.replace('\t', ' ')

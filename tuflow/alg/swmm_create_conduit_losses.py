@@ -20,6 +20,7 @@ from qgis.core import (QgsExpressionContext,
                        QgsProcessingParameterRasterDestination,
                        QgsProcessingParameterFeatureSink,
                        QgsProcessingUtils,
+                       QgsWkbTypes,
                        QgsSpatialIndex)
 
 from osgeo import ogr, gdal
@@ -32,7 +33,7 @@ except ImportError:
     from pathlib_ import Path_ as Path
 
 from tuflow.tuflow_swmm.create_conduit_losses import get_conduit_loss_info
-from toc.MapLayerParameterHelper import MapLayerParameterHelper
+from tuflow.toc.MapLayerParameterHelper import MapLayerParameterHelper
 
 class CreateConduitLosses(QgsProcessingFeatureBasedAlgorithm):
     """
@@ -60,13 +61,13 @@ class CreateConduitLosses(QgsProcessingFeatureBasedAlgorithm):
         """
         Returns the translated algorithm name.
         """
-        return self.tr('Conduits - Assign losses')
+        return self.tr('Conduits - Assign Losses')
 
     def flags(self):
         return QgsProcessingAlgorithm.Flag.FlagSupportsInPlaceEdits
 
     def supportInPlaceEdit(self, layer):
-        return True
+        return layer.geometryType() == QgsWkbTypes.LineGeometry
 
     def group(self):
         """

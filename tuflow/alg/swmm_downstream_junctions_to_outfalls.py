@@ -30,8 +30,8 @@ try:
 except ImportError:
     from pathlib_ import Path_ as Path
 
-from toc.MapLayerParameterHelper import MapLayerParameterHelper
-from tuflow_swmm.junctions_downstream_to_outfalls import downstream_junctions_to_outfalls_from_qgis
+from tuflow.toc.MapLayerParameterHelper import MapLayerParameterHelper
+from tuflow.tuflow_swmm.junctions_downstream_to_outfalls import downstream_junctions_to_outfalls_from_qgis
 
 
 class DownstreamJunctionsToOutfalls(QgsProcessingAlgorithm):
@@ -64,7 +64,7 @@ class DownstreamJunctionsToOutfalls(QgsProcessingAlgorithm):
         """
         Returns the translated algorithm name.
         """
-        return self.tr('Junctions - Downstream junctions to outfalls')
+        return self.tr('Junctions - Downstream Junctions to Outfalls')
 
     def group(self):
         """

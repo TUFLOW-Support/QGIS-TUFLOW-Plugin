@@ -20,7 +20,7 @@ from .Enumerators import *
 from .UniqueIds import UniqueIds, DuplicateRule, CreateNameRule, CreateNameRules
 from .NullGeometry import NullGeometry, NullGeometryDialog
 
-from tuflow_swmm.swmm_gis_info import is_swmm_network_layer
+from tuflow.tuflow_swmm.swmm_gis_info import is_swmm_network_layer
 from .helpers import SwmmHelper
 
 
@@ -51,6 +51,11 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
         self.plot = None
 
+        self.lblSwmmLinkOffsetOption.setVisible(False)
+        self.cbxSwmmLinkOffsetOption.setVisible(False)
+        self.lblSwmmLinkOffsetOptionContinuity.setVisible(False)
+        self.cbxSwmmLinkOffsetOptionContinuity.setVisible(False)
+
         # progress bar
         self.currentStep = 0
         self.maxProgressSteps = 0
@@ -78,6 +83,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         self.populateInputs()
 
         # what happens when a layer is added or removed from the workspace
+        QgsProject.instance().readProject.connect(self.readProject)
         QgsProject.instance().legendLayersAdded.connect(self.layersAdded)
         QgsProject.instance().layersRemoved.connect(self.layersRemoved)
         QgsProject.instance().layerTreeRoot().layerOrderChanged.connect(self.layerOrderChanged)
@@ -103,6 +109,10 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
     def qgisDisconnect(self):
         """Disconnect signals"""
 
+        try:
+            QgsProject.instance().readProject().disconnect(self.readProject)
+        except:
+            pass
         try:
             QgsProject.instance().layerTreeRoot().layerOrderChanged.disconnect(self.layerOrderChanged)
         except:
@@ -722,6 +732,9 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         if inputLines:
             if is_swmm_network_layer(inputLines[0]):
                 self.dataCollectorLines.helper = SwmmHelper()
+                if tool == 'Continuity Tool':
+                    self.dataCollectorLines.helper.offsets_are_elevations = \
+                        self.cbxSwmmLinkOffsetOptionContinuity.currentText() == 'Elevation'
 
             self.setupDataCollectorProgressBar(inputLines, 'lines')
             self.dataCollectorLines.updated.connect(self.updateProgressDataCollection)
@@ -735,6 +748,10 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         if inputPoints:
             if is_swmm_network_layer(inputPoints[0]):
                 self.dataCollectorPoints.helper = SwmmHelper()
+                if tool == 'Continuity Tool':
+                    self.dataCollectorPoints.helper.offsets_are_elevations = \
+                        self.cbxSwmmLinkOffsetOptionContinuity.currentText() == 'Elevation'
+
             self.setupDataCollectorProgressBar(inputPoints, 'points')
             self.dataCollectorPoints.updated.connect(self.updateProgressDataCollection)
             self.dataCollectorPoints.finished.connect(
@@ -769,6 +786,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         if inputLines:
             if is_swmm_network_layer(inputLines[0]):
                 self.dataCollectorLines.helper = SwmmHelper()
+                cbx_text = self.cbxSwmmLinkOffsetOption.currentText()
+                self.dataCollectorLines.helper.offsets_are_elevations = (cbx_text == 'Elevation')
 
             self.setupDataCollectorProgressBar(inputLines, 'lines')
             self.dataCollectorLines.updated.connect(self.updateProgressDataCollection)
@@ -781,6 +800,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         if inputPoints:
             if is_swmm_network_layer(inputPoints[0]):
                 self.dataCollectorPoints.helper = SwmmHelper()
+                cbx_text = self.cbxSwmmLinkOffsetOption.currentText()
+                self.dataCollectorPoints.helper.offsets_are_elevations = (cbx_text == 'Elevation')
 
             self.setupDataCollectorProgressBar(inputPoints, 'points')
             self.dataCollectorPoints.updated.connect(self.updateProgressDataCollection)
@@ -1097,6 +1118,10 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                     if lw_layer_id == layer_id and item.text() != layer_name:
                         item.setText(layer_name)
 
+    def readProject(self, _):
+        self.populateInputs()
+        self.populateGrids()
+
     def layersAdded(self, e):
         """
         Updates the appropriate comboboxes when layers are added
@@ -1142,6 +1167,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             # itemText = item.text()
             addedLayerIds.append(item.data(Qt.UserRole))
 
+        layersAdded = False
+
         # Handle case where combo-box is selecting a loaded layer (not user specified text)
         if cbo.currentIndex() != -1:
             layer_text = cbo.currentText()
@@ -1154,11 +1181,15 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                         new_item.setData(Qt.UserRole, layer_id)
                         lw.addItem(new_item)
                         addedLayerIds.append(layer_id)
+                        layersAdded = True
                         if lw == self.lwLines:
                             self.inputLineAdded.emit(layer)
                 else:
                     QMessageBox.critical(self, "1D Integrity Tool",
                                          "Geometry type does not match required input type")
+
+        if layersAdded:
+            self.refreshControls()
 
     def removeItem(self, lw):
         """
@@ -1192,6 +1223,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
         if lw == self.lwLines:
             self.inputLineRemoved.emit()
+
+        self.refreshControls()
 
     def appendInputLineFeatures(self, e):
         """
@@ -1295,3 +1328,17 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                     if lw_layer_id == oldlyrid:
                         item.setText(new_layer_name)
                         item.setData(Qt.UserRole, tmplyrid)
+
+    def refreshControls(self):
+        show_swmm_controls = False
+
+        for lineLayers in self.getInputs('lines'):
+            if is_swmm_network_layer(lineLayers):
+                show_swmm_controls = True
+                break
+
+        self.lblSwmmLinkOffsetOption.setVisible(show_swmm_controls)
+        self.cbxSwmmLinkOffsetOption.setVisible(show_swmm_controls)
+
+        self.lblSwmmLinkOffsetOptionContinuity.setVisible(show_swmm_controls)
+        self.cbxSwmmLinkOffsetOptionContinuity.setVisible(show_swmm_controls)

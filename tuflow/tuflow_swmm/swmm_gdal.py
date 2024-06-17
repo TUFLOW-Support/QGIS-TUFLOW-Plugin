@@ -1,4 +1,4 @@
-from osgeo import gdal, ogr
+from osgeo import ogr
 
 def delete_layer_features(filename, layername):
     ogr.UseExceptions()

@@ -18,6 +18,8 @@
 
 import os
 import glob
+import re
+
 from qgis.core import QgsWkbTypes
 
 class TF_Styles:
@@ -39,8 +41,11 @@ class TF_Styles:
 		#find all .qml files with glob
 		try:
 			srch_str = os.path.join(self.style_folder,'*.qml')
-			srch_str_2 = os.path.join(self.style_folder,'*.QML')
-			lyr_files = glob.glob(srch_str) + glob.glob(srch_str_2)
+			if os.name != 'nt':  # don't need to search for .QML files on windows
+				srch_str_2 = os.path.join(self.style_folder,'*.QML')
+				lyr_files = glob.glob(srch_str) + glob.glob(srch_str_2)
+			else:
+				lyr_files = glob.glob(srch_str)
 			self.nStyles = len(lyr_files)
 		except:
 			error = True
@@ -48,7 +53,7 @@ class TF_Styles:
 			return error, message
 
 		#check we found something
-		if (self.nStyles <1):
+		if not self.nStyles:
 			error = True
 			message = ('ERROR - No .qml files found that match glob search string: '+self.style_folder)
 			return error, message
@@ -81,21 +86,36 @@ class TF_Styles:
 		matching_layer = None
 		
 		# Check to see if there is a geometry type in file name (_P, _L, _R)
-		if layer_name[-2:] == '_P' or layer_name[-2:] == '_L' or layer_name[-2:] == '_R':
-			pass
+		has_geom_ext = layer_name[-2:] == '_P' or layer_name[-2:] == '_L' or layer_name[-2:] == '_R'
+		if cLayer.geometryType() == QgsWkbTypes.PointGeometry:
+			geom_ext = '_P'
+		elif cLayer.geometryType() == QgsWkbTypes.LineGeometry:
+			geom_ext = '_L'
+		elif cLayer.geometryType() == QgsWkbTypes.PolygonGeometry:
+			geom_ext = '_R'
 		else:
-			if cLayer.geometryType() == QgsWkbTypes.PointGeometry:
-				layer_name = layer_name + '_P'
-			elif cLayer.geometryType() == QgsWkbTypes.LineGeometry:
-				layer_name = layer_name + '_L'
-			elif cLayer.geometryType() == QgsWkbTypes.PolygonGeometry:
-				layer_name = layer_name + '_R'
+			geom_ext = ''
+
+		if not has_geom_ext:
+			layer_name = layer_name + geom_ext
 		
 		try:
 			for i, ftype in enumerate(self.ftype):
-				if ftype.lower() in layer_name.lower():
-					matching_layer = self.fpath[i]
-					return error, message, matching_layer #return after first occurence found
+				if ftype.startswith('_'):  # check style
+					if ftype.lower() in layer_name.lower():
+						matching_layer = self.fpath[i]
+						return error, message, matching_layer #return after first occurence found
+				else:  # input layer
+					geom_ext_ = re.findall('_[PLRplr]$', ftype)
+					if geom_ext_:
+						ftype_ = re.sub('_[PLRplr]$', '', ftype)
+						if ftype_.lower() in layer_name.lower() and geom_ext.lower() == geom_ext_[0].lower():
+							matching_layer = self.fpath[i]
+							return error, message, matching_layer
+					else:
+						if ftype.lower() in layer_name.lower():
+							matching_layer = self.fpath[i]
+							return error, message, matching_layer
 		except:
 			error = True
 			message = 'ERROR - unexpected error finding style layer for file: '+layer_name

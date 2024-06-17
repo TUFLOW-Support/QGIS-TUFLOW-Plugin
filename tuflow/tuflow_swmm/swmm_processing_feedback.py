@@ -14,13 +14,17 @@ class ScreenProcessingFeedback:
     def pushInfo(self, info: str):
         print(info)
 
-    def pushWarning(self, info: str):
-        print(info)
+    def pushWarning(self, warning: str):
+        CRED = '\033[95m'
+        CEND = '\033[0m'
+        print(CRED + warning + CEND)
 
     def reportError(self, error: str, fatalError: bool = False):
         if fatalError:
             raise ValueError(error)
-        print(error)
+        CRED = '\033[91m'
+        CEND = '\033[0m'
+        print(CRED + error + CEND)
 
 
 class LogProcessingFeedback:

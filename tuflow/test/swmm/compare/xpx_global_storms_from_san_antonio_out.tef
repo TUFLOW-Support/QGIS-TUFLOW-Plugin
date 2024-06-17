@@ -1,0 +1,16 @@
+Define Event == 2-YEAR
+    BC Event Source == ~event~ | 2-YEAR
+End Define
+
+Define Event == 100-YEAR
+    BC Event Source == ~event~ | 100-YEAR
+End Define
+
+Define Event == 25-YEAR
+    BC Event Source == ~event~ | 25-YEAR
+End Define
+
+Define Event == 10-YEAR
+    BC Event Source == ~event~ | 10-YEAR
+End Define
+

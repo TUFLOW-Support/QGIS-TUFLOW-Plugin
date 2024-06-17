@@ -9,9 +9,9 @@ except ImportError:
     pass  # defaulted to false
 import timeit
 
-from qgis.core import QgsVectorLayer, QgsField, QgsGeometry, QgsFeature, QgsPoint, QgsFeatureRequest
+from qgis.core import QgsField, QgsGeometry, QgsFeature, QgsPoint, QgsFeatureRequest
 from PyQt5.QtCore import QVariant
-from tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
+from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
 
 def get_first_two_points(geom):
@@ -45,14 +45,14 @@ def adjacent_conduits_exist(layer, feat, check_upstream):
     check_text = f'"{adj_att}" = \'{common_node}\''
     print(check_text)
 
-    if check_upstream:
-        adj_features = layer.getFeatures(QgsFeatureRequest().setFilterExpression(
-            f'"To Node" = \'{common_node}\''
-        ))
-    else:
-        adj_features = layer.getFeatures(QgsFeatureRequest().setFilterExpression(
-            f'"From Node" = \'{common_node}\''
-        ))
+    # if check_upstream:
+    #     adj_features = layer.getFeatures(QgsFeatureRequest().setFilterExpression(
+    #         f'"To Node" = \'{common_node}\''
+    #     ))
+    # else:
+    #     adj_features = layer.getFeatures(QgsFeatureRequest().setFilterExpression(
+    #         f'"From Node" = \'{common_node}\''
+    #     ))
 
     adj_features = layer.getFeatures(QgsFeatureRequest().setFilterExpression(
         check_text))
@@ -159,6 +159,7 @@ def create_downstream_bc_and_connections(row, layer,
 
 
 def create_endpoint_connections(input_source,
+                                layer_features,
                                 offset_dist,
                                 width,
                                 set_z_flag,
@@ -190,17 +191,19 @@ def create_endpoint_connections(input_source,
     ])
     output_layer.updateFields()
 
-    features_to_add = []
-
-    gdf = gpd.GeoDataFrame.from_features(input_source.getFeatures())
+    gdf = gpd.GeoDataFrame.from_features(input_source)
     # print(gdf)
     feedback.pushInfo(f'Generating bc lines using {len(gdf)} features')
+
+    gdf_conduits_layer = gpd.GeoDataFrame.from_features(layer_features)
 
     # If we don't have any features stop
     if len(gdf) == 0:
         feedback.reportError('No features provided. Aborting.', True)
 
-    gdf2 = gdf.merge(gdf[['From Node']], how='left',
+    feedback.pushInfo(str(gdf_conduits_layer.columns))
+
+    gdf2 = gdf_conduits_layer.merge(gdf_conduits_layer[['From Node']], how='left',
                      left_on='To Node', right_on='From Node',
                      suffixes=(None, '_down'))
     gdf2['HasDownstream'] = ~gdf2['From Node_down'].isnull()
@@ -209,6 +212,9 @@ def create_endpoint_connections(input_source,
                       left_on='From Node', right_on='To Node',
                       suffixes=(None, '_up'))
     gdf3['HasUpstream'] = ~gdf3['To Node_up'].isnull()
+
+    # Filter to selected features
+    gdf3 = gdf3[gdf3['Name'].isin(gdf['Name'])]
 
     gdf_no_upstream = gdf3[~gdf3['HasUpstream']].drop_duplicates(subset='From Node')
     gdf_no_downstream = gdf3[~gdf3['HasDownstream']].drop_duplicates(subset='To Node')

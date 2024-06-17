@@ -30,11 +30,11 @@ from osgeo import ogr, gdal
 import tempfile
 
 # from .swmmutil import copy_features
-from tuflow_swmm.create_swmm_section_gpkg import add_swmm_section_to_gpkg, create_section_from_gdf
-from tuflow_swmm.swmm_sections import swmm_section_definitions, GeometryType, SectionType
-from tuflow_swmm.swmm_defaults import default_options_table, default_reporting_table, has_gpd
-from tuflow_swmm.swmm_gdal import delete_layer_features
-from tuflow_swmm.swmm_io import write_tuflow_version
+from tuflow.tuflow_swmm.create_swmm_section_gpkg import add_swmm_section_to_gpkg, create_section_from_gdf
+from tuflow.tuflow_swmm.swmm_sections import swmm_section_definitions, GeometryType, SectionType
+from tuflow.tuflow_swmm.swmm_defaults import default_options_table, default_reporting_table, has_gpd
+from tuflow.tuflow_swmm.swmm_gdal import delete_layer_features
+from tuflow.tuflow_swmm.swmm_io import write_tuflow_version
 
 import os
 

@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, date
+from datetime import datetime
 from enum import Enum
 from itertools import chain
-from typing import List, Any, Sequence, Union
+from typing import Any, Sequence, Union
 
-import numpy as np
 import pandas as pd
 import warnings
 
-from tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
+from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
 
 class SectionType(Enum):
@@ -159,13 +158,13 @@ class SwmmSection:
                 df[col] = df[col].astype('float').astype('Int64')
 
         # Coverages and loadings work fine using the non-custom method for this direction
-        if self.custom_mapping and self.name not in ["Coverages", "Loadings", "Patterns"]:
+        if self.custom_mapping and self.name.upper() not in ["COVERAGES", "LOADINGS", "PATTERNS"]:
             # Temp
             swmm_cols = [x[0] for x in self.cols_common_start]
             if 'Description' in df.columns:
                 swmm_cols.append('Description')
 
-            if self.name == 'Transects':
+            if self.name.upper() == 'TRANSECTS':
                 nc_cols = ['Name', 'Nleft', 'Nright', 'Nchanl']
                 df_nc = df[nc_cols].copy(deep=True)
                 df_nc['Datatype'] = 'NC'
@@ -198,18 +197,18 @@ class SwmmSection:
                 df_out = pd.concat([df_nc, df_x1]).sort_values('Name', kind='stable')
 
                 df = df_out
-            elif self.name == 'Transects_coords':
+            elif self.name.upper() == 'TRANSECTS_COORDS':
                 df['Datatype'] = 'GR'
                 df = df[['Datatype', 'Name', 'Elev', 'Station']]
                 df = df.rename(columns={
                     'Elev': 'Param1',
                     'Station': 'Param2',
                 })
-            elif self.name == 'Inlets':
+            elif self.name.upper() == 'INLETS':
                 # This may end up being split between two lines
                 swmm_cols = ['Name', 'Type', 'Param1', 'Param2', 'Param3', 'Param4', 'Param5']
 
-                combo_rows = df['Type'] == 'COMBINATION'
+                combo_rows = df['Type'].str.upper() == 'COMBINATION'
                 # Duplicate combo-rows and assign them to 'CURB'
                 df_combo_curb = df[combo_rows].copy(deep=True)
                 df_combo_curb['Type'] = 'CURB'
@@ -252,7 +251,8 @@ class SwmmSection:
                     swmm_cols.append('Description')
                 # if Fname is filled in we are reading from a file date->FILE and Time->Filename
                 df.loc[~df['Fname'].isnull(), 'Date'] = 'FILE'
-                df.loc[~df['Fname'].isnull(), 'Time'] = df.loc[~df['Fname'].isnull(), 'Fname']
+                df['Time'] = df['Time'].astype(str)
+                df.loc[~df['Fname'].isnull(), 'Time'] = df.loc[~df['Fname'].isnull(), 'Fname'].astype(str)
                 df['Value'] = df['Value'].astype(str).replace({'nan': '', '<NA': ''})
 
                 df = df[swmm_cols]
@@ -512,19 +512,22 @@ class SwmmSection:
                         # See if the next entry is a date
                         date = None
                         try:
-                            try:
-                                # print(row[1])
-                                date = datetime.strptime(row[1], '%m-%d-%Y')
-                                # print(date)
-                            except:
+                            date_formats_to_try = [
+                                '%m-%d-%Y',
+                                '%m/%d/%Y',
+                                '%d%b%Y',
+                                '%-d%b%Y',
+                            ]
+                            for date_format in date_formats_to_try:
                                 try:
-                                    date = datetime.strptime(row[1], '%m/%d/%Y')
+                                    date = datetime.strptime(row[1], date_format)
+                                    if date is not None:
+                                        break
                                 except:
-                                    # Must not have been a date field
-                                    # print('Not date')
+                                    # Must not have been a date field will still be None
                                     pass
                             curr_date = date
-                        except BaseException as e:
+                        except BaseException:
                             # print(e)
                             pass
 
@@ -561,9 +564,9 @@ class SwmmSection:
                 df = pd.DataFrame(section_data)
 
             if self.name == 'Curves':
-                # Read curves where First row with a new curve has a type
+                # Read curves where First row with a new curve has a inlet_type
                 # row1 may have first curve points x,y
-                # after row1 there is no type just x and y values
+                # after row1 there is no inlet_type just x and y values
                 section_text_values = \
                     [[y.strip() for y in x.split()] for x in text_array]
 
@@ -614,7 +617,7 @@ class SwmmSection:
 
                 for row in section_text_values:
                     name = row[0]
-                    type = row[1]
+                    inlet_type = row[1]
 
                     if name == curr_name:  # Continued from before
                         row_vals['Type'] = 'COMBINATION'
@@ -625,20 +628,20 @@ class SwmmSection:
                         # default values
                         row_vals = {x: None for x in inlet_data.keys()}
                         row_vals['Name'] = name
-                        row_vals['Type'] = type
+                        row_vals['Type'] = inlet_type
                         curr_name = name
 
-                    if type.upper() == 'GRATE' or type.upper() == 'DROP_GRATE':
+                    if inlet_type.upper() == 'GRATE' or inlet_type.upper() == 'DROP_GRATE':
                         row_vals['Grate_Length'] = float(row[2])
                         row_vals['Grate_Width'] = float(row[3])
                         row_vals['Grate_Type'] = row[4]
                         row_vals['Grate_Aopen'] = float(row[5]) if len(row) > 5 else None
                         row_vals['Grate_vsplash'] = float(row[6]) if len(row) > 6 else None
-                    elif type.upper() == 'CURB' or type.upper() == 'DROP_CURB':
+                    elif inlet_type.upper() == 'CURB' or inlet_type.upper() == 'DROP_CURB':
                         row_vals['Curb_Length'] = float(row[2])
                         row_vals['Curb_Height'] = float(row[3])
                         row_vals['Curb_Throat'] = row[4] if len(row) > 4 else None
-                    elif type.upper() == 'SLOTTED':
+                    elif inlet_type.upper() == 'SLOTTED':
                         row_vals['Slotted_Length'] = float(row[2])
                         row_vals['Slotted_Width'] = float(row[3])
                     else:  # Must be custom
@@ -826,6 +829,8 @@ class SwmmSection:
                 else:
                     section_text_values = \
                         [[y.strip() for y in x.split(maxsplit=len(self.cols_common_start) - 1)] for x in text_array]
+
+                print(section_text_values)
 
                 section_data = {}
                 for i_col, (col_name, col_type) in enumerate(self.cols_common_start):
@@ -1555,7 +1560,7 @@ def swmm_section_definitions() -> list[SwmmSection]:
              ('Eoffset', float),
              ('Nleft', float),
              ('Nright', float),
-             ('Nchan1', float),
+             ('Nchanl', float),
              )
         )
     transects.custom_mapping = True
@@ -1924,7 +1929,7 @@ if __name__ == "__main__":
         print(f'\t\tstd::string("{name}"),')
         quoted_columns = [f'"{x}"' for x in column_names]
         print(f'\t\tstd::vector<std::string>({{{",".join(quoted_columns)}}})')
-        print(f'\t\t)')
-        print(f'\t);')
+        print('\t\t)')
+        print('\t);')
         # print(name)
         # print(column_names)

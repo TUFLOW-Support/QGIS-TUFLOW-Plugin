@@ -1,0 +1,27 @@
+# Setup the location of the 2d domain
+Grid Size (X,Y) == 850.000000, 1000.000000
+Cell Size == 5.000000
+Origin == 292724.997, 6177615.001
+Orientation Angle == -13.166000
+
+Set IWL == 0.000000
+# Setup the Initial Water Level
+Read GIS IWL == 1D2D_Urban_001_2d_iwl_R
+
+# Setup the base topography
+Set Zpts == 64.162000
+Read Grid Zpts == grid\ubran_grid_1d2d.tif
+Read GIS Z Shape == 1D2D_Urban_001_2d_zsh_L | 1D2D_Urban_001_2d_zsh_P
+
+
+# Set codes
+Set Code == 0
+Read GIS Code BC == 1D2D_Urban_001_2d_bc_code_R
+
+# Setup the materials
+Set Mat == 3
+READ GIS Mat == 1D2D_Urban_001_2d_mat_3_R                                                                                                                          ! [3]  (0.060)
+READ GIS Mat == 1D2D_Urban_001_2d_mat_6_R                                                                                                                          ! [6]  (0.090)
+READ GIS Mat == 1D2D_Urban_001_2d_mat_5_R                                                                                                                          ! [5]  (0.025)
+READ GIS Mat == 1D2D_Urban_001_2d_mat_4_R                                                                                                                          ! [4]  (3.000)
+READ GIS Mat == 1D2D_Urban_001_2d_mat_2_R                                                                                                                          ! [2]  (0.025)

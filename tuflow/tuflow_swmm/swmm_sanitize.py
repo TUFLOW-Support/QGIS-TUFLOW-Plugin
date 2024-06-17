@@ -1,4 +1,3 @@
-import re
 
 
 def sanitize_name(name_in: str) -> str:

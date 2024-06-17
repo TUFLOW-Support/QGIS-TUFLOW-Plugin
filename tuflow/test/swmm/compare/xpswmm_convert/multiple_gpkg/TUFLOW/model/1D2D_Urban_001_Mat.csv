@@ -1,0 +1,6 @@
+Material ID, Manning's n, Infiltration Parameters, Landuse Hazard ID, Description, Fraction Impervious
+2, 0.025, "0.000,0.000",,, 0.000 ! Roads
+4, 3.000, "0.000,0.000",,, 0.000 ! Buildings
+5, 0.025, "0.000,0.000",,, 0.000 ! Ponds
+6, 0.090, "0.000,0.000",,, 0.000 ! Vegetated Creek
+3, 0.060, "0.000,0.000",,, 0.000 ! Pasture

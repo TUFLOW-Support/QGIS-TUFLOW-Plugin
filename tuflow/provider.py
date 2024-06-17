@@ -10,7 +10,7 @@ import traceback
 # We need this path setup for the SWMM alg functions to find the tuflow_swmm folder. It is here instead of
 # in those scripts so it will only happen once
 script = os.path.dirname(__file__)
-sys.path.append(script)
+# sys.path.append(script)
 
 
 class Directive:
@@ -86,7 +86,6 @@ class TuflowAlgorithmProvider(QgsProcessingProvider):
         """
         Loads all scripts found under the specified sub-folder
         """
-
         if not os.path.exists(self.script_folder):
             return
 

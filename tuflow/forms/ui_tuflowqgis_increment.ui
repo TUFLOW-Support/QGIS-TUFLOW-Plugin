@@ -125,7 +125,7 @@
      <item>
       <widget class="QCheckBox" name="cbMoveToSS">
        <property name="text">
-        <string>Move Source Layer to Superseded (SS) folder</string>
+        <string>Move Source Layer to Superseded (ss) folder</string>
        </property>
       </widget>
      </item>

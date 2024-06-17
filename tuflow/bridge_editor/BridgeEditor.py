@@ -204,11 +204,13 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                 outdb = Path(self.leOutDatabase.text())
                 outlyr = self.leOutName.text()
                 outUri = '{0}|layername={1}'.format(outdb, outlyr)
-            for lyrid, lyr_ in QgsProject.instance().mapLayers().items():
-                if lyr_.dataProvider().dataSourceUri() == outUri:
-                    QMessageBox.critical(self, 'Arch Bridge',
-                                         'Output layer is open in workspace. Please close before running the tool:\n{0}'.format(outlyr))
-                    return
+
+            if self.cboOutputType.currentIndex() == 0:
+                for lyrid, lyr_ in QgsProject.instance().mapLayers().items():
+                    if lyr_.dataProvider().dataSourceUri() == outUri:
+                        QMessageBox.critical(self, 'Arch Bridge',
+                                             'Output layer is open in workspace. Please close before running the tool:\n{0}'.format(outlyr))
+                        return
 
             if self.cboOutputType.currentIndex() == 0 and self.cboOutFormat.currentIndex() == 0 and not self.leOutName.text():
                 QMessageBox.critical(self, 'Arch Bridge',
@@ -361,7 +363,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
             else:  # overwrite existing
                 xslyr = tuflowqgis_find_layer(self.cboXsLayer.currentText())
 
-            if xslyr and self.xsFeat:
+            if xslyr and self.cboXsLayer.currentText() != '-None-' and self.xsFeat:
                 feats = [f for f in xslyr.getFeatures()]
                 if self.xsFeat not in feats:
                     featIntersects = self.findCrossSection(nwkFeat, xslyr)

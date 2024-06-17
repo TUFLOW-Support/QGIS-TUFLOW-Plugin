@@ -11,7 +11,6 @@ from osgeo import ogr
 import pandas as pd
 from pathlib import Path
 import datetime
-from shapely.geometry import Point, LineString, Polygon
 import sqlite3
 
 def ugrid_to_gpkg(in_filename,

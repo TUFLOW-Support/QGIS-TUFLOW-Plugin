@@ -29,7 +29,9 @@ try:
 except ImportError:
     from pathlib_ import Path_ as Path
 
+from tuflow.toc.MapLayerParameterHelper import MapLayerParameterHelper
 from tuflow.tuflow_swmm.create_endpoint_connections import create_endpoint_connections
+from tuflow.toc.toc import tuflowqgis_find_layer
 
 
 class CreateEndpointConnections(QgsProcessingAlgorithm):
@@ -58,7 +60,7 @@ class CreateEndpointConnections(QgsProcessingAlgorithm):
         """
         Returns the translated algorithm name.
         """
-        return self.tr('BC - Create channel endpoint 1D/2D connections')
+        return self.tr('BC - Create Channel Endpoint 1D/2D Connections')
 
     def flags(self):
         return super().flags()
@@ -94,11 +96,33 @@ class CreateEndpointConnections(QgsProcessingAlgorithm):
         # print(config)
         # 'INPUT' is the recommended name for the main input
         # parameter.
+        # self.addParameter(
+        #    QgsProcessingParameterFeatureSource(
+        #        'INPUT',
+        #        self.tr('Input Conduits Layer'),
+        #        types=[QgsProcessing.TypeVector]
+        #    )
+        # )
+
+        # Change to layer and selection toggle so we can get the full layer
+        self.mapLayerHelperConduits = MapLayerParameterHelper()
+        self.mapLayerHelperConduits.setMapLayerType(QgsProcessing.TypeVectorLine)
+        self.mapLayerHelperConduits.refreshLayers()
+
+        self.mapLayerConduitsParam = QgsProcessingParameterEnum(
+            'INPUT_conduits',
+            self.tr('Input Conduits Layer'),
+            self.mapLayerHelperConduits.getMapLayerNames(),
+            allowMultiple=False,
+            optional=False,
+        )
+        self.addParameter(self.mapLayerConduitsParam)
+        self.mapLayerConduitsParam.setOptions(self.mapLayerHelperConduits.getMapLayerNames())
+
         self.addParameter(
-            QgsProcessingParameterFeatureSource(
-                'INPUT',
-                self.tr('Input Conduits Layer'),
-                types=[QgsProcessing.TypeVector]
+            QgsProcessingParameterBoolean(
+                'Input_selected_features_only',
+                self.tr('Use only the selected features in the input layer')
             )
         )
 
@@ -154,9 +178,23 @@ class CreateEndpointConnections(QgsProcessingAlgorithm):
         """
         self.feedback = feedback
 
-        input_source = self.parameterAsSource(parameters,
-                                              'INPUT',
-                                              context)
+        # input_source = self.parameterAsSource(parameters,
+        #                                      'INPUT',
+        #                                      context)
+
+        conduits_layer_pos = self.parameterAsEnum(parameters,
+                                                  'INPUT_conduits',
+                                                  context)
+        conduits_layer_name = self.mapLayerConduitsParam.options()[conduits_layer_pos]
+        source_layer = self.mapLayerHelperConduits.getLayersFromNames([conduits_layer_name])[0]
+
+        self.feedback.pushInfo(f'Conduits layer name: {conduits_layer_name}')
+        # source_layer = self.mapLayerHelperConduits.getLayersFromIndices(conduits_layer_pos)[0]
+        #source_layer = tuflowqgis_find_layer(conduits_layer_name, search_type='layerid')
+
+        selected_only = self.parameterAsBoolean(parameters,
+                                                'Input_selected_features_only',
+                                                context)
 
         location_option = int(self.parameterAsString(
             parameters,
@@ -189,8 +227,8 @@ class CreateEndpointConnections(QgsProcessingAlgorithm):
             'OUTPUT',
             context,
             QgsFields(),
-            input_source.wkbType(),
-            input_source.sourceCrs(),
+            source_layer.wkbType(),
+            source_layer.sourceCrs(),
         )
         if isinstance(output_layer, str):
             output_layer = QgsProcessingUtils.mapLayerFromString(
@@ -200,7 +238,14 @@ class CreateEndpointConnections(QgsProcessingAlgorithm):
         if feedback.isCanceled():
             return {}
 
+        layer_features = list(source_layer.getFeatures())
+        if selected_only:
+            input_source = source_layer.getSelectedFeatures()
+        else:
+            input_source = layer_features
+
         create_endpoint_connections(input_source,
+                                    layer_features,
                                     offset_dist,
                                     width,
                                     set_z_flag,

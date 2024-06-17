@@ -8,13 +8,12 @@ except ImportError:
 from qgis.core import (QgsFeature,
                        QgsField,
                        QgsPoint,
-                       QgsVectorLayerJoinInfo,
                        )
 import pandas as pd
 
 from PyQt5.QtCore import QVariant
 
-from tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
+from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
 
 def remove_layer_joins(layer, feedback):
@@ -177,7 +176,7 @@ def get_junction_atts(features_junctions,
     feedback.pushInfo(f'  Inlets: {n_inlets}')
     feedback.pushInfo(f'  at BC: {n_nodes_w_bc}')
     feedback.pushInfo(f'  no 2D or subcatchment connection: {n_nodes_no_bc}')
-    feedback.pushInfo(f'\n\n\n')
+    feedback.pushInfo('\n\n\n')
 
     if initialize_ymax:
         gdf_all['Ymax'] = 0.0
@@ -324,7 +323,7 @@ def set_junction_atts(features_junctions,
     feedback.pushInfo(f'  Inlets: {sum(inlets)}')
     feedback.pushInfo(f'  at BC: {sum(nodes_w_bc)}')
     feedback.pushInfo(f'  no 2D or subcatchment connection: {sum(nodes_no_bc)}')
-    feedback.pushInfo(f'\n\n\n')
+    feedback.pushInfo('\n\n\n')
 
     # Subcatchment outflows
     gdf_all.loc[subcatch_outlet, 'Ysur'] = 0.0

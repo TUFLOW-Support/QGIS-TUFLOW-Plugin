@@ -1,7 +1,7 @@
 import math
 import unittest
 
-from tuflow_swmm.xs_shapes import get_max_width, get_max_height, get_max_area
+from tuflow.tuflow_swmm.xs_shapes import get_max_width, get_max_height, get_max_area
 
 class TestShapeMaxHeight(unittest.TestCase):
     def test_circle(self):

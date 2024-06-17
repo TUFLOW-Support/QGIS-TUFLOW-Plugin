@@ -11,8 +11,8 @@ except ImportError:
 
 from test.swmm.test_files import get_compare_path, get_output_path, get_input_full_filenames
 
-from tuflow_swmm.gis_to_swmm import gis_to_swmm
-from tuflow_swmm.swmm_to_gis import swmm_to_gpkg
+from tuflow.tuflow_swmm.gis_to_swmm import gis_to_swmm
+from tuflow.tuflow_swmm.swmm_to_gis import swmm_to_gpkg
 
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_rows', 50)

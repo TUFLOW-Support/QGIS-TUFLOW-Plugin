@@ -1,7 +1,7 @@
-'''
+"""
 This file converts GIS layers into full or partial SWMM input files
 It assumes that we are using the naming convention used when we convert SWMM files into a Geo-Package
-'''
+"""
 import os
 
 os.environ['USE_PYGEOS'] = '0'
@@ -24,11 +24,11 @@ except ImportError:
 import pandas as pd
 from shapely.geometry import Point, MultiPoint
 
-from tuflow_swmm import swmm_io
+from tuflow.tuflow_swmm import swmm_io
 
-from tuflow_swmm.swmm_sections import swmm_section_definitions, primary_node_sections, primary_link_sections, \
+from tuflow.tuflow_swmm.swmm_sections import swmm_section_definitions, primary_node_sections, primary_link_sections, \
     tag_table_type
-from tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
+from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
 SNAP_TOLERANCE = 0.05
 
@@ -324,7 +324,7 @@ def gis_to_swmm(gpkg_filename,
             # feedback.pushInfo(f'Section {isection}\n')
             # feedback.pushInfo(section + '\n')
             out_file.write(section + '\n')
-    feedback.pushInfo(f'Finished writing file')
+    feedback.pushInfo('Finished writing file')
 
 
 def add_polyline_node_names(gdf_polylines, gdf_nodes, first_coords, column_name: str) :
@@ -355,8 +355,11 @@ if __name__ == "__main__":
     pd.set_option('display.width', 200)
 
     files = [
+        #Path(
+        #    r"D:\models\TUFLOW\test_models\SWMM\SanAntonio\Hemisfair-Cesar Chavez Drainage study\BMT\TUFLOW\model\swmm\Hemisfair_Ult-Mata_Labor_subcatchments.gpkg"
+        #)
         Path(
-            r"D:\models\TUFLOW\test_models\SWMM\SanAntonio\Hemisfair-Cesar Chavez Drainage study\BMT\TUFLOW\model\swmm\Hemisfair_Ult-Mata_Labor_subcatchments.gpkg"
+            r"D:\models\TUFLOW\test_models\SWMM\XPSWMM_convert\xpx_file_testing\1D2D_Urban_datechange_001.gpkg"
         )
     ]
 

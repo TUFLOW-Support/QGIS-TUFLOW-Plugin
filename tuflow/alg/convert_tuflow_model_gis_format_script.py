@@ -16,13 +16,13 @@ import re
 import os
 from pathlib import Path
 
-from ..gui.processing.processsing_param_conv_tuf_model_format_dir_settings import ProcessingParameterConvTufModelDirSettings
-
+from ..gui.processing.processsing_param_conv_tuf_model_format_dir_settings import \
+    ProcessingParameterConvTufModelDirSettings
 
 CONTROL_FILES = [
     'GEOMETRY CONTROL FILE', 'BC CONTROL FILE', 'ESTRY CONTROL FILE', 'EVENT FILE', 'READ FILE',
     'RAINFALL CONTROL FILE', 'EXTERNAL STRESS FILE', 'QUADTREE CONTROL FILE', 'AD CONTROL FILE'
-    ]
+]
 
 
 def strip_command(text):
@@ -90,16 +90,19 @@ OP = {0: 'SEPARATE', 1: 'CF1', 2: 'CF2', 3: 'TCF'}
 
 
 class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
-    
+
     def initAlgorithm(self, config=None):
         self.addParameter(QgsProcessingParameterFile('tcf', 'TCF', behavior=QgsProcessingParameterFile.File,
                                                      fileFilter='TCF (*.tcf *.TCF)', defaultValue=None))
         self.addParameter(QgsProcessingParameterEnum('outputvectorformat', 'Output Vector Format',
-                                                     options=['GPKG','SHP','MIF'], allowMultiple=False, defaultValue=[0]))
+                                                     options=['GPKG', 'SHP', 'MIF'], allowMultiple=False,
+                                                     defaultValue=[0]))
         self.addParameter(QgsProcessingParameterEnum('outputrasterformat', 'Output Raster Format',
-                                                     options=['GTIFF','GPKG','FLT', 'ASC'], allowMultiple=False, defaultValue=[0]))
+                                                     options=['GTIFF', 'GPKG', 'FLT', 'ASC'], allowMultiple=False,
+                                                     defaultValue=[0]))
         self.addParameter(QgsProcessingParameterEnum('outputprofile', 'Output Profile',
-                                                     options=['SEPARATE','GROUP BY CONTROL FILE 1', 'GROUP BY CONTROL FILE 2','ALL IN ONE'],
+                                                     options=['SEPARATE', 'GROUP BY CONTROL FILE 1',
+                                                              'GROUP BY CONTROL FILE 2', 'ALL IN ONE'],
                                                      allowMultiple=False, defaultValue=[0]))
         self.addParameter(QgsProcessingParameterFile('outputfolder', 'Output Folder', optional=True,
                                                      behavior=QgsProcessingParameterFile.Folder,
@@ -113,8 +116,9 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
         param = QgsProcessingParameterBoolean('usescenarios', 'Restrict Conversion by Scenarios')
         param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
         self.addParameter(param)
-        param = QgsProcessingParameterString('scenarios', 'Scenarios (list as you would with TUFLOW e.g. -s BASE -s 5m -e Q100)',
-                                                       optional=True)
+        param = QgsProcessingParameterString('scenarios',
+                                             'Scenarios (list as you would with TUFLOW e.g. -s BASE -s 5m -e Q100)',
+                                             optional=True)
         param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
         self.addParameter(param)
         param = QgsProcessingParameterString('gpkg_name', 'Output GPKG Name (for grouped profiles)', optional=True)
@@ -124,7 +128,7 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
         param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
         self.addParameter(param)
         param = QgsProcessingParameterString('empty_directory', 'Write Empty Files Relative Directory ',
-                                                       optional=True)
+                                             optional=True)
         param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
         self.addParameter(param)
         param = QgsProcessingParameterCrs('output_crs', 'Output CRS', optional=True)
@@ -134,7 +138,8 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
         param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
         self.addParameter(param)
 
-        struct_json = Path(__file__).parent.parent / 'convert_tuflow_model_gis_format' / 'conv_tf_gis_format' / 'data' / 'dir_relationships.json'
+        struct_json = Path(
+            __file__).parent.parent / 'convert_tuflow_model_gis_format' / 'conv_tf_gis_format' / 'data' / 'dir_relationships.json'
         with struct_json.open() as fo:
             default_struct = json.load(fo)
         param = ProcessingParameterConvTufModelDirSettings('tuflow_dir_struct_settings',
@@ -143,7 +148,7 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
                                                            default=default_struct)
         param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
         self.addParameter(param)
-        
+
     def processAlgorithm(self, parameters, context, model_feedback):
         line_count = count_lines(parameters['tcf'], parameters['write_empties']) + 3
 
@@ -163,7 +168,8 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
             scenarios = [x.strip() for x in parameters['scenarios'].split(' ') if x.strip()]
 
         # script path
-        script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'convert_tuflow_model_gis_format', 'conv_tf_gis_format', 'convert_tuflow_gis_format.py')
+        script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'convert_tuflow_model_gis_format',
+                              'conv_tf_gis_format', 'convert_tuflow_gis_format.py')
         sys.path.append(os.path.dirname(script))
 
         args = ['python', '-u', script, '-tcf', str(tcf), '-gis', str(gis), '-grid', str(grid), '-op', str(op)]
@@ -189,7 +195,8 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
         feedback.pushInfo('args: {0}'.format(args[3:]))
 
         count = 0
-        with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NO_WINDOW, bufsize=0, universal_newlines=True) as proc:
+        with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                              creationflags=subprocess.CREATE_NO_WINDOW, bufsize=0, universal_newlines=True) as proc:
             for line in proc.stdout:
                 if line.strip():
                     count += 1
@@ -199,10 +206,10 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
                 # Stop the algorithm if cancel button has been clicked
                 if feedback.isCanceled():
                     proc.terminate()
-        
+
         feedback.setProgress(line_count)
         return {}
-        
+
     def name(self):
         return 'Convert TUFLOW Model GIS Format'
 
@@ -287,6 +294,6 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
 
     def createInstance(self):
         return ConvertTuflowModelGisFormat()
-        
+
     def tr(self, string):
         return QCoreApplication.translate('Processing', string)

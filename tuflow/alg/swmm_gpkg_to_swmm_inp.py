@@ -4,7 +4,7 @@ from qgis.core import (
     QgsProcessingParameterFile,
 )
 
-from tuflow_swmm.gis_to_swmm import gis_to_swmm
+from tuflow.tuflow_swmm.gis_to_swmm import gis_to_swmm
 import os
 
 try:
@@ -48,7 +48,7 @@ class ConvertGpkgToSWMMInp(QgsProcessingAlgorithm):
         """
         Returns the translated algorithm name.
         """
-        return self.tr('GeoPackage - Write to SWMM inp')
+        return self.tr('GeoPackage - Write to SWMM Inp')
 
     # def flags(self):
     #    return QgsProcessingAlgorithm.Flag.FlagNoThreading

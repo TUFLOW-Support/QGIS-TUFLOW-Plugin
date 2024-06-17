@@ -42,8 +42,8 @@ except ImportError:
 
 from ..gui.logging import Logging
 
-from toc.MapLayerParameterHelper import MapLayerParameterHelper
-from tuflow_swmm.convert_xpswmm_hydrology import convert_xpswmm_hydrology
+from tuflow.toc.MapLayerParameterHelper import MapLayerParameterHelper
+from tuflow.tuflow_swmm.convert_xpswmm_hydrology import convert_xpswmm_hydrology
 
 has_gpd = False
 try:
@@ -144,7 +144,7 @@ class ConvertXPSWMMHydrology(QgsProcessingAlgorithm):
         """
         Returns the translated algorithm name.
         """
-        return self.tr('Convert - XPSWMM Hydrology (beta)')
+        return self.tr('Convert - XPSWMM Hydrology (Beta)')
 
     def group(self):
         """
