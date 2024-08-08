@@ -25,6 +25,8 @@ sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.2\plugins\python\helpers\pydev')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\debug-eggs')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\plugins\python\helpers\pydev')
 
 build_type, version = version()
 now = datetime.now()
@@ -328,7 +330,8 @@ if 'minarf' in args.keys():
     min_ARF = float(args['minarf'][0])
 # Loss method
 if 'lossmethod' in args.keys():
-    if args['lossmethod'][0] in ['interpolate', 'rahman', 'hill', 'static', '60min']:
+    if args['lossmethod'][0] in ['interpolate', 'rahman', 'hill', 'static', '60min', 'interpolate_linear_preburst',
+                                 'interpolate_log', 'interpolate_log_preburst']:
         lossMethod = args['lossmethod'][0]
     else:
         lossMethod = 'interpolate'

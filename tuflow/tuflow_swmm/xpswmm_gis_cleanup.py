@@ -12,6 +12,10 @@ def bc_layer_processing(bc_filename: str,
                         out_bc_filename: str,
                         out_bc_layername: str,
                         feedback=ScreenProcessingFeedback()) -> bool:
+    """
+    Snaps boundary condition layers to SWMM node layers.
+    """
+
     bc_path = Path(bc_filename)
     if not bc_path.exists():
         feedback.reportError(f'BC file does not exist: {bc_filename}', fatalError=True)

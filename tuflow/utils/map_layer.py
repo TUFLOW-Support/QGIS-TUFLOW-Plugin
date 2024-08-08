@@ -6,9 +6,13 @@ from ..compatibility_routines import Path
 
 def clean_data_source(data_source: str) -> str:
     if '|layername=' in data_source:
-        return '|'.join(data_source.split('|')[:2])
+        ds = '|'.join(data_source.split('|')[:2])
     else:
-        return '|'.join(data_source.split('|')[:1])
+        ds = '|'.join(data_source.split('|')[:1])
+    split = [x.strip() for x in ds.split('|')]
+    if len(split) > 1 and Path(split[0]).suffix.lower() != '.gpkg':
+        ds = split[0]
+    return ds
 
 
 def file_from_data_source(data_source: str) -> Path:

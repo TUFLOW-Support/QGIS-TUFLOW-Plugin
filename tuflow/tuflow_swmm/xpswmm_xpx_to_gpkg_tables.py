@@ -31,6 +31,9 @@ out_sizes_eng = [(float(x) / 12.0, float(y) / 12.0) for x, y in standard_sizes_i
 arr_met = np.asarray([x[0] for x in out_sizes_met])
 arr_eng = np.asarray([x[0] for x in out_sizes_eng])
 
+arr_met_width = np.asarray([x[1] for x in out_sizes_met])
+arr_eng_width = np.asarray([x[1] for x in out_sizes_eng])
+
 arch_sizes_in = [
     (11, 18),
     (13, 17),
@@ -141,6 +144,13 @@ arch_sizes_eng = [(float(x) / 12.0, float(y) / 12.0) for x, y in arch_sizes_in]
 arch_arr_met = np.asarray([x[0] for x in arch_sizes_met])
 arch_arr_eng = np.asarray([x[0] for x in arch_sizes_eng])
 
+def get_nearest_height_for_horzellipse(metric_units, width):
+    if metric_units:
+        index = (np.abs(arr_met_width - width)).argmin()
+        return out_sizes_met[index][0]
+    else:
+        index = (np.abs(arr_eng_width - width)).argmin()
+        return out_sizes_eng[index][0]
 def get_nearest_width_for_horzellipse(metric_units, height):
     if metric_units:
         index = (np.abs(arr_met - height)).argmin()

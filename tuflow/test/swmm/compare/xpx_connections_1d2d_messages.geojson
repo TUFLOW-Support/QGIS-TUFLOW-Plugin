@@ -1,5 +1,6 @@
 {
 "type": "FeatureCollection",
+"name": "xpx_connections_1d2d_messages",
 "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::32760" } },
 "features": [
 { "type": "Feature", "properties": { "Severity": "ERROR", "Message": "Node C1_d/s is linked to 2D at the spill crest elevation without an inlet as required by TUFLOW-SWMM." }, "geometry": { "type": "Point", "coordinates": [ 293148.011, 6177721.110999999567866 ] } },
@@ -9,12 +10,6 @@
 { "type": "Feature", "properties": { "Severity": "ERROR", "Message": "Node MH-23 is linked to 2D at the spill crest elevation without an inlet as required by TUFLOW-SWMM." }, "geometry": { "type": "Point", "coordinates": [ 293379.025000000023283, 6177990.704 ] } },
 { "type": "Feature", "properties": { "Severity": "ERROR", "Message": "Node MH-19 is linked to 2D at the spill crest elevation without an inlet as required by TUFLOW-SWMM." }, "geometry": { "type": "Point", "coordinates": [ 293416.824000000022352, 6177828.609000000171363 ] } },
 { "type": "Feature", "properties": { "Severity": "ERROR", "Message": "Node MH-15 is linked to 2D at the spill crest elevation without an inlet as required by TUFLOW-SWMM." }, "geometry": { "type": "Point", "coordinates": [ 292953.541000000026543, 6177838.950000000186265 ] } },
-{ "type": "Feature", "properties": { "Severity": "ERROR", "Message": "Node MH-21 is linked to 2D at the spill crest elevation without an inlet as required by TUFLOW-SWMM." }, "geometry": { "type": "Point", "coordinates": [ 293457.773999999975786, 6177846.455 ] } },
-{ "type": "Feature", "properties": { "Severity": "INFO", "Message": "Node C1_u/s is linked to 2D at the invert elevation should be connected using HX or SX in a 2d_bc layer" }, "geometry": { "type": "Point", "coordinates": [ 293116.098799999977928, 6177710.819899999536574 ] } },
-{ "type": "Feature", "properties": { "Severity": "INFO", "Message": "Node C3_u/s is linked to 2D at the invert elevation should be connected using HX or SX in a 2d_bc layer" }, "geometry": { "type": "Point", "coordinates": [ 293286.2041999999783, 6178187.273299999535084 ] } },
-{ "type": "Feature", "properties": { "Severity": "INFO", "Message": "Node C3_d/s is linked to 2D at the invert elevation should be connected using HX or SX in a 2d_bc layer" }, "geometry": { "type": "Point", "coordinates": [ 293290.656299999973271, 6178207.1903 ] } },
-{ "type": "Feature", "properties": { "Severity": "INFO", "Message": "Node 97 is linked to 2D at the invert elevation should be connected using HX or SX in a 2d_bc layer" }, "geometry": { "type": "Point", "coordinates": [ 293289.268099999986589, 6177968.0 ] } },
-{ "type": "Feature", "properties": { "Severity": "INFO", "Message": "Node 96 is linked to 2D at the invert elevation should be connected using HX or SX in a 2d_bc layer" }, "geometry": { "type": "Point", "coordinates": [ 293258.553000000014435, 6178022.939000000245869 ] } },
-{ "type": "Feature", "properties": { "Severity": "INFO", "Message": "Node MH-20 is linked to 2D at the invert elevation should be connected using HX or SX in a 2d_bc layer" }, "geometry": { "type": "Point", "coordinates": [ 293389.824000000022352, 6177728.678999999538064 ] } }
+{ "type": "Feature", "properties": { "Severity": "ERROR", "Message": "Node MH-21 is linked to 2D at the spill crest elevation without an inlet as required by TUFLOW-SWMM." }, "geometry": { "type": "Point", "coordinates": [ 293457.773999999975786, 6177846.455 ] } }
 ]
 }

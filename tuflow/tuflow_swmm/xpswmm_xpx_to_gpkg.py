@@ -12,14 +12,16 @@ import re
 from shapely.geometry import LineString, Polygon
 
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
+from tuflow.tuflow_swmm.create_bc_connections_gpd import create_bc_connections_gpd
 from tuflow.tuflow_swmm.create_swmm_section_gpkg import create_section_gdf
 from tuflow.tuflow_swmm.estry_to_swmm_model import create_curves_from_dfs
+from tuflow.tuflow_swmm.fix_multi_link_oulets import extend_multi_link_outfalls_gdf
 from tuflow.tuflow_swmm.gis_to_swmm import gis_to_swmm
 from tuflow.tuflow_swmm.junctions_downstream_to_outfalls import downstream_junctions_to_outfalls
 from tuflow.tuflow_swmm.swmm_sanitize import sanitize_name
 from tuflow.tuflow_swmm.xpswmm_node2d_convert import xpswmm_2d_capture_to_swmm_gpd
 import tuflow.tuflow_swmm.swmm_io as swmm_io
-from tuflow.tuflow_swmm.xpswmm_xpx_to_gpkg_tables import get_nearest_width_for_horzellipse, get_arch_width
+from tuflow.tuflow_swmm.xpswmm_xpx_to_gpkg_tables import get_nearest_height_for_horzellipse, get_arch_width
 
 
 class SwmmTableEnum(Enum):
@@ -27,7 +29,7 @@ class SwmmTableEnum(Enum):
     STORAGE_NODES = 2
     OUTFALLS = 3
     CONDUITS = 4
-    SUBCATCMENTS = 5
+    SUBCATCHMENTS = 5
     RAINGAGES = 6
     INLETS = 7
     WEIRS = 8
@@ -73,20 +75,20 @@ def check_for_link_active(re_obj, col1_lower, col2, col5, link_type, multi_links
             multi_links_dict[col2][type_number]['active'] = True
 
 
-def xpx_to_gpkg(xpx_filename,
-                gpkg_filename,
-                iu_filename,
-                messages_filename,
-                bc_dbase_filename,
-                event_name_default,
-                tef_filename,
-                crs,
+#bc_offset_dist,
+#bc_offset_width,
+
+def xpx_to_gpkg(xpx_filename, gpkg_filename, bc_offset_dist, bc_offset_width, gis_layers_filename, iu_filename,
+                messages_filename, bc_dbase_filename, event_name_default, tef_filename, crs,
                 feedback=ScreenProcessingFeedback()) -> dict:
     if isinstance(gpkg_filename, str):
         gpkg_filename = Path(gpkg_filename)
 
     if isinstance(messages_filename, str):
         messages_filename = Path(messages_filename)
+
+    if isinstance(gis_layers_filename, str):
+        gis_layers_filename = Path(gis_layers_filename)
 
     return_info = {}
 
@@ -103,15 +105,17 @@ def xpx_to_gpkg(xpx_filename,
     linked_nodes_sflood4 = set()
 
     links_name = []
+    links_nums = []
     links_node1 = []
     links_node2 = []
+    links_orig_name = []
 
     vertices = {}
     cur_vertices_name = None
     cur_vertices = []
 
     subs_name = []
-    subs_vertices = []
+    subs_vertices = {}
 
     raingages_name = []
 
@@ -161,22 +165,28 @@ def xpx_to_gpkg(xpx_filename,
                 node_y.append(float(line_vals[4]))
             elif line_vals_lower[0] == 'link':
                 links_name.append(sanitize_name(line_vals[2]))
-                links_node1.append(line_vals[3].strip('"'))
-                links_node2.append(line_vals[4].strip('"'))
+                links_nums.append(1)
+                links_node1.append(sanitize_name(line_vals[3].strip('"')))
+                links_node2.append(sanitize_name(line_vals[4].strip('"')))
+                links_orig_name.append(sanitize_name(line_vals[2]))
             elif line_vals_lower[0] == 'vertex_start':
-                cur_vertices_name = sanitize_name(line_vals[2])
+                # Don't use vertices for linked cross-sections
+                if line_vals_lower[1] != 'link_cs':
+                    cur_vertices_name = sanitize_name(line_vals[2])
+            # This handles geometry only and puts it into a dict
             elif line_vals_lower[0] == 'catchment':
                 sub_name = line_vals[1].strip('"')
                 sub_number = int(line_vals[2].strip('"'))
                 sub_name = f'{sub_name}#{sub_number}'
-                subs_name.append(sub_name)
+                if sub_name not in subs_name:
+                    subs_name.append(sub_name)
                 pts = []
                 npoints = int(line_vals[3])
                 for ipoint in range(npoints):
                     nextline = next(xpx_file).strip()
                     nextline_vals = tuple([float(x) for x in nextline.split(' ')])
                     pts.append(nextline_vals)
-                subs_vertices.append(pts)
+                subs_vertices[sub_name] = pts
             elif line_vals_lower[0] == 'gldbitem':
                 if line_vals_lower[1].strip('"') == 'rainfall':
                     raingages_name.append(sanitize_name(line_vals[2]))
@@ -190,6 +200,16 @@ def xpx_to_gpkg(xpx_filename,
                 check_for_link_active(re_pump_num, line_vals_lower[1], line_vals[2], line_vals[5],
                                       MultiLinkType.PUMPS, multi_links)
 
+                if line_vals_lower[1] == 'r_warea':
+                    sub_name = line_vals[2].strip('"')
+                    sub_count = int(line_vals[4].strip('"'))
+                    areas = [float(x) if x.strip('"') != '' else None for x in line_vals[5:]]
+                    for i, area in enumerate(areas):
+                        if area is not None and area > 0.0:
+                            sub_number = i + 1
+                            sub_name_mod = f'{sub_name}#{sub_number}'
+                            if sub_name_mod not in subs_name:
+                                subs_name.append(sub_name_mod)
                 if line_vals_lower[1] == 'flgoutf':
                     if int(line_vals[5]) == 1:
                         outfall_nodes.add(line_vals[2])
@@ -211,12 +231,18 @@ def xpx_to_gpkg(xpx_filename,
                 elif line_vals_lower[1] == 'jc_2dinflow_coeff':
                     global_2dlink_settings['Coefficient'] = float(line_vals[5])
                 elif line_vals_lower[1] == 'locmode':
-                    if int(line_vals[5]) == 0:
+                    # Multi-link objects sometimes have 0 or 1 in the 3 spot but 0 controls
+                    if int(line_vals[3].strip('"')) == 0 and int(line_vals[5].strip('"')) == 0:
                         inactive_objects.add(line_vals[2])
                 elif line_vals_lower[1].startswith('cname'):
                     if line_vals_lower[1][5:].strip() != '':
                         type_number = (MultiLinkType.CONDUITS, int(line_vals[1][5:]))
                         multi_links[line_vals[2]][type_number]['name'] = sanitize_name(line_vals[5])
+                    else:
+                        # Sometimes multi-links get assigned as #1 with only 1 conduit assigned
+                        link_name = line_vals[2]
+                        if link_name in multi_links:
+                            multi_links[link_name][(MultiLinkType.CONDUITS, 1)]['name'] = sanitize_name(line_vals[5])
                 elif line_vals_lower[1].startswith('orifname'):
                     type_number = (MultiLinkType.ORIFICES, int(line_vals[3]))
                     multi_links[line_vals[2]][type_number]['name'] = sanitize_name(line_vals[5])
@@ -244,6 +270,8 @@ def xpx_to_gpkg(xpx_filename,
     gdf_storage.drop(gdf_storage.index, inplace=True)
     gdf_storage_node_values = gdf_all_nodes[(gdf_all_nodes['Name'].isin(storage_nodes))]
     gdf_storage = pd.concat([gdf_storage, gdf_storage_node_values])
+    # This is needed to clear out the information set by copying "gdf_all_nodes"
+    gdf_storage['TYPE'] = ''
 
     gdf_outfalls, outfalls_layername = create_section_gdf('Outfalls', crs)
     gdf_outfalls.drop(gdf_outfalls.index, inplace=True)
@@ -278,13 +306,14 @@ def xpx_to_gpkg(xpx_filename,
                     f'Node {row.Name} is linked to 2D at the spill crest elevation without an inlet as '
                     f'required by TUFLOW-SWMM.')
 
+    # Link these later. No need for a message here
     # Linked nodes FLOOD=4 links the node invert to 2D. These are usually connected with HX/SX line in separate layer
-    if len(linked_nodes_sflood4) > 0:
-        for row in gdf_all_nodes[gdf_all_nodes['Name'].isin(linked_nodes_sflood4)].itertuples(index=False):
-            messages_location.append(row.geometry)
-            messages_severity.append('INFO')
-            messages_text.append(f'Node {row.Name} is linked to 2D at the invert elevation should be connected using '
-                                 f'HX or SX in a 2d_bc layer')
+    # if len(linked_nodes_sflood4) > 0:
+    #     for row in gdf_all_nodes[gdf_all_nodes['Name'].isin(linked_nodes_sflood4)].itertuples(index=False):
+    #         messages_location.append(row.geometry)
+    #         messages_severity.append('INFO')
+    #         messages_text.append(f'Node {row.Name} is linked to 2D at the invert elevation should be connected using '
+    #                              f'HX or SX in a 2d_bc layer')
 
     # Defaults
     if gdf_inlet_info is not None:
@@ -297,27 +326,73 @@ def xpx_to_gpkg(xpx_filename,
     pump_names = set()
 
     for multi_name, multi_dict in multi_links.items():
+        # feedback.pushInfo(f'Multi-link name: {multi_name}')
         ilink = links_name.index(multi_name)
         for (link_type, link_num), link_dict in multi_dict.items():
             if 'active' in link_dict and link_dict['active']:
-                links_name.append(link_dict['name'])
-                links_node1.append(links_node1[ilink])
-                links_node2.append(links_node2[ilink])
-                if link_type == MultiLinkType.WEIRS:
-                    weir_names.add(link_dict['name'])
-                elif link_type == MultiLinkType.ORIFICES:
-                    orifice_names.add(link_dict['name'])
-                elif link_type == MultiLinkType.PUMPS:
-                    pump_names.add(link_dict['name'])
+                # The first conduit always comes through outside of the multi_link
+                #if link_type == MultiLinkType.CONDUITS and link_num == 1:
+                #    continue
+
+                # Sometimes with multilinks the first conduit came through alread (but not always)
+                if link_dict['name'] in links_name:
+                    continue
+
+                try:
+                    # print(link_dict['name'])
+                    links_name.append(link_dict['name'])
+                    links_nums.append(link_num)
+                    links_node1.append(links_node1[ilink])
+                    links_node2.append(links_node2[ilink])
+                    if link_type == MultiLinkType.WEIRS:
+                        weir_names.add(link_dict['name'])
+                    elif link_type == MultiLinkType.ORIFICES:
+                        orifice_names.add(link_dict['name'])
+                    elif link_type == MultiLinkType.PUMPS:
+                        pump_names.add(link_dict['name'])
+                    if link_num == 1:
+                        links_orig_name.append(multi_name)
+                    else:
+                        links_orig_name.append('')
+                except Exception as e:
+                    feedback.reportError(
+                        f'Error reading multi-link (skipped): {multi_name}\nError: {getattr(e, "message", repr(e))}')
 
         # del links_name[ilink]
         # del links_node1[ilink]
         # del links_node2[ilink]
 
     # Build conduits from nodes and vertices
-    conduit_geom = []
-    for link_name, link_node1, link_node2 in zip(links_name, links_node1, links_node2):
+    conduit_geoms = []
+    links_to_drop = []
+    for link_name, link_num, link_node1, link_node2 in zip(links_name, links_nums, links_node1, links_node2):
         pts = []
+
+        if len(gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node1, 'geometry']) != 1 or \
+                len(gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node2, 'geometry']) != 1:
+            message = ''
+            if len(gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node1, 'geometry']) != 1:
+                # Assume we didn't find one but check
+                message = f'ERROR - Unable to find node "{link_node1}" for link "{link_name}. Skipping..."'
+                if len(gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node1, 'geometry']) > 1:
+                    message = f'ERROR - Found multiple nodes "{link_node1}" for link "{link_name}. Skipping..."'
+
+            if message != '':
+                feedback.reportError(message)
+                message = ''
+
+            if len(gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node2, 'geometry']) != 1:
+                # Assume we didn't find one but check
+                message = f'ERROR - Unable to find node "{link_node2}" for link "{link_name}. Skipping..."'
+                if len(gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node2, 'geometry']) > 1:
+                    message = f'ERROR - Found multiple nodes "{link_node2}" for link "{link_name}. Skipping..."'
+
+            if message != '':
+                feedback.reportError(message)
+            conduit_geoms.append(None)
+            links_to_drop.append(link_name)
+            continue
+
         pts.append(
             (gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node1, 'geometry'].x,
              gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node1, 'geometry'].y)
@@ -329,7 +404,18 @@ def xpx_to_gpkg(xpx_filename,
             (gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node2, 'geometry'].x,
              gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node2, 'geometry'].y)
         )
-        conduit_geom.append(LineString(pts))
+        conduit_geom = LineString(pts)
+        # If the link number is greater than one we want to have extra points to distinguish the links
+        if link_num > 1:
+            # Make sure we have at least two additional points
+            conduit_geom = conduit_geom.segmentize(conduit_geom.length/3.0)
+            offset_geom = conduit_geom.offset_curve(conduit_geom.length/20.0*float(link_num))
+            # Make sure we have the right number of points
+            offset_geom = offset_geom.segmentize(conduit_geom.length/3.0)
+            # Make a new geometry with the endpoints of the original with the middle points of the offset geom
+            new_points = [conduit_geom.coords[0]] + offset_geom.coords[1:-1] + [conduit_geom.coords[-1]]
+            conduit_geom = LineString(new_points)
+        conduit_geoms.append(conduit_geom)
 
     gdf_conduits, conduits_layername = create_section_gdf('Conduits', crs)
     gdf_conduits.drop(gdf_conduits.index, inplace=True)
@@ -338,9 +424,10 @@ def xpx_to_gpkg(xpx_filename,
             'Name': links_name,
             'From Node': links_node1,
             'To Node': links_node2,
+            'Orig Name': links_orig_name,
         },
         crs=crs,
-        geometry=conduit_geom)
+        geometry=conduit_geoms)
     gdf_conduit_values = gdf_all_links[~gdf_all_links['Name'].isin(weir_names)]
     gdf_conduits = pd.concat([gdf_conduits, gdf_conduit_values])
 
@@ -361,8 +448,11 @@ def xpx_to_gpkg(xpx_filename,
 
     # Build subcatchments
     subs_geom = []
-    for sub_name, sub_vertices in zip(subs_name, subs_vertices):
-        subs_geom.append(Polygon(np.array(sub_vertices)))
+    for sub_name in subs_name:
+        if sub_name in subs_vertices:
+            subs_geom.append(Polygon(np.array(subs_vertices[sub_name])))
+        else:
+            subs_geom.append(None)
 
     gdf_subs, sub_layername = create_section_gdf('Subcatchments', crs)
     gdf_subs.drop(gdf_subs.index, inplace=True)
@@ -417,7 +507,6 @@ def xpx_to_gpkg(xpx_filename,
     gdf_conduits['losses_Kentry'] = 0.0
     gdf_conduits['losses_Kexit'] = 0.0
     gdf_conduits['losses_Kavg'] = 0.0
-    gdf_conduits['Active'] = 1
 
     gdf_weirs['xsec_XsecType'] = 'RECT_OPEN'
     gdf_weirs['xsec_Geom1'] = 0.0
@@ -426,6 +515,10 @@ def xpx_to_gpkg(xpx_filename,
     gdf_weirs['xsec_Geom4'] = 0.0
     gdf_weirs['xsec_Barrels'] = 1
     gdf_weirs['xsec_Tsect'] = ''
+    gdf_weirs['Gated'] = 'No'
+    gdf_weirs['EC'] = 0
+    gdf_weirs['Cd2'] = 0.0
+    gdf_weirs['Sur'] = 'Yes'
 
     gdf_orifices['xsec_Geom1'] = 0.0
     gdf_orifices['xsec_Geom2'] = 0.0
@@ -451,6 +544,17 @@ def xpx_to_gpkg(xpx_filename,
         gdf_subs.loc[:, 'Subareas_Nperv'] = 0.05
         gdf_subs.loc[:, ['Subareas_Simp', 'Subareas_Sperv', 'Subareas_PctZero']] = 0.0
 
+        # if we have any null geometries, generate polygons around the outlet
+        no_geom_catchment_size = 50.0
+        null_sub_geom = gdf_subs['geometry'].isnull()
+        outlet_nodes_null_geom = gdf_subs.loc[null_sub_geom, 'Outlet']
+        new_geom = outlet_nodes_null_geom.apply(
+            lambda x: gdf_all_nodes.loc[
+                gdf_all_nodes['Name'] == x, 'geometry'
+            ].iloc[0].buffer(no_geom_catchment_size)
+        )
+        gdf_subs.loc[null_sub_geom, 'geometry'] = new_geom
+
     gdf_raingages['Form'] = 0
     gdf_raingages['Intvl'] = 1.0
     gdf_raingages['SnowCatchDeficiency'] = 1.0
@@ -460,7 +564,7 @@ def xpx_to_gpkg(xpx_filename,
         SwmmTableEnum.STORAGE_NODES: gdf_storage,
         SwmmTableEnum.OUTFALLS: gdf_outfalls,
         SwmmTableEnum.CONDUITS: gdf_conduits,
-        SwmmTableEnum.SUBCATCMENTS: gdf_subs,
+        SwmmTableEnum.SUBCATCHMENTS: gdf_subs,
         SwmmTableEnum.RAINGAGES: gdf_raingages,
         SwmmTableEnum.INLETS: gdf_inlet_info,
         SwmmTableEnum.WEIRS: gdf_weirs,
@@ -500,7 +604,7 @@ def xpx_to_gpkg(xpx_filename,
         [('data', 'z'), SwmmTableEnum.STORAGE_NODES, 'Elev', 2, float, 5],
         [('data', 'y0'), SwmmTableEnum.STORAGE_NODES, 'Y0', 2, float, 5],
         [('data', 'grelev'), SwmmTableEnum.STORAGE_NODES, 'Ymax', 2, float, 5],
-        [('data', 'cntls'), SwmmTableEnum.STORAGE_NODES, 'TYPE', 2, int, 5],
+        [('data', 'cntls'), SwmmTableEnum.STORAGE_NODES, 'TYPE', 2, str, 5],
         [('data', 'astore'), SwmmTableEnum.STORAGE_NODES, 'A1', 2, float, 5],
         [('data', 'const'), SwmmTableEnum.STORAGE_NODES, 'A2', 2, float, 5],
         [('data', 'expo'), SwmmTableEnum.STORAGE_NODES, 'A0', 2, float, 5],
@@ -517,7 +621,8 @@ def xpx_to_gpkg(xpx_filename,
         [('data', 'zp1'), SwmmTableEnum.CONDUITS, 'InOffset', 2, float, 5],
         [('data', 'zp2'), SwmmTableEnum.CONDUITS, 'OutOffset', 2, float, 5],
         [('data', 'qo'), SwmmTableEnum.CONDUITS, 'InitFlow', 2, float, 5],
-        [('data', 'locmode'), SwmmTableEnum.CONDUITS, 'Active', 2, int, 5],
+        # The line below didn't work consistently for multi-link objects
+        # [('data', 'locmode'), SwmmTableEnum.CONDUITS, 'Active', 2, int, 5],
 
         # XSection information
         [('data', 'nklass'), SwmmTableEnum.CONDUITS, 'xsec_XsecType', 2, str, 5],
@@ -549,13 +654,13 @@ def xpx_to_gpkg(xpx_filename,
         [('data', 'isqrnd'), SwmmTableEnum.ORIFICES, 'xsec_XsecType', 2, str, 5],
 
         # Subcatchments
-        [('data', 'r_rainsel'), SwmmTableEnum.SUBCATCMENTS, 'Rain Gage', 2, str, 5],
-        [('data', 'r_warea'), SwmmTableEnum.SUBCATCMENTS, 'Area', 2, float, 5],
-        [('data', 'r_wimp'), SwmmTableEnum.SUBCATCMENTS, 'PctImperv', 2, float, 5],
-        [('data', 'r_width'), SwmmTableEnum.SUBCATCMENTS, 'Width', 2, float, 5],
-        [('data', 'r_wslope'), SwmmTableEnum.SUBCATCMENTS, 'PctSlope', 2, float, 5],
-        [('data', 'r_infilsel'), SwmmTableEnum.SUBCATCMENTS, 'Tag', 2, str, 5],  # Temporarily store infiltration type
-        [('data', 'r_cn'), SwmmTableEnum.SUBCATCMENTS, 'Infiltration_p1', 2, float, 5],
+        [('data', 'r_rainsel'), SwmmTableEnum.SUBCATCHMENTS, 'Rain Gage', 2, str, 5],
+        [('data', 'r_warea'), SwmmTableEnum.SUBCATCHMENTS, 'Area', 2, float, 5],
+        [('data', 'r_wimp'), SwmmTableEnum.SUBCATCHMENTS, 'PctImperv', 2, float, 5],
+        [('data', 'r_width'), SwmmTableEnum.SUBCATCHMENTS, 'Width', 2, float, 5],
+        [('data', 'r_wslope'), SwmmTableEnum.SUBCATCHMENTS, 'PctSlope', 2, float, 5],
+        [('data', 'r_infilsel'), SwmmTableEnum.SUBCATCHMENTS, 'Tag', 2, str, 5],  # Temporarily store infiltration type
+        [('data', 'r_cn'), SwmmTableEnum.SUBCATCHMENTS, 'Infiltration_p1', 2, float, 5],
 
         # Raingages
         [('gldbdata', 'r_thisto', 'rainfall'), SwmmTableEnum.RAINGAGES, 'Intvl', 3, float, 5],
@@ -563,7 +668,6 @@ def xpx_to_gpkg(xpx_filename,
         [('gldbdata', 'r_ktimec', 'rainfall'), SwmmTableEnum.RAINGAGES, 'IntvlType', 3, int, 5],
         [('gldbdata', 'r_ktimev', 'rainfall'), SwmmTableEnum.RAINGAGES, 'IntvlType', 3, int, 5],
         [('gldbdata', 'r_ktype', 'rainfall'), SwmmTableEnum.RAINGAGES, 'TimeType', 3, int, 5],
-
 
         # Inlets
         [('data', 'grelev'), SwmmTableEnum.INLETS, 'elev', 2, float, 5],
@@ -577,7 +681,12 @@ def xpx_to_gpkg(xpx_filename,
             continue
         if entry_col in swmm_tables[entry_type]:
             if entry_val_type in [str, float, int]:
-                swmm_tables[entry_type][entry_col] = swmm_tables[entry_type][entry_col].astype(entry_val_type)
+                try:
+                    swmm_tables[entry_type][entry_col] = swmm_tables[entry_type][entry_col].astype(entry_val_type)
+                except Exception as e:
+                    swmm_tables[entry_type][entry_col] = None
+                    feedback.reportError(
+                        f'Error converting data for {headings}. Error: {getattr(e, "message", repr(e))}')
         else:
             swmm_tables[entry_type][entry_col] = entry_val_type() if entry_val_type in [str, float, int] else \
                 entry_val_type(None)
@@ -664,7 +773,7 @@ def xpx_to_gpkg(xpx_filename,
                 if matches:
                     item_name = sanitize_name(line_vals[entry_name_col])
                     # for subcatchments we always need the number
-                    if entry_type == SwmmTableEnum.SUBCATCMENTS:
+                    if entry_type == SwmmTableEnum.SUBCATCHMENTS:
                         item_name = f'{item_name}#{int(line_vals[3]) + 1}'
                     elif entry_type == SwmmTableEnum.CONDUITS:
                         if item_name in multi_links:
@@ -787,8 +896,12 @@ def xpx_to_gpkg(xpx_filename,
                 name = sanitize_name(line_vals[3])
                 return_interval = float(line_vals[5])
                 rainfall = sanitize_name(line_vals[6])
-                override_multiplier = int(line_vals[7]) == 1
-                multiplier = float(line_vals[8])
+                if line_vals[7] is None or line_vals[7] == '':
+                    override_multiplier = False
+                    multiplier = 1.0
+                else:
+                    override_multiplier = int(line_vals[7]) == 1
+                    multiplier = float(line_vals[8])
 
                 global_storm_data['Active'].append(active)
                 global_storm_data['Name'].append(name)
@@ -858,7 +971,11 @@ def xpx_to_gpkg(xpx_filename,
             messages_text.append(f'Outlet {row.Name} has an outfall with a curve. These are not currently converted '
                                  f'and must be filled in manually.')
 
-    gdf_outfalls['Type'] = gdf_outfalls['Type'].apply(lambda x: xpx_ntide_to_swmm_outfall[x])
+    gdf_outfalls['Type'] = gdf_outfalls['Type'].apply(lambda x:
+                                                      xpx_ntide_to_swmm_outfall[
+                                                          x] if x in xpx_ntide_to_swmm_outfall else None)
+    if sum(gdf_outfalls['Type'].isnull()) > 0:
+        feedback.pushWarning('Not all outfall types converted and must be filled in manually.')
 
     integer_to_yes_no = {
         0: 'No',
@@ -890,8 +1007,14 @@ def xpx_to_gpkg(xpx_filename,
 
             node_table.drop(node_table[node_table['Name'].isin(inactive_objects)].index, inplace=True)
 
+    # drop inactive nodes from the all_nodes table (warning already given)
+    gdf_all_nodes = gdf_all_nodes[~gdf_all_nodes['Name'].isin(inactive_objects)]
+
     # Remove inactive conduits
-    gdf_inactive_conduits = gdf_conduits[gdf_conduits['Active'] == 0].copy(deep=True)
+    # feedback.pushInfo('\n'.join(sorted(inactive_objects)))
+    inactive_conduits = gdf_conduits['Orig Name'].isin(inactive_objects)
+    gdf_inactive_conduits = gdf_conduits[inactive_conduits].copy(deep=True)
+
     if len(gdf_inactive_conduits) > 0:
         feedback.reportError(
             'Inactive conduits encountered which will be ignored. To convert these conduits first active them in '
@@ -903,7 +1026,7 @@ def xpx_to_gpkg(xpx_filename,
             messages_severity.append('WARNING')
             messages_text.append(f'Inactive conduit {row.Name} ignored.')
 
-    gdf_conduits = gdf_conduits[gdf_conduits['Active'] == 1].copy(deep=True).drop(columns=['Active'])
+    gdf_conduits = gdf_conduits[~inactive_conduits].copy(deep=True)
 
     xpx_shape_to_swmm = {
         1: 'CIRCULAR',
@@ -998,6 +1121,9 @@ def xpx_to_gpkg(xpx_filename,
 
         # Add information for the messages file
         for row in gdf_pumps[['Name', 'geometry']].itertuples():
+            if row.geometry is None:
+                feedback.pushWarning(f'\nPump {row.Name} has null geometry which must be manually fixed.\n')
+                continue
             messages_location.append(row.geometry.centroid)
             messages_severity.append('ERROR')
             messages_text.append(f'Pump attributes not converted {row.Name}.')
@@ -1010,12 +1136,12 @@ def xpx_to_gpkg(xpx_filename,
         gdf_conduits.loc[gdf_conduits['xsec_XsecType'] == 'HORIZ_ELLIPSE', 'xsec_Geom1']
     gdf_conduits.loc[gdf_conduits['xsec_XsecType'] == 'HORIZ_ELLIPSE', 'xsec_Geom1'] = \
         gdf_conduits.loc[gdf_conduits['xsec_XsecType'] == 'HORIZ_ELLIPSE', 'xsec_Geom2'].apply(
-            lambda x: get_nearest_width_for_horzellipse(using_metric_units, x)
+            lambda x: get_nearest_height_for_horzellipse(using_metric_units, x)
         )
 
     gdf_conduits.loc[gdf_conduits['xsec_XsecType'] == 'VERT_ELLIPSE', 'xsec_Geom2'] = \
         gdf_conduits.loc[gdf_conduits['xsec_XsecType'] == 'VERT_ELLIPSE', 'xsec_Geom1'].apply(
-            lambda x: get_nearest_width_for_horzellipse(using_metric_units, x)
+            lambda x: get_nearest_height_for_horzellipse(using_metric_units, x)
         )
 
     # Arch widths - only do if blank
@@ -1056,8 +1182,11 @@ def xpx_to_gpkg(xpx_filename,
     )
     for infil_pn in range(1, 6):
         gdf_subs.loc[subs_infiltration, f'Infiltration_p{infil_pn}'] = gdf_subs[subs_infiltration].apply(
-            lambda x: infiltration_data[x['Tag']][f'{x['Infiltration_Method']}_p{infil_pn}'] if x['Tag'] in infiltration_data and
-                      f'{x['Infiltration_Method']}_p{infil_pn}' in infiltration_data[x['Tag']] else 0,
+            lambda x: infiltration_data[x['Tag']][f'{x["Infiltration_Method"]}_p{infil_pn}'] if
+            x['Tag'] in infiltration_data and
+            f'{x["Infiltration_Method"]}_p{infil_pn}' in
+            infiltration_data[
+                x['Tag']] else 0,
             axis=1
         )
 
@@ -1110,7 +1239,11 @@ def xpx_to_gpkg(xpx_filename,
                                            end_fields)
 
     options_key_array.append('REPORT_STEP')
-    output_freq_s = math.floor(options_data['output_frequency'])
+    if 'output_frequency' in options_data:
+        output_freq_s = math.floor(options_data['output_frequency'])
+    else:
+        output_freq_s = 300
+        feedback.pushWarning('No output interval set. Defaulting to 5 minutes.')
     hours = output_freq_s // 3600
     minutes = (output_freq_s - hours * 3600) // 60
     seconds = (output_freq_s - hours * 3600) % 60
@@ -1158,14 +1291,17 @@ def xpx_to_gpkg(xpx_filename,
     ts_curve_times = []
     ts_curve_values = []
     for ts_name, ts_curve_data in ts_data.items():
+        # feedback.pushInfo(ts_curve_data['type'])
         if ts_curve_data['type'] == 'inflow':
             times = np.array(ts_curve_data['times'])
         else:  # rainfall data
             fixed_rainfall_timestep = True
-            #fixed_rainfall_timestep = gdf_raingages.loc[gdf_raingages['Name'] == ts_name, 'TimeType'].iloc[0] == 0
+            # fixed_rainfall_timestep = gdf_raingages.loc[gdf_raingages['Name'] == ts_name, 'TimeType'].iloc[0] == 0
             if fixed_rainfall_timestep:
                 interval = gdf_raingages.loc[gdf_raingages['Name'] == ts_name, 'Intvl'].iloc[0]
-                times = np.arange(0.0, interval * (len(ts_curve_data['values']) + 1), interval)
+                times = np.array(range(0, len(ts_curve_data['values']) + 1)).astype(float) * interval
+                # feedback.pushInfo(
+                #    f'Num values: {len(ts_curve_data['values'])}   Num times: {len(times)}   interval: {interval}')
             else:
                 times = ts_curve_data['times']
 
@@ -1175,34 +1311,62 @@ def xpx_to_gpkg(xpx_filename,
             ts_name_orig = ts_name
             ts_name = ts_name + '_rf'
             values = np.append(values, np.array([0.0]), axis=0)
+
             # if it is intensity and the interval is minutes multiply by 60.0
-            raingage_in_minutes = int(gdf_raingages.loc[gdf_raingages['Name'] == ts_name_orig, 'IntvlType'].iloc[0]) == 0
-            is_intensity = gdf_raingages.loc[gdf_raingages['Name'] == ts_name_orig, 'Form'].iloc[0].lower() == 'intensity'
+            raingage_in_minutes = int(
+                gdf_raingages.loc[gdf_raingages['Name'] == ts_name_orig, 'IntvlType'].iloc[0]) == 0
+            is_intensity = gdf_raingages.loc[gdf_raingages['Name'] == ts_name_orig, 'Form'].iloc[
+                               0].lower() == 'intensity'
             if is_intensity and raingage_in_minutes:
                 if 'multilplier' in ts_curve_data:
-                    ts_curve_data['multiplier'] = ts_curve_data['multiplier']*60.0
+                    ts_curve_data['multiplier'] = ts_curve_data['multiplier'] * 60.0
                 else:
                     ts_curve_data['multiplier'] = 60.0
 
         if 'multiplier' in ts_curve_data:
             values *= ts_curve_data['multiplier']
 
+        # feedback.pushInfo(f'Curve: {ts_name}')
+        # feedback.pushInfo(f'Number curve times: {len(times)}')
+        # feedback.pushInfo((f'Number curve values: {len(values)}'))
+
         ts_curve_names = ts_curve_names + [ts_name] * len(times)
         ts_curve_times = ts_curve_times + list(times)
         ts_curve_values = ts_curve_values + list(values)
 
+    # feedback.pushInfo(f'Number curve names: {len(ts_curve_names)}')
+    # feedback.pushInfo(f'Number curve times: {len(ts_curve_times)}')
+    # feedback.pushInfo((f'Number curve values: {len(ts_curve_values)}'))
     if ts_curve_names:
         gdf_timeseries_values = gpd.GeoDataFrame(
             {
                 'Name': ts_curve_names,
-                'Date': [None] * len(ts_curve_names),
+                'Date': [''] * len(ts_curve_names),
                 'Time': ts_curve_times,
                 'Value': ts_curve_values,
                 'geometry': [None] * len(ts_curve_names),
             },
             crs=crs,
         )
-        gdf_timeseries = pd.concat([gdf_timeseries.copy(deep=True), gdf_timeseries_values.copy(deep=True)])
+        # gdf_timeseries = pd.concat([gdf_timeseries.copy(deep=True), gdf_timeseries_values.copy(deep=True)])
+        for col in gdf_timeseries:
+            if col not in gdf_timeseries_values.columns:
+                gdf_timeseries_values[col] = ''
+        gdf_timeseries = gdf_timeseries_values[gdf_timeseries.columns]
+
+    # If we have a custom conduit that doesn't have a curve filled but has a xsec_Tsect column then it should be
+    # irregular
+    custom_culverts_null_curve = ((gdf_conduits['xsec_XsecType'] == 'CUSTOM') &
+                                  (gdf_conduits['xsec_Curve'].isnull()) &
+                                  (~gdf_conduits['xsec_Tsect'].isnull()) &
+                                  (gdf_conduits['xsec_Tsect'] != ''))
+    gdf_conduits.loc[custom_culverts_null_curve, 'xsec_XsecType'] = 'IRREGULAR'
+
+    # if the custom conduit still doesn't have a curve use the conduit's original name with "_hw"
+    # It appears that XPSWMM will not write the curve if it matches the name
+    # custom_culverts_null_curve = (gdf_conduits['xsec_XsecType'] == 'CUSTOM') & (gdf_conduits['xsec_Curve'].isnull())
+    # gdf_conduits.loc[custom_culverts_null_curve, 'xsec_Curve'] = gdf_conduits.loc[
+    #    custom_culverts_null_curve, 'Orig Name'] + '_hw'
 
     # Shape curves
     shape_curve_names = []
@@ -1218,6 +1382,12 @@ def xpx_to_gpkg(xpx_filename,
 
             # Store maximum and normalize
             max_depth = df['Depth'].max()
+
+            # Sometimes with multiple pipes this is needed because XPSWMM uses the name within the multi-link for the
+            # conduit but the shape curve name
+            gdf_conduits.loc[gdf_conduits['Orig Name'] == shape_curve_name[:-3], 'xsec_Geom1'] = max_depth
+            gdf_conduits.loc[gdf_conduits['Orig Name'] == shape_curve_name[:-3], 'xsec_Curve'] = shape_curve_name
+
             gdf_conduits.loc[gdf_conduits['Name'] == shape_curve_name[:-3], 'xsec_Geom1'] = max_depth
             gdf_conduits.loc[gdf_conduits['Name'] == shape_curve_name[:-3], 'xsec_Curve'] = shape_curve_name
             df['Width'] = df['Width'] / max_depth
@@ -1284,9 +1454,73 @@ def xpx_to_gpkg(xpx_filename,
         transects_layername = ''
         transects_coords_layername = ''
 
+    # Drop conduits that do not have a length. Sometimes XPSWMM writes out a partial multi-link even though it is not
+    # a multi-link channel. This creates incomplete channels that must be removed.
+    gdf_conduits = gdf_conduits.dropna(subset='Length')
+
+    gdf_junctions, gdf_add_outfalls = downstream_junctions_to_outfalls(
+        gdf_junctions,
+        gdf_conduits,
+        feedback,
+    )
+    gdf_outfalls = pd.concat([gdf_outfalls, gdf_add_outfalls])
+
+    # Fix multiple links to a single outfall (not supported by SWMM)
+    # Dummy conduits will give the same result
+    outfall_changes, gdf_junctions, gdf_outfalls, gdf_conduits = extend_multi_link_outfalls_gdf(
+        gdf_all_links,
+        gdf_outfalls,
+        gdf_junctions,
+        gdf_conduits,
+        1.0,
+        feedback,
+    )
+    # Move connections to new extension
+    for old_outfall, new_outfall in outfall_changes.items():
+        if old_outfall in linked_nodes_sflood4:
+            linked_nodes_sflood4.remove(old_outfall)
+            linked_nodes_sflood4.add(new_outfall)
+
     # Inlets
     gdfs_inlets_to_write = []
     if gdf_inlet_info is not None:
+        # drop inlets if not snapped to a valid node (removed by inactive)
+        gdf_inlet_info = gdf_inlet_info[gdf_inlet_info['Name'].isin(gdf_all_nodes['Name'])]
+
+        # if inlets are snapped to outlets convert to linked_nodes_sflood4 - connected to 2D at a node
+        dropped_inlet_names = gdf_inlet_info.loc[gdf_inlet_info['Name'].isin(gdf_outfalls['Name']), 'Name']
+        feedback.pushWarning(
+            f'Inlets improperly connected to an outlet were converted to SX connections: {", ".join(dropped_inlet_names)}')
+        gdf_inlet_info = gdf_inlet_info[~gdf_inlet_info['Name'].isin(gdf_outfalls['Name'])]
+        linked_nodes_sflood4 = linked_nodes_sflood4 | set(dropped_inlet_names)
+
+        # Set defaults coeff and exponent if flag is set and they are null or na
+        inlets = gdf_inlet_info['flag']
+        null_coeff = ~gdf_inlet_info['coeff'].apply(np.isfinite)
+        null_exponent = ~gdf_inlet_info['exponent'].apply(np.isfinite)
+
+        if len(gdf_inlet_info.loc[inlets & null_coeff]) > 0:
+            feedback.pushWarning(
+                'Invalid inlet capture coefficients encountered. Using 1.0. See messages file for locations.')
+            for row in gdf_inlet_info[inlets & null_coeff].itertuples(index=False):
+                messages_location.append(row.geometry)
+                messages_severity.append('WARNING')
+                messages_text.append(
+                    f'Inlet has invalid capture coefficient: {row.coeff}. A default value of 1.0 will be used.'
+                )
+            gdf_inlet_info.loc[inlets & null_coeff, 'coeff'] = 1.0
+
+        if len(gdf_inlet_info.loc[inlets & null_exponent]) > 0:
+            feedback.pushWarning(
+                'Invalid inlet capture exponents encountered. Using 0.0. See messages file for locations.')
+            for row in gdf_inlet_info[inlets & null_exponent].itertuples(index=False):
+                messages_location.append(row.geometry)
+                messages_severity.append('WARNING')
+                messages_text.append(
+                    f'Inlet has invalid capture exponent: {row.exponent}. A default value of 1.0 will be used.'
+                )
+            gdf_inlet_info.loc[inlets & null_exponent, 'exponent'] = 1.0
+
         gdf_inlet_usage = xpswmm_2d_capture_to_swmm_gpd(
             gdf_inlet_info,
             'elev',
@@ -1315,12 +1549,89 @@ def xpx_to_gpkg(xpx_filename,
         gdf_curves = None
 
     # Post-steps
-    gdf_junctions, gdf_add_outfalls = downstream_junctions_to_outfalls(
-        gdf_junctions,
-        gdf_conduits,
-        feedback,
-    )
-    gdf_outfalls = pd.concat([gdf_outfalls, gdf_add_outfalls])
+
+
+    # Add new conduits to all links
+    new_conduits = ~gdf_conduits['Name'].isin(gdf_all_links['Name'])
+    # print(new_conduits)
+    gdf_all_links_new_conduits = gdf_conduits[new_conduits][['Name', 'From Node', 'To Node', 'geometry']]
+    gdf_all_links_new_conduits['Orig Name'] = gdf_all_links_new_conduits['Name']
+    gdf_all_links = pd.concat([
+        gdf_all_links,
+        gdf_all_links_new_conduits,
+    ], axis=0, ignore_index=True)
+
+
+
+    # Do boundary condition HX/SX connections to nodes connected at inverts
+    # Use polylines because they are required for junction and storage nodes
+
+    bc_set_z_flag = True
+    if len(linked_nodes_sflood4) > 0:
+        # print(f'\nLinked nodes ({len(linked_nodes_sflood4)})')
+        # print(linked_nodes_sflood4)
+
+        gdf_outfalls_conn = gdf_outfalls[gdf_outfalls['Name'].isin(linked_nodes_sflood4)]
+        # print(f'\nLinked outfalls ({len(gdf_outfalls_conn)})')
+        # print(gdf_outfalls_conn)
+
+        gdf_junction_conn = gdf_junctions[gdf_junctions['Name'].isin(linked_nodes_sflood4)]
+        # print(f'\nLinked junctions ({len(gdf_junction_conn)})')
+        # print(gdf_junction_conn)
+
+        # print('\nLinked storage')
+        gdf_storage_conn = gdf_storage[gdf_storage['Name'].isin(linked_nodes_sflood4)]
+        # print(gdf_storage_conn)
+
+        # print('\nAll links')
+        # print(gdf_all_links)
+
+        gdfs_bc_conn = []
+        if len(gdf_outfalls_conn) > 0:
+            gdf_bc_outfalls = create_bc_connections_gpd(
+                gdf_all_links,
+                gdf_outfalls_conn,
+                True,
+                bc_offset_dist,
+                bc_offset_width,
+                bc_set_z_flag,
+                feedback,
+            )
+            gdfs_bc_conn.append(gdf_bc_outfalls)
+
+        if len(gdf_junction_conn) > 0:
+            gdf_bc_junctions = create_bc_connections_gpd(
+                gdf_all_links,
+                gdf_junction_conn,
+                False,
+                bc_offset_dist,
+                bc_offset_width,
+                bc_set_z_flag,
+                feedback,
+            )
+            gdfs_bc_conn.append(gdf_bc_junctions)
+
+        if len(gdf_storage_conn) > 0:
+            gdf_bc_storage = create_bc_connections_gpd(
+                gdf_all_links,
+                gdf_storage_conn,
+                False,
+                bc_offset_dist,
+                bc_offset_width,
+                bc_set_z_flag,
+                feedback,
+            )
+            gdfs_bc_conn.append(gdf_bc_storage)
+
+        gdf_bc_conn = pd.concat(gdfs_bc_conn)
+        gdf_bc_conn.to_file(gis_layers_filename,
+                            layer='2d_bc_swmm_connections',
+                            driver='GPKG')
+
+        # test_gpkg_filename = Path(r'C:\TUFLOW\Dev\TUFLOW\qgis_plugin\tuflow\test\swmm\input') / 'xpx_create_bc_connections.gpkg'
+        # gdf_all_links.to_file(test_gpkg_filename, layer='All Links', driver='GPKG', index=False)
+        # gdf_outfalls_conn.to_file(test_gpkg_filename, layer='Outfalls', driver='GPKG', index=False)
+        # gdf_junction_conn.to_file(test_gpkg_filename, layer='Junctions', driver='GPKG', index=False)
 
     gdf_inflows = None
     inflows_layername = None
@@ -1351,7 +1662,14 @@ def xpx_to_gpkg(xpx_filename,
             right_on='Name'
         )['geometry_y']
 
+    # Multi-link conduits will appear on top of each other (link to same nodes). Modify the geometries so they can be
+    # differentiated- handled above
+    # gdf_duplicate_links = gdf_all_links[gdf_all_links[['From Node', 'To Node']].duplicated() == True]
+    # print(gdf_duplicate_links)
+
     # Handle BC database, curves, and TEF file
+    # Sometimes XPSWMM writes multiple versions of the same raingage which SWMM doesn't like make them unique
+    gdf_raingages = gdf_raingages.drop_duplicates(subset=['Name'])
     if len(global_storm_data) > 0:
         # If we are using global storms, rain gage is always rainfall and set using events
         gdf_raingages['Intvl'] = gdf_raingages['Intvl'].min()
@@ -1375,7 +1693,7 @@ def xpx_to_gpkg(xpx_filename,
         df_bc_dbase['Value'] = 'Rainfall'
 
     bc_dbase_path = Path(bc_dbase_filename)
-    bc_dbase_path.parent.mkdir(exist_ok=True)
+    bc_dbase_path.parent.mkdir(exist_ok=True, parents=True)
     if bc_dbase_path.exists():
         # we need to append to the file
         feedback.pushInfo(f'Appending to: {bc_dbase_path}')
@@ -1395,11 +1713,12 @@ def xpx_to_gpkg(xpx_filename,
             gdf_rain[['Time', 'Rainfall']].to_csv(out_ts_filename, index=False, float_format='%.5g')
 
         # create a TEF file
-        with open(tef_filename, 'w') as tef_file:
-            for row in df_global_storms.itertuples():
-                tef_file.write(f'Define Event == {row.Name}\n')
-                tef_file.write(f'    BC Event Source == ~event~ | {row.Name}\n')
-                tef_file.write(f'End Define\n\n')
+        if tef_filename is not None:
+            with open(tef_filename, 'w') as tef_file:
+                for row in df_global_storms.itertuples():
+                    tef_file.write(f'Define Event == {row.Name}\n')
+                    tef_file.write(f'    BC Event Source == ~event~ | {row.Name}\n')
+                    tef_file.write(f'End Define\n\n')
     else:
         for rain_name in df_bc_dbase['Name']:
             gdf_rain = gdf_timeseries[gdf_timeseries['Name'] == rain_name + '_rf'].copy(deep=True)
@@ -1408,10 +1727,11 @@ def xpx_to_gpkg(xpx_filename,
             gdf_rain[['Time', 'Rainfall']].to_csv(out_ts_filename, index=False, float_format='%.5g')
 
         # create a TEF file
-        with open(tef_filename, 'w') as tef_file:
-            tef_file.write(f'Define Event == {event_name_default}\n')
-            tef_file.write(f'    BC Event Source == ~event~ | {event_name_default}\n')
-            tef_file.write(f'End Define\n\n')
+        if tef_filename is not None:
+            with open(tef_filename, 'w') as tef_file:
+                tef_file.write(f'Define Event == {event_name_default}\n')
+                tef_file.write(f'    BC Event Source == ~event~ | {event_name_default}\n')
+                tef_file.write(f'End Define\n\n')
 
     return_info['Timeseries_curves'] = sorted(list(df_bc_dbase['Name']))
 
@@ -1457,7 +1777,7 @@ def xpx_to_gpkg(xpx_filename,
                             driver='GPKG', index=False)
 
     if gdf_inlet_usage is not None:
-        gdf_inlet_usage.to_file(iu_filename, layer='inlet_usage', driver='GPKG', index=False)
+        gdf_inlet_usage.to_file(iu_filename, layer='inlet_usage_001', driver='GPKG', index=False)
 
     swmm_io.write_tuflow_version(gpkg_filename)
 
@@ -1485,28 +1805,20 @@ if __name__ == "__main__":
     # pd.set_option('display.max_rows', 500)
     pd.set_option('display.width', 200)
 
-    dest_folder = r'D:\models\TUFLOW\test_models\SWMM\SanAntonio\BMT\Hemi_2024-06-04\temp' + '\\'
+    dest_folder = r'D:\models\TUFLOW\test_models\SWMM\WoodardCurran\bmt_2024_07_25\test_convert\\'
 
     in_filename = Path(
-        r'D:\models\TUFLOW\test_models\SWMM\SanAntonio\Hemisfair-Cesar Chavez Drainage study\PER Amendment ('
-        r'Final)\H_H Models\XPSWMM\02-Ultimate_Matagorda\Ult_Mata_25yr_Labor\Hemisfair_Ult-Mata_Labor-25yr.xpx')
+        r'D:\models\TUFLOW\test_models\SWMM\WoodardCurran\bmt_2024_07_23\TO1B_202103_20220525\TO1B.xpx')
 
-    out_filename = Path(dest_folder + 'hemi_001.gpkg')
-    out_iu_filename = Path(dest_folder + r'hemi_iu_from_xp_003.gpkg')
+    out_filename = Path(dest_folder + 'TO1B.gpkg')
+    out_gis_layers_filename = Path(dest_folder + r'TO1B_layers.gpkg')
+    out_iu_filename = Path(dest_folder + r'TO1B_iu.gpkg')
+    bc_dbase_filename = Path(dest_folder + '/bcdbase/bcdbase.csv')
 
-    messages_filename = Path(dest_folder + 'hemi_messages_003.gpkg')
+    messages_filename = Path(dest_folder + 'TO1B_messages.gpkg')
+    event_name_default = 'event1'
 
-    out_crs = ('PROJCRS["NAD83 / California zone 5",BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID['
-               '"GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",'
-               '0.0174532925199433]],ID["EPSG",4269]],CONVERSION["unnamed",METHOD["Lambert Conic Conformal (2SP)",'
-               'ID["EPSG",9802]],PARAMETER["Latitude of false origin",33.5,ANGLEUNIT["degree",0.0174532925199433],'
-               'ID["EPSG",8821]],PARAMETER["Longitude of false origin",-118,ANGLEUNIT["degree",0.0174532925199433],'
-               'ID["EPSG",8822]],PARAMETER["Latitude of 1st standard parallel",35.4666666666667,ANGLEUNIT["degree",'
-               '0.0174532925199433],ID["EPSG",8823]],PARAMETER["Latitude of 2nd standard parallel",34.0333333333333,'
-               'ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8824]],PARAMETER["Easting at false origin",'
-               '6561666.66666667,LENGTHUNIT["Foot_US",0.304800609601219],ID["EPSG",8826]],PARAMETER["Northing at '
-               'false origin",1640416.66666667,LENGTHUNIT["Foot_US",0.304800609601219],ID["EPSG",8827]]],'
-               'CS[Cartesian,2],AXIS["easting",east,ORDER[1],LENGTHUNIT["Foot_US",0.304800609601219]],'
-               'AXIS["northing",north,ORDER[2],LENGTHUNIT["Foot_US",0.304800609601219]]]')
+    out_crs = ('EPSG:6434')
 
-    xpx_to_gpkg(in_filename, out_filename, out_iu_filename, messages_filename, out_crs)
+    xpx_to_gpkg(in_filename, out_filename, 1.0, 10.0, out_gis_layers_filename, out_iu_filename, messages_filename,
+                bc_dbase_filename, event_name_default, None, out_crs)

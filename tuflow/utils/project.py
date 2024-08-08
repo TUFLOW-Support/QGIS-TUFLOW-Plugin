@@ -137,6 +137,7 @@ class ProjectConfig:
             self.folder.mkdir(parents=True, exist_ok=True)
         self.write_qgs_project()
         self.write_json()
+        QgsProject.instance().setPresetHomePath(str(self.folder))
 
     def _create_folders(self, parent: Path, folders: list[str]) -> None:
         """Creates folders if they don't already exist."""

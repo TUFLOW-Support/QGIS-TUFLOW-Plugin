@@ -60,8 +60,10 @@ class TooltipBuilder:
         return f'<span style=" font-family:\'Courier New\'; font-size:10pt; color:#000000;">{text}</span><p>'
 
     def command(self, text: str) -> str:
-        return (f'<span style=" font-family:\'Courier New\'; font-size:8pt; color:#0000ff;">{text}'
-                f'</span><span style=" font-family:\'Courier New\'; font-size:8pt; color:#ff0000;"> ==</span><p>')
+        if text:
+            return (f'<span style=" font-family:\'Courier New\'; font-size:8pt; color:#0000ff;">{text}'
+                    f'</span><span style=" font-family:\'Courier New\'; font-size:8pt; color:#ff0000;"> ==</span><p>')
+        return ''
 
     def description(self, text: str) -> str:
         return f'<span style=" font-family:\'MS Shell Dlg 2\'; font-size:8pt; color:#000000;">{text}</span><p>'

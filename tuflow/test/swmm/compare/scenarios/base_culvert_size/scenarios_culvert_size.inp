@@ -1,0 +1,19 @@
+[CONDUITS]
+;;Name              From Node           To Node             Length              Roughness           InOffset            OutOffset           InitFlow            MaxFlow            
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
+C1                  C1_u/s              C1_d/s              10.0                0.015               44.472              44.42               0.0                                    
+
+[LOSSES]
+;;Link              Kentry              Kexit               Kavg                Flap                Seepage            
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
+C1                  0.8                 0.8                 0.0                                                        
+
+[XSECTIONS]
+;;Link              XsecType            Param1              Param2              Param3              Param4              Param5              Param6             
+;;                  Default             Geom1               Geom2               Geom3               Geom4               Barrels             Culvert            
+;;                  CUSTOM              Geom1               Curve               Geom3               Geom4               Barrels            
+;;                  IRREGULAR           Tsect              
+;;                  STREET              Street             
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
+C1                  RECT_CLOSED         2.8                 2.8                 0.0                 0.0                 3                                      
+

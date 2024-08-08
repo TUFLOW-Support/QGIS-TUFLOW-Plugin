@@ -2473,7 +2473,6 @@ def setLabelProperties(label: QgsPalLayerSettings, properties: dict, layer: QgsV
     :param layer: QgsVectorLayer
     :return: None
     """
-
     qv = Qgis.QGIS_VERSION_INT
 
     format = QgsTextFormat()
@@ -2494,18 +2493,26 @@ def setLabelProperties(label: QgsPalLayerSettings, properties: dict, layer: QgsV
 
     # placement
     if layer.geometryType() == QgsWkbTypes.PointGeometry:
-        p = QgsPalLayerSettings.OrderedPositionsAroundPoint
+        if qv < 32600:
+            p = QgsPalLayerSettings.OrderedPositionsAroundPoint
+        else:
+            p = Qgis.LabelPlacement.OrderedPositionsAroundPoint
         d = properties['offsetXY'][0]
         offsetX = 0
         offsetY = 0
     elif layer.geometryType() == QgsWkbTypes.LineGeometry:
-        p = QgsPalLayerSettings.Horizontal if properties[
-                                                  'line_placement'].lower() == 'horizontal' else QgsPalLayerSettings.Line
+        if qv < 32600:
+            p = QgsPalLayerSettings.Horizontal if properties['line_placement'].lower() == 'horizontal' else QgsPalLayerSettings.Line
+        else:
+            p = Qgis.LabelPlacement.Horizontal if properties['line_placement'].lower() == 'horizontal' else Qgis.LabelPlacement.Line
         d = properties['offsetXY'][0]
         offsetX = 0
         offsetY = 0
     elif layer.geometryType() == QgsWkbTypes.PolygonGeometry:
-        p = QgsPalLayerSettings.OverPoint
+        if qv < 32600:
+            p = QgsPalLayerSettings.OverPoint
+        else:
+            p = Qgis.LabelPlacement.OverPoint
         d = d = properties['offsetXY'][0]
         offsetX = properties['offsetXY'][0]
         offsetY = properties['offsetXY'][1]
@@ -7857,48 +7864,50 @@ def getResultPathsFromTLF(fpath: str, read_method: int = 0) -> (list, list, list
     res1D = []
     res2D = []
     try:
-        if read_method == 0:
-            # with open(fpath, 'r') as fo:
-            fo = open(fpath, 'r')
-        else:
-            fo = codecs.open(fpath, 'r', locale.getpreferredencoding())
-        while True:
-            try:
-                line = fo.readline()  # changed to this so i can use try/except
-                x = fo.tell()
-                li += 1
-            except:
-                if read_method == 0:
-                    fo.close()
-                    return getResultPathsFromTLF(fpath, 1)
-                else:
-                    raise Exception(f"Error reading file - encoding error - line {li + 1}\n"
-                                    "Try converting file to UTF-8 (e.g. in Notepad++)\n"
-                                    "https://wiki.tuflow.com/index.php?title=TUFLOW_Message_0060")
-            if line == "":
-                break
-            # for line in fo:
-            if '.xmdf' in line.lower():
-                if line.count('"') >= 2:
-                    res = line.split('"')[1]
-                    if res not in res2D:
-                        if os.path.exists(res):
-                            res2D.append(res)
-            elif 'opening gis layer:' in line.lower() and '_PLOT' in line:
-                if len(line) > 20:
-                    path = line[19:].strip()
-                    basename = os.path.splitext(os.path.basename(path))[0][:-5]
-                    if re.findall(r"_[PLR]$", basename, flags=re.IGNORECASE):
-                        basename = basename[:-2]
-                    dir = os.path.dirname(os.path.dirname(path))
-                    res = '{0}.tpc'.format(os.path.join(dir, basename))
-                    if res not in res1D:
-                        if os.path.exists(res):
-                            res1D.append(res)
-            elif 'swmm geopackage time series file:' in line.strip().lower():
-                if len(line.strip()) > 33:
-                    path = line.strip()[33:].strip()
-                    res1D.append(path)
+        # if read_method == 0:
+        #     # with open(fpath, 'r') as fo:
+        #     fo = open(fpath, 'r')
+        # else:
+        #     fo = codecs.open(fpath, 'r', locale.getpreferredencoding())
+        # while True:
+        #     try:
+        #         line = fo.readline()  # changed to this so i can use try/except
+        #         x = fo.tell()
+        #         li += 1
+        #     except:
+        #         if read_method == 0:
+        #             fo.close()
+        #             return getResultPathsFromTLF(fpath,)
+        #         else:
+        #             raise Exception(f"Error reading file - encoding error - line {li + 1}\n"
+        #                             "Try converting file to UTF-8 (e.g. in Notepad++)\n"
+        #                             "https://wiki.tuflow.com/index.php?title=TUFLOW_Message_0060")
+        with open(fpath, 'r', errors='ignore') as fo:
+            for line in fo:
+                if line == "":
+                    break
+                # for line in fo:
+                if '.xmdf' in line.lower():
+                    if line.count('"') >= 2:
+                        res = line.split('"')[1]
+                        if res not in res2D:
+                            if os.path.exists(res):
+                                res2D.append(res)
+                elif 'opening gis layer:' in line.lower() and '_PLOT' in line:
+                    if len(line) > 20:
+                        path = line[19:].strip()
+                        basename = os.path.splitext(os.path.basename(path))[0][:-5]
+                        if re.findall(r"_[PLR]$", basename, flags=re.IGNORECASE):
+                            basename = basename[:-2]
+                        dir = os.path.dirname(os.path.dirname(path))
+                        res = '{0}.tpc'.format(os.path.join(dir, basename))
+                        if res not in res1D:
+                            if os.path.exists(res):
+                                res1D.append(res)
+                elif 'swmm geopackage time series file:' in line.strip().lower():
+                    if len(line.strip()) > 33:
+                        path = line.strip()[33:].strip()
+                        res1D.append(path)
 
     except IOError:
         if not fo.closed:
@@ -7909,8 +7918,8 @@ def getResultPathsFromTLF(fpath: str, read_method: int = 0) -> (list, list, list
             fo.close()
         return [], [], [f'Unexpected Error: {e}']
 
-    if not fo.closed:
-        fo.close()
+    # if not fo.closed:
+    #     fo.close()
 
     return res1D, res2D, []
 

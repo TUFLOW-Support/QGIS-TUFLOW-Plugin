@@ -2282,7 +2282,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         if ext == '.shp':
             driver = 'ESRI Shapefile'
         elif ext == '.mif' or ext == '.tab':
-            driver = 'Mapinfo File'
+            driver = 'MapInfo File'
         elif ext == '.gpkg':
             driver = 'GPKG'
         else:

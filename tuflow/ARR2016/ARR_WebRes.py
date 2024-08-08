@@ -124,8 +124,10 @@ class ArrArf:
         self.logger = logging.getLogger('ARR2019')
 
     def load(self, fi):
+        found = False
         for line in fi:
             if line.find('[LONGARF]') >= 0:
+                found = True
                 finished = False
                 for block_line in fi:
                     data = block_line.split(',')
@@ -136,6 +138,10 @@ class ArrArf:
                         self.param[data[0]] = data[1]
                 if finished:
                     break
+        if not found:
+            self.logger.info('WARNING: No Areal Reduction Factors (ARF) found.')
+            fi.seek(0)
+            return
         if len(self.param) < 1:
             self.error = True
             self.message = 'Error processing ARF.'
@@ -533,6 +539,7 @@ class ArrTemporal:
         # point temporal pattern data
         self.pointID = []
         self.pointDuration = []
+        self.pointTPNumnber = []
         self.pointTimeStep = []
         self.pointRegion = []
         self.pointAEP_Band = []
@@ -540,6 +547,7 @@ class ArrTemporal:
         # areal temporal pattern data
         self.arealID = {}  # dict {tp catchment area: [id]} e.g. { 100: [ 9802, 9803, 9804, .. ], 200: [ .. ], ..  }
         self.arealDuration = {}  # dict {tp cathcment area: [duration]} e.g. { 100: [ 10, 10, 10, .. ] }
+        self.arealTPNumber = {}
         self.arealTimeStep = {}  # dict {tp catchment area: [timestep]} e.g. { 100: [ 5, 5, 5, .. ] }
         self.arealRegion = {}  # dict {tp catchment area: [region]} e.g. { 100: [ 'Wet Tropics', .. ] }
         self.arealAEP_Band = {}  # dict {tp catchment area: [aep band]} e.g. { 100: [ 'frequent', .. ] }
@@ -547,6 +555,7 @@ class ArrTemporal:
         # adopted temporal pattern data
         self.ID = []
         self.Duration = []
+        self.TPNumber = []
         self.TimeStep = []
         self.Region = []
         self.AEP_Band = []
@@ -595,6 +604,7 @@ class ArrTemporal:
     def loadPointTpFromDownload(self, fi, tpRegion):
         self.tpRegion = tpRegion
         code = None
+        tpno = 0
         for line in fi:
             if line.find('[TP]') >= 0:
                 for block_line in fi:
@@ -617,6 +627,10 @@ class ArrTemporal:
                         elif block_line == '\n':
                             continue
                         try:
+                            tpno += 1
+                            if tpno > 10:
+                                tpno = 1
+                            self.pointTPNumnber.append(tpno)
                             self.pointID.append(int(data[0]))
                             dur = int(data[1])
                             self.pointDuration.append(dur)
@@ -658,6 +672,7 @@ class ArrTemporal:
     def append(self, fi):
         code = None
         found_something = False
+        tpno = 0
         for line in fi:
             if line.find('[TP]') >= 0:
                 for block_line in fi:
@@ -681,6 +696,10 @@ class ArrTemporal:
                             continue
                         try:
                             found_something = True
+                            tpno += 1
+                            if tpno > 10:
+                                tpno = 1
+                            self.pointTPNumnber.append(tpno)
                             self.pointID.append(int(data[0]))
                             dur = int(data[1])
                             self.pointDuration.append(dur)
@@ -741,7 +760,7 @@ class ArrTemporal:
         :param tp: str full file path to csv
         :return: void
         """
-        
+        tpno = 0
         if os.path.exists(tp):
             try:
                 with open(tp, 'r') as tp_open:
@@ -753,6 +772,10 @@ class ArrTemporal:
                                 break
                             if not finished:
                                 try:
+                                    tpno += 1
+                                    if tpno > 10:
+                                        tpno = 1
+                                    self.pointTPNumnber.append(tpno)
                                     self.pointID.append(int(data[0]))
                                     dur = int(data[1])
                                     self.pointDuration.append(dur)
@@ -792,6 +815,7 @@ class ArrTemporal:
 
         self.logger.info('Loading Areal Temporal Pattern from CSV: {0}'.format(tp))
 
+        tpno = 0
         if os.path.exists(tp):
             try:
                 with open(tp, 'r') as tp_open:
@@ -804,6 +828,12 @@ class ArrTemporal:
                             if not finished:
                                 try:
                                     area = int(data[4])
+                                    tpno += 1
+                                    if tpno > 10:
+                                        tpno = 1
+                                    if area not in self.arealTPNumber:
+                                        self.arealTPNumber[area] = []
+                                    self.arealTPNumber[area].append(tpno)
                                     if area not in self.arealID:
                                         self.arealID[area] = []
                                     self.arealID[area].append(int(data[0]))
@@ -900,6 +930,7 @@ class ArrTemporal:
         tp_area = self.arealTpArea(area, 0)
 
         self.ID = self.pointID[:]
+        self.TPNumber = self.pointTPNumnber[:]
         self.Duration = self.pointDuration[:]
         self.TimeStep = self.pointTimeStep[:]
         self.Region = self.pointRegion[:]
@@ -930,6 +961,7 @@ class ArrTemporal:
                             if self.Region[i] == self.arealRegion[tp_area][j]:
                                 if len(self.arealID[tp_area]) > j + k:  # 40,000km2 areal tp 168hr dur only has one tp
                                     self.ID[i] = self.arealID[tp_area][j + k]
+                                    self.TPNumber[i] = self.arealTPNumber[tp_area][j + k]
                                     self.TimeStep[i] = self.arealTimeStep[tp_area][j + k]
                                     self.increments[i] = self.arealincrements[tp_area][j + k]
                                     if k == 9:
@@ -948,6 +980,7 @@ class ArrTemporal:
                                         if self.Region[i] == self.arealRegion[tp_area2][j]:
                                             if len(self.arealID[tp_area2]) > j + k:  # 40,000km2 areal tp 168hr dur only has one tp
                                                 self.ID[i] = self.arealID[tp_area2][j + k]
+                                                self.TPNumber[i] = self.arealTPNumber[tp_area2][j + k]
                                                 self.TimeStep[i] = self.arealTimeStep[tp_area2][j + k]
                                                 self.increments[i] = self.arealincrements[tp_area2][j + k]
                                                 if k == 9:
@@ -998,6 +1031,7 @@ class ArrTemporal:
                 for k in range(count):
                     counter += 1
                     self.ID.append(self.arealID[tp_area][j+k])
+                    self.TPNumber.append(self.arealTPNumber[tp_area][j+k])
                     self.Duration.append(dur)
                     self.TimeStep.append(self.arealTimeStep[tp_area][j+k])
                     self.Region.append(region)
@@ -1019,6 +1053,16 @@ class ArrTemporal:
                     timestep.append(self.TimeStep[i])
         return id_, increments, timestep
 
+    def figure_out_pb_dur(self, duration, preburst_pattern_dur, bpreburst_dur_proportional):
+        if bpreburst_dur_proportional:
+            dur = duration * float(preburst_pattern_dur)
+        else:
+            if re.findall(r"hr", preburst_pattern_dur, re.IGNORECASE):
+                dur = float(preburst_pattern_dur.strip(' hr')) * 60.
+            elif re.findall(r"min", preburst_pattern_dur, re.IGNORECASE):
+                dur = float(preburst_pattern_dur.strip(' min'))
+        return self.findClosestTP(dur)
+
     def get_dur_aep_pb(self, duration, aep_bands, preburst_pattern_method, preburst_pattern_dur,
                        preburst_pattern_tp, bpreburst_dur_proportional, aep_name):
         increments = []
@@ -1032,21 +1076,18 @@ class ArrTemporal:
             timestep = dur
             self.logger.info("For complete storm {0} {1} min using constant preburst rate of {2} mins".format(aep_name, duration, dur))
         else:
-            if bpreburst_dur_proportional:
-                dur = duration * float(preburst_pattern_dur)
-            else:
-                if re.findall(r"hr", preburst_pattern_dur, re.IGNORECASE):
-                    dur = float(preburst_pattern_dur.strip(' hr')) * 60.
-                elif re.findall(r"min", preburst_pattern_dur, re.IGNORECASE):
-                    dur = float(preburst_pattern_dur.strip(' min'))
-            dur = self.findClosestTP(dur)
+            dur = self.figure_out_pb_dur(duration, preburst_pattern_dur, bpreburst_dur_proportional)
             self.logger.info("For complete storm {0} {1} min "
-                             "using ARR Temporal pattern for preburst: {2} mins, {3}".format(aep_name, duration, dur, preburst_pattern_tp))
+                             "using ARR Temporal pattern for preburst: {2} mins, {3}".format(aep_name, duration, dur,
+                                                                                             preburst_pattern_tp))
+            if preburst_pattern_tp == 'design_burst':
+                preburst_pattern_tp = 'TP01'  # placeholder
+
             id, increments, timestep = self.get_dur_aep(dur, aep_bands)
 
             tp = int(re.findall(r"\d{2}", preburst_pattern_tp)[0])
-            increments = increments[tp]
-            timestep = timestep[tp]
+            increments = increments[tp-1]
+            timestep = timestep[tp-1]
 
         return increments, timestep
 
@@ -1111,6 +1152,15 @@ class ArrTemporal:
             dur = self.Duration[0]
             count = self.Duration.count(dur)
             self.tpCount = int(count / 3)
+
+    def get_tp_number(self, tpid):
+        i = self.ID.index(tpid)
+        return self.TPNumber[i]
+
+    def get_tp_increments(self, tp_number, duration, aep_bands, preburst_pattern_dur, bpreburst_dur_proportional):
+        dur = self.figure_out_pb_dur(duration, preburst_pattern_dur, bpreburst_dur_proportional)
+        id, increments, timestep = self.get_dur_aep(dur, aep_bands)
+        return increments[tp_number - 1]
 
 
 class Limb:
@@ -1590,7 +1640,7 @@ class Arr:
         dur_list.sort()
 
         # write out Areal Reduction Factors and rainfall depths with ARF applied
-        if catchment_area > 1.0 or self.Limb.has_limb and not self.Limb.ifd.error:
+        if self.Arf.loaded and catchment_area > 1.0 or self.Limb.has_limb and not self.Limb.ifd.error:
             if catchment_area > 1.0:
                 arf_array = arf_factors(catchment_area, bom.duration, bom.aep_names,
                                         self.Arf.param['a'],
@@ -1931,6 +1981,15 @@ class Arr:
             # pb_dep_final = numpy.maximum(pb_dep_com, pb_rto_d_com)  # take the max of preburst ratios and depths
             pb_dep_final = pb_dep_com
 
+            if lossMethod in ['interpolate_linear_preburst', 'interpolate_log_preburst']:
+                if lossMethod == 'interpolate_linear_preburst':
+                    self.logger.info('Using linear interpolation to extend pre-burst depths < 60 min')
+                    pb_dep_final = linear_interp_pb_dep(pb_dep_final, bom.duration, b_com_dur_index)
+                else:
+                    self.logger.info('Using log-linear interpolation to extend pre-burst depths < 60 min')
+                    pb_dep_final = log_interp_pb_dep(pb_dep_final, bom.duration, b_com_dur_index)
+                b_com_dur_index = list(range(b_com_dur_index[0])) + b_com_dur_index  # update common duration index
+
             # calculate burst intial loss (storm il minus preburst depth)
             if type(self.Losses.ils) is str and 'nan' in self.Losses.ils.lower():
                 self.logger.warning('WARNING: Initial loss value from Datahub is NaN')
@@ -1952,6 +2011,7 @@ class Arr:
                 ils = numpy.zeros(shape_com) + float(self.Losses.ils_user)  # storm initial loss array
             else:
                 ils = numpy.zeros(shape_com) + float(self.Losses.ils)  # storm initial loss array
+
             ilb = numpy.add(ils, -pb_dep_final)  # burst initial loss (storm initial loss subtract preburst)
 
             # extend loss array to all durations using interpolation
@@ -1965,6 +2025,60 @@ class Arr:
 
         # extend pb array to all durations/AEP by reversing the calculation
         pb_dep_final_complete = numpy.add(float(self.Losses.ils), -ilb_complete)
+
+        # save pre-burst values to csv and png
+        fname_pb = '{0}_PreBurst_Depths.csv'.format(site_name)
+        fname_pb_out = os.path.join(fpath, 'data', fname_pb)
+        try:
+            fpb = open(fname_pb_out, 'w')
+        except PermissionError:
+            self.logger.error("File is locked for editing {0}".format(fname_pb_out))
+            raise SystemExit("ERROR: File is locked for editing {0}".format(fname_pb_out))
+        except IOError:
+            self.logger.error('Unexpected error opening file {0}'.format(fname_pb_out))
+            raise SystemExit('ERROR: Unexpected error opening file {0}'.format(fname_pb_out))
+        if lossMethod == 'interpolate_linear_preburst':
+            loss_method_txt = 'linear interpolation of pre-burst depths assuming that the depth at 0 min is 0 mm'
+        elif lossMethod == 'interpolate_log_preburst':
+            loss_method_txt = 'log-linear interpolation of pre-burst depths assuming that the depth at 0 min is 0 mm'
+        elif lossMethod == 'interpolate':
+            loss_method_txt = 'linear interpolation of initial loss values assuming that the IL at 0 min is 0 mm'
+        elif lossMethod == 'interpolate_log':
+            loss_method_txt = 'log-linear interpolation of initial loss values assuming that the IL at 0 min is 0 mm'
+        elif lossMethod == 'rahman':
+            loss_method_txt = 'Rahman et al. 2002 method'
+        elif lossMethod == 'hill':
+            loss_method_txt = 'Hill et al. 1996: 1998 method with a Mean Annual Rainfall of {0} mm'.format(mar)
+        elif lossMethod == 'static':
+            loss_method_txt = 'a static initial loss of {0} mm'.format(staticLoss)
+        elif lossMethod == '60min':
+            loss_method_txt = 'the 60 min initial loss value'
+        else:
+            loss_method_txt = ''
+
+        fpb.write('This file has been generated using ARR_to_TUFLOW. The PreBurst depths have been generated from '
+                  'using the ARR datahub {0} pre-burst depths and using {1} to calculate pre-burst depths for durations'
+                  ' less than 60 mins.\n'.format(preBurst, loss_method_txt))
+        fpb.write('Duration (mins),{0}\n'.format(",".join(map(str, bom.aep_names))))
+        for i, dur in enumerate(bom.duration):
+            line = '{0}'.format(dur)
+            for j in range(pb_dep_final_complete.shape[1]):
+                if numpy.isnan(pb_dep_final_complete[i, j]):
+                    line = line + ',-'
+                else:
+                    line = line + ',{0:.2f}'.format(pb_dep_final_complete[i, j])
+            line = line + '\n'
+            fpb.write(line)
+        fpb.close()
+
+        # Save Figure
+        fig_name = os.path.join(fpath, 'data', '{0}_PreBurst_Depths.png'.format(site_name))
+        ymax = math.ceil(np.nanmax(pb_dep_final_complete)) * 1.1
+        xmax = 10 ** math.ceil(math.log10(max(b_com_dur)))
+        ymin = math.floor(numpy.nanmin(pb_dep_final_complete) / 10.0) * 10
+
+        make_figure(fig_name, bom.duration, pb_dep_final_complete, 1, xmax, ymin, ymax, 'Duration (mins)', 'Depth (mm)',
+                    'Pre-burst Depths: {0}'.format(site_name), bom.aep_names, xlog=True)
 
         # copy ilb_complete incase complete storm is used later on - change values in routine further down as required
         il_complete = numpy.copy(ilb_complete)
@@ -2181,7 +2295,10 @@ class Arr:
                             times.append(times[-1] + dt)
                         times.append(times[-1] + dt)
                         # sort data into nice array
-                        for i in range(nid):
+                        for i, tpid in enumerate(ids):
+                            if preburst_pattern_tp == 'design_burst':
+                                tp_number = self.Temporal.get_tp_number(tpid)
+                                increments_pb = self.Temporal.get_tp_increments(tp_number, duration, aep_bands, preburst_pattern_dur, bpreburst_dur_proportional)
                             i2 = 1
                             for j in range(len(increments_pb)):
                                 rf_array[i, i2] = increments_pb[j] * pb_depth / 100.
@@ -2476,11 +2593,11 @@ class Arr:
                 raise SystemExit('ERROR: Unexpected error opening file {0}'.format(bc_fname))
             bcdb.write('Name,Source,Column 1,Column 2,Add Col 1,Mult Col 2,Add Col 2,Column 3,Column 4\n')
             if out_form == 'ts1':
-                bcdb.write('{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~\n'.format(site_name,
+                bcdb.write(r'{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~\n'.format(site_name,
                                                                                            out_notation.upper(),
                                                                                            out_form))
             else:
-                bcdb.write('{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (hour), ~TP~\n'.format(site_name,
+                bcdb.write(r'{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (hour), ~TP~\n'.format(site_name,
                                                                                             out_notation.upper(),
                                                                                             out_form))
             bcdb.flush()
@@ -2497,11 +2614,11 @@ class Arr:
                 self.logger.error('Unexpected error opening file {0}'.format(bc_fname))
                 raise SystemExit('ERROR: Unexpected error opening file {0}'.format(bc_fname))
             if out_form == 'ts1':
-                bcdb.write('{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~\n'.format(site_name,
+                bcdb.write(r'{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~\n'.format(site_name,
                                                                                            out_notation.upper(),
                                                                                            out_form))
             else:
-                bcdb.write('{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (hour), ~TP~\n'.format(site_name,
+                bcdb.write(r'{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (hour), ~TP~\n'.format(site_name,
                                                                                             out_notation.upper(),
                                                                                             out_form))
             bcdb.flush()
@@ -2523,10 +2640,10 @@ class Arr:
                     raise SystemExit('ERROR: Unexpected error opening file {0}'.format(bc_fname_cc))
                 bcdb_cc.write('Name,Source,Column 1, Column 2\n')
                 if out_form == 'ts1':
-                    bcdb_cc.write('{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~_~CC~\n'.
+                    bcdb_cc.write(r'{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~_~CC~\n'.
                                   format(site_name, out_notation.upper(), out_form))
                 else:
-                    bcdb_cc.write('{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (hour), ~TP~_~CC~\n'.
+                    bcdb_cc.write(r'{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (hour), ~TP~_~CC~\n'.
                                   format(site_name, out_notation.upper(), out_form))
                 bcdb_cc.flush()
                 bcdb_cc.close()
@@ -2543,10 +2660,10 @@ class Arr:
                     self.logger.error('Unexpected error opening file {0}'.format(bc_fname_cc))
                     raise SystemExit('ERROR: Unexpected error opening file {0}'.format(bc_fname_cc))
                 if out_form == 'ts1':
-                    bcdb_cc.write('{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~_~CC~\n'.
+                    bcdb_cc.write(r'{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~_~CC~\n'.
                                   format(site_name, out_notation.upper(), out_form))
                 else:
-                    bcdb_cc.write('{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (hour), ~TP~_~CC~\n'.
+                    bcdb_cc.write(r'{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (hour), ~TP~_~CC~\n'.
                                   format(site_name, out_notation.upper(), out_form))
                 bcdb_cc.flush()
                 bcdb_cc.close()

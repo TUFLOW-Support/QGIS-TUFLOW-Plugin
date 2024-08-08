@@ -15,10 +15,15 @@ from tuflow.toc.toc import node_to_layer
 
 def get_command_properties(name: str) -> typing.Dict[str, typing.Any]:
     empty_dir = plugins['tuflow'].plugin_dir / 'empty_tooltips'
+    found = []
     for file in empty_dir.glob('*.*'):
         if file.stem.lower() in name.lower():
-            with open(str(file), 'r') as f:
-                return {x.split('==')[0].strip(): x.split('==')[1].strip() for x in f.read().split('\n') if x.strip()}
+            found.append(file)
+    found = sorted(found, key=lambda x: len(x.stem), reverse=True)
+    if found:
+        file = found[0]
+        with open(str(file), 'r') as f:
+            return {x.split('==')[0].strip(): x.split('==')[1].strip() for x in f.read().split('\n') if x.strip()}
     return {}
 
 
@@ -67,7 +72,7 @@ class TuflowCommand:
             cls = TuflowCommandGPKG
         elif layer.storageType() == 'ESRI Shapefile':
             cls = TuflowCommandSHP
-        elif layer.storageType() == 'Mapinfo File':
+        elif layer.storageType() == 'MapInfo File':
             cls = TuflowCommandMapinfo
         else:
             return
@@ -125,7 +130,7 @@ class TuflowCommandSHP(TuflowCommand):
         self.commands = [self]
 
     def appendable(self, command: 'TuflowCommand') -> bool:
-        appendable_types = ['2d_zsh', '2d_bc', '2d_ztin', '2d_vzsh', '2d_bg', '2d_lfcsh']
+        appendable_types = ['2d_zsh', '2d_bc', '2d_ztin', '2d_vzsh', '2d_bg', '2d_lfcsh', '2d_cyc', '2d_hur']
         for a in appendable_types:
             if a.lower() in self.name.lower() and a.lower() in command.name.lower():
                 return True

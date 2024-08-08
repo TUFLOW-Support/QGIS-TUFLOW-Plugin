@@ -693,6 +693,12 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         """
 
         inputLines = self.getInputs('lines')
+        # If we have SWMM layers, give an error as this tool is not currently supported
+        if is_swmm_network_layer(inputLines[0]):
+            QMessageBox.critical(self, "Integrity Tool",
+                                 "SWMM Conduit layers are not currently supported for the pipe direction tool.")
+            return
+
         pipeDirectionTool = PipeDirectionTool(self.iface)
 
         if self.cbBasedOnInverts.isChecked():

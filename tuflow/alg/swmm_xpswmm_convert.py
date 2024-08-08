@@ -9,6 +9,7 @@ from qgis.core import QgsProcessingParameterDefinition
 from qgis.core import QgsProcessingMultiStepFeedback
 from qgis.core import QgsProcessingParameterFile
 from qgis.core import QgsProcessingParameterEnum
+from qgis.core import QgsProcessingParameterNumber
 from qgis import processing
 import subprocess
 import sys
@@ -44,7 +45,8 @@ class SwmmXpswmmConvert(QgsProcessingAlgorithm):
                                                      'TUFLOW TCF Filename',
                                                      behavior=QgsProcessingParameterFile.File,
                                                      fileFilter='TCF (*.tcf *.TCF)',
-                                                     defaultValue=None))
+                                                     defaultValue=None,
+                                                     optional=True))
         self.addParameter(QgsProcessingParameterString(
             'swmm_prefix',
             'SWMM File Prefix',
@@ -88,6 +90,16 @@ class SwmmXpswmmConvert(QgsProcessingAlgorithm):
                                                        'Event name if no global storms',
                                                        defaultValue='event1',
                                                        optional=False))
+        self.addParameter(QgsProcessingParameterNumber('bc_width',
+                                                       'BC width for created 1D/2D connections (HX/SX)',
+                                                       defaultValue=10.,
+                                                       type=QgsProcessingParameterNumber.Double,
+                                                       optional=False))
+        self.addParameter(QgsProcessingParameterNumber('bc_offset_dist',
+                                                       'BC offset distance for created 1D/2D connections (HX/SX)',
+                                                       defaultValue=1.,
+                                                       type=QgsProcessingParameterNumber.Double,
+                                                       optional=False))
         self.addParameter(QgsProcessingParameterFile('outputfolder',
                                                      'Output Folder',
                                                      optional=False,
@@ -108,51 +120,57 @@ class SwmmXpswmmConvert(QgsProcessingAlgorithm):
         of = parameters['outputfolder']
         crs = parameters['output_crs']
         default_event = parameters['default_event']
-
-        struct_json = (Path(
-            __file__).parent.parent / 'convert_tuflow_model_gis_format' / 'conv_tf_gis_format' / 'data' /
-                       'dir_relationships.json')
-        with struct_json.open() as fo:
-            default_struct = json.load(fo)
-
-        params_gis_format = {
-            'tcf': tcf,
-            'outputvectorformat': gis,
-            'outputrasterformat': grid,
-            'outputprofile': op,
-            'outputfolder': of,
-            'output_crs': crs,
-            'write_empties': True,
-            'tuflow_dir_struct': True,
-            'usescenarios': False,
-            'rootfolder': None,
-            'gpkg_name': '',
-            'empty_directory': '',
-            'tuflow_dir_struct_settings': default_struct,
-        }
-
-        # Convert the TUFLOW model
-        processing.run('TUFLOW:Convert TUFLOW Model GIS Format',
-                       params_gis_format,
-                       feedback=model_feedback)
+        bc_width = parameters['bc_width']
+        bc_offset_dist = parameters['bc_offset_dist']
 
         xpx_filename = parameters['xpx_file']
         swmm_prefix = parameters['swmm_prefix']
         solution_scheme = solution_scheme_options[parameters['solution_scheme']]
         hardware = hardware_options[parameters['hardware']]
 
-        created_tcf_filename = Path(of) / f'runs\\{Path(tcf).name}'
+        model_feedback = QgsProcessingMultiStepFeedback(2, model_feedback)
+        model_feedback.setCurrentStep(0)
 
-        convert_xpswmm(
-            xpx_filename,
-            created_tcf_filename,
-            swmm_prefix,
-            solution_scheme,
-            hardware,
-            default_event,
-            crs.toWkt(),
-            model_feedback,
-        )
+        if tcf:
+            struct_json = (Path(
+                __file__).parent.parent / 'convert_tuflow_model_gis_format' / 'conv_tf_gis_format' / 'data' /
+                           'dir_relationships.json')
+            with struct_json.open() as fo:
+                default_struct = json.load(fo)
+
+            params_gis_format = {
+                'tcf': tcf,
+                'outputvectorformat': gis,
+                'outputrasterformat': grid,
+                'outputprofile': op,
+                'outputfolder': of,
+                'output_crs': crs,
+                'write_empties': True,
+                'tuflow_dir_struct': True,
+                'usescenarios': False,
+                'rootfolder': None,
+                'gpkg_name': '',
+                'empty_directory': '',
+                'tuflow_dir_struct_settings': default_struct,
+                'explode_multipart': True,
+            }
+
+            # Convert the TUFLOW model
+            processing.run('TUFLOW:Convert TUFLOW Model GIS Format',
+                           params_gis_format,
+                           feedback=model_feedback)
+
+            created_tcf_filename = Path(of) / f'runs\\{Path(tcf).name}'
+
+            gis_layers_filename = Path(of) / f'model\\gis\\{Path(tcf).stem}_gis_layers_1d.gpkg'
+        else:
+            created_tcf_filename = None
+            gis_layers_filename = None
+            model_feedback.pushInfo('No TCF file specified. Converting 1D only.')
+
+        model_feedback.setCurrentStep(1)
+        convert_xpswmm(of, xpx_filename, created_tcf_filename, swmm_prefix, solution_scheme, hardware, default_event,
+                       bc_width, bc_offset_dist, gis_layers_filename, crs.toWkt(), model_feedback)
 
         return {}
 

@@ -157,7 +157,7 @@ def gis_to_swmm(gpkg_filename,
             # Let's try to remove first and last point here
             # print(df.geometry)
             # print(df.geometry)
-            drop_geom = df.geometry.apply(lambda x: len(x.xy[0])) <= 2
+            drop_geom = df.geometry.apply(lambda x: x is None or len(x.xy[0])) <= 2
             # print(drop_geom)
             df = df[~drop_geom]
 
@@ -193,6 +193,8 @@ def gis_to_swmm(gpkg_filename,
             dfs_verts.append(df)
     if dfs_verts:
         df_verts = pd.concat(dfs_verts)
+        # do a stable sort
+        df_verts = df_verts.sort_values('Name', kind='stable')
         # print(df_verts)
 
     # Extract the polygons from the subcatchments
@@ -303,8 +305,8 @@ def gis_to_swmm(gpkg_filename,
 
             section_text = swmm_io.df_to_swmm_section(df_section,
                                                       out_name,
-                                                      out_name == 'Map',
-                                                      out_name in ['Curves'])
+                                                      out_name in ['Map'],
+                                                      out_name in ['Curves', 'Timeseries'])
             sections.append(section_text)
 
     # Do tags section
@@ -359,7 +361,7 @@ if __name__ == "__main__":
         #    r"D:\models\TUFLOW\test_models\SWMM\SanAntonio\Hemisfair-Cesar Chavez Drainage study\BMT\TUFLOW\model\swmm\Hemisfair_Ult-Mata_Labor_subcatchments.gpkg"
         #)
         Path(
-            r"D:\models\TUFLOW\test_models\SWMM\XPSWMM_convert\xpx_file_testing\1D2D_Urban_datechange_001.gpkg"
+            r"D:\models\TUFLOW\test_models\SWMM\internal\Westwood\converted\rev6.gpkg"
         )
     ]
 

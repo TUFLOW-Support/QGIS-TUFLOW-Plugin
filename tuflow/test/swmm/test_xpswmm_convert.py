@@ -74,14 +74,12 @@ class TestXpswmmConvert(unittest.TestCase):
         swmm_prefix = 'urban'
         crs = 'EPSG:32760'
 
-        convert_xpswmm(
-            xpx_filename,
-            tcf_filename,
-            swmm_prefix,
-            'HPC',
-            'GPU',
-            crs,
-        )
+        output_folder_1donly = '' # not used
+        default_event_name = 'event1'
+        gis_layers_filename = output_folder / 'TUFLOW\\model\\gis\\1d2d_urban_gis_layers_001.tcf'
+
+        convert_xpswmm(output_folder_1donly, xpx_filename, tcf_filename, swmm_prefix, 'HPC', 'GPU', default_event_name,
+                       10, 1.0, gis_layers_filename, crs)
 
         # do comparisons
         tcf_compare = Path(get_compare_path(tcf_filename.relative_to(base_output_folder)))
@@ -104,20 +102,17 @@ class TestXpswmmConvert(unittest.TestCase):
             shutil.copytree(str(get_input_full_filenames([test_folder])[0]),
                             str(output_folder))
 
+        default_event_name = 'event1'
+        output_folder_1donly = ''  # not used
         base_output_folder = Path(get_output_path(''))
         xpx_filename = output_folder / '1D2D_Urban_001.xpx'
         tcf_filename = output_folder / 'TUFLOW\\runs\\1D2D_Urban_001.tcf'
         swmm_prefix = 'urban'
         crs = 'EPSG:32760'
+        gis_layers_filename = output_folder / 'TUFLOW\\model\\gis\\1d2d_urban_gis_layers_001.tcf'
 
-        convert_xpswmm(
-            xpx_filename,
-            tcf_filename,
-            swmm_prefix,
-            'HPC',
-            'GPU',
-            crs
-        )
+        convert_xpswmm(output_folder_1donly, xpx_filename, tcf_filename, swmm_prefix, 'HPC', 'GPU',
+                       default_event_name, 10, 1.0, gis_layers_filename, crs)
 
         # do comparisons
         tcf_compare = Path(get_compare_path(tcf_filename.relative_to(base_output_folder)))
@@ -140,20 +135,17 @@ class TestXpswmmConvert(unittest.TestCase):
             shutil.copytree(str(get_input_full_filenames([test_folder])[0]),
                             str(output_folder))
 
+        default_event_name = 'event1'
+        output_folder_1donly = ''  # not used
         base_output_folder = Path(get_output_path(''))
         xpx_filename = output_folder / '1D2D_Urban_001.xpx'
         tcf_filename = output_folder / 'TUFLOW\\runs\\1D2D_Urban_001.tcf'
         swmm_prefix = 'urban'
         crs = 'EPSG:32760'
+        gis_layers_filename = output_folder / 'TUFLOW\\model\\gis\\1d2d_urban_gis_layers_001.tcf'
 
-        convert_xpswmm(
-            xpx_filename,
-            tcf_filename,
-            swmm_prefix,
-            'HPC',
-            'GPU',
-            crs
-        )
+        convert_xpswmm(output_folder_1donly, xpx_filename, tcf_filename, swmm_prefix, 'HPC', 'GPU',
+                       default_event_name, 10, 1.0, gis_layers_filename, crs)
 
         # do comparisons
         tcf_compare = Path(get_compare_path(tcf_filename.relative_to(base_output_folder)))

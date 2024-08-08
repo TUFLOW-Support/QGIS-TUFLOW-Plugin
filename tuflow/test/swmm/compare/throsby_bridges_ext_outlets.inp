@@ -48,7 +48,7 @@ TC_B_0350.1         10.6
 TC_B_0360.1         9.25                                                                                               
 TC_B_0390.1         16.2                                                                                               
 TC_B_0400.1         15.35                                                                                              
-TC_B_0400.2         15.26                                                                                              
+TC_B_0400.2         15.16               0.0                 0.0                 0.0                 0.0                
 TC_B_0440.1         10.1                                                                                               
 TC_B_0450.1         7.1                                                                                                
 TC_B_0460.1         6.29                                                                                               
@@ -74,7 +74,7 @@ TC_B_1090.1         -0.31
 TC_B_1100.1         -0.88                                                                                              
 TC_B_1130.1         2.47                                                                                               
 TC_B_1140.1         2.38                                                                                               
-TC_B_1140.2         2.42                                                                                               
+TC_B_1140.2         2.32                0.0                 0.0                 0.0                 0.0                
 TC_B_1250.1         2.24                                                                                               
 TC_B_1260.1         1.4                                                                                                
 TC_B_1270.1         0.98                                                                                               
@@ -148,13 +148,14 @@ TC_R_1680.1         6.36
 TC_R_1690.1         5.93                                                                                               
 TC_R_1710.1         4.93                                                                                               
 TC__0180.1          14.92                                                                                              
-TC__0180.2          14.81                                                                                              
+TC__0180.2          14.71               0.0                 0.0                 0.0                 0.0                
 TC__0580.1          8.9                                                                                                
 TC_b_0200.1         12.49                                                                                              
 
 [OUTFALLS]
 ;;Name              Elev                Type                Param1              Gated               RouteTo            
 ;;                                      FREE                Gated               RouteTo            
+;;                                      NORMAL              Gated               RouteTo            
 ;;                                      FIXED               Stage               Gated               RouteTo            
 ;;                                      TIDAL               Tcurve              Gated               RouteTo            
 ;;                                      TIMESERIES          Tseries             Gated               RouteTo            
@@ -374,9 +375,9 @@ TC_R_1710            TC_R_1710.1          TC_R_1710.2          10.0             
 TC__0180             TC__0180.1           TC__0180.2           10.0                 0.012                0.0                  0.0                                                           
 TC__0580             TC__0580.1           TC__0580.2           10.0                 0.012                0.0                  0.0                                                           
 TC_b_0200            TC_b_0200.1          TC_b_0200.2          10.0                 0.012                0.0                  0.0                                                           
-ext_TC_B_0400.2_chan TC_B_0400.2          ext_TC_B_0400.2      10.0                 0.015                0.0                  0.0                                                           
-ext_TC_B_1140.2_chan TC_B_1140.2          ext_TC_B_1140.2      10.0                 0.015                0.0                  0.0                                                           
-ext_TC__0180.2_chan  TC__0180.2           ext_TC__0180.2       10.0                 0.015                0.0                  0.0                                                           
+ext_TC_B_0400.2_chan TC_B_0400.2          ext_TC_B_0400.2      10.0                 0.02                 0.0                  0.0                                                           
+ext_TC_B_1140.2_chan TC_B_1140.2          ext_TC_B_1140.2      10.0                 0.02                 0.0                  0.0                                                           
+ext_TC__0180.2_chan  TC__0180.2           ext_TC__0180.2       10.0                 0.02                 0.0                  0.0                                                           
 
 [LOSSES]
 ;;Link              Kentry              Kexit               Kavg                Flap                Seepage            
@@ -500,9 +501,9 @@ TC_R_1710            RECT_CLOSED          1.15                 3.7              
 TC__0180             RECT_CLOSED          2.0                  2.85                 0.0                  0.0                  1                                        
 TC__0580             RECT_CLOSED          1.415                2.38                 0.0                  0.0                  1                                        
 TC_b_0200            CUSTOM               1.56                 TC_b_0200_hw         0.0                  0.0                  1                                        
-ext_TC_B_0400.2_chan RECT_OPEN            30.0                 20.0                 0.0                  0.0                  1                                        
-ext_TC_B_1140.2_chan RECT_OPEN            30.0                 20.0                 0.0                  0.0                  1                                        
-ext_TC__0180.2_chan  RECT_OPEN            30.0                 20.0                 0.0                  0.0                  1                                        
+ext_TC_B_0400.2_chan Dummy                1.0                  1.0                  0.0                  0.0                  1                                        
+ext_TC_B_1140.2_chan Dummy                1.0                  1.0                  0.0                  0.0                  1                                        
+ext_TC__0180.2_chan  Dummy                1.0                  1.0                  0.0                  0.0                  1                                        
 
 [STREETS]
 ;;Name              Tcrown              Hcurb               Sx                  nRoad               a                   W                   Sides               Tback               Sback               nBack              

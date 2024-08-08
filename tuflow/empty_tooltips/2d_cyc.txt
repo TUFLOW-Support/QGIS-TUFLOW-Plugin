@@ -1,0 +1,8 @@
+location == TUFLOW Control File (.tcf)
+
+command == Read GIS Cyclone
+
+description == Reads a cyclone or hurricane track. Requires both point and line geometry inputs. The line represents the track (no attribute data required) with points snapped to line vertices with attribute data representing the cyclone/hurricane properties at various points in time.
+
+manual link == https://downloads.tuflow.com/_archive/TUFLOW/Releases/2018-03/TUFLOW%20Manual.2018-03.pdf
+manual page == 623

@@ -1,5 +1,6 @@
 {
 "type": "FeatureCollection",
+"name": "xpx_global_storms_from_san_antonio_out_messages",
 "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::32760" } },
 "features": [
 

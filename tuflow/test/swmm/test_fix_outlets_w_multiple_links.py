@@ -52,11 +52,7 @@ class TestFixOutletsMultiLinks(unittest.TestCase):
 
         extend_multi_link_outfalls(input_filename,
                                    output_gpkg,
-                                   channel_ext_length,
-                                   channel_ext_width,
-                                   channel_ext_maxdepth,
-                                   channel_ext_zoffset,
-                                   channel_ext_roughness)
+                                   channel_ext_length)
 
         output_inp = Path(output_gpkg).with_suffix('.inp')
         gis_to_swmm(output_gpkg, output_inp)

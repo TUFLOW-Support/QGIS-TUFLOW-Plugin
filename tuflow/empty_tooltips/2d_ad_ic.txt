@@ -1,0 +1,6 @@
+location == AD Global Database
+
+description == Sets the initial concentration for a given tracer in the TUFLOW AD module. File is read into the initial condition field of the AD Global Database (.csv) file.
+
+manual link == https://downloads.tuflow.com/TUFLOW/Releases/Latest/TUFLOW%20AD%20Manual.pdf
+manual page == 33

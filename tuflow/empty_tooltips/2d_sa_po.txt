@@ -1,0 +1,8 @@
+location == BC Control File (.tbc)
+
+command == Read GIS SA PO
+
+description == The SA PO option models seepage or infiltration based on a varying water level or flow rate elsewhere in the model.
+
+manual link == https://downloads.tuflow.com/_archive/TUFLOW/Releases/2018-03/TUFLOW%20Manual.2018-03.pdf
+manual page == 326

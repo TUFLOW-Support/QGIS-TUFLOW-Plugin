@@ -415,6 +415,11 @@ class TuPlot1D():
 											else '{0} - {1} - {2}'.format(result, id, rtype)
 									else:
 										label = id
+								xy = np.array(list(zip(xdata, ydata)))
+								if xy.dtype == np.float64:
+									xy = xy[~np.isnan(xy).any(axis=1)]
+									xdata = xy[:, 0]
+									ydata = xy[:, 1]
 								xAll.append(xdata)
 								yAll.append(ydata)
 								labels.append(label)

@@ -225,7 +225,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
             if cb.isChecked():
                 rps.append(str(ari))
                 if cb_cc.isChecked() and cb_cc.isEnabled():
-                    rps.append("{0}CC{1:.1f}".format(ari, f))
+                    rps.append("{0}CC{1:.2f}".format(ari, f))
         for i in range(self.lwRP.count()):
             item = self.lwRP.item(i)
             widget = self.lwRP.itemWidget(item)
@@ -234,7 +234,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
             rp = labelRp.text().strip('year').strip()
             rps.append(rp)
             if cb.isChecked() and cb.isEnabled():
-                rp = "{0}CC{1:.1f}".format(rp, f)
+                rp = "{0}CC{1:.2f}".format(rp, f)
                 rps.append(rp)
         inputs['return periods'] = rps
 
@@ -340,7 +340,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         self.progressBar.setRange(0, 0)
         self.progressBar.setValue(0)
         
-    def findingExe(self) -> None:
+    def findingExe(self, *args, **kwargs) -> None:
         """
         
         :return: None
@@ -348,7 +348,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
 
         self.progressBarLabel.setText("Locating ReFH2 Executable . . . .")
     
-    def refh2Started(self) -> None:
+    def refh2Started(self, *args, **kwargs) -> None:
         """
         Event that happens when ReFH2 is started.
         Sets progress bar to infinite and
@@ -359,7 +359,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         
         self.progressBarLabel.setText("Getting ReFH2 Data . . . .")
         
-    def tuflowProcessingStarted(self) -> None:
+    def tuflowProcessingStarted(self, *args, **kwargs) -> None:
         """
         Event that happens when ReFH2 is finished
         and the data is being processed into
@@ -415,7 +415,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
 
         return widget, layout
 
-    def addReturnPeriod(self) -> None:
+    def addReturnPeriod(self, *args, **kwargs) -> None:
         """
         Adds return period in spinbox to list widget.
         
@@ -442,7 +442,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         cb = layout.itemAt(2).widget()
         cb.setEnabled(enabled)
             
-    def removeReturnPeriods(self) -> None:
+    def removeReturnPeriods(self, *args, **kwargs) -> None:
         """
         Remove return period(s) from list widget.
         Will remove selected return periods, or last entry
@@ -460,7 +460,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         else:
             self.lwRP.takeItem(self.lwRP.count() - 1)
 
-    def addDurTimestep(self) -> None:
+    def addDurTimestep(self, *args, **kwargs) -> None:
         """
         Add Duration - Timestep to list widget
         """
@@ -480,7 +480,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         if t not in [self.lwDuration.item(x).text() for x in range(self.lwDuration.count())]:
             self.lwDuration.addItem(t)
 
-    def removeDurTimestep(self) -> None:
+    def removeDurTimestep(self, *args, **kwargs) -> None:
         """
         Remove Duration - Timestep from list widget.
         Will remove selected return periods, or last entry
@@ -528,7 +528,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
                 atts = [str(f.attribute(iField)) for f in layer.getFeatures()]
                 self.cboFeatures.addItems(atts)
             
-    def populateCboFields(self) -> None:
+    def populateCboFields(self, *args, **kwargs) -> None:
         """
         Add field names to combobox
         
@@ -541,7 +541,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         if layer is not None:
             self.cboFields.addItems(layer.fields().names())
     
-    def addGIS(self) -> None:
+    def addGIS(self, *args, **kwargs) -> None:
         """
         Add GIS layer(s) to input catchment file combobox.
         
@@ -614,7 +614,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         for ari in aris:
             eval("self.cb{0:04d}y".format(ari)).setChecked(select)
 
-    def reAssessSelectAllCheckBox(self) -> None:
+    def reAssessSelectAllCheckBox(self, *args, **kwargs) -> None:
         """
         Updates the check state of the select all checkbox
         based on the new state of the event check boxes.
@@ -662,7 +662,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
             cb = self.lwRP.itemWidget(item).layout().itemAt(2).widget()
             cb.setChecked(True)
 
-    def toggleClimChangeAllActive(self):
+    def toggleClimChangeAllActive(self, *args, **kwargs):
         """
         Selects CC checkboxes for all selected events
         """
@@ -674,7 +674,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
         self.toggleClimateChangeBoxes()
         self.connectClimChangeCheckBoxes()
 
-    def reAssessAllActiveCheckBox(self):
+    def reAssessAllActiveCheckBox(self, *args, **kwargs):
         """
 
         """
@@ -724,7 +724,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
             cb = self.lwRP.itemWidget(item).layout().itemAt(2).widget()
             cb.stateChanged.connect(self.reAssessAllActiveCheckBox)
 
-    def alignClimateChangeCheckBox(self):
+    def alignClimateChangeCheckBox(self, *args, **kwargs):
         """
 
         """
@@ -734,7 +734,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
 
         self.toggleClimateChangeBoxes()
 
-    def toggleEngine23Enabled(self):
+    def toggleEngine23Enabled(self, *args, **kwargs):
         """
 
         """
@@ -1154,7 +1154,7 @@ class Refh2Dock(QDockWidget, Ui_refh2):
                 self.flags.append((self.verticalLayout_30, label, msg))
                 return
 
-    def check(self) -> None:
+    def check(self, *args, **kwargs) -> None:
         """
         Checks input for silly mistakes or omissions as best as can
         at this stage.

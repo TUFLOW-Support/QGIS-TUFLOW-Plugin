@@ -250,9 +250,11 @@ class SwmmSection:
                 if 'Description' in df.columns:
                     swmm_cols.append('Description')
                 # if Fname is filled in we are reading from a file date->FILE and Time->Filename
-                df.loc[~df['Fname'].isnull(), 'Date'] = 'FILE'
+                df['Date'] = df['Date'].astype(str)
+                no_filename = (~df['Fname'].isnull()) & (df['Fname'] != '')
+                df.loc[no_filename, 'Date'] = 'FILE'
                 df['Time'] = df['Time'].astype(str)
-                df.loc[~df['Fname'].isnull(), 'Time'] = df.loc[~df['Fname'].isnull(), 'Fname'].astype(str)
+                df.loc[no_filename, 'Time'] = df.loc[no_filename, 'Fname'].astype(str)
                 df['Value'] = df['Value'].astype(str).replace({'nan': '', '<NA': ''})
 
                 df = df[swmm_cols]
@@ -509,6 +511,7 @@ class SwmmSection:
                     if row[1] == 'FILE':
                         row_vals['Fname'] = row[2]
                     else:
+                        row_vals['Fname'] = ''
                         # See if the next entry is a date
                         date = None
                         try:

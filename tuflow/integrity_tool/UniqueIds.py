@@ -357,6 +357,7 @@ class UniqueIds(QObject):
             # id field index
             is_gpkg = layer.storageType() == 'GPKG'
             iid = 1 if is_gpkg else 0
+            ityp = iid + 1
 
             # create tmp output 1d_nwk layer
             uri = 'linestring?crs={0}'.format(layer.crs().authid())
@@ -381,9 +382,9 @@ class UniqueIds(QObject):
             # copy fields
             fields = [x for x in layer.fields()][iid:]
             # make sure id field has a field length of 36 - id length allowed in latest TUFLOW release
-            id_field = QgsField(fields[0])
+            id_field = QgsField(fields[iid])
             id_field.setLength(MAX_FIELD_LENGTH)
-            fields[0] = id_field
+            fields[iid] = id_field
             # add field definitions to new layer
             nwk.dataProvider().addAttributes(fields)
             nwk.updateFields()
@@ -393,13 +394,13 @@ class UniqueIds(QObject):
             for feat in layer.getFeatures():
                 new_feat = QgsFeature(feat)
 
-                is_x_connector = new_feat[1] != NULL and new_feat[1].lower() == 'x'
+                is_x_connector = new_feat[ityp] != NULL and new_feat[ityp].lower() == 'x'
 
                 # check for NULL or empty id
-                if not is_x_connector and (new_feat[0] == NULL or not new_feat[0].strip()):
+                if not is_x_connector and (new_feat[iid] == NULL or not new_feat[iid].strip()):
                     # fix id
-                    new_feat[0] = create_name_rule.create_name(new_feat[1], feat.id())
-                    if new_feat[0] is None:
+                    new_feat[iid] = create_name_rule.create_name(new_feat[ityp], feat.id())
+                    if new_feat[iid] is None:
                         self.errMessage = 'Could not create a new name for feature ID: {0}'.format(feat.id())
                         self.errStatus = 'Could not create a new name'
                         self.finished.emit(self)
@@ -409,7 +410,7 @@ class UniqueIds(QObject):
                     log_feat = QgsFeature()
                     log_feat.setGeometry(feat.geometry().pointOnSurface())
                     log_feat.setAttributes([
-                        'Created Name: {0}'.format(new_feat[0]),
+                        'Created Name: {0}'.format(new_feat[iid]),
                         'Created Name for feature (FID = {0}): {1}'.format(feat.id(), new_feat[iid]),
                         'Channel ID: create new name tool',
                         1.0
@@ -420,8 +421,8 @@ class UniqueIds(QObject):
                 # if not is_x_connector and new_feat[0] in ids:
                 if not is_x_connector and feat.id() not in ok_feats_:
                     # fix id
-                    new_feat[0] = duplicate_rule.unique_name(new_feat[0], ids)
-                    if new_feat[0] is None:
+                    new_feat[iid] = duplicate_rule.unique_name(new_feat[iid], ids)
+                    if new_feat[iid] is None:
                         self.errMessage = 'Could not create a unique name for feature with id: {0}'.format(feat[iid])
                         self.errStatus = 'Could not create a unique name'
                         self.finished.emit(self)
@@ -431,13 +432,13 @@ class UniqueIds(QObject):
                     log_feat = QgsFeature()
                     log_feat.setGeometry(feat.geometry().pointOnSurface())
                     log_feat.setAttributes([
-                        'Renamed Channel ID to {0}'.format(new_feat[0]),
-                        'Renamed Channel (FID = {2}) ID from {0} to {1}'.format(feat[iid], new_feat[0], feat.id()),
+                        'Renamed Channel ID to {0}'.format(new_feat[iid]),
+                        'Renamed Channel (FID = {2}) ID from {0} to {1}'.format(feat[iid], new_feat[iid], feat.id()),
                         'Channel ID: rename duplicate tool',
                         1.0
                     ])
                     output_feats.append(log_feat)
-                    ids.append(new_feat[0])
+                    ids.append(new_feat[iid])
 
                 # ids.append(new_feat[0])
                 nwk_feats.append(new_feat)

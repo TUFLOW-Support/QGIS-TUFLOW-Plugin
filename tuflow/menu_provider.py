@@ -91,7 +91,7 @@ class TuflowContextMenuProvider(QMenu):
 
     def register_layer(self, layer: QgsMapLayer):
         if layer.type() == QgsMapLayer.VectorLayer:
-            if layer.storageType() in ['GPKG', 'ESRI Shapefile', 'Mapinfo File']:
+            if layer.storageType() in ['GPKG', 'ESRI Shapefile', 'MapInfo File']:
                 self.iface.addCustomActionForLayer(self.menuAction(), layer)
 
     def register_layers(self, layers: list[QgsMapLayer]):
@@ -104,7 +104,7 @@ class TuflowContextMenuProvider(QMenu):
             if 'messages' in layer.name().lower():
                 self.addAction(self.action_filter_msgs)
                 self.addSeparator()
-            if layer.storageType() in ['ESRI Shapefile', 'Mapinfo File']:
+            if layer.storageType() in ['ESRI Shapefile', 'MapInfo File']:
                 self.addActions(self.shp_menu_actions())
             elif layer.storageType() == 'GPKG':
                 db = file_from_data_source(layer.dataProvider().dataSourceUri())

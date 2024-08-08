@@ -1,5 +1,6 @@
 {
 "type": "FeatureCollection",
+"name": "bc_processing_non_sx",
 "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::32760" } },
 "features": [
 { "type": "Feature", "properties": { "Type": "SA", "Flags": null, "Name": "sa_test", "f": null, "d": null, "td": null, "a": null, "b": null }, "geometry": { "type": "Point", "coordinates": [ 293159.362222222145647, 6177975.258777777664363 ] } }

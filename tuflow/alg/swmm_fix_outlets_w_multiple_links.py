@@ -113,43 +113,6 @@ class SwmmFixOutletsMuliLinks(QgsProcessingAlgorithm):
             )
         )
         self.addParameter(
-            QgsProcessingParameterNumber(
-                'INPUT_channel_ext_width',
-                self.tr('Channel extension width'),
-                defaultValue=10.0,
-                minValue=0.001,
-                optional=False,
-            )
-        )
-        self.addParameter(
-            QgsProcessingParameterNumber(
-                'INPUT_channel_ext_maxdepth',
-                self.tr('Channel extension maximum depth'),
-                defaultValue=10.0,
-                minValue=0.001,
-                optional=False,
-            )
-        )
-        self.addParameter(
-            QgsProcessingParameterNumber(
-                'INPUT_channel_ext_zoffset',
-                self.tr('Channel extension z-offset for new downstream outlet elevation'),
-                type=QgsProcessingParameterNumber.Double,
-                defaultValue=-0.1,
-                optional=False,
-            )
-        )
-        self.addParameter(
-            QgsProcessingParameterNumber(
-                'INPUT_channel_ext_roughness',
-                self.tr('Channel extension roughness coefficient'),
-                type=QgsProcessingParameterNumber.Double,
-                defaultValue=0.015,
-                minValue=0.001,
-                optional=False,
-            )
-        )
-        self.addParameter(
             QgsProcessingParameterFileDestination(
                 'INPUT_gpkg_output_filename',
                 self.tr('GeoPackage output filename'),
@@ -182,30 +145,6 @@ class SwmmFixOutletsMuliLinks(QgsProcessingAlgorithm):
             context
         )
 
-        channel_ext_width = self.parameterAsDouble(
-            parameters,
-            'INPUT_channel_ext_width',
-            context
-        )
-
-        channel_ext_maxdepth = self.parameterAsDouble(
-            parameters,
-            'INPUT_channel_ext_maxdepth',
-            context
-        )
-
-        channel_ext_zoffset = self.parameterAsDouble(
-            parameters,
-            'INPUT_channel_ext_zoffset',
-            context
-        )
-
-        channel_ext_roughness = self.parameterAsDouble(
-            parameters,
-            'INPUT_channel_ext_roughness',
-            context
-        )
-
         output_filename = self.parameterAsFile(parameters,
                                                'INPUT_gpkg_output_filename',
                                                context)
@@ -213,10 +152,6 @@ class SwmmFixOutletsMuliLinks(QgsProcessingAlgorithm):
         extend_multi_link_outfalls(input_filename,
                                    output_filename,
                                    channel_ext_length,
-                                   channel_ext_width,
-                                   channel_ext_maxdepth,
-                                   channel_ext_zoffset,
-                                   channel_ext_roughness,
                                    feedback=self.feedback)
 
         # feedback.pushInfo(f'Finished writing: {output_filename}')

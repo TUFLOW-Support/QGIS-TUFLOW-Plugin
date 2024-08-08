@@ -11,6 +11,7 @@ Converts an XPX file and modifies a converted tcf file to add the SWMM informati
 4. Modifies the tbc file (leaves copy of original)
     a.  Snaps any bc polyline files to the SWMM node layers
 """
+import fiona
 from pathlib import Path
 import re
 import shutil
@@ -56,47 +57,57 @@ def get_bc_dbase_filename(tcf_filename: str, feedback) -> Path:
     return bc_dbase_path
 
 
-def convert_xpswmm(
-        xpx_filename: str,
-        tcf_filename: str,
-        swmm_prefix: str,
-        solution_scheme: str,
-        hardware: str,
-        default_event_name: str,
-        crs: str,
-        feedback=ScreenProcessingFeedback(),
-):
-    skip_xpx_to_gpkg = False
+def convert_xpswmm(output_folder_1donly: str, xpx_filename: str, tcf_filename: str, swmm_prefix: str,
+                   solution_scheme: str, hardware: str, default_event_name: str, bc_offset_width: float,
+                   bc_offset_dist: float,
+                   gis_layers_filename: str, crs: str, feedback=ScreenProcessingFeedback()):
+    if tcf_filename is None:
+        tcf_path = None
+        tuflow_folder = None
+        swmm_folder = Path(output_folder_1donly)
+    else:
+        tcf_path = Path(tcf_filename)
+        tuflow_folder = Path(tcf_filename).parent.parent
+        swmm_folder = tuflow_folder / 'model\\swmm'
 
-    tcf_path = Path(tcf_filename)
-    tuflow_folder = Path(tcf_filename).parent.parent
-    swmm_folder = tuflow_folder / 'model\\swmm'
     swmm_folder.mkdir(exist_ok=True, parents=True)
-
     swmm_inp_gpkg_filename = swmm_folder / f'{swmm_prefix}_001.gpkg'
     swmm_inp_filename = swmm_folder / f'{swmm_prefix}_001.inp'
     swmm_iu_filename = swmm_folder / f'{swmm_prefix}_iu_001.gpkg'
     swmm_messages_filename = str(swmm_folder / f'{swmm_prefix}_convert_messages.gpkg')
-    tscf_filename = tuflow_folder / f'model\\{swmm_prefix}_001.tscf'
-    tef_filename = tuflow_folder / f'runs\\tuflow_events.tef'
 
-    bc_dbase_filename = get_bc_dbase_filename(tcf_filename, feedback)
+    tscf_filename = None
+    tef_filename = None
+
+    if tuflow_folder is not None:
+        tscf_filename = tuflow_folder / f'model\\{swmm_prefix}_001.tscf'
+        tef_filename = tuflow_folder / f'runs\\tuflow_events.tef'
+
+        bc_dbase_filename = get_bc_dbase_filename(tcf_filename, feedback)
+    else:
+        bc_dbase_filename = swmm_folder / f'bc_dbase\\bc_dbase.csv'
 
     swmm_info = {}
-    if not skip_xpx_to_gpkg:
-        swmm_info = xpx_to_gpkg(xpx_filename,
-                                swmm_inp_gpkg_filename,
-                                swmm_iu_filename,
-                                swmm_messages_filename,
-                                str(bc_dbase_filename),
-                                default_event_name,
-                                str(tef_filename),
-                                crs)
+    swmm_info = xpx_to_gpkg(xpx_filename,
+                            swmm_inp_gpkg_filename,
+                            bc_offset_dist,
+                            bc_offset_width,
+                            gis_layers_filename,
+                            swmm_iu_filename,
+                            swmm_messages_filename,
+                            str(bc_dbase_filename),
+                            default_event_name,
+                            tef_filename,
+                            crs,
+                            feedback)
+
+    if tscf_filename is None:
+        return
 
     with open(tscf_filename, 'w') as tscf_file:
         tscf_file.write(f'Read SWMM == .\\swmm\\{swmm_inp_filename.name}\n\n')
 
-        tscf_file.write(f'Read GIS SWMM Inlet Usage == .\\swmm\\{swmm_iu_filename.name} >> inlet_usage\n\n')
+        tscf_file.write(f'Read GIS SWMM Inlet Usage == .\\swmm\\{swmm_iu_filename.name} >> inlet_usage_001\n\n')
 
         if 'Timeseries_curves' in swmm_info:
             tscf_file.write(f'Read BC Timeseries == {" | ".join(swmm_info["Timeseries_curves"])}\n')
@@ -119,6 +130,8 @@ def convert_xpswmm(
         'Store Maximums and Minimums',
         'Mass Balance Corrector',
         'Mass Balance Output',
+        'Read GIS XP WLL',
+        'Read GIS XP NETWORK',
     ]
 
     tcf_to_remove = [
@@ -277,11 +290,11 @@ def convert_xpswmm(
 
                             if spatial_database:
                                 # do not need a folder
-                                tbc_file.write(f'Read GIS BC == {bc_out_layername}')
+                                tbc_file.write(f'Read GIS BC == {bc_out_layername}\n')
                             elif bc_out_layername is not None:
-                                tbc_file.write(f'Read GIS BC == {bc_out_filename} >> {bc_out_layername}')
+                                tbc_file.write(f'Read GIS BC == {bc_out_filename} >> {bc_out_layername}\n')
                             else:
-                                tbc_file.write(f'Read GIS BC == {bc_out_filename}')
+                                tbc_file.write(f'Read GIS BC == {bc_out_filename}\n')
                         else:
                             # file not used do not write to tbc file
                             pass
@@ -289,19 +302,24 @@ def convert_xpswmm(
                     # Not one of the intercepted commands above echo to new file
                     tbc_file.write(line)
 
+            # Append reference to new bc connection layers if they were created
+            if gis_layers_filename is not None:
+                gis_layers_filename = Path(gis_layers_filename)
+                if '2d_bc_swmm_connections' in fiona.listlayers(gis_layers_filename):
+                    tbc_file.write('\n! Add SWMM 1D nodal HX/SX connections\n')
+                    relative_filename = gis_layers_filename.relative_to(tbc_path.parent.resolve())
+                    tbc_file.write(f'Read GIS BC == {relative_filename} >> 2d_bc_swmm_connections\n')
+
 
 if __name__ == "__main__":
-    xpx_filename = r"D:\models\TUFLOW\test_models\SWMM\wikitutorial\20240415\xpswmm_convert\XPSWMM_to_TUFLOW_Model_Conversion\XPSWMM\1D2D_Urban_001.xpx"
-    tcf_filename = (r"D:\models\TUFLOW\test_models\SWMM\wikitutorial\20240415\xpswmm_convert"
-                    r"\XPSWMM_to_TUFLOW_Model_Conversion\test_convert\convert_all_in_one_gpkg\runs\1D2D_Urban_001.tcf")
-    swmm_prefix = 'urban'
-    crs_ex = 'EPSG:32760'
+    xpx_filename = r"D:\models\TUFLOW\test_models\SWMM\WoodardCurran\bmt_2024_07_23\TO1B_202103_20220525\TO1B.xpx"
+    tcf_filename = r"D:\models\TUFLOW\test_models\SWMM\WoodardCurran\bmt_2024_07_25\TUFLOW_test\runs\TO1B.tcf"
+    swmm_prefix = 'to1b'
+    crs_ex = 'EPSG:6434'
     event_name_to_use = 'event1'
 
-    convert_xpswmm(xpx_filename,
-                   tcf_filename,
-                   swmm_prefix,
-                   'HPC',
-                   'GPU',
-                   event_name_to_use,
-                   crs_ex)
+    gis_layers_filename = r"D:\models\TUFLOW\test_models\SWMM\WoodardCurran\bmt_2024_07_25\TUFLOW_test\model\gis\TO1B_gis_layers.gpkg"
+    output_folder_1donly = ''  # not used
+
+    convert_xpswmm(output_folder_1donly, xpx_filename, tcf_filename, swmm_prefix, 'HPC', 'GPU', event_name_to_use, 10,
+                   1.0, gis_layers_filename, crs_ex)

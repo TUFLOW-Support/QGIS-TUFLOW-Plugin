@@ -3,7 +3,7 @@ from PyQt5.QtCore import *
 from .FeatureData import FeatureData
 from .Enumerators import *
 from tuflow.tuflowqgis_library import is1dNetwork, getNetworkMidLocation
-from .helpers import EstryHelper
+from .helpers import EstryHelper, SwmmHelper
 
 from tuflow.tuflow_swmm.swmm_gis_info import is_swmm_network_layer
 
@@ -47,12 +47,19 @@ class PipeDirectionTool():
         :param inputs:
         :return:
         """
+        # import pydevd_pycharm
+        # pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
+
+        if not self.tmpLyrs and len(inputs) > 0:
+            if is_swmm_network_layer(inputs[0]):
+                self.helper = SwmmHelper()
 
         if not self.tmpLyrs:
             for layer in inputs:
                 if is_swmm_network_layer(layer) or is1dNetwork(layer):
                     lyr = self.copyLayerToTemp(layer, '{0}_tmp'.format(layer.name()))
                     self.tmpLyrs.append(lyr)
+                    self.helper.register_temp_layer(lyr, layer)
 
         for layer in self.tmpLyrs:
             for f in layer.getFeatures():
@@ -69,6 +76,7 @@ class PipeDirectionTool():
                                 reversedGeom = g[::-1]
                                 for i in range(len(g)):
                                     layer.moveVertex(reversedGeom[i].x(), reversedGeom[i].y(), f.id(), i)
+                                # TODO - Needs to be handled differently for SWMM
                                 layer.changeAttributeValue(f.id(), 6, fData.invertDs, fData.invertUs)
                                 layer.changeAttributeValue(f.id(), 7, fData.invertUs, fData.invertDs)
                             layer.commitChanges()

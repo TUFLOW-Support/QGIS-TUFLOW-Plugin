@@ -3,6 +3,7 @@ import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
+import subprocess
 import unittest
 
 has_gpd = False
@@ -57,15 +58,20 @@ def get_output_filenames(test_name):
 
 class TestEstryConvert(unittest.TestCase):
     def compare_files(self, first, second):
+        first, second = second, first
         print(f'Comparing: {first} {second}')
-        self.assertTrue(Path(first).exists())
-        self.assertTrue(Path(second).exists())
+        self.assertTrue(Path(first).exists(), 'File1 does not exist')
+        self.assertTrue(Path(second).exists(), 'File2 does not exist')
         with (open(first, "r", encoding='utf-8', errors='ignore') as f1,
               open(second, "r", encoding='utf-8', errors='ignore') as f2):
             text1 = f1.readlines()
             text2 = f2.readlines()
             # print(text1)
             # print(text2)
+            subprocess.run(['C:\\Program Files\\git\\cmd\\git.exe',
+                            'diff',
+                            '--no-index', first, second], shell=True)
+
             self.assertEqual(len(text1), len(text2))
             for line_num, (l1, l2) in enumerate(zip(text1, text2)):
                 self.assertEqual(l1, l2, msg=f'Line: {line_num + 1}')

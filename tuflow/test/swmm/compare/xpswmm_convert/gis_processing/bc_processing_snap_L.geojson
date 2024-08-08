@@ -1,5 +1,6 @@
 {
 "type": "FeatureCollection",
+"name": "bc_processing_snap_L",
 "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::32760" } },
 "features": [
 { "type": "Feature", "properties": { "Type": "SX", "Flags": "z", "Name": "", "f": 0.0, "d": 0.0, "td": 0.0, "a": 0.0, "b": 0.0 }, "geometry": { "type": "LineString", "coordinates": [ [ 293279.590000000025611, 6178190.589999999850988 ], [ 293294.0, 6178187.269999999552965 ] ] } },

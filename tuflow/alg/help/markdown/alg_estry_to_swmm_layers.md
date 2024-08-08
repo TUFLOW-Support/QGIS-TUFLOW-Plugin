@@ -1,6 +1,6 @@
 This tool converts one or more ESTRY layers into a SWMM project (inp) file.
 
-Supported ESTRY layers includes
+Supported ESTRY layers:
 * 1D network layers (polylines or points)
 * 1D node layers (points)
 * Pit layers (points)

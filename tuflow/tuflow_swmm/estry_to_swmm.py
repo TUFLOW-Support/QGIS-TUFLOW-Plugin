@@ -123,7 +123,7 @@ def create_curves_from_dfs(curve_type, curve_names, df_curves, crs):
                                                crs,
                                                df,
                                                curve_col_mapping)
-        gdf_curve['Type'].iloc[0] = curve_type
+        gdf_curve.loc[gdf_curve.index[0], ['Type']] = curve_type
         gdf_curves.append(gdf_curve)
 
     gdf_curves_merged = pd.concat(gdf_curves)

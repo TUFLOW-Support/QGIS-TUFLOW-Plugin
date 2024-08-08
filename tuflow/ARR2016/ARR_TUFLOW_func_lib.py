@@ -261,7 +261,9 @@ def interpolate_nan(input_array, dur, ils ,**kwargs):
 
     input_array: numpy array containing nan values
     dur: duration list that will be used as reference for interpolation"""
-
+    lossMethod = ''
+    staticLoss = 0.
+    mar = 0.
     for kw in kwargs:
         if kw.lower() == 'lossmethod':
             lossMethod = kwargs[kw]
@@ -274,6 +276,16 @@ def interpolate_nan(input_array, dur, ils ,**kwargs):
     int_array = np.insert(input_array, 0, np.nan, axis=1)  # add column at front for duration values
     if lossMethod == 'interpolate':
         int_array = np.insert(int_array, 0, 0, axis=0)  # add row at front with zero values
+    elif lossMethod == 'interpolate_log':
+        xp = [0, np.log10(60.)]
+        ind = dur.index(60)
+        for i, dur_ in enumerate(dur):
+            if dur_ >= 60.:
+                break
+            for j in range(input_array.shape[1]):
+                fp = [0, input_array[ind][j]]
+                int_array[i][j+1] = np.interp(np.log10(dur_), xp, fp)
+        int_array = np.insert(int_array, 0, 0, axis=0)
     elif lossMethod == 'rahman':
         il_array = rahman(dur, input_array[0], ils)
         il_array_shape = np.shape(il_array)
@@ -304,6 +316,8 @@ def interpolate_nan(input_array, dur, ils ,**kwargs):
         for i in range(il_array_shape[0]):
             for j in range(il_array_shape[1]):
                 int_array[i][j + 1] = il_array[i][j]
+        int_array = np.insert(int_array, 0, 0, axis=0)
+    else:
         int_array = np.insert(int_array, 0, 0, axis=0)
 
     # Populate first column with duration values (skipping first row)
@@ -864,3 +878,25 @@ def convertMagToAEP(mag, unit, frequent_events):
             return '{0}%'.format(mag)
     
     return None
+
+
+def linear_interp_pb_dep(pb_depths, durations, dur_inds):
+    pbdur = np.array(durations)[dur_inds]  # pre-burst durations (mins)
+
+    a = []
+    x = durations[:dur_inds[0]]
+    xp = [0, pbdur[0]]
+    for i in range(pb_depths.shape[1]):
+        fp = [0, pb_depths[0,i]]
+        a_ = np.interp(x, xp, fp)
+        a.append(a_)
+    a = np.transpose(np.array(a))
+
+    pb_depths = np.insert(pb_depths, 0, a, axis=0)
+
+    return pb_depths
+
+
+def log_interp_pb_dep(pb_depths, durations, dur_inds):
+    durations_ = np.log10(durations)
+    return linear_interp_pb_dep(pb_depths, durations_, dur_inds)

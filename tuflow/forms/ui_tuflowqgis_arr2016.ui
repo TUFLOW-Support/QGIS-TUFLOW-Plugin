@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>778</width>
-    <height>814</height>
+    <width>834</width>
+    <height>817</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -74,9 +74,9 @@
       <property name="geometry">
        <rect>
         <x>0</x>
-        <y>0</y>
-        <width>744</width>
-        <height>1123</height>
+        <y>-213</y>
+        <width>795</width>
+        <height>1136</height>
        </rect>
       </property>
       <layout class="QGridLayout" name="gridLayout_7">
@@ -6259,6 +6259,11 @@
                       <widget class="QComboBox" name="cboTP">
                        <item>
                         <property name="text">
+                         <string>design burst</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
                          <string>TP01</string>
                         </property>
                        </item>
@@ -6891,11 +6896,16 @@
                    </font>
                   </property>
                   <property name="currentIndex">
-                   <number>4</number>
+                   <number>0</number>
                   </property>
                   <item>
                    <property name="text">
                     <string>Interpolate to zero</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Log-Interpolate to zero</string>
                    </property>
                   </item>
                   <item>
@@ -6916,6 +6926,16 @@
                   <item>
                    <property name="text">
                     <string>Use 60min Losses</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Interpolate pre-burst</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Log-Interpolate pre-burst</string>
                    </property>
                   </item>
                  </widget>

@@ -125,7 +125,7 @@ def xpswmm_2d_capture_to_swmm_gpd(
     # Make the inlet usage layer
     gdf_inlets['Number'] = 1
     gdf_inlets['CloggedPct'] = 0.0
-    gdf_inlets['Conn1D_2D'] = 'SX'
+    gdf_inlets['Conn1D_2D'] = 'SXZ'
     gdf_inlets['Conn_width'] = connection_width
 
     xpswmm_to_inlet_usage_map = {

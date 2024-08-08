@@ -1,1 +1,5 @@
 Read GIS BC == gis\1D2D_Urban_001_2d_bc.gpkg >> 1D2D_Urban_002_2d_bc_L
+
+
+! Add SWMM 1D nodal HX/SX connections
+Read GIS BC == gis\1d2d_urban_gis_layers_001.tcf >> 2d_bc_swmm_connections

@@ -1,0 +1,4 @@
+Define Event == event1
+    BC Event Source == ~event~ | event1
+End Define
+

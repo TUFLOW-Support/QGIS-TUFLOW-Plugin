@@ -2468,7 +2468,10 @@ class TuPlot():
 									if type(y2) is list:
 										add = (max(y2) - min(y2)) * flowRegimeTiedMult
 									else:
-										add = (np.nanmax(y2) - np.nanmin(y2)) * flowRegimeTiedMult
+										if y2.dtype == np.float64:
+											add = (np.nanmax(y2) - np.nanmin(y2)) * flowRegimeTiedMult
+										else:
+											add = 0.
 									y2 = [x + add for x in data[flowRegimeTied[i]][1]]
 								else:
 									y2 = self.convertFlowRegimeToInt(y)

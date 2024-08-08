@@ -249,7 +249,7 @@ C0_686-E0_5         CUSTOM              C0_686-E0_5
 ;;                  Default             Tseries             PollutType          Mfactor             Sfactor             Base                Pat                
 ;;                  FLOW                Tseries             SeriesType          Factor1             Sfactor             Base                Pat                
 ;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
-C1_u/s              FLOW                C1_u/s_inflow                                                                                                          
+C1_u/s              FLOW                C1_u/s_inflow                           0                   0                   0                                      
 
 [TIMESERIES]
 ;;Name              Date                Time                Value              

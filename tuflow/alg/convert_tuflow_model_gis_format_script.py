@@ -149,6 +149,10 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
         param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
         self.addParameter(param)
 
+        param = QgsProcessingParameterBoolean('explode_multipart', 'Explode MultiPart Features')
+        param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        self.addParameter(param)
+
     def processAlgorithm(self, parameters, context, model_feedback):
         line_count = count_lines(parameters['tcf'], parameters['write_empties']) + 3
 
@@ -191,6 +195,8 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
         if parameters['tuflow_dir_struct']:
             args.append('-tuflow-dir-struct')
             args.extend(['-tuflow-dir-struct-settings', json.dumps(parameters['tuflow_dir_struct_settings'])])
+        if parameters['explode_multipart']:
+            args.append('-explode-multipart')
 
         feedback.pushInfo('args: {0}'.format(args[3:]))
 
@@ -286,6 +292,7 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
             "slightly different projection definitions. Set blank to turn off.</li>"
             "  <li>Force TUFLOW Directory Structure - If this flag is present, the output files will try and be placed "
             "in a standard TUFLOW directory structure (ignoring the input directory structure completely)</li>"
+            "  <li>Explode MultiPart Features - If checked, multipart geometry will be exploded into separate features. "
             "</ol>"
         )
 

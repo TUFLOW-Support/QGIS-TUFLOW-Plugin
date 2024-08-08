@@ -6,7 +6,7 @@ INFILTRATION        GREEN_AMPT
 FLOW_ROUTING        DYNWAVE            
 LINK_OFFSETS        DEPTH              
 FORCE_MAIN_EQUATION H-W                
-IGNORE_RAINFALL     YES                
+IGNORE_RAINFALL     NO                 
 IGNORE_SNOWMELT     YES                
 IGNORE_GROUNDWATER  YES                
 IGNORE_RDII         YES                
@@ -33,7 +33,7 @@ VARIABLE_STEP       0
 MINIMUM_STEP        0.001              
 INERTIAL_DAMPING    PARTIAL            
 NORMAL_FLOW_LIMITED BOTH               
-MIN_SURFAREA        25                 
+MIN_SURFAREA        25.0               
 MAX_TRIALS          20                 
 HEAD_TOLERANCE      0.001              
 THREADS             8                  
@@ -66,6 +66,7 @@ TEST_PIPE.2         -99999.0
 [OUTFALLS]
 ;;Name              Elev                Type                Param1              Gated               RouteTo            
 ;;                                      FREE                Gated               RouteTo            
+;;                                      NORMAL              Gated               RouteTo            
 ;;                                      FIXED               Stage               Gated               RouteTo            
 ;;                                      TIDAL               Tcurve              Gated               RouteTo            
 ;;                                      TIMESERIES          Tseries             Gated               RouteTo            

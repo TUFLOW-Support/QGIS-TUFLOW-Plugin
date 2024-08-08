@@ -14,26 +14,6 @@ from PyQt5.QtCore import QVariant
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
 
-def get_first_two_points(geom):
-    points = []
-    for v in geom.vertices():
-        points.append((v.x(), v.y()))
-        if len(points) == 2:
-            break
-    return np.array(points)
-
-
-def get_last_two_points(geom):
-    prev = None
-    last = None
-    for v in geom.vertices():
-        if last:
-            prev = last
-        last = (v.x(), v.y())
-
-    return np.array([last, prev])
-
-
 def adjacent_conduits_exist(layer, feat, check_upstream):
     feat_att = 'From Node' if check_upstream else 'To Node'
     adj_att = 'To Node' if check_upstream else 'From Node'

@@ -1,0 +1,57 @@
+! Check MI Save Date == OFF
+! MI Projection == ..\model\mi\1D2D_Urban_001_proj.mif
+GPKG Projection == ..\model\gis\1D2D_Urban_001_proj.gpkg
+TIF Projection == ..\model\grid\ubran_grid_1d2d.tif
+
+! ! MI Projection Check == WARNING
+
+BC Database == ..\bc_dbase\1D2D_Urban_001_2d_bc_db.csv
+
+BC Control File == ..\model\1D2D_Urban_001.tbc
+Geometry Control File == ..\model\1D2D_Urban_001.tgc
+
+! Timestep (s) == 1.000000
+Timestep == 1.000000
+Read GIS PO == ..\model\gis\1D2D_Urban_001_2d_po.gpkg >> 1D2D_Urban_001_2d_po_P
+Read GIS PO == ..\model\gis\1D2D_Urban_001_2d_po.gpkg >> 1D2D_Urban_001_2d_po_L
+
+Cell Wet/Dry Depth == 0.002000
+! Read GIS XP Nodes == ..\model\gis\1D2D_Urban_001_1d_nodes_P.gpkg
+
+Read Materials File == ..\model\1D2D_Urban_001_Mat.csv
+
+!Output Directory
+
+
+Map Output Data Types == qVdhZ0
+Map Output Format == XMDF
+Map Output Interval (s) == 300.000000
+! Store Maximums and Minimums == ON ! Options [ ON | ON MAXIMUMS ONLY | {OFF} ]
+! Mass Balance Output == OFF
+! Mass Balance Output Interval (s) == 300.000000
+! CSV Time == Hours
+Time Series Output Interval (s) == 300.000000
+!Write PO Online == ON
+!Instability Water Level == 0.000000
+! Viscosity Formulation == SMAGORINSKY
+! Viscosity Coefficient == 0.500, 0.050
+! SX ZC Check == OFF
+! SX Storage Approach == Cell Only
+! HX ZC Check == OFF
+! Mass Balance Corrector == OFF
+Read Soils File == ..\model\1D2D_Urban_001.tsoilf
+Units == Metric
+
+
+Event File == tuflow_events.tef
+Solution Scheme == HPC
+Hardware == GPU
+Write Check Files == ..\check\
+Output Folder == ..\results\
+Log Folder == log
+
+GIS Format == GPKG
+SWMM Control File == ..\model\urban_001.tscf
+Start Time == 0
+End Time == 2.0
+NetCDF Output Start Date == 2014-01-01 00:00

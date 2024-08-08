@@ -30,6 +30,10 @@ class Helper(ABC):
         pass
 
     @abstractmethod
+    def register_temp_layer(self, temp_layer, orig_layer):
+        pass
+
+    @abstractmethod
     def get_feature_id(self, layer, feature):
         pass
 
@@ -47,6 +51,10 @@ class EstryHelper(Helper):
     def __init__(self):
 
         super().__init__()
+
+    def register_temp_layer(self, temp_layer, orig_layer):
+        # Only needed for SWMM
+        pass
 
     def get_feature_id(self, layer, feature):
         is_gpkg = layer.storageType() == 'GPKG'
@@ -119,17 +127,24 @@ class SwmmHelper(Helper):
         super().__init__()
         self.curves = {}
         self.offsets_are_elevations = False
+        # Sometimes we need to find the original layer (like to get curve data)
+        self.temp_layerid_to_orig = {}
 
     def __del__(self):
         pass
 
+    def register_temp_layer(self, temp_layer, orig_layer):
+        self.temp_layerid_to_orig[temp_layer.id()] = orig_layer
+
     def get_curve_data(self, layer, feature):
         # See if we cached the dataframe
+        source_layer = self.temp_layerid_to_orig[layer.id()] if layer.id() in self.temp_layerid_to_orig else layer
+
         df = None
-        if layer.id() in self.curves:
-            df = self.curves[layer.id()]
+        if source_layer.id() in self.curves:
+            df = self.curves[source_layer.id()]
         else:
-            if layer.storageType() != 'GPKG':
+            if source_layer.storageType() != 'GPKG':
                 if has_logging:
                     Logging.error('SWMM network data must be in a valid TUFLOW GeoPackage file')
                 else:
@@ -145,13 +160,13 @@ class SwmmHelper(Helper):
                     print(message)
                 return
 
-            filename, layername = str(layer.dataProvider().uri()).split('|')
+            filename, layername = str(source_layer.dataProvider().uri()).split('|')
             filename = filename.split(':', maxsplit=1)[1].strip()
             gdf_curves = gpd.read_file(filename, layer='Curves--Curves')
             gdf_curves['Type'] = gdf_curves['Type'].fillna(method='ffill')
             gdf_curves = gdf_curves[gdf_curves['Type'] == 'SHAPE']
             df = gdf_curves[['Name', 'xval', 'yval']]
-            self.curves[layer.id()] = df
+            self.curves[source_layer.id()] = df
 
         if df is None:
             message = (

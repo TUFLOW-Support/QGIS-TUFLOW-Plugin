@@ -1,33 +1,12 @@
 <p>This tool converts XPSWMM models for use in TUFLOW-SWMM using an xpx file exported from XPSWMM. Common XPSWMM parameters are converted. Some attributes will need to be specified manually.</p>
 
-<p>The tool uses the "Convert TUFLOW Model GIS Format" processing tool to convert the 2D portion of the model, extracts the 1D portion from the xpx file, and modifies the converted model to incorporate SWMM into the TUFLOW model. </p>
+<h2>Functionality</h2>
 
-<h2>Usage</h2>
+<p>The tool uses the "Convert TUFLOW Model GIS Format" processing tool to convert the 2D portion of the model (if provided), extracts the 1D portion from the xpx file, and modifies the converted model to incorporate SWMM into the TUFLOW model. Most common features are converted in full while some may require manual specification. Some additional processing is done to make the model match TUFLOW-SWMM expectations. </p>
 
-<p>The xpx file required for this tool can be exported from XPSWMM or the free XPSWMM Viewer by clicking on the file menu and selecting "Import/Export Data" and then "Export XPX Data" from the secondary menu.</p>
+<h3>Converted Data</h3>
 
-<h2>Parameters</h2>
-
-<p>Here is a brief description of the parameters. The parameters used in the "Convert TUFLOW Model GIS Format" may have a more detailed description with that tool.</p>
-
-<ol>
-<li>XPSWMM Exported XPX File: The xpx file exported from the XPSWMM application or viewer.</li>
-<li>TUFLOW TCF Filename: The TUFLOW tcf filename from within the XPSWMM folder. This is usually in the "2D\Data" folder within the project directory. If this file does not exist, you may need to run the Analyze tool from within XPSWMM.</li>
-<li>Output Solution Scheme: This is added to the tcf file to select either HPC for the High Performance Compute solver or CLA for the Classic solver.</li>
-<li>Output Vector Format: The GIS format to use for the converted TUFLOW files.</li>
-<li>Output Raster Format: The raster format used for DEMs for the converted TUFLOW files.</li>
-<li>Output Profile: Indicates whether GIS files should be separate files, grouped by control file, or all in one GIS file (requires GeoPackage).</li>
-<li>Output Folder: The folder to write the converted TUFLOW files to.</li>
-<li>Output CRS: The crs to use for the converted files. The files are not converted but assumed to be in the provided crs.</li>
-</ol>
-
-<h2>Outputs</h2>
-
-<p>A TUFLOW model with SWMM connectivity will be added to the output folder.</p>
-
-<h2>Supported Features</h2>
-
-<p>The following functionalities and attributes are supported in the conversion process:
+<p>Most common functionalties are supported with some limitations especially for non-SWMM hydrology or some structures.
 * Nodes - junction, outfalls, and storage
 * Conduits - including the various shape types including natural channels with transects and custom H-W curves.
 * Inlets and inlet placement with connections to the 2D.
@@ -35,8 +14,46 @@
 * Pump - The locations currently converted but not pump curves.
 * Nodal inflows
 * Inactive geometries are ignored
-* Subcatchments - Attributes other than area are only brought across currently if using SWMM hydrology. Because the functionalities differ in this area, it is an area where manual conversion may be required.</p>
+* Subcatchments - Attributes other than area are only brought across currently if using SWMM hydrology. Because the functionalities differ in this area, it is an area where manual conversion may be required.
+* Boundary condition connections at nodes identified with "Link invert elevation to 2D." HX connections are connected to junction and storage nodes while SX connections are used for outfalls.
+* Boundary condition curves are stored in a boundary condition database. If using global rainfall, multiple events will be created. Otherwise, the specified default name will be used but the framework allows easy expansion for new events.</p>
+
+<h3>Additional processing</h3>
+
+<p>The tool does additional model cleanup and preparation including:
+* Cleanup of TUFLOW control files (2D) such as removing or commenting invalid or rarely used options.
+* Snaps BC layers to SWMM nodes which is required because of tolerance differences in XPSWMM generated files.
+* Identifies inactive nodes (may be used in other scenarios).
+* Forces furthest downstream nodes to outfalls (required by TUFLOW-SWMM).
+* Fixes outfalls that have multiple (upstream) links which is not support by SWMM version 5 by adding a dummy link and moving the outfall to the downstream side.</p>
+
+<h2>Usage</h2>
+
+<p>The xpx file required for this tool can be exported from XPSWMM or the free XPSWMM Viewer by clicking on the file menu and selecting "Import/Export Data" and then "Export XPX Data" from the secondary menu.</p>
+
+<h2>Parameters</h2>
+
+<p>Here is a brief description of the parameters. The parameters used in the "Convert TUFLOW Model GIS Format" may have a more detailed description with that tool.
+1. XPSWMM Exported XPX File: The xpx file exported from the XPSWMM application or viewer.
+2. TUFLOW TCF Filename: The TUFLOW tcf filename from within the XPSWMM folder. This is usually in the "2D\Data" folder within the project directory. If this file does not exist, you may need to run the Analyze tool from within XPSWMM. If this optional parameter is not included, the tool will convert the 1D data only.
+3. SWMM File Prefix: The prefix used for SWMM files generated by the tool.
+4. Output Solution Scheme: This is added to the tcf file to select either HPC for the High Performance Compute solver or CLA for the Classic solver.
+5. Output Hardware Specification: Whether you want to run TUFLOW-SWMM on GPU or CPU.
+6. Output Vector Format: The GIS format to use for the converted TUFLOW files.
+7. Output Raster Format: The raster format used for DEMs for the converted TUFLOW files.
+8. Output Profile: Indicates whether GIS files should be separate files, grouped by control file, or all in one GIS file (requires GeoPackage).
+9. Event name if no global storms: If global storms are not used, this name will be assigned to rainfall curves being used and should reflect the boundary conditions in the XPSWMM file for example "1pct" if the model represents the 1 percent storm.
+10. BC width for created 1D/2D connections: For node connections using "link invert elevation to 2D," line HX or SX connections are created as appropriate. The width of the generated lines will be based on this attribute. It is generally recommended to use a value similar to the cell size (or smaller to always capture a single cell).
+11. BC offset distance for created 1D/2D connections: See last entry for background. This controls how far upstream or downstream to place the BC connection line. Large offsets should be avoided as they will connect cells further away from the nodes.
+12. Output Folder: The folder to write the converted TUFLOW files to.
+13. Output CRS: The crs to use for the converted files. The files are not converted but assumed to be in the provided crs.</p>
+
+<h2>Outputs</h2>
+
+<p>A TUFLOW model with SWMM connectivity will be added to the output folder.</p>
 
 <h2>Limitations</h2>
 
-<p>TUFLOW-SWMM required or recommended conventions such as HX connections to non-outfall nodes (required), storage nodes at HX connections, and recommended junction attributes (ymax=0, area of ponding=positive value) are not currently incorporated. It is recommended to modify the input files to enforce these conventions. The processing toolbox has many tools to help enforce these settings.  </p>
+<p>TUFLOW-SWMM recommended conventions such as storage nodes at HX connections and recommended junction attributes (ymax=0, area of ponding=positive value) are not currently incorporated. It is recommended to modify the input files to enforce these conventions. The processing toolbox has many tools to help enforce these settings.</p>
+
+<p>While careful testing has been done developing and testing this tool, some features may not transfer cleanly. Structures using non-typical shapes (rectangular/circular) should be cross-checked.</p>

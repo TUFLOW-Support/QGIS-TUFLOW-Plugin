@@ -302,7 +302,11 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 			self.browseoutfile.setVisible(True)
 
 	def increment_layer_only_set_visible(self, visible):
-		pass
+		if not self.isgpkg:
+			return
+		visible = not self.rbDatabaseDbLayer.isChecked()
+		self.label.setVisible(visible)
+		self.outfilename.setVisible(visible)
 
 	def preserve_db_set_visible(self, visible):
 		self.twTables.setVisible(visible)
@@ -312,13 +316,13 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		self.cbMoveToSS.setVisible(not visible)
 		self.rbRemoveSource.setVisible(not visible)
 		self.rbKeepSource.setVisible(not visible)
-		self.label_2.setVisible(not visible)
-		self.label.setVisible(not visible)
-		self.outfilename.setVisible(not visible)
 		self.outfolder.setVisible(not visible)
-		self.browseoutfile.setVisible(not visible)
-		self.btnBrowseDatabase.setVisible(not visible)
-		self.outfolder.setVisible(not visible)
+		if visible:
+			self.label_2.setVisible(not visible)
+			self.label.setVisible(not visible)
+			self.outfilename.setVisible(not visible)
+			self.browseoutfile.setVisible(not visible)
+			self.btnBrowseDatabase.setVisible(not visible)
 
 		self.gbSSSettings.setMinimumWidth(self.gbSSSettings.width())
 		self.gbSSSettings.adjustSize()
@@ -979,7 +983,7 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 				file = str(file)
 				if len(file.split('_empty')) < 2:
 					continue
-				empty_type = os.path.basename(file.split('_empty')[0])
+				empty_type = Path(file).stem.split('_empty')[0]
 				if '_pts' in os.path.basename(file):
 					empty_type = '{0}_pts'.format(empty_type)
 				if empty_type not in empty_list:
@@ -1921,8 +1925,6 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		icon = QIcon(os.path.join(os.path.dirname(__file__), "icons", "arr2016.PNG"))
 		self.setWindowIcon(icon)
 
-
-		
 		# Set up Input Catchment File ComboBox
 		for name, layer in QgsProject.instance().mapLayers().items():
 				if layer.type() == QgsMapLayer.VectorLayer:
@@ -1933,10 +1935,15 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		layer = tuflowqgis_find_layer(layerName)
 						
 		# Set up Catchment Field ID ComboBox
+		default = None
 		if layer is not None:
 			for f in layer.fields():
 				#QMessageBox.information(self.iface.mainWindow(), "Debug", '{0}'.format(f.name()))
 				self.comboBox_CatchID.addItem(f.name())
+				if f.name().lower() in ['name', 'id']:
+					default = f.name()
+		if default is not None:
+			self.comboBox_CatchID.setCurrentText(default)
 				
 		# Set up Catchment Area Field ComboBox
 		if self.radioButton_ARF_auto.isChecked():
@@ -2469,6 +2476,8 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		ilMethod = self.comboBox_ilMethod.currentText()
 		if ilMethod == 'Interpolate to zero':
 			ilMethod = 'interpolate'
+		elif ilMethod == 'Log-Interpolate to zero':
+			ilMethod = 'interpolate_log'
 		elif ilMethod == 'Rahman et al 2002':
 			ilMethod = 'rahman'
 		elif ilMethod == 'Hill et al 1996: 1998':
@@ -2487,7 +2496,11 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 				QMessageBox.critical(self.iface.mainWindow(),"ERROR", "Static Loss value must be greater than 0")
 		elif ilMethod == 'Use 60min Losses':
 			ilMethod = '60min'
-			
+		elif ilMethod == 'Interpolate pre-burst':
+			ilMethod = 'interpolate_linear_preburst'
+		elif ilMethod == 'Log-Interpolate pre-burst':
+			ilMethod = 'interpolate_log_preburst'
+
 		# Get additional Temporal Patterns
 		addTp = []
 		for x in range(self.listWidget_tpRegions.count()):
@@ -2575,7 +2588,7 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 							                     "input number.")
 							return
 
-		parameters = {'INPUT': layer, 'TARGET_CRS': 'epsg:4203', 'OUTPUT': 'memory:Reprojected'}
+		parameters = {'INPUT': layer, 'TARGET_CRS': 'epsg:4326', 'OUTPUT': 'memory:Reprojected'}
 		reproject = processing.run("qgis:reprojectlayer", parameters)
 		reproject_layer = reproject['OUTPUT']
 
@@ -2621,6 +2634,8 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			elif self.cboPreburstTPMethod.currentIndex() == 1:
 				preburst_pattern = 'tp'
 				preburst_pattern_tp = self.cboTP.currentText()
+				if preburst_pattern_tp == 'design burst':
+					preburst_pattern_tp = 'design_burst'
 				if self.cboDurTP.currentIndex() == 0:
 					preburst_proportional = 'true'
 					preburst_pattern_dur = f'{self.sbProportion.value():.2f}'

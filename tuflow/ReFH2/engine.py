@@ -116,7 +116,7 @@ class Refh2(QObject):
         self.headers = []
         self.bcdbaseContent = []
 
-    def run(self) -> None:
+    def run(self, *args, **kwargs) -> None:
         """
         Run the tool using ReFH2 cmd API
         

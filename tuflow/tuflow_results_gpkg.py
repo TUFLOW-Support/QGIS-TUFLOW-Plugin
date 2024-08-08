@@ -11,7 +11,6 @@ from .TUFLOW_results import ResData, ChanInfo, NodeInfo
 from .compatibility_routines import Path
 from .gui.logging import Logging
 
-
 GisLayerType = typing.Union['QgsVectorLayer', 'ogr.Layer']
 GisFeatureType = typing.Union['QgsFeature', 'ogr.Feature']
 
@@ -94,7 +93,6 @@ class GdalFeature(Feature):
     pass
 
 
-
 class GISDriver:
     """Abstract GIS driver so it can use libraries outside of QGIS."""
 
@@ -144,7 +142,8 @@ class GISDriver:
     def get_features_by_region(self, rect: Rect, timestep: float) -> typing.Generator[GisFeatureType, None, None]:
         pass
 
-    def get_snapped_features_in_ds_dir(self, rect: Rect, pos: Pos, timestep: float) -> typing.Generator[GisFeatureType, None, None]:
+    def get_snapped_features_in_ds_dir(self, rect: Rect, pos: Pos, timestep: float) -> typing.Generator[
+        GisFeatureType, None, None]:
         not_snapped = []
         for feat in self.get_features_by_region(rect, timestep):
             if feat['ID'] not in not_snapped and self.feat_is_ds_dir(pos, feat):
@@ -170,7 +169,8 @@ class QgisDriver(GISDriver):
         from qgis.core import QgsFeatureRequest
         exp = '"{0}" = \'{1}\''.format(field, value)
         # use expression to get feature - use subset of attributes to speed up query - need geometry, so don't turn off
-        req = QgsFeatureRequest().setFilterExpression(exp).setSubsetOfAttributes([field, 'Time_relative'], self.layer.fields())
+        req = QgsFeatureRequest().setFilterExpression(exp).setSubsetOfAttributes([field, 'Time_relative'],
+                                                                                 self.layer.fields())
         for feat in self.layer.getFeatures(req):
             return QgisFeature(feat)
 
@@ -583,7 +583,8 @@ class ResData_GPKG(ResData):
     def timestep_interval(self, layer_name: str, result_type: str) -> float:
         try:
             self.open_db()
-            sql = 'SELECT dt FROM Timeseries_info WHERE Table_name = "{0}" and "Column_name" = "{1}";'.format(layer_name, result_type)
+            sql = 'SELECT dt FROM Timeseries_info WHERE Table_name = "{0}" and "Column_name" = "{1}";'.format(
+                layer_name, result_type)
             self._cur.execute(sql)
             try:
                 step = float(self._cur.fetchone()[0])
@@ -659,7 +660,8 @@ class ResData_GPKG(ResData):
             for row in self._cur.execute('SELECT "{0}" FROM "{1}" WHERE ID = "{2}";'.format(res, tbl, id_)):
                 try:
                     y.append(float(row[0]))
-                except (ValueError, IndexError):
+                except (TypeError, ValueError, IndexError):
+                    y.append(np.nan)
                     continue
             err, data, msg = True, y, ''
         except Exception as e:
@@ -745,6 +747,7 @@ class ResData_GPKG(ResData):
         if self.LP.loaded:
             return False, ''
         print('get static data')
+
         self.LP.dist_chan_inverts = []
         self.LP.culv_verts = []
         self.LP.chan_inv = []
@@ -776,31 +779,57 @@ class ResData_GPKG(ResData):
         for i, idx in enumerate(self.LP.chan_index):
             # bed level
             self.LP.dist_chan_inverts.append(total_len)
-            total_len += self.Channels.chan_Length[i]
+            total_len += self.Channels.chan_Length[idx]
             self.LP.dist_nodes.append(total_len)
             self.LP.dist_chan_inverts.append(total_len)
             self.LP.chan_inv.append(self.Channels.chan_US_Inv[idx])
             self.LP.chan_inv.append(self.Channels.chan_DS_Inv[idx])
 
-            # culverts/pipes
-            hgt_us , hgt_ds = -1, -1
-            if not np.isnan(self.Channels.chan_US_Obv[idx]):
-                hgt_us = self.Channels.chan_US_Obv[idx] - self.Channels.chan_US_Inv[idx]
-            if not np.isnan(self.Channels.chan_DS_Obv[idx]):
-                hgt_ds = self.Channels.chan_DS_Obv[idx] - self.Channels.chan_DS_Inv[idx]
-            if hgt_us > 0 or hgt_ds > 0:
-                x = [
-                    self.LP.dist_chan_inverts[-2], self.LP.dist_chan_inverts[-1],
-                    self.LP.dist_chan_inverts[-1], self.LP.dist_chan_inverts[-2]
-                ]
-                y = [
-                    self.Channels.chan_US_Inv[idx], self.Channels.chan_DS_Inv[idx],
-                    self.Channels.chan_DS_Obv[idx], self.Channels.chan_US_Obv[idx]
-                ]
-                verts = list(zip(x, y))
-                self.LP.culv_verts.append(verts)
+            # if we have a specified us/ds inverts use those values (SWMM)
+            if len(self.Channels.chan_US_Obv) > 0:
+                # culverts/pipes
+                hgt_us, hgt_ds = -1, -1
+                if not np.isnan(self.Channels.chan_US_Obv[idx]):
+                    hgt_us = self.Channels.chan_US_Obv[idx] - self.Channels.chan_US_Inv[idx]
+                if not np.isnan(self.Channels.chan_DS_Obv[idx]):
+                    hgt_ds = self.Channels.chan_DS_Obv[idx] - self.Channels.chan_DS_Inv[idx]
+                if hgt_us > 0 or hgt_ds > 0:
+                    x = [
+                        self.LP.dist_chan_inverts[-2], self.LP.dist_chan_inverts[-1],
+                        self.LP.dist_chan_inverts[-1], self.LP.dist_chan_inverts[-2]
+                    ]
+                    y = [
+                        self.Channels.chan_US_Inv[idx], self.Channels.chan_DS_Inv[idx],
+                        self.Channels.chan_DS_Obv[idx], self.Channels.chan_US_Obv[idx]
+                    ]
+                    verts = list(zip(x, y))
+                    self.LP.culv_verts.append(verts)
+                else:
+                    self.LP.culv_verts.append(None)
             else:
-                self.LP.culv_verts.append(None)
+                # Use LBUS/RBUS information (ESTRY)
+                if len(self.Channels.chan_LBUS_Obv) > idx:
+                    self.LP.chan_LB.append(self.Channels.chan_LBUS_Obv[idx])
+                    self.LP.chan_LB.append(self.Channels.chan_LBDS_Obv[idx])
+                    if self.Channels.chan_RBUS_Obv[idx] > -9998.0:
+                        self.LP.chan_RB.append(self.Channels.chan_RBUS_Obv[idx])
+                        self.LP.chan_RB.append(self.Channels.chan_RBDS_Obv[idx])
+                        self.LP.culv_verts.append(None)
+                    else:  # We are a culvert
+                        x = [
+                            self.LP.dist_chan_inverts[-2],
+                            self.LP.dist_chan_inverts[-1],
+                            self.LP.dist_chan_inverts[-1],
+                            self.LP.dist_chan_inverts[-2],
+                        ]
+                        y = [
+                            self.LP.chan_inv[-2],
+                            self.LP.chan_inv[-1],
+                            self.LP.chan_LB[-1],
+                            self.LP.chan_LB[-2],
+                        ]
+                        verts = list(zip(x, y))
+                        self.LP.culv_verts.append(verts)
 
         # max water level
         if self.LP.node_list:
@@ -808,7 +837,10 @@ class ResData_GPKG(ResData):
             node_list = ' OR '.join(node_list)
             order_case = [f' WHEN "{id_}" THEN {i}' for i, id_ in enumerate(self.LP.node_list)]
             order_case = ''.join(order_case)
-            sql = 'SELECT MAX("Water Level") FROM "{0}" WHERE {1} GROUP BY ID ORDER BY CASE ID{2} END;'.format(self.gis_point_layer_name, node_list, order_case)
+            sql = 'SELECT MAX("Water Level") FROM "{0}" WHERE {1} GROUP BY ID ORDER BY CASE ID{2} END;'.format(
+                self.gis_point_layer_name,
+                node_list,
+                order_case)
             try:
                 self.open_db()
                 self._cur.execute(sql)
@@ -849,7 +881,9 @@ class ResData_GPKG(ResData):
                 if should_not_bere_here:
                     Logging.warning('::'.join(should_not_bere_here))
             except Exception as e:
-                Logging.warning(e)
+                pass
+                # SWMM uses the "Inlet_elevation" field but ESTRY does not
+                # Logging.warning(e)
             finally:
                 self.close_db()
 
@@ -910,7 +944,8 @@ class ChanInfo_GPKG(ChanInfo):
         return self._nChan
 
     @nChan.setter
-    def nChan(self, value: int) -> None:...
+    def nChan(self, value: int) -> None:
+        ...
 
     @property
     def chan_num(self) -> list[int]:
@@ -919,7 +954,8 @@ class ChanInfo_GPKG(ChanInfo):
         return self._chan_num
 
     @chan_num.setter
-    def chan_num(self, value: list[int]) -> None:...
+    def chan_num(self, value: list[int]) -> None:
+        ...
 
     @property
     def chan_name(self) -> list[str]:
@@ -1078,7 +1114,8 @@ class ChanInfo_GPKG(ChanInfo):
         if self.parent:
             if not self._chan_slope:
                 if self.chan_US_Inv and self.chan_DS_Inv and self.chan_Length:
-                    self._chan_slope = [(us - ds) / l for us, ds, l in zip(self.chan_US_Inv, self.chan_DS_Inv, self.chan_Length)]
+                    self._chan_slope = [(us - ds) / l for us, ds, l in
+                                        zip(self.chan_US_Inv, self.chan_DS_Inv, self.chan_Length)]
         return self._chan_slope
 
     @chan_slope.setter
@@ -1145,7 +1182,9 @@ class ChanInfo_GPKG(ChanInfo):
                             except (TypeError, ValueError):
                                 self._chan_US_Obv.append(np.nan)
                 except Exception as e:
-                    Logging.warning(e)
+                    pass
+                    # This isn't filled in for ESTRY solution
+                    # Logging.warning(e)
                 finally:
                     self.parent.close_db()
         return self._chan_US_Obv
@@ -1170,7 +1209,9 @@ class ChanInfo_GPKG(ChanInfo):
                         except (TypeError, ValueError):
                             self._chan_DS_Obv.append(np.nan)
             except Exception as e:
-                Logging.warning(e)
+                pass
+                # This isn't filled in for ESTRY solutions
+                # Logging.warning(e)
             finally:
                 self.parent.close_db()
         return self._chan_DS_Obv
@@ -1181,24 +1222,112 @@ class ChanInfo_GPKG(ChanInfo):
 
     @property
     def chan_LBUS_Obv(self) -> list[float]:
-        raise NotImplementedError('GPKG time series format does not support chan_LBUS_Obv property')
+        if self.parent:
+            if not self._chan_LBUS_Obv:
+                try:
+                    self.parent.open_db()
+                    self.cur.execute(
+                        'SELECT LBUS_Obvert FROM "{0}" WHERE TimeId = 1;'.format(self.parent.gis_line_layer_name)
+                    )
+                    ret = self.cur.fetchall()
+                    if ret:
+                        for row in ret:
+                            try:
+                                self._chan_LBUS_Obv.append(float(row[0]))
+                            except (TypeError, ValueError):
+                                self._chan_LBUS_Obv.append(np.nan)
+                except Exception as e:
+                    Logging.warning(e)
+                finally:
+                    self.parent.close_db()
+        return self._chan_LBUS_Obv
 
     @chan_LBUS_Obv.setter
     def chan_LBUS_Obv(self, valud: list[float]) -> None:
         pass
 
     @property
-    def chan_LBDS_Obv(self) -> list[float]:
-        raise NotImplementedError('GPKG time series format does not support chan_LBDS_Obv property')
+    def chan_RBUS_Obv(self) -> list[float]:
+        if self.parent:
+            if not self._chan_RBUS_Obv:
+                try:
+                    self.parent.open_db()
+                    self.cur.execute(
+                        'SELECT RBUS_Obvert FROM "{0}" WHERE TimeId = 1;'.format(self.parent.gis_line_layer_name)
+                    )
+                    ret = self.cur.fetchall()
+                    if ret:
+                        for row in ret:
+                            try:
+                                self._chan_RBUS_Obv.append(float(row[0]))
+                            except (TypeError, ValueError):
+                                self._chan_RBUS_Obv.append(np.nan)
+                except Exception as e:
+                    Logging.warning(e)
+                finally:
+                    self.parent.close_db()
+        return self._chan_RBUS_Obv
 
+    @chan_RBUS_Obv.setter
+    def chan_RBUS_Obv(self, valud: list[float]) -> None:
+        pass
+
+    @property
+    def chan_LBDS_Obv(self) -> list[float]:
+        if self.parent:
+            if not self._chan_LBDS_Obv:
+                try:
+                    self.parent.open_db()
+                    self.cur.execute(
+                        'SELECT LBDS_Obvert FROM "{0}" WHERE TimeId = 1;'.format(self.parent.gis_line_layer_name)
+                    )
+                    ret = self.cur.fetchall()
+                    if ret:
+                        for row in ret:
+                            try:
+                                self._chan_LBDS_Obv.append(float(row[0]))
+                            except (TypeError, ValueError):
+                                self._chan_LBDS_Obv.append(np.nan)
+                except Exception as e:
+                    Logging.warning(e)
+                finally:
+                    self.parent.close_db()
+        return self._chan_LBDS_Obv
 
     @chan_LBDS_Obv.setter
     def chan_LBDS_Obv(self, valud: list[float]) -> None:
         pass
 
     @property
+    def chan_RBDS_Obv(self) -> list[float]:
+        if self.parent:
+            if not self._chan_RBDS_Obv:
+                try:
+                    self.parent.open_db()
+                    self.cur.execute(
+                        'SELECT RBDS_Obvert FROM "{0}" WHERE TimeId = 1;'.format(self.parent.gis_line_layer_name)
+                    )
+                    ret = self.cur.fetchall()
+                    if ret:
+                        for row in ret:
+                            try:
+                                self._chan_RBDS_Obv.append(float(row[0]))
+                            except (TypeError, ValueError):
+                                self._chan_RBDS_Obv.append(np.nan)
+                except Exception as e:
+                    Logging.warning(e)
+                finally:
+                    self.parent.close_db()
+        return self._chan_RBDS_Obv
+
+    @chan_RBDS_Obv.setter
+    def chan_RBDS_Obv(self, valud: list[float]) -> None:
+        pass
+
+    @property
     def chan_Blockage(self) -> list[float]:
         raise NotImplementedError('GPKG time series format does not support chan_Blockage property')
+
     @chan_Blockage.setter
     def chan_Blockage(self, valud: list[float]) -> None:
         pass
@@ -1227,7 +1356,8 @@ class NodeInfo_GPKG(NodeInfo):
         return self._nNode
 
     @nNode.setter
-    def nNode(self, value: int) -> None:...
+    def nNode(self, value: int) -> None:
+        ...
 
     @property
     def node_num(self) -> list[int]:
@@ -1236,7 +1366,8 @@ class NodeInfo_GPKG(NodeInfo):
         return self._node_num
 
     @node_num.setter
-    def node_num(self, value: list[int]) -> None:...
+    def node_num(self, value: list[int]) -> None:
+        ...
 
     @property
     def node_name(self) -> list[str]:
@@ -1264,7 +1395,8 @@ class NodeInfo_GPKG(NodeInfo):
         return self._node_name
 
     @node_name.setter
-    def node_name(self, value: list[str]) -> None:...
+    def node_name(self, value: list[str]) -> None:
+        ...
 
     @property
     def node_bed(self) -> list[float]:
@@ -1282,14 +1414,16 @@ class NodeInfo_GPKG(NodeInfo):
         return self._node_bed
 
     @node_bed.setter
-    def node_bed(self, value: list[float]) -> None:...
+    def node_bed(self, value: list[float]) -> None:
+        ...
 
     @property
     def node_top(self) -> list[float]:
         raise NotImplementedError('GPKG time series format does not support node_top property')
 
     @node_top.setter
-    def node_top(self, value: list[float]) -> None:...
+    def node_top(self, value: list[float]) -> None:
+        ...
 
     @property
     def node_nChan(self) -> list[int]:
@@ -1299,7 +1433,8 @@ class NodeInfo_GPKG(NodeInfo):
         return self._node_nChan
 
     @node_nChan.setter
-    def node_nChan(self, value: list[int]) -> None:...
+    def node_nChan(self, value: list[int]) -> None:
+        ...
 
     @property
     def node_channels(self) -> list[list[str]]:
@@ -1317,4 +1452,5 @@ class NodeInfo_GPKG(NodeInfo):
         return self._node_channels
 
     @node_channels.setter
-    def node_channels(self, value: list[list[str]]) -> None:...
+    def node_channels(self, value: list[list[str]]) -> None:
+        ...
