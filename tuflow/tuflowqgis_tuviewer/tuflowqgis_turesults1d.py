@@ -21,6 +21,8 @@ from ..utils import set_vector_temporal_properties
 
 from ..gui import Logging
 
+from ..fvbc_tide_results import FVBC_TideResults
+
 
 class TSResult(ResData):
 
@@ -398,6 +400,33 @@ class TuResults1D():
 
 		return True
 
+	def importResultsFVBCTide(self, nc_fpath, ns_fpath):
+		res = FVBC_TideResults()
+		error, message = res.Load(nc_fpath, ns_fpath)
+		if error:
+			QMessageBox.critical(self.tuView, "TUFLOW Viewer", f'ERROR: loading FV BC tide data:\n{message}')
+			return False
+
+		index = self.getResultMetaData(res, hasMax=False)
+		self.results1d[res.displayname] = [res]
+		if res.displayname not in self.new_results:
+			self.new_results.append(res.displayname)
+
+		if Qgis.QGIS_VERSION_INT >= 31600:
+			self.tuView.tuResults.updateDateTimes()
+
+		# add result to list widget
+		openResults = self.tuView.OpenResults
+		openResultNames = []
+		for i in range(openResults.count()):
+			openResultNames.append(openResults.item(i).text())
+		if res.displayname not in openResultNames:
+			openResults.addItem(res.displayname)  # add to widget
+		k = openResults.findItems(res.displayname, Qt.MatchRecursive)[0]
+		k.setSelected(True)
+
+		return res
+
 	def openGis(self, tpc):
 		"""
 		Opens 1D gis files. Will check if there are any features in the layer before loading into QGIS.
@@ -459,8 +488,9 @@ class TuResults1D():
 				for res in self.results1d[result_name]:
 					# regions
 					if res.GIS.R and res.gis_region_layer_name:
-						lyr = QgsVectorLayer(res.GIS.R, res.gis_region_layer_name, 'ogr')
-						if lyr.isValid() and lyr.featureCount():
+						driver = 'memory' if res.GIS.R.startswith('polygon?') else 'ogr'
+						lyr = QgsVectorLayer(res.GIS.R, res.gis_region_layer_name, driver)
+						if lyr.isValid() and (lyr.featureCount() or driver == 'memory'):
 							QgsProject.instance().addMapLayer(lyr)
 							set_vector_temporal_properties(lyr)
 							QgsProject.instance().writeEntry('TUFLOW', '{0}/gis_region_lyrid'.format(result_name), lyr.id())
@@ -470,8 +500,9 @@ class TuResults1D():
 								tuflowqgis_apply_check_tf_clayer(self.iface, layer=lyr)
 					# lines
 					if res.GIS.L and res.gis_line_layer_name:
-						lyr = QgsVectorLayer(res.GIS.L, res.gis_line_layer_name, 'ogr')
-						if lyr.isValid() and lyr.featureCount():
+						driver = 'memory' if res.GIS.L.startswith('linestring?') else 'ogr'
+						lyr = QgsVectorLayer(res.GIS.L, res.gis_line_layer_name, driver)
+						if lyr.isValid() and (lyr.featureCount() or driver == 'memory'):
 							QgsProject.instance().addMapLayer(lyr)
 							set_vector_temporal_properties(lyr)
 							QgsProject.instance().writeEntry('TUFLOW', '{0}/gis_line_lyrid'.format(result_name), lyr.id())
@@ -487,8 +518,9 @@ class TuResults1D():
 								tuflowqgis_apply_check_tf_clayer(self.iface, layer=lyr)
 					# points
 					if res.GIS.P and res.gis_point_layer_name:
-						lyr = QgsVectorLayer(res.GIS.P, res.gis_point_layer_name, 'ogr')
-						if lyr.isValid() and lyr.featureCount():
+						driver = 'memory' if res.GIS.P.startswith('point?') else 'ogr'
+						lyr = QgsVectorLayer(res.GIS.P, res.gis_point_layer_name, driver)
+						if lyr.isValid() and (lyr.featureCount() or driver == 'memory'):
 							QgsProject.instance().addMapLayer(lyr)
 							set_vector_temporal_properties(lyr)
 							QgsProject.instance().writeEntry('TUFLOW', '{0}/gis_point_lyrid'.format(result_name), lyr.id())
@@ -632,7 +664,6 @@ class TuResults1D():
 		:param result: TUFLOW_results.ResData
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-
 		qv = Qgis.QGIS_VERSION_INT
 
 		results = self.tuView.tuResults.results  # dict
@@ -769,8 +800,14 @@ class TuResults1D():
 							continue
 						if id_ not in self.ids:
 							self.ids.append(f['ID'].strip())
-							self.sources.append(f['Source'].strip())
-							type = f['Type'].strip()
+							try:
+								self.sources.append(f['Source'].strip())
+							except KeyError:
+								self.sources.append('Dummy')
+							try:
+								type = f['Type'].strip()
+							except KeyError:
+								type = 'Dummy'
 							if 'node' in type.lower() or 'chan' in type.lower():
 								self.domains.append('1D')
 							else:
@@ -811,6 +848,26 @@ class TuResults1D():
 							self.domains.append('1D')
 					
 		return True
+
+	def getIDList(self):
+		ids = []
+		domains = []
+		types = []
+		for layerid, layer in QgsProject.instance().mapLayers().items():
+			if isPlotLayer(layer):
+				for f in layer.selectedFeatures():
+					if f['ID'].strip() not in ids:
+						ids.append(f['ID'].strip())
+						try:
+							typ = f['Type']
+						except KeyError:
+							typ = 'dummy'
+						types.append(typ)
+						if 'node' in typ.lower() or 'chan' in typ.lower() or 'conduits' in typ.lower():
+							domains.append('1D')
+						else:
+							domains.append('2D')
+		return ids, types, domains
 	
 	def getLongPlotConnectivity(self, res):
 		"""
@@ -822,19 +879,7 @@ class TuResults1D():
 
 		# make sure there is between 1 and 2 selections
 		# if len(self.ids) < 3 and self.ids:
-		ids = []
-		domains = []
-		types = []
-		for layerid, layer in QgsProject.instance().mapLayers().items():
-			if isPlotLayer(layer):
-				for f in layer.selectedFeatures():
-					if f['ID'].strip() not in ids:
-						ids.append(f['ID'].strip())
-						types.append(f['Type'].strip())
-						if 'node' in f['Type'].lower() or 'chan' in f['Type'].lower() or 'conduits' in f['Type'].lower():
-							domains.append('1D')
-						else:
-							domains.append('2D')
+		ids, types, domains = self.getIDList()
 
 		if ids:
 			# res.LP.connected = False

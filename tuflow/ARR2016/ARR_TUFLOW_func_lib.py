@@ -1,8 +1,12 @@
+import io
 import re
+from datetime import datetime
 
 import numpy as np
 from math import log10
 import matplotlib as mpl
+import pandas as pd
+
 mpl.use('qt5agg')
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
@@ -900,3 +904,68 @@ def linear_interp_pb_dep(pb_depths, durations, dur_inds):
 def log_interp_pb_dep(pb_depths, durations, dur_inds):
     durations_ = np.log10(durations)
     return linear_interp_pb_dep(pb_depths, durations_, dur_inds)
+
+
+class DataBlock:
+
+    def __init__(self, fi, start_text: str):
+        self.fi = fi
+        self.start_text = start_text
+        self.finished = False
+        self.data = {}
+        self.time_accessed = None
+        self.version = ''
+        self.version_int = -1
+        self._collect()
+
+    def _find_start(self):
+        for line in self.fi:
+            if self.start_text in line:
+                return True
+        self.fi.seek(0)
+        return False
+
+    def _collect(self):
+        if not self._find_start():
+            return
+        while not self.finished:
+            self._block()
+        self.fi.seek(0)
+
+    def _block(self):
+        line = None
+        for line in self.fi:
+            if f'END_{self.start_text}' in line:
+                self.finished = True
+                return
+            if '[' in line and 'END' not in line:
+                break
+        if not line:
+            self.finished = True
+            return
+        name = line.strip('[]\n')
+        if 'META' in name:
+            self._meta_block()
+            return
+        buf = io.StringIO()
+        for line in self.fi:
+            if 'END' in line:
+                break
+            buf.write(line)
+        buf.seek(0)
+        df = pd.read_csv(buf, index_col=0)
+        self.data[name] = df
+
+    def _meta_block(self):
+        self.time_accessed = self.fi.readline().split(',')[1].strip()
+        try:
+            self.time_accessed = datetime.strptime(self.time_accessed, '%d %B %Y %I:%M%p')
+        except:
+            pass
+        self.version = self.fi.readline().split(',')[1].strip()
+        try:
+            major, minor = self.version.split('_', 1)
+            self.version_int = int(major) * 1000 + int(minor.strip('v')) * 100
+        except:
+            pass
+

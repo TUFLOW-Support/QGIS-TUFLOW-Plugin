@@ -188,6 +188,20 @@ class ResData():
     ResData class for reading and processing results
     """
 
+    def __init__(self):
+        self.script_version = version
+        self.filename = None
+        self.fpath = None
+        self.nTypes = 0
+        self.Types = []
+        self.LP = LP()
+        self.Data_1D = Data_1D()
+        self.displayname = None
+
+        self.reference_time = None
+        self.has_reference_time = False
+        self._tmp_reference_time = None
+
     def getTSData(self, id,res):
         message = None
         if(res.upper() in ("H", "H_", "LEVEL","LEVELS")):
@@ -538,21 +552,6 @@ class ResData():
 
         return error, message
 
-    def __init__(self):
-        self.script_version = version
-        self.filename = None
-        self.fpath = None
-        self.nTypes = 0
-        self.Types = []
-        self.LP = LP()
-        self.Data_1D = Data_1D()
-        self.displayname = None
-
-        self.reference_time = None
-        self.has_reference_time = False
-        self._tmp_reference_time = None
-
-    
     def Load(self, fname, qgis):
         self.filename = fname
         self.fpath = os.path.dirname(fname)
@@ -792,3 +791,6 @@ class ResData():
     
         else:
             return (None, None)
+
+    def getGeometry(self):
+        pass

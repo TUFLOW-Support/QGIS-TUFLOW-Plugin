@@ -60,7 +60,7 @@ class TestSWMMShapeConvert(unittest.TestCase):
         base_filename = 'swmm_demo_w_files'
         input_file = get_input_full_filenames(
             [
-               f'{base_filename}.inp',
+                f'{base_filename}.inp',
             ]
         )[0]
         intermediate_file = get_output_path(f'{base_filename}_out.gpkg')
@@ -82,7 +82,7 @@ class TestSWMMShapeConvert(unittest.TestCase):
         base_filename = 'test_openchannel'
         input_file = get_input_full_filenames(
             [
-               f'{base_filename}.inp',
+                f'{base_filename}.inp',
             ]
         )[0]
         intermediate_file = get_output_path(f'{base_filename}_out.gpkg')
@@ -104,7 +104,7 @@ class TestSWMMShapeConvert(unittest.TestCase):
         base_filename = 'HargreavesETexample_temperature'
         input_file = get_input_full_filenames(
             [
-               f'{base_filename}.inp',
+                f'{base_filename}.inp',
             ]
         )[0]
         intermediate_file = get_output_path(f'{base_filename}_out.gpkg')
@@ -141,7 +141,7 @@ class TestSWMMShapeConvert(unittest.TestCase):
 
         print('\n\nConverting to inp')
         self.assertRaises(ValueError, gis_to_swmm, intermediate_file, output_file)
-        #self.compare_files(compare_file, output_file)
+        # self.compare_files(compare_file, output_file)
 
     def test_tags_descriptions(self):
         base_filename = 'test_tags_descriptions'
@@ -206,7 +206,7 @@ class TestSWMMShapeConvert(unittest.TestCase):
         gdf_options = gpd.read_file(intermediate_file, layer='Project--Options')
 
         # START_DATE 10/01/2009 -> 2009-10-01
-        #print(gdf_options.loc[gdf_options['Option'] == 'START_DATE', 'Value'].iloc[0])
+        # print(gdf_options.loc[gdf_options['Option'] == 'START_DATE', 'Value'].iloc[0])
         self.assertEqual('2009-10-01', gdf_options.loc[gdf_options['Option'] == 'START_DATE', 'Value'].iloc[0])
 
         # REPORT_START_DATE 01/01/1920
@@ -243,6 +243,26 @@ class TestSWMMShapeConvert(unittest.TestCase):
         gis_to_swmm(intermediate_file, output_file)
         self.compare_files(compare_file, output_file)
 
+    def test_inflows(self):
+        base_filename = 'EG15_005_test_inflows'
+        input_file = get_input_full_filenames(
+            [
+                f'{base_filename}.inp',
+            ]
+        )[0]
+        intermediate_file = get_output_path(f'{base_filename}_out.gpkg')
+        output_file = Path(intermediate_file).with_suffix('.inp')
+        Path(intermediate_file).unlink(missing_ok=True)
+        output_file.unlink(missing_ok=True)
+
+        compare_file = get_compare_path(f'{base_filename}_compare.inp')
+
+        crs = 'EPSG:32760'
+        swmm_to_gpkg(input_file, intermediate_file, crs)
+
+        print('\n\nConverting to inp')
+        gis_to_swmm(intermediate_file, output_file)
+        self.compare_files(compare_file, output_file)
 
     # This test was to provide an error message if the number of values written to an inp file
     # was less than required by the format. This functionality has been delayed to look at higher value efforts

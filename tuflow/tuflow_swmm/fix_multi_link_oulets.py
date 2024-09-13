@@ -18,20 +18,8 @@ from pathlib import Path
 
 from shapely.geometry import LineString
 
+from tuflow.tuflow_swmm.layer_util import read_and_concat_layers
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
-
-
-def read_and_concat_layers(filename, layerlist, other_gdfs):
-    gdfs = other_gdfs
-    for layer in layerlist:
-        try:
-            gdf = gpd.read_file(filename, layer=layer)
-            gdfs.append(gdf)
-        except:
-            pass  # Was not in the file
-
-    gdf_merged = pd.concat(gdfs)
-    return gdf_merged
 
 
 def last_segment_vector_normalized(row):

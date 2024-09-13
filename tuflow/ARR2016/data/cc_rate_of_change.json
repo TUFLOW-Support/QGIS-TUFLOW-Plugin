@@ -1,0 +1,48 @@
+{
+  "rainfall": {
+    "1": 15,
+    "1.5": 13.7,
+    "2": 12.8,
+    "3": 11.8,
+    "4.5": 10.8,
+    "6": 10.2,
+    "9": 9.5,
+    "12":9.0,
+    "18": 8.4,
+    "24": 8
+  },
+  "initial_loss": {
+    "Rangelands West": 4.5,
+    "Wet Tropics": 0.8,
+    "Rangelands": 4.5,
+    "Rangelands West And Rangelands": 4.5,
+    "Central Slopes": 1.1,
+    "Monsoonal North": 2.4,
+    "Murray Basin": 3.1,
+    "East Coast North": 2.0,
+    "East Coast South": 2.0,
+    "Southern Slopes Mainland": 3.9,
+    "Southern Slopes (Tas)": 3.9,
+    "Southern Slopes Tasmania": 3.9,
+    "East Flatlands": 4.5,
+    "West Flatlands": 4.5,
+    "Southern and South Western Flatlands (West)": 4.5
+  },
+  "continuing_loss": {
+    "Rangelands West": 5.6,
+    "Wet Tropics": 1.4,
+    "Rangelands": 5.6,
+    "Rangelands West And Rangelands": 5.6,
+    "Central Slopes": 2.0,
+    "Monsoonal North": 4.4,
+    "Murray Basin": 6.7,
+    "East Coast North": 3.8,
+    "East Coast South": 3.8,
+    "Southern Slopes Mainland": 8.5,
+    "Southern Slopes (Tas)": 8.5,
+    "Southern Slopes Tasmania": 8.5,
+    "East Flatlands": 5.6,
+    "West Flatlands": 5.6,
+    "Southern and South Western Flatlands (West)": 5.6
+  }
+}

@@ -7493,6 +7493,9 @@ def isPlotLayer(layer, geom=''):
     if not isinstance(layer, QgsVectorLayer):
         return False
 
+    if layer.customProperty('isTUFLOWPlotLayer'):
+        return True
+
     isgpkg = layer.storageType() == 'GPKG'
 
     if not geom:

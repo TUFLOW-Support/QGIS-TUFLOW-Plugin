@@ -45,7 +45,7 @@ def format_line(items: Sequence[str], header: bool = False, column_width: int = 
         # First item start with ;;
         items_copy[0] = ';;' + items_copy[0]
 
-    line = " ".join([f'{x: <{column_width - 1}}' for x in items_copy]) + '\n'
+    line = (" ".join([f'{x: <{column_width - 1}}' for x in items_copy])).rstrip() + '\n'
 
     return line
 
@@ -93,12 +93,22 @@ def df_to_swmm_section(df: pd.DataFrame,
     section_def = section_def[0]
     # Add alternative headings
     if section_def.section_type == swmm_sections.SectionType.KEYWORDS:
+        longest_keyword_col = 0
+        for keyword, value in section_def.cols_keywords.items():
+            if value is not None:
+                longest_keyword_col = max(longest_keyword_col, len(value))
+
         for keyword, value in section_def.cols_keywords.items():
             comm_cols_text = [''] * len(section_def.cols_common_start)
             comm_cols_text[section_def.keyword_col] = keyword
             all_cols = comm_cols_text
             if value is not None:
                 all_cols.extend([x[0] for x in value])
+
+            n_spaces = longest_keyword_col - len(value) if value is not None else longest_keyword_col
+
+            if n_spaces > 0:
+                all_cols.extend([''] * n_spaces)
             if section_def.cols_common_end is not None:
                 all_cols.extend([y[0] for y in section_def.cols_common_end])
             section += format_line(all_cols, True, column_width, allow_none)
@@ -125,15 +135,16 @@ def df_to_swmm_section(df: pd.DataFrame,
         # This caused geometric rounding which I didn't like. May try again later with different values
         # for geometry and other tables
         #row_vals = [f'{x:.5g}' if isinstance(x, float) else str(x) for x in row]
-        row_vals = [str(x) for x in row]
+        row_vals = [str(x).strip() if x is not None and x != 'None' else '' for x in row]
         # TODO - give error message if not enough values provided (may be influenced by keyword)
         if not allow_blanks_in_middle:
             # if we have blanks in the middle replace with 0 otherwise SWMM will skip whitespace and have value in wrong
             # column
             last_non_blank = 0
             for i in range(len(row_vals)):
-                if row_vals[i] != '':
+                if row_vals[i] is not None and row_vals[i] != '':
                     last_non_blank = i
+
             for i in range(len(row_vals)):
                 if row_vals[i] == '' and i < last_non_blank:
                     row_vals[i] = '0'

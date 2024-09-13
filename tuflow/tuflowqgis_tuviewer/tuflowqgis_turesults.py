@@ -23,9 +23,10 @@ try:
 except ImportError:
 	from ..pathlib_ import Path_ as Path
 from ..tuflow_results_gpkg import ResData_GPKG
+from ..gui import Logging
 
 
-
+PROFILING = False
 
 class TuResults():
 	"""
@@ -289,6 +290,8 @@ class TuResults():
 		:return: list -> tuple -> ( str type, int type, bool hasMax ) region time series type  e.g. ( 'volume', 6, False )
 		:return: list -> tuple -> ( str type, int type, bool hasMax ) line long plot type  e.g. ( 'water level', 7, True )
 		"""
+		if PROFILING:
+			st1 = datetime.now()
 
 		qv = Qgis.QGIS_VERSION_INT
 
@@ -316,12 +319,12 @@ class TuResults():
 					timestepsTS = sorted(y[0] for x, y in t['times'].items())
 					refTime = t['referenceTime'] if 'referenceTime' in t else self.tuView.tuOptions.zeroTime
 					if self.tuView.tuOptions.timeUnits == 's':
-						timestepsTS = [refTime + timedelta(seconds=x) for x in timestepsTS]
+						timestepsTS = [refTime + timedelta(seconds=float(x)) for x in timestepsTS]
 					else:
 						try:
-							timestepsTS = [refTime + timedelta(hours=x) for x in timestepsTS]
+							timestepsTS = [refTime + timedelta(hours=float(x)) for x in timestepsTS]
 						except OverflowError:
-							timestepsTS = [refTime + timedelta(seconds=x) for x in timestepsTS]
+							timestepsTS = [refTime + timedelta(seconds=float(x)) for x in timestepsTS]
 				if type == 'point_ts':
 					if qv < 31600:
 						pTypeTS = [[x, 4, True] for x in t[0]]
@@ -375,12 +378,12 @@ class TuResults():
 					timestepsLP = sorted(y[0] for x, y in t['times'].items())
 					refTime = t['referenceTime'] if 'referenceTime' in t else self.tuView.tuOptions.zeroTime
 					if self.tuView.tuOptions.timeUnits == 's':
-						timestepsLP = [refTime + timedelta(seconds=x) for x in timestepsLP]
+						timestepsLP = [refTime + timedelta(seconds=float(x)) for x in timestepsLP]
 					else:
 						try:
-							timestepsLP = [refTime + timedelta(hours=x) for x in timestepsLP]
+							timestepsLP = [refTime + timedelta(hours=float(x)) for x in timestepsLP]
 						except OverflowError:
-							timestepsLP = [refTime + timedelta(seconds=x) for x in timestepsLP]
+							timestepsLP = [refTime + timedelta(seconds=float(x)) for x in timestepsLP]
 				# for x in t[0]:
 				# 	#if x == 'Water Level' or x == 'Energy Level':
 				# 	#	lTypeLP.append((x, 7, True))
@@ -401,12 +404,12 @@ class TuResults():
 					timestepsParticles = sorted(y[0] for x, y in t['times'].items())
 					refTime = t['referenceTime'] if 'referenceTime' in t else self.tuView.tuOptions.zeroTime
 					if self.tuView.tuOptions.timeUnits == 's':
-						timestepsParticles = [refTime + timedelta(seconds=x) for x in timestepsParticles]
+						timestepsParticles = [refTime + timedelta(seconds=float(x)) for x in timestepsParticles]
 					else:
 						try:
-							timestepsParticles = [refTime + timedelta(hours=x) for x in timestepsParticles]
+							timestepsParticles = [refTime + timedelta(hours=float(x)) for x in timestepsParticles]
 						except OverflowError:
-							timestepsParticles = [refTime + timedelta(seconds=x) for x in timestepsParticles]
+							timestepsParticles = [refTime + timedelta(seconds=float(x)) for x in timestepsParticles]
 			elif '_nc_grid' in type:
 				if qv < 31600:
 					timestepsNcGrid = t[0]
@@ -414,12 +417,12 @@ class TuResults():
 					timestepsNcGrid = sorted(y[0] for x, y in t['times'].items())
 					refTime = t['referenceTime'] if 'referenceTime' in t else self.tuView.tuOptions.zeroTime
 					if self.tuView.tuOptions.timeUnits == 's':
-						timestepsNcGrid = [refTime + timedelta(seconds=x) for x in timestepsNcGrid]
+						timestepsNcGrid = [refTime + timedelta(seconds=float(x)) for x in timestepsNcGrid]
 					else:
 						try:
-							timestepsNcGrid = [refTime + timedelta(hours=x) for x in timestepsNcGrid]
+							timestepsNcGrid = [refTime + timedelta(hours=float(x)) for x in timestepsNcGrid]
 						except OverflowError:
-							timestepsNcGrid = [refTime + timedelta(seconds=x) for x in timestepsNcGrid]
+							timestepsNcGrid = [refTime + timedelta(seconds=float(x)) for x in timestepsNcGrid]
 			else:
 				temporalResultTypes.append(type)
 				refTime = t['referenceTime'] if 'referenceTime' in t else self.tuView.tuOptions.zeroTime
@@ -429,18 +432,35 @@ class TuResults():
 							ts = values[0]
 						else:
 							if self.tuView.tuOptions.timeUnits == 's':
-								ts = refTime + timedelta(seconds=values[0])
+								ts = refTime + timedelta(seconds=float(values[0]))
 							else:
 								try:
-									ts = refTime + timedelta(hours=values[0])
+									ts = refTime + timedelta(hours=float(values[0]))
 								except OverflowError:
-									ts = refTime + timedelta(seconds=values[0])
+									ts = refTime + timedelta(seconds=float(values[0]))
 						if ts not in timesteps:
 							timesteps.append(ts)
 
+		if PROFILING:
+			st = datetime.now()
+
 		timesteps = self.joinResultTypes(timesteps, timestepsNcGrid, type='time')
+
+		if PROFILING:
+			tt = datetime.now() - st
+			Logging.info(f'getDataFromResultsDict::stage 1 {tt}')
+			st = datetime.now()
+
 		if not self.tuView.lock2DTimesteps:
 			timesteps = self.joinResultTypes(timesteps, timestepsTS, timestepsLP, timestepsParticles, type='time')
+
+			if PROFILING:
+				tt = datetime.now() - st
+				Logging.info(f'getDataFromResultsDict::stage 2 {tt}')
+
+		if PROFILING:
+			tt = datetime.now() - st1
+			Logging.info(f'getDataFromResultsDict::Total {tt}')
 
 		return timesteps, minResultTypes, maxResultTypes, temporalResultTypes, pTypeTS, lTypeTS, rTypeTS, lTypeLP, csTypes
 
@@ -452,27 +472,30 @@ class TuResults():
 		:param kwargs: dict
 		:return: list
 		"""
-
 		qv = Qgis.QGIS_VERSION_INT
 		final = []
+		arrays = []
 
-		for arg in args:
-			for item in arg:
-				if 'type' in kwargs.keys() and kwargs['type'] == 'time':
-					# if float('{0:.6f}'.format(item)) not in [float('{0:.6f}'.format(x)) for x in final]:
-					if qv < 31600:
-						if not [item for x in final if isSame_float(item, x, prec=TuResults.TimePrecision)]:
-							final.append(item)
-					else:
-						if not [item for x in final if isSame_time(item, x, prec=0.01)]:
-							final.append(item)
+		is_time_type = kwargs.get('type', '') == 'time'
+		for i, arg in enumerate(args):
+			if is_time_type:
+				# arg = (np.array(arg, dtype='datetime64[ms]') + np.timedelta64(500, 'ms')).astype('datetime64[s]')
+				if qv < 31600:
+					arg = np.round(arg, 6)
 				else:
+					arg = np.array([roundSeconds(x, 2) for x in arg])
+
+			if is_time_type:
+				arrays.append(arg)
+			else:
+				for item in arg:
 					if item not in final:
 						final.append(item)
 
 		# make sure times are sorted ascendingly
 		if 'type' in kwargs.keys() and kwargs['type'] == 'time':
-			final = sorted(final)
+			final = np.unique(np.concatenate(arrays))
+			final = np.sort(final).tolist()
 
 		return final
 
@@ -802,7 +825,8 @@ class TuResults():
 
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-
+		if PROFILING:
+			st = datetime.now()
 		qv = Qgis.QGIS_VERSION_INT
 
 		from .tuflowqgis_tuplot import TuPlot
@@ -833,15 +857,34 @@ class TuResults():
 		else:
 			currentTime = self.activeTime
 
+		if PROFILING:
+			tt = datetime.now() - st
+			Logging.info(f'updateResultTypes_31600::Stage 1: {tt}')
+			st = datetime.now()
+
 		# reset types
 		reset = self.resetResultTypes()  # reset result types
+
+		if PROFILING:
+			tt = datetime.now() - st
+			Logging.info(f'updateResultTypes_31600::Stage 2: {tt}')
+			st = datetime.now()
+
 		if not reset:
 			return False
 		timesteps, minResultTypes, maxResultTypes, temporalResultTypes = [], [], [], []
 		pointTypesTS, lineTypesTS, regionTypesTS, lineTypesLP, crossSectionTypes = [], [], [], [], []
 		for result in openResults.selectedItems():
 			# Populate metadata lists
+			if PROFILING:
+				st1 = datetime.now()
+
 			ts, minResTypes, maxResTypes, tResTypes, pTypesTS, lTypesTS, rTypesTS, lTypesLP, csTypes = self.getDataFromResultsDict(result.text())
+
+			if PROFILING:
+				tt = datetime.now() - st1
+				Logging.info(f'updateResultTypes_31600::Stage 3-1: {tt}')
+				st1 = datetime.now()
 
 			# Join already open result types with new types
 			timesteps = self.joinResultTypes(timesteps, ts, type='time')
@@ -853,6 +896,15 @@ class TuResults():
 			regionTypesTS = self.joinResultTypes(regionTypesTS, rTypesTS)
 			lineTypesLP = self.joinResultTypes(lineTypesLP, lTypesLP)
 			crossSectionTypes = self.joinResultTypes(crossSectionTypes, csTypes)
+
+			if PROFILING:
+				tt = datetime.now() - st1
+				Logging.info(f'updateResultTypes_31600::Stage 3-2: {tt}')
+
+		if PROFILING:
+			tt = datetime.now() - st
+			Logging.info(f'updateResultTypes_31600::Stage 3: {tt}')
+			st = datetime.now()
 
 		# Populate tuview interface
 		mapOutputs = []
@@ -907,6 +959,11 @@ class TuResults():
 		openResultTypes.setModel(DataSetModel(mapOutputs, timeSeries))
 		openResultTypes.expandAll()
 
+		if PROFILING:
+			tt = datetime.now() - st
+			Logging.info(f'updateResultTypes_31600::Stage 4: {tt}')
+			st = datetime.now()
+
 		# timesteps
 		connected = True
 		try:
@@ -949,7 +1006,18 @@ class TuResults():
 			except:
 				pass
 
+		if PROFILING:
+			tt = datetime.now() - st
+			Logging.info(f'updateResultTypes_31600::Stage 5: {tt}')
+			st = datetime.now()
+
 		self.applyPreviousResultTypeSelections(currentPlotData, currentTime, **kwargs)
+
+		if PROFILING:
+			tt = datetime.now() - st
+			Logging.info(f'updateResultTypes_31600::Stage 6: {tt}')
+			st = datetime.now()
+
 		self.tuResults2D.repaintRequested()  # this is the step that changes the 'reference time' property in the result dict
 		self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
 			lambda: self.tuView.resultsChanged('item clicked'))
@@ -960,6 +1028,11 @@ class TuResults():
 		# Update viewport with enabled / disabled items
 		# self.tuView.currentLayerChanged()
 		self.tuView.setTsTypesEnabled()
+
+		if PROFILING:
+			tt = datetime.now() - st
+			Logging.info(f'updateResultTypes_31600::Stage 7: {tt}')
+			st = datetime.now()
 
 		return True
 
@@ -1588,12 +1661,12 @@ class TuResults():
 		rt = tuResults.results[key1][key2]['referenceTime']
 		for i, time in enumerate(times):
 			if units == 's':
-				date = rt + timedelta(seconds=time)
+				date = rt + timedelta(seconds=float(time))
 			else:
 				try:
-					date = rt + timedelta(hours=time)
+					date = rt + timedelta(hours=float(time))
 				except OverflowError:
-					date = rt + timedelta(seconds=time)
+					date = rt + timedelta(seconds=float(time))
 			if method == 'higher':
 				if date >= key3:
 					return time
@@ -1644,12 +1717,12 @@ class TuResults():
 			dates = []
 			for t in times:
 				if units == 's':
-					dates.append(rt + timedelta(seconds=t))
+					dates.append(rt + timedelta(seconds=float(t)))
 				else:
 					try:
-						dates.append(rt + timedelta(hours=t))
+						dates.append(rt + timedelta(hours=float(t)))
 					except OverflowError:
-						dates.append(rt + timedelta(seconds=t))
+						dates.append(rt + timedelta(seconds=float(t)))
 
 		for i, date in enumerate(dates):
 			if method == 'higher':
@@ -2099,9 +2172,9 @@ class TuResults():
 				self.date_tspec2timekey[-99999] = t
 			else:
 				if self.tuView.tuOptions.timeUnits == 's':
-					date = zeroDate + timedelta(seconds=t)
+					date = zeroDate + timedelta(seconds=float(t))
 				else:
-					date = zeroDate + timedelta(hours=t)
+					date = zeroDate + timedelta(hours=float(t))
 
 				# format date to 2 decimal places i.e. dd/mm/yyyy hh:mm:ss.ms
 				date = roundSeconds(date, 2)
@@ -2171,12 +2244,12 @@ class TuResults():
 						for timeKey in self.results[result][restype]['times']:
 							time = self.results[result][restype]['times'][timeKey][0]
 							if self.tuView.tuOptions.timeUnits == 's':
-								date = rt + timedelta(seconds=time)
+								date = rt + timedelta(seconds=float(time))
 							else:
 								try:
-									date = rt + timedelta(hours=time)
+									date = rt + timedelta(hours=float(time))
 								except OverflowError:
-									date = rt + timedelta(seconds=time)
+									date = rt + timedelta(seconds=float(time))
 							date = roundSeconds(date, 2)
 							self.timekey2date[timeKey] = date
 							self.time2date[time] = date

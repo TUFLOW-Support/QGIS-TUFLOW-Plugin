@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import shapely
 from shapely import LineString
+from tuflow.tuflow_swmm.bc_conn_util import find_nodes_with_bc_conn, BcOption
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
 
@@ -20,74 +21,46 @@ def convert_nonoutfall_sx_to_hx_gdfs(
         gdf_swmm_nodes = gdf_swmm_nodes.overlay(gdf_inlets, how='difference')
         feedback.pushInfo(f'Number of SWMM Nodes without inlets: {len(gdf_swmm_nodes)}')
 
-    # Move fid, geometry columns to the end
-    cols_to_move = {'fid', 'geometry'}.intersection(set(gdf_bc.columns))
-    cols_new = [x for x in gdf_bc.columns if x not in cols_to_move] + list(cols_to_move)
-    gdf_bc = gdf_bc[cols_new]
-
-    bc_colnames = ['Type', 'Flags', 'Name', 'f', 'd', 'td', 'a', 'b']
-
-    if len(gdf_bc.columns) < len(bc_colnames) + 1:  # +1 for geometry
-        feedback.reportError(f'Not enough columns in BC layer.', fatalError=True)
-
-    feedback.pushInfo(f'Number of BC Polylines: {len(gdf_bc)}.')
-
-    gdf_bc.rename(columns=dict(zip(gdf_bc.columns, bc_colnames)), inplace=True)
-
-    gdf_bc_endpoints = gdf_bc.copy(deep=True)
-    gdf_bc_endpoints['endpoint1'] = shapely.get_point(gdf_bc_endpoints.geometry, 0)
-    gdf_bc_endpoints['endpoint2'] = shapely.get_point(gdf_bc_endpoints.geometry, 1)
-    gdf_bc_endpoints['polyline'] = gdf_bc_endpoints['geometry']
-
-    gdf_bc_lines_endpoint1 = gdf_bc_endpoints.copy(deep=True)
-    gdf_bc_lines_endpoint1['Side'] = 1
-    gdf_bc_lines_endpoint1['geometry'] = gdf_bc_lines_endpoint1['endpoint1']
-    gdf_bc_lines_endpoint2 = gdf_bc_endpoints.copy(deep=True)
-    gdf_bc_lines_endpoint2['Side'] = 2
-    gdf_bc_lines_endpoint2['geometry'] = gdf_bc_lines_endpoint2['endpoint2']
-
-    gdf_bc_lines_endpoints = pd.concat([gdf_bc_lines_endpoint1, gdf_bc_lines_endpoint2], axis=0)
-    gdf_sx_lines_endpoints = gdf_bc_lines_endpoints[gdf_bc_lines_endpoints['Type'].str.lower() == 'sx'].copy(deep=True)
-    gdf_cn_lines_endpoints = gdf_bc_lines_endpoints[gdf_bc_lines_endpoints['Type'].str.lower() == 'cn'].copy(deep=True)
-
-    gdf_nodes_cn = gdf_swmm_nodes.sjoin_nearest(gdf_cn_lines_endpoints, max_distance=0.01)
-
-    gdf_nodes_cn['CnOpp'] = gdf_nodes_cn['Side'].apply(lambda x: 1 if x == 2 else 2)
-
-    gdf_nodes_cn['node_loc'] = gdf_nodes_cn['geometry']
-    gdf_nodes_cn.loc[gdf_nodes_cn['CnOpp'] == 1, 'geometry'] = gdf_nodes_cn.loc[gdf_nodes_cn['CnOpp'] == 1, 'endpoint1']
-    gdf_nodes_cn.loc[gdf_nodes_cn['CnOpp'] == 2, 'geometry'] = gdf_nodes_cn.loc[gdf_nodes_cn['CnOpp'] == 2, 'endpoint2']
-    gdf_nodes_cn_sx = gdf_nodes_cn.sjoin_nearest(gdf_sx_lines_endpoints,
-                                                 lsuffix='node_sx',
-                                                 rsuffix='sx',
-                                                 max_distance=0.01)
+    gdf_nodes_cn_sx = find_nodes_with_bc_conn(
+        gdf_swmm_nodes,
+        gdf_bc,
+        BcOption.SX,
+        feedback,
+    )
 
     # Need to change all the SX lines to HX
-    feedback.pushInfo(f'Number of SX polylines to convert to HX: {len(gdf_nodes_cn_sx['index_sx'].unique())}.')
-    gdf_bc.loc[gdf_bc.index.isin(gdf_nodes_cn_sx['index_sx'].unique()), 'Type'] = 'HX'
+    num_sx_to_hx = len(gdf_nodes_cn_sx['index_bc'].unique())
+    feedback.pushInfo(f'Number of SX polylines to convert to HX: {num_sx_to_hx}.')
 
-    # Need to add CN lines for missing SX sides to node
-    sx_index_side = gdf_nodes_cn_sx[['index_sx', 'Side_sx']]
-    # see which ones are full (have connections on both sides)
-    sx_index_side = sx_index_side.groupby('index_sx').agg('count')
-    sx_index_full = sx_index_side[sx_index_side['Side_sx'] == 2].index.to_list()
+    if num_sx_to_hx > 0:
+        gdf_bc.loc[gdf_bc.index.isin(gdf_nodes_cn_sx['index_bc'].unique()), 'Type'] = 'HX'
 
-    gdf_nodes_cn_sx = gdf_nodes_cn_sx[~gdf_nodes_cn_sx['index_sx'].isin(sx_index_full)]
-    gdf_nodes_cn_sx['SxOpp'] = gdf_nodes_cn_sx['Side_sx'].apply(lambda x: 1 if x == 1 else 2)
-    gdf_nodes_cn_sx['pt1'] = np.where(gdf_nodes_cn_sx['Side_sx'] == 1,
-                                      gdf_nodes_cn_sx['endpoint2_sx'],
-                                      gdf_nodes_cn_sx['endpoint1_sx'])
-    gdf_nodes_cn_sx['pt2'] = gdf_nodes_cn_sx['node_loc']
-    gdf_nodes_cn_sx['geometry'] = gdf_nodes_cn_sx.apply(lambda row: LineString([row['pt1'], row['pt2']]), axis=1)
-    gdf_nodes_cn_sx['Name'] = ''
-    gdf_nodes_cn_sx['Type'] = 'CN'
-    gdf_nodes_cn_sx['Flags'] = ''
-    gdf_nodes_cn_sx.loc[:, ['f', 'd', 'td', 'a', 'b']] = None
+        # Need to add CN lines for missing SX sides to node
+        sx_index_side = gdf_nodes_cn_sx[['index_bc', 'Side']]
+        # see which ones are full (have connections on both sides)
+        sx_index_side = sx_index_side.groupby('index_bc').agg('count')
+        sx_index_full = sx_index_side[sx_index_side['Side'] == 2].index.to_list()
 
-    gdf_new_cn = gdf_nodes_cn_sx[['Type', 'Flags', 'Name', 'f', 'd', 'td', 'a', 'b', 'geometry']].copy(deep=True)
-    feedback.pushInfo(f'Adding {len(gdf_new_cn)} new CN lines to connect converted HX polylines.')
+        gdf_nodes_cn_sx = gdf_nodes_cn_sx[~gdf_nodes_cn_sx['index_bc'].isin(sx_index_full)]
+        # gdf_nodes_cn_sx['SxOpp'] = gdf_nodes_cn_sx['Side'].astype(int).apply(lambda x: 1 if x == 2 else 2)
+        gdf_nodes_cn_sx.loc[:, 'pt1'] = gdf_nodes_cn_sx.loc[:, ['hxsx_side', 'geom_hxsx']].apply(
+            lambda x: shapely.get_point(x['geom_hxsx'], -1) if x['hxsx_side'] == 1 else shapely.get_point(x['geom_hxsx'], 0),
+            axis=1
+        )
+        #gdf_nodes_cn_sx['pt1'] = np.where(gdf_nodes_cn_sx['hxsx_side'] == 1,
+        #                                  shapely.get_point(gdf_nodes_cn_sx['geom_hxsx'], 0),
+        #                                  shapely.get_point(gdf_nodes_cn_sx['geom_hxsx'], -1))
+        gdf_nodes_cn_sx['pt2'] = gdf_nodes_cn_sx['node_loc']
+        gdf_nodes_cn_sx['geometry'] = gdf_nodes_cn_sx.apply(lambda row: LineString([row['pt1'], row['pt2']]), axis=1)
+        gdf_nodes_cn_sx['Name'] = ''
+        gdf_nodes_cn_sx['Type'] = 'CN'
+        gdf_nodes_cn_sx['Flags'] = ''
+        gdf_nodes_cn_sx.loc[:, ['f', 'd', 'td', 'a', 'b']] = None
 
-    gdf_bc = gpd.GeoDataFrame(pd.concat([gdf_bc, gdf_new_cn], axis=0))
+        gdf_new_cn = gdf_nodes_cn_sx[['Type', 'Flags', 'Name', 'f', 'd', 'td', 'a', 'b', 'geometry']].copy(deep=True)
+        feedback.pushInfo(f'Adding {len(gdf_new_cn)} new CN lines to connect converted HX polylines.')
+
+        gdf_bc = gpd.GeoDataFrame(pd.concat([gdf_bc, gdf_new_cn], axis=0))
 
     # if it exists move fid column back to the front
     if 'fid' in gdf_bc:

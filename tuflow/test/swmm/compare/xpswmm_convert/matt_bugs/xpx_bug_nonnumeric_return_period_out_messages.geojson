@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "xpx_bug_nonnumeric_return_period_out_messages",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::32760" } },
+"features": [
+{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "No Downstream Link for HX connection. HX line has arbitrary orientation." }, "geometry": { "type": "Point", "coordinates": [ 1033980.0016, 1773053.196199999889359 ] } }
+]
+}

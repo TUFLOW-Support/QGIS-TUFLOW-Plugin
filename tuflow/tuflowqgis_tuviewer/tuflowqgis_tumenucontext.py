@@ -171,6 +171,7 @@ class TuContextMenu():
 		self.remove1dResults_action = QAction('Close Results - Time Series', self.resultsMenu)
 		self.removeParticlesResults_action = QAction('Close Results - Particles', self.resultsMenu)
 		self.closeHydraulicTable_action = QAction("Close 1D Hydraulic Tables", self.resultsMenu)
+		self.loadFVBCTide_action = QAction('Import FV Tide BC NetCDF (beta)', self.resultsMenu)
 
 		self.resultsMenu.addAction(self.load1d2dResults_action)
 		self.resultsMenu.addAction(self.load2dResults_action)
@@ -180,6 +181,7 @@ class TuContextMenu():
 		self.resultsMenu.addAction(self.loadNcGridResults_action)
 		self.resultsMenu.addAction(self.loadHydraulicTable_action)
 		self.resultsMenu.addAction(self.loadBcTables_action)
+		self.resultsMenu.addAction(self.loadFVBCTide_action)
 		self.resultsMenu.addSeparator()
 		self.resultsMenu.addAction(self.remove1d2dResults_action)
 		self.resultsMenu.addAction(self.remove2dResults_action)
@@ -213,6 +215,8 @@ class TuContextMenu():
 		self.signals.append(('self.removeParticlesResults_action.triggered', signal))
 		signal = self.closeHydraulicTable_action.triggered.connect(self.tuMenuFunctions.removeHydraulicTables)
 		self.signals.append(('self.closeHydraulicTable_action.triggered', signal))
+		signal = self.loadFVBCTide_action.triggered.connect(self.tuMenuFunctions.loadFVBCTide)
+		self.signals.append(('self.loadFVBCTide_action.triggered', signal))
 
 		return True
 	

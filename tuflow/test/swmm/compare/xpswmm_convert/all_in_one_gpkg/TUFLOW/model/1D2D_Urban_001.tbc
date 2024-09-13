@@ -2,7 +2,7 @@
 
 Read GIS Z SHAPE == copy_command_verbatim_001
 
-Read GIS BC == 1D2D_Urban_002_2d_bc_L
+Read GIS BC == 1D2D_Urban_001_2d_bc_L_001
 
 ! Add SWMM 1D nodal HX/SX connections
-Read GIS BC == gis\1d2d_urban_gis_layers_001.tcf >> 2d_bc_swmm_connections
+Read GIS BC == gis\1d2d_urban_gis_layers_001.gpkg >> 2d_bc_swmm_connections

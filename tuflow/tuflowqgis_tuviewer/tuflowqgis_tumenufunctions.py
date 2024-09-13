@@ -41,6 +41,8 @@ from ..gui import Logging
 from ..compatibility_routines import Path
 from ..tuflow_results_gpkg import ResData_GPKG
 
+from ..fvbc_tide_dlg import ImportFVBCTideDlg
+
 
 class TuMenuFunctions():
 	"""
@@ -527,6 +529,62 @@ class TuMenuFunctions():
 		settings.setValue("TUFLOW_Results/lastFolder", fpath)
 
 		return success
+
+	def loadFVBCTide(self, **kwargs):
+		unlock = kwargs['unlock'] if 'unlock' in kwargs else True
+		nc_fpath = kwargs['nc_fpath'] if 'nc_fpath' in kwargs else None
+		gis_fpath = kwargs['gis_fpath'] if 'gis_fpath' in kwargs else None
+
+		res = None
+		load_gis = True
+		if nc_fpath is None or gis_fpath is None:
+			dlg = ImportFVBCTideDlg(self.tuView)
+			if dlg.exec_():
+				res = self.tuView.tuResults.tuResults1D.importResultsFVBCTide(dlg.nc_fpath, dlg.node_string_fpath)
+		else:
+			res = self.tuView.tuResults.tuResults1D.importResultsFVBCTide(nc_fpath, gis_fpath)
+			load_gis = False
+
+		if res:
+			if not load_gis:  # remove empty layers - memory layers aren't saved in projects
+				for lyr in QgsProject.instance().mapLayersByName(res.gis_point_layer_name):
+					QgsProject.instance().removeMapLayer(lyr.id())
+
+			plyr = QgsVectorLayer(res.gis_point_fpath, res.gis_point_layer_name, 'memory')
+			if not plyr.isValid():
+				QMessageBox.critical(self.tuView, 'Error', 'Failed to load point layer')
+				return False
+			plyr.setCustomProperty("skipMemoryLayersCheck", 1)
+			plyr.setCustomProperty('isTUFLOWPlotLayer', 1)
+
+			feats = []
+			for label in res.ids():
+				points = res.provider.get_ch_points(label)
+				for i, row in enumerate(points):
+					ch, x, y = row[0], row[1], row[2]
+					feat = QgsFeature()
+					feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(x, y)))
+					feat.setAttributes([f'{label}_{i}', ch, 'BC_NS', 'H_'])
+					feats.append(feat)
+			plyr.dataProvider().addFeatures(feats)
+			plyr.updateExtents()
+
+			if load_gis:
+				llyr = QgsVectorLayer(res.gis_line_fpath, res.gis_line_layer_name, 'ogr')
+				if not llyr.isValid():
+					QMessageBox.critical(self.tuView, 'Error', 'Failed to load line layer')
+					return False
+				llyr.setCustomProperty('isTUFLOWPlotLayer', 1)
+
+				self.tuView.project.addMapLayer(llyr)
+
+			self.tuView.project.addMapLayer(plyr)
+
+		if unlock and res:
+			if self.tuView.lock2DTimesteps:
+				self.tuView.timestepLockChanged()
+
+		return True
 	
 	def remove1d2dResults(self):
 		"""

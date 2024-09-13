@@ -2,5 +2,4 @@ location == AD Global Database
 
 description == Sets the minimum dispersion coefficients for a given tracer in the TUFLOW AD module. File is read into the minimum dispersion field of the AD Global Database (.csv) file.
 
-manual link == https://downloads.tuflow.com/TUFLOW/Releases/Latest/TUFLOW%20AD%20Manual.pdf
-manual page == 34
+manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/AD-1.html#tab:tab-AD-GIS-Inputs3

@@ -4,7 +4,6 @@ command == Read GIS RF
 
 description == Used for "direct rainfall" modelling, also called "rainfall on grid" or "distributed hydrology" modelling.
 
-wiki link == https://wiki.tuflow.com/index.php?title=TUFLOW_Empty_Files#TUFLOW_Boundary_Control_file_.28TBC.29
+wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#TUFLOW_Boundary_Control_file_.28TBC.29
 
-manual link == https://downloads.tuflow.com/_archive/TUFLOW/Releases/2018-03/TUFLOW%20Manual.2018-03.pdf
-manual page == 328
+manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/Boundaries-InitialConditions-1.html#tab:tab-DirectRainfall

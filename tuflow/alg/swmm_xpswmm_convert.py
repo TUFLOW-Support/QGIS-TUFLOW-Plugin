@@ -3,25 +3,20 @@ import json
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis._core import QgsProcessingParameterBoolean, QgsProcessingParameterString, QgsProcessingModelGroupBox, \
     QgsProcessingParameterCrs, QgsProcessingParameterFeatureSource
-from qgis.core import QgsProcessing
 from qgis.core import QgsProcessingAlgorithm
-from qgis.core import QgsProcessingParameterDefinition
 from qgis.core import QgsProcessingMultiStepFeedback
 from qgis.core import QgsProcessingParameterFile
 from qgis.core import QgsProcessingParameterEnum
 from qgis.core import QgsProcessingParameterNumber
 from qgis import processing
-import subprocess
-import sys
-import time
-import re
+
 import os
-from pathlib import Path
+try:
+    from pathlib import Path
+except ImportError:
+    from pathlib_ import Path_ as Path
 
-from ..gui.processing.processsing_param_conv_tuf_model_format_dir_settings import \
-    ProcessingParameterConvTufModelDirSettings
-
-from tuflow.tuflow_swmm.xpswmm_xpx_convert import convert_xpswmm
+import tuflow.tuflow_swmm.xpswmm_xpx_convert as xpswmm_xpx_convert
 
 GIS_FORMAT = {0: 'GPKG', 1: 'SHP', 2: 'MIF'}
 GRID_FORMAT = {0: 'TIF', 1: 'GPKG', 2: 'FLT', 3: 'ASC'}
@@ -169,13 +164,14 @@ class SwmmXpswmmConvert(QgsProcessingAlgorithm):
             model_feedback.pushInfo('No TCF file specified. Converting 1D only.')
 
         model_feedback.setCurrentStep(1)
-        convert_xpswmm(of, xpx_filename, created_tcf_filename, swmm_prefix, solution_scheme, hardware, default_event,
-                       bc_width, bc_offset_dist, gis_layers_filename, crs.toWkt(), model_feedback)
+        xpswmm_xpx_convert.convert_xpswmm(of, xpx_filename, created_tcf_filename, swmm_prefix, solution_scheme,
+                                          hardware, default_event, bc_width, bc_offset_dist, gis_layers_filename,
+                                          crs.toWkt(), model_feedback)
 
         return {}
 
     def name(self):
-        return 'Convert - XPSWMM Model from XPX (Beta)'
+        return 'Convert - XPSWMM Model from XPX'
 
     def displayName(self):
         return self.tr(self.name())

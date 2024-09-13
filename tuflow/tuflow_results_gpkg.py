@@ -906,6 +906,9 @@ class ResData_GPKG(ResData):
             self.LP.Hdata = values
         return False, ''
 
+    def getGeometry(self):
+        pass
+
 
 class ChanInfo_GPKG(ChanInfo):
     """ChanInfo class for GPKG - lazy load all properties"""

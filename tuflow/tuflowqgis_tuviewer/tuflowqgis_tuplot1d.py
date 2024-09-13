@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QMessageBox
 from ..tuflowqgis_library import (findPlotLayers, findIntersectFeat, is1dTable, is1dNetwork, isTSLayer, isPlotLayer)
 from ..TUFLOW_XS import XS_results
 from .tuflowqgis_turesultsindex import TuResultsIndex
-from qgis.core import Qgis, QgsFeatureRequest, QgsExpression
+from qgis.core import Qgis, QgsFeatureRequest, QgsExpression, QgsGeometry
 
 
 class TuPlot1D():
@@ -274,7 +274,6 @@ class TuPlot1D():
 		:param kwargs: dict -> keyword arguments
 		:return: bool -> True for successful, False for unsuccessful
 		"""
-
 		from .tuflowqgis_tuplot import TuPlot
 
 		activeMeshLayers = self.tuView.tuResults.tuResults2D.activeMeshLayers  # list
@@ -416,7 +415,7 @@ class TuPlot1D():
 									else:
 										label = id
 								xy = np.array(list(zip(xdata, ydata)))
-								if xy.dtype == np.float64:
+								if xy.dtype == np.float64 and xy.any():
 									xy = xy[~np.isnan(xy).any(axis=1)]
 									xdata = xy[:, 0]
 									ydata = xy[:, 1]
@@ -481,6 +480,9 @@ class TuPlot1D():
 			#else:
 			#	self.tuPlot.clearPlot(1, retain_2d=True)
 			self.tuPlot.clearPlot2(TuPlot.CrossSection, TuPlot.DataCrossSection1D)
+
+		# long plots that don't fit into long plot pipe data
+		self.time_series_profile(timestep, draw)
 		
 		labels = []
 		xAll = []
@@ -493,11 +495,14 @@ class TuPlot1D():
 		chanNames = {}
 
 		# iterate through all selected results
+		geom = None
 		for result in self.tuView.OpenResults.selectedItems():
 			result = result.text()
 
 			if result in tuResults1D.results1d.keys():
 				for res in tuResults1D.results1d[result]:
+					if res.supports_new_profile_plot:
+						continue  # already plotted
 					t_ = datetime.now()
 					error = tuResults1D.getLongPlotConnectivity(res)
 					print('getLongPlotConnectivity', (datetime.now() - t_).total_seconds())
@@ -545,6 +550,11 @@ class TuPlot1D():
 									continue
 
 							x, y = res.getLongPlotXY(type, time)
+							geom = res.getGeometry()
+							if isinstance(geom, bytes):
+								g = QgsGeometry()
+								g.fromWkb(geom)
+								geom = g
 
 							if x is not None and y is not None:
 								# treat differently if adverse gradients
@@ -611,10 +621,57 @@ class TuPlot1D():
 		if data:
 			self.tuPlot.drawPlot(TuPlot.CrossSection, data, labels, types, dataTypes,
 			                     plot_as_points=plotAsPoints, plot_as_patch=plotAsPatch, draw=draw,
-			                     pipe_names=pipeNames, chan_names=chanNames)
+			                     pipe_names=pipeNames, chan_names=chanNames, geom=geom)
 			self.tuPlot.profilePlotFirst = False
 		print('plot1dLongPlot', (datetime.now() - t).total_seconds())
 		return True
+
+	def time_series_profile(self, timestep, draw):
+		if not self.tuResults.tuResults1D.typesLP:
+			return
+
+		results = [self.tuResults.tuResults1D.results1d[x.text()] for x in self.tuView.OpenResults.selectedItems() if x.text() in self.tuResults.tuResults1D.results1d]
+		results = [x for x in sum(results, []) if x.supports_new_profile_plot]
+		if not results:
+			return
+
+		ids, _, _ = self.tuResults.tuResults1D.getIDList()
+		if not ids:
+			return
+
+		if timestep is None:
+			timestep = self.tuView.tuResults.activeTime
+
+		for id_ in ids:
+			geom = None
+			xAll = []
+			yAll = []
+			labels = []
+			types = []
+			for res in results:
+				if not res.supports_new_profile_plot:
+					continue
+				if id_ not in res.ids():
+					continue
+				for rtyp in self.tuResults.tuResults1D.typesLP:
+					x, y = res.getTimeSeriesProfile(id_, rtyp, timestep)
+					if x is None or y is None:
+						continue
+					xAll.append(x)
+					yAll.append(y)
+					geom = res.getGeometry(id_)
+					if isinstance(geom, bytes):
+						g = QgsGeometry()
+						g.fromWkb(geom)
+						geom = g
+					labels.append('{0} - {1} - {2}'.format(res.displayname, id_, rtyp))
+					types.append(f'{rtyp}_1d')
+
+			data = list(zip(xAll, yAll))
+			dataTypes = [self.tuView.tuPlot.DataCrossSection1D] * len(data)
+			if data:
+				self.tuPlot.drawPlot(self.tuView.tuPlot.CrossSection, data, labels, types, dataTypes, draw=draw, geom=geom)
+				self.tuPlot.profilePlotFirst = False
 
 	def plot1dMaximums(self, **kwargs):
 		"""

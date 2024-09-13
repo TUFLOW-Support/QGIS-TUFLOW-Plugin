@@ -12,7 +12,6 @@ import traceback
 script = os.path.dirname(__file__)
 # sys.path.append(script)
 
-
 class Directive:
 
     def __new__(cls, line: str):
@@ -105,7 +104,8 @@ class TuflowAlgorithmProvider(QgsProcessingProvider):
                     cl, exc, tb = sys.exc_info()
                     line_number = traceback.extract_tb(tb)[-1][1]
                     QgsMessageLog.logMessage(f"Exception loading processing algorithm from file: {file}\n"
-                                             f"  {err.__class__.__name__} {err.args[0]}",
+                                             f"  {err.__class__.__name__} {err.args[0]}\n"
+                                             f"  {traceback.format_exc()}",
                                              'TUFLOW',
                                              level=Qgis.Warning)
                     continue

@@ -4,5 +4,4 @@ command == Read GIS WRF
 
 description == Weir adjustment factor
 
-manual link == https://downloads.tuflow.com/TUFLOW/Releases/2020-10/TUFLOW%20Release%20Notes.2020-10-AF.pdf
-manual page == 87
+manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/TwoD-Domains-1.html#HPC-US-Controlled-3

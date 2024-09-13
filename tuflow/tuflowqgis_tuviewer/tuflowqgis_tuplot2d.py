@@ -1078,7 +1078,6 @@ class TuPlot2D():
 		else:
 			return False
 	
-	
 	def getFaceIndexes(self, mesh, layer, points):
 		"""
 		Works out which mesh face each point falls in.

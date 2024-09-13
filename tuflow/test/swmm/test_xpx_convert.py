@@ -34,7 +34,9 @@ class TestXpxToSwmmConvert(unittest.TestCase):
             # print(text2)
             subprocess.run(['C:\\Program Files\\git\\cmd\\git.exe',
                             'diff',
-                            '--no-index', first, second], shell=True)
+                            '--no-index',
+                            '--ignore-space-at-eol',
+                            first, second], shell=True)
 
             self.assertEqual(len(text1), len(text2))
             for line_num, (l1, l2) in enumerate(zip(text1, text2)):
@@ -44,7 +46,8 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         messages_json_file = messages_filename_gpkg.with_suffix('.geojson')
         messages_json_file.unlink(missing_ok=True)
 
-        compare_messages_json_file = Path(get_compare_path(f'{messages_filename_gpkg.stem}.geojson'))
+        compare_messages_json_file = Path(get_compare_path(
+            messages_json_file.relative_to(get_output_path(''))))
 
         gdf_messages_loc = gpd.read_file(messages_filename_gpkg, layer='Messages_with_locations')
         gdf_messages_loc.to_file(str(messages_json_file))
@@ -81,8 +84,19 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         tef_filename.unlink(missing_ok=True)
 
         crs = 'EPSG:32760'
-        convert_info = xpx_to_gpkg(urban_input_file, intermediate_file, 1.0, 10.0, gis_layers_file, iu_output_file,
-                                   messages_file, str(bc_dbase_file), default_event, str(tef_filename), crs)
+        convert_info = xpx_to_gpkg(urban_input_file,
+                                   intermediate_file,
+                                   [],
+                                   [],
+                                   1.0,
+                                   10.0,
+                                   gis_layers_file,
+                                   iu_output_file,
+                                   messages_file,
+                                   str(bc_dbase_file),
+                                   default_event,
+                                   str(tef_filename),
+                                   crs)
 
         # Happens in xpx_to_gpkg now
         # print('\n\nConverting to inp')
@@ -135,14 +149,26 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         tef_filename.unlink(missing_ok=True)
 
         crs = 'EPSG:32760'
-        xpx_to_gpkg(input_file, intermediate_file, 1.0, 10.0, gis_layers_file, iu_output_file, messages_file,
-                    str(bc_dbase_file), default_event, str(tef_filename), crs)
+        xpx_to_gpkg(input_file,
+                    intermediate_file,
+                    [],
+                    [],
+                    1.0,
+                    10.0,
+                    gis_layers_file,
+                    iu_output_file,
+                    messages_file,
+                    str(bc_dbase_file),
+                    default_event,
+                    str(tef_filename),
+                    crs)
 
         self.compare_files(compare_file, output_file)
 
         self.compare_messages_file(messages_file)
 
     def test_natural_channel1(self):
+        # Note this testcase has hydrology turned off so subcatchments, raingages, and curves do not copy over
         input_file = get_input_full_filenames(
             [
                 'xpx_natural_channel_01.xpx',
@@ -172,8 +198,19 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         tef_filename.unlink(missing_ok=True)
 
         crs = 'EPSG:32760'
-        xpx_to_gpkg(input_file, intermediate_file, 1.0, 10.0, gis_layers_file, iu_output_file, messages_file,
-                    str(bc_dbase_file), default_event, str(tef_filename), crs)
+        xpx_to_gpkg(input_file,
+                    intermediate_file,
+                    [],
+                    [],
+                    1.0,
+                    10.0,
+                    gis_layers_file,
+                    iu_output_file,
+                    messages_file,
+                    str(bc_dbase_file),
+                    default_event,
+                    str(tef_filename),
+                    crs)
 
         self.compare_files(compare_file, output_file)
 
@@ -213,8 +250,19 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         tef_filename.unlink(missing_ok=True)
 
         crs = 'EPSG:32760'
-        xpx_to_gpkg(input_file, intermediate_file, 1.0, 10.0, gis_layers_file, iu_output_file, output_messages_file,
-                    str(bc_dbase_file), default_event, str(tef_filename), crs)
+        xpx_to_gpkg(input_file,
+                    intermediate_file,
+                    [],
+                    [],
+                    1.0,
+                    10.0,
+                    gis_layers_file,
+                    iu_output_file,
+                    output_messages_file,
+                    str(bc_dbase_file),
+                    default_event,
+                    str(tef_filename),
+                    crs)
         self.compare_files(compare_file, output_file)
 
         self.compare_messages_file(output_messages_file)
@@ -249,8 +297,19 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         tef_filename.unlink(missing_ok=True)
 
         crs = 'EPSG:32760'
-        xpx_to_gpkg(input_file, intermediate_file, 1.0, 10.0, gis_layers_file, iu_output_file, messages_file,
-                    str(bc_dbase_file), default_event, str(tef_filename), crs)
+        xpx_to_gpkg(input_file,
+                    intermediate_file,
+                    [],
+                    [],
+                    1.0,
+                    10.0,
+                    gis_layers_file,
+                    iu_output_file,
+                    messages_file,
+                    str(bc_dbase_file),
+                    default_event,
+                    str(tef_filename),
+                    crs)
 
         self.compare_files(compare_file, output_file)
 
@@ -286,8 +345,19 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         tef_filename.unlink(missing_ok=True)
 
         crs = 'EPSG:32760'
-        xpx_to_gpkg(input_file, intermediate_file, 1.0, 10.0, gis_layers_file, iu_output_file, messages_file,
-                    str(bc_dbase_file), default_event, str(tef_filename), crs)
+        xpx_to_gpkg(input_file,
+                    intermediate_file,
+                    [],
+                    [],
+                    1.0,
+                    10.0,
+                    gis_layers_file,
+                    iu_output_file,
+                    messages_file,
+                    str(bc_dbase_file),
+                    default_event,
+                    str(tef_filename),
+                    crs)
 
         self.compare_files(compare_file, output_file)
 
@@ -323,8 +393,19 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         tef_filename.unlink(missing_ok=True)
 
         crs = 'EPSG:32760'
-        xpx_to_gpkg(input_file, intermediate_file, 1.0, 10.0, gis_layers_file, iu_output_file, messages_file,
-                    str(bc_dbase_file), default_event, str(tef_filename), crs)
+        xpx_to_gpkg(input_file,
+                    intermediate_file,
+                    [],
+                    [],
+                    1.0,
+                    10.0,
+                    gis_layers_file,
+                    iu_output_file,
+                    messages_file,
+                    str(bc_dbase_file),
+                    default_event,
+                    str(tef_filename),
+                    crs)
 
         self.compare_files(compare_file, output_file)
 
@@ -361,8 +442,19 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         tef_filename.unlink(missing_ok=True)
 
         crs = 'EPSG:32760'
-        convert_info = xpx_to_gpkg(urban_input_file, intermediate_file, 1.0, 10.0, gis_layers_file, iu_output_file,
-                                   messages_file, str(bc_dbase_file), default_event, str(tef_filename), crs)
+        convert_info = xpx_to_gpkg(urban_input_file,
+                                   intermediate_file,
+                                   [],
+                                   [],
+                                   1.0,
+                                   10.0,
+                                   gis_layers_file,
+                                   iu_output_file,
+                                   messages_file,
+                                   str(bc_dbase_file),
+                                   default_event,
+                                   str(tef_filename),
+                                   crs)
 
         # Happens in xpx_to_gpkg now
         # print('\n\nConverting to inp')
@@ -386,7 +478,7 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         self.assertListEqual(convert_info['Timeseries_curves'],
                              [
                                  'Rainfall'
-                              ])
+                             ])
 
     def test_infiltration_curvenumber(self):
         prefix = 'xpx_Site_Drainage_Model_curve_number'
@@ -419,8 +511,19 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         tef_filename.unlink(missing_ok=True)
 
         crs = 'EPSG:32760'
-        convert_info = xpx_to_gpkg(urban_input_file, intermediate_file, 1.0, 10.0, gis_layers_file, iu_output_file,
-                                   messages_file, str(bc_dbase_file), default_event, str(tef_filename), crs)
+        convert_info = xpx_to_gpkg(urban_input_file,
+                                   intermediate_file,
+                                   [],
+                                   [],
+                                   1.0,
+                                   10.0,
+                                   gis_layers_file,
+                                   iu_output_file,
+                                   messages_file,
+                                   str(bc_dbase_file),
+                                   default_event,
+                                   str(tef_filename),
+                                   crs)
 
         # Happens in xpx_to_gpkg now
         # print('\n\nConverting to inp')
@@ -461,8 +564,19 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         tef_filename.unlink(missing_ok=True)
 
         crs = 'EPSG:32760'
-        convert_info = xpx_to_gpkg(urban_input_file, intermediate_file, 1.0, 10.0, gis_layers_file, iu_output_file,
-                                   messages_file, str(bc_dbase_file), default_event, str(tef_filename), crs)
+        convert_info = xpx_to_gpkg(urban_input_file,
+                                   intermediate_file,
+                                   [],
+                                   [],
+                                   1.0,
+                                   10.0,
+                                   gis_layers_file,
+                                   iu_output_file,
+                                   messages_file,
+                                   str(bc_dbase_file),
+                                   default_event,
+                                   str(tef_filename),
+                                   crs)
 
         # Happens in xpx_to_gpkg now
         # print('\n\nConverting to inp')
@@ -503,8 +617,127 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         tef_filename.unlink(missing_ok=True)
 
         crs = 'EPSG:32760'
-        convert_info = xpx_to_gpkg(urban_input_file, intermediate_file, 1.0, 10.0, gis_layers_file, iu_output_file,
-                                   messages_file, str(bc_dbase_file), default_event, str(tef_filename), crs)
+        convert_info = xpx_to_gpkg(urban_input_file,
+                                   intermediate_file,
+                                   [],
+                                   [],
+                                   1.0,
+                                   10.0,
+                                   gis_layers_file,
+                                   iu_output_file,
+                                   messages_file,
+                                   str(bc_dbase_file),
+                                   default_event,
+                                   str(tef_filename),
+                                   crs)
+
+        # Happens in xpx_to_gpkg now
+        # print('\n\nConverting to inp')
+        # gis_to_swmm(lid_intermediate_file, lid_output_file)
+
+        self.compare_files(compare_file, output_file)
+
+        self.compare_messages_file(messages_file)
+
+    def test_matt_bugs_001(self):
+        folder_name = 'xpswmm_convert\\matt_bugs'
+        prefix = 'xpx_bugs_from_matt'
+        urban_input_file = get_input_full_filenames(
+            [
+                f'{folder_name}\\{prefix}.xpx',
+            ]
+        )[0]
+        intermediate_file = get_output_path(f'{folder_name}\\{prefix}_out.gpkg')
+        output_file = Path(intermediate_file).with_suffix('.inp')
+        Path(intermediate_file).unlink(missing_ok=True)
+        output_file.unlink(missing_ok=True)
+        compare_file = get_compare_path(f'{folder_name}\\{prefix}_out.inp')
+
+        gis_layers_file = Path(get_output_path(f'{folder_name}\\{prefix}_gislayers_out.gpkg'))
+
+        iu_output_file = Path(get_output_path(f'{folder_name}\\{prefix}_iu_out.gpkg'))
+        iu_output_file.unlink(missing_ok=True)
+        # iu_compare_file = get_compare_path('xpx_urban_iu_001_out.inp')
+
+        messages_file = Path(get_output_path(f'{folder_name}\\{prefix}_out_messages.gpkg'))
+
+        bc_dbase_folder = Path(get_output_path(f'{folder_name}\\{prefix}_bc_dbase\\'))
+        shutil.rmtree(bc_dbase_folder, ignore_errors=True)
+        bc_dbase_file = bc_dbase_folder / 'bc_dbase.txt'
+
+        default_event = 'default'
+
+        tef_filename = Path(get_output_path(f'{folder_name}\\{prefix}_out.tef'))
+        tef_filename.unlink(missing_ok=True)
+
+        crs = 'EPSG:32760'
+        convert_info = xpx_to_gpkg(urban_input_file,
+                                   intermediate_file,
+                                   [],
+                                   [],
+                                   1.0,
+                                   10.0,
+                                   gis_layers_file,
+                                   iu_output_file,
+                                   messages_file,
+                                   str(bc_dbase_file),
+                                   default_event,
+                                   str(tef_filename),
+                                   crs)
+
+        # Happens in xpx_to_gpkg now
+        # print('\n\nConverting to inp')
+        # gis_to_swmm(lid_intermediate_file, lid_output_file)
+
+        self.compare_files(compare_file, output_file)
+
+        self.compare_messages_file(messages_file)
+
+    def test_matt_bugs_002(self):
+        folder_name = 'xpswmm_convert\\matt_bugs'
+        prefix = 'xpx_bug_nonnumeric_return_period'
+        urban_input_file = get_input_full_filenames(
+            [
+                f'{folder_name}\\{prefix}.xpx',
+            ]
+        )[0]
+        intermediate_file = get_output_path(f'{folder_name}\\{prefix}_out.gpkg')
+        output_file = Path(intermediate_file).with_suffix('.inp')
+        Path(intermediate_file).unlink(missing_ok=True)
+        output_file.unlink(missing_ok=True)
+        compare_file = get_compare_path(f'{folder_name}\\{prefix}_out.inp')
+
+        gis_layers_file = Path(get_output_path(f'{folder_name}\\{prefix}_gislayers_out.gpkg'))
+
+        iu_output_file = Path(get_output_path(f'{folder_name}\\{prefix}_iu_out.gpkg'))
+        iu_output_file.unlink(missing_ok=True)
+        # iu_compare_file = get_compare_path('xpx_urban_iu_001_out.inp')
+
+        messages_file = Path(get_output_path(f'{folder_name}\\{prefix}_out_messages.gpkg'))
+
+        bc_dbase_folder = Path(get_output_path(f'{folder_name}\\{prefix}_bc_dbase\\'))
+        shutil.rmtree(bc_dbase_folder, ignore_errors=True)
+        bc_dbase_file = bc_dbase_folder / 'bc_dbase.txt'
+
+        default_event = 'default'
+
+        tef_filename = Path(get_output_path(f'{folder_name}\\{prefix}_out.tef'))
+        tef_filename.unlink(missing_ok=True)
+
+        crs = 'EPSG:32760'
+        convert_info = xpx_to_gpkg(urban_input_file,
+                                   intermediate_file,
+                                   [],
+                                   [],
+                                   1.0,
+                                   10.0,
+                                   gis_layers_file,
+                                   iu_output_file,
+                                   messages_file,
+                                   str(bc_dbase_file),
+                                   default_event,
+                                   str(tef_filename),
+                                   crs)
 
         # Happens in xpx_to_gpkg now
         # print('\n\nConverting to inp')

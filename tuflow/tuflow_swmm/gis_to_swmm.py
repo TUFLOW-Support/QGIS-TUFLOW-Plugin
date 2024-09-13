@@ -18,6 +18,7 @@ except ImportError:
 has_gpd = False
 try:
     import geopandas as gpd
+
     has_gpd = True
 except ImportError:
     pass  # defaulted to false
@@ -121,8 +122,10 @@ def gis_to_swmm(gpkg_filename,
                 feedback=ScreenProcessingFeedback()):
     folder = Path(gpkg_filename).parent
 
+    feedback.pushInfo(f'\nConverting SWMM GPKG to inp: {output_filename}')
+
     # extract the node geometry from all the node sections
-    feedback.pushInfo('Processing Geometry')
+    feedback.pushInfo('\nProcessing Geometry')
     df_coords = None
     dfs_nodes = []
     for ns in primary_node_sections:
@@ -305,8 +308,9 @@ def gis_to_swmm(gpkg_filename,
 
             section_text = swmm_io.df_to_swmm_section(df_section,
                                                       out_name,
-                                                      out_name in ['Map'],
-                                                      out_name in ['Curves', 'Timeseries'])
+                                                      out_name in ['Map', 'Dividers'],
+                                                      section.section_type == section.section_type.KEYWORDS
+                                                      or out_name in ['Curves', 'Timeseries'])
             sections.append(section_text)
 
     # Do tags section
@@ -329,7 +333,7 @@ def gis_to_swmm(gpkg_filename,
     feedback.pushInfo('Finished writing file')
 
 
-def add_polyline_node_names(gdf_polylines, gdf_nodes, first_coords, column_name: str) :
+def add_polyline_node_names(gdf_polylines, gdf_nodes, first_coords, column_name: str):
     index = 0 if first_coords else -1
     coords = gdf_polylines["geometry"].apply(lambda g: g.coords[index])
     coords = pd.DataFrame([[x, y] for x, y in coords])
@@ -357,9 +361,9 @@ if __name__ == "__main__":
     pd.set_option('display.width', 200)
 
     files = [
-        #Path(
+        # Path(
         #    r"D:\models\TUFLOW\test_models\SWMM\SanAntonio\Hemisfair-Cesar Chavez Drainage study\BMT\TUFLOW\model\swmm\Hemisfair_Ult-Mata_Labor_subcatchments.gpkg"
-        #)
+        # )
         Path(
             r"D:\models\TUFLOW\test_models\SWMM\internal\Westwood\converted\rev6.gpkg"
         )
@@ -370,7 +374,7 @@ if __name__ == "__main__":
     # files = list(folder.glob(pattern))
 
     for file in files:
-        print(file)
+        # print(file)
         # gpkg_filename = "Culvert_Model_gpkg.gpkg"
         # output_filename = 'SF_complete_outlets_streets_002.inp'
         output_filename = file.with_stem(file.stem + '_converted').with_suffix('.inp')

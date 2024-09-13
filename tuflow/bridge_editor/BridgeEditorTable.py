@@ -11,9 +11,12 @@ import re
 
 class SpinBoxDelegate(QStyledItemDelegate):
     
-    def __init__(self, parent=None, minimum=-99999):
+    def __init__(self, parent=None, minimum=-99999, maximum=99999, increment=1, decimals=3):
         QStyledItemDelegate.__init__(self, parent)
         self.minimum = minimum
+        self.maximum = maximum
+        self.increment = increment
+        self.decimals = decimals
         self.editor = {}
     
     def createEditor(self, parent, option, index):
@@ -26,8 +29,9 @@ class SpinBoxDelegate(QStyledItemDelegate):
             minimum = self.minimum
         editor.setFrame(False)
         editor.setMinimum(minimum)
-        editor.setMaximum(99999)
-        editor.setDecimals(3)
+        editor.setMaximum(self.maximum)
+        editor.setDecimals(self.decimals)
+        editor.setSingleStep(self.increment)
         return editor
     
     def setEditorData(self, editor, index):
@@ -41,7 +45,7 @@ class SpinBoxDelegate(QStyledItemDelegate):
     
     def setModelData(self, editor, model, index):
         editor.interpretText()
-        value = '{0:.3f}'.format(editor.value())
+        value = '{0:.{1}f}'.format(editor.value(), self.decimals)
         model.setData(index, value, Qt.EditRole)
     
     def updateEditorGeometry(self, editor, option, index):

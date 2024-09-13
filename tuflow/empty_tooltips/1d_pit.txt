@@ -1,10 +1,9 @@
-location == Estry Control File (.ecf)
+location == ESTRY Control File (.ecf)
 
 command == Read GIS Pit
 
 description == Defines the location and attributes associated with virtual pipes and pits.
 
-wiki link == https://wiki.tuflow.com/index.php?title=TUFLOW_Empty_Files#ESTRY_Control_file_.28ECF.29
+wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#ESTRY_Control_file_.28ECF.29
 
-manual link == https://downloads.tuflow.com/_archive/TUFLOW/Releases/2018-03/TUFLOW%20Manual.2018-03.pdf
-manual page == 190
+manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/OneD-Domains-1.html#OneD-pit-4

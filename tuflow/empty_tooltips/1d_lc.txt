@@ -1,5 +1,9 @@
-location == Estry Control File (.ecf)
+location == ESTRY Control File (.ecf)
 
 command == Read GIS Table Links
 
 description == Reads links to tabular inputs associated with bridges losses
+
+wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#ESTRY_Control_file_.28ECF.29
+
+manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/OneD-Domains-1.html#Bridges-3

@@ -109,7 +109,7 @@ def create_section_from_gdf(section_name, section_crs, gdf_in, column_mapping):
             gdf_out[missing_col] = [np.nan] * len(gdf_out)
     # order columns same as the template table
     gdf_out = gdf_out[gdf_template.columns]
-    gdf_out.crs = section_crs
+    gdf_out.set_crs(section_crs, allow_override=True)
 
     return gdf_out, layername
 

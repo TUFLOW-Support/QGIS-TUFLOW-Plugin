@@ -1,42 +1,42 @@
 [TITLE]
-;;Title                                      
-;;------------------------------------------ 
+;;Title
+;;------------------------------------------
 Hargreaves ET, snow and groundwater processes
-M. Heineman, CDM Smith, 2018                 
+M. Heineman, CDM Smith, 2018
 
 [OPTIONS]
-;;Option            Value              
-;;----------------  ----------------   
-FLOW_UNITS          cfs                
-INFILTRATION        MODIFIED_HORTON    
-FLOW_ROUTING        STEADY             
-START_DATE          10/01/2009         
-START_TIME          00:00:00           
-REPORT_START_DATE   01/01/1920         
-REPORT_START_TIME   00:00:00           
-END_DATE            09/30/2010         
-END_TIME            00:00:00           
-REPORT_STEP         01:00:00           
-WET_STEP            00:15:00           
-DRY_STEP            03:00:00           
-ROUTING_STEP        0:15:00            
+;;Option            Value
+;;----------------  ----------------
+FLOW_UNITS          cfs
+INFILTRATION        MODIFIED_HORTON
+FLOW_ROUTING        STEADY
+START_DATE          10/01/2009
+START_TIME          00:00:00
+REPORT_START_DATE   01/01/1920
+REPORT_START_TIME   00:00:00
+END_DATE            09/30/2010
+END_TIME            00:00:00
+REPORT_STEP         01:00:00
+WET_STEP            00:15:00
+DRY_STEP            03:00:00
+ROUTING_STEP        0:15:00
 
 [EVAPORATION]
-;;Format            Param1              Param2              Param3              Param4              Param5              Param6              Param7              Param8              Param9              Param10             Param11             Param12            
-;;CONSTANT          evap               
-;;MONTHLY           e1                  e2                  e3                  e4                  e5                  e6                  e7                  e8                  e9                  e10                 e11                 e12                
-;;TIMESERIES        Tseries            
-;;TEMPERATURE      
-;;FILE              p1                  p2                  p3                  p4                  p5                  p6                  p7                  p8                  p9                  p10                 p11                 p12                
-;;RECOVERY          patternId          
-;;DRY_ONLY          DryYesNo           
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
-DRY_ONLY            NO                                                                                                                                                                                                                                             
-TEMPERATURE                                                                                                                                                                                                                                                        
+;;Format            Param1              Param2              Param3              Param4              Param5              Param6              Param7              Param8              Param9              Param10             Param11             Param12
+;;CONSTANT          evap
+;;MONTHLY           e1                  e2                  e3                  e4                  e5                  e6                  e7                  e8                  e9                  e10                 e11                 e12
+;;TIMESERIES        Tseries
+;;TEMPERATURE
+;;FILE              p1                  p2                  p3                  p4                  p5                  p6                  p7                  p8                  p9                  p10                 p11                 p12
+;;RECOVERY          patternId
+;;DRY_ONLY          DryYesNo
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------
+DRY_ONLY            NO
+TEMPERATURE
 
 [TEMPERATURE]
-;;Option            Value              
-;;----------------  ----------------   
+;;Option            Value
+;;----------------  ----------------
 FILE                "BostonTemperature.txt"
 WINDSPEED           MONTHLY  13.7 13.7 13.6 13.1 12 11.4 11 10.8 11.3 11.9 12.7 13.4
 SNOWMELT            32 0.5 0.6 20 42.3 -16
@@ -44,73 +44,74 @@ ADC                 IMPERVIOUS     0.10 0.35 0.53 0.66 0.75 0.82 0.87 0.92 0.95 
 ADC                 PERVIOUS       0.10 0.35 0.53 0.66 0.75 0.82 0.87 0.92 0.95 0.98
 
 [RAINGAGES]
-;;Name              Form                Intvl               SnowCatchDeficiency Format              Param1              Param2              Param3             
-;;                                                                              TIMESERIES          Tseries            
-;;                                                                              FILE                Fname               Sta                 Units              
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
-Logan               VOLUME              1:00                1.0                 FILE                "190770BostonNCDC.dat" *                   IN                 
+;;Name              Form                Intvl               SnowCatchDeficiency Format              Param1              Param2              Param3
+;;                                                                              TIMESERIES          Tseries
+;;                                                                              FILE                Fname               Sta                 Units
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------
+Logan               VOLUME              1:00                1.0                 FILE                "190770BostonNCDC.dat" *                   IN
 
 [SNOWPACKS]
-;;Name              Type                Param1              Param2              Param3              Param4              Param5              Param6              Param7             
-;;                  PLOWABLE            Cmin                Cmax                Tbase               FWF                 SD0                 FW0                 SNN0               
-;;                  IMPERVIOUS          Cmin                Cmax                Tbase               FWF                 SD0                 FW0                 SD100              
-;;                  PERVIOUS            Cmin                Cmax                Tbase               FWF                 SD0                 FW0                 SD100              
-;;                  REMOVAL             Dplow               Fout                Fimp                Fperv               Fimelt              Fsub                Scatch             
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
-TypicalSnowPack     PLOWABLE            0.001               0.003               30.0                0.2                 0.0                 0.0                 0.226              
-TypicalSnowPack     IMPERVIOUS          0.001               0.003               30.0                0.2                 0.0                 0.0                 0.0                
-TypicalSnowPack     PERVIOUS            0.0008              0.0015              30.0                0.2                 0.0                 0.0                 0.0                
-TypicalSnowPack     REMOVAL             0.1                 0.0                 0.0                 1.0                 0.0                 0.0                                    
+;;Name              Type                Param1              Param2              Param3              Param4              Param5              Param6              Param7
+;;                  PLOWABLE            Cmin                Cmax                Tbase               FWF                 SD0                 FW0                 SNN0
+;;                  IMPERVIOUS          Cmin                Cmax                Tbase               FWF                 SD0                 FW0                 SD100
+;;                  PERVIOUS            Cmin                Cmax                Tbase               FWF                 SD0                 FW0                 SD100
+;;                  REMOVAL             Dplow               Fout                Fimp                Fperv               Fimelt              Fsub                Scatch
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------
+TypicalSnowPack     PLOWABLE            0.001               0.003               30.0                0.2                 0.0                 0.0                 0.226
+TypicalSnowPack     IMPERVIOUS          0.001               0.003               30.0                0.2                 0.0                 0.0                 0.0
+TypicalSnowPack     PERVIOUS            0.0008              0.0015              30.0                0.2                 0.0                 0.0                 0.0
+TypicalSnowPack     REMOVAL             0.1                 0.0                 0.0                 1.0                 0.0                 0.0
 
 [SUBCATCHMENTS]
-;;Name              Rain Gage           Outlet              Area                PctImperv           Width               PctSlope            CurbLen             SnowPack           
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
-Boston              Logan               2                   640.0               30.0                640.0               0.2                 0.0                 TypicalSnowPack    
+;;Name              Rain Gage           Outlet              Area                PctImperv           Width               PctSlope            CurbLen             SnowPack
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------
+Boston              Logan               2                   640.0               30.0                640.0               0.2                 0.0                 TypicalSnowPack
 
 [SUBAREAS]
-;;Subcatchment      Nimp                Nperv               Simp                Sperv               PctZero             RouteTo             PctRouted          
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
-Boston              0.05                0.1                 0.05                0.1                 25.0                PERVIOUS            70.0               
+;;Subcatchment      Nimp                Nperv               Simp                Sperv               PctZero             RouteTo             PctRouted
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------
+Boston              0.05                0.1                 0.05                0.1                 25.0                PERVIOUS            70.0
 
 [INFILTRATION]
-;;Subcatchment      p1                  p2                  p3                  p4                  p5                  Method             
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
-Boston              3.5                 0.05                2.0                 7.0                 0.0                                    
+;;Subcatchment      p1                  p2                  p3                  p4                  p5                  Method
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------
+Boston              3.5                 0.05                2.0                 7.0                 0.0
 
 [AQUIFERS]
-;;Name              Por                 WP                  FC                  Ksat                Kslope              Tslope              ETu                 ETs                 Seep                Ebot                Egw                 Umc                 ETupat             
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
-Boston              0.46                0.13                0.23                1.0                 5.0                 0.0                 0.5                 15.0                0.002               0.1                 3.9                 0.23                                   
+;;Name              Por                 WP                  FC                  Ksat                Kslope              Tslope              ETu                 ETs                 Seep                Ebot                Egw                 Umc                 ETupat
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------
+Boston              0.46                0.13                0.23                1.0                 5.0                 0.0                 0.5                 15.0                0.002               0.1                 3.9                 0.23
 
 [GROUNDWATER]
-;;Subcatchment      Aquifer             Node                Esurf               A1                  B1                  A2                  B2                  A3                  Dsw                 Egwt                Ebot                Wgr                 Umc                
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
-Boston              Boston              2                   16.3                0.001               2.0                 0.0                 0.0                 0.0                 0.0                 1.75                                                                           
+;;Subcatchment      Aquifer             Node                Esurf               A1                  B1                  A2                  B2                  A3                  Dsw                 Egwt                Ebot                Wgr                 Umc
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------
+Boston              Boston              2                   16.3                0.001               2.0                 0.0                 0.0                 0.0                 0.0                 1.75
 
 [OUTFALLS]
-;;Name              Elev                Type                Param1              Gated               RouteTo            
-;;                                      FREE                Gated               RouteTo            
-;;                                      FIXED               Stage               Gated               RouteTo            
-;;                                      TIDAL               Tcurve              Gated               RouteTo            
-;;                                      TIMESERIES          Tseries             Gated               RouteTo            
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
-2                   0.0                 FREE                                                                           
+;;Name              Elev                Type                Param1              Gated               RouteTo
+;;                                      FREE                                    Gated               RouteTo
+;;                                      NORMAL                                  Gated               RouteTo
+;;                                      FIXED               Stage               Gated               RouteTo
+;;                                      TIDAL               Tcurve              Gated               RouteTo
+;;                                      TIMESERIES          Tseries             Gated               RouteTo
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------
+2                   0.0                 FREE
 
 [SYMBOLS]
-;;Gage              X-Coord             Y-Coord            
-;;----------------  ----------------    ----------------   
-Logan               4697.466            7061.646           
+;;Gage              X-Coord             Y-Coord
+;;----------------  ----------------    ----------------
+Logan               4697.466            7061.646
 
 [COORDINATES]
-;;Name              X-Coord             Y-Coord            
-;;----------------  ----------------    ----------------   
-2                   4697.467            7061.524           
+;;Name              X-Coord             Y-Coord
+;;----------------  ----------------    ----------------
+2                   4697.467            7061.524
 
 [POLYGONS]
-;;Name              X-Coord             Y-Coord            
-;;----------------  ----------------    ----------------   
-Boston              4697.432            7061.551           
-Boston              4697.512            7061.551           
-Boston              4697.512            7061.631           
-Boston              4697.432            7061.631           
+;;Name              X-Coord             Y-Coord
+;;----------------  ----------------    ----------------
+Boston              4697.432            7061.551
+Boston              4697.512            7061.551
+Boston              4697.512            7061.631
+Boston              4697.432            7061.631
 

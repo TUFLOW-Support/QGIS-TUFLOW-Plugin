@@ -1068,6 +1068,41 @@ class ResData():
 	ResData class for reading and processing results
 	"""
 
+	def __init__(self):
+		self.script_version = version
+		self.filename = None
+		self.fpath = None
+		self.nTypes = 0
+		self.Types = []
+		self.LP = LP()
+		self.Data_1D = Data_1D()
+		self.Data_2D = Data_2D()
+		self.Data_RL = Data_RL()
+		self.GIS = GIS()
+		self.formatVersion = None
+		self.units = None
+		self.displayname = None
+		self.Index = PlotObjects(None)
+		self.nodes = NodeInfo(None) #contains 1D node information if it
+		self.Channels = ChanInfo(None) #contains 1D channel information if it
+
+		# 2019 release additions for netcdf output format
+		self.resFileFormat = "CSV"
+		self.netcdf_fpath = ""
+		self.netCDFLibPath = None
+		self.netCDFLib = None
+		self.ncdll = None
+		self.ncid = ctypes.c_int(0)
+		self.ncopen = None
+		self.ncDims = []
+		self.ncVars = []
+
+		self.reference_time = None
+		self.has_reference_time = False
+		self._tmp_reference_time = None
+
+		self.supports_new_profile_plot = False
+
 	def __eq__(self, other):
 		if type(other) is type(self):
 			return self.fpath == other.fpath
@@ -2209,8 +2244,13 @@ class ResData():
 		return error, message
 
 	def LP_getData(self,dat_type,time,dt_tol):
+
 		error = False
 		message = None
+		if isinstance(self.times, numpy.ndarray) and self.times.dtype != numpy.float64:
+			self.times = self.times.astype(numpy.float64)
+		elif isinstance(self.times, list) and self.times and not isinstance(self.times[0], float):
+			self.times = [float(t) for t in self.times]
 		dt_abs = abs(self.times - time)
 		t_ind = dt_abs.argmin()
 		if (self.times[t_ind] - time)>dt_tol:
@@ -2251,39 +2291,6 @@ class ResData():
 			return  error, message
 
 		return error, message
-
-	def __init__(self):
-		self.script_version = version
-		self.filename = None
-		self.fpath = None
-		self.nTypes = 0
-		self.Types = []
-		self.LP = LP()
-		self.Data_1D = Data_1D()
-		self.Data_2D = Data_2D()
-		self.Data_RL = Data_RL()
-		self.GIS = GIS()
-		self.formatVersion = None
-		self.units = None
-		self.displayname = None
-		self.Index = PlotObjects(None)
-		self.nodes = NodeInfo(None) #contains 1D node information if it
-		self.Channels = ChanInfo(None) #contains 1D channel information if it
-
-		# 2019 release additions for netcdf output format
-		self.resFileFormat = "CSV"
-		self.netcdf_fpath = ""
-		self.netCDFLibPath = None
-		self.netCDFLib = None
-		self.ncdll = None
-		self.ncid = ctypes.c_int(0)
-		self.ncopen = None
-		self.ncDims = []
-		self.ncVars = []
-
-		self.reference_time = None
-		self.has_reference_time = False
-		self._tmp_reference_time = None
 
 	def getResFileFormat(self):
 		try:
@@ -4172,3 +4179,6 @@ class ResData():
 		
 		else:
 			return (None, None)
+
+	def getGeometry(self):
+		pass

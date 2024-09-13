@@ -4,6 +4,8 @@ import pandas as pd
 import subprocess
 import unittest
 
+from tuflow_swmm.gis_messages import GisMessages
+
 try:
     from pathlib import Path
 except ImportError:
@@ -13,6 +15,7 @@ from test.swmm.test_files import get_compare_path, get_output_path, get_input_fu
 
 from tuflow.tuflow_swmm.create_bc_connections_gpd import create_bc_connections_gpd
 from tuflow.tuflow_swmm.gis_to_swmm import gis_to_swmm
+from tuflow.tuflow_swmm.gis_messages import GisMessages
 
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_rows', 50)
@@ -52,6 +55,8 @@ class TestSWMMDownstreamJunctionsToOutfalls(unittest.TestCase):
 
         gdf_outfalls = gpd.read_file(input_filename, layer='Outfalls')
 
+        gis_messages = GisMessages()
+
         gdf_bc_connections = create_bc_connections_gpd(
             gdf_all_links,
             gdf_outfalls,
@@ -59,6 +64,7 @@ class TestSWMMDownstreamJunctionsToOutfalls(unittest.TestCase):
             2.0,
             15.0,
             True,
+            gis_messages,
         )
 
         gdf_bc_connections.to_file(output_filename, driver='GeoJSON')
@@ -76,6 +82,8 @@ class TestSWMMDownstreamJunctionsToOutfalls(unittest.TestCase):
 
         gdf_junctions = gpd.read_file(input_filename, layer='Junctions')
 
+        gis_messages = GisMessages()
+
         gdf_bc_connections = create_bc_connections_gpd(
             gdf_all_links,
             gdf_junctions,
@@ -83,6 +91,7 @@ class TestSWMMDownstreamJunctionsToOutfalls(unittest.TestCase):
             2.0,
             15.0,
             True,
+            gis_messages,
         )
 
         gdf_bc_connections.to_file(output_filename, driver='GeoJSON')

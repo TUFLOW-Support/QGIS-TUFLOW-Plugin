@@ -37,6 +37,7 @@ from datetime import datetime
 import sys
 import subprocess
 import dateutil.parser
+import json
 try:
 	from pathlib import Path
 except ImportError:
@@ -1912,6 +1913,7 @@ class tuflowqgis_import_check_dialog(QDialog, Ui_tuflowqgis_import_check):
 #    tuflowqgis extract ARR2016
 # ----------------------------------------------------------
 from .forms.ui_tuflowqgis_arr2016 import *
+from tuflow.ARR2016.arr_cc_dlg import ARRCCDialog
 
 
 class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
@@ -1988,6 +1990,8 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		# min arf
 		minARFValue = float(QSettings().value("ARR2016_min_arf", 0))
 		self.minArf.setValue(minARFValue)
+
+		self.cc_scen = {}
 		
 		# setup browse boxes
 		folderIcon = QgsApplication.getThemeIcon('/mActionFileOpen.svg')
@@ -2030,7 +2034,17 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		self.cbPNIL.clicked.connect(self.probabilityNeutralLosses)
 		self.cbCompleteStorm.clicked.connect(self.toggleCompleteStorm)
 
+		self.pbCCEdit.clicked.connect(self.editCC)
+
 		self.sizeDialog()
+
+	def editCC(self):
+		dlg = ARRCCDialog(self, self.cc_scen)
+		if dlg.exec_():
+			self.cc_scen = dlg.value
+			self.lwCCScen.clear()
+			for key, val in self.cc_scen.items():
+				self.lwCCScen.addItem(key)
 
 	def sizeDialog(self):
 		"""Resize dialog to fit contents"""
@@ -2305,35 +2319,8 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			self.nonstnd_list = self.nonstnd_list.strip('none')
 			
 	def climateChange(self):
-		self.cc_years = 'none'
-		self.cc_rcp = 'none'
-		self.cc = 'false'
-		if self.checkBox_2030.isChecked():
-			self.cc_years += '2030 '
-		if self.checkBox_2040.isChecked():
-			self.cc_years += '2040 '
-		if self.checkBox_2050.isChecked():
-			self.cc_years += '2050 '
-		if self.checkBox_2060.isChecked():
-			self.cc_years += '2060 '
-		if self.checkBox_2070.isChecked():
-			self.cc_years += '2070 '
-		if self.checkBox_2080.isChecked():
-			self.cc_years += '2080 '
-		if self.checkBox_2090.isChecked():
-			self.cc_years += '2090 '
-		if self.checkBox_45rcp.isChecked():
-			self.cc_rcp += '4.5 '
-		if self.checkBox_6rcp.isChecked():
-			self.cc_rcp += '6 '
-		if self.checkBox_85rcp.isChecked():
-			self.cc_rcp += '8.5 '
-		if self.cc_years != 'none':
-			self.cc = 'true'
-			self.cc_years = self.cc_years.strip('none')
-		if self.cc_rcp != 'none':
-			self.cc = 'true'
-			self.cc_rcp = self.cc_rcp.strip('none')
+		self.cc = 'true' if self.lwCCScen.count() > 0 else 'false'
+		self.cc_param = json.dumps(self.cc_scen)
 			
 	def check(self):
 		"""Do some basic checks on inputs before trying to run"""
@@ -2351,13 +2338,6 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			QMessageBox.critical(self, "ARR2016 to TUFLOW", "Must select at least one duration")
 			return
 		self.climateChange()
-		if self.cc == 'true':
-			if self.cc_years == 'none':
-				QMessageBox.critical(self, "ARR2016 to TUFLOW", "Must select a year when calculating climate change")
-				return
-			if self.cc_rcp == 'none':
-				QMessageBox.critical(self, "ARR2016 to TUFLOW", "Must select a RCP when calculating climate change")
-				return
 		if self.lePTP.text():
 			if not os.path.exists(self.lePTP.text()):
 				QMessageBox.critical(self, "ARR2016 to TUFLOW", "Point Temporal Pattern CSV does not exist")
@@ -2662,8 +2642,7 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			sys_args = ['python3', script, '-out', outFolder, '-name', name_list[i], 
 						'-coords', centroid_list[i][0], centroid_list[i][1], '-mag', self.AEP_list,
 						'-frequent', self.frequent_events, '-rare', self.rare_events, '-dur', self.dur_list,
-						'-nonstnd', self.nonstnd_list, '-area', area_list[i], '-cc', self.cc, '-year', self.cc_years,
-						'-rcp', self.cc_rcp, '-format', format, '-catchment_no', str(i),
+						'-nonstnd', self.nonstnd_list, '-area', area_list[i], '-format', format, '-catchment_no', str(i),
 						'-output_notation', output_notation, '-preburst', preburst, '-lossmethod', ilMethod,
 						'-mar', mar, '-lossvalue', staticValue, '-minarf', minArf, '-addtp', addTp,
 			            '-tuflow_loss_method', tuflowLossMethod, '-point_tp', point_tp_csv, '-areal_tp', areal_tp_csv,
@@ -2677,7 +2656,8 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			            '-preburst_dur_proportional', preburst_proportional,
 			            '-global_continuing_loss', globalCL,
 			            '-limb', limb,
-						'-all_point_tp', all_point_tp, '-add_areal_tp', add_areal_tp]
+						'-all_point_tp', all_point_tp, '-add_areal_tp', add_areal_tp,
+						'-cc', self.cc, '-cc_param', self.cc_param]
 			self.arr2016.append(sys_args, name_list[i])
 			
 		self.arr2016.moveToThread(self.thread)

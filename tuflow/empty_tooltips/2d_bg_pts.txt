@@ -3,3 +3,7 @@ location == Geometry Control File (.tgc)
 command == Read GIS BG Shape
 
 description == Used for 2D flow constrictions to represent additional losses associated with bridges or box culverts. This input includes accounts for flow above and below the bridge obvert (soffit).
+
+wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#TUFLOW_Geometry_Control_file_.28TGC.29
+
+manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/TwoD-Domains-1.html#tab:tab-BridgePointAttributeDescriptions

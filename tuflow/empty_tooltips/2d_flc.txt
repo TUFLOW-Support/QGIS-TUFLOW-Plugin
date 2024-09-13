@@ -4,7 +4,6 @@ command == Read GIS FLC
 
 description == Used to apply an additional energy loss at the 2D cell side. The form or energy loss can be applied as fixed values or on a form loss per unit length basis.
 
-wiki link == https://wiki.tuflow.com/index.php?title=TUFLOW_Empty_Files#TUFLOW_Geometry_Control_file_.28TGC.29
+wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#TUFLOW_Geometry_Control_file_.28TGC.29
 
-manual link == https://downloads.tuflow.com/_archive/TUFLOW/Releases/2018-03/TUFLOW%20Manual.2018-03.pdf
-manual page == 279
+manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/TwoD-Domains-1.html#flc-4

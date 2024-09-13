@@ -4,7 +4,6 @@ command == Read GIS Z Shape
 
 description == Used to update topography within a model. Polylines are treated as breaklines in the model’s topography (with the breakline height or elevation varying along its length). Polygons and point features can be used to create TINs which are either independent of, or alternatively merge with the surrounding topography.
 
-wiki link == https://wiki.tuflow.com/index.php?title=TUFLOW_Empty_Files#TUFLOW_Geometry_Control_file_.28TGC.29
+wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#TUFLOW_Geometry_Control_file_.28TGC.29
 
-manual link == https://downloads.tuflow.com/_archive/TUFLOW/Releases/2018-03/TUFLOW%20Manual.2018-03.pdf
-manual page == 248
+manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/TwoD-Domains-1.html#tab:tab-ZShapeAttribute

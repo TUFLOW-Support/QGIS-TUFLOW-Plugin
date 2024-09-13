@@ -4,7 +4,6 @@ command == Read GIS Variable Z Shape
 
 description == Used to define the final 3D shape of the Zpts at the completion of a breach, or other change in topographic shape, during a simulation.
 
-wiki link == https://wiki.tuflow.com/index.php?title=TUFLOW_Empty_Files#TUFLOW_Geometry_Control_file_.28TGC.29
+wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#TUFLOW_Geometry_Control_file_.28TGC.29
 
-manual link == https://downloads.tuflow.com/_archive/TUFLOW/Releases/2018-03/TUFLOW%20Manual.2018-03.pdf
-manual page == 251
+manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/TwoD-Domains-1.html#tab:tab-twoDVariable

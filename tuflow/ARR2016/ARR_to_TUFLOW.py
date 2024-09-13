@@ -2,8 +2,7 @@
 import os
 import sys
 from datetime import datetime
-import ARR_WebRes
-import BOM_WebRes
+
 import logging
 from ARR_TUFLOW_func_lib import get_args, tpRegion_coords
 pythonV = sys.version_info[0]
@@ -14,8 +13,14 @@ elif pythonV == 2:
 import requests, zipfile, io, json
 import traceback
 
+
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))  # this script is always called through cmd so this will only be temporary
+sys.path.append(os.path.dirname(__file__))  # this script is always called through cmd so this will only be temporary
 from __version__ import version
+
+from ARR2016.arr_settings import ArrSettings
+from ARR2016.ARR_WebRes import Arr
+from ARR2016.BOM_WebRes import Bom
 
 
 # remote debugging
@@ -28,6 +33,7 @@ sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\helpers\pydev')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\plugins\python\helpers\pydev')
 
+settings = ArrSettings.get_instance()
 build_type, version = version()
 now = datetime.now()
 disclaimer = 'This plugin is provided free of charge as a tool to automate the process of obtaining hydrologic data\n' \
@@ -50,8 +56,9 @@ output_notation = 'ari'  # controls output notation e.g. output as 1p_60m or 100
 frequent_events = False  # set to true to include frequent events (12EY - 0.2EY)
 rare_events = False  # set to true to include rare events (1 in 200 - 1 in 2000)
 cc = True  # Set to True to output climate change
-cc_years = [2090]  # climate change years. List object [year(int)] e.g. [2090]
-cc_RCP = ['RCP8.5']  # Representative Concentration Pathways. List object [RCP(str)] e.g. ['RCP8.5']
+cc_param = {}
+cc_years = []  # climate change years. List object [year(int)] e.g. [2090]
+cc_RCP = []  # Representative Concentration Pathways. List object [RCP(str)] e.g. ['RCP8.5']
 preBurst = '50%'  # preburst percentile
 lossMethod = 'interpolate'  # chosen loss method e.g. 60min, interpolate, rahman, hill, static
 mar = 0  # mean annual rainfall - for the rahman loss method
@@ -122,7 +129,7 @@ logger.info('STARTING ARR2019 to TUFLOW SCRIPT\nVersion: {0}\nScript run date: {
             .format(version, now.day, now.month, now.year, now.hour, now.minute, now.second))
 # create argument order map so arguments are always printed in the same order
 arg_map = {'name': 0, 'coords': 1, 'area': 2, 'mag': 3, 'dur': 4, 'nonstnd': 5, 'format': 6, 'output_notation': 7,
-           'frequent': 8, 'rare': 9, 'cc': 10, 'year': 11, 'rcp': 12, 'preburst': 13, 'lossmethod': 14, 'mar': 15,
+           'frequent': 8, 'rare': 9, 'cc': 10, 'cc_param': 11, 'rcp': 12, 'preburst': 13, 'lossmethod': 14, 'mar': 15,
            'lossvalue': 16, 'tuflow_loss_method': 17, 'probability_neutral_losses': 18,
            'complete_storm': 18.1, 'preburst_pattern_method': 18.2, 'preburst_pattern_dur': 18.3,
            'preburst_pattern_tp': 18.4, 'preburst_dur_proportional': 18.5,
@@ -263,6 +270,9 @@ if 'cc' in args.keys():
         cc = True
     else:
         cc = False
+if 'cc_param' in args.keys():
+    if args['cc_param'] and args['cc_param'][0]:
+        cc_param = json.loads(args['cc_param'][0])
 # climate change year
 if 'year' in args.keys():
     cc_years = []
@@ -571,7 +581,7 @@ if access_web:
     logger.info('Done saving file.')
 
 # Load BOM file
-Bom = BOM_WebRes.Bom()
+Bom = Bom()
 Bom.load(bom_raw_fname, frequent_events, rare_events)
 if Bom.error:
     #print('ERROR: {0}'.format(Bom.message))
@@ -674,7 +684,7 @@ if access_web:
 
     if areal_tp_csv is None:
         logger.info('Downloading Areal Temporal Pattern csv...')
-        atpRegion = ARR_WebRes.Arr()
+        atpRegion = Arr()
         atpRegionCode = atpRegion.arealTemporalPatternCode(arr_raw_fname)
         if atpRegionCode:
             try:
@@ -704,7 +714,7 @@ if access_web:
     if point_tp_csv is None:  # only check if user has not specified temporal patterns manually
         #print('Checking Temporal Pattern Region...')
         logger.info('Checking Temporal Pattern Region...')
-        tpRegionCheck = ARR_WebRes.Arr()
+        tpRegionCheck = Arr()
         tpRegion = tpRegionCheck.temporalPatternRegion(arr_raw_fname)
         #print(tpRegion)
         logger.info(tpRegion)
@@ -771,7 +781,7 @@ if access_web:
 
                 # areal tp
                 logger.info('Downloading areal temporal pattern for: {0}'.format(tp))
-                tpRegionCheck = ARR_WebRes.Arr()
+                tpRegionCheck = Arr()
                 tpCode = tpRegionCheck.arealTemporalPatternCode(add_tpFilename)
                 url2 = 'http://data.arr-software.org//static/temporal_patterns/Areal/Areal_{0}.zip'.format(tpCode)
                 req = urllib2.Request(url2, headers=headers)
@@ -793,7 +803,8 @@ if access_web:
 # load from file
 # import pydevd_pycharm
 # pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
-ARR = ARR_WebRes.Arr()
+settings.preburst_percentile = preBurst
+ARR = Arr()
 try:
     ARR.load(arr_raw_fname, catchment_area, add_tp=add_tp, point_tp=point_tp_csv, areal_tp=areal_tp_csv,
              user_initial_loss=user_initial_loss, user_continuing_loss=user_continuing_loss,
@@ -844,7 +855,7 @@ try:
                 duration[len_] = unit
 
     ARR.export(export_path, aep=AEP, dur=duration, name=site_name, format=out_form, bom_data=Bom, climate_change=cc,
-               climate_change_years=cc_years, cc_rcp=cc_RCP, area=catchment_area, frequent=frequent_events,
+               climate_change_years=cc_years, cc_rcp=cc_RCP, cc_param=cc_param, area=catchment_area, frequent=frequent_events,
                rare=rare_events, catch_no=catchment_no, out_notation=output_notation, arf_frequent=ARF_frequent,
                min_arf=min_ARF, preburst=preBurst, lossmethod=lossMethod, mar=mar, staticloss=staticLoss,
                add_tp=add_tp, tuflow_loss_method=tuflow_loss_method, urban_initial_loss=urban_initial_loss,

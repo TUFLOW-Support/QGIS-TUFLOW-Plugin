@@ -67,6 +67,7 @@ def extract_scenarios(gpkg_filenames, scenario_names, output_folder, output_pref
 
             # No common entries - nothing needed
 
+        gdf_common = None
         if len(common_entries) > 0:
             # Use values from first geopackage
             gdf_common = gdfs_section[0][gdfs_section[0]['Name'].isin(common_entries)]
@@ -80,7 +81,10 @@ def extract_scenarios(gpkg_filenames, scenario_names, output_folder, output_pref
             # scenario_entries = set(gdf_section['Name']) - common_entries
 
             # Add any rows that have different values than the common tables
-            gdf_common_plus_scenario = pd.concat([gdf_common, gdf_section], ignore_index=True)
+            if gdf_common is not None:
+                gdf_common_plus_scenario = pd.concat([gdf_common, gdf_section], ignore_index=True)
+            else:
+                gdf_common_plus_scenario = gdf_section
             gdf_modified = gdf_common_plus_scenario.drop_duplicates(ignore_index=True, keep=False)
             # Now drop the first item from each modified row
             gdf_modified = gdf_modified.drop_duplicates(subset=['Name'], keep='last')
@@ -154,4 +158,6 @@ if __name__ == '__main__':
     output_folder = r'D:\models\TUFLOW\test_models\SWMM\WoodardCurran\bmt_2024_07_26\scenarios_out\\'
     output_prefix = 'TO1B'
 
-    extract_scenarios(gpkg_filenames, scenario_names, output_folder, output_prefix)
+    output_control_file_lines = Path(output_folder) / 'control_file_lines.txt'
+
+    extract_scenarios(gpkg_filenames, scenario_names, output_folder, output_prefix, output_control_file_lines)

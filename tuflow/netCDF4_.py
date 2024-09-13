@@ -251,7 +251,7 @@ class Dataset_:
         self._ncdll = load_ncdll()
         if self._ncdll is None:
             raise Exception('Unable to load netCDF c library')
-        self._file = ctypes.c_char_p(str.encode(fpath))
+        self._file = ctypes.c_char_p(str.encode(str(fpath)))
         self._NC_NOWRITE = ctypes.c_int(0)
         self._ncid_p = ctypes.pointer(ctypes.c_int())
         self._ncid = None
@@ -324,6 +324,8 @@ class Dataset_:
                 self.close()
                 raise Exception('Error getting attribute value: {}'.format(NC_Error.message(err)))
             value = ctype_value2value(ctype, len_, NC_DType.np_dtype(dtype))
+            if NC_DType.np_dtype(dtype) in [np.dtype('S1'), dtype == np.dtype('U')] and isinstance(value, np.ndarray):
+                value = b''.join(value.tolist()).decode('utf-8')
 
             atts[name] = value
 

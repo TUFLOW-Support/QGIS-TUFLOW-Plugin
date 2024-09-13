@@ -161,7 +161,8 @@ C11              J11              O1               89.00      0.016      0      
 ;;Name           From Node        To Node          Offset     Type            QTable/Qcoeff    Qexpon     Gated   
 ;;-------------- ---------------- ---------------- ---------- --------------- ---------------- ---------- --------
 ;outlet 4 description
-4                J3               J5               0          FUNCTIONAL/DEPTH 10.0             0.5        NO      
+4                J3               J5               0          FUNCTIONAL/DEPTH 10.0             0.5        NO
+5                J5               J7               0          TABULAR/DEPTH    DummyCurve                  YES
 
 [XSECTIONS]
 ;;Link           Shape        Geom1            Geom2      Geom3      Geom4      Barrels    Culvert   

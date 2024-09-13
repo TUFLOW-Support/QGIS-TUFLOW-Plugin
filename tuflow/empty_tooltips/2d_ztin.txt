@@ -4,5 +4,4 @@ command == Create Tin Zpts
 
 description == Used to update topography within a model.
 
-manual link == https://downloads.tuflow.com/_archive/TUFLOW/Releases/2018-03/TUFLOW%20Manual.2018-03.pdf
-manual page == 237
+manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/TwoD-Domains-1.html#tab:tab-TinAttribute

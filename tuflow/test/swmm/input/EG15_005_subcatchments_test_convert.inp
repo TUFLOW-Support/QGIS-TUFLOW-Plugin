@@ -133,7 +133,7 @@ Rainfall                                3.333               0.0
 ;;Option            Value              
 ;;----------------  ----------------   
 DIMENSIONS          293031.986 6177688.656 293450.169 6178250.962
-Units               None               
+Units               Feet
 
 [COORDINATES]
 ;;Name              X-Coord             Y-Coord            

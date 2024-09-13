@@ -95,7 +95,8 @@ def pit_inlet_dbase_to_df(file_inlet_db, crs, feedback):
                                                              crs,
                                                              df_curve,
                                                              curve_col_mapping)
-        gdf_curve['Type'].iloc[0] = 'RATING'
+        gdf_curve['Type'] = gdf_curve['Type'].astype(str)
+        gdf_curve.loc[gdf_curve.index[0], 'Type'] = 'RATING'
         # print(type(gdf_curve))
         gdf_curves.append(gdf_curve)
 
@@ -123,6 +124,8 @@ def create_curves_from_dfs(curve_type, curve_names, df_curves, crs):
                                                crs,
                                                df,
                                                curve_col_mapping)
+
+        gdf_curve['Type'] = gdf_curve['Type'].astype(str)
         gdf_curve.loc[gdf_curve.index[0], ['Type']] = curve_type
         gdf_curves.append(gdf_curve)
 

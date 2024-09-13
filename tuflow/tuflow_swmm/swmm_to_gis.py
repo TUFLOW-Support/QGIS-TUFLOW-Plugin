@@ -1,15 +1,13 @@
 import os
-import sys
 
 os.environ['USE_PYGEOS'] = '0'
 has_gpd = False
-gpd = None
 try:
     import geopandas as gpd
 
     has_gpd = True
 except ImportError:
-    pass  # defaulted to false
+    gpd = None
 import datetime
 import pandas as pd
 from pathlib import Path
@@ -31,7 +29,8 @@ sections_to_not_write = {
     'Infiltration',
 }
 
-sys.path.append('C:\\Program Files\\git\\cmd\\')
+
+# sys.path.append('C:\\Program Files\\git\\cmd\\')
 
 
 def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feedback=ScreenProcessingFeedback()):
@@ -91,7 +90,6 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
             geometry=gpd.points_from_xy(df_coords['X-Coord'], df_coords['Y-Coord'], crs=crs))
 
     # Get the Link geometries
-    gdf_links = None
     df_verts = dfs.get('Vertices', None)
     if df_verts is not None:
         df_links = df_verts.reset_index()
@@ -189,7 +187,7 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
             if gdf_coords is not None:
                 gdf = df.merge(gdf_coords[['Node', 'geometry']], how='left', left_on=id_col, right_on='Node')
                 if id_col == 'Name':
-                    gdf = gdf.drop(columns={'Node'})
+                    gdf = gdf.drop(columns=['Node'])
                 gdf = gpd.GeoDataFrame(gdf, geometry='geometry')
             else:
                 # we do not have coordinates, do table without geometry
@@ -235,7 +233,6 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
                 swmm_section.section_type != swmm_sections.SectionType.GEOMETRY:
             df = dfs[swmm_section.name]
             id_col = 'Name' if 'Name' in df.columns else 'Subcatchment'
-            gdf = None
             if gdf_polys is None:
                 feedback.pushInfo(f'No polygon geometry found for section {swmm_section.name}')
                 gdf = gpd.GeoDataFrame(df, geometry=[None] * len(df))
@@ -247,7 +244,7 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
     # Merge the XSections table with the conduit, weir, and orifice tables
     if 'Conduits' in gdfs:
         if 'XSections' in dfs:
-            print(dfs['XSections'].columns)
+            # print(dfs['XSections'].columns)
             gdf_conduits2 = gdfs['Conduits'].merge(
                 dfs['XSections'].rename(columns=lambda x: f'xsec_{x}'),
                 how='left',
@@ -258,16 +255,19 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
         else:
             # Add the cross-section columns
             gdfs['Conduits'].loc[:,
-            ['xsec_XsecType',
-             'xsec_Geom1',
-             'xsec_Geom2',
-             'xsec_Geom3',
-             'xsec_Geom4',
-             'xsec_Barrels',
-             'xsec_Culvert',
-             'xsec_Curve',
-             'xsec_Tsect',
-             'xsec_Street']] = None
+            [
+                'xsec_XsecType',
+                'xsec_Geom1',
+                'xsec_Geom2',
+                'xsec_Geom3',
+                'xsec_Geom4',
+                'xsec_Barrels',
+                'xsec_Culvert',
+                'xsec_Curve',
+                'xsec_Tsect',
+                'xsec_Street'
+            ]
+            ] = None
 
         if 'Losses' in dfs:
             gdf_conduits2 = gdfs['Conduits'].merge(
@@ -285,11 +285,11 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
     if 'Weirs' in gdfs:
         if 'XSections' in dfs:
             # Drop the columns we don't need (
-            df_weir_xsecs = dfs['XSections'].drop(columns={'Barrels',
+            df_weir_xsecs = dfs['XSections'].drop(columns=['Barrels',
                                                            'Culvert',
                                                            'Curve',
                                                            'Tsect',
-                                                           'Street'})
+                                                           'Street'])
             gdf_weirs2 = gdfs['Weirs'].merge(
                 df_weir_xsecs.rename(columns=lambda x: f'xsec_{x}'),
                 how='left',
@@ -310,11 +310,14 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
     if 'Orifices' in gdfs:
         if 'XSections' in dfs:
             # Drop the columns we don't need (
-            df_orifice_xsecs = dfs['XSections'].drop(columns={'Barrels',
-                                                              'Culvert',
-                                                              'Curve',
-                                                              'Tsect',
-                                                              'Street'})
+            df_orifice_xsecs = dfs['XSections'].drop(
+                columns=['Barrels',
+                         'Culvert',
+                         'Curve',
+                         'Tsect',
+                         'Street'
+                         ]
+            )
             gdf_orifices2 = gdfs['Orifices'].merge(
                 df_orifice_xsecs.rename(columns=lambda x: f'xsec_{x}'),
                 how='left',
@@ -334,7 +337,6 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
 
     # Merge subcatchment and subarea tables
     if 'Subcatchments' in gdfs:
-        gdf_subareas = None
         if 'Subareas' not in gdfs:
             gdf_subareas, _ = create_section_gdf('Subareas', crs)
         else:
@@ -531,8 +533,8 @@ if __name__ == "__main__":
     #    )
     # ]
 
-    folder = Path(r"D:\models\TUFLOW\test_models\SWMM\q3\GTModel_2024-05-20\BMT\TUFLOW\model\swmm")
-    pattern = '*main_mod.inp'
+    folder = Path(r"D:\support\Arnaud")
+    pattern = '*.inp'
 
     files = list(folder.glob(pattern))
     files = list(filter(lambda x: str(x).find('_conv.inp') == -1, files))
@@ -543,7 +545,8 @@ if __name__ == "__main__":
         output_file.unlink(missing_ok=True)
 
         # Didn't get the right projection
-        # projection_filename = Path(r"D:\models\TUFLOW\test_models\SWMM\internal\SWMM_from_ICM_Models\SF\Projection.prj")
+        # projection_filename =
+        # Path(r"D:\models\TUFLOW\test_models\SWMM\internal\SWMM_from_ICM_Models\SF\Projection.prj")
         # with open(projection_filename, 'r') as projection_file:
         #    crs = projection_file.read()
         #    print(crs)

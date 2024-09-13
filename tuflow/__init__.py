@@ -45,11 +45,14 @@ def icon():
 def qgisMinimumVersion():
     return "3.4"
 
+
 def author():
     return "Phillip Ryan, Ellis Symons"
 
+
 def email():
     return "support@tuflow.com"
+
 
 def openTuview(event, tuflowqgis):
     if Qgis.QGIS_VERSION_INT >= 30400:
@@ -73,18 +76,21 @@ def openTuview(event, tuflowqgis):
             tuflowqgis.resultsPlottingDock.canvas.mapCanvasRefreshed.connect(
                 tuflowqgis.resultsPlottingDock.tuPlot.updateCurrentPlot)
 
+
 def classFactory(iface):
+    # from .editor_functions import editor_swmm_links_conduits
+
     # load tuflowqgis_menu class from file tuflowqgis_menu
     from .tuflowqgis_menu import tuflowqgis_menu
-    
+
     menu = tuflowqgis_menu(iface)
 
     # check if tuview should be opened
     openTuview(None, menu)
-    
+
     # setup signal to capture project opens so tuview can be opened if needed
     conn = QgsProject.instance().readProject.connect(lambda event: openTuview(event, menu))
 
     menu.addLambdaConnection(conn)
-    
+
     return menu

@@ -1,0 +1,5 @@
+Read SWMM == .\swmm\urban_001.inp
+
+Read GIS SWMM Inlet Usage == .\swmm\urban_iu_001.gpkg >> inlet_usage_001
+
+Read BC Timeseries == Q100

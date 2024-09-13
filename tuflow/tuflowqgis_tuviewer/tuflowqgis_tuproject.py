@@ -7,6 +7,7 @@ from tuflow.toc.toc import tuflowqgis_find_layer
 from ..tuflowqgis_tuviewer.tuflowqgis_turesults1d import TSResult
 from ..tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 from ..tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
+from ..fvbc_tide_results import FVBC_TideResults
 
 
 
@@ -208,14 +209,26 @@ class TuProject():
 					if isinstance(result, TSResult) or isinstance(result, TSResult):
 						continue
 					if i == 0:
-						results += os.path.join(result.fpath, result.filename)
+						if isinstance(result, FVBC_TideResults):
+							results += result.uri
+						else:
+							results += os.path.join(result.fpath, result.filename)
 					else:
-						results += '~~{0}'.format(os.path.join(result.fpath, result.filename))
+						if isinstance(result, FVBC_TideResults):
+							results += f'~~{result.uri}'
+						else:
+							results += '~~{0}'.format(os.path.join(result.fpath, result.filename))
 			self.project.writeEntry("TUVIEW", "results1d", results)
 		else:  # load
 			results = self.project.readEntry("TUVIEW", "results1d")[0]
 			if results:
 				results = results.split('~~')
+				for result in results[:]:
+					if result.startswith('FVBC_TideResults://'):
+						_, fpaths = result.split('://')
+						nc_fpath, gis_fpath = fpaths.split('::')
+						self.tuView.tuMenuBar.tuMenuFunctions.loadFVBCTide(nc_fpath=nc_fpath, gis_fpath=gis_fpath)
+						results.remove(result)
 				try:
 					self.tuView.tuMenuBar.tuMenuFunctions.load1dResults(result_1D=[results], ask_gis=False)
 				except:
@@ -608,16 +621,16 @@ class TuProject():
 	
 			xmin, xmax = subplot.get_xlim()
 			ymin, ymax = subplot.get_ylim()
-			self.project.writeEntry("TUVIEW", 'xmin{0}'.format(suffix), xmin)
-			self.project.writeEntry("TUVIEW", 'xmax{0}'.format(suffix), xmax)
-			self.project.writeEntry("TUVIEW", 'ymin{0}'.format(suffix), ymin)
-			self.project.writeEntry("TUVIEW", 'ymax{0}'.format(suffix), ymax)
+			self.project.writeEntryDouble("TUVIEW", 'xmin{0}'.format(suffix), float(xmin))
+			self.project.writeEntryDouble("TUVIEW", 'xmax{0}'.format(suffix), float(xmax))
+			self.project.writeEntryDouble("TUVIEW", 'ymin{0}'.format(suffix), float(ymin))
+			self.project.writeEntryDouble("TUVIEW", 'ymax{0}'.format(suffix), float(ymax))
 			if isSecondary[0]:
 				subplot2 = self.tuView.tuPlot.getSecondaryAxis(plotNo)
 				ymin2, ymax2 = subplot2.get_ylim()
 				self.project.writeEntry("TUVIEW", "issecondary{0}".format(suffix), "True")
-				self.project.writeEntry("TUVIEW", 'ymin2{0}'.format(suffix), ymin2)
-				self.project.writeEntry("TUVIEW", 'ymax2{0}'.format(suffix), ymax2)
+				self.project.writeEntryDouble("TUVIEW", 'ymin2{0}'.format(suffix), float(ymin2))
+				self.project.writeEntryDouble("TUVIEW", 'ymax2{0}'.format(suffix), float(ymax2))
 	
 	def loadViewToolbar(self, viewToolbar, subplot, plotNo, suffix):
 			freezeAxis = True if self.project.readEntry("TUVIEW", "freezeaxis{0}".format(suffix))[0] == 'True' else False
@@ -631,17 +644,17 @@ class TuProject():
 			legendPos = int(self.project.readEntry("TUVIEW", "legendpos{0}".format(suffix))[0])
 			viewToolbar.legendPosChanged(None, index=legendPos)
 		
-			xmin = float(self.project.readEntry("TUVIEW", 'xmin{0}'.format(suffix))[0])
-			xmax = float(self.project.readEntry("TUVIEW", 'xmax{0}'.format(suffix))[0])
+			xmin = float(self.project.readDoubleEntry("TUVIEW", 'xmin{0}'.format(suffix))[0])
+			xmax = float(self.project.readDoubleEntry("TUVIEW", 'xmax{0}'.format(suffix))[0])
 			xlim = (xmin, xmax)
-			ymin = float(self.project.readEntry("TUVIEW", 'ymin{0}'.format(suffix))[0])
-			ymax = float(self.project.readEntry("TUVIEW", 'ymax{0}'.format(suffix))[0])
+			ymin = float(self.project.readDoubleEntry("TUVIEW", 'ymin{0}'.format(suffix))[0])
+			ymax = float(self.project.readDoubleEntry("TUVIEW", 'ymax{0}'.format(suffix))[0])
 			ylim = (ymin, ymax)
 			isSecondary = True if self.project.readEntry("TUVIEW", "issecondary{0}".format(suffix))[0] == "True" else False
 			if isSecondary:
 				subplot2 = self.tuView.tuPlot.getSecondaryAxis(plotNo)
-				ymin2 = float(self.project.readEntry("TUVIEW", 'ymin2{0}'.format(suffix))[0])
-				ymax2 = float(self.project.readEntry("TUVIEW", 'ymax2{0}'.format(suffix))[0])
+				ymin2 = float(self.project.readDoubleEntry("TUVIEW", 'ymin2{0}'.format(suffix))[0])
+				ymax2 = float(self.project.readDoubleEntry("TUVIEW", 'ymax2{0}'.format(suffix))[0])
 				ylim2 = (ymin2, ymax2)
 			
 			if freezeAxis:

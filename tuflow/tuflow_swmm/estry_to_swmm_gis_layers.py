@@ -990,6 +990,7 @@ def convert_layers(network_layers, node_layers, pit_layers, table_link_layers,
     gdf_irr_culv_curves = None
     if gdf_xsecs is not None:
         if len(gdf_xsecs[gdf_xsecs['XsecType'] == 'CUSTOM']) > 0:
+            gdf_xsecs['Curve'] = gdf_xsecs['Curve'].astype(str)
             gdf_xsecs.loc[gdf_xsecs['XsecType'] == 'CUSTOM', 'Curve'] = '0'
             feedback.pushWarning("WARNING - Irregular culverts encountered which are not yet converted."
                                  " The SWMM Shape tables must be created and added to the CURVES section of the SWMM input file.")
@@ -1003,7 +1004,7 @@ def convert_layers(network_layers, node_layers, pit_layers, table_link_layers,
         #     gdf_xsecs.loc[custom_xsecs, 'Curve'] = irr_curve_names
         #     gdf_xsecs.loc[custom_xsecs, 'Dummy'] = 0.0
 
-        gdf_xsecs.crs = crs
+        gdf_xsecs.set_crs(crs, allow_override=True)
 
     # Do inlets
     inlets_layername = None

@@ -833,7 +833,7 @@ class SwmmSection:
                     section_text_values = \
                         [[y.strip() for y in x.split(maxsplit=len(self.cols_common_start) - 1)] for x in text_array]
 
-                print(section_text_values)
+                # print(section_text_values)
 
                 section_data = {}
                 for i_col, (col_name, col_type) in enumerate(self.cols_common_start):

@@ -1018,6 +1018,9 @@ class TuFloodModellerDataProvider(ResData):
     # def LP_getData(self, dat_type, time, dt_tol):
     #     pass
 
+    def getGeometry(self):
+        pass
+
 
 class FM_XS_Data(XS_Data):
 

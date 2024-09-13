@@ -1,21 +1,21 @@
 [JUNCTIONS]
-;;Name              Elev                Ymax                Y0                  Ysur                Apond              
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
-MH-06               33.0                11.0                0.0                 0.0                 0.0                
+;;Name              Elev                Ymax                Y0                  Ysur                Apond
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------
+MH-06               33.0                11.0                0.0                 0.0                 0.0
 
 [OUTFALLS]
-;;Name              Elev                Type                Param1              Gated               RouteTo            
-;;                                      FREE                Gated               RouteTo            
-;;                                      NORMAL              Gated               RouteTo            
-;;                                      FIXED               Stage               Gated               RouteTo            
-;;                                      TIDAL               Tcurve              Gated               RouteTo            
-;;                                      TIMESERIES          Tseries             Gated               RouteTo            
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
-C3_d/s              35.0                FIXED               35.0                                                       
+;;Name              Elev                Type                Param1              Gated               RouteTo
+;;                                      FREE                                    Gated               RouteTo
+;;                                      NORMAL                                  Gated               RouteTo
+;;                                      FIXED               Stage               Gated               RouteTo
+;;                                      TIDAL               Tcurve              Gated               RouteTo
+;;                                      TIMESERIES          Tseries             Gated               RouteTo
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------
+C3_d/s              35.0                FIXED               35.0
 
 [COORDINATES]
-;;Name              X-Coord             Y-Coord            
-;;----------------  ----------------    ----------------   
-C3_d/s              293290.6563         6178207.1903       
-MH-06               293107.223          6177897.342        
+;;Name              X-Coord             Y-Coord
+;;----------------  ----------------    ----------------
+C3_d/s              293290.6563         6178207.1903
+MH-06               293107.223          6177897.342
 

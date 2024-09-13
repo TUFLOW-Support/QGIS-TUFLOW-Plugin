@@ -30,7 +30,11 @@ class TestSWMMDownstreamJunctionsToOutfalls(unittest.TestCase):
             text2 = f2.readlines()
             # print(text1)
             # print(text2)
-            subprocess.run(['git.exe', 'diff', '--no-index', first, second], shell=True)
+            subprocess.run(['C:\\Program Files\\git\\cmd\\git.exe',
+                            'diff',
+                            '--no-index',
+                            '--ignore-space-at-eol',
+                            first, second], shell=True)
 
             self.assertEqual(len(text1), len(text2))
             for line_num, (l1, l2) in enumerate(zip(text1, text2)):

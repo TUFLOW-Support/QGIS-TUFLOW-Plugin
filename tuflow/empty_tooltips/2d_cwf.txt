@@ -4,7 +4,6 @@ command == Read GIS CWF
 
 description == Used to adjust the 2D cell flow widths. The CWF is a factor, for example 0.1 will limit the flow width to 10%. The changed flow width applies to all depths. 
 
-wiki link == https://wiki.tuflow.com/index.php?title=TUFLOW_Empty_Files#TUFLOW_Geometry_Control_file_.28TGC.29
+wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#TUFLOW_Geometry_Control_file_.28TGC.29
 
-manual link == https://downloads.tuflow.com/_archive/TUFLOW/Releases/2018-03/TUFLOW%20Manual.2018-03.pdf
-manual page == 279
+manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/TwoD-Domains-1.html#cell-mods-3

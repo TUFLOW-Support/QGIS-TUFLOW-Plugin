@@ -783,6 +783,7 @@ class XS():
 		self.source = []
 		self.all_types = []
 		self.layer = None
+		self.supports_new_profile_plot = False
 
 	def clear(self):
 		self.nXS = 0

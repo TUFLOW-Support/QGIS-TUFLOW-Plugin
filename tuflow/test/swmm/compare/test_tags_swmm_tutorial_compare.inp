@@ -1,113 +1,114 @@
 [OPTIONS]
-;;Option            Value              
-;;----------------  ----------------   
-FLOW_UNITS          CMS                
-INFILTRATION        GREEN_AMPT         
-LINK_OFFSETS        DEPTH              
-FORCE_MAIN_EQUATION H-W                
-IGNORE_RAINFALL     YES                
-IGNORE_SNOWMELT     YES                
-IGNORE_GROUNDWATER  YES                
-IGNORE_RDII         YES                
-IGNORE_QUALITY      YES                
-SKIP_STEADY_STATE   YES                
-SYS_FLOW_TOL        1                  
-LAT_FLOW_TOL        1                  
-SWEEP_START         01/01              
-SWEEP_END           01/01              
-DRY_DAYS            0                  
-REPORT_STEP         00:05:00           
-WET_STEP            00:00:30           
-DRY_STEP            00:30:00           
-ROUTING_STEP        30                 
-LENGTHENING_STEP    1                  
-MINIMUM_STEP        0.001              
-INERTIAL_DAMPING    PARTIAL            
-NORMAL_FLOW_LIMITED BOTH               
-MIN_SURFAREA        25                 
-MAX_TRIALS          20                 
-HEAD_TOLERANCE      0.001              
-THREADS             8                  
-START_DATE          01/01/2000         
-START_TIME          00:00:00           
-REPORT_START_DATE   01/01/2000         
-REPORT_START_TIME   00:00:00           
-END_DATE            01/01/2000         
-END_TIME            03:00:00           
-FLOW_ROUTING        DYNWAVE            
-ALLOW_PONDING       YES                
-VARIABLE_STEP       0                  
+;;Option            Value
+;;----------------  ----------------
+FLOW_UNITS          CMS
+INFILTRATION        GREEN_AMPT
+LINK_OFFSETS        DEPTH
+FORCE_MAIN_EQUATION H-W
+IGNORE_RAINFALL     YES
+IGNORE_SNOWMELT     YES
+IGNORE_GROUNDWATER  YES
+IGNORE_RDII         YES
+IGNORE_QUALITY      YES
+SKIP_STEADY_STATE   YES
+SYS_FLOW_TOL        1
+LAT_FLOW_TOL        1
+SWEEP_START         01/01
+SWEEP_END           01/01
+DRY_DAYS            0
+REPORT_STEP         00:05:00
+WET_STEP            00:00:30
+DRY_STEP            00:30:00
+ROUTING_STEP        30
+LENGTHENING_STEP    1
+MINIMUM_STEP        0.001
+INERTIAL_DAMPING    PARTIAL
+NORMAL_FLOW_LIMITED BOTH
+MIN_SURFAREA        25
+MAX_TRIALS          20
+HEAD_TOLERANCE      0.001
+THREADS             8
+START_DATE          01/01/2000
+START_TIME          00:00:00
+REPORT_START_DATE   01/01/2000
+REPORT_START_TIME   00:00:00
+END_DATE            01/01/2000
+END_TIME            03:00:00
+FLOW_ROUTING        DYNWAVE
+ALLOW_PONDING       YES
+VARIABLE_STEP       0
 
 [JUNCTIONS]
-;;Name              Elev                Ymax                Y0                  Ysur                Apond              
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
-FC01.1_R.1          45.4                0.0                 0.0                 0                   50.0               
-FC01.2_R.1          37.6                0.0                 0.0                 0                   50.0               
-FC04.1_C.1          43.35               0.0                 0.0                 0                   50.0               
+;;Name              Elev                Ymax                Y0                  Ysur                Apond
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------
+FC01.1_R.1          45.4                0.0                 0.0                 0                   50.0
+FC01.2_R.1          37.6                0.0                 0.0                 0                   50.0
+FC04.1_C.1          43.35               0.0                 0.0                 0                   50.0
 
 [OUTFALLS]
-;;Name              Elev                Type                Param1              Gated               RouteTo            
-;;                                      FREE                Gated               RouteTo            
-;;                                      FIXED               Stage               Gated               RouteTo            
-;;                                      TIDAL               Tcurve              Gated               RouteTo            
-;;                                      TIMESERIES          Tseries             Gated               RouteTo            
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
-FC01.1_R.2          44.5                FIXED               44.5                NO                                     
-FC01.2_R.2          37.5                FIXED               37.5                NO                                     
-FC04.1_C.2          42.75               FIXED               42.75               NO                                     
+;;Name              Elev                Type                Param1              Gated               RouteTo
+;;                                      FREE                                    Gated               RouteTo
+;;                                      NORMAL                                  Gated               RouteTo
+;;                                      FIXED               Stage               Gated               RouteTo
+;;                                      TIDAL               Tcurve              Gated               RouteTo
+;;                                      TIMESERIES          Tseries             Gated               RouteTo
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------
+FC01.1_R.2          44.5                FIXED               44.5                NO
+FC01.2_R.2          37.5                FIXED               37.5                NO
+FC04.1_C.2          42.75               FIXED               42.75               NO
 
 [CONDUITS]
-;;Name              From Node           To Node             Length              Roughness           InOffset            OutOffset           InitFlow            MaxFlow            
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
-FC01.1_R            FC01.1_R.1          FC01.1_R.2          10.4                0.012               0.0                 0.0                 0.0                 0.0                
-FC01.2_R            FC01.2_R.1          FC01.2_R.2          12.6                0.012               0.0                 0.0                 0.0                 0.0                
-FC04.1_C            FC04.1_C.1          FC04.1_C.2          23.9                0.012               0.0                 0.0                 0.0                 0.0                
+;;Name              From Node           To Node             Length              Roughness           InOffset            OutOffset           InitFlow            MaxFlow
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------
+FC01.1_R            FC01.1_R.1          FC01.1_R.2          10.4                0.012               0.0                 0.0                 0.0                 0.0
+FC01.2_R            FC01.2_R.1          FC01.2_R.2          12.6                0.012               0.0                 0.0                 0.0                 0.0
+FC04.1_C            FC04.1_C.1          FC04.1_C.2          23.9                0.012               0.0                 0.0                 0.0                 0.0
 
 [LOSSES]
-;;Link              Kentry              Kexit               Kavg                Flap                Seepage            
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------   
-FC01.1_R            0.5                 1.0                 0.0                                                        
-FC01.2_R            0.5                 1.0                 0.0                                                        
-FC04.1_C            2.0                 2.0                 2.0                                                        
+;;Link              Kentry              Kexit               Kavg                Flap                Seepage
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------
+FC01.1_R            0.5                 1.0                 0.0
+FC01.2_R            0.5                 1.0                 0.0
+FC04.1_C            2.0                 2.0                 2.0
 
 [XSECTIONS]
-;;Link              XsecType            Param1              Param2              Param3              Param4              Param5              Param6             
-;;                  Default             Geom1               Geom2               Geom3               Geom4               Barrels             Culvert            
-;;                  CUSTOM              Geom1               Curve               Geom3               Geom4               Barrels            
-;;                  IRREGULAR           Tsect              
-;;                  STREET              Street             
-;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------   
-FC01.1_R            RECT_CLOSED         1.8                 1.8                 0.0                 0.0                 3                   53                 
-FC01.2_R            RECT_OPEN           1.2                 2.4                 0.0                 0.0                 5                                      
-FC04.1_C            CIRCULAR            1.2                 0.0                 0.0                 0.0                 3                                      
+;;Link              XsecType            Param1              Param2              Param3              Param4              Param5              Param6
+;;                  Default             Geom1               Geom2               Geom3               Geom4               Barrels             Culvert
+;;                  CUSTOM              Geom1               Curve               Geom3               Geom4               Barrels
+;;                  IRREGULAR           Tsect
+;;                  STREET              Street
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------
+FC01.1_R            RECT_CLOSED         1.8                 1.8                 0.0                 0.0                 3                   53
+FC01.2_R            RECT_OPEN           1.2                 2.4                 0.0                 0.0                 5
+FC04.1_C            CIRCULAR            1.2                 0.0                 0.0                 0.0                 3
 
 [REPORT]
-;;Format            Value              
-;;----------------  ----------------   
-LINKS               ALL                
-NODES               ALL                
-SUBCATCHMENTS       ALL                
+;;Format            Value
+;;----------------  ----------------
+LINKS               ALL
+NODES               ALL
+SUBCATCHMENTS       ALL
 
 [COORDINATES]
-;;Name              X-Coord             Y-Coord            
-;;----------------  ----------------    ----------------   
-FC01.1_R.1          293120.3084879033   6177713.920806452  
-FC01.1_R.2          293132.3657056452   6177719.18717742   
-FC01.2_R.1          293286.47635080555  6178190.250201611  
-FC01.2_R.2          293289.8024798378   6178206.326491933  
-FC04.1_C.1          293431.161          6177837.16         
-FC04.1_C.2          293407.916          6177842.899        
+;;Name              X-Coord             Y-Coord
+;;----------------  ----------------    ----------------
+FC01.1_R.1          293120.3084879033   6177713.920806452
+FC01.1_R.2          293132.3657056452   6177719.18717742
+FC01.2_R.1          293286.47635080555  6178190.250201611
+FC01.2_R.2          293289.8024798378   6178206.326491933
+FC04.1_C.1          293431.161          6177837.16
+FC04.1_C.2          293407.916          6177842.899
 
 [TAGS]
-;;Object_type       Name                Tag                
-;;----------------  ----------------    ----------------   
-Link                FC01.1_R            c                  
-Link                FC01.2_R            b                  
-Link                FC04.1_C            a                  
-Node                FC01.1_R.1          f                  
-Node                FC01.2_R.1          e                  
-Node                FC04.1_C.1          d                  
-Node                FC01.1_R.2          i                  
-Node                FC01.2_R.2          h                  
-Node                FC04.1_C.2          g                  
+;;Object_type       Name                Tag
+;;----------------  ----------------    ----------------
+Link                FC01.1_R            c
+Link                FC01.2_R            b
+Link                FC04.1_C            a
+Node                FC01.1_R.1          f
+Node                FC01.2_R.1          e
+Node                FC04.1_C.1          d
+Node                FC01.1_R.2          i
+Node                FC01.2_R.2          h
+Node                FC04.1_C.2          g
 

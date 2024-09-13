@@ -12,6 +12,7 @@ import os
 import sys
 import re
 import zipfile
+from pathlib import Path
 
 import numpy
 import math
@@ -22,20 +23,12 @@ import requests
 
 from ARR_TUFLOW_func_lib import *
 from BOM_WebRes import Bom
-
-
-class ArrMeta:
-    def __init__(self):
-        self.Time_Accessed = None
-        self.Version = None
-
-    def read(self, fi):
-        line = next(fi).strip('\n')
-        data = line.split(',')
-        self.Time_Accessed = data[1]
-        line = next(fi).strip('\n')
-        data = line.split(',')
-        self.Version = data[1]
+from meta import ArrMeta
+from climate_change import ArrCCF
+from losses import ArrLosses
+from preburst import ArrPreburst
+from arr_settings import ArrSettings
+from ARR2016.parser import DataBlock
 
 
 class ArrRivReg:
@@ -151,391 +144,13 @@ class ArrArf:
         self.logger.info('Finished reading file.')
 
 
-class ArrLosses:
-    def __init__(self):  # initialise the ARR storm losses
-        self.loaded = False
-        self.error = False
-        self.message = None
-        self.ils = None
-        self.cls = None
-        self.ils_datahub = None
-        self.cls_datahub = None
-        self.ils_user = None
-        self.cls_user = None
-        self.logger = logging.getLogger('ARR2019')
-
-        # NSW probability neutral losses
-        self.existsPNLosses = False
-        self.AEP = []
-        self.AEP_names = []
-        self.Duration = []
-        self.ilpn = None
-
-    def load(self, fi):
-        for line in fi:
-            if line.find('[LOSSES]') >= 0:
-                finished = False
-                for block_line in fi:
-                    data = block_line.split(',')
-                    finished = (data[0] == '\n' or block_line.find('[LOSSES_META]') >= 0)
-                    if finished:
-                        break
-                    if data[0].lower() == 'storm initial losses (mm)':
-                        self.ils_datahub = data[1].strip()
-                        try:
-                            self.ils = float(self.ils_datahub)
-                            if numpy.isnan(self.ils):
-                                raise ValueError
-                        except ValueError:
-                            msg = 'ERROR: Processing "Initial Storm Loss". Value found: {0}. Assuming value of zero instead'.format(self.ils_datahub)
-                            self.logger.info(msg)
-                            self.ils = 0.
-                    if data[0].lower() == 'storm continuing losses (mm/h)':
-                        self.cls_datahub = data[1].strip()
-                        try:
-                            self.cls = float(self.cls_datahub)
-                            if numpy.isnan(self.cls):
-                                raise ValueError
-                        except ValueError:
-                            msg = 'ERROR: Processing "Continuing Storm Loss". Value found: {0}. Assuming value of zero instead.'.format(data[1].strip())
-                            self.logger.info(msg)
-                            self.cls = 0.
-                if finished:
-                    break
-        if self.ils is None or self.cls is None:
-            self.error = True
-            self.message = 'Error processing Storm Losses. This may be because you have selected an urban area.'
-            self.ils = 0
-            self.cls = 0
-        fi.seek(0)  # rewind file
-
-        self.loadProbabilityNeutralLosses(fi)
-        if self.existsPNLosses:
-            self.logger.info("Catchment is in NSW, multiplying Datahub continuing loss by 0.4")
-            self.cls *= 0.4
-            self.cls = float('{0:.2f}'.format(self.cls))
-
-        self.loaded = True
-        #print('Finished reading file.')
-        self.logger.info('Finished reading file.')
-
-    def loadProbabilityNeutralLosses(self, fi):
-        """
-        Load probability neutral losses
-
-        :param fi: FileIO object
-        :return: None
-        """
-
-        self.logger.info("Searching for Probability Neutral Initial Losses...")
-        for line in fi:
-            if line.find("[BURSTIL]") > -1:
-                self.logger.info("Found Probability Neutral Initial Losses... loading")
-                finished = False
-                read_header = True
-                losses_all = []
-                for block_line in fi:
-                    data = block_line.split(',')
-                    finished = (data[0] == '\n' or block_line.find('[BURSTIL_META]') >= 0)
-                    if finished:
-                        break
-                    if read_header:
-                        data = block_line.strip('\n').split(',')
-                        for valstr in data[1:]:
-                            try:
-                                val = float(valstr)
-                                self.AEP.append(val)
-                                self.AEP_names.append('{0:.0f}%'.format(val))
-                            except Exception as e:
-                                self.logger.warning("ERROR: Reading Probability Neutral Initial Losses AEP... skipping\n{0}".format(e))
-                                read_header = False
-                                return
-                        read_header = False
-                    else:
-                        try:
-                            dur = int(data[0][:data[0].index('(')])
-                            self.Duration.append(dur)
-                            losses = [float(x) for x in data[1:]]
-                            losses_all.append(losses)
-                        except Exception as e:
-                            self.error = True
-                            self.message = 'Error processing from line {0}'.format(block_line)
-                            self.logger.warning("ERROR: Reading Probability Neutral Initial Losses... skipping\n{0}".format(e))
-                            return
-                if finished:
-                    self.ilpn = numpy.array(losses_all)
-                    self.existsPNLosses = True
-                    self.logger.info("Finished reading Probability Neutral Initial Losses.")
-                    break
-
-        fi.seek(0)
-
-    def applyUserInitialLoss(self, loss):
-        """apply user specified (storm) initial loss to calculations instead of datahub loss"""
-        
-        #self.ils = loss
-        self.ils_user = loss
-        #print("Using user specified intial loss: {0}".format(loss))
-        self.logger.info("Using user specified initial loss: {0}".format(loss))
-
-    def applyUserContinuingLoss(self, loss):
-        """apply user specified continuing loss to calculations instead of datahub loss"""
-    
-        self.cls = loss
-        self.cls_user = loss
-        #print("Using user specified continuing loss: {0}".format(loss))
-        self.logger.info("Using user specified continuing loss: {0}".format(loss))
-
-
-# noinspection PyBroadException,PyBroadException
-class ArrPreburst:
-    def __init__(self):  # initialise the ARR median preburst
-        self.loaded = False
-        self.error = False
-        self.message = None
-        self.AEP = []
-        self.AEP_names = []
-        self.Duration = []
-        self.Depths10 = []
-        self.Ratios10 = []
-        self.Depths25 = []
-        self.Ratios25 = []
-        self.Depths50 = []
-        self.Ratios50 = []
-        self.Depths75 = []
-        self.Ratios75 = []
-        self.Depths90 = []
-        self.Ratios90 = []
-        self.logger = logging.getLogger('ARR2019')
-
-    def load(self, fi):
-
-        for line in fi:
-            if line.find('[PREBURST]') >= 0:
-                finished = False
-                read_header = True
-                for block_line in fi:
-                    data = block_line.split(',')
-                    finished = (data[0] == '\n' or block_line.find('[PREBURST_META]') >= 0)
-                    if finished:
-                        break
-                    if read_header:
-                        data = block_line.strip('\n').split(',')
-                        for valstr in data[1:]:
-                            try:
-                                val = float(valstr)
-                                self.AEP.append(val)
-                                self.AEP_names.append('{0:.0f}%'.format(val))
-                            except:
-                                read_header = False
-                        read_header = False
-                    else:
-                        try:
-                            dur = int(data[0][:data[0].index('(')])
-                            self.Duration.append(dur)
-                            depths = []
-                            ratios = []
-                            for i in range(len(self.AEP)):
-                                # get rid of brackets and split, can be done with regular expression
-                                tmp = data[1 + i].replace('(', ',').replace(')', ',').split(',')
-                                depths.append(float(tmp[0]))
-                                ratios.append(float(tmp[1]))
-                            self.Depths50.append(depths)
-                            self.Ratios50.append(ratios)
-                        except:
-                            self.error = True
-                            self.message = 'Error processing from line {0}'.format(block_line)
-                            return
-            if line.find('[PREBURST10]') >= 0:
-                finished = False
-                read_header = True
-                for block_line in fi:
-                    data = block_line.split(',')
-                    finished = (data[0] == '\n' or block_line.find('[PREBURST10_META]') >= 0)
-                    if finished:
-                        break
-                    if read_header:
-                        read_header = False
-                    else:
-                        try:
-                            depths = []
-                            ratios = []
-                            for i in range(len(self.AEP)):
-                                # get rid of brackets and split, can be done with regular expression
-                                tmp = data[1 + i].replace('(', ',').replace(')', ',').split(',')
-                                depths.append(float(tmp[0]))
-                                ratios.append(float(tmp[1]))
-                            self.Depths10.append(depths)
-                            self.Ratios10.append(ratios)
-                        except:
-                            self.error = True
-                            self.message = 'Error processing from line {0}'.format(block_line)
-                            return
-            if line.find('[PREBURST25]') >= 0:
-                finished = False
-                read_header = True
-                for block_line in fi:
-                    data = block_line.split(',')
-                    finished = (data[0] == '\n' or block_line.find('[PREBURST25_META]') >= 0)
-                    if finished:
-                        break
-                    if read_header:
-                        read_header = False
-                    else:
-                        try:
-                            depths = []
-                            ratios = []
-                            for i in range(len(self.AEP)):
-                                # get rid of brackets and split, can be done with regular expression
-                                tmp = data[1 + i].replace('(', ',').replace(')', ',').split(',')
-                                depths.append(float(tmp[0]))
-                                ratios.append(float(tmp[1]))
-                            self.Depths25.append(depths)
-                            self.Ratios25.append(ratios)
-                        except:
-                            self.error = True
-                            self.message = 'Error processing from line {0}'.format(block_line)
-                            return
-            if line.find('[PREBURST75]') >= 0:
-                finished = False
-                read_header = True
-                for block_line in fi:
-                    data = block_line.split(',')
-                    finished = (data[0] == '\n' or block_line.find('[PREBURST75_META]') >= 0)
-                    if finished:
-                        break
-                    if read_header:
-                        read_header = False
-                    else:
-                        try:
-                            depths = []
-                            ratios = []
-                            for i in range(len(self.AEP)):
-                                # get rid of brackets and split, can be done with regular expression
-                                tmp = data[1 + i].replace('(', ',').replace(')', ',').split(',')
-                                depths.append(float(tmp[0]))
-                                ratios.append(float(tmp[1]))
-                            self.Depths75.append(depths)
-                            self.Ratios75.append(ratios)
-                        except:
-                            self.error = True
-                            self.message = 'Error processing from line {0}'.format(block_line)
-                            return
-            if line.find('[PREBURST90]') >= 0:
-                finished = False
-                read_header = True
-                for block_line in fi:
-                    data = block_line.split(',')
-                    finished = (data[0] == '\n' or block_line.find('[PREBURST90_META]') >= 0)
-                    if finished:
-                        break
-                    if read_header:
-                        read_header = False
-                    else:
-                        try:
-                            depths = []
-                            ratios = []
-                            for i in range(len(self.AEP)):
-                                # get rid of brackets and split, can be done with regular expression
-                                tmp = data[1 + i].replace('(', ',').replace(')', ',').split(',')
-                                depths.append(float(tmp[0]))
-                                ratios.append(float(tmp[1]))
-                            self.Depths90.append(depths)
-                            self.Ratios90.append(ratios)
-                        except:
-                            self.error = True
-                            self.message = 'Error processing from line {0}'.format(block_line)
-                            return
-                if finished:
-                    break
-        try:
-            if len(self.Depths50) > 0:
-                self.Depths50 = numpy.array(self.Depths50)
-                self.Ratios50 = numpy.array(self.Ratios50)
-                self.Depths10 = numpy.array(self.Depths10)
-                self.Ratios10 = numpy.array(self.Ratios10)
-                self.Depths25 = numpy.array(self.Depths25)
-                self.Ratios25 = numpy.array(self.Ratios25)
-                self.Depths75 = numpy.array(self.Depths75)
-                self.Ratios75 = numpy.array(self.Ratios75)
-                self.Depths90 = numpy.array(self.Depths90)
-                self.Ratios90 = numpy.array(self.Ratios90)
-            else:
-                self.Depths50 = numpy.zeros([11, 6])
-                self.Ratios50 = numpy.zeros([11, 6])
-                self.Depths10 = numpy.zeros([11, 6])
-                self.Ratios10 = numpy.zeros([11, 6])
-                self.Depths25 = numpy.zeros([11, 6])
-                self.Ratios25 = numpy.zeros([11, 6])
-                self.Depths75 = numpy.zeros([11, 6])
-                self.Ratios75 = numpy.zeros([11, 6])
-                self.Depths90 = numpy.zeros([11, 6])
-                self.Ratios90 = numpy.zeros([11, 6])
-                self.AEP = [50.0, 20.0, 10.0, 5.0, 1.0]
-                self.AEP_names = ['50%', '20%', '10%', '5%', '2%', '1%']
-                self.Duration = [60, 90, 120, 180, 360, 720, 1080, 1440, 2160, 2880, 4320]
-                self.error = True
-                self.message = 'Error processing Preburst Rainfall. Check ARR_Web_data.txt.'
-        except:
-            self.error = True
-            self.message = 'Error in preburst depth data.'
-        fi.seek(0)  # rewind file
-        self.loaded = True
-        #print('Finished reading file.')
-        self.logger.info('Finished reading file.')
-
-
-# noinspection Annotator,PyBroadException
-class ArrCCF:
-    def __init__(self):  # initialise the ARR interim  Climate Change Factors
-        self.loaded = False
-        self.error = False
-        self.message = None
-        self.Year = []
-        self.RCP4p5 = []
-        self.RCP6 = []
-        self.RCP8p5 = []
-        self.Meta = ArrMeta()
-        self.logger = logging.getLogger('ARR2019')
-
-    def load(self, fi):
-        for line in fi:
-            if line.find('[CCF]') >= 0:
-                finished = False
-                for block_line in fi:
-                    if block_line.find('[CCF_META]') >= 0:
-                        self.Meta.read(fi)
-                        finished = True
-                        break
-                    if not finished:
-                        if 'rcp' in block_line.lower():
-                            continue
-                        elif block_line == '\n':
-                            continue
-                        try:
-                            data = block_line.split(',')
-                            self.Year.append(int(data[0]))
-                            self.RCP4p5.append(float(re.split(r'[\(\)%+]', data[1])[1]))
-                            self.RCP6.append(float(re.split(r'[\(\)%+]', data[2])[1]))
-                            self.RCP8p5.append(float(re.split(r'[\(\)%+]', data[3])[1]))
-                        except:
-                            self.error = True
-                            self.message = 'Error processing climate change factor line {0}'.format(block_line)
-                            return
-                if finished:
-                    break
-        fi.seek(0)  # rewind file
-        self.loaded = True
-        #print('Finished reading file.')
-        self.logger.info('Finished reading file.')
-
-
 class ArrTemporal:
     def __init__(self):  # initialise the ARR temoral pattern class
         self.loaded = False
         self.error = False
         self.message = None
         self.tpCount = 0
+        self.meta = ArrMeta()
         # point temporal pattern data
         self.pointID = []
         self.pointDuration = []
@@ -565,11 +180,17 @@ class ArrTemporal:
         self.add_areal_tp = 0
         self.add_areal_messages = []
 
+        self.tp_data = {}
+
         self.logger = logging.getLogger('ARR2019')
     
     def load(self, fname, fi, tpRegion, point_tp_csv, areal_tp_csv, areal_tp_download=None):
         """Load ARR data"""
-        
+        self.tp_data = DataBlock(fi, 'TP', False)
+        self.meta.version = self.tp_data.version_int
+        self.meta.time_accessed = self.tp_data.time_accessed
+        self.tp_region = self.tp_data.get('Label')
+
         if point_tp_csv is None:
             #print("Loading point temporal patterns from download: {0}".format(fname))
             self.logger.info("Loading point temporal patterns from download: {0}".format(fname))
@@ -1253,6 +874,7 @@ class Arr:
         self.Arf = ArrArf()
         self.Limb = Limb()
         self.logger = logging.getLogger('ARR2019')
+        self.settings = ArrSettings.get_instance()
 
     def load(self, fname, area, **kwargs):
         
@@ -1367,8 +989,7 @@ class Arr:
                     #print('Return message = {0}'.format(self.Temporal.message))
                     self.logger.error('Return message = {0}'.format(self.Temporal.message))
                     raise SystemExit("ERROR: {0}".format(self.Temporal.message))
-        # import pydevd_pycharm
-        # pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
+
         self.Temporal.combineArealTp(area)
         for i in range(add_areal_tp):
             added = self.Temporal.addArealTP(area, i)
@@ -1380,7 +1001,7 @@ class Arr:
         # PREBURST DEPTH
         #print('Loading median preburst data')
         self.logger.info('Loading median preburst data')
-        self.PreBurst.load(fi)
+        self.PreBurst.load(fi, self.settings.preburst_percentile)
         if self.PreBurst.error:
             #print('An error was encountered, when reading median preburst data.')
             self.logger.error('An error was encountered, when reading median preburst data.')
@@ -1410,6 +1031,7 @@ class Arr:
         cc = kwargs['climate_change'] if 'climate_change' in kwargs else False
         cc_years = kwargs['climate_change_years'] if 'climate_change_years' in kwargs else [2090]
         cc_RCP = kwargs['cc_rcp'] if 'cc_rcp' in kwargs else ['RCP8.5']
+        cc_param = kwargs.get('cc_param', {})
         bom = kwargs['bom_data'] if 'bom_data' in kwargs else None
         catchment_area = kwargs['area'] if 'area' in kwargs else 0
         frequent_events = kwargs['frequent'] if 'frequent' in kwargs else False
@@ -1574,6 +1196,14 @@ class Arr:
             self.Limb.ifd.ndur = len(durs)
             self.Limb.ifd.naep = len(aeps)
 
+        # new stuff that can be used for future development
+        depths = pd.DataFrame(bom.depths, columns=bom.aep_names, index=bom.duration)
+        depths_adj = depths.copy()  # ARF applied (not yet though)
+        if self.Losses.ils_user is not None:
+            self.Losses.init_loss = self.Losses.ils_user
+        if self.Losses.cls_user is not None:
+            self.Losses.cont_loss = self.Losses.cls_user
+
         # create year dictionary with index as the value so the appropriate multiplier can be called from self.CCF
         # later on
         tpCount = self.Temporal.tpCount
@@ -1588,10 +1218,15 @@ class Arr:
 
         # create list of climate change events multiply by 10 for each temporal pattern
         cc_events = []
-        for year in cc_years:
-            for rcp in cc_RCP:
+        if self.CCF.meta.version > 2024000:
+            for key in cc_param:
                 for i in range(tpCount):
-                    cc_events.append('{0:.0f}_{1}'.format(year, rcp[3:]))
+                    cc_events.append(key)
+        else:
+            for year in cc_years:
+                for rcp in cc_RCP:
+                    for i in range(tpCount):
+                        cc_events.append('{0:.0f}_{1}'.format(year, rcp[3:]))
 
         # convert input AEP to list
         aep_list = []
@@ -1690,6 +1325,9 @@ class Arr:
 
                 # multiply rainfall by ARF
                 bom.depths = numpy.multiply(bom.depths, arf_array)
+
+                depths_adj = depths_adj * arf_array
+
                 # write out rainfall depths
             f_arf_depths = os.path.join(fpath, 'data', 'BOM_Rainfall_Depths_{0}.csv'.format(site_name))
             try:
@@ -1738,62 +1376,74 @@ class Arr:
 
         # write out climate change data
         if cc:
-            if len(cc_years) < 1:
-                #print('No year(s) specified when considering climate change.')
-                self.logger.error('No year(s) specified when considering climate change.')
-                raise SystemExit('ERROR: no year(s) specified in Climate Change consideration')
-            if len(cc_RCP) < 1:
-                #print('No RCP(s) specified when considering climate change.')
-                self.logger.error('No RCP(s) specified when considering climate change.')
-                raise SystemExit('ERROR: no RCP(s) specified in Climate Change consideration.')
-            for year, k in cc_years_dict.items():
-                # j is year index of year in self.CCF.Year so multiplier can be extracted
-                if year not in self.CCF.Year:
-                    #print('Climate change year ({0}) not recognised, or not a valid year.'.format(year))
-                    self.logger.error('Climate change year ({0}) not recognised, or not a valid year.'.format(year))
-                    raise SystemExit('ERROR: Climate change year ({0}) not recognised, or not a valid year.'.format(year))
-                for rcp in cc_RCP:
-                    if rcp == 'RCP4.5':
-                        cc_multip = (self.CCF.RCP4p5[k] / 100) + 1
-                    elif rcp == 'RCP6':
-                        cc_multip = (self.CCF.RCP6[k] / 100) + 1
-                    elif rcp == 'RCP8.5':
-                        cc_multip = (self.CCF.RCP8p5[k] / 100) + 1
-                    else:
-                        #print('Climate change RCP ({0}) not recognised, or valid.'.format(rcp))
-                        self.logger.error('Climate change RCP ({0}) not recognised, or valid.'.format(rcp))
-                        raise SystemExit("ERROR: Climate change RCP ({0}) not recognised, or valid".format(rcp))
+            if (self.CCF.meta.version < 2024000 and len(cc_param) > 0) or (self.CCF.meta.version > 2024000 and len(cc_RCP) > 0):
+                self.logger.error('Requested climate change scenarios do not match ARR datahub version.')
+                raise SystemExit('Requested climate change scenarios do not match ARR datahub version.')
 
-                    # start by writing out climate change rainfall depths
-                    cc_depths = bom.depths * cc_multip
-                    cc_file = 'BOM_Rainfall_Depths_{0}_{1}_{2}.csv'.format(site_name, year, rcp)
-                    cc_file_out = os.path.join(fpath, 'data', cc_file)
-                    cc_file_open = open(cc_file_out, 'w')
-                    cc_file_open.write(
-                        'This file has been generated using ARR_to_TUFLOW. Climate Change rainfall '
-                        'depths have been calculated based on Climate Change Factors '
-                        'extracted from the ARR datahub for {0} and {1}.\n'.format(year, rcp))
-                    cc_file_open.write('Duration (mins),{0}\n'.format(",".join(map(str, bom.aep_names))))
-                    for i, dur in enumerate(bom.duration):
-                        line = '{0}'.format(dur)
-                        for j in range(bom.naep):
-                            if numpy.isnan(bom.depths[i, j]):
-                                line = line + ',-'
-                            else:
-                                line = line + ',{0:.1f}'.format(cc_depths[i, j])
-                        line = line + '\n'
-                        cc_file_open.write(line)
-                    cc_file_open.flush()
-                    cc_file_open.close()
+            if self.CCF.meta.version > 2024000:
+                out_dir = Path(fpath) / 'data'
+                for name, param in cc_param.items():
+                    self.CCF.add_scenario(name, param)
+                    self.CCF.calc_rainfall_depths(name, depths_adj)
+                    self.CCF.write_rainfall_to_file(name, out_dir)
 
-                    # Save Figure
-                    fig_name = os.path.join(fpath, 'data',
-                                            'BOM_Rainfall_Depths_{0}_{1}_{2}.png'.format(site_name, year, rcp))
-                    ymax = 10 ** math.ceil(math.log10(numpy.nanmax(cc_depths)))
-                    ymin = 10 ** math.floor(math.log10(numpy.nanmin(cc_depths))) if numpy.nanmin(cc_depths) > 0. else 0.001
-                    make_figure(fig_name, bom.duration, cc_depths, 1, 10000, ymin, ymax, 'Duration (mins)', 'Depth (mm)',
-                                'Design Rainfall Depths: {0}_{1}_{2}.csv'.format(site_name, year, rcp), bom.aep_names,
-                                loglog=True)
+            else:  # old version
+                if len(cc_years) < 1:
+                    #print('No year(s) specified when considering climate change.')
+                    self.logger.error('No year(s) specified when considering climate change.')
+                    raise SystemExit('ERROR: no year(s) specified in Climate Change consideration')
+                if len(cc_RCP) < 1:
+                    #print('No RCP(s) specified when considering climate change.')
+                    self.logger.error('No RCP(s) specified when considering climate change.')
+                    raise SystemExit('ERROR: no RCP(s) specified in Climate Change consideration.')
+                for year, k in cc_years_dict.items():
+                    # j is year index of year in self.CCF.Year so multiplier can be extracted
+                    if year not in self.CCF.Year:
+                        #print('Climate change year ({0}) not recognised, or not a valid year.'.format(year))
+                        self.logger.error('Climate change year ({0}) not recognised, or not a valid year.'.format(year))
+                        raise SystemExit('ERROR: Climate change year ({0}) not recognised, or not a valid year.'.format(year))
+                    for rcp in cc_RCP:
+                        if rcp == 'RCP4.5':
+                            cc_multip = (self.CCF.RCP4p5[k] / 100) + 1
+                        elif rcp == 'RCP6':
+                            cc_multip = (self.CCF.RCP6[k] / 100) + 1
+                        elif rcp == 'RCP8.5':
+                            cc_multip = (self.CCF.RCP8p5[k] / 100) + 1
+                        else:
+                            #print('Climate change RCP ({0}) not recognised, or valid.'.format(rcp))
+                            self.logger.error('Climate change RCP ({0}) not recognised, or valid.'.format(rcp))
+                            raise SystemExit("ERROR: Climate change RCP ({0}) not recognised, or valid".format(rcp))
+
+                        # start by writing out climate change rainfall depths
+                        cc_depths = bom.depths * cc_multip
+                        cc_file = 'BOM_Rainfall_Depths_{0}_{1}_{2}.csv'.format(site_name, year, rcp)
+                        cc_file_out = os.path.join(fpath, 'data', cc_file)
+                        cc_file_open = open(cc_file_out, 'w')
+                        cc_file_open.write(
+                            'This file has been generated using ARR_to_TUFLOW. Climate Change rainfall '
+                            'depths have been calculated based on Climate Change Factors '
+                            'extracted from the ARR datahub for {0} and {1}.\n'.format(year, rcp))
+                        cc_file_open.write('Duration (mins),{0}\n'.format(",".join(map(str, bom.aep_names))))
+                        for i, dur in enumerate(bom.duration):
+                            line = '{0}'.format(dur)
+                            for j in range(bom.naep):
+                                if numpy.isnan(bom.depths[i, j]):
+                                    line = line + ',-'
+                                else:
+                                    line = line + ',{0:.1f}'.format(cc_depths[i, j])
+                            line = line + '\n'
+                            cc_file_open.write(line)
+                        cc_file_open.flush()
+                        cc_file_open.close()
+
+                        # Save Figure
+                        fig_name = os.path.join(fpath, 'data',
+                                                'BOM_Rainfall_Depths_{0}_{1}_{2}.png'.format(site_name, year, rcp))
+                        ymax = 10 ** math.ceil(math.log10(numpy.nanmax(cc_depths)))
+                        ymin = 10 ** math.floor(math.log10(numpy.nanmin(cc_depths))) if numpy.nanmin(cc_depths) > 0. else 0.001
+                        make_figure(fig_name, bom.duration, cc_depths, 1, 10000, ymin, ymax, 'Duration (mins)', 'Depth (mm)',
+                                    'Design Rainfall Depths: {0}_{1}_{2}.csv'.format(site_name, year, rcp), bom.aep_names,
+                                    loglog=True)
 
         # initialise unique durations and AEPs to export to control files
         exported_aep = []
@@ -1962,6 +1612,7 @@ class Arr:
                 preBurst_depths = self.PreBurst.Depths50
                 preBurst_ratios = self.PreBurst.Ratios50
 
+
             # generate same size numpy arrays for burst and preburst data based on common AEPs and Durations
             b_com_aep, b_com_dur, b_dep_com, b_com_dur_index = common_data(bom.aep_names, bom.duration,
                                                                            self.PreBurst.AEP_names,
@@ -2079,6 +1730,13 @@ class Arr:
 
         make_figure(fig_name, bom.duration, pb_dep_final_complete, 1, xmax, ymin, ymax, 'Duration (mins)', 'Depth (mm)',
                     'Pre-burst Depths: {0}'.format(site_name), bom.aep_names, xlog=True)
+
+        # add initial losses to climate change scenarios
+        if cc:
+            out_dir = Path(fpath) / 'data'
+            for name in cc_param:
+                self.CCF.calc_rainfall_losses(name, self.Losses.init_loss, self.Losses.cont_loss, ilb_complete, self.Temporal.tp_region)
+                self.CCF.write_losses_to_file(name, out_dir)
 
         # copy ilb_complete incase complete storm is used later on - change values in routine further down as required
         il_complete = numpy.copy(ilb_complete)
@@ -2206,8 +1864,6 @@ class Arr:
                 continue
 
             # rf inflow
-            # import pydevd_pycharm
-            # pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
             tp_count_max = tpCount
             if process_aep:  # AEP data exists
                 if all_duration:
@@ -2259,6 +1915,7 @@ class Arr:
                             if self.Losses.existsPNLosses and probability_neutral_losses:
                                 self.logger.warning("WARNING: Cannot use complete storm and Probability Neutral Burst"
                                                     "Initial Losses... using design storm")
+                                bComplete_storm = False
                             else:
                                 i = aep_ind
                                 j = dur_ind
@@ -2308,27 +1965,41 @@ class Arr:
                                 rf_array[i, i2] = increments[i][j] * depth / 100.
                                 i2 += 1
                         if cc:
+                            cc_rf_array = np.zeros([nid, ntimes])
                             # add climate change temporal patter to array so it can be written to same file
-                            for year, k in cc_years_dict.items():
-                                # k is year correct index of year in self.CCF.Year so multiplier can be extracted
-                                for rcp in cc_RCP:
-                                    if rcp == 'RCP4.5':
-                                        cc_multip = (self.CCF.RCP4p5[k] / 100) + 1
-                                    elif rcp == 'RCP6':
-                                        cc_multip = (self.CCF.RCP6[k] / 100) + 1
-                                    elif rcp == 'RCP8.5':
-                                        cc_multip = (self.CCF.RCP8p5[k] / 100) + 1
-                                    cc_rf_array = np.zeros([nid, ntimes])
+                            if self.CCF.meta.version > 2024000:
+                                for name in cc_param:
+                                    cc_multip = self.CCF.get_scenario(name).rf_f.iloc[dur_ind,aep_ind]
                                     for i in range(nid):
                                         i2 = 1
                                         for j in range(len(increments_pb)):
                                             cc_rf_array[i, i2] = increments_pb[j] * pb_depth / 100.
                                             i2 += 1
                                         for j in range(len(increments[i])):
-                                            #cc_rf_array[i, j + 1] = increments[i][j] * depth * cc_multip / 100
                                             cc_rf_array[i, i2] = increments[i][j] * depth * cc_multip / 100
                                             i2 += 1
                                     rf_array = numpy.append(rf_array, cc_rf_array, axis=0)
+                            else:
+                                for year, k in cc_years_dict.items():
+                                    # k is year correct index of year in self.CCF.Year so multiplier can be extracted
+                                    for rcp in cc_RCP:
+                                        if rcp == 'RCP4.5':
+                                            cc_multip = (self.CCF.RCP4p5[k] / 100) + 1
+                                        elif rcp == 'RCP6':
+                                            cc_multip = (self.CCF.RCP6[k] / 100) + 1
+                                        elif rcp == 'RCP8.5':
+                                            cc_multip = (self.CCF.RCP8p5[k] / 100) + 1
+                                        # cc_rf_array = np.zeros([nid, ntimes])
+                                        for i in range(nid):
+                                            i2 = 1
+                                            for j in range(len(increments_pb)):
+                                                cc_rf_array[i, i2] = increments_pb[j] * pb_depth / 100.
+                                                i2 += 1
+                                            for j in range(len(increments[i])):
+                                                #cc_rf_array[i, j + 1] = increments[i][j] * depth * cc_multip / 100
+                                                cc_rf_array[i, i2] = increments[i][j] * depth * cc_multip / 100
+                                                i2 += 1
+                                        rf_array = numpy.append(rf_array, cc_rf_array, axis=0)
                         # open output file
                         if aep[-1] == '%':
                             if out_notation == 'ari':
@@ -2385,8 +2056,9 @@ class Arr:
                         tp_cc = False
                         cc_event_index = 0  # index to call correct name from cc_events
                         k = -1
+                        cc_count = self.CCF.scenario_count() if self.CCF.meta.version > 2024000 else len(cc_years) * len(cc_RCP)
                         # create a list 1 - 10 repeated for all temporal pattern sets
-                        for i in [k for k in range(1, tp_count+1)] * (len(cc_years) * len(cc_RCP) + 1):
+                        for i in [k for k in range(1, tp_count+1)] * (cc_count + 1):
                             if i > len(ids):
                                 break
                             line1 = line1 + ', 1'
@@ -2593,11 +2265,11 @@ class Arr:
                 raise SystemExit('ERROR: Unexpected error opening file {0}'.format(bc_fname))
             bcdb.write('Name,Source,Column 1,Column 2,Add Col 1,Mult Col 2,Add Col 2,Column 3,Column 4\n')
             if out_form == 'ts1':
-                bcdb.write(r'{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~\n'.format(site_name,
+                bcdb.write('{0},rf_inflow\\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~\n'.format(site_name,
                                                                                            out_notation.upper(),
                                                                                            out_form))
             else:
-                bcdb.write(r'{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (hour), ~TP~\n'.format(site_name,
+                bcdb.write('{0},rf_inflow\\{0}_RF_~{1}~~DUR~.{2},Time (hour), ~TP~\n'.format(site_name,
                                                                                             out_notation.upper(),
                                                                                             out_form))
             bcdb.flush()
@@ -2640,10 +2312,10 @@ class Arr:
                     raise SystemExit('ERROR: Unexpected error opening file {0}'.format(bc_fname_cc))
                 bcdb_cc.write('Name,Source,Column 1, Column 2\n')
                 if out_form == 'ts1':
-                    bcdb_cc.write(r'{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~_~CC~\n'.
+                    bcdb_cc.write('{0},rf_inflow\\{0}_RF_~{1}~~DUR~.{2},Time (min), ~TP~_~CC~\n'.
                                   format(site_name, out_notation.upper(), out_form))
                 else:
-                    bcdb_cc.write(r'{0},rf_inflow\{0}_RF_~{1}~~DUR~.{2},Time (hour), ~TP~_~CC~\n'.
+                    bcdb_cc.write('{0},rf_inflow\\{0}_RF_~{1}~~DUR~.{2},Time (hour), ~TP~_~CC~\n'.
                                   format(site_name, out_notation.upper(), out_form))
                 bcdb_cc.flush()
                 bcdb_cc.close()
@@ -2723,7 +2395,8 @@ class Arr:
             i = 1
             for scenario in cc_events:
                 if scenario != scenario_prev:
-                    tef.write('Define Event == cc{0:02d}\n'.format(i))
+                    tef.write(f'!{self.CCF.get_scenario(scenario).param_to_string()}\n')
+                    tef.write(f'Define Event == {scenario}\n')
                     tef.write('    BC Event Source == ~CC~ | {0}\n'.format(scenario))
                     tef.write('End Define\n\n')
                     scenario_prev = scenario
@@ -2762,7 +2435,7 @@ class Arr:
                 increment = 2
                 if catch_no == 0:
                     tsoilf_open.write('1, ILCL, {0}, {1},  ! Impervious Area Rainfall Losses\n'.format(urban_initial_loss, urban_continuing_loss))
-            if use_global_continuing_loss:
+            if use_global_continuing_loss and not cc:
                 tsoilf_open.write('{1:.0f}, ILCL, <<IL_{0}>>, {2}  ! Design ARR2016 Losses For Catchment {0}\n'.format(site_name, catch_no + increment, self.Losses.cls))
             else:
                 tsoilf_open.write('{1:.0f}, ILCL, <<IL_{0}>>, <<CL_{0}>>  ! Design ARR2016 Losses For Catchment {0}\n'.format(site_name, catch_no + increment))
@@ -2786,7 +2459,7 @@ class Arr:
                 increment = 2
                 if catch_no == 0:
                     materials_open.write('1,,"{0}, {1}",,,,! Impervious Area Rainfall Losses\n'.format(urban_initial_loss, urban_continuing_loss))
-            if use_global_continuing_loss:
+            if use_global_continuing_loss and not cc:
                 materials_open.write('{1:.0f},,"<<IL_{0}>>, {2}",,,,! Design ARR2016 Losses for catchment {0}\n'.format(site_name, catch_no + increment, self.Losses.cls))
             else:
                 materials_open.write('{1:.0f},,"<<IL_{0}>>, <<CL_{0}>>",,,,! Design ARR2016 Losses for catchment {0}\n'.format(site_name, catch_no + increment))
@@ -2794,133 +2467,81 @@ class Arr:
 
         rareMag2Name = {'0.5%': '1 in 200', '0.2%': '1 in 500', '0.1%': '1 in 1000',
                         '0.05%': '1 in 2000'}
+
+        # dump loss data to file - when processing multiple catchments losses have to be merged into as single IF statement
+        # so cache the data so the IF statement can be re-written each time
+        persistent_data_folder = os.path.join(fpath, 'data')
+        if catch_no == 0:
+            self.settings.persistent_data.clear(persistent_data_folder)
+        for i, aep in enumerate(aep_list_formatted):
+            for j, dur in enumerate(dur_list_formatted):
+                if aep_list[i] in rareMag2Name:
+                    mag_index = bom.aep_names.index(rareMag2Name[aep_list[i]])
+                else:
+                    mag_index = bom.aep_names.index(aep_list[i])
+                dur_index = bom.duration.index(dur_list[j])
+                il = il_complete[dur_index, mag_index]
+                if np.isnan(il):
+                    il = 0
+                cl = float(self.Losses.cls)
+                self.settings.persistent_data.add_initial_loss(persistent_data_folder, aep, dur, 'NOCC', site_name, (il, cl))
+                if cc:
+                    for i, name in enumerate(cc_param):
+                        scen = self.CCF.get_scenario(name)
+                        if bComplete_storm:
+                            ilcc = scen.init_loss
+                        else:
+                            ilcc = scen.init_losses_a.iloc[dur_index, mag_index]
+                            if np.isnan(ilcc):
+                                ilcc = 0
+                        clcc = scen.cont_loss
+                        self.settings.persistent_data.add_initial_loss(persistent_data_folder, aep, dur, name, site_name, (ilcc, clcc))
+
         # write trd losses file
         if tuflow_loss_method == 'infiltration':
             trd = os.path.join(fpath, 'soil_infiltration.trd')
         else:
             trd = os.path.join(fpath, 'rainfall_losses.trd')
-        if catch_no == 0:  # write new file
-            try:
-                trd_open = open(trd, 'w')
-            except PermissionError:
-                #print("File is locked for editing: {0}".format(trd))
-                self.logger.error("File is locked for editing: {0}".format(trd))
-                raise SystemExit("ERROR: File is locked for editing: {0}".format(trd))
-            except IOError:
-                #print('Unexpected error opening file {0}'.format(trd))
-                self.logger.error('Unexpected error opening file {0}'.format(trd))
-                raise SystemExit('ERROR: Unexpected error opening file {0}'.format(trd))
-            trd_open.write("! TUFLOW READ FILE - SET RAINFALL LOSS VARIABLES\n")
-            for i, aep in enumerate(aep_list_formatted):
-                if i == 0:
-                    trd_open.write("If Event == {0}\n".format(aep))
-                else:
-                    trd_open.write("Else If Event == {0}\n".format(aep))
-                if aep_list[i] in rareMag2Name:
-                    mag_index = bom.aep_names.index(rareMag2Name[aep_list[i]])
-                else:
-                    mag_index = bom.aep_names.index(aep_list[i])
-                for j, dur in enumerate(dur_list_formatted):
-                    if j == 0:
-                        trd_open.write("    If Event == {0}m\n".format(dur))
-                    else:
-                        trd_open.write("    Else If Event == {0}m\n".format(dur))
-                    # get intial loss value
-                    dur_index = bom.duration.index(dur_list[j])
-                    #il = ilb_complete[dur_index, mag_index]
-                    il = il_complete[dur_index, mag_index]
-                    if np.isnan(il):
-                        il = 0
-                    trd_open.write("        Set Variable IL_{1} == {0:.1f}\n".format(il, site_name))
-                    if not use_global_continuing_loss:
-                        trd_open.write("        Set Variable CL_{1} == {0:.1f}\n".format(float(self.Losses.cls), site_name))
-                trd_open.write("    Else\n")
-                trd_open.write("        Pause == Event Not Recognised\n")
-                trd_open.write("    End If\n")
-            trd_open.write("Else\n")
-            trd_open.write("    Pause == Event Not Recognised\n")
-            trd_open.write("End If")
-            trd_open.close()
-        else:  # insert losses in already defined IF statements rather than straight append
-            try:
-                trd_text = []
-                insert_index = []
-                insert_il = []
-                k = 0
-                with open(trd, 'r') as trd_open:
-                    for i, line in enumerate(trd_open):
-                        i = k + 1
-                        trd_text.append(line)
-                        if 'If Event' in line:  # first level would be mag
-                            ind = line.find('If Event')
-                            if '!' not in line[:ind]:
-                                command, mag = line.split('==')
-                                mag = mag.split('!')[0]
-                                mag = mag.strip()
-                                if mag[-1] == 'y':
-                                    unit = 'ARI'
-                                elif mag[-1] == 'p':
-                                    unit = 'AEP'
-                                else:
-                                    unit = 'EY'
-                                    mag = mag[:-1]
-                                mag = convertMagToAEP(mag, unit, frequent_events)
-                                if mag in rareMag2Name:
-                                    mag_index = bom.aep_names.index(rareMag2Name[mag])
-                                else:
-                                    mag_index = bom.aep_names.index(mag)
-                                for j, subline in enumerate(trd_open):
-                                    k = i + j + 1
-                                    trd_text.append(subline)
-                                    if 'If Event' in subline:  # sub level would be dur
-                                        ind = line.find('If Event')
-                                        if '!' not in line[:ind]:
-                                            command, dur = subline.split('==')
-                                            dur = dur.split('!')[0]
-                                            dur = dur.strip().strip('m')
-                                            dur_index = bom.duration.index(int(dur))
-                                            #il = ilb_complete[dur_index, mag_index]
-                                            il = il_complete[dur_index, mag_index]
-                                            if np.isnan(il):
-                                                il = 0
-                                            if not use_global_continuing_loss:
-                                                insert_index.append(k + catch_no * 2 + 1)
-                                            else:
-                                                insert_index.append(k + catch_no + 1)
-                                            insert_il.append(il)
-                                    if 'End If' in subline:
-                                        break
-            except PermissionError:
-                #print("File is locked for editing: {0}".format(trd))
-                self.logger.error("File is locked for editing: {0}".format(trd))
-                raise SystemExit("ERROR: File is locked for editing: {0}".format(trd))
-            except IOError:
-                #print('Unexpected error opening file {0}'.format(trd))
-                self.logger.error('Unexpected error opening file {0}'.format(trd))
-                raise SystemExit('ERROR: Unexpected error opening file {0}'.format(trd))
-            
-            if trd_text:
-                for i, j in enumerate(reversed(insert_index)):
-                    j = int(j)
-                    k = int(len(insert_index) - 1 - i)
-                    if not use_global_continuing_loss:
-                        trd_text.insert(j, '        Set Variable CL_{0} == {1:.1f}\n'.format(site_name, float(self.Losses.cls)))
-                    trd_text.insert(j, '        Set Variable IL_{0} == {1:.1f}\n'.format(site_name, insert_il[k]))
-                text = ''
-                for t in trd_text:
-                    text += t
-                try:
-                    trd_open = open(trd, 'w')
-                    trd_open.write(text)
-                    trd_open.close()
-                except PermissionError:
-                    #print("File is locked for editing: {0}".format(trd))
-                    self.logger.error("File is locked for editing: {0}".format(trd))
-                    raise SystemExit("ERROR: File is locked for editing: {0}".format(trd))
-                except IOError:
-                    #print('Unexpected error opening file {0}'.format(trd))
-                    self.logger.error('Unexpected error opening file {0}'.format(trd))
-                    raise SystemExit('ERROR: Unexpected error opening file {0}'.format(trd))
+        losses = self.settings.persistent_data.load(persistent_data_folder)
+        try:
+            with open(trd, 'w') as trd_open:
+                trd_open.write("! TUFLOW READ FILE - SET RAINFALL LOSS VARIABLES\n")
+                for i, (aep, aep_dict) in enumerate(losses.items()):
+                    if1 = 'If' if i == 0 else 'Else If'
+                    trd_open.write(f"{if1} Event == {aep}\n")
+                    for j, (dur, dur_dict) in enumerate(aep_dict.items()):
+                        if2 = 'If' if j == 0 else 'Else If'
+                        trd_open.write(f"    {if2} Event == {dur}\n")
+                        k = -1
+                        if cc:
+                            for cc_name, cc_dict in dur_dict.items():
+                                if cc_name == 'NOCC':
+                                    continue  # add at end
+                                k += 1
+                                if3 = 'If' if k == 0 else 'Else If'
+                                trd_open.write(f"        {if3} Event == {cc_name}\n")
+                                for catch_name, (il, cl) in cc_dict.items():
+                                    trd_open.write(f'            Set Variable IL_{catch_name} == {il:.1f}\n')
+                                    trd_open.write(f'            Set Variable CL_{catch_name} == {cl:.1f}\n')
+                            trd_open.write('        Else  ! no climate change\n')
+                            for catch_name, (il, cl) in dur_dict['NOCC'].items():
+                                trd_open.write(f'            Set Variable IL_{catch_name} == {il:.1f}\n')
+                                trd_open.write(f'            Set Variable CL_{catch_name} == {cl:.1f}\n')
+                            trd_open.write('        End If\n')
+                        else:
+                            for catch_name, (il, cl) in dur_dict['NOCC'].items():
+                                trd_open.write(f'        Set Variable IL_{catch_name} == {il:.1f}\n')
+                                if not use_global_continuing_loss:
+                                    trd_open.write(f'        Set Variable CL_{catch_name} == {cl:.1f}\n')
+                    trd_open.write('    Else\n')
+                    trd_open.write('        Pause == Event Not Recognised\n')
+                    trd_open.write('    End If\n')
+                trd_open.write('Else\n')
+                trd_open.write('    Pause == Event Not Recognised\n')
+                trd_open.write('End If')
+        except (IOError, PermissionError):
+            self.logger.error("File is locked for editing: {0}".format(trd))
+            raise SystemExit("ERROR: File is locked for editing: {0}".format(trd))
 
     def temporalPatternRegion(self, fi):
         """

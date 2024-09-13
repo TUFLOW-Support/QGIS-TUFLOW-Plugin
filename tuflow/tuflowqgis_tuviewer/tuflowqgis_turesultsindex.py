@@ -1,5 +1,6 @@
 from qgis.core import Qgis
 from datetime import timedelta
+from tuflow.tuflowqgis_library import roundSeconds
 
 
 class TuResultsIndex():
@@ -89,12 +90,13 @@ class TuResultsIndex():
 		rt = tuResults.results[key1][key2]['referenceTime']
 		for i, time in enumerate(times):
 			if units == 's':
-				date = rt + timedelta(seconds=time)
+				date = rt + timedelta(seconds=float(time))
 			else:
 				try:
-					date = rt + timedelta(hours=time)
+					date = rt + timedelta(hours=float(time))
 				except OverflowError:
-					date = rt + timedelta(seconds=time)
+					date = rt + timedelta(seconds=float(time))
+			date = roundSeconds(date, 2)
 			if method == 'higher':
 				if date >= key3:
 					return time

@@ -4,7 +4,6 @@ command == Read GIS GLO
 
 description == Used to define gauge level output (2d_glo) locations. The GLO command controls map output based on the height of the water at a specified location within the model domain.
 
-wiki link == https://wiki.tuflow.com/index.php?title=TUFLOW_Empty_Files#TUFLOW_Control_file_.28TCF.29
+wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#TUFLOW_Control_file_.28TCF.29
 
-manual link == https://downloads.tuflow.com/_archive/TUFLOW/Releases/2018-03/TUFLOW%20Manual.2018-03.pdf
-manual page == 391
+manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/Outputs-1.html#GaugeLevel-3

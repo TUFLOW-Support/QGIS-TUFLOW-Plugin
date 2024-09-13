@@ -4,8 +4,10 @@ from shapely import get_coordinates
 from shapely.geometry.linestring import LineString
 from shapely.geometry.point import Point
 
+from tuflow.tuflow_swmm.gis_messages import GisMessages
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
-from tuflow.tuflow_swmm.geom_util import get_perp_offset_line_points
+from tuflow.tuflow_swmm.geom_util import get_perp_offset_line_points, get_line_offset_from_point
+
 
 def fill_bc_data(row,
                  gdf_all_links: gpd.GeoDataFrame,
@@ -14,17 +16,28 @@ def fill_bc_data(row,
                  bc_width: float,
                  outfall_connections: bool,
                  set_z_flag: bool,
+                 gis_messages: GisMessages,
                  feedback: any):
     if outfall_connections:
         # Look for upstream connections and make SX connections
         gdf_upstream_connections = gdf_all_links[gdf_all_links['To Node'] == row.Name]
         if len(gdf_upstream_connections) == 0:
-            feedback.reportError(error='Outfall connection could not be created for outfall (no upstream link)')
+            feedback.pushWarning('Warning: No Upstream link for outfall. SX line has arbitrary orientation.')
+            gis_messages.add_message(
+                row.geometry,
+                'WARNING',
+                'No Upstream Link for outfall. SX line has arbitrary orientation.'
+            )
 
-        bc_geom = get_perp_offset_line_points(gdf_upstream_connections['geometry'].iloc[0],
-                                              offset_dist,
-                                              bc_width,
-                                              False)
+            bc_geom = get_line_offset_from_point(row.geometry,
+                                                 offset_dist,
+                                                 bc_width,
+                                                 0.0)
+        else:
+            bc_geom = get_perp_offset_line_points(gdf_upstream_connections['geometry'].iloc[0],
+                                                  offset_dist,
+                                                  bc_width,
+                                                  False)
 
         # SX line
         bc_data['geometry'].append(bc_geom)
@@ -47,13 +60,24 @@ def fill_bc_data(row,
     else:
         # Look for downstream connections and make HX connections
         gdf_downstream_connections = gdf_all_links[gdf_all_links['From Node'] == row.Name]
-        if len(gdf_downstream_connections) == 0:
-            feedback.reportError(error='Node BC connection could not be created (no downstream link)')
 
-        bc_geom = get_perp_offset_line_points(gdf_downstream_connections['geometry'].iloc[0],
-                                              offset_dist,
-                                              bc_width,
-                                              True)
+        if len(gdf_downstream_connections) == 0:
+            feedback.pushWarning('Warning: No Downstream link for HX connection. HX line has arbitrary orientation.')
+            gis_messages.add_message(
+                row.geometry,
+                'WARNING',
+                'No Downstream Link for HX connection. HX line has arbitrary orientation.'
+            )
+
+            bc_geom = get_line_offset_from_point(row.geometry,
+                                                 offset_dist,
+                                                 bc_width,
+                                                 0.0)
+        else:
+            bc_geom = get_perp_offset_line_points(gdf_downstream_connections['geometry'].iloc[0],
+                                                  offset_dist,
+                                                  bc_width,
+                                                  True)
 
         # HX line
         bc_data['geometry'].append(bc_geom)
@@ -87,6 +111,7 @@ def fill_bc_data(row,
         bc_data['Name'].append('')
         bc_data['Flags'].append('Z' if set_z_flag else '')
 
+
 def create_bc_connections_gpd(
         gdf_all_links: gpd.GeoDataFrame,
         gdf_nodes: gpd.GeoDataFrame,
@@ -94,6 +119,7 @@ def create_bc_connections_gpd(
         offset_dist: float,
         bc_width: float,
         set_z_flag: bool,
+        gis_messages: GisMessages,
         feedback=ScreenProcessingFeedback,
 ) -> gpd.GeoDataFrame or None:
     if len(gdf_all_links) == 0:
@@ -114,6 +140,7 @@ def create_bc_connections_gpd(
             bc_width,
             outfall_connections,
             set_z_flag,
+            gis_messages,
             feedback),
         axis=1,
     )

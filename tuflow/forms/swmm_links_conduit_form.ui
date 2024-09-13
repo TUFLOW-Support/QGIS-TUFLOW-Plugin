@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SwmmLinksConduitEditor</class>
+ <widget class="QDialog" name="SwmmLinksConduitEditor">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>567</width>
+    <height>831</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>SWMM Conduit Links Editor</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QGroupBox" name="groupBox">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="title">
+      <string>General Attributes</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+     </property>
+     <layout class="QGridLayout" name="gridLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_16">
+        <property name="text">
+         <string>fid</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1" colspan="3">
+       <widget class="QComboBox" name="cbx_from_node_4">
+        <property name="editable">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1" colspan="3">
+       <widget class="QComboBox" name="From_Node">
+        <property name="editable">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="0" colspan="3">
+       <widget class="QLabel" name="label_20">
+        <property name="text">
+         <string>End Elevation or Offset</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1" colspan="3">
+       <widget class="QTextEdit" name="Name">
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>28</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="4">
+       <widget class="QPushButton" name="pushButton_2">
+        <property name="text">
+         <string>Polyline Length</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_12">
+        <property name="text">
+         <string>To Node</string>
+        </property>
+       </widget>
+      </item>
+      <item row="9" column="0" colspan="2">
+       <widget class="QLabel" name="label_11">
+        <property name="text">
+         <string>Maximum Flow</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_15">
+        <property name="text">
+         <string>From Node</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1" colspan="3">
+       <widget class="QLineEdit" name="Roughness"/>
+      </item>
+      <item row="6" column="0" colspan="3">
+       <widget class="QLabel" name="label_13">
+        <property name="text">
+         <string>Start Elevation or Offset</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1" colspan="3">
+       <widget class="QLineEdit" name="Length"/>
+      </item>
+      <item row="8" column="2" colspan="2">
+       <widget class="QLineEdit" name="InitFlow"/>
+      </item>
+      <item row="9" column="2" colspan="2">
+       <widget class="QLineEdit" name="MaxFlow"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_18">
+        <property name="text">
+         <string>Name</string>
+        </property>
+       </widget>
+      </item>
+      <item row="8" column="0">
+       <widget class="QLabel" name="label_14">
+        <property name="text">
+         <string>Initial Flow</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QLabel" name="label_17">
+        <property name="text">
+         <string>Roughness</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="3">
+       <widget class="QLineEdit" name="InOffset"/>
+      </item>
+      <item row="7" column="3">
+       <widget class="QLineEdit" name="OutOffset"/>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="label_19">
+        <property name="text">
+         <string>Length</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1" colspan="3">
+       <widget class="QTextEdit" name="fid">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>28</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item row="10" column="0">
+       <widget class="QCheckBox" name="losses_Flap">
+        <property name="text">
+         <string>Unidirectional</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox_2">
+     <property name="title">
+      <string>Geometry</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_2">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>Shape</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1" colspan="3">
+       <widget class="QComboBox" name="cbx_shape"/>
+      </item>
+      <item row="1" column="0" colspan="2">
+       <widget class="QLabel" name="txt_geom1">
+        <property name="text">
+         <string>geometry1</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="2" colspan="2">
+       <widget class="QLineEdit" name="edt_geom1"/>
+      </item>
+      <item row="2" column="0" colspan="2">
+       <widget class="QLabel" name="txt_geom2">
+        <property name="text">
+         <string>geometry2</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="2" colspan="2">
+       <widget class="QLineEdit" name="edt_geom2"/>
+      </item>
+      <item row="3" column="0" colspan="2">
+       <widget class="QLabel" name="txt_geom3">
+        <property name="text">
+         <string>geometry3</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="2" colspan="2">
+       <widget class="QLineEdit" name="edt_geom3"/>
+      </item>
+      <item row="4" column="0" colspan="2">
+       <widget class="QLabel" name="txt_geom4">
+        <property name="text">
+         <string>geometry4</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="2" colspan="2">
+       <widget class="QLineEdit" name="edt_geom4"/>
+      </item>
+      <item row="5" column="0" colspan="2">
+       <widget class="QLabel" name="txt_size_code">
+        <property name="layoutDirection">
+         <enum>Qt::RightToLeft</enum>
+        </property>
+        <property name="text">
+         <string>Size Code</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="2" colspan="2">
+       <widget class="QLineEdit" name="edt_size_code"/>
+      </item>
+      <item row="6" column="0" colspan="3">
+       <widget class="QLabel" name="label_2">
+        <property name="frameShape">
+         <enum>QFrame::NoFrame</enum>
+        </property>
+        <property name="text">
+         <string>Number of Barrels</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="3">
+       <widget class="QSpinBox" name="spinBox"/>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox_3">
+     <property name="title">
+      <string>Losses</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_3">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_3">
+        <property name="text">
+         <string>Entry</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="lineEdit_6"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_4">
+        <property name="text">
+         <string>Exit</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLineEdit" name="lineEdit_13"/>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_5">
+        <property name="text">
+         <string>Average</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLineEdit" name="lineEdit_14"/>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_7">
+        <property name="text">
+         <string>Seepage</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QLineEdit" name="lineEdit_16"/>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
