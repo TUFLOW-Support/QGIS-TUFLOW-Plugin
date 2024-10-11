@@ -1914,6 +1914,7 @@ class tuflowqgis_import_check_dialog(QDialog, Ui_tuflowqgis_import_check):
 # ----------------------------------------------------------
 from .forms.ui_tuflowqgis_arr2016 import *
 from tuflow.ARR2016.arr_cc_dlg import ARRCCDialog
+from tuflow.ARR2016.ARR_to_TUFLOW import ARR_to_TUFLOW
 
 
 class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
@@ -2799,60 +2800,66 @@ class Arr2016(QObject):
 		self.name_list.append(name)
 
 	def run(self):
-		try:
-			errors = ''
-			for i, sys_args in enumerate(self.sys_args):
-				if i > 0:
-					self.updated.emit(i)
-				#if i == 0:
-				#	logfile = open(self.logfile, 'wb')
-				#else:
-				#	logfile = open(self.logfile, 'ab')
+		# try:
+		errors = ''
+		for i, sys_args in enumerate(self.sys_args):
+			if i > 0:
+				self.updated.emit(i)
+			#if i == 0:
+			#	logfile = open(self.logfile, 'wb')
+			#else:
+			#	logfile = open(self.logfile, 'ab')
 
-				CREATE_NO_WINDOW = 0x08000000  # suppresses python console window
-				error = False
-				if sys.platform == 'win32':
-					try:  # for some reason (in QGIS2 at least) creationsflags didn't work on all computers
-						proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-						                        creationflags=CREATE_NO_WINDOW)
-						out, err = proc.communicate()
-						#logfile.write(out)
-						#logfile.write(err)
-						#logfile.close()
-						if err:
-							if type(err) is bytes:
-								err = err.decode('utf-8')
-							errors += '{0} - {1}'.format(self.name_list[i], err)
-					except Exception as e:
-						try:
-							proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-							out, err = proc.communicate()
-							#logfile.write(out)
-							#logfile.write(err)
-							#logfile.close()
-							if err:
-								if type(err) is bytes:
-									err = err.decode('utf-8')
-								errors += '{0} - {1}'.format(self.name_list[i], err)
-						except:
-							error = 'Error with subprocess call'
-				else:  # linux and mac
-					try:
-						proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-						out, err = proc.communicate()
-						#logfile.write(out)
-						#logfile.write(err)
-						#logfile.close()
-						if err:
-							if type(err) is bytes:
-								err = err.decode('utf-8')
-							errors += '{0} - {1}'.format(self.name_list[i], err)
-					except:
-						error = 'Error with subprocess call'
-		except Exception as e:
-			if type(e) is bytes:
-				e = err.decode('utf-8')
-			errors += e
+			try:
+				ARR_to_TUFLOW(sys_args)
+			except Exception as e:
+				errors += '{0} - {1}'.format(self.name_list[i], e)
+
+				# CREATE_NO_WINDOW = 0x08000000  # suppresses python console window
+				# error = False
+				# if sys.platform == 'win32':
+				# 	try:  # for some reason (in QGIS2 at least) creationsflags didn't work on all computers
+				#
+				# 		proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+				# 		                        creationflags=CREATE_NO_WINDOW)
+				# 		out, err = proc.communicate()
+				# 		#logfile.write(out)
+				# 		#logfile.write(err)
+				# 		#logfile.close()
+				# 		if err:
+				# 			if type(err) is bytes:
+				# 				err = err.decode('utf-8')
+				# 			errors += '{0} - {1}'.format(self.name_list[i], err)
+				# 	except Exception as e:
+				# 		try:
+				# 			proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+				# 			out, err = proc.communicate()
+				# 			# #logfile.write(out)
+				# 			# #logfile.write(err)
+				# 			# #logfile.close()
+				# 			if err:
+				# 				if type(err) is bytes:
+				# 					err = err.decode('utf-8')
+				# 				errors += '{0} - {1}'.format(self.name_list[i], err)
+				# 		except Exception as e:
+				# 			error = 'Error with subprocess call'
+				# else:  # linux and mac
+				# 	try:
+				# 		proc = subprocess.Popen(sys_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+				# 		out, err = proc.communicate()
+				# 		#logfile.write(out)
+				# 		#logfile.write(err)
+				# 		#logfile.close()
+				# 		if err:
+				# 			if type(err) is bytes:
+				# 				err = err.decode('utf-8')
+				# 			errors += '{0} - {1}'.format(self.name_list[i], err)
+				# 	except:
+				# 		error = 'Error with subprocess call'
+		# except Exception as e:
+		# 	if type(e) is bytes:
+		# 		e = err.decode('utf-8')
+		# 	errors += e
 		
 		self.finished.emit(errors)
 		

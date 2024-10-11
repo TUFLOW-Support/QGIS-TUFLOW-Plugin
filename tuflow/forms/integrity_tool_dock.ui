@@ -72,10 +72,10 @@
       <widget class="QWidget" name="scrollAreaWidgetContents">
        <property name="geometry">
         <rect>
-         <x>0</x>
+         <x>-4</x>
          <y>0</y>
          <width>583</width>
-         <height>956</height>
+         <height>968</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_8">
@@ -712,12 +712,24 @@
            </layout>
           </widget>
           <widget class="QWidget" name="Continuity">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
            <attribute name="title">
             <string>Continuity</string>
            </attribute>
            <layout class="QVBoxLayout" name="verticalLayout_7">
             <item>
              <widget class="QLabel" name="label_12">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
               <property name="text">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Check entire network for downstream pipe continuity.&lt;/span&gt;&lt;/p&gt;&lt;p&gt;Documentation:&lt;br/&gt;&lt;a href=&quot;https://wiki.tuflow.com/index.php?title=1D_Integrity_Tool_-_Continuity&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://wiki.tuflow.com/index.php?title=1D_Integrity_Tool_-_Continuity&lt;br/&gt;&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
@@ -728,6 +740,37 @@
                <bool>true</bool>
               </property>
              </widget>
+            </item>
+            <item>
+             <layout class="QGridLayout" name="gridLayout_5">
+              <item row="0" column="0">
+               <widget class="QLabel" name="lblSwmmLinkOffsetOptionContinuity">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="text">
+                 <string>SWMM Link Offset Option</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QComboBox" name="cbxSwmmLinkOffsetOptionContinuity">
+                <item>
+                 <property name="text">
+                  <string>Depth</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Elevation</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+             </layout>
             </item>
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_11">
@@ -1051,6 +1094,31 @@
                <bool>true</bool>
               </property>
              </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="boxSwmmLinkOffsetOptionFlowtrace">
+              <item>
+               <widget class="QLabel" name="lblSwmmLinkOffsetOption">
+                <property name="text">
+                 <string>SWMM Link Offset Option</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="cbxSwmmLinkOffsetOption">
+                <item>
+                 <property name="text">
+                  <string>Depth</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Elevation</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+             </layout>
             </item>
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_4">
@@ -1395,6 +1463,89 @@
                </spacer>
               </item>
              </layout>
+            </item>
+            <item>
+             <widget class="QgsCollapsibleGroupBox" name="mGroupBox">
+              <property name="title">
+               <string>Advanced</string>
+              </property>
+              <property name="collapsed">
+               <bool>true</bool>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_15">
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_39">
+                 <item>
+                  <widget class="QSpinBox" name="sbTimeoutLimit">
+                   <property name="suffix">
+                    <string> sec</string>
+                   </property>
+                   <property name="minimum">
+                    <number>1</number>
+                   </property>
+                   <property name="maximum">
+                    <number>99999</number>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="label_19">
+                   <property name="text">
+                    <string>Timeout limit</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_53">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_40">
+                 <item>
+                  <widget class="QSpinBox" name="sbRecursionLimit">
+                   <property name="minimum">
+                    <number>1</number>
+                   </property>
+                   <property name="maximum">
+                    <number>10000000</number>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="label_20">
+                   <property name="text">
+                    <string>Recursion limit</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_54">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
             </item>
             <item>
              <spacer name="verticalSpacer_7">

@@ -2,8 +2,8 @@ import typing
 import logging
 import numpy
 
-from ARR2016.meta import ArrMeta
-from ARR2016.parser import DataBlock
+from tuflow.ARR2016.meta import ArrMeta
+from tuflow.ARR2016.parser import DataBlock
 
 
 class ArrLosses:

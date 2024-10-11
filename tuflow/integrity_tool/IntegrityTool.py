@@ -103,6 +103,11 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         self.btnRemoveTables.clicked.connect(lambda: self.removeItem(self.lwTables))
         self.pbUsePrevChan.clicked.connect(self.usePreviousSelection)
 
+        self.sbTimeoutLimit.setValue(int(QSettings().value('tuflow/flow_trace_timeout', 30)))
+        self.sbRecursionLimit.setValue(int(QSettings().value('tuflow/flow_trace_recursion_limit', 25)))
+        self.sbTimeoutLimit.valueChanged.connect(lambda x: QSettings().setValue('tuflow/flow_trace_timeout', x))
+        self.sbRecursionLimit.valueChanged.connect(lambda x: QSettings().setValue('tuflow/flow_trace_recursion_limit', x))
+
         # what happend when the Run button is pressed
         self.pbRun.clicked.connect(self.check)
 
@@ -522,8 +527,11 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
     def catchPlotError(self, message_ = ''):
         self.setGuiActive(True)
         if message_:
-            message = message_
-            self.runStatus.setText(message)
+            message = message_#
+            status_message = message
+            if len(message) > 50:
+                status_message = '{0}...'.format(message[:50])
+            self.runStatus.setText(status_message)
         else:
             message = "Unexpected Error Occurred.\nPlease Email Stack Trace To support@tuflow.com"
             self.runStatus.setText("Unexpected Error")

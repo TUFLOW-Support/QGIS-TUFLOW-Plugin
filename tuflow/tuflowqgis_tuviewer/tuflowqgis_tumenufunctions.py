@@ -534,15 +534,18 @@ class TuMenuFunctions():
 		unlock = kwargs['unlock'] if 'unlock' in kwargs else True
 		nc_fpath = kwargs['nc_fpath'] if 'nc_fpath' in kwargs else None
 		gis_fpath = kwargs['gis_fpath'] if 'gis_fpath' in kwargs else None
+		use_local_time = kwargs['use_local_time'] if 'use_local_time' in kwargs else True
+		if isinstance(use_local_time, str):
+			use_local_time = True if use_local_time.lower() == 'true' else False
 
 		res = None
 		load_gis = True
 		if nc_fpath is None or gis_fpath is None:
 			dlg = ImportFVBCTideDlg(self.tuView)
 			if dlg.exec_():
-				res = self.tuView.tuResults.tuResults1D.importResultsFVBCTide(dlg.nc_fpath, dlg.node_string_fpath)
+				res = self.tuView.tuResults.tuResults1D.importResultsFVBCTide(dlg.nc_fpath, dlg.node_string_fpath, dlg.use_local_time)
 		else:
-			res = self.tuView.tuResults.tuResults1D.importResultsFVBCTide(nc_fpath, gis_fpath)
+			res = self.tuView.tuResults.tuResults1D.importResultsFVBCTide(nc_fpath, gis_fpath, use_local_time)
 			load_gis = False
 
 		if res:

@@ -15,9 +15,9 @@ class FVBC_TideResults(ResData):
         self.lp_ids = []
         self.supports_new_profile_plot = True
 
-    def Load(self, nc_fpath, gis_fpath):
+    def Load(self, nc_fpath, gis_fpath, use_local_time):
         try:
-            self.provider = FVBCTideProvider(nc_fpath, gis_fpath)
+            self.provider = FVBCTideProvider(nc_fpath, gis_fpath, use_local_time)
         except Exception as e:
             return True, str(e)
         if not self.provider.is_fv_tide_bc():
@@ -29,7 +29,7 @@ class FVBC_TideResults(ResData):
         self.gis_line_fpath = gis_fpath
         self.gis_point_fpath = f'point?crs={self.provider.get_crs()}&field=ID:string&field=Ch:real&field=Type:string&field=Source:string'
         self.times = self.provider.get_timesteps()
-        self.uri = f'FVBC_TideResults://{nc_fpath}::{gis_fpath}'
+        self.uri = f'FVBC_TideResults://{nc_fpath}::{gis_fpath}::{use_local_time}'
         return False, ''
 
     @property

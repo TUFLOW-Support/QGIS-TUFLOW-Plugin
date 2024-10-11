@@ -160,7 +160,7 @@ def xpx_to_gpkg(xpx_filename,
 
     # Gather the sections to represent
     with open(xpx_filename, encoding='utf-8', errors='replace') as xpx_file:
-        reader = csv.reader(xpx_file, delimiter=' ')
+        reader = csv.reader(xpx_file, delimiter=' ', quotechar='"')
         for i, row in enumerate(reader):
             # line = line.strip()
             # line_vals = re.split('''s(?=(?s[^'"]|'[^']*'|"[^"]*")*$)''', line)
@@ -691,7 +691,7 @@ def xpx_to_gpkg(xpx_filename,
         [('data', 'isqrnd'), SwmmTableEnum.ORIFICES, 'xsec_XsecType', 2, str, 5],
 
         # Subcatchments
-        [('data', 'r_rainsel'), SwmmTableEnum.SUBCATCHMENTS, 'Rain Gage', 2, str, 5],
+        [('data', 'r_rainsel'), SwmmTableEnum.SUBCATCHMENTS, 'Rain Gage', 2, sanitize_name, 5],
         [('data', 'r_warea'), SwmmTableEnum.SUBCATCHMENTS, 'Area', 2, float, 5],
         [('data', 'r_wimp'), SwmmTableEnum.SUBCATCHMENTS, 'PctImperv', 2, float, 5],
         [('data', 'r_width'), SwmmTableEnum.SUBCATCHMENTS, 'Width', 2, float, 5],

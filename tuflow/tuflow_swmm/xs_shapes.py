@@ -354,6 +354,9 @@ def get_max_area(shape, customary_units, geom1, geom2=None, geom3=None, geom4=No
             wmax = geom2
             return 0.7879 * yfull * wmax
 
+    elif shape == 'IRREGULAR':
+        return 1.0 # We can't compute it here but this avoids an error
+
     # Must not have a valid shape
     raise ValueError(f"Invalid shape type: {shape}")
 

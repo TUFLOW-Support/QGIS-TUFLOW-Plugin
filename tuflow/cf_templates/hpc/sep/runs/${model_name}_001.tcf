@@ -8,6 +8,7 @@ ${gis_projection_command}
 !_______________________________________________________
 ! SOLVER
 Solution scheme == HPC
+Hardware == GPU
 Timestep Initial == 1
 ! Timestep Maximum == <timestep>  ! uncomment if required (value should be based on cell size)
 

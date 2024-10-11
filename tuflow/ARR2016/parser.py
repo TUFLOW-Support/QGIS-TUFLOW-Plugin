@@ -26,7 +26,7 @@ class DataBlock:
         """
         self.fi = fi
         self.start_text = start_text
-        self.end_text = f'END_{start_text}'
+        self.end_text = 'END_{0}'.format(start_text.strip('[]'))
         self.header = header
         self.finished = False
         self.data = {}
@@ -37,6 +37,16 @@ class DataBlock:
         self.note = ''
         self._line = ''
         self._collect()
+
+    def empty(self) -> bool:
+        """Returns whether the data block is empty.
+
+        Returns
+        -------
+        bool
+            Whether the data block is empty.
+        """
+        return self.df.empty and len(self.data) == 0
 
     def get(self, item: str, default: typing.Any = None) -> typing.Any:
         """Returns a sub-block from the parsed data block.
@@ -117,18 +127,29 @@ class DataBlock:
 
     def _meta_block(self):
         self._line = self.fi.readline()
-        self.time_accessed = self._line.split(',')[1].strip()
-        try:
-            self.time_accessed = datetime.strptime(self.time_accessed, '%d %B %Y %I:%M%p')
-        except:
-            pass
+        line_split = self._line.split()
+        if len(line_split) > 1 and 'time accessed' in line_split[0].lower():
+            self.time_accessed = line_split[1].strip()
+            try:
+                self.time_accessed = datetime.strptime(self.time_accessed, '%d %B %Y %I:%M%p')
+            except:
+                pass
+        else:
+            self.note = self._line.strip()
         self._line = self.fi.readline()
-        self.version = self._line.split(',')[1].strip()
-        try:
-            major, minor = self.version.split('_', 1)
-            self.version_int = int(major) * 1000 + int(minor.strip('v')) * 100
-        except:
-            pass
-        self._line = self.fi.readline()
+        if 'version' in self._line.lower():
+            self.version = self._line.split(',')[1].strip()
+            try:
+                major, minor = self.version.split('_', 1)
+                self.version_int = int(major) * 1000 + int(minor.strip('v')) * 100
+            except:
+                pass
+            self._line = self.fi.readline()
+        elif 'END' not in self._line:
+            if self.note:
+                self.note = f'{self.note} {self._line.strip()}'
+            else:
+                self.note = self._line.strip()
+            self._line = self.fi.readline()
         if 'END' not in self._line:
             self.note = self._line.strip()

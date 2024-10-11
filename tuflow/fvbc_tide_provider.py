@@ -11,6 +11,12 @@ try:
 except ImportError:
     from tuflow.netCDF4_ import Dataset_ as Dataset
 
+try:
+    from tuflow.gui.logging import Logging
+    has_logging = True
+except ImportError:
+    has_logging = False
+
 from osgeo import ogr
 if not ogr.GetUseExceptions():
     ogr.UseExceptions()
@@ -54,7 +60,7 @@ def calc_length(points):
 class FVBCTideProvider:
     """Class for providing FV BC tide data to the TUFLOW Viewer class."""
 
-    def __init__(self, nc_path: PathLike, gis_path: PathLike) -> None:
+    def __init__(self, nc_path: PathLike, gis_path: PathLike, use_local_time: bool = True) -> None:
         """
         Parameters
         ----------
@@ -69,7 +75,7 @@ class FVBCTideProvider:
             raise ImportError('Shapely is required for FVBCTideProvider')
         self.display_name = ''
         self.reference_time = None
-        self.nc = FVBCTideNCProvider(nc_path)
+        self.nc = FVBCTideNCProvider(nc_path, use_local_time)
         self.gis = FVBCTideGISProvider(gis_path)
         self.load()
 
@@ -80,7 +86,7 @@ class FVBCTideProvider:
         """Loads the data from the netCDF and GIS files."""
         self.nc.open()
         self.gis.open()
-        self.display_name = Path(self.nc.path).stem
+        self.display_name = f'{Path(self.nc.path).stem}(TZ:{self.nc.tz})'
         self.reference_time = self.nc.reference_time
         self.gis_name = self.gis.name
 
@@ -309,12 +315,14 @@ class FVBCTideGISProvider:
 
 class FVBCTideNCProvider:
 
-    def __init__(self, path: PathLike) -> None:
+    def __init__(self, path: PathLike, use_local_time: bool) -> None:
         self.path = path
         self.labels = []
-        self.use_local_time = None
+        self.use_local_time = use_local_time
         self.reference_time = datetime(1990, 1, 1)
         self.units = 'd'
+        self.tz = 'UTC'
+        self._timevar = 'time'
         self._nc = None
         self._units = ''  # full units string from nc file
         self._timesteps = None  # cache this data so we don't have to read it every time it's requested
@@ -332,7 +340,10 @@ class FVBCTideNCProvider:
             self._nc = None
 
     def load(self) -> None:
-        self.use_local_time = 'local_time' in self._nc.variables
+        if self.use_local_time and 'local_time' not in self._nc.variables and has_logging:
+            Logging.warning('Local time not available in netCDF file. Using UTC time instead.')
+        self.use_local_time = 'local_time' in self._nc.variables and self.use_local_time
+        self._timevar = 'local_time' if self.use_local_time else 'time'
         self._get_units()
         self.labels = [self._strip_label(k) for k, v in self._nc.variables.items() if v.ndim == 2 and v.dimensions[0] == 'time']
 
@@ -414,12 +425,12 @@ class FVBCTideNCProvider:
 
     def _get_timesteps(self) -> np.ndarray:
         if self._timesteps is None:
-            self._timesteps = self._nc.variables['local_time'][:] if self.use_local_time else self._nc.variables['time'][:]
+            self._timesteps = self._nc.variables[self._timevar][:]
             self._timesteps = self._convert_from_masked_array(self._timesteps)
         return self._timesteps
 
     def _get_units(self) -> None:
-        self._units = self._nc.variables['local_time'].units if self.use_local_time else self._nc.variables['time'].units
+        self._units = self._nc.variables[self._timevar].units
         rt = re.findall(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}', self._units)
         if rt:
             self.reference_time = datetime.strptime(rt[0], '%Y-%m-%d %H:%M:%S')  # keep timezone naive for now (TUFLOW Viewer assumes UTC)
@@ -429,6 +440,7 @@ class FVBCTideNCProvider:
             self.units = 'h'
         elif 'sec' in self._units:
             self.units = 's'
+        self.tz = self._nc.variables[self._timevar].timezone
 
     def _convert_from_masked_array(self, a: np.ma.MaskedArray) -> np.ndarray:
         if not isinstance(a, np.ma.MaskedArray):

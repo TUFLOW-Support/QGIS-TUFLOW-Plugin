@@ -3,17 +3,17 @@ import logging
 
 import numpy
 
-from ARR2016.meta import ArrMeta
-from ARR2016.parser import DataBlock
+from tuflow.ARR2016.meta import ArrMeta
+from tuflow.ARR2016.parser import DataBlock
 
 
 PREBURST_NAME = {
-    'median': 'PREBURST',
-    '10': 'PREBURST10',
-    '25': 'PREBURST25',
-    '50': 'PREBURST',
-    '75': 'PREBURST75',
-    '90': 'PREBURST90'
+    'median': '[PREBURST]',
+    '10': '[PREBURST10]',
+    '25': '[PREBURST25]',
+    '50': '[PREBURST]',
+    '75': '[PREBURST75]',
+    '90': '[PREBURST90]'
 }
 
 
@@ -40,6 +40,7 @@ class ArrPreburst:
         self.data = {}
         self.depths = None
         self.percentile = 'median'
+        self.pbtrans = False
 
     def load(self, fi: typing.TextIO, percentile: typing.Union[str, int]) -> None:
         """Load the ARR Preburst Rainfall from a file.
@@ -52,23 +53,39 @@ class ArrPreburst:
             The percentile to load. Can be 'median', 10, 25, 50, 75, 90
         """
         self.percentile = str(percentile).strip('%')
-        keytext = PREBURST_NAME.get(percentile, 'PREBURST')
-        self.data = DataBlock(fi, keytext, True)
-        self.meta.time_accessed = self.data.time_accessed
-        self.meta.version = self.data.version
+        keytext = PREBURST_NAME.get(percentile, '[PREBURST]')
+        try:
+            self.data = DataBlock(fi, keytext, True)
+            if self.data.empty():
+                self.data = DataBlock(fi, '[PREBURST_TRANS]', True)
+                self.pbtrans = True
+            else:
+                self.meta.time_accessed = self.data.time_accessed
+                self.meta.version = self.data.version
+        except Exception as e:
+            return
         self.depths = self.data.df
 
         # remove hours from the index and just use minutes
         self.depths.index = [int(x.split('(')[0]) for x in self.depths.index]
 
-        # remove ratios from depths columns and just keep the depths
-        for col in self.depths.columns:
-            self.depths[col] = self.depths[col].str.replace(r'\(\d+(?:\.\d*)?\)', '', regex=True).astype(float)
+        self.Duration = self.depths.index.astype(int).tolist()
+        self.AEP = self.depths.columns.astype(float).tolist()
+        self.AEP_names = ['{0:.0f}%'.format(x) for x in self.AEP]
 
-        self.load_(fi)  # hopefully remove this in the future
+        # remove ratios from depths columns and just keep the depths
+        if self.pbtrans:
+            pass
+        else:
+            for col in self.depths.columns:
+                self.depths[col] = self.depths[col].str.replace(r'\(\d+(?:\.\d*)?\)', '', regex=True).astype(float)
+
+        # self.load_(fi)  # hopefully remove this in the future - tbe future is now!
+
+    def get_depths(self, losses):
+        return self.depths.to_numpy()
 
     def load_(self, fi):
-
         for line in fi:
             if line.find('[PREBURST]') >= 0:
                 finished = False

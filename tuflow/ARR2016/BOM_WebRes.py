@@ -2,7 +2,7 @@ import numpy
 import os
 import math
 import logging
-from ARR_TUFLOW_func_lib import *
+from tuflow.ARR2016.ARR_TUFLOW_func_lib import *
 
 
 class Bom:

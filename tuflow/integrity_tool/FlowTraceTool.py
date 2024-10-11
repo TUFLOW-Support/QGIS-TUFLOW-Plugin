@@ -573,7 +573,10 @@ class FlowTracePlot(QWidget, Ui_flowTracePlotWidget):
         self.thread.terminate()
         self.thread = None
         self.errmsg = self.downstreamConnectivity.errmsg
-        self.error_.emit('')
+        if self.downstreamConnectivity.stack_trace:
+            self.error_.emit('')
+        else:
+            self.error_.emit(self.errmsg)
 
     def startedPopulate(self):
         max_steps = int(sum([len(x) for x in self.downstreamConnectivity.branches]))

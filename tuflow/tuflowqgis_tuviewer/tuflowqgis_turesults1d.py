@@ -400,9 +400,9 @@ class TuResults1D():
 
 		return True
 
-	def importResultsFVBCTide(self, nc_fpath, ns_fpath):
+	def importResultsFVBCTide(self, nc_fpath, ns_fpath, use_local_time):
 		res = FVBC_TideResults()
-		error, message = res.Load(nc_fpath, ns_fpath)
+		error, message = res.Load(nc_fpath, ns_fpath, use_local_time)
 		if error:
 			QMessageBox.critical(self.tuView, "TUFLOW Viewer", f'ERROR: loading FV BC tide data:\n{message}')
 			return False

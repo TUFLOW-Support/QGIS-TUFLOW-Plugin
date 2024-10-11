@@ -226,8 +226,15 @@ class TuProject():
 				for result in results[:]:
 					if result.startswith('FVBC_TideResults://'):
 						_, fpaths = result.split('://')
-						nc_fpath, gis_fpath = fpaths.split('::')
-						self.tuView.tuMenuBar.tuMenuFunctions.loadFVBCTide(nc_fpath=nc_fpath, gis_fpath=gis_fpath)
+						split =  fpaths.split('::')
+						if len(split) == 2:
+							nc_fpath, gis_fpath = split
+							use_local_time = True
+						elif len(split) == 3:
+							nc_fpath, gis_fpath, use_local_time = split
+						else:
+							continue
+						self.tuView.tuMenuBar.tuMenuFunctions.loadFVBCTide(nc_fpath=nc_fpath, gis_fpath=gis_fpath, use_local_time=use_local_time)
 						results.remove(result)
 				try:
 					self.tuView.tuMenuBar.tuMenuFunctions.load1dResults(result_1D=[results], ask_gis=False)

@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_ImportFVBCTideDlg(object):
     def setupUi(self, ImportFVBCTideDlg):
         ImportFVBCTideDlg.setObjectName("ImportFVBCTideDlg")
-        ImportFVBCTideDlg.resize(419, 318)
+        ImportFVBCTideDlg.resize(557, 318)
         self.verticalLayout_3 = QtWidgets.QVBoxLayout(ImportFVBCTideDlg)
         self.verticalLayout_3.setObjectName("verticalLayout_3")
         self.splitter = QtWidgets.QSplitter(ImportFVBCTideDlg)
@@ -49,6 +49,9 @@ class Ui_ImportFVBCTideDlg(object):
         self.leNC.setObjectName("leNC")
         self.horizontalLayout_2.addWidget(self.leNC)
         self.verticalLayout.addLayout(self.horizontalLayout_2)
+        self.cbUseLocalTime = QtWidgets.QCheckBox(self.verticalLayoutWidget)
+        self.cbUseLocalTime.setObjectName("cbUseLocalTime")
+        self.verticalLayout.addWidget(self.cbUseLocalTime)
         spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout.addItem(spacerItem)
         self.verticalLayoutWidget_2 = QtWidgets.QWidget(self.splitter)
@@ -74,10 +77,11 @@ class Ui_ImportFVBCTideDlg(object):
     def retranslateUi(self, ImportFVBCTideDlg):
         _translate = QtCore.QCoreApplication.translate
         ImportFVBCTideDlg.setWindowTitle(_translate("ImportFVBCTideDlg", "Import FV BC Tide"))
-        self.label.setText(_translate("ImportFVBCTideDlg", "Node String"))
+        self.label.setText(_translate("ImportFVBCTideDlg", "Node String GIS Layer"))
         self.btnNS.setText(_translate("ImportFVBCTideDlg", "..."))
         self.label_2.setText(_translate("ImportFVBCTideDlg", "NetCDF"))
         self.btnNC.setText(_translate("ImportFVBCTideDlg", "..."))
+        self.cbUseLocalTime.setText(_translate("ImportFVBCTideDlg", "Use Local Time (if available)"))
         self.toolTip.setHtml(_translate("ImportFVBCTideDlg", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"

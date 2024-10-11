@@ -28,6 +28,10 @@ class ImportFVBCTideDlg(QDialog, Ui_ImportFVBCTideDlg):
     def nc_fpath(self):
         return self.leNC.text()
 
+    @property
+    def use_local_time(self):
+        return self.cbUseLocalTime.isChecked()
+
     def accept(self):
         if not self.node_string_fpath:
             self.leNS.setFocus()

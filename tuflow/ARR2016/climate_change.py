@@ -8,8 +8,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ARR2016.meta import ArrMeta
-from ARR2016.parser import DataBlock
+from tuflow.ARR2016.meta import ArrMeta
+from tuflow.ARR2016.parser import DataBlock
 
 
 RATE_OF_CHANGE = json.load(open(Path(__file__).parent / 'data' / 'cc_rate_of_change.json'))
@@ -165,7 +165,7 @@ class CCScenario:
         elif horizon == 'Long-term':
             self.horizon = 2090
         else:
-            self.horizon = horizon
+            self.horizon = int(horizon)
         self.ssp = ssp
         self.baseline = baseline
         self.temp_change = temp_change  # user input

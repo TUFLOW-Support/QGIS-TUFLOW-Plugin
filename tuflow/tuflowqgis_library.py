@@ -141,10 +141,12 @@ class NcVar():
 
 def get_latest_dev_plugin_version():
     try:
-        import requests
-        r = requests.get('https://downloads.tuflow.com/Private_Download/QGIS_TUFLOW_Plugin/VERSION')
-        if r.ok:
-            return r.text.strip()
+        from tuflow.ARR2016.downloader import Downloader
+        downloader = Downloader('https://downloads.tuflow.com/Private_Download/QGIS_TUFLOW_Plugin/VERSION')
+        downloader.download()
+        if not downloader.ok():
+            raise Exception()
+        return downloader.data.strip()
     except Exception:
         pass
     return 'Unable to determine latest dev version'
@@ -6700,8 +6702,54 @@ class Downloader(QObject):
         QObject.__init__(self, None)
         self.packageUrl = packageUrl
         self.destinationFileName = destinationFileName
+        self.f = None
+        self.reply = None
+        self.timeout = False
 
     def start(self):
+        try:
+            from qgis.core import QgsNetworkAccessManager
+            from PyQt5.QtNetwork import QNetworkRequest
+            return self.start_with_qgis()
+        except ImportError:
+            return self.start_with_urlib()
+
+    def download_progress(self, cur, total):
+        if total > 0:
+            done = int(cur / total * 100)
+            self.updated.emit(done)
+
+    def timedout(self):
+        self.timeout = True
+
+    def start_with_qgis(self):
+        from qgis.core import QgsNetworkAccessManager
+        from PyQt5.QtNetwork import QNetworkRequest
+        from PyQt5.QtCore import QUrl, QEventLoop
+        try:
+            with open(self.destinationFileName, 'wb') as f:
+                netman = QgsNetworkAccessManager.instance()
+                _ = netman.cache().remove(QUrl(self.packageUrl))
+                req = QNetworkRequest(QUrl(self.packageUrl))
+                self.reply = netman.get(req)
+                self.reply.setReadBufferSize(4096)
+                self.reply.readyRead.connect(lambda: f.write(self.reply.readAll()))
+                self.reply.finished.connect(self.reply.deleteLater)
+                self.reply.downloadProgress.connect(self.download_progress)
+                netman.requestTimedOut.connect(self.timedout)
+                evloop = QEventLoop()
+                self.reply.finished.connect(evloop.quit)
+                evloop.exec_(QEventLoop.ExcludeUserInputEvents)
+                ret_code = self.reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+                if self.timeout:
+                    raise Exception('Timeout while downloading')
+                if ret_code != 200:
+                    raise Exception('Error downloading: {}'.format(self.reply.errorString()))
+            self.finished.emit(None)
+        except Exception as e:
+            self.finished.emit(str(e))
+
+    def start_with_urlib(self):
         from urllib.request import urlopen
 
         try:
@@ -6776,19 +6824,22 @@ class DownloadBinPackage(QObject):
         self.destinationFileName = destinationFileName
         self.add_progress_bar = add_progress_bar
         self.label = label
+        self.user_cancelled = False
 
     def wait(self):
         while not self.progress_bar.is_finished:
             QgsApplication.processEvents()
 
+        self.thread.quit()
+
         if self.progress_bar.error:
             raise IOError("error code {} {}".format(self.progress_bar.error, self.packageUrl))
 
-        self.thread.quit()
-
     def stop(self):
-        self.thread.requestInterruption()
-        self.thread.quit()
+        if not self.progress_bar.is_finished:
+            self.user_cancelled = True
+            self.thread.requestInterruption()
+            self.thread.quit()
 
     def start(self):
         if self.add_progress_bar:
@@ -10243,6 +10294,10 @@ def download_latest_dev_plugin(iface=None):
         downloader.wait()
     except Exception as e:
         QMessageBox.critical(parent, 'Download Error', 'Error downloading latest dev plugin: {0}'.format(e))
+        return
+
+    if downloader.user_cancelled:
+        QMessageBox.critical(parent, 'Download Error', 'User cancelled download')
         return
 
     completed_text = 'Download complete:<p>{0}' \

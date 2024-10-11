@@ -1,4 +1,7 @@
-from PyQt5.QtCore import QObject, pyqtSignal
+import sys
+from datetime import datetime
+
+from PyQt5.QtCore import QObject, pyqtSignal, QTimer, QThread, QSettings
 from qgis.core import QgsUnitTypes, NULL
 import numpy as np
 
@@ -9,6 +12,9 @@ class Branch:
         self.id = id_
         self.branches = []
         self.count = 0
+
+    def __len__(self):
+        return len(self.branches)
 
     def add(self, branch):
         self.branches.append(branch)
@@ -23,6 +29,9 @@ class Branches:
 
     def __getitem__(self, item):
         return self.branches[item]
+
+    def __len__(self):
+        return sum([len(x) for x in self.branches])
 
     def add(self, branch):
         self.branches.append(branch)
@@ -120,7 +129,11 @@ class Connectivity(QObject):
         self.start_lines = start_lines[:]
         self.data_collector = data_collector
         self.valid = False
+        self.known_error = False
         self.errmsg = None
+        self.stack_trace = False
+        self.timer = None
+        self.thread = None
 
         # upstream trace
         self.branches = []
@@ -162,8 +175,10 @@ class Connectivity(QObject):
                             continue
                         if self._trace_upstream(id1, id2) and self.branches and self.branches[0]:
                             branch.add(self.branches[0])
+
                     if branches.add(branch):
                         break
+
                 if branches.isValid():
                     self.branches = branches.max()
                     self.valid = True
@@ -174,8 +189,10 @@ class Connectivity(QObject):
         except:
             import sys
             import traceback
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            self.errmsg = ''.join(traceback.extract_tb(exc_traceback).format()) + '{0}{1}'.format(exc_type, exc_value)
+            if not self.known_error:
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                self.stack_trace = True
+                self.errmsg = ''.join(traceback.extract_tb(exc_traceback).format()) + '{0}{1}'.format(exc_type, exc_value)
             self.error.emit()
 
     def populateInfo(self, continuity_limits):
@@ -224,6 +241,8 @@ class Connectivity(QObject):
 
                     # pipe data
                     height = f.height_
+                    if not isinstance(height, float):
+                        height = 0.
                     pipes.append(np.array([[ch, f.invertUs], [ch_, f.invertDs], [ch_, f.invertDs + height],
                                           [ch, f.invertUs + height]]))
 
@@ -341,10 +360,20 @@ class Connectivity(QObject):
 
         return x_, y2 + (y2 - y1) * 1.1
 
+    def _timeout(self):
+        print('timeout')
+        self.known_error = True
+        self.errmsg = ('Timeout error: Long plot find branches took too long to complete. ')
+        sys.setrecursionlimit(self.rd)
+        raise Exception
+
     def _trace_upstream(self, start_chan, end_chan):
         # assume checking channels exist has already been done
         print('_trace_upstream')
-        self.branches.clear()
+        self.timeout_limit = float(QSettings().value('tuflow/flow_trace_timeout', 30))
+        self.rd = sys.getrecursionlimit()
+        sys.setrecursionlimit(int(QSettings().value('tuflow/flow_trace_recursion_limit', 25)))
+        self.timer = datetime.now()
         found = self._find_branches(start_chan, end_chan, [], self.branches)
         if self.branches and self.branches[-1]:
             if found:
@@ -354,6 +383,7 @@ class Connectivity(QObject):
         else:
             found = False
         print('finished _trace_upstream')
+        sys.setrecursionlimit(self.rd)
         return found
 
     def _find_branches(self, start_chan, end_chan, chan_ids, branches):
@@ -362,6 +392,8 @@ class Connectivity(QObject):
             chan_ids.append(start_chan)
             i = 0
             for chan in self._iterate_upstream_channels(start_chan):
+                if (datetime.now() - self.timer).total_seconds() > self.timeout_limit:
+                    self._timeout()
                 if chan in chan_ids:
                     branches.append(chan_ids)
                     return found

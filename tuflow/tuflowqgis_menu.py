@@ -41,8 +41,14 @@ import tempfile
 import shutil
 import os
 import glob
-from subprocess import Popen, PIPE, DETACHED_PROCESS
 import sys
+
+from subprocess import Popen, PIPE
+
+if sys.platform == 'win32':
+    from subprocess import DETACHED_PROCESS
+else:
+    DETACHED_PROCESS = None
 
 try:
     from .swangis.swangis.ui import *
@@ -63,22 +69,38 @@ for f in for_deleting:
         continue
 
 refh2dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ReFH2")
-if os.path.exists(os.path.join(refh2dir, 'refh2.pyd')):
-    try:
+pyds = glob.glob(os.path.join(refh2dir, "*.pyd"))
+if pyds:
+    pyd = None
+    if sys.version_info.major == 3 and sys.version_info.minor == 12:
+        pyd = [x for x in pyds if "cp312" in x]
+        if pyd:
+            pyd = pyd[0]
+    elif sys.version_info.major == 3 and sys.version_info.minor == 9:
+        pyd = [x for x in pyds if "cp39" in x]
+        if pyd:
+            pyd = pyd[0]
+    if pyd:
         tmpdir = tempfile.mkdtemp(prefix='tuflow_refh2')
-        shutil.copy(os.path.join(refh2dir, "refh2.pyd"),
-                    os.path.join(tmpdir, "refh2.pyd"))
+        shutil.copy(pyd, tmpdir)
         sys.path.append(tmpdir)
-        from refh2 import Refh2Dock
-    except Exception as e:
-        print(e)
+        try:
+            from refh2 import Refh2Dock
+        except Exception as e:
+            refh2_errmsg = str(e)
+            Refh2Dock = None
+    else:
+        refh2_errmsg = 'Unsupported Python version installed with QGIS for ReFH2 tool.\nSupported versions: Python 3.9, Python 3.12'
         Refh2Dock = None
-else:
+elif os.path.exists(os.path.join(refh2dir, 'refh2.py')):
     try:
         from .ReFH2.refh2 import Refh2Dock
-    except Exception as e:
-        print(e)
+    except ImportError as e:
+        refh2_errmsg = str(e)
         Refh2Dock = None
+else:
+    refh2_errmsg = 'ReFH2 tool not found'
+    Refh2Dock = None
 
 # from tuflow.ReFH2.refh2 import Refh2Dock
 
@@ -105,9 +127,15 @@ sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\plugins\python\hel
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\plugins\python\helpers\pydev')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2023.1.3\debug-eggs')
-sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2023.1.3\plugins\python\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\plugins\python\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2019.1.3\plugins\python-ce\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2023.1.3\plugins\python-ce\helpers\pydev')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2023.2.1\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2023.2.1\plugins\python\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\debug-eggs')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\plugins\python\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\debug-eggs')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\plugins\python\helpers\pydev')
 
 
 class tuflowqgis_menu:
@@ -787,9 +815,10 @@ class tuflowqgis_menu:
         dialog.exec_()
 
     def launch_runner(self):
-        if os.name != 'nt':
+        if sys.platform != 'win32':
             QMessageBox.warning(self.iface.mainWindow(), "Not Supported",
                                 "The TUFLOW Runner is currently only supported on Windows")
+            return
         dir = os.path.dirname(__file__)
         script_with_path = os.path.join(dir, "runner\\tuflow-runner\\runner\\main.py")
         if not os.path.isfile(script_with_path):
@@ -798,7 +827,7 @@ class tuflowqgis_menu:
             return
         command = ['python3', script_with_path]
         # https://stackoverflow.com/questions/70543646/module-does-not-have-the-attribute-subprocess-detached-process
-        process = subprocess.Popen(command, creationflags=DETACHED_PROCESS, start_new_session=True)
+        process = Popen(command, creationflags=DETACHED_PROCESS, start_new_session=True)
 
     def check_dependencies(self):
         # QMessageBox.critical(self.iface.mainWindow(), "Info", "Not yet implemented!")
