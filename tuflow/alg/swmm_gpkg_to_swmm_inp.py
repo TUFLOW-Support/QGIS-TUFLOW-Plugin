@@ -4,8 +4,11 @@ from qgis.core import (
     QgsProcessingParameterFile,
 )
 
-from tuflow.tuflow_swmm.gis_to_swmm import gis_to_swmm
 import os
+import sys
+import traceback
+
+from tuflow.tuflow_swmm.gis_to_swmm import gis_to_swmm
 
 try:
     from pathlib import Path
@@ -50,8 +53,8 @@ class ConvertGpkgToSWMMInp(QgsProcessingAlgorithm):
         """
         return self.tr('GeoPackage - Write to SWMM Inp')
 
-    # def flags(self):
-    #    return QgsProcessingAlgorithm.Flag.FlagNoThreading
+    def flags(self):
+        return QgsProcessingAlgorithm.Flag.FlagNoThreading
 
     def group(self):
         """
@@ -122,7 +125,15 @@ class ConvertGpkgToSWMMInp(QgsProcessingAlgorithm):
                 feedback=self.feedback,
             )
         except Exception as e:
-            self.feedback.reportError(f'Exception thrown converting GeoPackage to SWMM: {str(e)}')
+            message = f'Exception thrown converting GeoPackage to SWMM: {str(e)}\n'
+            try:
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                message += '\n'.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+            finally:
+                del exc_type, exc_value, exc_traceback
+
+            self.feedback.reportError(message)
+
 
         # log_feedback.pushInfo('Finished processing')
         # log_feedback.close()

@@ -68,7 +68,7 @@ class FindNodesForConduit(QgsProcessingFeatureBasedAlgorithm):
         return self.tr('Conduits - Assign Node Fields')
 
     def flags(self):
-        return QgsProcessingAlgorithm.Flag.FlagSupportsInPlaceEdits
+        return QgsProcessingAlgorithm.Flag.FlagSupportsInPlaceEdits | QgsProcessingAlgorithm.Flag.FlagNoThreading
 
     def group(self):
         """

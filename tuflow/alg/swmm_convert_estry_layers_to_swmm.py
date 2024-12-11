@@ -87,7 +87,10 @@ class ConvertESTRYLayers(QgsProcessingAlgorithm):
         """
         Returns the translated algorithm name.
         """
-        return self.tr('Convert - ESTRY layers to SWMM')
+        return self.tr('Convert - ESTRY Layers to SWMM')
+
+    def flags(self):
+        return QgsProcessingAlgorithm.Flag.FlagNoThreading
 
     def group(self):
         """

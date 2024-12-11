@@ -7,5 +7,5 @@
 ! Read GIS SA == <path/to/2d_sa>
 
 !_______________________________________________________
-! 1D/1D LINKING COMMANDS - TODO Uncomment commands as required
+! 1D/2D LINKING COMMANDS - TODO Uncomment commands as required
 ! Read GIS BC == <path/to/2d_bc>

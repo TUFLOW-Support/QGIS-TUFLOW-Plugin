@@ -25,7 +25,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import sip
-sip.setapi('QVariant', 2)
+# sip.setapi('QVariant', 2)
 import copy
 
 from PyQt5.QtCore import *

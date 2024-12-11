@@ -69,7 +69,7 @@ class BcConvertNonOutfallSxToHx(QgsProcessingAlgorithm):
         return self.tr('BC - Convert Non-Outfall SX Connections to HX')
 
     def flags(self):
-        return super().flags()
+        return super().flags() | QgsProcessingAlgorithm.Flag.FlagNoThreading
 
     def supportInPlaceEdit(self, layer):
         return False

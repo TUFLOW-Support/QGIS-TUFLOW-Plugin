@@ -18,4 +18,6 @@ def get_driver_name_from_extension(driver_type: str, ext: str) -> str:
             driver_extensions = drv.GetMetadataItem(gdal.DMD_EXTENSIONS).split(' ')
             for drv_ext in driver_extensions:
                 if drv_ext.lower() == ext:
+                    if ext.lower() == 'mif':
+                        return 'Mapinfo File'  # not sure if bug but it seems like you have to use "Mapinfo File" for MIF instead of "MapInfo File"
                     return drv.ShortName

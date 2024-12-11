@@ -73,6 +73,9 @@ class GeoPackageAddSections(QgsProcessingAlgorithm):
         """
         return self.tr('GeoPackage - Add Sections')
 
+    def flags(self):
+        return QgsProcessingAlgorithm.Flag.FlagNoThreading
+
     def group(self):
         """
         Returns the name of the group this algorithm belongs to.

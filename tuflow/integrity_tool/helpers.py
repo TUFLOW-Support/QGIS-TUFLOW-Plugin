@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-
+from PyQt5.QtCore import QVariant
 import math
 import re
 
@@ -203,23 +203,26 @@ class SwmmHelper(Helper):
         numberOf = 1
 
         # For common types return the ESTRY type abbreviation
-
         if feature.geometry().type() == QgsWkbTypes.LineGeometry:
             length = feature.attribute('Length')
+            if isinstance(length, QVariant):
+                length = length.toFloat() if not length.isNull() else 0.0
 
             ftype = feature.attribute('xsec_XsecType')
-            if ftype == 'CIRCULAR':
+            if ftype.upper() == 'CIRCULAR':
                 ftype = 'c'
-            elif ftype in {'RECT_OPEN', 'RECT_CLOSED'}:
+            elif ftype.upper() in {'RECT_OPEN', 'RECT_CLOSED'}:
                 ftype = 'r'
+            elif ftype.upper() == 'DUMMY':
+                ftype = 'x'
 
             invertOffsetUs = feature.attribute('InOffset')
             invertOffsetDs = feature.attribute('OutOffset')
 
-            if type(invertOffsetUs) == 'QVariant':
-                invertOffsetUs = invertOffsetUs.toFloat() if not invertOffsetUs.isNull() else None
-            if type(invertOffsetDs) == 'QVariant':
-                invertOffsetDs = invertOffsetDs.toFloat() if not invertOffsetDs.isNull() else None
+            if isinstance(invertOffsetUs, QVariant):
+                invertOffsetUs = invertOffsetUs.toFloat() if not invertOffsetUs.isNull() else 0.0
+            if isinstance(invertOffsetDs, QVariant):
+                invertOffsetDs = invertOffsetDs.toFloat() if not invertOffsetDs.isNull() else 0.0
 
             if self.offsets_are_elevations:
                 invertUs = invertOffsetUs
@@ -266,7 +269,8 @@ class SwmmHelper(Helper):
             # Must be a point type
             ftype = 'Node'
             invertValue = feature.attribute('Elev')
-            invertValue = float(invertValue) if invertValue is not None else None
+            if isinstance(invertValue, QVariant):
+                invertValue = invertValue.toFloat() if not invertValue.isNull() else -99999.
             invertUs = invertDs = invertValue
 
         atts = {

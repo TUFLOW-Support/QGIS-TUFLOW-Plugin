@@ -93,7 +93,7 @@ class TuRubberBand():
 			self.rubberBands.append(rubberBand)
 
 			# setup maptool and set
-			self.line = canvasEvent(self.iface, self.canvas)
+			self.line = canvasEvent(self.canvas)
 			self.prevMapTool = self.canvas.mapTool()
 			self.canvas.setMapTool(self.line)
 			self.mouseTrackConnect()  # start the tuflowqgis_bridge_rubberband
@@ -446,7 +446,7 @@ class TuMarker():
 			self.marker.setIconType(QgsVertexMarker.ICON_CROSS)
 
 			# setup maptool and set
-			self.point = canvasEvent(self.iface, self.canvas)
+			self.point = canvasEvent(self.canvas)
 			self.prevMapTool = self.canvas.mapTool()
 			self.canvas.setMapTool(self.point)
 			self.mouseTrackConnect()  # start the tuflowqgis_bridge_rubberband

@@ -459,9 +459,9 @@ class TestFlowTrace(unittest.TestCase):
         flowTrace_L.collectData([pipe_conduits_L], startLocs=[(pipe_conduits_L.name(), f.id())], flowTrace=True)
         flowTrace_P.collectData([pipe_junctions_P, pipe_outfalls_P],
                                 flowTrace=True, lines=[pipe_conduits_L], lineDataCollector=flowTrace_L)
-        self.assertEqual(flowTrace_L.ids, ['Pipe11', 'Pipe12', 'Pipe10', 'Pipe9', 'Pipe8', 'Pipe2', 'Pipe7'])
-        self.assertEqual(flowTrace_P.ids, ['Pit10', 'Pit9', 'Pit8', 'Pit7', 'Pit17', 'Pit18', 'Pit6', 'Pit19'])
-        self.assertEqual(flowTrace_L.features['Pipe9'].invertUs, 41.31778)
+        self.assertEqual(['Pipe11', 'Pipe12', 'Pipe10', 'Pipe9', 'Pipe8', 'Pipe2', 'Pipe7'], flowTrace_L.ids)
+        self.assertEqual(['Pit10', 'Pit9', 'Pit8', 'Pit7', 'Pit17', 'Pit18', 'Pit6', 'Pit19'], flowTrace_P.ids)
+        self.assertEqual(41.31778, flowTrace_L.features['Pipe9'].invertUs)
 
         flowTraceTool = FlowTraceTool(dataCollector=flowTrace_L, limitAngle=90, limitCover=0.5, limitArea=20,
                                       checkArea=True, checkAngle=True, checkInvert=True, checkCover=True)

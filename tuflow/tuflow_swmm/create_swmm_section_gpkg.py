@@ -1,14 +1,8 @@
 import os
 
-os.environ['USE_PYGEOS'] = '0'
+# os.environ['USE_PYGEOS'] = '0'
 
 from pathlib import Path
-has_fiona = False
-try:
-    import fiona
-    has_fiona = True
-except ImportError:
-    pass # defaulted to False
 has_gpd = False
 try:
     import geopandas as gpd
@@ -18,7 +12,14 @@ except ImportError:
     pass  # defaulted to false
 import numpy as np
 import pandas as pd
-from shapely.geometry import Point, LineString, Polygon
+try:
+    from shapely.geometry import Point, LineString, Polygon
+    has_shapely = True
+except ImportError:
+    has_shape = False
+    Point = 'Point'
+    LineString = 'LineString'
+    Polygon = 'Polygon'
 
 from tuflow.tuflow_swmm import swmm_sections
 
@@ -26,6 +27,9 @@ swmm_section_list = swmm_sections.swmm_section_definitions()
 
 
 def create_section_gdf(section_name, crs):
+    if not has_shapely:
+        raise Exception('Shapely not installed and is required for function: create_section_gdf().')
+
     # print(swmm_sections)
     section = list(filter(lambda x: x.name == section_name, swmm_section_list))
     # print(section)

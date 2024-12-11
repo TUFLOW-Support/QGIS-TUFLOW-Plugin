@@ -64,7 +64,7 @@ class CreateConduitLosses(QgsProcessingFeatureBasedAlgorithm):
         return self.tr('Conduits - Assign Losses')
 
     def flags(self):
-        return QgsProcessingAlgorithm.Flag.FlagSupportsInPlaceEdits
+        return QgsProcessingAlgorithm.Flag.FlagSupportsInPlaceEdits | QgsProcessingAlgorithm.Flag.FlagNoThreading
 
     def supportInPlaceEdit(self, layer):
         return layer.geometryType() == QgsWkbTypes.LineGeometry

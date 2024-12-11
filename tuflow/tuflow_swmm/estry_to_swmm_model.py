@@ -5,7 +5,7 @@ Most of the information will come from check files because they have the process
 """
 import os
 
-os.environ['USE_PYGEOS'] = '0'
+# os.environ['USE_PYGEOS'] = '0'
 
 has_gpd = False
 try:

@@ -63,7 +63,7 @@ class CreateEndpointConnections(QgsProcessingAlgorithm):
         return self.tr('BC - Create Channel Endpoint 1D/2D Connections')
 
     def flags(self):
-        return super().flags()
+        return super().flags() | QgsProcessingAlgorithm.Flag.FlagNoThreading
 
     def supportInPlaceEdit(self, layer):
         return False

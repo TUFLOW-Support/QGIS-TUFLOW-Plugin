@@ -2,8 +2,13 @@ from enum import Enum
 import geopandas as gpd
 import pandas as pd
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
-import shapely
-from shapely import LineString
+try:
+    import shapely
+    from shapely import LineString
+    has_shapely = True
+except ImportError:
+    has_shapely = False
+    LineString = 'LineString'
 
 
 class BcOption(Enum):
@@ -22,6 +27,9 @@ def find_nodes_with_bc_conn(
     This function returns a GeoDataFrame containing that contains nodes with the appropriate boundaries.
     Fields: CnSide = 1 or 2 for side of CN line at the node
     """
+    if not has_shapely:
+        feedback.reportError('Shapely not installed and is required for function: find_nodes_with_bc_conn().',
+                             fatalError=True)
     # feedback.pushInfo(f'Finding nodes with BC connections: {bc_option.name}')
 
     # Move fid, geometry columns to the end

@@ -1,4 +1,4 @@
-## Increment File (beta)
+## Increment File
 
 ### Description
 

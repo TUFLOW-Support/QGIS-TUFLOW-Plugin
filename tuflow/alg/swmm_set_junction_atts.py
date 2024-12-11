@@ -79,7 +79,7 @@ class SetJunctionAtts(QgsProcessingFeatureBasedAlgorithm):
         return self.tr('Junctions - Set Attributes')
 
     def flags(self):
-        return QgsProcessingAlgorithm.Flag.FlagSupportsInPlaceEdits
+        return QgsProcessingAlgorithm.Flag.FlagSupportsInPlaceEdits | QgsProcessingAlgorithm.Flag.FlagNoThreading
 
     def supportInPlaceEdit(self, layer):
         return layer.geometryType() == QgsWkbTypes.PointGeometry

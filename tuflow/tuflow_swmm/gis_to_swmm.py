@@ -4,17 +4,10 @@ It assumes that we are using the naming convention used when we convert SWMM fil
 """
 import os
 
-os.environ['USE_PYGEOS'] = '0'
+#os.environ['USE_PYGEOS'] = '0'
 
 from pathlib import Path
 
-has_fiona = False
-try:
-    import fiona
-
-    has_fiona = True
-except ImportError:
-    pass  # defaulted to False
 has_gpd = False
 try:
     import geopandas as gpd
@@ -22,11 +15,21 @@ try:
     has_gpd = True
 except ImportError:
     pass  # defaulted to false
+import os
 import pandas as pd
-from shapely.geometry import Point, MultiPoint
+
+try:
+    from shapely.geometry import Point, MultiPoint
+
+    has_shapely = True
+except ImportError:
+    has_shapely = False
+    Point = 'Point'
+    MultiPoint = 'MultiPoint'
 
 from tuflow.tuflow_swmm import swmm_io
 
+from tuflow.tuflow_swmm.gis_list_layers import get_gis_layers
 from tuflow.tuflow_swmm.swmm_sections import swmm_section_definitions, primary_node_sections, primary_link_sections, \
     tag_table_type
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
@@ -38,7 +41,7 @@ def find_layer_name(folder,
                     gpkg_filename,
                     section):
     # Look through layers in file ignore anything before --
-    layers = fiona.listlayers(folder / gpkg_filename)
+    layers = get_gis_layers(folder / gpkg_filename)
     for layer in layers:
         pos_minusminus = layer.find('--')
         stripped_layername = layer if pos_minusminus == -1 else layer[pos_minusminus + 2:]
@@ -120,6 +123,10 @@ def create_loss_table(section, folder, gpkg_filename):
 def gis_to_swmm(gpkg_filename,
                 output_filename,
                 feedback=ScreenProcessingFeedback()):
+    if not has_shapely:
+        feedback.reportError('Shapely not installed and is required for function: gis_to_swmm().',
+                             fatalError=True)
+
     folder = Path(gpkg_filename).parent
 
     feedback.pushInfo(f'\nConverting SWMM GPKG to inp: {output_filename}')
@@ -130,15 +137,21 @@ def gis_to_swmm(gpkg_filename,
     dfs_nodes = []
     for ns in primary_node_sections:
         layer_name = find_layer_name(folder, gpkg_filename, ns)
+        # import pydevd_pycharm
+        # pydevd_pycharm.settrace('localhost', port=53110, stdoutToServer=True, stderrToServer=True)
+
         if layer_name is not None:
             feedback.pushInfo(f'  Node geometry layer: {layer_name}')
-            df = gpd.read_file(folder / gpkg_filename, layer=layer_name)
-            idcol = df.columns[0]
-            df['Name'] = df[idcol]
-            df['X-Coord'] = df['geometry'].x
-            df['Y-Coord'] = df['geometry'].y
-            df = df[['Name', 'X-Coord', 'Y-Coord']]
-            dfs_nodes.append(df)
+            try:
+                df = gpd.read_file(folder / gpkg_filename, layer=layer_name)
+                idcol = df.columns[0]
+                df['Name'] = df[idcol]
+                df['X-Coord'] = df['geometry'].x
+                df['Y-Coord'] = df['geometry'].y
+                df = df[['Name', 'X-Coord', 'Y-Coord']]
+                dfs_nodes.append(df)
+            except Exception as e:
+                feedback.reportError(f'Exception occurred reading GeoPackage layer {layer_name}\n    {e}')
             # print(df)
     if len(dfs_nodes):
         df_coords = pd.concat(dfs_nodes, axis=0)
@@ -256,14 +269,16 @@ def gis_to_swmm(gpkg_filename,
                 gdf_section = gpd.read_file(folder / gpkg_filename, layer=lyr_name)
                 df_section = None
                 if gdf_section is not None:
-                    df_naive = gdf_section.copy(deep=True).drop(columns={'geometry'})
+                    if 'geometry' in gdf_section.columns:
+                        df_naive = gdf_section.copy(deep=True).drop(columns={'geometry'})
+                    else:
+                        df_naive = gdf_section.copy(deep=True)
                     # We need to modify the Subarea column names
                     if section.name == 'Subareas':
                         df_naive = df_naive.rename(
                             columns=lambda x: x.replace('Subareas_', '')
                         ).rename(
-                            columns={'Name':
-                                         'Subcatchment'}
+                            columns={'Name':  'Subcatchment'}
                         )
                     elif section.name == 'Infiltration':
                         df_naive = df_naive.rename(

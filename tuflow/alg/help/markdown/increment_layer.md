@@ -1,4 +1,4 @@
-## Increment Layer (beta)
+## Increment Layer
 
 ### Description
 

@@ -2,7 +2,7 @@ import os
 import typing
 from pathlib import Path
 
-from PyQt5.QtCore import QEvent, QTimer, QDir, QCoreApplication
+from PyQt5.QtCore import QEvent, QTimer, QDir, QCoreApplication, QSettings
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QListView, QLabel, QTextBrowser, QToolButton, QLineEdit, QFileDialog
 
@@ -14,6 +14,7 @@ from qgis.core import QgsProcessingParameterString
 from qgis.core import QgsProcessingParameterDefinition
 from qgis.core import QgsProcessingParameterFileDestination
 from qgis.core import QgsProcessingParameterBoolean
+from qgis.core import QgsProject
 import processing
 from processing.gui.AlgorithmDialog import AlgorithmDialog
 
@@ -207,22 +208,23 @@ class ImportEmpty(QgsProcessingAlgorithm):
             )
         )
         # gpkg export options
+        prev_export_option = QgsProject.instance().readNumEntry('tuflow', 'import_empty/import_gpkg_option', 0)[0]
         param = QgsProcessingParameterEnum('gpkg_options',
                                            'GPKG Options',
                                            optional=False,
                                            options=['Separate', 'Group Geometry Types', 'All to one'],
                                            allowMultiple=False,
                                            usesStaticStrings=False,
-                                           defaultValue=[0])
-        param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+                                           defaultValue=prev_export_option)
         self.addParameter(param)
+
         # gpkg to export to if 'all to one' is selected
+        prev_gpkg_db = QgsProject.instance().readEntry('tuflow', 'import_empty/import_gpkg_db', None)[0]
         param = QgsProcessingParameterFileDestination('export_to_gpkg_all_to_one',
                                                       'Export to GPKG (All to One)',
                                                       optional=True,
                                                       fileFilter='GPKG (*.gpkg *.GPKG)',
-                                                      defaultValue=None)
-        param.setFlags(param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+                                                      defaultValue=prev_gpkg_db)
         self.addParameter(param)
 
     def processAlgorithm(self, parameters, context, model_feedback):
@@ -239,6 +241,10 @@ class ImportEmpty(QgsProcessingAlgorithm):
         overwrite = self.parameterAsBool(parameters, 'overwrite', context)
         gpkg_export_option = self.parameterAsEnum(parameters, 'gpkg_options', context)
         gpkg_folder = self.parameterAsString(parameters, 'export_to_gpkg_all_to_one', context)
+
+        # save settings
+        QgsProject.instance().writeEntry('tuflow', 'import_empty/import_gpkg_option', gpkg_export_option)
+        QgsProject.instance().writeEntry('tuflow', 'import_empty/import_gpkg_db', gpkg_folder)
 
         project_folder_path = Path(project_folder)
         if project_folder_path != project.folder and project_folder_path.exists():
@@ -286,7 +292,7 @@ class ImportEmpty(QgsProcessingAlgorithm):
         return 'import_empty'
 
     def displayName(self):
-        return 'Import Empty (beta)'
+        return 'Import Empty'
 
     def icon(self) -> QIcon:
         if tuflow_plugin():

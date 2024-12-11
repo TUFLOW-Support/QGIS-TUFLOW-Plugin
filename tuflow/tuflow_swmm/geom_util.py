@@ -1,15 +1,25 @@
 import math
 import numpy as np
 import math
-from shapely import get_coordinates
-from shapely.geometry.linestring import LineString, Point
+try:
+    from shapely import get_coordinates
+    from shapely.geometry.linestring import LineString, Point
+    has_shapely = True
+except ImportError:
+    has_shapely = False
+    LineString = 'LineString'
+    Point = 'Point'
 
 
 def get_first_two_points(geom):
+    if not has_shapely:
+        raise Exception('Shapely not installed and is required for function: get_first_two_points().')
     return get_coordinates(geom, include_z=False)[:2]
 
 
 def get_last_two_points(geom):
+    if not has_shapely:
+        raise Exception('Shapely not installed and is required for function: get_last_two_points().')
     return get_coordinates(geom, include_z=False)[-2:]
 
 
@@ -18,6 +28,9 @@ def get_offset_point_at_angle(geom: LineString,
                               angle: float,
                               beginning: bool
                               ) -> Point:
+    if not has_shapely:
+        raise Exception('Shapely not installed and is required for function: get_offset_point_at_angle().')
+
     if beginning:
         pts = get_first_two_points(geom)[::-1]
     else:
@@ -49,6 +62,9 @@ def get_perp_offset_line_points(geom: LineString,
                                 width: float,
                                 beginning: bool
                                 ) -> LineString:
+    if not has_shapely:
+        raise Exception('Shapely not installed and is required for function: get_perp_offset_line_points().')
+
     if beginning:
         pts = get_first_two_points(geom)[::-1]
     else:
@@ -80,6 +96,9 @@ def get_line_offset_from_point(point: Point,
                                offset_dist: float,
                                width: float,
                                angle: float, ) -> LineString:
+    if not has_shapely:
+        raise Exception('Shapely not installed and is required for function: get_line_offset_from_point().')
+
     direction = np.array([math.sin(math.radians(angle)) * width,
                           math.cos(math.radians(angle)) * width])
     mid_offset = get_coordinates(point) + direction

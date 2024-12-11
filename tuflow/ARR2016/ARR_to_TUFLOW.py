@@ -535,6 +535,7 @@ def ARR_to_TUFLOW(args_list):
         if frequent_events:
             logger.info('Attempting to access BOM frequent events: {0}'.format(url_frequent))
             downloader = Downloader(url_frequent, headers)
+            downloader.download()
             if not downloader.ok():
                 logger.error('Failed to get data from BOM website')
                 logger.error('HTTP error {0}'.format(downloader.ret_code))
@@ -546,6 +547,7 @@ def ARR_to_TUFLOW(args_list):
         if rare_events:
             logger.info('Attempting to access BOM rare events: {0}'.format(url_rare))
             downloader = Downloader(url_rare, headers)
+            downloader.download()
             if not downloader.ok():
                 logger.error('Failed to get data from BOM website')
                 logger.error('HTTP error {0}'.format(downloader.ret_code))

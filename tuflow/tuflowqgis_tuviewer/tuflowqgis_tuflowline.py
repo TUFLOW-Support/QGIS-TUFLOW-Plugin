@@ -177,7 +177,7 @@ class TuFlowLine2():
 			self.rubberBands.append(rubberBand)
 			
 			# setup maptool and set
-			self.line = canvasEvent(self.iface, self.canvas)
+			self.line = canvasEvent(self.canvas)
 			self.prevMapTool = self.canvas.mapTool()
 			self.canvas.setMapTool(self.line)
 			self.mouseTrackConnect()  # start the tuflowqgis_bridge_rubberband

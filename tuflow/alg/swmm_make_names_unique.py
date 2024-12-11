@@ -67,10 +67,10 @@ class MakeNamesUnique(QgsProcessingFeatureBasedAlgorithm):
         """
         Returns the translated algorithm name.
         """
-        return self.tr('Integrity - Make object names unique')
+        return self.tr('Integrity - Make Object Names Unique')
 
     def flags(self):
-        return super().flags() | QgsProcessingAlgorithm.FlagSupportsInPlaceEdits
+        return super().flags() | QgsProcessingAlgorithm.FlagSupportsInPlaceEdits | QgsProcessingAlgorithm.Flag.FlagNoThreading
 
     def supportInPlaceEdit(self, layer):
         return True

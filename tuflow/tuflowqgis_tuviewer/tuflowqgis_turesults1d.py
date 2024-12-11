@@ -916,6 +916,10 @@ class TuResults1D():
 					if domains[0] == '1D' and domains[1] == '1D':
 						error, message = res.LP_getConnectivity(ids[0], ids[1], *ids)
 
+			elif len(ids) == 0:
+				error = True
+				message = 'IDs not found in 1D results'
+
 			# more than 2 selections
 			else:
 				if res.formatVersion == 2:

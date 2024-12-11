@@ -10,10 +10,18 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import datetime
-from shapely.geometry import Point, LineString
+try:
+    from shapely.geometry import Point, LineString
+    has_shapely = True
+except ImportError:
+    has_shapely = False
+    Point = 'Point'
+    LineString = 'LineString'
 
 def ugrid_to_gpkg(in_filename,
                   out_filename):
+    if not has_shapely:
+        raise Exception('Shapely not installed and is required for function: ugrid_to_gpkg().')
 
     node_dsets = [
         'Depth',

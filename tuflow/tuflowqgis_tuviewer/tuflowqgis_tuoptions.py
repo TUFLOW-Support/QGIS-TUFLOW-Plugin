@@ -106,31 +106,68 @@ class TuOptions():
 		self.curtain_vector_vertical_factor = float(settings.value("TUFLOW/tuview_curtain_vector_vertical_factor", "1.0"))
 
 	def saveProject(self, project):
-		project.writeEntry("TUVIEW", "livemaptracking", str(self.liveMapTracking))
-		
-		project.writeEntry("TUVIEW", "meaneventselection", self.meanEventSelection)
-		
-		project.writeEntry("TUVIEW", "playdelay", str(self.playDelay))
-		
-		project.writeEntry("TUVIEW", "resolution", str(self.resolution))
+		try:
+			project.writeEntry("TUVIEW", "livemaptracking", str(self.liveMapTracking))
+		except:
+			pass
 
-		project.writeEntry("TUVIEW", "ilabelfield", str(self.iLabelField))
-		
-		project.writeEntry("TUVIEW", "showgrid", str(self.showGrid))
-		
-		project.writeEntry("TUVIEW", "showtriangles", str(self.showTriangles))
-		
-		project.writeEntry("TUVIEW", "xaxisdates", str(self.xAxisDates))
-		
-		project.writeEntry("TUVIEW", "xaxislabelrotation", str(self.xAxisLabelRotation))
-		
-		zeroTime = '{0}~~{1}~~{2}~~{3}~~{4}~~{5}'.format(self.zeroTime.year, self.zeroTime.month, self.zeroTime.day,
-		                                                 self.zeroTime.hour, self.zeroTime.minute, self.zeroTime.second)
-		project.writeEntry("TUVIEW", "zerotime", zeroTime)
-		
-		project.writeEntry("TUVIEW", "dateformat", self.dateFormat)
-		
-		project.writeEntry("TUVIEW", "_dateformat", self._dateFormat)
+		try:
+			project.writeEntry("TUVIEW", "meaneventselection", self.meanEventSelection)
+		except:
+			pass
+
+		try:
+			project.writeEntry("TUVIEW", "playdelay", str(self.playDelay))
+		except:
+			pass
+
+		try:
+			project.writeEntry("TUVIEW", "resolution", str(self.resolution))
+		except:
+			pass
+
+		try:
+			project.writeEntry("TUVIEW", "ilabelfield", str(self.iLabelField))
+		except:
+			pass
+
+		try:
+			project.writeEntry("TUVIEW", "showgrid", str(self.showGrid))
+		except:
+			pass
+
+		try:
+			project.writeEntry("TUVIEW", "showtriangles", str(self.showTriangles))
+		except:
+			pass
+
+		try:
+			project.writeEntry("TUVIEW", "xaxisdates", str(self.xAxisDates))
+		except:
+			pass
+
+		try:
+			project.writeEntry("TUVIEW", "xaxislabelrotation", str(self.xAxisLabelRotation))
+		except:
+			pass
+
+		try:
+			zt = self.zeroTime if self.zeroTime else self.defaultZeroTime
+			zeroTime = '{0}~~{1}~~{2}~~{3}~~{4}~~{5}'.format(zt.year, zt.month, zt.day,
+															 zt.hour, zt.minute, zt.second)
+			project.writeEntry("TUVIEW", "zerotime", zeroTime)
+		except:
+			pass
+
+		try:
+			project.writeEntry("TUVIEW", "dateformat", self.dateFormat)
+		except:
+			pass
+
+		try:
+			project.writeEntry("TUVIEW", "_dateformat", self._dateFormat)
+		except:
+			pass
 	
 	def readProject(self, project):
 		try:
@@ -178,7 +215,7 @@ class TuOptions():
 			pass
 
 		try:
-			self.xAxisLabelRotation = float(project.readEntry("TUVIEW", "xaxislabelrotation")[0])
+			self.xAxisLabelRotation = int(project.readEntry("TUVIEW", "xaxislabelrotation")[0])
 		except:
 			pass
 

@@ -3,7 +3,6 @@ from collections import defaultdict
 
 has_gpd = False
 try:
-    import fiona
     import geopandas as gpd
 
     has_gpd = True
@@ -13,13 +12,14 @@ import numpy as np
 import pandas as pd
 
 from tuflow.tuflow_swmm import swmm_sections
+from tuflow.tuflow_swmm.gis_list_layers import get_gis_layers
 from tuflow.tuflow_swmm.version import __version__ as tuflow_swmm_version
 
 all_sections = swmm_sections.swmm_section_definitions()
 
 
 def is_tuflow_swmm_file(filename):
-    layers = fiona.listlayers(filename)
+    layers = get_gis_layers(filename)
     return 'TUFLOW_SWMM_VERSION' in layers
 
 

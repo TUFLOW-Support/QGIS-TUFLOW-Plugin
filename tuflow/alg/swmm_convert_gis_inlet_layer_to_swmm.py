@@ -28,12 +28,6 @@ from qgis.core import (QgsExpressionContext,
                        QgsProcessingUtils,
                        QgsSpatialIndex)
 
-has_fiona = False
-try:
-    import fiona
-    has_fiona = True
-except ImportError:
-    pass # defaulted to False
 from osgeo import ogr, gdal
 
 import os
@@ -75,7 +69,10 @@ class ConvertGISInletLayer(QgsProcessingAlgorithm):
         """
         Returns the translated algorithm name.
         """
-        return self.tr('Convert - XPSWMM GIS inlet layers to SWMM')
+        return self.tr('Convert - XPSWMM GIS Inlet Layers to SWMM')
+
+    def flags(self):
+        return QgsProcessingAlgorithm.Flag.FlagNoThreading
 
     def group(self):
         """

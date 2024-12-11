@@ -69,6 +69,9 @@ class SwmmFixOutletsMuliLinks(QgsProcessingAlgorithm):
         """
         return self.tr('Outfalls - Fix Multiply Connected Links')
 
+    def flags(self):
+        return QgsProcessingAlgorithm.Flag.FlagNoThreading
+
     def group(self):
         """
         Returns the name of the group this algorithm belongs to.

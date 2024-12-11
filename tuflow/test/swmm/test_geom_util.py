@@ -1,6 +1,11 @@
 import math
 import pandas as pd
-from shapely.geometry.linestring import LineString
+try:
+    from shapely.geometry.linestring import LineString
+    has_shapely = True
+except ImportError:
+    has_shapely = False
+    LineString = 'LineString'
 import subprocess
 import unittest
 

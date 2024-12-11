@@ -4,7 +4,6 @@ import shutil
 import subprocess
 import unittest
 
-import fiona
 import geopandas as gpd
 
 try:
@@ -15,6 +14,7 @@ except ImportError:
 from test.swmm.test_files import get_compare_path, get_output_path, get_input_full_filenames
 
 from tuflow.tuflow_swmm.fix_invalid_bc_connections import fix_invalid_bc_connections
+from tuflow.tuflow_swmm.gis_list_layers import get_gis_layers
 
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_rows', 50)
@@ -55,8 +55,8 @@ class TestFixInvalidBC(unittest.TestCase):
 
         if layername is None:
             # See if the layernames match
-            layers1 = sorted(fiona.listlayers(first_path))
-            layers2 = sorted(fiona.listlayers(second_path))
+            layers1 = sorted(get_gis_layers(first_path))
+            layers2 = sorted(get_gis_layers(second_path))
             self.assertEqual(layers1, layers2)
 
             layernames = layers1

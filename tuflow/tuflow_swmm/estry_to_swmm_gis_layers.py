@@ -6,7 +6,7 @@ For example, there may be -99999 to get elevations from 2D (warn users) or autom
 """
 import os
 
-os.environ['USE_PYGEOS'] = '0'
+# os.environ['USE_PYGEOS'] = '0'
 
 has_gpd = False
 gpd = None

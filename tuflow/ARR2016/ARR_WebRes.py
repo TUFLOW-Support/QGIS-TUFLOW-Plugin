@@ -859,7 +859,7 @@ class Limb:
         self.ifd.naep = len(aep_names)
         self.ifd.duration = durs
         self.ifd.ndur = len(durs)
-        self.ifd.depths = np.array(vals)
+        self.ifd.depths = numpy.array(vals)
 
         fi.seek(0)
 
@@ -1098,10 +1098,10 @@ class Arr:
                     bom_aeps.append(bom_.aep[i])
                 bom_aep2aep_name[bom_aeps[-1]] = aep_name
                 bom_aep2aep[bom_aeps[-1]] = bom_.aep[i]
-            ind = list(reversed(np.argsort(bom_aeps)))
-            bom_aeps = np.array(bom_aeps)[ind].tolist()
-            bom_.aep = np.array(bom_.aep)[ind].tolist()
-            bom_.aep_names = np.array(bom_.aep_names)[ind].tolist()
+            ind = list(reversed(numpy.argsort(bom_aeps)))
+            bom_aeps = numpy.array(bom_aeps)[ind].tolist()
+            bom_.aep = numpy.array(bom_.aep)[ind].tolist()
+            bom_.aep_names = numpy.array(bom_.aep_names)[ind].tolist()
             bom_.depths = bom_.depths[:,ind]
 
             # keep copy of original data
@@ -1145,7 +1145,7 @@ class Arr:
                     depths.append(row)
 
             # set new values but keep old values for record
-            self.Limb.ifd.depths = np.array(depths)
+            self.Limb.ifd.depths = numpy.array(depths)
             self.Limb.ifd.duration = durs
             self.Limb.ifd.aep = aeps
             self.Limb.ifd.aep_names = aep_names
@@ -1194,7 +1194,7 @@ class Arr:
                 depths.append(row)
 
             # set new values but keep old values for record
-            self.Limb.ifd.depths = np.array(depths)
+            self.Limb.ifd.depths = numpy.array(depths)
             self.Limb.ifd.duration = durs
             self.Limb.ifd.aep = aeps
             self.Limb.ifd.aep_names = aep_names
@@ -1205,9 +1205,9 @@ class Arr:
         depths = pd.DataFrame(bom.depths, columns=bom.aep_names, index=bom.duration)
         depths_adj = depths.copy()  # ARF applied (not yet though)
         if self.Losses.ils_user is not None:
-            self.Losses.init_loss = self.Losses.ils_user
+            self.Losses.init_loss = float(self.Losses.ils_user)
         if self.Losses.cls_user is not None:
-            self.Losses.cont_loss = self.Losses.cls_user
+            self.Losses.cont_loss = float(self.Losses.cls_user)
 
         # create year dictionary with index as the value so the appropriate multiplier can be called from self.CCF
         # later on
@@ -1730,7 +1730,7 @@ class Arr:
 
         # Save Figure
         fig_name = os.path.join(fpath, 'data', '{0}_PreBurst_Depths.png'.format(site_name))
-        ymax = math.ceil(np.nanmax(pb_dep_final_complete)) * 1.1
+        ymax = math.ceil(numpy.nanmax(pb_dep_final_complete)) * 1.1
         xmax = 10 ** math.ceil(math.log10(max(b_com_dur)))
         ymin = math.floor(numpy.nanmin(pb_dep_final_complete) / 10.0) * 10
 
@@ -1971,7 +1971,7 @@ class Arr:
                                 rf_array[i, i2] = increments[i][j] * depth / 100.
                                 i2 += 1
                         if cc:
-                            cc_rf_array = np.zeros([nid, ntimes])
+                            cc_rf_array = numpy.zeros([nid, ntimes])
                             # add climate change temporal patter to array so it can be written to same file
                             if self.CCF.meta.version > 2024000:
                                 for name in cc_param:
@@ -2074,13 +2074,13 @@ class Arr:
                             k += 1
                             line2b = line2b + ',{0}'.format(ids[k])
                             if i < tp_count and not tp_cc:  # standard temporal pattern
-                                line3 = line3 + ', TP{0:02d}'.format(i)
+                                line3 = line3 + ',TP{0:02d}'.format(i)
                             elif i == tp_count and not tp_cc:  # last standard temporal pattern, make cc true so cc next iter
                                 tp_cc = True
-                                line3 = line3 + ', TP{0:02d}'.format(i)
+                                line3 = line3 + ',TP{0:02d}'.format(i)
                             else:  # add climate change name to temporal pattern
                                 if cc:
-                                    line3 = line3 + ', TP{0:02d}_{1}'.format(i, cc_events_[cc_event_index])
+                                    line3 = line3 + ',TP{0:02d}_{1}'.format(i, cc_events_[cc_event_index])
                                     cc_event_index += 1
                                 else:
                                     break
@@ -2487,18 +2487,18 @@ class Arr:
                     mag_index = bom.aep_names.index(aep_list[i])
                 dur_index = bom.duration.index(dur_list[j])
                 il = il_complete[dur_index, mag_index]
-                if np.isnan(il):
+                if numpy.isnan(il):
                     il = 0
                 cl = float(self.Losses.cls)
                 self.settings.persistent_data.add_initial_loss(persistent_data_folder, aep, dur, 'NOCC', site_name, (il, cl))
                 if cc:
-                    for i, name in enumerate(cc_param):
+                    for name in cc_param:
                         scen = self.CCF.get_scenario(name)
                         if bComplete_storm:
                             ilcc = scen.init_loss
                         else:
                             ilcc = scen.init_losses_a.iloc[dur_index, mag_index]
-                            if np.isnan(ilcc):
+                            if numpy.isnan(ilcc):
                                 ilcc = 0
                         clcc = scen.cont_loss
                         self.settings.persistent_data.add_initial_loss(persistent_data_folder, aep, dur, name, site_name, (ilcc, clcc))
@@ -2517,7 +2517,7 @@ class Arr:
                     trd_open.write(f"{if1} Event == {aep}\n")
                     for j, (dur, dur_dict) in enumerate(aep_dict.items()):
                         if2 = 'If' if j == 0 else 'Else If'
-                        trd_open.write(f"    {if2} Event == {dur}\n")
+                        trd_open.write(f"    {if2} Event == {dur}m\n")
                         k = -1
                         if cc:
                             for cc_name, cc_dict in dur_dict.items():

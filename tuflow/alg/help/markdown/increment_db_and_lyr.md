@@ -1,4 +1,4 @@
-## Increment Database and Layer (beta)
+## Increment Database and Layer
 
 ### Description
 

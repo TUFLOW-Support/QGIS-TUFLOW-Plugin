@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 import typing
 from pathlib import Path
@@ -8,6 +9,8 @@ from qgis._core import QgsCoordinateReferenceSystem, QgsProject, QgsVectorLayer,
     QgsCoordinateTransformContext
 
 from .gdal_ import get_driver_name_from_extension
+from osgeo import gdal, osr
+from tuflow.tuflowqgis_settings import TF_Settings
 
 
 class ProjectConfig:
@@ -20,7 +23,10 @@ class ProjectConfig:
             crs: QgsCoordinateReferenceSystem,
             gis_format: typing.Union[int, str],
             hpcexe: str = '',
-            fvexe: str = ''
+            fvexe: str = '',
+            domain: str = '',
+            settings: dict = None,
+            output_formats: dict = None
     ):
         self.name = name
         self.folder = Path(folder)
@@ -31,7 +37,7 @@ class ProjectConfig:
             self.gis_format = self.gis_format_extension(gis_format)
         else:
             self.gis_format = gis_format
-        if self.gis_format == 'gpkg':
+        if self.gis_format.lower() == 'gpkg':
             self.gis_template_type = 'db'
         else:
             self.gis_template_type = 'sep'
@@ -42,8 +48,17 @@ class ProjectConfig:
         if fvexe:
             self.run_fv = True
         self.hpcexe = Path(hpcexe)
-        self.fvexe = Path(fvexe)
+        self.fvexe = Path(fvexe) if fvexe is not None else Path('')
+        self.domain = domain
+        self.command_validation = self._get_command_validation()
+        self.section_validation = self._get_section_validation()
+        self.settings = settings
+        if self.settings:
+            self.settings.update(self._get_hidden_inputs())
+            self.update_timestep_settings()
+        self.output_formats = output_formats
         self.valid = bool(self.name)
+        self._proj_file_created = False
 
     @staticmethod
     def from_json(json_file) -> 'ProjectConfig':
@@ -60,6 +75,7 @@ class ProjectConfig:
 
     @staticmethod
     def from_qgs_project() -> 'ProjectConfig':
+        """Returns a Project object from the current QGS project."""
         project = QgsProject.instance()
         name = project.readEntry('tuflow', 'project/name', '')
         folder = project.readEntry('tuflow', 'project/folder', '')
@@ -109,13 +125,25 @@ class ProjectConfig:
         project.writeEntry('tuflow', 'project/gis_format', self.gis_format)
         project.writeEntry('tuflow', 'project/hpcexe', str(self.hpcexe) if self.run_hpc else '')
         project.writeEntry('tuflow', 'project/fvexe', str(self.fvexe) if self.run_fv else '')
+
+        self.write_old_project_settings()  # set deprecated settings so some of the deprecated tools still get the settings updated
+
         if not project.fileName():
             proj_path = self.folder / f'{self.name}_workspace.qgz'
             project.write(str(proj_path))
 
+    def write_old_project_settings(self) -> None:
+        """Writes project settings to the old TUFLOW settings class which is still used by some of the older tools."""
+        tfsettings = TF_Settings()
+        tfsettings.Load()
+        tfsettings.project_settings.CRS_ID = self.crs.authid()
+        tfsettings.project_settings.tf_exe = str(self.hpcexe) if self.run_hpc else ''
+        tfsettings.project_settings.base_dir = str(self.folder)
+        tfsettings.project_settings.engine = 'classic'
+        tfsettings.project_settings.tutorial = False
+
     def write_json(self) -> None:
-        """
-        Writes settings to JSON file. Use posix for path otherwise json write out with double backslashes
+        """Writes settings to JSON file. Use posix for path otherwise json write out with double backslashes
         which would be annoying for users to be able to copy/paste manually from file.
         """
         if not self.folder.exists():
@@ -129,7 +157,8 @@ class ProjectConfig:
             'hpcexe': str(self.hpcexe.as_posix()) if self.run_hpc else '',
             'fvexe': str(self.fvexe.as_posix()) if self.run_fv else ''
         }
-        json_path.open('w').write(json.dumps(d, indent=4, ensure_ascii=False))
+        with json_path.open('w') as f:
+            f.write(json.dumps(d, indent=4, ensure_ascii=False))
 
     def save_settings(self) -> None:
         """Saves TUFLOW project settings to QGS project and JSON file."""
@@ -163,13 +192,13 @@ class ProjectConfig:
             'mif': 'MI'
         }
         gis = self.gis_format
-        if fv and self.gis_format == 'gpkg':
+        if fv and self.gis_format.lower() == 'gpkg':
             gis = 'shp'
         sep = os.sep
         if self.gis_template_type == 'db':
-            return f'{d[gis]} Projection == ..{sep}model{sep}gis{sep}{self.name}.{gis} >> projection'
+            return f'{d[gis.lower()]} Projection == ..{sep}model{sep}gis{sep}{self.name}.{gis.lower()} >> projection'
         else:
-            return f'{d[gis]} Projection == ..{sep}model{sep}gis{sep}projection.{gis}'
+            return f'{d[gis.lower()]} Projection == ..{sep}model{sep}gis{sep}projection.{gis.lower()}'
 
     def run_exe(self, exe: str, args: list, feedback, **kwargs) -> None:
         """Runs an executable with arguments."""
@@ -186,35 +215,53 @@ class ProjectConfig:
 
     def create_proj_gis_file(self, gis_folder: Path, fv: bool) -> None:
         """Creates the projection gis file for use in TUFLOW for creating empties."""
+        if self._proj_file_created:
+            return
         if not gis_folder.exists():
             gis_folder.mkdir(parents=True, exist_ok=True)
-        if fv and self.gis_format == 'gpkg':
+        if fv and self.gis_format.lower() == 'gpkg':
             gis = 'shp'
         else:
-            gis = self.gis_format
+            gis = self.gis_format.lower()
         if self.gis_template_type == 'db':
-            proj_file = gis_folder / f'{self.name}.{gis}'
+            proj_file = gis_folder / f'{self.name}.{gis.lower()}'
         else:
-            proj_file = gis_folder / f'projection.{gis}'
-        lyr = QgsVectorLayer(f'Point?crs={self.crs.authid()}', 'projection', 'memory')
+            proj_file = gis_folder / f'projection.{gis.lower()}'
+        lyr = QgsVectorLayer(f'Point?crs={self.crs.authid()}&field=id:string', 'projection', 'memory')
         options = QgsVectorFileWriter.SaveVectorOptions()
-        options.driverName = self.driver_name(gis)
+        options.driverName = self.driver_name(gis.lower())
         options.layerName = 'projection'
-        options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
+        if Path(proj_file).exists() and self.gis_format.lower() == 'gpkg':
+            options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
+        else:
+            options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
         ret = QgsVectorFileWriter.writeAsVectorFormatV3(lyr, str(proj_file),  QgsCoordinateTransformContext(), options)
         if ret[0] != QgsVectorFileWriter.NoError:
             raise Exception(ret[1])
+        self._proj_file_created = True
+
+    def create_tif_projection(self, grid_folder: Path) -> None:
+        """Creates a template TIF projection file that TUFLOW can use as a reference."""
+        if not grid_folder.exists():
+            grid_folder.mkdir(parents=True, exist_ok=True)
+        sr = osr.SpatialReference(self.crs.toWkt())
+        tif = gdal.GetDriverByName('GTiff').Create(str(grid_folder / 'projection.tif'), 1, 1, 1, gdal.GDT_Float32)
+        tif.SetSpatialRef(sr)
+        tif = None
 
     def create_hpc_empties(self) -> None:
         """Creates empty TUFLOW HPC files."""
         gis_folder = self.hpc_folder / 'model' / 'gis'
         self.create_proj_gis_file(gis_folder, False)
+        if self.settings.get('GRID Format') == 'TIF':
+            self.create_tif_projection(self.hpc_folder / 'model' / 'grid')
         sep = os.sep
         text = (f'{self.projection_command(False)}\n'
                 f'GIS Format == {self.gis_format.upper()}\n'
                 f'Write Empty GIS Files == ..{sep}model{sep}gis{sep}empty\n')
         tcf = self.hpc_folder / 'runs' / 'write_empties.tcf'
-        tcf.open('w').write(text)
+        with tcf.open('w') as f:
+            f.write(text)
         self.run_exe(str(self.hpcexe), ['-b', '-nmb', str(tcf)], None)
 
     def create_fv_empties(self) -> None:
@@ -223,27 +270,176 @@ class ProjectConfig:
         self.create_proj_gis_file(gis_folder, True)
         sep = os.sep
         text = (f'{self.projection_command(True)}\n'
-                f'GIS Format == {"SHP" if self.gis_format == "gpkg" else self.gis_format.upper()}\n'
+                f'GIS Format == {"SHP" if self.gis_format.lower() == "gpkg" else self.gis_format.upper()}\n'
                 f'Write Empty GIS Files == ..{sep}model{sep}gis{sep}empty\nTutorial Model == ON')
         fvc = self.fv_folder / 'runs' / 'write_empties.fvc'
         fvc.open('w').write(text)
         self.run_exe(str(self.fvexe), [str(fvc)], None, cwd=str(self.folder / 'fv' / 'runs'))
+
+    def _get_hidden_inputs(self) -> dict:
+        """Hidden inputs are those that are not shown in the GUI but are used in the TUFLOW control files.
+        These inputs can contain validation steps that determine whether they should be kept/removed from
+        the template control files.
+        """
+        f = Path(__file__).parents[1] / 'alg' / 'data' / 'create_tuflow_settings.json'
+        with f.open() as fi:
+            d = json.load(fi)
+        d = d.get('command settings', {})
+        d = {k2: None for k, v in d.items() for k2, v2 in v.items() if v2['type'].lower() == 'none'}
+        return d
+
+    def update_timestep_settings(self) -> None:
+        """Switches the "Timestep == " command to be "Timestep Initial == " if the solution scheme is set to HPC.
+        Also sets validation steps so that the command that isn't used is removed from the template control files.
+        """
+        ss = self.settings.get('Solution Scheme', '')
+        if ss == 'Classic':
+            self.command_validation['Timestep Initial'] = 'Solution Scheme == HPC'
+        elif ss == 'HPC':
+            self.command_validation['Timestep'] = 'Solution Scheme == Classic'
+            self.settings['Timestep Initial'] = self.settings['Timestep']
+
+    def _get_command_validation(self) -> dict:
+        """Returns the validation requirements for some of the commands in the TUFLOW control files."""
+        f = Path(__file__).parents[1] / 'alg' / 'data' / 'create_tuflow_settings.json'
+        with f.open() as fi:
+            d = json.load(fi)
+        d = d.get('command settings', {})
+        d = {k2: v2.get('validation', None) for k, v in d.items() for k2, v2 in v.items()}
+        return d
+
+    def _get_section_validation(self) -> dict:
+        """Returns the validation requirements for some of the sections in the TUFLOW control files."""
+        f = Path(__file__).parents[1] / 'alg' / 'data' / 'create_tuflow_settings.json'
+        with f.open() as fi:
+            d = json.load(fi)
+        d = d.get('section settings', {})
+        d = {k: v.get('validation', None) for k, v in d.items()}
+        return d
+
+    def _validate_command(self, lhs, validation) -> bool:
+        """Returns if the command/section is valid based on the validation requirements."""
+        if lhs not in validation:
+            return True
+        if not validation[lhs]:
+            return True
+        validation_reqs = validation[lhs]
+        if not isinstance(validation_reqs, list):
+            validation_reqs = [validation_reqs]
+        for req in validation_reqs:
+            lhs1, rhs1 = req.split(' == ')
+            if lhs1 not in self.settings:
+                return True
+            rhs2 = self.settings[lhs1]
+            if rhs1.lower() != rhs2.lower():
+                return False
+        return True
+
+    def _domain_commands(self, domain_str: str) -> str:
+        """Returns the domain commands for the TUFLOW control files."""
+        origin, angle, size = domain_str.split('--')
+        origin_x, origin_y = origin.split(':')
+        width, height = size.split(':')
+        return (f'Origin == {origin_x} {origin_y}\n'
+                f'Orientation Angle == {angle}\n'
+                f'Grid Size (X,Y) == {width}, {height}')
+
+    def _output_format_commands(self, fmts: dict):
+        from tuflow.gui.widgets.output_format_widget import OUT_FMT
+        def data_types(result_types: list) -> str:
+            return ' '.join([OUT_FMT['types'][x] for x in result_types])
+
+        def output_data_types(fmt: str, result_types: list) -> str:
+            lhs = f'{fmt} Map Output Data Types' if fmt else 'Map Output Data Types'
+            return '{0} == {1}'.format(lhs, data_types(result_types))
+
+        def output_interval(fmt:str, interval: list) -> str:
+            lhs = f'{fmt} Map Output Interval' if fmt else 'Map Output Interval'
+            return f'{lhs} == {interval}'
+
+        string = 'Map Output Format == {0}'.format(' '.join(list(fmts.keys())))
+        for i, (fmt, settings) in enumerate(fmts.items()):
+            if i == 0:
+                string = '{0}\n{1}\n{2}'.format(string, output_data_types(None, settings['result_types']), output_interval(None, settings["interval"]))
+            string = '{0}\n{1}\n{2}'.format(string, output_data_types(fmt, settings['result_types']), output_interval(fmt, settings["interval"]))
+        return string
 
     def _replace_variables(self, input_str: str) -> str:
         """Replaces variables in a string."""
         var = {
             '${model_name}': self.name,
             '${gis_format}': self.gis_format.upper(),
-            '${gis_ext}': self.gis_format,
+            '${gis_ext}': self.gis_format.lower(),
             '${gis_projection_command}': self.projection_command(False),
-            '${fv_gis_format}': 'SHP' if self.gis_format == 'gpkg' else self.gis_format.upper(),
+            '${fv_gis_format}': 'SHP' if self.gis_format.lower() == 'gpkg' else self.gis_format.upper(),
             '${fv_gis_projection_command}': self.projection_command(True),
             '${hpcexe}': str(self.hpcexe),
             '${fvexe}': str(self.fvexe)
         }
         for k, v in var.items():
+            if k == '${gis_projection_command}' and self.settings['GRID Format'] == 'TIF':
+                if self.gis_template_type == 'db':
+                    k = 'GPKG Projection == projection'
+                    v = k
+                v = f'{v}\nTIF Projection == ..{os.sep}model{os.sep}grid{os.sep}projection.tif'
             input_str = input_str.replace(k, v)
         return input_str
+
+    def _find_block(self, input_str: str, keyword: str) -> str:
+        """Finds a block of text starting with the keyword and ending with a blank line."""
+        if keyword not in input_str:
+            return ''
+        i = input_str.find(keyword)
+        if '\n\n' not in input_str[i:]:
+            return input_str[i:]
+        j = input_str[i:].find('\n\n') + i
+        return input_str[i:j]
+
+    def _clean_empty_blocks(self, input_str: str):
+        """Cleans/removes empty blocks from the template control files. Empty blocks can be left over
+        after some commands/sections are removed after the validation step.
+        """
+        empty_block = '\n!_______________________________________________________\n\n'
+        return input_str.replace(empty_block, '')
+
+    def _replace_block(self, input_str: str) -> str:
+        """Replaces a block of text with a new block with actual values.
+        e.g. a block headed with "! 2D DOMAIN SETUP" could be replaced with actual domain values.
+        """
+        var = {}
+        if self.domain:
+            var['! 2D DOMAIN SETUP'] = self._domain_commands(self.domain)
+        if self.output_formats:
+            var['! MAP OUTPUT FORMATS'] = self._output_format_commands(self.output_formats)
+        for k, v in self.section_validation.items():
+            if not self._validate_command(k, self.section_validation):
+                var[k] = ''
+        for k, v in var.items():
+            block = self._find_block(input_str, k)
+            if block:
+                if not v:
+                    input_str = input_str.replace(block, '')
+                else:
+                    input_str = input_str.replace(block, f'{k}\n{v}')
+        return self._clean_empty_blocks(input_str)
+
+    def _replace_commands(self, input_str: str) -> str:
+        """Replaces a given command in the template control file with the actual value.
+        This includes finding commands that are commented out in the template control file.
+        """
+        lines = input_str.split('\n')
+        for lhs, rhs in self.settings.items():
+            for i, line in enumerate(lines):
+                if line is None:
+                    continue
+                if re.findall(fr'^\s*!?\s*{lhs}\s+==.*', line, flags=re.IGNORECASE):
+                    if self._validate_command(lhs, self.command_validation):
+                        if rhs is not None:
+                            lines[i] = f'{lhs} == {rhs}'
+                    else:
+                        lines[i] = None
+                    break
+        return '\n'.join([x for x in lines if x is not None])
 
     def _setup_cf_templates(self, template_folder: Path) -> None:
         """Sets up TUFLOW control file templates."""
@@ -256,7 +452,10 @@ class ProjectConfig:
                 if not out_file.parent.exists():
                     out_file.parent.mkdir(parents=True, exist_ok=True)
                 with out_file.open('w') as fo:
-                    fo.write(self._replace_variables(fi.read()))
+                    content = self._replace_variables(fi.read())
+                    content = self._replace_block(content)
+                    content = self._replace_commands(content)
+                    fo.write(content)
 
     def _setup_hpc_templates(self, parent_folder: Path) -> None:
         """Sets up TUFLOW HPC control file templates."""

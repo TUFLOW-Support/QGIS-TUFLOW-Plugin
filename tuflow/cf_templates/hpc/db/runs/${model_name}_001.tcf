@@ -4,14 +4,11 @@ Spatial Database == ..\model\gis\${model_name}.${gis_ext}
 GIS Format == ${gis_format}
 GRID Format == TIF
 GPKG Projection == projection
-! TIF Projection == <path/to.tif>  ! uncomment to specify tif projection
 
 !_______________________________________________________
 ! SOLVER
 Solution scheme == HPC
 Hardware == GPU
-Timestep Initial == 1
-! Timestep Maximum == <timestep>  ! uncomment if required (value should be based on cell size)
 
 !_______________________________________________________
 ! SGS SETTINGS
@@ -42,6 +39,8 @@ Read Materials File == ..\model\${model_name}_mat.csv
 Start Time == 0
 End Time == <hrs>  ! TODO
 ! Timestep == <sec>  ! TODO uncomment if using Classic
+! Timestep Initial == <sec>  ! TODO uncomment if using HPC
+! Timestep Maximum == <sec>  ! uncomment if required (value should be based on cell size)
 
 !_______________________________________________________
 ! OUTPUT FOLDERS
@@ -51,10 +50,13 @@ Write Check Files == ..\check\
 ! Write Check Files Exclude == ZPT GRD UVPT
 
 !_______________________________________________________
-! OUPUT MAP CONFIGURATION 
+! MAP OUTPUT FORMATS
 Map Output Format == XMDF
 Map Output Data Types == h v d q dt  ! TODO add data types as required
 Map Output Interval == 3600  ! TODO update to appropriate interval for simulation duration
+
+!_______________________________________________________
+! MAP OUTPUT SETTINGS
 SGS Map Extent Trim == All
 SGS Depth Output == Cell Average
 ! Map Cutoff Depth == 0.01  ! uncomment if required

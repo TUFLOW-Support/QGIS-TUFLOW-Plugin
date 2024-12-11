@@ -27,7 +27,8 @@
     "Southern Slopes Tasmania": 3.9,
     "East Flatlands": 4.5,
     "West Flatlands": 4.5,
-    "Southern and South Western Flatlands (West)": 4.5
+    "Southern and South Western Flatlands (West)": 4.5,
+    "Southern and South Western Flatlands (East)": 4.5
   },
   "continuing_loss": {
     "Rangelands West": 5.6,
@@ -45,6 +46,7 @@
     "Southern Slopes Tasmania": 8.5,
     "East Flatlands": 5.6,
     "West Flatlands": 5.6,
-    "Southern and South Western Flatlands (West)": 5.6
+    "Southern and South Western Flatlands (West)": 5.6,
+    "Southern and South Western Flatlands (East)": 5.6
   }
 }

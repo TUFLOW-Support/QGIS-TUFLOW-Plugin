@@ -766,7 +766,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         
         layer = tuflowqgis_find_layer(dem)
         if layer is not None:
-            self.rubberBand = RubberBand(self.iface, layer)
+            self.rubberBand = RubberBand(self.iface.mapCanvas(), layer)
             self.rubberBand.finishedDrawing.connect(self.finishDrawing)
             
     def finishDrawing(self) -> None:

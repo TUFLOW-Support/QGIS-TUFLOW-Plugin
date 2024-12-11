@@ -714,7 +714,8 @@ class RunTuflow(QObject):
         self.callback = callback
         self.tfexe = tfexe
         self.runfile = runfile
-        self.args = [tfexe, '-b', runfile]
+        self.isfv = Path(tfexe).stem.lower() == 'tuflowfv'
+        self.args = [tfexe, '-b', runfile] if not self.isfv else [tfexe, runfile]
         self.proc = None
         self.timer = None
         self.stdout = []
@@ -727,14 +728,15 @@ class RunTuflow(QObject):
         if not os.path.exists(self.runfile):
             self.error.emit("TUFLOW Control File (tcf, fvc) not found: {0}".format(self.runfile))
             return
+        cwd = os.path.dirname(self.runfile) if self.isfv else None
         try:
             if self.capture_output:
                 self.setup_timer()
                 self.timer.start()
                 self.proc = subprocess.Popen(self.args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                             creationflags=subprocess.CREATE_NO_WINDOW)
+                                             creationflags=subprocess.CREATE_NO_WINDOW, cwd=cwd)
             else:
-                self.proc = subprocess.Popen(self.args)
+                self.proc = subprocess.Popen(self.args, cwd=cwd)
         except:
             self.error.emit("Unexpected error occurred starting TUFLOW\nargs: {0}".format(self.args))
             self.destroy()
@@ -765,6 +767,7 @@ class RunTuflow(QObject):
                     kill = True
                 if kill:
                     self.proc.terminate()
+                    self.destroy()
 
     def terminate(self):
         self.destroy()
@@ -6581,25 +6584,35 @@ def tuflowUtility(exe, workdir, flags, saveFile):
     :param flags: str flags or list -> str flags
     :return: bool error, str message
     """
-
+    outfile = None
     args = [exe, '-b']
-    if type(flags) is list:
-        args += flags
-    else:
-        f = flags.strip().split(' ')
-        for a in f:
-            if a != '':
-                args.append(a)
+    lines = flags.split('\n')
+    i = -1
+    for line in lines:
+        if not line:
+            continue
+        i += 1
+        args_ = args.copy()
+        if type(line) is list:
+            args_ += line
+        else:
+            f = line.strip().split(' ')
+            for a in f:
+                if a != '':
+                    args_.append(a)
 
-    if workdir:
-        # proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=workdir)
-        proc = subprocess.Popen(args, cwd=workdir)
-    else:
-        proc = subprocess.Popen(args)
-    proc.wait()
+        if workdir:
+            # proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=workdir)
+            proc = subprocess.Popen(args_, cwd=workdir)
+        else:
+            proc = subprocess.Popen(args_)
+        proc.wait()
+
+        if saveFile:
+            message = saveBatchFile(args_, workdir, i > 0, outfile)
+            outfile = message.split(':', 1)[1].strip()
 
     if saveFile:
-        message = saveBatchFile(args, workdir)
         QMessageBox.information(None, "TUFLOW Utility", message)
 
     return False, ''
@@ -6620,7 +6633,7 @@ def tuflowUtility(exe, workdir, flags, saveFile):
 #	return False, out.decode('utf-8')
 
 
-def saveBatchFile(flags, workdir):
+def saveBatchFile(flags, workdir, append = False, outfile = None):
     # choose a directory to save file into
     # use working directory if available
     # otherwise scan batch file for the first applicable file and save in same location
@@ -6640,13 +6653,16 @@ def saveBatchFile(flags, workdir):
         return 'Error saving batch file'
 
     fname = os.path.splitext(os.path.basename(flags[0]))[0]
-    outfile = '{0}.bat'.format(os.path.join(dir, fname))
+    if not outfile:
+        outfile = '{0}.bat'.format(os.path.join(dir, fname))
     i = 0
-    while os.path.exists(outfile):
+    while os.path.exists(outfile) and not append:
         i += 1
         outfile = '{0}_[{1}].bat'.format(os.path.join(dir, fname), i)
 
-    with open(outfile, 'w') as fo:
+    mode = 'a' if append else 'w'
+
+    with open(outfile, mode) as fo:
         for i, arg in enumerate(flags):
             argWritten = False
             if i == 0:
@@ -6667,6 +6683,7 @@ def saveBatchFile(flags, workdir):
                                 argWritten = True
                 if not argWritten:
                     fo.write(' {0}'.format(arg))
+        fo.write('\n')
 
     return 'Successfully Saved Batch File: {0}'.format(outfile)
 

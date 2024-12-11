@@ -13,10 +13,9 @@ class RubberBand(QObject):
     
     finishedDrawing = pyqtSignal()
     
-    def __init__(self, iface=None, layer=None):
+    def __init__(self, canvas=None, layer=None):
         QObject.__init__(self)
-        self.iface = iface
-        self.canvas = self.iface.mapCanvas()
+        self.canvas = canvas
         self.layer = layer
         
         # set up graphic layers
@@ -28,7 +27,7 @@ class RubberBand(QObject):
         self.rubberBand.setToGeometry(QgsGeometry.fromPolyline(self.linePoints), None)
 
         # setup maptool and set
-        self.canvasEvent = canvasEvent(self.iface, self.canvas)
+        self.canvasEvent = canvasEvent(self.canvas)
         self.canvas.setMapTool(self.canvasEvent)
         self.cursorTrackingConnected = False
         self.mouseTrackConnect()

@@ -123,6 +123,9 @@ class ConvertJunctionsToStorage(QgsProcessingAlgorithm):
         """
         return self.tr('Junctions - Convert HX Nodes to Storage')
 
+    def flags(self):
+        return QgsProcessingAlgorithm.Flag.FlagNoThreading
+
     def group(self):
         """
         Returns the name of the group this algorithm belongs to.

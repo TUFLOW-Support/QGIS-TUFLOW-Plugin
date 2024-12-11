@@ -1,8 +1,12 @@
-import fiona
 import geopandas as gpd
 from pathlib import Path
-from shapely.ops import snap
+try:
+    from shapely.ops import snap
+    has_shapely = True
+except ImportError:
+    has_shapely = False
 
+from tuflow.tuflow_swmm.gis_list_layers import get_gis_layers
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
 
@@ -15,6 +19,9 @@ def bc_layer_processing(bc_filename: str,
     """
     Snaps boundary condition layers to SWMM node layers.
     """
+    if not has_shapely:
+        feedback.reportError('Shapely not installed and is required for function: bc_layer_processing().',
+                             fatalError=True)
 
     bc_path = Path(bc_filename)
     if not bc_path.exists():
@@ -22,7 +29,7 @@ def bc_layer_processing(bc_filename: str,
         return False
 
     if bc_layername is not None and\
-        bc_layername.lower() not in [x.lower() for x in fiona.listlayers(bc_filename)]:
+        bc_layername.lower() not in [x.lower() for x in get_gis_layers(bc_filename)]:
         feedback.reportError(f'BC layer "{bc_layername}" does not exist in {bc_filename}',
                              fatalError=True)
         return False
@@ -49,7 +56,7 @@ def bc_layer_processing(bc_filename: str,
             'Nodes--Outfalls',
         ]
         for node_layer in node_layers:
-            if node_layer not in fiona.listlayers(swmm_gpkg_filename):
+            if node_layer not in get_gis_layers(swmm_gpkg_filename):
                 continue
             gdf_node = gpd.read_file(swmm_gpkg_filename, layer=node_layer)
 

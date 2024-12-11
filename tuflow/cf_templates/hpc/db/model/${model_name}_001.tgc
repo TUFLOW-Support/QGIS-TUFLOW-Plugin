@@ -4,8 +4,9 @@
 ! Origin == <X, Y>  ! alternative to above command
 ! Orientation == <X, Y>  ! alternative to 'Read GIS Location'. Used in conjunction with 'Origin'
 ! Orientation Angle == <X>  ! alternative to 'Orientation' command
-! Cell Size == <X>
 ! Grid Size (X,Y) == <X, Y>  ! size of domain in metres (not required if using "Read GIS Location == <polygon layer>")
+
+! Cell Size == <X>
 
 !_______________________________________________________
 ! MODEL ACTIVE CELLS

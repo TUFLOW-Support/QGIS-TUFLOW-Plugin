@@ -176,6 +176,9 @@ class SwmmXpswmmConvert(QgsProcessingAlgorithm):
     def displayName(self):
         return self.tr(self.name())
 
+    def flags(self):
+        return QgsProcessingAlgorithm.Flag.FlagNoThreading
+
     def group(self):
         return self.tr('SWMM')
 

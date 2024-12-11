@@ -1,6 +1,6 @@
 import os
 
-os.environ['USE_PYGEOS'] = '0'
+# os.environ['USE_PYGEOS'] = '0'
 
 import pandas as pd
 from pathlib import Path

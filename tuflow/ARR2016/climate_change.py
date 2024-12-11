@@ -8,11 +8,23 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+pdv = pd.__version__.split('.')
+if len(pdv) == 3:
+    pdv_major, pdv_minor, pdv_patch = [int(x, 10) for x in pdv]
+elif len(pdv) == 2:
+    pd_major, pdv_minor = [int(x, 10) for x in pdv]
+    pdv_patch = 0
+elif len(pdv) == 1:
+    pdv_major = int(pdv[0], 10)
+    pdv_minor = 0
+    pdv_patch = 0
+
 from tuflow.ARR2016.meta import ArrMeta
 from tuflow.ARR2016.parser import DataBlock
 
 
-RATE_OF_CHANGE = json.load(open(Path(__file__).parent / 'data' / 'cc_rate_of_change.json'))
+with open(Path(__file__).parent / 'data' / 'cc_rate_of_change.json') as f:
+    RATE_OF_CHANGE = json.load(f)
 POST_INDUSTRIAL_ADJ = 0.3
 
 
@@ -85,7 +97,10 @@ class ArrCCF:
             with fpath.open('w') as f:
                 f.write(f'This file has been generated using ARR_to_TUFLOW. The rainfall factors have been calculated for '
                         f'the scenario "{name}" which uses the following parameters- {scen.param_to_string()}.\n')
-                scen.rf_f.to_csv(f, lineterminator='\r')
+                if pdv_major < 2 and pdv_minor <= 4:
+                    scen.rf_f.to_csv(f, line_terminator='\r')
+                else:
+                    scen.rf_f.to_csv(f, lineterminator='\r')
         except PermissionError:
             self.logger.error(f'File is locked for editing, skipping writing: {fpath}')
 
@@ -95,7 +110,10 @@ class ArrCCF:
             with fpath.open('w') as f:
                 f.write('This file has been generated using ARR_to_TUFLOW. The rainfall depths have been calculated for '
                         f'the scenario "{name}" which uses the following parameters- {scen.param_to_string()}.\n')
-                scen.rf.to_csv(f, lineterminator='\r')
+                if pdv_major < 2 and pdv_minor <= 4:
+                    scen.rf.to_csv(f, line_terminator='\r')
+                else:
+                    scen.rf.to_csv(f, lineterminator='\r')
         except PermissionError:
             self.logger.error(f'File is locked for editing, skipping writing: {fpath}')
 
@@ -107,7 +125,10 @@ class ArrCCF:
             with fpath.open('w') as f:
                 f.write('This file has been generated using ARR_to_TUFLOW. The losses have been calculated for '
                         f'the scenario "{name}" which uses the following parameters- {scen.param_to_string()}.\n')
-                scen.init_losses_a.to_csv(f, lineterminator='\r')
+                if pdv_major < 2 and pdv_minor <= 4:
+                    scen.init_losses_a.to_csv(f, line_terminator='\r')
+                else:
+                    scen.init_losses_a.to_csv(f, lineterminator='\r')
         except PermissionError:
             self.logger.error(f'File is locked for editing, skipping writing: {fpath}')
 

@@ -8,7 +8,12 @@ except ImportError:
     pass  # defaulted to false
 
 import numpy as np
-from shapely.geometry import Point
+try:
+    from shapely.geometry import Point
+    has_shapely = True
+except ImportError:
+    has_shapely = False
+    Point = 'Point'
 
 from qgis.core import (QgsFeature,
                        QgsGeometry,
@@ -27,6 +32,9 @@ def create_loss_feature(row,
                         other_exit_loss,
                         feedback):
     # feedback.pushInfo(row['Name'])
+    if not has_shapely:
+        feedback.reportError('Shapely not installed and is required for function: create_loss_feature().',
+                             fatalError=True)
 
     new_feat = QgsFeature(new_layer.fields())
     new_geom = QgsGeometry.fromPolyline(
@@ -87,6 +95,10 @@ def get_conduit_loss_info(
         input_conduit_source,
         input_inlet_layers,
         feedback=ScreenProcessingFeedback()):
+    if not has_shapely:
+        feedback.reportError('Shapely not installed and is required for function: get_conduit_loss_info().',
+                             fatalError=True)
+
     try:
         if not has_gpd:
             message = ('This tool requires geopandas: to install please follow instructions on the following webpage: '

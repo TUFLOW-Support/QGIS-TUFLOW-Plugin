@@ -171,7 +171,7 @@ class TuContextMenu():
 		self.remove1dResults_action = QAction('Close Results - Time Series', self.resultsMenu)
 		self.removeParticlesResults_action = QAction('Close Results - Particles', self.resultsMenu)
 		self.closeHydraulicTable_action = QAction("Close 1D Hydraulic Tables", self.resultsMenu)
-		self.loadFVBCTide_action = QAction('Import FV Tide BC NetCDF (beta)', self.resultsMenu)
+		self.loadFVBCTide_action = QAction('Import FV Tide BC NetCDF', self.resultsMenu)
 
 		self.resultsMenu.addAction(self.load1d2dResults_action)
 		self.resultsMenu.addAction(self.load2dResults_action)

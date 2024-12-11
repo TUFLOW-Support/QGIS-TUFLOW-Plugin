@@ -1,6 +1,6 @@
 import os
 
-os.environ['USE_PYGEOS'] = '0'
+# os.environ['USE_PYGEOS'] = '0'
 has_gpd = False
 try:
     import geopandas as gpd
@@ -11,7 +11,13 @@ except ImportError:
 import datetime
 import pandas as pd
 from pathlib import Path
-from shapely.geometry import LineString, Polygon
+try:
+    from shapely.geometry import LineString, Polygon
+    has_shapely = True
+except ImportError:
+    has_shapely = False
+    LineString = 'LineString'
+    Polygon = 'Polygon'
 from tuflow.tuflow_swmm import swmm_io
 from tuflow.tuflow_swmm import swmm_sections
 from tuflow.tuflow_swmm.create_swmm_section_gpkg import create_section_gdf
@@ -34,6 +40,10 @@ sections_to_not_write = {
 
 
 def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feedback=ScreenProcessingFeedback()):
+    if not has_shapely:
+        feedback.reportError('Shapely not installed and is required for function: swmm_to_gpkg().',
+                             fatalError=True)
+
     text_sections = swmm_io.parse_sections(input_filename)
 
     dfs = {}

@@ -5280,6 +5280,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 		self.label_40.setText('Unknown - click \'ASC_to_ASC Version\' to find')
 		self.get_asc_to_asc_version(button_pushed=False)
 		self.commonUtilityChanged(0)
+		self.downloadUtilities = None
 		self.populateGrids()
 		self.populateGis()
 		self.buttonGroup = QButtonGroup()
@@ -5307,6 +5308,14 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 
 		self.xmdf_header = None
 		self.cboToGisMeshDataset.currentIndexChanged.connect(self.tuflow_to_gis_result_type_changed)
+
+		self.leAsc2Asc.textChanged.connect(lambda x: QSettings().setValue("TUFLOW_Utilities/ASC_to_ASC_exe", x))
+		self.leTUFLOW2GIS.textChanged.connect(lambda x: QSettings().setValue("TUFLOW_Utilities/TUFLOW_to_GIS_exe", x))
+		self.leRes2Res.textChanged.connect(lambda x: QSettings().setValue("TUFLOW_Utilities/Res_to_Res_exe", x))
+		self.le12da2GIS.textChanged.connect(lambda x: QSettings().setValue("TUFLOW_Utilities/12da_to_from_GIS_exe", x))
+		self.leConvert2TS1.textChanged.connect(lambda x: QSettings().setValue("TUFLOW_Utilities/Convert_to_TS1_exe", x))
+		self.leTin2Tin.textChanged.connect(lambda x: QSettings().setValue("Tin_to_Tin executable location", x))
+		self.leXSGenerator.textChanged.connect(lambda x: QSettings().setValue("TUFLOW_Utilities/xsGenerator_exe", x))
 
 		self.connectBrowseButtons()
 
@@ -5394,6 +5403,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 		if sys.platform == 'win32':
 			self.thread = QThread()
 			self.progressDialog = UtilityDownloadProgressBar(self)
+			self.progressDialog.rejected.connect(self.stopDownload)
 			self.downloadUtilities = DownloadTuflowUtilities()
 			self.downloadUtilities.moveToThread(self.thread)
 			self.downloadUtilities.updated.connect(self.progressDialog.updateProgress)
@@ -5405,6 +5415,12 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 			self.thread.start()
 		else:
 			QMessageBox.critical(self, "TUFLOW Utilities", "Download feature only available on Windows")
+
+	def stopDownload(self):
+		if self.downloadUtilities:
+			self.downloadUtilities.cancelled = True
+			from tuflow.gui.logging import Logging
+			Logging.info('Downloads will be cancelled after current utility [{}] is downloaded.'.format(self.downloadUtilities.cur_util))
 	
 	def downloadFinished(self, e):
 		utilities = {'asc_to_asc': self.leAsc2Asc, 'tuflow_to_gis': self.leTUFLOW2GIS,
@@ -5417,6 +5433,11 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 			return
 		for key, value in e.items():
 			utilities[key].setText(value)
+
+		if self.downloadUtilities.cancelled:
+			from tuflow.gui.logging import Logging
+			Logging.warning('Download cancelled by user.')
+
 		self.progressDialog.accept()
 
 		self.get_asc_to_asc_version(button_pushed=False)
@@ -5817,11 +5838,13 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 		error = False
 		
 		# precoded functions
+		util = ''
 		if self.rbCommonFunctions.isChecked():
 			workdir = self.leComOutputDir.text().strip('"').strip("'")
 			
 			# asc_to_asc
 			if self.cboCommonUtility.currentIndex() == 0:
+				util = 'asc_to_asc'
 				gis = []
 				format = self.cbo_output_format.currentText()
 
@@ -5892,6 +5915,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 				
 			# tuflow_to_gis
 			elif self.cboCommonUtility.currentIndex() == 1:
+				util = 'tuflow_to_gis'
 				if not workdir:
 					workdir = os.path.dirname(self.leTUFLOW2GIS.text().strip('"').strip("'"))
 				if self.rbMeshToGrid.isChecked():
@@ -5912,6 +5936,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 				
 			# res_to_res
 			elif self.cboCommonUtility.currentIndex() == 2:
+				util = 'res_to_res'
 				if self.rbMeshInfo.isChecked():
 					function = 'info'
 					meshes = [self.leMeshToRes.text().strip('"').strip("'")]
@@ -5939,6 +5964,8 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 			cbo2utility = {0: self.leAsc2Asc.text().strip('"').strip("'"), 1: self.leTUFLOW2GIS.text().strip('"').strip("'"), 2: self.leRes2Res.text().strip('"').strip("'"),
 			               3: self.le12da2GIS.text().strip('"').strip("'"), 4: self.leConvert2TS1.text().strip('"').strip("'"), 5: self.leTin2Tin.text().strip('"').strip("'"),
 			               6: self.leXSGenerator.text().strip('"').strip("'")}
+			util_name = {0: 'asc_to_asc', 1: 'tuflow_to_gis', 2: 'res_to_res', 3: '12da_to_gis', 4: 'convert_to_ts1', 5: 'tin_to_tin', 6: 'xsGenerator'}
+			util = util_name[self.cboAdvancedUtility.currentIndex()]
 			error, message = tuflowUtility(cbo2utility[self.cboAdvancedUtility.currentIndex()],
 			                               self.leAdvWorkingDir.text().strip('"').strip("'"),
 			                               self.teCommands.toPlainText(), self.cbSaveBatAdv.isChecked())
@@ -5964,7 +5991,11 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 				self.xmdfInfoDialog.exec_()
 			else:
 				#QMessageBox.information(self, "TUFLOW Utilities", "Utility Finished")
-				self.accept()
+				# self.accept()
+				from tuflow.gui.logging import Logging
+				if util:
+					util = '[{}]'.format(util)
+				Logging.info('Utility {} finished successfully'.format(util))
 		
 	def saveProjectSettings(self):
 		project = QgsProject.instance()
@@ -6305,9 +6336,14 @@ class DownloadTuflowUtilities(QObject):
 		super().__init__()
 		self.error = False
 		self.errmsg = ''
+		self.cancelled = False
+		self.cur_util = None
 	
 	def download(self):
 		for utility in self.utilities:
+			if self.cancelled:
+				break
+			self.cur_util = utility
 			self.updated.emit(utility)
 			try:
 				path = downloadUtility(utility)

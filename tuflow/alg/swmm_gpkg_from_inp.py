@@ -69,6 +69,9 @@ class ConvertSWMMinpToGpkg(QgsProcessingAlgorithm):
         """
         return self.tr('GeoPackage - Create from SWMM inp')
 
+    def flags(self):
+        return QgsProcessingAlgorithm.Flag.FlagNoThreading
+
     def group(self):
         """
         Returns the name of the group this algorithm belongs to.

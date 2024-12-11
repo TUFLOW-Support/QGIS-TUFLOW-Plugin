@@ -10,14 +10,15 @@ class canvasEvent(QgsMapTool):
 	leftClicked = pyqtSignal(dict)
 	doubleClicked = pyqtSignal(dict)
 	keyPressed = pyqtSignal(dict)
+	mousePressed = pyqtSignal(dict)
 	desactivate = pyqtSignal()
 	
-	def __init__(self, iface, canvas):
+	def __init__(self, canvas):
 		QgsMapTool.__init__(self, canvas)
 		self.canvas = canvas
-	
-	def canvasPressEvent(self, event):
-		pass
+
+	def canvasPressEvent(self, e):
+		self.mousePressed.emit({'x': e.pos().x(), 'y': e.pos().y(), 'button': e.button()})
 	
 	def canvasMoveEvent(self, event):
 		self.moved.emit({'x': event.pos().x(), 'y': event.pos().y()})

@@ -9,7 +9,13 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import re
-from shapely.geometry import LineString, Polygon
+try:
+    from shapely.geometry import LineString, Polygon
+    has_shapely = True
+except ImportError:
+    has_shapely = False
+    LineString = 'LineString'
+    Polygon = 'Polygon'
 
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 from tuflow.tuflow_swmm.create_bc_connections_gpd import create_bc_connections_gpd
@@ -95,6 +101,10 @@ def xpx_to_gpkg(xpx_filename,
                 tef_filename,
                 crs,
                 feedback=ScreenProcessingFeedback()) -> dict:
+    if not has_shapely:
+        feedback.reportError('Shapely not installed and is required for function: xpx_to_gpkg().',
+                             fatalError=True)
+
     if isinstance(gpkg_filename, str):
         gpkg_filename = Path(gpkg_filename)
 

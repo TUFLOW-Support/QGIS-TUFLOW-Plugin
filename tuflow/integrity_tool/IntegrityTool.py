@@ -88,6 +88,10 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         QgsProject.instance().layersRemoved.connect(self.layersRemoved)
         QgsProject.instance().layerTreeRoot().layerOrderChanged.connect(self.layerOrderChanged)
 
+        for lyr in QgsProject.instance().mapLayers().values():
+            lyr.nameChanged.connect(self.layerOrderChanged)
+            lyr.dataSourceChanged.connect(self.layerOrderChanged)
+
         # connect input add and remove buttons
         self.btnAddLines.clicked.connect(lambda: self.addItem(self.cboInputLines,
                                                               self.lwLines,
@@ -1135,6 +1139,9 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
     def readProject(self, _):
         self.populateInputs()
         self.populateGrids()
+        for lyr in QgsProject.instance().mapLayers().values():
+            lyr.nameChanged.connect(self.layerOrderChanged)
+            lyr.dataSourceChanged.connect(self.layerOrderChanged)
 
     def layersAdded(self, e):
         """
@@ -1150,6 +1157,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                 self.populateInputs()
             elif layer.type() == QgsMapLayer.RasterLayer:
                 self.populateGrids()
+            layer.nameChanged.connect(self.layerOrderChanged)
+            layer.dataSourceChanged.connect(self.layerOrderChanged)
 
     def layersRemoved(self):
         """

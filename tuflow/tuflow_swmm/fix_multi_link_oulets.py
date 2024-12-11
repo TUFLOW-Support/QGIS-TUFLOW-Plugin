@@ -1,9 +1,4 @@
-has_fiona = False
-try:
-    import fiona
-    has_fiona = True
-except ImportError:
-    pass # defaulted to False
+from tuflow.tuflow_swmm.gis_list_layers import get_gis_layers
 
 has_gpd = False
 try:
@@ -16,7 +11,12 @@ import math
 import pandas as pd
 from pathlib import Path
 
-from shapely.geometry import LineString
+try:
+    from shapely.geometry import LineString
+    has_shapely = True
+except ImportError:
+    has_shapely = False
+    LineString = 'LineString'
 
 from tuflow.tuflow_swmm.layer_util import read_and_concat_layers
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
@@ -39,6 +39,10 @@ def extend_multi_link_outfalls_gdf(
     channel_ext_length,
     feedback,
 ):
+    if not has_shapely:
+        feedback.reportError('Shapely not installed and is required for function: extend_multi_link_outfalls_gdf().',
+                             fatalError=True)
+
     outfall_changes = {}
 
     gdf_outfalls_conduits = gdf_outfalls.merge(gdf_all_links, 'inner', left_on='Name', right_on='To Node')
@@ -130,8 +134,8 @@ def extend_multi_link_outfalls(input_gpkg,
                                output_gpkg,
                                channel_ext_length,
                                feedback=ScreenProcessingFeedback()):
-    if not has_gpd or not has_fiona:
-        message = ('This tool requires fiona and geopandas: to install please follow instructions on the following webpage: '
+    if not has_gpd:
+        message = ('This tool requires geopandas: to install please follow instructions on the following webpage: '
                    'https://wiki.tuflow.com/QGIS_Intallation_with_OSGeo4W')
         feedback.reportError(message)
         return
@@ -174,7 +178,7 @@ def extend_multi_link_outfalls(input_gpkg,
         'Links--Conduits',
     ]
 
-    all_layers = fiona.listlayers(input_gpkg)
+    all_layers = get_gis_layers(input_gpkg)
 
     layers_to_copy = list(set(all_layers) - set(modified_layers))
 

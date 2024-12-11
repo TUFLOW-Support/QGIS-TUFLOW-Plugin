@@ -11,11 +11,11 @@ Converts an XPX file and modifies a converted tcf file to add the SWMM informati
 4. Modifies the tbc file (leaves copy of original)
     a.  Snaps any bc polyline files to the SWMM node layers
 """
-import fiona
 from pathlib import Path
 import re
 import shutil
 
+from tuflow.tuflow_swmm.gis_list_layers import get_gis_layers
 from tuflow.tuflow_swmm.layer_util import increment_layer
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 from tuflow.tuflow_swmm.xpswmm_gis_cleanup import bc_layer_processing
@@ -393,7 +393,7 @@ def convert_xpswmm(output_folder_1donly: str,
                     # Append reference to new bc connection layers if they were created
                     if gis_layers_filename is not None:
                         gis_layers_filename = Path(gis_layers_filename)
-                        if '2d_bc_swmm_connections' in fiona.listlayers(gis_layers_filename):
+                        if '2d_bc_swmm_connections' in get_gis_layers(gis_layers_filename):
                             tbc_file.write('\n! Add SWMM 1D nodal HX/SX connections\n')
                             relative_filename = gis_layers_filename.relative_to(tbc_path.parent.resolve())
                             tbc_file.write(f'Read GIS BC == {relative_filename} >> 2d_bc_swmm_connections\n')

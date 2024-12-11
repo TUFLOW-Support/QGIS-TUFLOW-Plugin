@@ -70,6 +70,9 @@ class SwmmExtractScenarios(QgsProcessingAlgorithm):
         # Must return a new copy of your algorithm.
         return SwmmExtractScenarios()
 
+    def flags(self):
+        return QgsProcessingAlgorithm.Flag.FlagNoThreading
+
     def name(self):
         """
         Returns the unique algorithm name.

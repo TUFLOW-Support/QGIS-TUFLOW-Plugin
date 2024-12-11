@@ -1,8 +1,9 @@
-import fiona
 import geopandas as gpd
 from itertools import chain
 import pandas as pd
 from pathlib import Path
+
+from tuflow.tuflow_swmm.gis_list_layers import get_gis_layers
 from tuflow.tuflow_swmm.gis_to_swmm import gis_to_swmm
 from tuflow.tuflow_swmm.swmm_io import write_tuflow_version
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
@@ -43,7 +44,7 @@ def extract_scenarios(gpkg_filenames, scenario_names, output_folder, output_pref
         feedback.pushInfo(f'\nProcessing {section_table}')
 
         for scenario, scenario_filename in zip(scenario_names, gpkg_filenames):
-            if section_table in fiona.listlayers(scenario_filename):
+            if section_table in get_gis_layers(scenario_filename):
                 gdfs_section.append(gpd.read_file(scenario_filename, layer=section_table))
             else:
                 gdfs_section.append(None)
@@ -98,7 +99,7 @@ def extract_scenarios(gpkg_filenames, scenario_names, output_folder, output_pref
                 gdf_modified.to_file(scenario_filename, layer=section_table, driver='GPKG')
 
     # Handle non-node and conduit layers
-    generic_tables = set(fiona.listlayers(gpkg_filenames[0])) - set(section_tables)
+    generic_tables = set(get_gis_layers(gpkg_filenames[0])) - set(section_tables)
     feedback.pushInfo(f'\nCopying generic tables to common file:')
 
     for generic_table in generic_tables:

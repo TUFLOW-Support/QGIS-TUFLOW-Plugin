@@ -3,7 +3,11 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import re
-from shapely.validation import make_valid
+try:
+    from shapely.validation import make_valid
+    has_shapely = True
+except ImportError:
+    has_shapely = False
 
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
@@ -13,6 +17,10 @@ def convert_xpswmm_hydrology(gdf_gis_nodes,
                              gdf_swmm_subcatchments,
                              output_crs,
                              feedback=ScreenProcessingFeedback()):
+    if not has_shapely:
+        feedback.reportError('Shapely not installed and is required for function: convert_xpswmm_hydrology().',
+                             fatalError=True)
+
     max_subcatch_per_node = 5
 
     gdf_gis_subcatchments = gdf_gis_subcatchments.replace('N/A', np.nan).dropna(subset=['CatchNo'])

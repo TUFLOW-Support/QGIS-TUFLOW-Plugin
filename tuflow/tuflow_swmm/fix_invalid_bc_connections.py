@@ -1,11 +1,3 @@
-has_fiona = False
-try:
-    import fiona
-
-    has_fiona = True
-except ImportError:
-    fiona = None
-
 has_gpd = False
 try:
     import geopandas as gpd
@@ -18,12 +10,18 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-from shapely.geometry import LineString
-from shapely import get_coordinates, get_point
+try:
+    from shapely.geometry import LineString
+    from shapely import get_coordinates, get_point
+    has_shapely = True
+except ImportError:
+    has_shapely = False
+    LineString = 'LineString'
 
 from tuflow.tuflow_swmm.bc_conn_util import find_nodes_with_bc_conn, BcOption
 from tuflow.tuflow_swmm.convert_nonoutfall_sx_to_hx import convert_nonoutfall_sx_to_hx_gdfs
 from tuflow.tuflow_swmm.geom_util import get_offset_point_at_angle
+from tuflow.tuflow_swmm.gis_list_layers import get_gis_layers
 from tuflow.tuflow_swmm.layer_util import increment_layer, read_and_concat_layers
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
@@ -78,6 +76,9 @@ def create_offset_node_and_extend_conduits(
         offset_distance,
         offset_orig_node=False,
 ):
+    if not has_shapely:
+        raise Exception('Shapely not installed and is required for function: create_offset_node_and_extend_conduits().')
+
     # find links (junctions downstream, outfalls upstream)
     merge_field = 'To Node' if are_outfall_nodes else 'From Node'
     gdf_links_for_junctions_to_extend = gdf_all_links.merge(
@@ -183,6 +184,9 @@ def move_inflow_nodes(
 
 
 def shift_bc_line_002(geometry, nodept1, nodept2):
+    if not has_shapely:
+        raise Exception('Shapely not installed and is required for function: shift_bc_line_002().')
+
     out_geom = geometry
     if get_point(out_geom, 0).equals_exact(nodept1, 1e-4):
         coords = get_coordinates(out_geom)
@@ -484,9 +488,9 @@ def fix_invalid_bc_connections(input_gpkg,
                                output_bc_files_and_layers,
                                gdfs_inlets,
                                feedback=ScreenProcessingFeedback()):
-    if not has_gpd or not has_fiona:
+    if not has_gpd:
         message = (
-            'This tool requires fiona and geopandas: to install please follow instructions on the following webpage: '
+            'This tool requires geopandas: to install please follow instructions on the following webpage: '
             'https://wiki.tuflow.com/QGIS_Intallation_with_OSGeo4W')
         feedback.reportError(message)
         return
@@ -496,12 +500,12 @@ def fix_invalid_bc_connections(input_gpkg,
     # Remove output geopackage if exists
     Path(output_gpkg).unlink(missing_ok=True)
 
-    if 'Nodes--Junctions' in fiona.listlayers(input_gpkg):
+    if 'Nodes--Junctions' in get_gis_layers(input_gpkg):
         gdf_junctions = gpd.read_file(input_gpkg, layer='Nodes--Junctions')
     else:
         gdf_junctions = None
 
-    if 'Nodes--Storage' in fiona.listlayers(input_gpkg):
+    if 'Nodes--Storage' in get_gis_layers(input_gpkg):
         gdf_storage = gpd.read_file(input_gpkg, layer='Nodes--Storage')
     else:
         gdf_storage = None
@@ -518,11 +522,11 @@ def fix_invalid_bc_connections(input_gpkg,
     gdf_all_links = read_and_concat_layers(input_gpkg, alt_link_layers, [gdf_conduits])
 
     gdf_outfalls = None
-    if 'Nodes--Outfalls' in fiona.listlayers(input_gpkg):
+    if 'Nodes--Outfalls' in get_gis_layers(input_gpkg):
         gdf_outfalls = gpd.read_file(input_gpkg, layer='Nodes--Outfalls')
 
     gdf_bc_inflows = None
-    if 'BC--Inflows' in fiona.listlayers(input_gpkg):
+    if 'BC--Inflows' in get_gis_layers(input_gpkg):
         gdf_bc_inflows = gpd.read_file(input_gpkg, layer='BC--Inflows')
 
     output_info = fix_invalid_bc_connections_gdf(
@@ -547,7 +551,7 @@ def fix_invalid_bc_connections(input_gpkg,
         'BC--Inflows',
     ]
 
-    all_layers = fiona.listlayers(input_gpkg)
+    all_layers = get_gis_layers(input_gpkg)
 
     layers_to_copy = list(set(all_layers) - set(modified_layers))
 

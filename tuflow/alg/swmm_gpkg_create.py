@@ -66,6 +66,9 @@ class GeoPackageCreate(QgsProcessingAlgorithm):
         # Must return a new copy of your algorithm.
         return GeoPackageCreate()
 
+    def flags(self):
+        return QgsProcessingAlgorithm.Flag.FlagNoThreading
+
     def name(self):
         """
         Returns the unique algorithm name.

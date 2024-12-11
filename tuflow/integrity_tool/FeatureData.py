@@ -20,7 +20,7 @@ class FeatureData():
         self.type = None
         self.invertUs = None
         self.invertDs = None
-        self.invertOffsetUs = 0.0 # SWMM stores offsets to node elevations to have pipes not at manhole elev
+        self.invertOffsetUs = 0.0  # SWMM stores offsets to node elevations to have pipes not at manhole elev
         self.invertOffsetDs = 0.0
         self.width = None
         self.height = None
@@ -79,6 +79,8 @@ class FeatureData():
                 self.height_ = atts['height_']
                 self.length = atts['length']
                 self.area = atts['area']
+                self.invertOffsetUs = 0.0
+                self.invertOffsetDs = 0.0
 
                 if 'invertOffsetUs' in atts:
                     self.invertOffsetUs = atts['invertOffsetUs']
@@ -111,7 +113,6 @@ class FeatureData():
                 #     self.numberOf = 1
                 # self.height_ = self.width if self.type.lower()[0] == 'c' else self.height
                 # self.length = feature.attribute(4) if feature.attribute(4) != NULL and feature.attribute(4) > 0. else feature.geometry().length()
-
 
     def getNullCounter(self):
         """

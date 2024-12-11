@@ -1,8 +1,14 @@
 import geopandas as gpd
 
-from shapely import get_coordinates
-from shapely.geometry.linestring import LineString
-from shapely.geometry.point import Point
+try:
+    from shapely import get_coordinates
+    from shapely.geometry.linestring import LineString
+    from shapely.geometry.point import Point
+    has_shapely = True
+except ImportError:
+    has_shapely = False
+    LineString = 'LineString'
+    Point = 'Point'
 
 from tuflow.tuflow_swmm.gis_messages import GisMessages
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
@@ -18,6 +24,10 @@ def fill_bc_data(row,
                  set_z_flag: bool,
                  gis_messages: GisMessages,
                  feedback: any):
+    if not has_shapely:
+        feedback.reportError('Shapely not installed and is required for function: fill_bc_data().',
+                             fatalError=True)
+
     if outfall_connections:
         # Look for upstream connections and make SX connections
         gdf_upstream_connections = gdf_all_links[gdf_all_links['To Node'] == row.Name]

@@ -1,10 +1,16 @@
-import fiona
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import shapely
-from shapely import LineString
+try:
+    import shapely
+    from shapely import LineString
+    has_shapely = True
+except ImportError:
+    has_shapely = False
+    LineString = 'LineString'
+
 from tuflow.tuflow_swmm.bc_conn_util import find_nodes_with_bc_conn, BcOption
+from tuflow.tuflow_swmm.gis_list_layers import get_gis_layers
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
 
@@ -14,6 +20,10 @@ def convert_nonoutfall_sx_to_hx_gdfs(
         gdf_inlets: gpd.GeoDataFrame | None,
         feedback=ScreenProcessingFeedback(),
 ) -> gpd.GeoDataFrame:
+    if not has_shapely:
+        feedback.reportError('Shapely not installed and is required for function: convert_nonoutfall_sx_to_hx().',
+                             fatalError=True)
+
     feedback.pushInfo(f'Number of SWMM Nodes: {len(gdf_swmm_nodes)}.')
 
     # if we have inlets, neglect nodes with inlets (these use SX connections)
@@ -81,7 +91,7 @@ def convert_nonoutfall_sx_to_hx(
 ):
     node_layers = ['Nodes--Storage', 'Nodes--Junctions', 'Nodes--Dividers']
 
-    swmm_layers = fiona.listlayers(str(swmm_gpkg))
+    swmm_layers = get_gis_layers(str(swmm_gpkg))
 
     swmm_node_layers = list(set(node_layers).intersection(set(swmm_layers)))
 

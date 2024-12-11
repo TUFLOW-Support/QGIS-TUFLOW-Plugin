@@ -19,7 +19,10 @@ except ImportError:
 
 from osgeo import ogr
 if not ogr.GetUseExceptions():
-    ogr.UseExceptions()
+    try:
+        ogr.UseExceptions()
+    except RuntimeError:
+        pass
 
 try:
     import shapely

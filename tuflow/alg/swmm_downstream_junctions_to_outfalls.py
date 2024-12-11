@@ -66,6 +66,9 @@ class DownstreamJunctionsToOutfalls(QgsProcessingAlgorithm):
         """
         return self.tr('Junctions - Downstream Junctions to Outfalls')
 
+    def flags(self):
+        return QgsProcessingAlgorithm.Flag.FlagNoThreading
+
     def group(self):
         """
         Returns the name of the group this algorithm belongs to.

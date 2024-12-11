@@ -15,7 +15,7 @@ from qgis import processing
 from .utils import create_tuflow_command_path, create_tuflow_command_name
 from .gui import apply_tf_style_message_ids, apply_tf_style_temporal, apply_tf_style_static
 from .utils import (tuflow_plugin, increment_file, increment_db_and_lyr, increment_lyr, file_from_data_source,
-                    layer_name_from_data_source)
+                    layer_name_from_data_source, create_grid_commands)
 from .tuflow_results_gpkg import ResData_GPKG
 
 from .tuflow_swmm.swmm_io import is_tuflow_swmm_file
@@ -38,6 +38,7 @@ class TuflowContextMenuProvider(QMenu):
         self.action_increment_lyr = None
         self.action_gpkg_ts_static_style_shape = None
         self.action_gpkg_ts_static_style_type = None
+        self.action_create_grid_commands = None
 
     def init_menu(self) -> None:
         self.action_filter_msgs = QAction('Filter Messages By Code', self.iface.mainWindow())
@@ -48,19 +49,19 @@ class TuflowContextMenuProvider(QMenu):
         self.action_create_tf_command_gpkg.triggered.connect(create_tuflow_command_name)
         self.action_increment_file = QAction(
             tuflow_plugin().icon('increment_layer'),
-            'Increment File (beta)',
+            'Increment File',
             self.iface.mainWindow()
         )
         self.action_increment_file.triggered.connect(increment_file)
         self.action_increment_db_and_lyr = QAction(
             tuflow_plugin().icon('increment_layer'),
-            'Increment Layer and Database (beta)',
+            'Increment Layer and Database',
             self.iface.mainWindow()
         )
         self.action_increment_db_and_lyr.triggered.connect(increment_db_and_lyr)
         self.action_increment_lyr = QAction(
             tuflow_plugin().icon('increment_layer'),
-            'Increment Layer (beta)',
+            'Increment Layer',
             self.iface.mainWindow()
         )
         self.action_increment_lyr.triggered.connect(increment_lyr)
@@ -68,6 +69,9 @@ class TuflowContextMenuProvider(QMenu):
         self.action_gpkg_ts_static_style_shape = QAction('Static style Shape', self.iface.mainWindow())
         self.action_gpkg_ts_static_style_type.triggered.connect(lambda e: apply_tf_style_static('Type'))
         self.action_gpkg_ts_static_style_shape.triggered.connect(lambda e: apply_tf_style_static('Shape'))
+
+        self.action_create_grid_commands = QAction('Copy TUFLOW Grid Extents Commands', self.iface.mainWindow())
+        self.action_create_grid_commands.triggered.connect(create_grid_commands.create_grid_commands)
 
         self.iface.currentLayerChanged.connect(self.create_menu)
 
@@ -101,6 +105,10 @@ class TuflowContextMenuProvider(QMenu):
     def create_menu(self, layer: QgsMapLayer):
         self.clear()
         if layer and layer.type() == QgsMapLayer.VectorLayer:
+            # This has been developed but are going to have more discussion before it is live
+            #if '2d_code' in layer.name().lower():
+                # self.addAction(self.action_create_grid_commands)
+                # self.addSeparator()
             if 'messages' in layer.name().lower():
                 self.addAction(self.action_filter_msgs)
                 self.addSeparator()
