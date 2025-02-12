@@ -47,6 +47,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from .tuflowqgis_library import interpolate, convertStrftimToTuviewftim, convertTuviewftimToStrftim, browse
 
+from tuflow.compatibility_routines import QT_STRING, QT_INT, QT_DOUBLE
+
 currentFolder = os.path.dirname(os.path.abspath(__file__))
 spatial_database_option = True
 
@@ -1351,7 +1353,8 @@ class tuflowqgis_line_from_points(QDialog, Ui_tuflowqgis_line_from_point):
 		pr = v_layer.dataProvider()
 		
 		# add fields
-		fields = { 0 : QgsField("z", QVariant.Double),1 : QgsField("dz", QVariant.Double),2 : QgsField("width", QVariant.Double),3 : QgsField("Options", QVariant.String) }
+		fields = {0 : QgsField("z", QT_DOUBLE), 1 : QgsField("dz", QT_DOUBLE),
+				  2 : QgsField("width", QT_DOUBLE), 3 : QgsField("Options", QT_STRING) }
 	
 		message = None
 		if len(savename) <= 0:

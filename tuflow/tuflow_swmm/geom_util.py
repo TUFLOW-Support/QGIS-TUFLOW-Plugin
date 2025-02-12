@@ -14,7 +14,10 @@ except ImportError:
 def get_first_two_points(geom):
     if not has_shapely:
         raise Exception('Shapely not installed and is required for function: get_first_two_points().')
-    return get_coordinates(geom, include_z=False)[:2]
+    pts = get_coordinates(geom)
+    if len(pts) < 2:
+        raise Exception(f'Trying to get two points from linestring with only {len(pts)} points.')
+    return pts[:2]
 
 
 def get_last_two_points(geom):
@@ -99,10 +102,10 @@ def get_line_offset_from_point(point: Point,
     if not has_shapely:
         raise Exception('Shapely not installed and is required for function: get_line_offset_from_point().')
 
-    direction = np.array([math.sin(math.radians(angle)) * width,
-                          math.cos(math.radians(angle)) * width])
+    direction = np.array([math.cos(math.radians(angle)) * offset_dist,
+                          math.sin(math.radians(angle)) * offset_dist])
     mid_offset = get_coordinates(point) + direction
-    perm_norm = np.flip(direction)
+    perm_norm = np.flip(direction/np.sqrt(np.sum(direction**2)))
     perm_norm[0] = -perm_norm[0]
 
     pt1 = mid_offset + perm_norm * (width * 0.5)

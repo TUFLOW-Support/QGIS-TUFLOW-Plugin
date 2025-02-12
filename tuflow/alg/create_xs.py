@@ -21,6 +21,7 @@ from qgis.core import (QgsWkbTypes, QgsProcessingUtils, QgsFeatureSink, QgsField
 from ..mitools.perpendicular_lines import PerpendicularLines
 from ..compatibility_routines import Path
 from ..utils.raster_geom import RasterGeometry
+from tuflow.compatibility_routines import QT_STRING, QT_INT, QT_DOUBLE
 
 
 def drape_line_on_raster(line_geom, line_crs, raster, context):
@@ -176,17 +177,17 @@ class CreateCrossSections(QgsProcessingAlgorithm):
 
         # setup output layer
         fields = QgsFields()
-        fields.append(QgsField('Source', type=QVariant.String, len=50))
-        fields.append(QgsField('Type', type=QVariant.String, len=2))
-        fields.append(QgsField('Flags', type=QVariant.String, len=8))
-        fields.append(QgsField('Column1', type=QVariant.String, len=20))
-        fields.append(QgsField('Column2', type=QVariant.String, len=20))
-        fields.append(QgsField('Column3', type=QVariant.String, len=20))
-        fields.append(QgsField('Column4', type=QVariant.String, len=20))
-        fields.append(QgsField('Column5', type=QVariant.String, len=20))
-        fields.append(QgsField('Column6', type=QVariant.String, len=20))
-        fields.append(QgsField('Z_Increment', type=QVariant.Double, len=15, prec=5))
-        fields.append(QgsField('Skew', type=QVariant.Double, len=15, prec=5))
+        fields.append(QgsField('Source', type=QT_STRING, len=50))
+        fields.append(QgsField('Type', type=QT_STRING, len=2))
+        fields.append(QgsField('Flags', type=QT_STRING, len=8))
+        fields.append(QgsField('Column1', type=QT_STRING, len=20))
+        fields.append(QgsField('Column2', type=QT_STRING, len=20))
+        fields.append(QgsField('Column3', type=QT_STRING, len=20))
+        fields.append(QgsField('Column4', type=QT_STRING, len=20))
+        fields.append(QgsField('Column5', type=QT_STRING, len=20))
+        fields.append(QgsField('Column6', type=QT_STRING, len=20))
+        fields.append(QgsField('Z_Increment', type=QT_DOUBLE, len=15, prec=5))
+        fields.append(QgsField('Skew', type=QT_DOUBLE, len=15, prec=5))
         sink, dest_id = self.parameterAsSink(
             parameters,
             'OUTPUT',

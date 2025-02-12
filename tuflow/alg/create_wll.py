@@ -15,7 +15,7 @@ from qgis.core import (QgsWkbTypes, QgsProcessingUtils, QgsFeatureSink, QgsField
                        QgsProcessingException, QgsExpression, QgsFeatureRequest)
 
 from ..mitools.perpendicular_lines import PerpendicularLines
-from ..compatibility_routines import Path
+from ..compatibility_routines import Path, QT_DOUBLE
 
 
 class CreateWLL(QgsProcessingAlgorithm):
@@ -142,7 +142,7 @@ class CreateWLL(QgsProcessingAlgorithm):
 
         # setup output layer
         fields = QgsFields()
-        fields.append(QgsField('Dist_for_A', type=QVariant.Double, len=15, prec=5))
+        fields.append(QgsField('Dist_for_A', type=QT_DOUBLE, len=15, prec=5))
         sink, dest_id = self.parameterAsSink(
             parameters,
             'OUTPUT',

@@ -26,6 +26,7 @@ class TuOptions():
 		self.copy_mesh = True if settings.value('TUFLOW/tuview_copy_mesh', 'false') in ['True', 'true', True] else False
 		self.show_copy_mesh_dlg = True if settings.value('TUFLOW/tuview_show_copy_mesh_dlg', 'false') in ['True', 'true', True] else False
 		self.del_copied_res = True if settings.value('TUFLOW/tuview_del_copied_res', 'true') in ['True', 'true', True] else False
+		self.profile_plotting_tasks = True
 
 		if settings.contains("TUFLOW/tuview_defaultlayout"):
 			self.defaultLayout = settings.value('TUFLOW/tuview_defaultlayout')

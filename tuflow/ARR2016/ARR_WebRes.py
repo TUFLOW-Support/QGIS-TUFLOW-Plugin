@@ -1204,6 +1204,8 @@ class Arr:
         # new stuff that can be used for future development
         depths = pd.DataFrame(bom.depths, columns=bom.aep_names, index=bom.duration)
         depths_adj = depths.copy()  # ARF applied (not yet though)
+        if self.Losses.existsPNLosses and probability_neutral_losses:
+            self.Losses.cont_loss = self.Losses.cls
         if self.Losses.ils_user is not None:
             self.Losses.init_loss = float(self.Losses.ils_user)
         if self.Losses.cls_user is not None:

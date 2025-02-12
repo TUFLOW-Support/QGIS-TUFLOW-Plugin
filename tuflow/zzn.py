@@ -41,7 +41,8 @@ class ZZL:
             f.seek(pTIMESTEP_LAST)
             self.timestep_last = struct.unpack('I', f.read(4))[0]
             f.seek(pOUT_INTERVAL)
-            self.output_interval = float(struct.unpack('I', f.read(4))[0])
+            self.save_multiple = struct.unpack('I', f.read(4))[0]
+            self.output_interval = self.save_multiple * self.dt
             f.seek(pLABEL_LEN)
             self.label_len = struct.unpack('I', f.read(4))[0]
             f.seek(pDATE)
@@ -94,8 +95,17 @@ class ZZN:
     def last_timestep(self):
         return self._zzl.timestep_last
 
-    def timestep_count(self):
-        return int((self._zzl.timestep_last - self._zzl.timestep_first) / self._zzl.output_interval) + 1
+    def timestep_count(self) -> int:
+        model_duration = (self._zzl.timestep_last - self._zzl.timestep_first + 1) * self._zzl.dt  # in seconds
+        return int(np.round(model_duration / self._zzl.output_interval)) + 1
+
+    def timesteps(self):
+        start_time = (self._zzl.timestep_first - 1) * self._zzl.dt / 3600
+        end_time = self._zzl.timestep_last * self._zzl.dt / 3600
+        a = np.arange(start_time, end_time, self._zzl.output_interval / 3600)
+        if not np.isclose(a[-1], end_time, rtol=0., atol=0.001):
+            a = np.append(a, np.reshape(end_time, (1,)), axis=0)
+        return np.reshape(a, (a.size,1))
 
     def result_type_count(self):
         return self._zzl.nvars

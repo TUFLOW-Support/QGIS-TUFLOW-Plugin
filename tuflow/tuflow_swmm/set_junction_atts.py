@@ -15,6 +15,8 @@ from PyQt5.QtCore import QVariant
 
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
+from tuflow.compatibility_routines import QT_STRING, QT_INT, QT_DOUBLE
+
 
 def remove_layer_joins(layer, feedback):
     joinsInfo = layer.vectorJoins()
@@ -221,12 +223,12 @@ def set_junction_atts(features_junctions,
     dp = output_layer.dataProvider()
     output_layer.startEditing()
     dp.addAttributes([
-        QgsField("Name", QVariant.String),
-        QgsField("Elev", QVariant.Double),
-        QgsField("Ymax", QVariant.Double),
-        QgsField("Y0", QVariant.Double),
-        QgsField("Ysur", QVariant.Double),
-        QgsField("Apond", QVariant.Double),
+        QgsField("Name", QT_STRING),
+        QgsField("Elev", QT_DOUBLE),
+        QgsField("Ymax", QT_DOUBLE),
+        QgsField("Y0", QT_DOUBLE),
+        QgsField("Ysur", QT_DOUBLE),
+        QgsField("Apond", QT_DOUBLE),
     ])
     output_layer.updateFields()
 

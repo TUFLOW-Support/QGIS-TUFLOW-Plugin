@@ -16,6 +16,10 @@ from ..nc_grid_data_provider import NetCDFGridGeometry
 
 from ..nc_grid_data_provider import NetCDFGrid
 
+from tuflow.compatibility_routines import QT_DOUBLE
+
+from tuflow.gui.logging import Logging
+
 
 class TuPlot2D():
 	"""
@@ -41,6 +45,8 @@ class TuPlot2D():
 			self.progress = QProgressBar()
 			self.faceIndexes = []
 			self.crossSectionGeom = []
+			self.si = {}
+			self.mesh = {}
 
 	def plotTimeSeriesFromMap(self, vLayer, point, **kwargs):
 		"""
@@ -83,6 +89,8 @@ class TuPlot2D():
 		markerNo = kwargs['markerNo'] if 'markerNo' in kwargs else 0
 		dataType = kwargs['data_type'] if 'data_type' in kwargs else TuPlot.DataTimeSeries2D
 		overwrite = kwargs['overwrite'] if 'overwrite' in kwargs else False
+
+		do_profiling = self.tuView.tuOptions.profile_plotting_tasks
 		
 		# clear the plot based on kwargs
 		if bypass:
@@ -116,9 +124,19 @@ class TuPlot2D():
 		for layer in resultMesh:  # get plotting for all selected result meshes
 			if isinstance(layer, QgsMeshLayer) and not meshRendered:
 				dp = layer.dataProvider()
-				mesh = QgsMesh()
-				dp.populateMesh(mesh)
-				si = QgsMeshSpatialIndex(mesh)
+				if layer.id() in self.si:
+					mesh = self.mesh[layer.id()]
+					si = self.si[layer.id()]
+				else:
+					if do_profiling:
+						start = datetime.now()
+					mesh = QgsMesh()
+					dp.populateMesh(mesh)
+					si = QgsMeshSpatialIndex(mesh)
+					self.mesh[layer.id()] = mesh
+					self.si[layer.id()] = si
+					if do_profiling:
+						Logging.info('Time to generate mesh spatial index: {0} sec'.format((datetime.now() - start).total_seconds()), silent=True)
 			else:
 				dp = None
 				mesh = None
@@ -172,12 +190,16 @@ class TuPlot2D():
 				# iterate through result timesteps to get time series
 				x = []
 				y = []
+				if do_profiling:
+					start = datetime.now()
 				for key, item in r.items():
 					if self.tuView.tuOptions.timeUnits == 's':
 						x.append(item[0] / 3600)
 					else:
 						x.append(item[0])
 					y.append(self.datasetValue(layer, dp, si, mesh, item[-1], meshRendered, point, i, dataType, am))
+				if do_profiling:
+					Logging.info('Time to extract time series data: {0} sec'.format((datetime.now() - start).total_seconds()), silent=True)
 
 				if self.tuView.tuOptions.xAxisDates:
 					allNaN = True
@@ -271,6 +293,8 @@ class TuPlot2D():
 		dataType = kwargs['data_type'] if 'data_type' in kwargs else TuPlot.DataCrossSection2D
 		overwrite = kwargs['overwrite'] if 'overwrite' in kwargs else False
 
+		do_profiling = self.tuView.tuOptions.profile_plotting_tasks
+
 		# clear the plot based on kwargs
 		if bypass:
 			pass
@@ -304,9 +328,19 @@ class TuPlot2D():
 			try:
 				if isinstance(layer, QgsMeshLayer):
 					dp = layer.dataProvider()
-					mesh = QgsMesh()
-					dp.populateMesh(mesh)
-					si = QgsMeshSpatialIndex(mesh)
+					if layer.id() in self.si:
+						mesh = self.mesh[layer.id()]
+						si = self.si[layer.id()]
+					else:
+						if do_profiling:
+							start = datetime.now()
+						mesh = QgsMesh()
+						dp.populateMesh(mesh)
+						si = QgsMeshSpatialIndex(mesh)
+						self.mesh[layer.id()] = mesh
+						self.si[layer.id()] = si
+						if do_profiling:
+							Logging.info('Time to generate mesh spatial index: {0} sec'.format((datetime.now() - start).total_seconds()), silent=True)
 				else:
 					dp = None
 					mesh = None
@@ -386,6 +420,7 @@ class TuPlot2D():
 						onVerticesCurr = True
 
 					# if j == 0 or onVertices != (gmd.dataType() == QgsMeshDatasetGroupMetadata.DataOnVertices):
+					#start = datetime.now()
 					if j == 0 or onVertices is None or onVerticesCurr != onVertices:
 						if isinstance(layer, NetCDFGrid):
 							onVertices = False
@@ -432,23 +467,28 @@ class TuPlot2D():
 							faces = crossSectionGeom.faces
 
 						if j == 0 and not update and debug:
+							polys = None
 							if isinstance(layer, QgsMeshLayer):
-								polys = [meshToPolygon(mesh, mesh.face(x)) for x in faces]
+								polys = [meshToPolygon(mesh, mesh.face(x)) for x in faces if x is not None]
 							elif isinstance(layer, NetCDFGrid):
 								nc_grid_geom = NetCDFGridGeometry(layer)
 								polys = [nc_grid_geom.index_to_polygon(x) for x in fcs]
-							writeTempPolys(polys, self.tuView.project, crs)
+							if polys:
+								writeTempPolys(polys, self.tuView.project, crs)
 							writeTempPoints(inters, self.tuView.project, crs, chainage, 'Chainage',
-											QVariant.Double)
-
+											QT_DOUBLE)
+					#print('Time to find intersects: {0} sec'.format((datetime.now() - start).total_seconds()))
 					# iterate through points and extract data
 					x = []
 					y = []
+					if do_profiling:
+						start = datetime.now()
 					for i in range(len(faces)):
 						x.append(chainage[i])
 						if not onVerticesCurr and faces[i] is None:
 							y.append(np.nan)
 						else:
+
 							v = self.datasetValue(layer, dp, si, mesh, meshDatasetIndex, meshRendered,
 												  points[i], 0, dataType, am, faces[i])
 							y.append(v)
@@ -459,6 +499,8 @@ class TuPlot2D():
 								y.append(np.nan)
 							else:
 								y.append(v)
+					if do_profiling:
+						Logging.info('Time to extract cross section data: {0} sec'.format((datetime.now() - start).total_seconds()), silent=True)
 
 					# add to overall data list
 					xAll.append(x)
@@ -535,6 +577,8 @@ class TuPlot2D():
 		meshRendered = False  # finding values manually is a little quicker
 		resolution = kwargs['resolution'] if 'resolution' in kwargs.keys() else self.tuView.tuOptions.resolution
 		featName = kwargs['featName'] if 'featName' in kwargs else None
+
+		do_profiling = self.tuView.tuOptions.profile_plotting_tasks
 		
 		# clear the plot based on kwargs
 		if bypass:
@@ -556,9 +600,19 @@ class TuPlot2D():
 		# iterate through all selected results
 		for layer in activeMeshLayers:
 			dp = layer.dataProvider()
-			mesh = QgsMesh()
-			dp.populateMesh(mesh)
-			si = QgsMeshSpatialIndex(mesh)
+			if layer.id() in self.si:
+				mesh = self.mesh[layer.id()]
+				si = self.si[layer.id()]
+			else:
+				if do_profiling:
+					start = datetime.now()
+				mesh = QgsMesh()
+				dp.populateMesh(mesh)
+				si = QgsMeshSpatialIndex(mesh)
+				self.mesh[layer.id()] = mesh
+				self.si[layer.id()] = si
+				if do_profiling:
+					Logging.info('Time to generate mesh spatial index: {0} sec'.format((datetime.now() - start).total_seconds()), silent=True)
 
 			# get velocity and either depth or water level
 			depth = None
@@ -634,7 +688,7 @@ class TuPlot2D():
 				faces = [None] * len(points)
 				if debug:
 					writeTempPoints(inters, self.tuView.project, crs, chainages, 'Chainage',
-					                QVariant.Double)
+					                QT_DOUBLE)
 			else:
 				# points = faces[:]
 				points = inters[:]
@@ -644,7 +698,7 @@ class TuPlot2D():
 					polys = [meshToPolygon(mesh, mesh.face(x)) for x in faces]
 					writeTempPolys(polys, self.tuView.project, crs)
 					writeTempPoints(inters, self.tuView.project, crs, chainages, 'Chainage',
-					                QVariant.Double)
+					                QT_DOUBLE)
 
 			# get directions
 			directions = [None]
@@ -683,6 +737,8 @@ class TuPlot2D():
 			# iterate through result timesteps to get time series
 			x = []
 			y = []
+			if do_profiling:
+				start = datetime.now()
 			for key, velItem in velRes.items():
 				if self.tuView.tuOptions.timeUnits == 's':
 					x.append(velItem[0] / 3600)
@@ -830,6 +886,8 @@ class TuPlot2D():
 
 				# summed all flow, can append to timestep
 				y.append(sumFlow)
+			if do_profiling:
+				Logging.info('Time to extract flow data: {0} sec'.format((datetime.now() - start).total_seconds()), silent=True)
 
 			# add to overall data list
 			xAll.append(x)
@@ -936,7 +994,10 @@ class TuPlot2D():
 		uri = "point?crs={0}".format(crs.authid().lower())
 		lyr = QgsVectorLayer(uri, "check_face_intercepts", "memory")
 		dp = lyr.dataProvider()
-		dp.addAttributes([QgsField('Ch', QVariant.Double)])
+		if Qgis.QGIS_VERSION_INT < 33800:
+			dp.addAttributes([QgsField('Ch', QVariant.Double)])
+		else:
+			dp.addAttributes([QgsField('Ch', QMetaType.Double)])
 		lyr.updateFields()
 		feats = []
 		for i, point in enumerate(points):

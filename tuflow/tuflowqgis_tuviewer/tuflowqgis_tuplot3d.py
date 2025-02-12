@@ -20,6 +20,8 @@ from matplotlib.colors import LinearSegmentedColormap
 from datetime import datetime, timedelta
 from math import sin, cos, pi
 import statistics
+from tuflow.compatibility_routines import QT_DOUBLE
+from tuflow.gui.logging import Logging
 
 
 
@@ -161,6 +163,8 @@ class TuPlot3D(TuPlot2D):
         markerNo = kwargs['markerNo'] if 'markerNo' in kwargs else 0
         dataType = kwargs['data_type'] if 'data_type' in kwargs else TuPlot.DataVerticalProfile
 
+        do_profiling = self.tuView.tuOptions.profile_plotting_tasks
+
         # clear the plot based on kwargs
         if bypass:
             pass
@@ -191,9 +195,21 @@ class TuPlot3D(TuPlot2D):
             resultMesh = activeMeshLayers
         for layer in resultMesh:  # get plotting for all selected result meshes
             dp = layer.dataProvider()
-            mesh = QgsMesh()
-            dp.populateMesh(mesh)
-            si = QgsMeshSpatialIndex(mesh)
+            if layer.id() in self.si:
+                mesh = self.mesh[layer.id()]
+                si = self.si[layer.id()]
+            else:
+                if do_profiling:
+                    start = datetime.now()
+                mesh = QgsMesh()
+                dp.populateMesh(mesh)
+                si = QgsMeshSpatialIndex(mesh)
+                self.mesh[layer.id()] = mesh
+                self.si[layer.id()] = si
+                if do_profiling:
+                    Logging.info(
+                        'Time to generate mesh spatial index: {0} sec'.format((datetime.now() - start).total_seconds()),
+                        silent=True)
 
             # get plotting for all checked result types
             if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
@@ -248,8 +264,14 @@ class TuPlot3D(TuPlot2D):
 
                 # for am in avgmethods:
                 types.append(rtype)
+                if do_profiling:
+                    start = datetime.now()
                 x, y, vm = self.getScalarDataPoint(point, layer, dp, si, mesh, meshDatasetIndex, meshRendered, onFaces,
                                                    isMax, isMin)
+                if do_profiling:
+                    Logging.info(
+                        'Time to get vertical profile data point: {0} sec'.format((datetime.now() - start).total_seconds()),
+                        silent=True)
                 xMagnitudes.append(x)
                 data.append([x, y])
                 plotAsCollection.append(False)
@@ -338,6 +360,8 @@ class TuPlot3D(TuPlot2D):
         plotActiveScalar = kwargs['plot_active_scalar'] if 'plot_active_scalar' in kwargs else False
         lineNo = kwargs['lineNo'] if 'lineNo' in kwargs else 0
 
+        do_profiling = self.tuView.tuOptions.profile_plotting_tasks
+
         # clear the plot based on kwargs
         if not bypass:
             self.tuPlot.clearPlot2(TuPlot.CrossSection, TuPlot.DataCurtainPlot, draw=draw)
@@ -356,9 +380,21 @@ class TuPlot3D(TuPlot2D):
         for layer in activeMeshLayers:
             # get mesh information and spatial index the mesh
             dp = layer.dataProvider()
-            mesh = QgsMesh()
-            dp.populateMesh(mesh)
-            si = QgsMeshSpatialIndex(mesh)
+            if layer.id() in self.si:
+                mesh = self.mesh[layer.id()]
+                si = self.si[layer.id()]
+            else:
+                if do_profiling:
+                    start = datetime.now()
+                mesh = QgsMesh()
+                dp.populateMesh(mesh)
+                si = QgsMeshSpatialIndex(mesh)
+                self.mesh[layer.id()] = mesh
+                self.si[layer.id()] = si
+                if do_profiling:
+                    Logging.info(
+                        'Time to generate mesh spatial index: {0} sec'.format((datetime.now() - start).total_seconds()),
+                        silent=True)
 
             # loop through result types
             if not resultTypes:  # specified result types can be passed through kwargs (used for batch export not normal plotting)
@@ -425,7 +461,7 @@ class TuPlot3D(TuPlot2D):
                     # self.points = [calcMidPoint(self.inters[i], self.inters[i+1], crs) for i in range(len(self.inters) - 1)]
                     self.points = curtainGeom.mid_points[:]
                     if debug and not update:
-                        writeTempPoints(self.inters, self.tuView.project, crs, self.chainages, 'Chainage', QVariant.Double)
+                        writeTempPoints(self.inters, self.tuView.project, crs, self.chainages, 'Chainage', QT_DOUBLE)
                 else:
                     onFaces = True
                     self.points = self.faces[:]
@@ -433,21 +469,33 @@ class TuPlot3D(TuPlot2D):
                         polys = [meshToPolygon(mesh, mesh.face(x)) for x in self.faces]
                         writeTempPolys(polys, self.tuView.project, crs)
                         writeTempPoints(self.inters, self.tuView.project, crs, self.chainages, 'Chainage',
-                                        QVariant.Double)
+                                        QT_DOUBLE)
 
 
                 # collect and arrange data
                 if 'vector' in rtype.lower():
+                    if do_profiling:
+                        start = datetime.now()
                     self.getVectorDataCurtain(layer, dp, si, mesh, meshDatasetIndex, self.points,
                                               self.chainages, self.inters, update, onFaces, isMax, isMin,
                                               curtainGeom)
+                    if do_profiling:
+                        Logging.info(
+                            'Time to get vector data curtain: {0} sec'.format((datetime.now() - start).total_seconds()),
+                            silent=True)
                     data.append(self.quiver)
                     plotAsCollection.append(False)
                     plotAsQuiver.append(True)
                 else:
+                    if do_profiling:
+                        start = datetime.now()
                     collection = self.getScalarDataCurtain(layer, dp, si, mesh, meshDatasetIndex, self.points,
                                                            self.chainages, update, rtype, onFaces, isMax, isMin,
                                                            curtainGeom)
+                    if do_profiling:
+                        Logging.info(
+                            'Time to get scalar data curtain: {0} sec'.format((datetime.now() - start).total_seconds()),
+                            silent=True)
                     if collection is None:
                         continue
                     data.append(collection)

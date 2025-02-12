@@ -52,6 +52,8 @@ try:
 except ImportError:
     pass  # defaulted to false
 
+from tuflow.compatibility_routines import QT_STRING, QT_INT, QT_DOUBLE
+
 
 def create_feature(row, new_layer, features_to_add):
     new_feat = QgsFeature(new_layer.fields())
@@ -343,37 +345,37 @@ class ConvertJunctionsToStorage(QgsProcessingAlgorithm):
         dp_junctions = out_layer_junctions.dataProvider()
         out_layer_junctions.startEditing()
         dp_junctions.addAttributes([
-            QgsField("Name", QVariant.String),
-            QgsField("Elev", QVariant.Double),
-            QgsField("Ymax", QVariant.Double),
-            QgsField("Y0", QVariant.Double),
-            QgsField("Ysur", QVariant.Double),
-            QgsField("Apond", QVariant.Double),
+            QgsField("Name", QT_STRING),
+            QgsField("Elev", QT_DOUBLE),
+            QgsField("Ymax", QT_DOUBLE),
+            QgsField("Y0", QT_DOUBLE),
+            QgsField("Ysur", QT_DOUBLE),
+            QgsField("Apond", QT_DOUBLE),
         ])
         out_layer_junctions.updateFields()
         dp_junctions.addFeatures(junctions_to_add)
         out_layer_junctions.commitChanges()
 
         storage_fields = [
-            QgsField("Name", QVariant.String),
-            QgsField("Elev", QVariant.Double),
-            QgsField("Ymax", QVariant.Double),
-            QgsField("Y0", QVariant.Double),
-            QgsField("TYPE", QVariant.String),
-            QgsField("Acurve", QVariant.String),
-            QgsField("A1", QVariant.Double),
-            QgsField("A2", QVariant.Double),
-            QgsField("A0", QVariant.Double),
-            QgsField("L", QVariant.Double),
-            QgsField("W", QVariant.Double),
-            QgsField("Z", QVariant.Double),
-            QgsField("Ysur", QVariant.Double),
-            QgsField("Fevap", QVariant.Double),
-            QgsField("Psi", QVariant.Double),
-            QgsField("Ksat", QVariant.Double),
-            QgsField("IMD", QVariant.Double),
-            QgsField("Tag", QVariant.String),
-            QgsField("Description", QVariant.String),
+            QgsField("Name", QT_STRING),
+            QgsField("Elev", QT_DOUBLE),
+            QgsField("Ymax", QT_DOUBLE),
+            QgsField("Y0", QT_DOUBLE),
+            QgsField("TYPE", QT_STRING),
+            QgsField("Acurve", QT_STRING),
+            QgsField("A1", QT_DOUBLE),
+            QgsField("A2", QT_DOUBLE),
+            QgsField("A0", QT_DOUBLE),
+            QgsField("L", QT_DOUBLE),
+            QgsField("W", QT_DOUBLE),
+            QgsField("Z", QT_DOUBLE),
+            QgsField("Ysur", QT_DOUBLE),
+            QgsField("Fevap", QT_DOUBLE),
+            QgsField("Psi", QT_DOUBLE),
+            QgsField("Ksat", QT_DOUBLE),
+            QgsField("IMD", QT_DOUBLE),
+            QgsField("Tag", QT_STRING),
+            QgsField("Description", QT_STRING),
         ]
         qfields_storage = QgsFields()
         for field in storage_fields:

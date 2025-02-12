@@ -163,7 +163,8 @@ class SwmmHelper(Helper):
             filename, layername = str(source_layer.dataProvider().uri()).split('|')
             filename = filename.split(':', maxsplit=1)[1].strip()
             gdf_curves = gpd.read_file(filename, layer='Curves--Curves')
-            gdf_curves['Type'] = gdf_curves['Type'].fillna(method='ffill')
+            # gdf_curves['Type'] = gdf_curves['Type'].fillna(method='ffill')
+            gdf_curves['Type'] = gdf_curves['Type'].ffill()
             gdf_curves = gdf_curves[gdf_curves['Type'] == 'SHAPE']
             df = gdf_curves[['Name', 'xval', 'yval']]
             self.curves[source_layer.id()] = df

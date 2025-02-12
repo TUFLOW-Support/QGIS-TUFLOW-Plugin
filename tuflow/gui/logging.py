@@ -1,5 +1,8 @@
 import sys
 from typing import TYPE_CHECKING
+
+from qgis.core import QgsApplication, Qgis
+
 try:
     import traceback
     has_traceback = True
@@ -30,25 +33,25 @@ class _Logging:
         """Method to initialise the logging."""
         self.iface = iface
 
-    def info(self, msg: str) -> None:
+    def info(self, msg: str, silent: bool = False) -> None:
         """Log a message with level INFO to QGIS."""
         if not isinstance(msg, str):
             msg = str(msg)
-        if self.iface is not None:
+        if self.iface is not None and not silent:
             self.iface.messageBar().pushMessage("TUFLOW Plugin", msg, level=0)
         else:
-            print(f'TUFLOW Plugin: {msg}')
+            QgsApplication.messageLog().logMessage(msg, 'TUFLOW Plugin', level=Qgis.MessageLevel.Info, notifyUser=False)
 
-    def warning(self, msg: str) -> None:
+    def warning(self, msg: str, silent: bool = False) -> None:
         """Log a message with level WARNING to QGIS."""
         if not isinstance(msg, str):
             msg = str(msg)
         if self.iface is not None:
             self.iface.messageBar().pushMessage("TUFLOW Plugin", msg, level=1)
         else:
-            print(f'TUFLOW Plugin: {msg}')
+            QgsApplication.messageLog().logMessage(msg, 'TUFLOW Plugin', level=Qgis.MessageLevel.Warning, notifyUser=False)
 
-    def error(self, msg: str, more_info: str = None) -> None:
+    def error(self, msg: str, more_info: str = None, silent: bool = False) -> None:
         """
         Log a message with level CRITICAL/ERROR to QGIS.
         Has the additional option of adding more info (e.g. stack trace). This will appear as a button
@@ -72,7 +75,7 @@ class _Logging:
             else:
                 self.iface.messageBar().pushMessage("TUFLOW Plugin", msg, level=2)
         else:
-            print(f'TUFLOW Catch: {msg}')
+            QgsApplication.messageLog().logMessage(msg, 'TUFLOW Plugin', level=Qgis.MessageLevel.Critical, notifyUser=False)
 
 
 # import this - mimics a singleton with static methods

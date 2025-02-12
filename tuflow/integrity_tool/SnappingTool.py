@@ -33,10 +33,16 @@ class SnappingTool:
                 uri = "point"
             self.outputLyr = QgsVectorLayer(uri, "output", "memory")
             self.dp = self.outputLyr.dataProvider()
-            self.dp.addAttributes([QgsField('Warning', QVariant.String),
-                                   QgsField("Message", QVariant.String),
-                                   QgsField("Tool", QVariant.String),
-                                   QgsField("Magnitude", QVariant.Double)])
+            if Qgis.QGIS_VERSION_INT < 33800:
+                self.dp.addAttributes([QgsField('Warning', QVariant.String),
+                                       QgsField("Message", QVariant.String),
+                                       QgsField("Tool", QVariant.String),
+                                       QgsField("Magnitude", QVariant.Double)])
+            else:
+                self.dp.addAttributes([QgsField('Warning', QMetaType.QString),
+                                       QgsField("Message", QMetaType.QString),
+                                       QgsField("Tool", QMetaType.QString),
+                                       QgsField("Magnitude", QMetaType.Double)])
             self.outputLyr.updateFields()
         else:
             self.dp = self.outputLyr.dataProvider()

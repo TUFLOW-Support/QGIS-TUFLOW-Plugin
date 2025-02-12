@@ -1147,6 +1147,7 @@ class TuResults2D():
 					return
 				elif layer.datasetGroupCount() > 0:
 					self.getResultMetaData(ml, layer, loadRenderStyle=False)
+					self.results2d[ml] = {'path': layer.dataProvider().dataSourceUri()}
 					self.tuView.OpenResults.addItem(ml)
 
 					k = self.tuView.OpenResults.findItems(layer.name(), Qt.MatchRecursive)[0]

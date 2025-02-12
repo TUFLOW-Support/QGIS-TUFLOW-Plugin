@@ -15,7 +15,7 @@ import processing
 
 from PyQt5.QtCore import QCoreApplication, QVariant
 
-from ..compatibility_routines import Path
+from ..compatibility_routines import Path, QT_STRING, QT_INT, QT_DOUBLE
 from ..mitools.perpendicular_lines import PerpendicularLines
 from ..tuflowqgis_library import is2dBCLayer
 
@@ -108,14 +108,14 @@ class CreateCNLines(QgsProcessingAlgorithm):
 
         # setup output layers
         fields = QgsFields()
-        fields.append(QgsField('Type', type=QVariant.String, len=2))
-        fields.append(QgsField('Flags', type=QVariant.String, len=3))
-        fields.append(QgsField('Name', type=QVariant.String, len=100))
-        fields.append(QgsField('f', type=QVariant.Double, len=15, prec=5))
-        fields.append(QgsField('d', type=QVariant.Double, len=15, prec=5))
-        fields.append(QgsField('td', type=QVariant.Double, len=15, prec=5))
-        fields.append(QgsField('a', type=QVariant.Double, len=15, prec=5))
-        fields.append(QgsField('b', type=QVariant.Double, len=15, prec=5))
+        fields.append(QgsField('Type', type=QT_STRING, len=2))
+        fields.append(QgsField('Flags', type=QT_STRING, len=3))
+        fields.append(QgsField('Name', type=QT_STRING, len=100))
+        fields.append(QgsField('f', type=QT_DOUBLE, len=15, prec=5))
+        fields.append(QgsField('d', type=QT_DOUBLE, len=15, prec=5))
+        fields.append(QgsField('td', type=QT_DOUBLE, len=15, prec=5))
+        fields.append(QgsField('a', type=QT_DOUBLE, len=15, prec=5))
+        fields.append(QgsField('b', type=QT_DOUBLE, len=15, prec=5))
         sink, dest_id = self.parameterAsSink(
             parameters,
             'OUTPUT',

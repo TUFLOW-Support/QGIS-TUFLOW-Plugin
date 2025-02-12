@@ -12,6 +12,7 @@ import timeit
 from qgis.core import QgsField, QgsGeometry, QgsFeature, QgsPoint, QgsFeatureRequest
 from PyQt5.QtCore import QVariant
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
+from tuflow.compatibility_routines import QT_STRING, QT_INT, QT_DOUBLE
 
 
 def adjacent_conduits_exist(layer, feat, check_upstream):
@@ -160,14 +161,14 @@ def create_endpoint_connections(input_source,
     dp = output_layer.dataProvider()
     output_layer.startEditing()
     dp.addAttributes([
-        QgsField("Type", QVariant.String),
-        QgsField("Flags", QVariant.String),
-        QgsField("Name", QVariant.String),
-        QgsField("f", QVariant.Double),
-        QgsField("D", QVariant.Double),
-        QgsField("Td", QVariant.Double),
-        QgsField("A", QVariant.Double),
-        QgsField("B", QVariant.Double),
+        QgsField("Type", QT_STRING),
+        QgsField("Flags", QT_STRING),
+        QgsField("Name", QT_STRING),
+        QgsField("f", QT_DOUBLE),
+        QgsField("D", QT_DOUBLE),
+        QgsField("Td", QT_DOUBLE),
+        QgsField("A", QT_DOUBLE),
+        QgsField("B", QT_DOUBLE),
     ])
     output_layer.updateFields()
 

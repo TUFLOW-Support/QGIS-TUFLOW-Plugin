@@ -160,7 +160,7 @@ class SwmmXpswmmConvert(QgsProcessingAlgorithm):
             gis_layers_filename = Path(of) / f'model\\gis\\{Path(tcf).stem}_gis_layers_1d.gpkg'
         else:
             created_tcf_filename = None
-            gis_layers_filename = None
+            gis_layers_filename = Path(of) / f'{swmm_prefix}_gis_layers_1d.gpkg'
             model_feedback.pushInfo('No TCF file specified. Converting 1D only.')
 
         model_feedback.setCurrentStep(1)

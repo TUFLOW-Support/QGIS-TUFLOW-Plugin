@@ -22,6 +22,8 @@ try:
 except ImportError:
     pass  # has_pyqt defaulted to false
 
+from tuflow.compatibility_routines import QT_STRING, QT_INT, QT_DOUBLE
+
 
 def create_junction_features(row, new_layer, features_to_add):
     new_feat = QgsFeature(new_layer.fields())
@@ -199,26 +201,26 @@ def downstream_junctions_to_outfalls_from_qgis(
     dp_junctions = output_junctions.dataProvider()
     output_junctions.startEditing()
     dp_junctions.addAttributes([
-        QgsField("Name", QVariant.String),
-        QgsField("Elev", QVariant.Double),
-        QgsField("Ymax", QVariant.Double),
-        QgsField("Y0", QVariant.Double),
-        QgsField("Ysur", QVariant.Double),
-        QgsField("Apond", QVariant.Double),
+        QgsField("Name", QT_STRING),
+        QgsField("Elev", QT_DOUBLE),
+        QgsField("Ymax", QT_DOUBLE),
+        QgsField("Y0", QT_DOUBLE),
+        QgsField("Ysur", QT_DOUBLE),
+        QgsField("Apond", QT_DOUBLE),
     ])
     output_junctions.updateFields()
 
     dp_outfalls = output_outfalls.dataProvider()
     output_outfalls.startEditing()
     dp_outfalls.addAttributes([
-        QgsField("Name", QVariant.String),
-        QgsField("Elev", QVariant.Double),
-        QgsField("Type", QVariant.String),
-        QgsField("Stage", QVariant.Double),
-        QgsField("Tcurve", QVariant.String),
-        QgsField("Tseries", QVariant.Double),
-        QgsField("Gated", QVariant.String),
-        QgsField("RouteTo", QVariant.String),
+        QgsField("Name", QT_STRING),
+        QgsField("Elev", QT_DOUBLE),
+        QgsField("Type", QT_STRING),
+        QgsField("Stage", QT_DOUBLE),
+        QgsField("Tcurve", QT_STRING),
+        QgsField("Tseries", QT_DOUBLE),
+        QgsField("Gated", QT_STRING),
+        QgsField("RouteTo", QT_STRING),
     ])
     output_outfalls.updateFields()
 

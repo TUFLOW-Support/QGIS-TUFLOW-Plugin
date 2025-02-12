@@ -383,7 +383,7 @@ class RectDrawItem:
 class RectDrawRubberBand(RectDrawItem):
     """Base class for drawing rubber-bands for the InteractiveRectMapTool."""
 
-    DEFAULT_WIDTH = 2.
+    DEFAULT_WIDTH = 2
     DEFAULT_STYLE = Qt.DashLine
     DEFAULT_COLOR = Qt.black
     DEFAULT_FILL_COLOR = Qt.transparent
@@ -395,7 +395,7 @@ class RectDrawRubberBand(RectDrawItem):
         self.style = styling.get('style', self.DEFAULT_STYLE)
         self.color = styling.get('color', self.DEFAULT_COLOR)
         self.fill_color = styling.get('fill_color', self.DEFAULT_FILL_COLOR)
-        self.rubber_band.setWidth(self.width)
+        self.rubber_band.setWidth(int(self.width))
         self.rubber_band.setColor(self.color)
         self.rubber_band.setLineStyle(self.style)
         self.rubber_band.setFillColor(self.fill_color)

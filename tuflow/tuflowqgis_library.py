@@ -15,7 +15,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-
+import logging
 import sys, re
 import os.path
 import tempfile
@@ -73,6 +73,8 @@ except ImportError:
 import webbrowser
 
 # from .utils.map_layer import layer_name_from_data_source
+
+from tuflow.compatibility_routines import QT_STRING, QT_INT, QT_DOUBLE
 
 
 # --------------------------------------------------------
@@ -1375,12 +1377,19 @@ def region_renderer(layer):
 
 
 def graduatedRenderer(layer):
+    from tuflow.gui.logging import Logging
     symbol = QgsSymbol.defaultSymbol(layer.geometryType())
     symbol.setColor(Qt.red)
     grad_rend = QgsGraduatedSymbolRenderer('Magnitude')
     grad_rend.setSourceSymbol(symbol)
     grad_rend.setGraduatedMethod(QgsGraduatedSymbolRenderer.GraduatedSize)
-    grad_rend.updateClasses(layer, QgsGraduatedSymbolRenderer.Mode.Quantile, 5)
+    if Qgis.QGIS_VERSION_INT < 31000:
+        grad_rend.updateClasses(layer, QgsGraduatedSymbolRenderer.Mode.Quantile, 5)
+    else:
+        grad_rend.setClassificationMethod(QgsClassificationQuantile())
+        err = grad_rend.updateClasses(layer, 5)
+        if err:
+            Logging.warning(err)
     grad_rend.setSymbolSizes(2., 5.)
 
     return grad_rend
@@ -6416,8 +6425,8 @@ def tuflowToGis(exe, function, workdir, mesh, dataType, timestep, **kwargs):
     args = [exe, '-b', mesh]
     _2dm = Path(mesh).with_suffix('.2dm')
     if not _2dm.exists():
-        if re.findall('\(.*\){0}$'.format(re.escape(Path(mesh).suffix)), Path(mesh).name):
-            new_2dm = re.sub('\(.*\){0}$'.format(re.escape(Path(mesh).suffix)), '.2dm', mesh)
+        if re.findall(r'\(.*\){0}$'.format(re.escape(Path(mesh).suffix)), Path(mesh).name):
+            new_2dm = re.sub(r'\(.*\){0}$'.format(re.escape(Path(mesh).suffix)), '.2dm', mesh)
             if Path(new_2dm).exists():
                 args.extend(['-2dm', str(new_2dm)])
 
@@ -8689,7 +8698,7 @@ def findMeshIntersects(si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider, mesh: Q
         uri = "polygon?crs={0}".format(crs.authid().lower())
         lyr = QgsVectorLayer(uri, "check_mesh_intercepts", "memory")
         dp = lyr.dataProvider()
-        dp.addAttributes([QgsField('Id', QVariant.Int)])
+        dp.addAttributes([QgsField('Id', QT_INT)])
         lyr.updateFields()
         feats = []
         for i, f in enumerate(allFaces):
@@ -8705,7 +8714,7 @@ def findMeshIntersects(si: QgsMeshSpatialIndex, dp: QgsMeshDataProvider, mesh: Q
         uri = "point?crs={0}".format(crs.authid().lower())
         lyr = QgsVectorLayer(uri, "check_face_intercepts", "memory")
         dp = lyr.dataProvider()
-        dp.addAttributes([QgsField('Ch', QVariant.Double)])
+        dp.addAttributes([QgsField('Ch', QT_DOUBLE)])
         lyr.updateFields()
         feats = []
         for i, point in enumerate(points):
@@ -8803,7 +8812,7 @@ def writeTempPoints(points, project, crs=None, label=(), field_id='', field_type
     if label:
         dp.addAttributes([QgsField(field_id, field_type)])
     else:
-        dp.addAttributes([QgsField('ID', QVariant.Int)])
+        dp.addAttributes([QgsField('ID', QT_INT)])
 
     lyr.updateFields()
     feats = []
@@ -10220,7 +10229,7 @@ class VectorLayerHelper(LayerHelper):
 
     @property
     def datasource(self):
-        ds = re.split('\|layername=', self._datasource)[0]
+        ds = re.split(r'\|layername=', self._datasource)[0]
         return ds.split('|')[0]
 
     @property
@@ -10385,7 +10394,7 @@ def get_kart_version():
             proc = subprocess.run([kart_executable(), '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                   creationflags=subprocess.CREATE_NO_WINDOW)
             v = proc.stdout.decode('utf-8', errors='ignore').split(',')[0]
-            v = re.findall('\d+', v)
+            v = re.findall(r'\d+', v)
             i = 1000
             v_ = 0
             for n in v:

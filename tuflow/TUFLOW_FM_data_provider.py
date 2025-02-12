@@ -253,7 +253,9 @@ class FM_Timeseries(Timeseries):
             values = zzn.get_time_series_data(type_).astype(np.float64, casting='same_kind')
         except EOFError:
             return True, 'End of file encountered - possibly incomplete result file'
-        timesteps = np.array([[x + 1, (x * zzn.output_interval()) / 3600] for x in range(self.nVals)])
+        timesteps = zzn.timesteps()
+        ind = np.reshape(np.arange(1, self.nVals + 1), (self.nVals, 1))
+        timesteps = np.append(ind, timesteps, axis=1)
         try:
             values = np.insert(values, 0, timesteps[:,1], axis=1)
             values = np.insert(values, 0, timesteps[:,0], axis=1)

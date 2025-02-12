@@ -13,6 +13,7 @@ from pathlib import Path
 try:
     from shapely.geometry import LineString
     from shapely import get_coordinates, get_point
+
     has_shapely = True
 except ImportError:
     has_shapely = False
@@ -75,6 +76,7 @@ def create_offset_node_and_extend_conduits(
         are_outfall_nodes,
         offset_distance,
         offset_orig_node=False,
+        feedback=ScreenProcessingFeedback(),
 ):
     if not has_shapely:
         raise Exception('Shapely not installed and is required for function: create_offset_node_and_extend_conduits().')
@@ -95,6 +97,19 @@ def create_offset_node_and_extend_conduits(
             angle = 180.0
         else:
             angle = 45.0
+
+    valid_geoms = gdf_links_for_junctions_to_extend['geometry_link'].apply(
+        lambda x: True if len(get_coordinates(x)) >= 2 else False)
+    if sum(valid_geoms) < len(gdf_links_for_junctions_to_extend):
+        bc_info = gdf_links_for_junctions_to_extend[~valid_geoms].to_string(index=False)
+        feedback.pushWarning(
+            f"\nWARNING: Invalid link geometries ({len(gdf_links_for_junctions_to_extend) - sum(valid_geoms)}) "
+            f"encountered when adjusting bc connections. BC information: {bc_info}")
+        gdf_links_for_junctions_to_extend = gdf_links_for_junctions_to_extend[valid_geoms]
+
+    # Drop duplicates
+    gdf_links_for_junctions_to_extend = gdf_links_for_junctions_to_extend.drop_duplicates(subset='Name_node',
+                                                                                          keep='first')
 
     offset_pt_geoms = gdf_links_for_junctions_to_extend['geometry_link'].apply(
         lambda x: get_offset_point_at_angle(x, offset_distance, angle, not are_outfall_nodes)
@@ -226,20 +241,14 @@ def shift_sx_connections(gdf_orig_nodes,
 
         gdf_shifted_nodes['geometry'] = gdf_shifted_nodes['pt1']
         gdf_bc_out_to_shift = gdf_bc_out.sjoin(gdf_shifted_nodes, how='inner', predicate='touches')
-        print(gdf_bc_out_to_shift)
 
         new_geom = gdf_bc_out_to_shift.loc[:, ['geometry', 'pt1', 'pt2']].apply(
             lambda x: shift_bc_line_002(x['geometry'], x['pt1'], x['pt2']),
             axis=1
         )
-        print(gdf_bc_out.loc[75, :])
         gdf_bc_out.loc[new_geom.index, 'geometry'] = new_geom
-        print(gdf_bc_out.loc[75, :])
-        print(gdf_bc_out)
 
         gdfs_bcs_modified.append(gdf_bc_out)
-
-        print(pd.concat([gdf_bc, gdf_bc_out]).drop_duplicates(keep=False))
 
     return gdfs_bcs_modified
 
@@ -334,6 +343,16 @@ def fix_invalid_bc_connections_gdf(
             # Add an inflow node upstream of junction at the same elevation
             # find links that starts at the junction (should be an outfall if at the end)
             gdf_junctions_to_extend = gdf_junctions[junctions_with_inflows_and_hx].copy(deep=True)
+
+            # remove any nodes that are do not have a downstream channel
+            junctions_without_ds_channel = ~gdf_junctions_to_extend.loc[:, 'Name'].isin(gdf_all_links['From Node'])
+            if sum(junctions_without_ds_channel) > 0:
+                junction_info = gdf_junctions_to_extend.loc[junctions_without_ds_channel, "Name"].to_string()
+                feedback.pushWarning(f"Warning: junctions encountered connected to inflows and HX connections without "
+                                     f"a downstream channel. This prevents channel extensions to make bc valid and will"
+                                     f" need to be manually fixed. Nodes info:\n{junction_info}")
+                gdf_junctions_to_extend = gdf_junctions_to_extend[~junctions_without_ds_channel]
+
             gdf_junction_inflows, gdf_dummy_conduits = create_offset_node_and_extend_conduits(
                 gdf_junctions_to_extend,
                 gdf_all_links,
@@ -341,6 +360,8 @@ def fix_invalid_bc_connections_gdf(
                 False,
                 False,
                 dummy_chan_length_inflows,
+                False,
+                feedback,
             )
 
             gdf_bc_inflows_extensions = move_inflow_nodes(
@@ -377,6 +398,8 @@ def fix_invalid_bc_connections_gdf(
                 True,
                 False,
                 dummy_chan_length_inflows,
+                False,
+                feedback
             )
 
             gdf_bc_storage_inflows_extensions = move_inflow_nodes(
@@ -402,6 +425,8 @@ def fix_invalid_bc_connections_gdf(
             False,
             True,
             dummy_chan_length_inflows,
+            False,
+            feedback,
         )
         gdf_bc_inflows_ext_outfalls = move_inflow_nodes(
             gdf_bc_inflows_mod,
@@ -412,7 +437,7 @@ def fix_invalid_bc_connections_gdf(
         gdfs_new_junctions.append(gdf_outfall_junct_ext)
         gdf_bc_inflows_mod = gdf_bc_inflows_ext_outfalls
     else:
-        outfall_has_inflows = pd.Series([False]*len(gdf_outfalls), index=gdf_outfalls.index)
+        outfall_has_inflows = pd.Series([False] * len(gdf_outfalls), index=gdf_outfalls.index)
 
     # - move downstream and put add a junction at the previous location
     # Move any SX connections with the outfall
@@ -433,6 +458,7 @@ def fix_invalid_bc_connections_gdf(
             True,
             dummy_chan_length_outfalls,
             True,
+            feedback
         )
         gdfs_bc_connections_mod = shift_sx_connections(gdf_outfalls, gdf_outfalls_to_shift, gdfs_bc_connections_mod)
         # Copy modifications back
@@ -466,6 +492,10 @@ def fix_invalid_bc_connections_gdf(
         gdf_dummy_conduits_all.loc[:, 'InOffset'] = gdf_dummy_conduits_all.loc[:, 'From Node'].apply(
             lambda x: gdf_nodes_all.loc[(gdf_nodes_all['Name'] == x), 'Elev'].iloc[0]
         )
+        # df_to_nodes = gdf_dummy_conduits_all.merge(gdf_nodes_all, how='left',
+        #                                           left_on='To Node', right_on='Name',
+        #                                           suffixes=('_node', '_conduit'))
+        # print(df_to_nodes)
         gdf_dummy_conduits_all.loc[:, 'OutOffset'] = gdf_dummy_conduits_all.loc[:, 'To Node'].apply(
             lambda x: gdf_nodes_all.loc[(gdf_nodes_all['Name'] == x), 'Elev'].iloc[0]
         )

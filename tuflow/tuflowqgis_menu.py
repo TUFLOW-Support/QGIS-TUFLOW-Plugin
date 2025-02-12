@@ -135,7 +135,7 @@ sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2023.2.1\plugins\python\hel
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\plugins\python\helpers\pydev')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\debug-eggs')
-sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\plugins\python\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\plugins\python-ce\helpers\pydev')
 
 
 class tuflowqgis_menu:

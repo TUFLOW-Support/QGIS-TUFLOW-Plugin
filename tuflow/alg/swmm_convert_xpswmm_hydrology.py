@@ -28,8 +28,9 @@ from qgis.core import (QgsExpressionContext,
                        QgsProcessingParameterFeatureSink,
                        QgsProcessingParameterString,
                        QgsProcessingUtils,
-                       QgsSpatialIndex)
-from PyQt5.QtCore import QVariant
+                       QgsSpatialIndex,
+                       Qgis)
+from PyQt5.QtCore import QVariant, QMetaType
 
 from osgeo import ogr, gdal
 
@@ -58,14 +59,18 @@ except ImportError:
 
 
 def geopandas_dtype_to_field_type(dtype):
+    STRING = QVariant.String if Qgis.QGIS_VERSION_INT < 33800 else QMetaType.QString
+    INT = QVariant.Int if Qgis.QGIS_VERSION_INT < 33800 else QMetaType.Int
+    DOUBLE = QVariant.Double if Qgis.QGIS_VERSION_INT < 33800 else QMetaType.Double
+
     if is_integer_dtype(dtype):
-        return QVariant.Int
+        return INT
     elif is_numeric_dtype(dtype):
-        return QVariant.Double
+        return DOUBLE
     elif str(type(dtype)) == 'geometry':
         return None
     else:
-        return QVariant.String
+        return STRING
 
 
 def extract_gdf_fields(gdf):

@@ -19,6 +19,9 @@ except ImportError:
 
 from osgeo import ogr, gdal, osr
 
+from qgis.core import Qgis
+from PyQt5.QtCore import QVariant, QMetaType
+
 
 GIS_SHP = 'Esri Shapefile'
 GIS_MIF = 'Mapinfo File'
@@ -28,6 +31,11 @@ GRID_FLT = 'EHdr'
 GRID_GPKG = 'GPKG'
 GRID_TIF = 'GTiff'
 GRID_NC = 'netCDF'
+
+
+QT_STRING = QVariant.String if Qgis.QGIS_VERSION_INT < 33800 else QMetaType.QString
+QT_INT = QVariant.Int if Qgis.QGIS_VERSION_INT < 33800 else QMetaType.Int
+QT_DOUBLE = QVariant.Double if Qgis.QGIS_VERSION_INT < 33800 else QMetaType.Double
 
 
 class GPKG:

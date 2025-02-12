@@ -371,23 +371,25 @@ def xpx_to_gpkg(xpx_filename,
                 # The first conduit always comes through outside of the multi_link
                 # if link_type == MultiLinkType.CONDUITS and link_num == 1:
                 #    continue
-
-                # Sometimes with multilinks the first conduit came through alread (but not always)
-                if link_dict['name'] in links_name:
-                    continue
-
                 try:
+                    # if it doesn't have a link name use the multi-link name
+                    link_name = link_dict['name'] if 'name' in link_dict else multi_name
+
+                    # Sometimes with multilinks the first conduit came through alread (but not always)
+                    if link_name in links_name:
+                        continue
+
                     # print(link_dict['name'])
-                    links_name.append(link_dict['name'])
+                    links_name.append(link_name)
                     links_nums.append(link_num)
                     links_node1.append(links_node1[ilink])
                     links_node2.append(links_node2[ilink])
                     if link_type == MultiLinkType.WEIRS:
-                        weir_names.add(link_dict['name'])
+                        weir_names.add(link_name)
                     elif link_type == MultiLinkType.ORIFICES:
-                        orifice_names.add(link_dict['name'])
+                        orifice_names.add(link_name)
                     elif link_type == MultiLinkType.PUMPS:
-                        pump_names.add(link_dict['name'])
+                        pump_names.add(link_name)
                     if link_num == 1:
                         links_orig_name.append(multi_name)
                     else:
@@ -1543,7 +1545,7 @@ def xpx_to_gpkg(xpx_filename,
 
     gdf_junctions, gdf_add_outfalls = downstream_junctions_to_outfalls(
         gdf_junctions,
-        gdf_conduits,
+        gdf_all_links,
         feedback,
     )
     gdf_outfalls = pd.concat([gdf_outfalls, gdf_add_outfalls])
@@ -1922,7 +1924,7 @@ def xpx_to_gpkg(xpx_filename,
     for gdf_out, layername_out in output_gdfs:
         if gdf_out is not None and len(gdf_out) > 0:
             feedback.pushInfo(f'    Writing section: {layername_out}')
-            gdf_out.crs = crs
+            gdf_out.set_crs(crs)
             gdf_out.to_file(gpkg_filename, layer=layername_out, driver='GPKG', index=False)
 
     swmm_io.write_tuflow_version(gpkg_filename)
