@@ -1,7 +1,7 @@
 from osgeo import ogr
 from qgis import processing
 from qgis.gui import QgsCustomDropHandler
-from PyQt5.QtWidgets import QMessageBox
+from qgis.PyQt.QtWidgets import QMessageBox
 
 try:
     from pathlib import Path
@@ -18,13 +18,15 @@ class TuflowDropHandler(QgsCustomDropHandler):
         filepath = Path(file)
         if filepath.suffix == '.inp':
             gpkg_filename = filepath.with_suffix('.gpkg')
-            processing.execAlgorithmDialog("TUFLOW:TUFLOWConvertSWMMinpToGpkg",
-                                           {'INPUT': file,
-                                            'INPUT_crs': '',
-                                            'INPUT_tags_to_filter': '',
-                                            'INPUT_gpkg_output_filename': str(gpkg_filename),
-                                            }
-                                           )
+            result = processing.execAlgorithmDialog("TUFLOW:TUFLOWConvertSWMMinpToGpkg",
+                                                    {'INPUT': file,
+                                                     'INPUT_crs': '',
+                                                     'INPUT_tags_to_filter': '',
+                                                     'INPUT_gpkg_output_filename': str(gpkg_filename),
+                                                     }
+                                                    )
+            if 'OUTPUT' in result:
+                gpkg_filename = Path(result['OUTPUT'])
             conn = ogr.Open(str(gpkg_filename))
             self.iface.addVectorLayer(str(gpkg_filename), gpkg_filename.stem, 'ogr')
             return True

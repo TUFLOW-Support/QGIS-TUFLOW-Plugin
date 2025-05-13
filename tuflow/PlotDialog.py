@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QDialog
-from PyQt5.QtCore import pyqtSignal
+from qgis.PyQt.QtWidgets import QDialog
+from qgis.PyQt.QtCore import pyqtSignal
 
 
 class PlotDialog(QDialog):

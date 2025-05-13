@@ -5,12 +5,12 @@ import io
 import datetime
 import re
 import glob
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
 from qgis.gui import QgsDateTimeEdit
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 from qgis.PyQt.QtXml import QDomDocument
 from matplotlib.patches import Polygon
 from matplotlib.quiver import Quiver
@@ -38,7 +38,7 @@ from ..nc_grid_data_provider import NetCDFGrid
 
 from ..gui import Logging
 
-from ..compatibility_routines import Path
+from ..compatibility_routines import QT_MESSAGE_BOX_CANCEL, Path, QT_DOCK_WIDGET_AREA_RIGHT, QT_MESSAGE_BOX_YES, QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION, QT_MESSAGE_BOX_NO, QT_MESSAGE_BOX_RETRY, QT_ALIGN_RIGHT, QT_DOCK_WIDGET_AREA_BOTTOM
 from ..tuflow_results_gpkg import ResData_GPKG
 
 from ..fvbc_tide_dlg import ImportFVBCTideDlg
@@ -163,7 +163,7 @@ class TuMenuFunctions():
 					brokenLinks.append(inFileName)
 			if brokenLinks:
 				brokenLinksDialog = tuflowqgis_brokenLinks_dialog(self.iface, brokenLinks)
-				brokenLinksDialog.exec_()
+				brokenLinksDialog.exec()
 			inFileNames = [inFileNames]
 			
 		if not inFileNames[0]:
@@ -173,29 +173,29 @@ class TuMenuFunctions():
 		for inFileName in inFileNames[0]:
 			if os.path.splitext(inFileName)[1].lower() == '.gpkg':
 				if askGis:
-					alsoOpenGis = QMessageBox.Yes
+					alsoOpenGis = QT_MESSAGE_BOX_YES
 				else:
-					alsoOpenGis = QMessageBox.No
+					alsoOpenGis = QT_MESSAGE_BOX_NO
 				break
-			alsoOpenGis = QMessageBox.No
+			alsoOpenGis = QT_MESSAGE_BOX_NO
 			if os.path.splitext(inFileName)[1].lower() in ['.tpc']:
 				if askGis:
 					alsoOpenGis = QMessageBox.question(self.iface.mainWindow(),
 					                                   "TUFLOW Viewer", 'Do you also want to open result GIS layer?',
-					                                   QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+					                                   QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
 				else:
 					if openGis is not None:
-						alsoOpenGis = QMessageBox.Yes if openGis else QMessageBox.No
+						alsoOpenGis = QT_MESSAGE_BOX_YES if openGis else QT_MESSAGE_BOX_NO
 			break  # only need to ask once
-		# if alsoOpenGis == QMessageBox.Yes:
+		# if alsoOpenGis == QT_MESSAGE_BOX_YES:
 		# 	self.tuView.tuResults.tuResults1D.openGis(inFileNames[0][0])
-		if alsoOpenGis == QMessageBox.Cancel:
+		if alsoOpenGis == QT_MESSAGE_BOX_CANCEL:
 			return False
 		
 		# import results
 		success = self.tuView.tuResults.importResults('timeseries', inFileNames[0])
 		if success:
-			self.tuView.tuResults.tuResults1D.open_gis(alsoOpenGis == QMessageBox.Yes)
+			self.tuView.tuResults.tuResults1D.open_gis(alsoOpenGis == QT_MESSAGE_BOX_YES)
 		
 		# unlock map output timesteps only
 		if unlock:
@@ -229,7 +229,7 @@ class TuMenuFunctions():
 			self.fmResultsDialog.dat = dat
 			self.fmResultsDialog.results = result_FM
 		else:
-			self.fmResultsDialog.exec_()
+			self.fmResultsDialog.exec()
 
 		# check file paths exist
 		# done in dialog class
@@ -278,7 +278,7 @@ class TuMenuFunctions():
 					brokenLinks.append(inFileName)
 			if brokenLinks:
 				brokenLinksDialog = tuflowqgis_brokenLinks_dialog(self.iface, brokenLinks)
-				brokenLinksDialog.exec_()
+				brokenLinksDialog.exec()
 			inFileNames = [inFileNames]
 
 		if not inFileNames[0]:
@@ -286,16 +286,16 @@ class TuMenuFunctions():
 
 		# Prompt user if they want to load in GIS files
 		for inFileName in inFileNames[0]:
-			alsoOpenGis = QMessageBox.No
+			alsoOpenGis = QT_MESSAGE_BOX_NO
 			if os.path.splitext(inFileName)[1].lower() == '.tpc':
 				if askGis:
 					alsoOpenGis = QMessageBox.question(self.iface.mainWindow(),
 													   "TUFLOW Viewer", 'Do you also want to open result GIS layer?',
-													   QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+													   QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
 			break  # only need to ask once
-		if alsoOpenGis == QMessageBox.Yes:
+		if alsoOpenGis == QT_MESSAGE_BOX_YES:
 			self.tuView.tuResults.tuResults1D.openGis(inFileNames[0][0])
-		elif alsoOpenGis == QMessageBox.Cancel:
+		elif alsoOpenGis == QT_MESSAGE_BOX_CANCEL:
 			return False
 
 		# import results
@@ -383,7 +383,7 @@ class TuMenuFunctions():
 					if scenarios:
 						if self.iface is not None:
 							self.scenarioDialog = tuflowqgis_scenarioSelection_dialog(self.iface, file, scenarios)
-							self.scenarioDialog.exec_()
+							self.scenarioDialog.exec()
 							if self.scenarioDialog.scenarios is None:
 								scenarios = []
 							else:
@@ -395,7 +395,7 @@ class TuMenuFunctions():
 					events = getEventsFromTCF(file)
 					if events:
 						self.eventDialog = tuflowqgis_eventSelection_dialog(self.iface, file, events)
-						self.eventDialog.exec_()
+						self.eventDialog.exec()
 						if self.eventDialog.events is None:
 							events = []
 						else:
@@ -406,7 +406,7 @@ class TuMenuFunctions():
 					selectedOutputZones = []
 					if outputZones:
 						self.outputZoneDialog = tuflowqgis_outputZoneSelection_dialog(self.iface, file, outputZones)
-						self.outputZoneDialog.exec_()
+						self.outputZoneDialog.exec()
 						for opz in outputZones:
 							if opz['name'] in self.outputZoneDialog.outputZones:
 								selectedOutputZones.append(opz)
@@ -420,7 +420,7 @@ class TuMenuFunctions():
 						if len(names) > 1:
 							if self.iface is not None:
 								output_selection = tuflowqgis_outputSelection_dialog(self.iface, names)
-								output_selection.exec_()
+								output_selection.exec()
 								names = output_selection.outputs
 							else:
 								names = names[:1]
@@ -542,7 +542,7 @@ class TuMenuFunctions():
 		load_gis = True
 		if nc_fpath is None or gis_fpath is None:
 			dlg = ImportFVBCTideDlg(self.tuView)
-			if dlg.exec_():
+			if dlg.exec():
 				res = self.tuView.tuResults.tuResults1D.importResultsFVBCTide(dlg.nc_fpath, dlg.node_string_fpath, dlg.use_local_time)
 		else:
 			res = self.tuView.tuResults.tuResults1D.importResultsFVBCTide(nc_fpath, gis_fpath, use_local_time)
@@ -718,7 +718,7 @@ class TuMenuFunctions():
 		plotBackgroundColorPrev = self.tuView.tuOptions.plotBackgroundColour
 		self.tuOptionsDialog = TuOptionsDialog(self.tuView.tuOptions)
 		self.tuOptionsDialog.cboIconSize.currentIndexChanged.connect(lambda: self.tuView.iconSizeChanged(int(self.tuOptionsDialog.cboIconSize.currentText())))
-		self.tuOptionsDialog.exec_()
+		self.tuOptionsDialog.exec()
 
 		if self.tuView.tuMenuBar.showMedianEvent_action.isChecked() or self.tuView.tuMenuBar.showMeanEvent_action.isChecked():
 			self.tuView.renderMap()
@@ -836,8 +836,8 @@ class TuMenuFunctions():
 					if self.iface is not None:
 						questionRetry = QMessageBox.question(self.iface.mainWindow(),
 							                                 "TUFLOW Viewer", msg,
-							                                 QMessageBox.Retry | QMessageBox.Cancel)
-						if questionRetry == QMessageBox.Cancel:
+							                                 QT_MESSAGE_BOX_RETRY | QT_MESSAGE_BOX_CANCEL)
+						if questionRetry == QT_MESSAGE_BOX_CANCEL:
 							retry = False
 							return False
 					else:
@@ -1346,8 +1346,8 @@ class TuMenuFunctions():
 		# ask user if import or not
 		importLayer = QMessageBox.question(self.iface.mainWindow(),
 		                                   "TUFLOW Viewer", 'Successfully saved {0}. Open in workspace?'.format(os.path.basename(saveFile)),
-		                                   QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-		if importLayer == QMessageBox.Yes:
+		                                   QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+		if importLayer == QT_MESSAGE_BOX_YES:
 			self.iface.addVectorLayer(saveFile, os.path.splitext(os.path.basename(saveFile))[0], 'ogr')
 			
 		return True
@@ -1404,8 +1404,8 @@ class TuMenuFunctions():
 		importLayer = QMessageBox.question(self.iface.mainWindow(),
 		                                   "TUFLOW Viewer", 'Successfully saved {0}. Open in workspace?'.format(
 				os.path.basename(saveFile)),
-		                                   QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-		if importLayer == QMessageBox.Yes:
+		                                   QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+		if importLayer == QT_MESSAGE_BOX_YES:
 			self.iface.addVectorLayer(saveFile, os.path.splitext(os.path.basename(saveFile))[0], 'ogr')
 		
 		return True
@@ -1567,7 +1567,7 @@ class TuMenuFunctions():
 				return False
 		# elif len(self.tuView.tuResults.tuResults2D.activeMeshLayers) > 1:
 		# 	self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuView.tuResults.tuResults2D.activeMeshLayers)
-		# 	self.meshDialog.exec_()
+		# 	self.meshDialog.exec()
 		# 	if self.meshDialog.selectedMesh is None:
 		# 		return False
 		# 	else:
@@ -1868,7 +1868,7 @@ class TuMenuFunctions():
 		self.batchPlotExportDialog = TuBatchPlotExportDialog(self.tuView, **kwargs)
 		headless = kwargs['headless'] if 'headless' in kwargs else False
 		if not headless:
-			self.batchPlotExportDialog.exec_()
+			self.batchPlotExportDialog.exec()
 		
 	def batchPlotExport(self, gisLayer, resultMesh, resultTypes, timestep, features, format, outputFolder, nameField, imageFormat, **kwargs):
 		"""
@@ -1981,7 +1981,7 @@ class TuMenuFunctions():
 			else:
 				return False
 			complete += 1
-			pComplete = complete / featureCount * 100
+			pComplete = int(complete / featureCount * 100)
 			if self.iface is not None:
 				progress.setValue(pComplete)
 
@@ -1998,7 +1998,7 @@ class TuMenuFunctions():
 		
 		self.userPlotDataDialog = TuUserPlotDataManagerDialog(self.iface, self.tuView.tuPlot.userPlotData, **kwargs)
 		if 'add_data' not in kwargs:
-			self.userPlotDataDialog.exec_()
+			self.userPlotDataDialog.exec()
 		# self.tuView.tuPlot.clearPlot(self.tuView.tabWidget.currentIndex(), retain_1d=True, retain_2d=True, retain_flow=True)
 		for i in range(self.userPlotDataDialog.UserPlotDataTable.rowCount()):
 			name_ = self.userPlotDataDialog.UserPlotDataTable.item(i, 0).text()
@@ -2187,9 +2187,9 @@ class TuMenuFunctions():
 		"""
 
 		if self.tuView.PlotLayout.isVisible():
-			area = Qt.BottomDockWidgetArea
+			area = QT_DOCK_WIDGET_AREA_BOTTOM
 		else:
-			area = Qt.RightDockWidgetArea
+			area = QT_DOCK_WIDGET_AREA_RIGHT
 
 		self.iface.addDockWidget(area, self.tuView)
 
@@ -2201,8 +2201,8 @@ class TuMenuFunctions():
 		# 	if window_title:
 		# 		self.meshDialog.setWindowTitle(window_title)
 		# 	if allow_multiple:
-		# 		self.meshDialog.mesh_lw.setSelectionMode(QAbstractItemView.ExtendedSelection)
-		# 	self.meshDialog.exec_()
+		# 		self.meshDialog.mesh_lw.setSelectionMode(QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION)
+		# 	self.meshDialog.exec()
 		# 	if self.meshDialog.selectedMesh is None:
 		# 		return None
 		# 	else:
@@ -2339,15 +2339,15 @@ class TuMenuFunctions():
 				pb_layout = QHBoxLayout()
 				pb_layout.addWidget(self.pbOk)
 				pb_layout.addWidget(self.pbCancel)
-				pb_layout.setAlignment(Qt.AlignRight)
+				pb_layout.setAlignment(QT_ALIGN_RIGHT)
 				layout.addLayout(pb_layout)
 				self.dialog.setLayout(layout)
 
-			def exec_(self):
-				return self.dialog.exec_()
+			def exec(self):
+				return self.dialog.exec()
 
 		datetime_select = DateTimeEdit(layer.reference_time)
-		accepted = datetime_select.exec_()
+		accepted = datetime_select.exec()
 		if not accepted:
 			return
 

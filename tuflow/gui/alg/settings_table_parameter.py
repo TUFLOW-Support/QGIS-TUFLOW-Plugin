@@ -4,11 +4,11 @@ from qgis.core import QgsProcessingParameterDefinition, QgsCoordinateReferenceSy
 from qgis.gui import QgsGui, QgsPanelWidget, QgsProcessingAlgorithmDialogBase
 from processing.gui.wrappers import WidgetWrapper, DIALOG_STANDARD, DIALOG_BATCH, DIALOG_MODELER
 
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QLineEdit, QToolButton, QTextBrowser, QVBoxLayout, QLabel,
+from qgis.PyQt.QtCore import pyqtSignal
+from qgis.PyQt.QtWidgets import (QWidget, QHBoxLayout, QLineEdit, QToolButton, QTextBrowser, QVBoxLayout, QLabel,
                              QSpacerItem, QSizePolicy, QFrame)
 
-from tuflow.compatibility_routines import Path
+from tuflow.compatibility_routines import Path, QT_FRAME_HLINE, QT_FRAME_SUNKEN
 from tuflow.gui.widgets.settings_table import SettingsTable
 
 
@@ -206,7 +206,7 @@ class SettingsTablePanel(QgsPanelWidget):
 
     def line(self):
         line = QFrame()
-        line.setFrameShape(QFrame.HLine)
-        line.setFrameShadow(QFrame.Sunken)
+        line.setFrameShape(QT_FRAME_HLINE)
+        line.setFrameShadow(QT_FRAME_SUNKEN)
         line.setLineWidth(2)
         return line

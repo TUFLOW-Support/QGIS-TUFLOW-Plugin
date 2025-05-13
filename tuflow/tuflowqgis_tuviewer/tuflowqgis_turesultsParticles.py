@@ -3,7 +3,7 @@ import glob
 import re
 from datetime import timedelta, datetime
 from qgis.core import *
-from PyQt5.QtCore import Qt, QVariant
+from qgis.PyQt.QtCore import Qt, QVariant
 from qgis.core import QgsVectorLayer, QgsFeature, QgsPointXY, QgsGeometry, QgsField, Qgis
 from ..tuflowqgis_library import isSame_float, roundSeconds, datetime2timespec
 
@@ -12,6 +12,10 @@ try:
 	have_netCDF4 = True
 except ImportError:
 	have_netCDF4 = False
+
+
+from ..compatibility_routines import QT_MATCH_RECURSIVE, QT_TIMESPEC_UTC
+
 
 class TuResultsParticles():
 	"""
@@ -72,7 +76,7 @@ class TuResultsParticles():
 					names.append(self.tuView.OpenResults.item(i).text())
 			if name not in names:
 				self.tuView.OpenResults.addItem(name)  # add to widget
-			k = self.tuView.OpenResults.findItems(name, Qt.MatchRecursive)[0]
+			k = self.tuView.OpenResults.findItems(name, QT_MATCH_RECURSIVE)[0]
 			k.setSelected(True)
 			self.tuView.resultChangeSignalCount = 0  # reset signal count back to 0
 		
@@ -100,7 +104,7 @@ class TuResultsParticles():
 		if self.tuView.OpenResults.count() == 0:
 			defaultRefTime = self.tuView.tuOptions.defaultZeroTime
 		else:
-			defaultRefTime = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
+			defaultRefTime = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, QT_TIMESPEC_UTC)
 
 		particles_data_provider = TuParticlesDataProvider()
 		if particles_data_provider.load_file(filename, defaultRefTime):
@@ -175,7 +179,7 @@ class TuResultsParticles():
 				date2time[date] = t
 
 				if qv >= 31300:
-					date_tspec = datetime2timespec(date, self.tuView.tuResults.loadedTimeSpec, 1)
+					date_tspec = datetime2timespec(date, self.tuView.tuResults.loadedTimeSpec, QT_TIMESPEC_UTC)
 				else:
 					date_tspec = date
 				self.tuView.tuResults.timekey2date_tspec['{0:.6f}'.format(t)] = date_tspec
@@ -211,7 +215,7 @@ class TuResultsParticles():
 			# defaultRefTime = self.tuView.tuOptions.defaultZeroTime
 			defaultRefTime = self.tuView.tuOptions.zeroTime
 		else:
-			defaultRefTime = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
+			defaultRefTime = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, QT_TIMESPEC_UTC)
 
 		particles_data_provider = TuParticlesDataProvider()
 		if particles_data_provider.load_file(filename, defaultRefTime):
@@ -258,7 +262,7 @@ class TuResultsParticles():
 					self.tuView.tuOptions.timeSpec = 1
 					self.tuView.tuResults.loadedTimeSpec = 1
 
-			timesteps = particles_data_provider.timeSteps(datetime2timespec(self.tuView.tuOptions.zeroTime, 1, 1))
+			timesteps = particles_data_provider.timeSteps(datetime2timespec(self.tuView.tuOptions.zeroTime, QT_TIMESPEC_UTC, QT_TIMESPEC_UTC))
 			for t in timesteps:
 				timekey2time['{0:.6f}'.format(t)] = t
 
@@ -568,7 +572,7 @@ class TuResultsParticles():
 			date2time[date] = t
 
 			if qv >= 31300:
-				date_tspec = datetime2timespec(date, self.tuView.tuResults.loadedTimeSpec, 1)
+				date_tspec = datetime2timespec(date, self.tuView.tuResults.loadedTimeSpec, QT_TIMESPEC_UTC)
 			else:
 				date_tspec = date
 			self.tuView.tuResults.timekey2date_tspec['{0:.6f}'.format(t)] = date_tspec

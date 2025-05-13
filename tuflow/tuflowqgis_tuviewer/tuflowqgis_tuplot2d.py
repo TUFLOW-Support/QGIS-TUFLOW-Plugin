@@ -1,10 +1,10 @@
 import os
 import numpy as np
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
-from PyQt5.QtWidgets  import *
+from qgis.PyQt.QtWidgets  import *
 from .tuflowqgis_turesultsindex import TuResultsIndex
 from ..tuflowqgis_library import (lineToPoints, getDirection, doLinesIntersect,
                                        intersectionPoint, calculateLength, getFaceIndexes3,
@@ -16,7 +16,7 @@ from ..nc_grid_data_provider import NetCDFGridGeometry
 
 from ..nc_grid_data_provider import NetCDFGrid
 
-from tuflow.compatibility_routines import QT_DOUBLE
+from tuflow.compatibility_routines import QT_DOUBLE, is_qt6
 
 from tuflow.gui.logging import Logging
 
@@ -1767,7 +1767,10 @@ class TuPlot2D():
 			return layer.name()
 
 		if am is not None:
-			menu = self.tuPlot.tuPlotToolbar.plotDataToPlotMenu[dataType].parentWidget()
+			if isinstance(self.tuPlot.tuPlotToolbar.plotDataToPlotMenu[dataType], (QAction, QWidgetAction)) and is_qt6:
+				menu = self.tuPlot.tuPlotToolbar.plotDataToPlotMenu[dataType].parent()
+			else:
+				menu = self.tuPlot.tuPlotToolbar.plotDataToPlotMenu[dataType].parentWidget()
 			rtype = menu.checkedActionsParamsToText()[ia]
 
 		label = None

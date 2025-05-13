@@ -6,7 +6,11 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from qgis.PyQt import QtCore, QtGui, QtWidgets
+
+
+from ..compatibility_routines import QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_EXPANDING, QT_ABSTRACT_ITEM_VIEW_ALL_EDIT_TRIGGERS
+
 
 class Ui_UserPlotDataManagerDialog(object):
     def setupUi(self, UserPlotDataManagerDialog):
@@ -17,14 +21,14 @@ class Ui_UserPlotDataManagerDialog(object):
         self.pbOK = QtWidgets.QPushButton(UserPlotDataManagerDialog)
         self.pbOK.setObjectName("pbOK")
         self.gridLayout_2.addWidget(self.pbOK, 1, 1, 1, 1)
-        spacerItem = QtWidgets.QSpacerItem(37, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem = QtWidgets.QSpacerItem(37, 20, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM)
         self.gridLayout_2.addItem(spacerItem, 1, 0, 1, 1)
         self.gridLayout = QtWidgets.QGridLayout()
         self.gridLayout.setObjectName("gridLayout")
         self.verticalLayout = QtWidgets.QVBoxLayout()
         self.verticalLayout.setObjectName("verticalLayout")
         self.UserPlotDataTable = PlotManagerTable(UserPlotDataManagerDialog)
-        self.UserPlotDataTable.setEditTriggers(QtWidgets.QAbstractItemView.AllEditTriggers)
+        self.UserPlotDataTable.setEditTriggers(QT_ABSTRACT_ITEM_VIEW_ALL_EDIT_TRIGGERS)
         self.UserPlotDataTable.setShowGrid(True)
         self.UserPlotDataTable.setObjectName("UserPlotDataTable")
         self.UserPlotDataTable.setColumnCount(2)
@@ -49,7 +53,7 @@ class Ui_UserPlotDataManagerDialog(object):
         self.pbRemoveData = QtWidgets.QPushButton(UserPlotDataManagerDialog)
         self.pbRemoveData.setObjectName("pbRemoveData")
         self.verticalLayout_2.addWidget(self.pbRemoveData)
-        spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem1 = QtWidgets.QSpacerItem(20, 40, QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_EXPANDING)
         self.verticalLayout_2.addItem(spacerItem1)
         self.pbViewTable = QtWidgets.QPushButton(UserPlotDataManagerDialog)
         self.pbViewTable.setObjectName("pbViewTable")

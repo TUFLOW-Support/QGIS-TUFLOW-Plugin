@@ -1,4 +1,4 @@
-from PyQt5.QtCore import Qt
+from qgis.PyQt.QtCore import Qt
 from qgis._core import QgsProject
 from qgis.core import Qgis
 
@@ -11,6 +11,10 @@ try:
     from pathlib import Path
 except ImportError:
     from pathlib_ import Path_ as Path
+
+
+
+from ..compatibility_routines import QT_MATCH_RECURSIVE
 
 
 class TuResultsNcGrid:
@@ -68,7 +72,7 @@ class TuResultsNcGrid:
                         raise LoadError('Format is not recognised as a NetCDF raster.')
                 dlg = tuflowqgis_scenarioSelection_dialog(self.iface, f, layers)
                 dlg.setWindowTitle('Layer Selection')
-                dlg.exec_()
+                dlg.exec()
                 if not dlg.status:
                     return
                 selected_layers = dlg.scenarios
@@ -103,7 +107,7 @@ class TuResultsNcGrid:
                         names.append(self.tuView.OpenResults.item(i).text())
                 if name not in names:
                     self.tuView.OpenResults.addItem(name)  # add to widget
-                k = self.tuView.OpenResults.findItems(name, Qt.MatchRecursive)[0]
+                k = self.tuView.OpenResults.findItems(name, QT_MATCH_RECURSIVE)[0]
                 k.setSelected(True)
                 self.tuView.resultChangeSignalCount = 0  # reset signal count back to 0
 

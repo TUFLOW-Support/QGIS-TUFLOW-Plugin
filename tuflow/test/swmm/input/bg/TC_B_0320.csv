@@ -1,0 +1,9 @@
+x,z,Horizontal distance between points:,Height below bridge obvert:,Invert:,
+0,0.645,0,0,Max height of obvert above invert:,0.645
+0.01,0.595,0.01,0.05,,
+0.15,0.595,0.14,0.05,,
+0.75,0,0.6,0.645,,
+1.96,0,1.21,0.645,,
+2.56,0.595,0.6,0.05,,
+2.8,0.595,0.24,0.05,,
+2.81,0.645,0.01,0,,

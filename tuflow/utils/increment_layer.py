@@ -2,15 +2,21 @@ import re
 from pathlib import Path
 from typing import Callable
 
-from PyQt5.QtWidgets import QDialog
+from qgis.PyQt.QtWidgets import QDialog
+from qgis.PyQt.QtCore import QTimer
+from osgeo import ogr
 from qgis.core import QgsVectorFileWriter, QgsCoordinateTransformContext, QgsProject, QgsVectorLayer
-from qgis.utils import plugins
+from qgis.utils import plugins, iface
 
 from .plugin import tuflow_plugin
 from ..gui.logging import Logging
 from ..gui import IncrementLayerDialogBase, IncrementFileDialog, IncrementDbLyrDialog, IncrementLayerDialog
 
 from .map_layer import copy_layer_style
+
+
+
+from ..compatibility_routines import QT_DIALOG_ACCEPTED
 
 
 def get_geom_ext(in_name: str) -> str:
@@ -53,8 +59,7 @@ def create_and_load_incremented_layer(
         dlg: IncrementLayerDialogBase,
         on_success: Callable[[QgsVectorLayer, str], None] = None
 ) -> None:
-    iface = tuflow_plugin().iface
-    if dlg.result() == QDialog.Accepted:
+    if dlg.result() == QT_DIALOG_ACCEPTED:
         for _ in dlg.iter():
             if not dlg.out_file().parent.exists():
                 dlg.out_file().parent.mkdir(parents=True, exist_ok=True)
@@ -62,7 +67,8 @@ def create_and_load_incremented_layer(
             options.driverName = dlg.driver_name()
             options.layerName = dlg.output_name
             options.actionOnExistingFile = dlg.action_on_existing
-            ret = QgsVectorFileWriter.writeAsVectorFormatV3(dlg.layer,
+            layer = dlg.clone_layer()
+            ret = QgsVectorFileWriter.writeAsVectorFormatV3(layer,
                                                             str(dlg.out_file()),
                                                             QgsCoordinateTransformContext(),
                                                             options)
@@ -77,6 +83,93 @@ def create_and_load_incremented_layer(
                     copy_layer_style(iface, dlg.layer, new_lyr)
             if on_success and hasattr(dlg, 'target_name'):
                 on_success(dlg.layer, dlg.target_name)
+
+
+class IncrementLayer:
+
+    def __init__(self, dlg):
+        self.dlg = dlg
+        self.timer = None
+
+    def run(self):
+        if self.dlg.result() != QT_DIALOG_ACCEPTED:
+            return
+        if self.dlg.b_supersede_source:
+            self.write_superseded_layer()
+
+        if self.dlg.b_increment_layer_name and self.dlg.rename_layer:
+            self.rename_source_layer()
+        elif self.dlg.b_increment_layer_name:
+            self.write_incremented_layer()
+            if self.dlg.remove_old_layer:
+                self.dlg.layer.setDataSource(self.dlg.out_data_source(), self.dlg.output_name, 'ogr')
+            else:
+                new_lyr = self.add_incremented_layer_to_canvas()
+                copy_layer_style(iface, self.dlg.layer, new_lyr)
+                if self.dlg.b_supersede_source:
+                    self.change_source_layer_datasource()
+        elif self.dlg.b_supersede_source and not self.dlg.remove_old_layer:
+            self.dlg.layer.setDataSource(self.dlg.supersede_datasource, self.dlg.supersede_layer_name, 'ogr')
+            new_lyr = iface.addVectorLayer(self.dlg.out_data_source(), self.dlg.output_name, 'ogr')
+            copy_layer_style(iface, self.dlg.layer, new_lyr)
+
+        if self.timer:
+            self.timer.start(300)
+
+    def rename_layer_stage_2(self):
+        ds = ogr.GetDriverByName('GPKG').Open(str(self.dlg.database), 1)
+        lyr = ds.GetLayer(self.dlg.layername)
+        try:
+            res = lyr.Rename(self.dlg.output_name)
+        except Exception as e:
+            Logging.error(f'Incrementing error: renaming layer - {e}')
+            return
+        if res != 0:
+            Logging.error(f'Incrementing error: renaming layer - return code: {res}')
+        ds, lyr = None, None
+        self.dlg.layer.setDataSource(self.dlg.out_data_source(), self.dlg.output_name, 'ogr')
+        iface.layerTreeView().refreshLayerSymbology(self.dlg.layer.id())
+
+    def rename_source_layer(self):
+        # change datasource in QGIS
+        self.dlg.layer.setDataSource('dummy', self.dlg.output_name, 'ogr')
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.rename_layer_stage_2)
+
+    def write_superseded_layer(self):
+        if not Path(self.dlg.supersede_database).parent.exists():
+            Path(self.dlg.supersede_database).parent.mkdir(parents=True, exist_ok=True)
+        options = QgsVectorFileWriter.SaveVectorOptions()
+        options.driverName = 'GPKG'
+        options.layerName = self.dlg.supersede_layer_name
+        options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer if Path(self.dlg.supersede_database).exists() else QgsVectorFileWriter.CreateOrOverwriteFile
+        ret = QgsVectorFileWriter.writeAsVectorFormatV3(self.dlg.layer,
+                                                        self.dlg.supersede_database,
+                                                        QgsCoordinateTransformContext(),
+                                                        options)
+        if ret[0] != QgsVectorFileWriter.NoError:
+            Logging.error(f'Incrementing error: writing superseded file - {ret[1]}')
+
+    def write_incremented_layer(self):
+        if not Path(self.dlg.database).parent.exists():
+            Path(self.dlg.database).parent.mkdir(parents=True, exist_ok=True)
+        options = QgsVectorFileWriter.SaveVectorOptions()
+        options.driverName = 'GPKG'
+        options.layerName = self.dlg.output_name
+        options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
+        ret = QgsVectorFileWriter.writeAsVectorFormatV3(self.dlg.layer.clone(),
+                                                        str(self.dlg.database),
+                                                        QgsCoordinateTransformContext(),
+                                                        options)
+        if ret[0] != QgsVectorFileWriter.NoError:
+            Logging.error(f'Incrementing error: writing incremented layer - {ret[1]}')
+
+    def add_incremented_layer_to_canvas(self):
+        return iface.addVectorLayer(self.dlg.out_data_source(), self.dlg.output_name, 'ogr')
+
+    def change_source_layer_datasource(self):
+        self.dlg.layer.setDataSource(self.dlg.supersede_datasource, self.dlg.supersede_layer_name, 'ogr')
 
 
 def increment_file() -> None:
@@ -96,7 +189,9 @@ def increment_db_and_lyr() -> None:
 def increment_lyr() -> None:
     iface = tuflow_plugin().iface
     dlg = IncrementLayerDialog(iface.mainWindow(), iface.activeLayer())
-    dlg.accepted.connect(lambda: create_and_load_incremented_layer(dlg, rename_layer))
+    global increment_layer
+    increment_layer = IncrementLayer(dlg)  # this one is a bit more complicated, so a different class and approach is used
+    dlg.accepted.connect(increment_layer.run)
     dlg.show()
 
 

@@ -6,7 +6,11 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from qgis.PyQt import QtCore, QtGui, QtWidgets
+
+
+from ..compatibility_routines import QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_EXPANDING
+
 
 class Ui_bridgeEditorImportDialog(object):
     def setupUi(self, bridgeEditorImportDialog):
@@ -37,9 +41,9 @@ class Ui_bridgeEditorImportDialog(object):
         self.cboCol2.setEditable(True)
         self.cboCol2.setObjectName("cboCol2")
         self.gridLayout.addWidget(self.cboCol2, 8, 3, 1, 2)
-        spacerItem = QtWidgets.QSpacerItem(20, 15, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem = QtWidgets.QSpacerItem(20, 15, QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_MINIMUM)
         self.gridLayout.addItem(spacerItem, 12, 0, 1, 5)
-        spacerItem1 = QtWidgets.QSpacerItem(20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem1 = QtWidgets.QSpacerItem(20, 10, QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_MINIMUM)
         self.gridLayout.addItem(spacerItem1, 3, 0, 1, 5)
         self.btnBrowse = QtWidgets.QToolButton(bridgeEditorImportDialog)
         self.btnBrowse.setObjectName("btnBrowse")
@@ -53,7 +57,7 @@ class Ui_bridgeEditorImportDialog(object):
         self.label_8 = QtWidgets.QLabel(bridgeEditorImportDialog)
         self.label_8.setObjectName("label_8")
         self.gridLayout.addWidget(self.label_8, 4, 0, 1, 5)
-        spacerItem2 = QtWidgets.QSpacerItem(20, 15, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem2 = QtWidgets.QSpacerItem(20, 15, QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_MINIMUM)
         self.gridLayout.addItem(spacerItem2, 6, 0, 1, 5)
         self.labelCol4 = QtWidgets.QLabel(bridgeEditorImportDialog)
         self.labelCol4.setObjectName("labelCol4")
@@ -116,7 +120,7 @@ class Ui_bridgeEditorImportDialog(object):
         self.gridLayout_2.addLayout(self.gridLayout, 0, 0, 1, 2)
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
-        spacerItem3 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem3 = QtWidgets.QSpacerItem(40, 20, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM)
         self.horizontalLayout.addItem(spacerItem3)
         self.pbOk = QtWidgets.QPushButton(bridgeEditorImportDialog)
         self.pbOk.setObjectName("pbOk")

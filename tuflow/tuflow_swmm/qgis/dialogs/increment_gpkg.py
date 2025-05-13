@@ -7,7 +7,7 @@ except ImportError:
     from pathlib_ import Path_ as Path
 
 from osgeo import ogr
-from PyQt5.QtWidgets import QDialog, QFileDialog
+from qgis.PyQt.QtWidgets import QDialog, QFileDialog
 from qgis.core import QgsMapLayer, QgsVectorLayer, QgsProject, QgsLayerTreeLayer
 from tuflow.forms.SWMM_increment_gpkg import Ui_Increment_gpkg
 from tuflow.utils import tuflow_plugin
@@ -66,7 +66,7 @@ class Increment_gpkg(QDialog, Ui_Increment_gpkg):
 def run_increment_dlg(gpkg_filename: str, layer: QgsMapLayer) -> None:
     iface = tuflow_plugin().iface
     dlg = Increment_gpkg(iface, gpkg_filename)
-    if dlg.exec_():
+    if dlg.exec():
         # User identified an incremented filename. Copy the file and load it into QGIS
         output_filename = dlg.edtOutputFile.text()
         try:

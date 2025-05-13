@@ -1,6 +1,6 @@
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt.QtWidgets import *
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch, Polygon
 from matplotlib.collections import PolyCollection, PathCollection
@@ -12,6 +12,10 @@ import math
 from ..dataset_menu import DatasetMenu
 
 from .Plotter import Plotter
+
+
+
+from ..compatibility_routines import QT_EVENT_MOUSE_BUTTON_PRESS, QT_CUSTOM_CONTEXT_MENU, QT_RIGHT_BUTTON
 
 
 def make_patch_spines_invisible(ax):
@@ -73,7 +77,7 @@ class BridgePlot(QDialog, Ui_BridgePlot):
         self.contextMenuConnected = True
         self.rightMouseButtonHeld = False
         self.loadContextMenu()
-        self.plotWidget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.plotWidget.setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
         self.plotWidget.customContextMenuRequested.connect(self.showContextMenu)
         self.fig.canvas.mpl_connect('button_press_event', self.right_click_event)
         self.fig.canvas.mpl_connect('motion_notify_event', self.motion_event)
@@ -100,7 +104,7 @@ class BridgePlot(QDialog, Ui_BridgePlot):
             return False
 
     def right_click_event(self, e):
-        if e.guiEvent.type() == QEvent.MouseButtonPress and e.guiEvent.button() == Qt.RightButton:
+        if e.guiEvent.type() == QT_EVENT_MOUSE_BUTTON_PRESS and e.guiEvent.button() == QT_RIGHT_BUTTON:
             self.rightMouseButtonHeld = True
 
     def motion_event(self, e):

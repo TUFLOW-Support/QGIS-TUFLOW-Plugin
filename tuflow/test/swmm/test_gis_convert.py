@@ -264,6 +264,28 @@ class TestSWMMShapeConvert(unittest.TestCase):
         gis_to_swmm(intermediate_file, output_file)
         self.compare_files(compare_file, output_file)
 
+
+    def test_override_infiltration_from_swmm(self):
+        base_filename = 'test_convert_infiltration_override'
+        input_file = get_input_full_filenames(
+            [
+                f'{base_filename}.inp',
+            ]
+        )[0]
+        intermediate_file = get_output_path(f'{base_filename}_out.gpkg')
+        output_file = Path(intermediate_file).with_suffix('.inp')
+        Path(intermediate_file).unlink(missing_ok=True)
+        output_file.unlink(missing_ok=True)
+
+        compare_file = get_compare_path(f'{base_filename}_compare.inp')
+
+        crs = 'EPSG:32760'
+        swmm_to_gpkg(input_file, intermediate_file, crs)
+
+        print('\n\nConverting to inp')
+        gis_to_swmm(intermediate_file, output_file)
+        self.compare_files(compare_file, output_file)
+
     # This test was to provide an error message if the number of values written to an inp file
     # was less than required by the format. This functionality has been delayed to look at higher value efforts
     # Uncomment and finish when time permits

@@ -1,7 +1,7 @@
 import os
 from qgis.core import QgsMesh, QgsMeshSpatialIndex, QgsGeometryUtils
-from PyQt5.QtCore import Qt, QVariant
-from PyQt5.QtWidgets import QMessageBox
+from qgis.PyQt.QtCore import Qt, QVariant
+from qgis.PyQt.QtWidgets import QMessageBox
 from ..canvas_event import *
 from .tuflowqgis_turubberband import TuRubberBand, TuMarker
 from ..tuflowqgis_library import (findMeshIntersects, calcMidPoint, writeTempPoints, meshToPolygon,
@@ -20,7 +20,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from datetime import datetime, timedelta
 from math import sin, cos, pi
 import statistics
-from tuflow.compatibility_routines import QT_DOUBLE
+from tuflow.compatibility_routines import QT_GREEN, QT_DARK_GREEN, QT_DOUBLE
 from tuflow.gui.logging import Logging
 
 
@@ -912,7 +912,7 @@ class TuCurtainLine(TuRubberBand):
 
     def __init__(self, tuPlot, plotNo):
         TuRubberBand.__init__(self, tuPlot, plotNo)
-        self.colour = Qt.green
+        self.colour = QT_GREEN
         self.symbol = QgsVertexMarker.ICON_DOUBLE_TRIANGLE
 
     def clearPlot(self, firstPlot):
@@ -949,7 +949,7 @@ class TuDepthAvRubberBand(TuRubberBand):
 
     def __init__(self, tuPlot, plotNo):
         TuRubberBand.__init__(self, tuPlot, plotNo)
-        self.colour = Qt.darkGreen
+        self.colour = QT_DARK_GREEN
         self.symbol = QgsVertexMarker.ICON_DOUBLE_TRIANGLE
 
     def clearPlot(self, firstPlot):
@@ -984,7 +984,7 @@ class TuDepthAvPoint(TuMarker):
 
     def __init__(self, tuPlot, plotNo):
         TuMarker.__init__(self, tuPlot, plotNo)
-        self.colour = Qt.darkGreen
+        self.colour = QT_DARK_GREEN
         self.symbol = QgsVertexMarker.ICON_CIRCLE
         self.allowLiveTracking = True
 

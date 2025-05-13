@@ -16,13 +16,13 @@ try:
                            QgsPoint,
                            QgsVectorLayerJoinInfo,
                            )
-    from PyQt5.QtCore import QVariant
+    from qgis.PyQt.QtCore import QVariant
 
     has_pyqt = True
 except ImportError:
     pass  # has_pyqt defaulted to false
 
-from tuflow.compatibility_routines import QT_STRING, QT_INT, QT_DOUBLE
+from tuflow.compatibility_routines import QT_DOUBLE, QT_STRING, QT_INT
 
 
 def create_junction_features(row, new_layer, features_to_add):

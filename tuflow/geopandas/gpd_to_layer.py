@@ -1,4 +1,4 @@
-from PyQt5.QtCore import QVariant
+from qgis.PyQt.QtCore import QVariant
 from qgis.core import QgsFeature, QgsGeometry, QgsField, QgsFields
 
 has_gpd = False
@@ -12,16 +12,18 @@ try:
 except ImportError:
     pass  # defaulted to false
 
+from ..compatibility_routines import QT_DOUBLE, QT_STRING, QT_INT
+
 
 def geopandas_dtype_to_field_type(dtype):
     if is_integer_dtype(dtype):
-        return QVariant.Int
+        return QT_INT
     elif is_numeric_dtype(dtype):
-        return QVariant.Double
+        return QT_DOUBLE
     elif str(type(dtype)) == 'geometry':
         return None
     else:
-        return QVariant.String
+        return QT_STRING
 
 
 def extract_gdf_fields(gdf):

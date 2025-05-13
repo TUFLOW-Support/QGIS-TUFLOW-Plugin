@@ -1,12 +1,16 @@
 import os, sys
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 import io
 import numpy as np
 import re
+
+
+
+from ..compatibility_routines import QT_VERTICAL, QT_EVENT_KEY_PRESS, QT_LEFT_BUTTON, QT_KEY_SEQUENCE_COPY, QT_ITEM_DATA_EDIT_ROLE, QT_HEADER_VIEW_INTERACTIVE, QT_KEY_SEQUENCE_PASTE, QT_ITEM_SELECTION_SELECT, QT_HEADER_VIEW_STRETCH
 
 
 class SpinBoxDelegate(QStyledItemDelegate):
@@ -36,7 +40,7 @@ class SpinBoxDelegate(QStyledItemDelegate):
     
     def setEditorData(self, editor, index):
         try:
-            value = float(index.model().data(index, Qt.EditRole))
+            value = float(index.model().data(index, QT_ITEM_DATA_EDIT_ROLE))
         except ValueError:
             value = 0
         except TypeError:
@@ -46,7 +50,7 @@ class SpinBoxDelegate(QStyledItemDelegate):
     def setModelData(self, editor, model, index):
         editor.interpretText()
         value = '{0:.{1}f}'.format(editor.value(), self.decimals)
-        model.setData(index, value, Qt.EditRole)
+        model.setData(index, value, QT_ITEM_DATA_EDIT_ROLE)
     
     def updateEditorGeometry(self, editor, option, index):
         editor.setGeometry(option.rect)
@@ -114,7 +118,7 @@ class ComboBoxDelegate(QStyledItemDelegate):
         return editor
     
     def setEditorData(self, editor, index, showPopup=True):
-        txt = index.model().data(index, Qt.EditRole)
+        txt = index.model().data(index, QT_ITEM_DATA_EDIT_ROLE)
         if txt is None:
             txt = ''
         if type(txt) is float:
@@ -130,7 +134,7 @@ class ComboBoxDelegate(QStyledItemDelegate):
         if txt != '':
             if txt not in self.items:
                 txt = ''
-        model.setData(index, txt, Qt.EditRole)
+        model.setData(index, txt, QT_ITEM_DATA_EDIT_ROLE)
     
     def updateEditorGeometry(self, editor, option, index):
         editor.setGeometry(option.rect)
@@ -147,7 +151,7 @@ class ComboBoxDelegate(QStyledItemDelegate):
 class HeaderChannelTable(QHeaderView):
     
     def __init__(self):
-        QHeaderView.__init__(self, Qt.Vertical)
+        QHeaderView.__init__(self, QT_VERTICAL)
         self.setHighlightSections(True)
         self.setSectionsClickable(True)
         dir = os.path.dirname(os.path.dirname(__file__))
@@ -179,16 +183,16 @@ class ChannelSectionTable(QTableWidget):
         QTableWidget.mouseReleaseEvent(self, e)
         if len(self.selectedIndexes()) > 1:
             return
-        if e.button() == Qt.LeftButton:
+        if e.button() == QT_LEFT_BUTTON:
             QTableWidget.mouseDoubleClickEvent(self, e)
 
     def eventFilter(self, source, event):
-        if (event.type() == QEvent.KeyPress and
-                event.matches(QKeySequence.Paste)):
+        if (event.type() == QT_EVENT_KEY_PRESS and
+                event.matches(QT_KEY_SEQUENCE_PASTE)):
             self.pasteIntoSelection()
             return True
-        if (event.type() == QEvent.KeyPress and
-                event.matches(QKeySequence.Copy)):
+        if (event.type() == QT_EVENT_KEY_PRESS and
+                event.matches(QT_KEY_SEQUENCE_COPY)):
             self.copyFromSelection()
             return True
 
@@ -236,7 +240,7 @@ class ChannelSectionTable(QTableWidget):
             if a.shape[0] > self.rowCount() - rows[0]:
                 self.setRowCount(rows[0] + a.shape[0])
                 addSel = QItemSelection(model.index(rows[-1] + 1, columns[0]), model.index(self.rowCount() - 1, columns[-1]))
-                self.selectionModel().select(addSel, QItemSelectionModel.Select)
+                self.selectionModel().select(addSel, QT_ITEM_SELECTION_SELECT)
                 selection = self.selectedIndexes()
             for i, index in enumerate(selection):
                 # if i + 1 > data_len:
@@ -264,8 +268,8 @@ class BridgeSectionTable(QTableWidget):
         self.setItemDelegateForColumn(3, SpinBoxDelegate(self))
         self.setVerticalHeader(HeaderChannelTable())
 
-        self.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        self.horizontalHeader().resizeSections(QHeaderView.Stretch)
+        self.horizontalHeader().setSectionResizeMode(QT_HEADER_VIEW_INTERACTIVE)
+        self.horizontalHeader().resizeSections(QT_HEADER_VIEW_STRETCH)
 
         self.installEventFilter(self)
 
@@ -273,7 +277,7 @@ class BridgeSectionTable(QTableWidget):
         QTableWidget.mouseReleaseEvent(self, e)
         if len(self.selectedIndexes()) > 1:
             return
-        if e.button() == Qt.LeftButton:
+        if e.button() == QT_LEFT_BUTTON:
             QTableWidget.mouseDoubleClickEvent(self, e)
     
     def customUpdate(self, i):
@@ -311,12 +315,12 @@ class BridgeSectionTable(QTableWidget):
         return indexes
 
     def eventFilter(self, source, event):
-        if (event.type() == QEvent.KeyPress and
-                event.matches(QKeySequence.Paste)):
+        if (event.type() == QT_EVENT_KEY_PRESS and
+                event.matches(QT_KEY_SEQUENCE_PASTE)):
             self.pasteIntoSelection()
             return True
-        if (event.type() == QEvent.KeyPress and
-                event.matches(QKeySequence.Copy)):
+        if (event.type() == QT_EVENT_KEY_PRESS and
+                event.matches(QT_KEY_SEQUENCE_COPY)):
             self.copyFromSelection()
             return True
 
@@ -363,7 +367,7 @@ class BridgeSectionTable(QTableWidget):
             if a.shape[0] > self.rowCount() - rows[0]:
                 self.setRowCount(rows[0] + a.shape[0])
                 addSel = QItemSelection(model.index(rows[-1] + 1, columns[0]), model.index(self.rowCount() - 1, columns[-1]))
-                self.selectionModel().select(addSel, QItemSelectionModel.Select)
+                self.selectionModel().select(addSel, QT_ITEM_SELECTION_SELECT)
                 selection = self.selectedIndexes()
             for i, index in enumerate(selection):
                 # if i + 1 > data_len:

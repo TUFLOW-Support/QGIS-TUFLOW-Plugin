@@ -47,7 +47,6 @@ def create_section_gdf(section_name, crs):
 
     df_section = pd.DataFrame.from_records([data],
                                            columns=headings)
-
     # Default to empty points
     geo_series = gpd.GeoSeries([Point(0.0, 0.0)], crs=crs)
     if geo_source == swmm_sections.GeometryType.LINKS:
@@ -110,7 +109,10 @@ def create_section_from_gdf(section_name, section_crs, gdf_in, column_mapping):
     missing_columns = set(gdf_template.columns) - set(gdf_out.columns)
     if missing_columns:
         for missing_col in missing_columns:
-            gdf_out[missing_col] = [np.nan] * len(gdf_out)
+            if pd.api.types.is_integer_dtype(gdf_template[missing_col].dtype):
+                gdf_out[missing_col] = pd.Series([0] * len(gdf_out), dtype=gdf_template[missing_col].dtype)
+            else:
+                gdf_out[missing_col] = pd.Series([None]*len(gdf_out), dtype=gdf_template[missing_col].dtype)
     # order columns same as the template table
     gdf_out = gdf_out[gdf_template.columns]
     gdf_out.set_crs(section_crs, allow_override=True)

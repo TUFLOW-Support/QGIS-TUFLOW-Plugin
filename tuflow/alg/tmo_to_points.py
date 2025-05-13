@@ -1,8 +1,8 @@
 import tempfile
 from osgeo import ogr, gdal
 
-from PyQt5.QtCore import QCoreApplication, QVariant
-from PyQt5.QtWidgets import QComboBox
+from qgis.PyQt.QtCore import QCoreApplication, QVariant
+from qgis.PyQt.QtWidgets import QComboBox
 from qgis.core import (QgsProcessingParameterFile, QgsProject, QgsProcessingParameterDefinition,
                         QgsProcessingParameterEnum, QgsProcessingOutputLayerDefinition, QgsProcessingMultiStepFeedback,
                         QgsProcessingParameterVectorDestination, QgsExpressionContext, QgsProcessingAlgorithm)
@@ -132,7 +132,7 @@ class TmoToPoints_CustomDialog(AlgorithmDialog):
             return
         tmo_file_value = self.mainWidget().wrappers['tmo_file'].widgetValue()
         times_wrapper = self.mainWidget().wrappers['times']
-        times_param = times_wrapper.param
+        times_param = times_wrapper.parameterDefinition()
         times_cbo = times_wrapper.wrappedWidget()
         if isinstance(tmo_file_value, QVariant) and tmo_file_value.isNull():
             self.tmo_file = None

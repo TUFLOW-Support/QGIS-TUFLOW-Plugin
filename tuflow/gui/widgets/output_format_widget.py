@@ -3,11 +3,11 @@ from collections import OrderedDict
 
 from qgis.core import QgsApplication
 
-from PyQt5.QtCore import pyqtSignal, Qt
-from PyQt5.QtWidgets import (QTableWidget, QWidget, QVBoxLayout, QHBoxLayout, QToolButton, QAbstractItemView, QMenu,
+from qgis.PyQt.QtCore import pyqtSignal, Qt
+from qgis.PyQt.QtWidgets import (QTableWidget, QWidget, QVBoxLayout, QHBoxLayout, QToolButton, QAbstractItemView, QMenu,
                              QAction)
 
-from tuflow.compatibility_routines import Path
+from tuflow.compatibility_routines import QT_ABSTRACT_ITEM_VIEW_ALL_EDIT_TRIGGERS, QT_TOOLBUTTIN_INSTANT_POPUP, QT_ITEM_DATA_EDIT_ROLE, Path
 from tuflow.bridge_editor.BridgeEditorTable import HeaderChannelTable
 from tuflow.gui.widgets.custom_delegates import ComboBoxDelegate, DoubleSpinBoxDelegate, MultiComboBoxDelegate
 
@@ -38,9 +38,9 @@ class OutputFormatWidget(QWidget):
     def value(self) -> str:
         d = OrderedDict()
         for i in range(self.table.rowCount()):
-            fmt = self.table.model().index(i, 0).data(Qt.EditRole)
-            result_types = [x.strip() for x in self.table.model().index(i, 1).data(Qt.EditRole).split(',')]
-            interval = self.table.model().index(i, 2).data(Qt.EditRole)
+            fmt = self.table.model().index(i, 0).data(QT_ITEM_DATA_EDIT_ROLE)
+            result_types = [x.strip() for x in self.table.model().index(i, 1).data(QT_ITEM_DATA_EDIT_ROLE).split(',')]
+            interval = self.table.model().index(i, 2).data(QT_ITEM_DATA_EDIT_ROLE)
             d[fmt] = {'result_types': result_types, 'interval': interval}
         return json.dumps(d)
 
@@ -52,9 +52,9 @@ class OutputFormatWidget(QWidget):
             d = value
         self.table.setRowCount(len(d))
         for i, (fmt, settings) in enumerate(d.items()):
-            self.table.model().setData(self.table.model().index(i, 0), fmt, Qt.EditRole)
-            self.table.model().setData(self.table.model().index(i, 1), ', '.join(settings['result_types']), Qt.EditRole)
-            self.table.model().setData(self.table.model().index(i, 2), settings['interval'], Qt.EditRole)
+            self.table.model().setData(self.table.model().index(i, 0), fmt, QT_ITEM_DATA_EDIT_ROLE)
+            self.table.model().setData(self.table.model().index(i, 1), ', '.join(settings['result_types']), QT_ITEM_DATA_EDIT_ROLE)
+            self.table.model().setData(self.table.model().index(i, 2), settings['interval'], QT_ITEM_DATA_EDIT_ROLE)
 
     def add_new_output_format(self, action: QAction):
         self.table.add_row(action.text())
@@ -73,7 +73,7 @@ class OutputFormatTable(QTableWidget):
 
     def __init__(self, parent=None, initial_values: dict = None):
         super().__init__(parent)
-        self.setEditTriggers(QAbstractItemView.AllEditTriggers)
+        self.setEditTriggers(QT_ABSTRACT_ITEM_VIEW_ALL_EDIT_TRIGGERS)
         self.setAlternatingRowColors(True)
         self.verticalHeader().setVisible(False)
         self.setColumnCount(3)
@@ -87,9 +87,9 @@ class OutputFormatTable(QTableWidget):
         if initial_values:
             self.setRowCount(len(initial_values))
             for i, (fmt, settings) in enumerate(initial_values.items()):
-                self.model().setData(self.model().index(i, 0), fmt, Qt.EditRole)
-                self.model().setData(self.model().index(i, 1), settings['result_types'], Qt.EditRole)
-                self.model().setData(self.model().index(i, 2), settings['interval'], Qt.EditRole)
+                self.model().setData(self.model().index(i, 0), fmt, QT_ITEM_DATA_EDIT_ROLE)
+                self.model().setData(self.model().index(i, 1), settings['result_types'], QT_ITEM_DATA_EDIT_ROLE)
+                self.model().setData(self.model().index(i, 2), settings['interval'], QT_ITEM_DATA_EDIT_ROLE)
         total_height = sum(self.rowHeight(i) for i in range(self.rowCount()))
         total_height = max(total_height, 150)
         self.setFixedHeight(total_height + self.horizontalHeader().height() + 2)
@@ -104,11 +104,11 @@ class OutputFormatTable(QTableWidget):
         self.setRowCount(self.rowCount() + 1)
         i = self.rowCount() - 1
         if i > 0:
-            values = [fmt, self.model().index(i - 1, 1).data(Qt.EditRole), self.model().index(i - 1, 2).data(Qt.EditRole)]
+            values = [fmt, self.model().index(i - 1, 1).data(QT_ITEM_DATA_EDIT_ROLE), self.model().index(i - 1, 2).data(QT_ITEM_DATA_EDIT_ROLE)]
         else:
             values = [fmt, 'Water Level, Depth, Velocity', 3600.]
         for j, value in enumerate(values):
-            self.model().setData(self.model().index(i, j), value, Qt.EditRole)
+            self.model().setData(self.model().index(i, j), value, QT_ITEM_DATA_EDIT_ROLE)
 
 
 class OutputFormatToolbar(QWidget):
@@ -127,7 +127,7 @@ class OutputFormatToolbar(QWidget):
         for fmt in OUT_FMT.get('formats', []):
             self.menu_add.addAction(fmt)
         self.btn_add.setMenu(self.menu_add)
-        self.btn_add.setPopupMode(QToolButton.InstantPopup)
+        self.btn_add.setPopupMode(QT_TOOLBUTTIN_INSTANT_POPUP)
         self.menu_add.triggered.connect(self.addClicked.emit)
         self.hlayout.addWidget(self.btn_add)
         self.btn_rem = QToolButton()

@@ -6,7 +6,11 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from qgis.PyQt import QtCore, QtGui, QtWidgets
+
+
+from ..compatibility_routines import QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION
+
 
 class Ui_scenarioSelection(object):
     def setupUi(self, scenarioSelection):
@@ -15,7 +19,7 @@ class Ui_scenarioSelection(object):
         self.gridLayout = QtWidgets.QGridLayout(scenarioSelection)
         self.gridLayout.setObjectName("gridLayout")
         self.brokenLinks_lw = QtWidgets.QListWidget(scenarioSelection)
-        self.brokenLinks_lw.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.brokenLinks_lw.setSelectionMode(QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION)
         self.brokenLinks_lw.setObjectName("brokenLinks_lw")
         self.gridLayout.addWidget(self.brokenLinks_lw, 0, 0, 1, 2)
         self.ok_button = QtWidgets.QPushButton(scenarioSelection)

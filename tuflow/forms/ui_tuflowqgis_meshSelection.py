@@ -6,7 +6,11 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from qgis.PyQt import QtCore, QtGui, QtWidgets
+
+
+from ..compatibility_routines import QT_ABSTRACT_ITEM_VIEW_SINGLE_SELECTION
+
 
 class Ui_meshSelection(object):
     def setupUi(self, meshSelection):
@@ -15,7 +19,7 @@ class Ui_meshSelection(object):
         self.gridLayout = QtWidgets.QGridLayout(meshSelection)
         self.gridLayout.setObjectName("gridLayout")
         self.mesh_lw = QtWidgets.QListWidget(meshSelection)
-        self.mesh_lw.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        self.mesh_lw.setSelectionMode(QT_ABSTRACT_ITEM_VIEW_SINGLE_SELECTION)
         self.mesh_lw.setObjectName("mesh_lw")
         self.gridLayout.addWidget(self.mesh_lw, 0, 0, 1, 2)
         self.ok_button = QtWidgets.QPushButton(meshSelection)

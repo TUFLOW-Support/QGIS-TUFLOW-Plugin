@@ -1,14 +1,18 @@
 import os
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
 from qgis.gui import *
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 from .tuflowqgis_tumenufunctions import TuMenuFunctions
 from tuflow.toc.toc import tuflowqgis_find_layer
 
 from ..nc_grid_data_provider import NetCDFGrid
+
+
+
+from ..compatibility_routines import QT_CUSTOM_CONTEXT_MENU
 
 
 class TuContextMenu():
@@ -463,12 +467,12 @@ class TuContextMenu():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		self.tuPlot.plotWidgetTimeSeries.setContextMenuPolicy(Qt.CustomContextMenu)
-		self.tuPlot.plotWidgetLongPlot.setContextMenuPolicy(Qt.CustomContextMenu)
-		self.tuPlot.plotWidgetCrossSection.setContextMenuPolicy(Qt.CustomContextMenu)
-		self.tuPlot.plotWidgetVerticalProfile.setContextMenuPolicy(Qt.CustomContextMenu)
-		self.tuView.OpenResults.setContextMenuPolicy(Qt.CustomContextMenu)
-		self.tuView.OpenResultTypes.setContextMenuPolicy(Qt.CustomContextMenu)
+		self.tuPlot.plotWidgetTimeSeries.setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
+		self.tuPlot.plotWidgetLongPlot.setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
+		self.tuPlot.plotWidgetCrossSection.setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
+		self.tuPlot.plotWidgetVerticalProfile.setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
+		self.tuView.OpenResults.setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
+		self.tuView.OpenResultTypes.setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
 		signal = self.tuPlot.plotWidgetTimeSeries.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 0))
 		self.signals.append(('self.tuPlot.plotWidgetTimeSeries.customContextMenuRequested', signal))
 		signal = self.tuPlot.plotWidgetLongPlot.customContextMenuRequested.connect(lambda pos: self.showPlotMenu(pos, 1))

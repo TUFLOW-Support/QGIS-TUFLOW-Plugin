@@ -1,12 +1,12 @@
 import os
 import sys
 import time
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
 from qgis.gui import *
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 from .tuflowqgis_tumenufunctions import TuMenuFunctions
 from ..dataset_menu import DatasetMenu
 from ..spinbox_action import SingleSpinBoxAction, DoubleSpinBoxAction

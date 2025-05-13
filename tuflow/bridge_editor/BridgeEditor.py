@@ -9,9 +9,9 @@ except ImportError:
     from pathlib_ import Path_ as Path
 from collections import OrderedDict
 import numpy as np
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from qgis.PyQt.QtWidgets import *
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
 from qgis import processing
 from qgis.core import *
 from qgis.gui import QgisInterface
@@ -31,6 +31,8 @@ from ..TUFLOW_XS import XS_Data
 from .ArchBridgeList import Ui_ArchBridgeList
 from .EofParser import EofParser
 from .BridgeEditorTable import BridgeCurveTable
+
+from ..compatibility_routines import QT_RED, QT_PALETTE_WINDOW_TEXT, QT_MESSAGE_BOX_CANCEL, QT_RICH_TEXT, QT_DARK_GREEN, QT_MESSAGE_BOX_YES, QT_HEADER_VIEW_FIXED, QT_MATCH_EXACTLY, QT_MESSAGE_BOX_NO, QT_CUSTOM_CONTEXT_MENU, QT_ABSTRACT_ITEM_VIEW_NO_EDIT_TRIGGERS, QT_ABSTRACT_ITEM_VIEW_NO_SELECTION, QT_PALETTE_WINDOW, QT_HEADER_VIEW_STRETCH, QT_PALETTE_NORMAL
 
 
 class Table:
@@ -112,8 +114,8 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         self.featMsgLabel_2.setVisible(False)
 
         # tables
-        self.twChannel.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
-        self.twBridge.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        self.twChannel.verticalHeader().setSectionResizeMode(QT_HEADER_VIEW_FIXED)
+        self.twBridge.verticalHeader().setSectionResizeMode(QT_HEADER_VIEW_FIXED)
         # self.resizeTable()
 
         # context menus
@@ -121,8 +123,8 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         self.contextMenuBridgeTable()
         
         # tables
-        self.twChannel.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
-        self.twBridge.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        self.twChannel.verticalHeader().setSectionResizeMode(QT_HEADER_VIEW_FIXED)
+        self.twBridge.verticalHeader().setSectionResizeMode(QT_HEADER_VIEW_FIXED)
         # self.resizeTable()
 
         # initialise comboboxes
@@ -189,8 +191,8 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                                                               '"BArch" - Do you want the Arch Bridge Editor to refactor'
                                                               ' the field?<p><p><b>A new memory (temporary) layer will be created '
                                                               'and it will be up to the user to save '
-                                                              'it afterward.</b>', QMessageBox.Yes | QMessageBox.Cancel)
-            if answer == QMessageBox.Cancel:
+                                                              'it afterward.</b>', QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_CANCEL)
+            if answer == QT_MESSAGE_BOX_CANCEL:
                 return
 
         # if output is new layer
@@ -453,7 +455,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                     options = QgsVectorFileWriter.SaveVectorOptions()
                     options.layerName = outlyr
                     options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
-                    answer = QMessageBox.Yes
+                    answer = QT_MESSAGE_BOX_YES
                     if self.cboOutFormat.currentIndex() == 1:  # gpkg
                         options.driverName = 'GPKG'
                         if outdb.exists():
@@ -461,8 +463,8 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                         if outdb.exists() and outlyr.lower() in [x.lower() for x in get_table_names(outdb)]:
                             answer = QMessageBox.question(self, 'Arch Bridge',
                                                           '{0} already exists in {1}\nOverwrite layer?'.format(outlyr, outdb.name),
-                                                          QMessageBox.Yes | QMessageBox.Cancel)
-                            if answer == QMessageBox.Cancel:
+                                                          QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_CANCEL)
+                            if answer == QT_MESSAGE_BOX_CANCEL:
                                 return
                     else:
                         options.driverName = 'ESRI Shapefile'
@@ -491,13 +493,13 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
             xsSuccess = success
 
             # write out csv
-            answer = QMessageBox.Yes
+            answer = QT_MESSAGE_BOX_YES
             if csvPath.exists():
                 answer = QMessageBox.question(self, 'Arch Bridge', '{0}\nalready exists. Overwrite file?'.format(csvPath),
-                                              QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-                if answer == QMessageBox.Cancel:
+                                              QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+                if answer == QT_MESSAGE_BOX_CANCEL:
                     return
-            if answer == QMessageBox.Yes:
+            if answer == QT_MESSAGE_BOX_YES:
                 if not csvPath.parent.exists():
                     csvPath.parent.mkdir(parents=True)
                 while 1:
@@ -512,10 +514,10 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                         answer = QMessageBox.question(self, 'Arch Bridge',
                                                       '{0}\nis currently locked by another process. Retry?'.format(
                                                           csvPath),
-                                                      QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-                        if answer == QMessageBox.Cancel:
+                                                      QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+                        if answer == QT_MESSAGE_BOX_CANCEL:
                             return
-                        elif answer == QMessageBox.No:
+                        elif answer == QT_MESSAGE_BOX_NO:
                             break
                     except Exception as e:
                         QMessageBox.critical(self, 'Arch Bridge', '{0}\nunexpected error writing data'.format(csvPath))
@@ -676,13 +678,13 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
 
         # write out csv
         if self.twBridge.rowCount():
-            answer = QMessageBox.Yes
+            answer = QT_MESSAGE_BOX_YES
             if csvPath.exists():
                 answer = QMessageBox.question(self, 'Arch Bridge', '{0}\nalready exists. Overwrite file?'.format(csvPath),
-                                              QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-                if answer == QMessageBox.Cancel:
+                                              QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+                if answer == QT_MESSAGE_BOX_CANCEL:
                     return
-            if answer == QMessageBox.Yes:
+            if answer == QT_MESSAGE_BOX_YES:
                 model = self.twBridge.model()
                 if not csvPath.parent.exists():
                     csvPath.parent.mkdir(parents=True)
@@ -695,10 +697,10 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                         break
                     except (PermissionError):
                         answer = QMessageBox.question(self, 'Arch Bridge', '{0}\nis currently locked by another process. Retry?'.format(csvPath),
-                                                      QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-                        if answer == QMessageBox.Cancel:
+                                                      QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+                        if answer == QT_MESSAGE_BOX_CANCEL:
                             return
-                        elif answer == QMessageBox.No:
+                        elif answer == QT_MESSAGE_BOX_NO:
                             break
                     except Exception as e:
                         QMessageBox.critical(self, 'Arch Bridge', '{0}\nUnexpected error writing file: {1}'.format(csvPath, e))
@@ -865,7 +867,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
             return
 
         bridge_list_dialog = ArchBridgeList(list(self.eof.bridges.keys()))
-        bridge_list_dialog.exec_()
+        bridge_list_dialog.exec()
         if not bridge_list_dialog.valid:
             return
         if not bridge_list_dialog.bridge_name:
@@ -947,7 +949,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
             table.horizontalHeader().setStretchLastSection(True)
             table.horizontalHeader().setDefaultSectionSize(128)
             table.setRowCount(self.xsAreaCurve.shape[0])
-            table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+            table.setEditTriggers(QT_ABSTRACT_ITEM_VIEW_NO_EDIT_TRIGGERS)
             table.setAlternatingRowColors(True)
             model = table.model()
             for i in range(self.xsAreaCurve.shape[0]):
@@ -995,7 +997,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
             return
 
         bridge_list_dialog = ArchBridgeList(arch_bridges)
-        bridge_list_dialog.exec_()
+        bridge_list_dialog.exec()
         if not bridge_list_dialog.valid:
             return
         if not bridge_list_dialog.bridge_name:
@@ -1087,7 +1089,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         
         if event is not None:
             self.importDialog = BridgeEditorImportDialog(self.iface, event)
-            self.importDialog.exec_()
+            self.importDialog.exec()
             if self.importDialog.imported:
                 self.importData(event, self.importDialog.col1, self.importDialog.col2, self.importDialog.col3,
                                 self.importDialog.col4)
@@ -1268,11 +1270,11 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
             label.setVisible(False)
         else:
             label.setVisible(True)
-            label.setTextFormat(Qt.RichText)
+            label.setTextFormat(QT_RICH_TEXT)
             label.setText(text)
             label.setWordWrap(wordWrap)
             palette = label.palette()
-            palette.setColor(QPalette.Foreground, Qt.red)
+            palette.setColor(QT_PALETTE_WINDOW_TEXT, QT_RED)
             font = label.font()
             font.setItalic(True)
             label.setPalette(palette)
@@ -1281,8 +1283,8 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
     def resizeTable(self) -> None:
         """Auto resize bridge section table"""
 
-        self.twChannel.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.twBridge.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.twChannel.horizontalHeader().setSectionResizeMode(QT_HEADER_VIEW_STRETCH)
+        self.twBridge.horizontalHeader().setSectionResizeMode(QT_HEADER_VIEW_STRETCH)
     
     def getElevationAtStation(self, row: int, col: int) -> float:
         """
@@ -1498,7 +1500,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         gives option to delete, insert before, insert after.
         """
     
-        self.twBridge.verticalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+        self.twBridge.verticalHeader().setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
         # self.twBridge.verticalHeader().customContextMenuRequested.connect(self.bridgeTableMenu)
 
     def bridgeTableMenu(self, pos: QPoint) -> None:
@@ -1669,7 +1671,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         gives option to delete, insert before, insert after.
         """
         
-        self.twChannel.verticalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+        self.twChannel.verticalHeader().setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
         # self.twChannel.verticalHeader().customContextMenuRequested.connect(self.channelTableMenu)
         
     def channelTableMenu(self, pos: QPoint) -> None:
@@ -1815,10 +1817,10 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         font.setItalic(True)
         item.setFont(font)
         brush = item.foreground()
-        brush.setColor(Qt.red)
+        brush.setColor(QT_RED)
         item.setForeground(brush)
         lw.addItem(item)
-        lw.setSelectionMode(QAbstractItemView.NoSelection)
+        lw.setSelectionMode(QT_ABSTRACT_ITEM_VIEW_NO_SELECTION)
         
     def greenGoodText(self, txt: str, lw: QListWidget) -> None:
         """Green text to add to the list widget."""
@@ -1827,10 +1829,10 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         font = item.font()
         item.setFont(font)
         brush = item.foreground()
-        brush.setColor(Qt.darkGreen)
+        brush.setColor(QT_DARK_GREEN)
         item.setForeground(brush)
         lw.addItem(item)
-        lw.setSelectionMode(QAbstractItemView.NoSelection)
+        lw.setSelectionMode(QT_ABSTRACT_ITEM_VIEW_NO_SELECTION)
     
     def useSelection(self) -> None:
         """
@@ -1951,7 +1953,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
             cbo.addItems(layers)
 
             if currentText[cbo]:
-                i = cbo.findText(currentText[cbo], Qt.MatchExactly)
+                i = cbo.findText(currentText[cbo], QT_MATCH_EXACTLY)
                 cbo.setCurrentIndex((i))
             else:
                 if cbo == self.cboXsLayer:
@@ -2315,9 +2317,9 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
         Allows the user to clear the working and start a new bridge.
         """
 
-        answer = QMessageBox.question(self, 'Bridge Editor', 'Reset inputs?', QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+        answer = QMessageBox.question(self, 'Bridge Editor', 'Reset inputs?', QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
 
-        if answer == QMessageBox.Yes:
+        if answer == QT_MESSAGE_BOX_YES:
             # general data
             self.leChannelName.setText('')
             self.leBridgeName.setText('')

@@ -7,8 +7,8 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui
-from PyQt5.QtWidgets import *
+from qgis.PyQt import QtCore, QtGui
+from qgis.PyQt.QtWidgets import *
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -24,14 +24,18 @@ except AttributeError:
     def _translate(context, text, disambig):
         return QApplication.translate(context, text, disambig)
 
+
+from ..compatibility_routines import QT_BUTTON_BOX_CANCEL, QT_BUTTON_BOX_OK, QT_HORIZONTAL
+
+
 class Ui_tuflowqgis_splitMI_folder(object):
     def setupUi(self, tuflowqgis_splitMI_folder):
         tuflowqgis_splitMI_folder.setObjectName(_fromUtf8("tuflowqgis_splitMI_folder"))
         tuflowqgis_splitMI_folder.resize(402, 165)
         self.buttonBox = QDialogButtonBox(tuflowqgis_splitMI_folder)
         self.buttonBox.setGeometry(QtCore.QRect(100, 120, 171, 32))
-        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Ok)
+        self.buttonBox.setOrientation(QT_HORIZONTAL)
+        self.buttonBox.setStandardButtons(QT_BUTTON_BOX_CANCEL|QT_BUTTON_BOX_OK)
         self.buttonBox.setObjectName(_fromUtf8("buttonBox"))
         self.label2 = QLabel(tuflowqgis_splitMI_folder)
         self.label2.setGeometry(QtCore.QRect(10, 20, 121, 22))

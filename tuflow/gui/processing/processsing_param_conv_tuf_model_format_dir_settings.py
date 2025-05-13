@@ -1,16 +1,16 @@
 import json
 from collections import OrderedDict
 
-from PyQt5.QtCore import pyqtSignal, Qt
+from qgis.PyQt.QtCore import pyqtSignal, Qt
 from qgis._gui import QgsProcessingAlgorithmDialogBase
 from qgis.core import QgsApplication, QgsProcessingParameterDefinition
 from qgis.gui import QgsPanelWidget, QgsGui
 from processing.gui.wrappers import WidgetWrapper, DIALOG_STANDARD, DIALOG_BATCH, DIALOG_MODELER
 
-from PyQt5.QtWidgets import QWidget, QLabel, QLineEdit, QHBoxLayout, QToolButton, QCheckBox, QComboBox, QVBoxLayout, \
+from qgis.PyQt.QtWidgets import QWidget, QLabel, QLineEdit, QHBoxLayout, QToolButton, QCheckBox, QComboBox, QVBoxLayout, \
     QTableWidget, QTableWidgetItem, QTextBrowser
 
-from ...compatibility_routines import Path
+from ...compatibility_routines import QT_ITEM_FLAG_ITEM_IS_USER_CHECKABLE, QT_UNCHECKED, QT_CHECKED, Path
 
 
 class ProcessingParameterConvTufModelDirSettings(QgsProcessingParameterDefinition):
@@ -206,8 +206,8 @@ class ConvTufModelDirSettingsPanel(QgsPanelWidget):
     def addPathRow(self):
         self.pathTable.setRowCount(self.pathTable.rowCount() + 1)
         item = QTableWidgetItem('')
-        item.setCheckState(Qt.Unchecked)
-        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+        item.setCheckState(QT_UNCHECKED)
+        item.setFlags(item.flags() | QT_ITEM_FLAG_ITEM_IS_USER_CHECKABLE)
         self.pathTable.setItem(self.pathTable.rowCount() - 1, 0, item)
         self.pathTable.setItem(self.pathTable.rowCount() - 1, 1, QTableWidgetItem(''))
         self.pathTable.scrollToBottom()
@@ -253,7 +253,7 @@ class ConvTufModelDirSettingsPanel(QgsPanelWidget):
             try:
                 if self.pathTable.item(i, 0).text().strip() != '':
                     d1[self.pathTable.item(i, 0).text()] = self.pathTable.item(i, 1).text()
-                    if self.pathTable.item(i, 0).checkState() == Qt.Checked:
+                    if self.pathTable.item(i, 0).checkState() == QT_CHECKED:
                         lst.append(self.pathTable.item(i, 1).text())
             except Exception as e:
                 pass
@@ -276,10 +276,10 @@ class ConvTufModelDirSettingsPanel(QgsPanelWidget):
             for i, (k, v) in enumerate(folder_structure.items()):
                 try:
                     item = QTableWidgetItem(k)
-                    item.setCheckState(Qt.Unchecked)
-                    item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+                    item.setCheckState(QT_UNCHECKED)
+                    item.setFlags(item.flags() | QT_ITEM_FLAG_ITEM_IS_USER_CHECKABLE)
                     if v in always_create:
-                        item.setCheckState(Qt.Checked)
+                        item.setCheckState(QT_CHECKED)
                     self.pathTable.setItem(i, 0, item)
                     self.pathTable.setItem(i, 1, QTableWidgetItem(v))
                 except Exception as e:

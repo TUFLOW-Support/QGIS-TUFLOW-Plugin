@@ -2,9 +2,9 @@ import os
 import typing
 from pathlib import Path
 
-from PyQt5.QtCore import QEvent, QTimer, QDir, QCoreApplication, QSettings
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QListView, QLabel, QTextBrowser, QToolButton, QLineEdit, QFileDialog
+from qgis.PyQt.QtCore import QEvent, QTimer, QDir, QCoreApplication, QSettings
+from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtWidgets import QListView, QLabel, QTextBrowser, QToolButton, QLineEdit, QFileDialog
 
 from qgis.core import QgsProcessingAlgorithm
 from qgis.core import QgsProcessingMultiStepFeedback
@@ -19,6 +19,10 @@ import processing
 from processing.gui.AlgorithmDialog import AlgorithmDialog
 
 from ..utils import tuflow_plugin, ProjectConfig, empty_types_from_project_folder, empty_tooltip, EmptyCreator
+
+
+
+from ..compatibility_routines import QT_EVENT_MOUSE_BUTTON_RELEASE, QT_FILE_DIALOG_DONT_CONFIRM_OVERWRITE
 
 
 class ImportEmpty_CustomDialog(AlgorithmDialog):
@@ -40,7 +44,7 @@ class ImportEmpty_CustomDialog(AlgorithmDialog):
         self.empty_type_btn.installEventFilter(self)
 
     def eventFilter(self, obj, event):
-        if event.type() == QEvent.MouseButtonRelease:
+        if event.type() == QT_EVENT_MOUSE_BUTTON_RELEASE:
             self.timer = QTimer()
             self.timer.setSingleShot(True)
             self.timer_conn = self.timer.timeout.connect(lambda: self.event_handler(entering_empty_types_view=True))
@@ -56,7 +60,7 @@ class ImportEmpty_CustomDialog(AlgorithmDialog):
         self.btn.clicked.connect(self.browse)
 
     def browse(self):
-        param = self.gpkg_input.param
+        param = self.gpkg_input.parameterDefinition()
         if self.le.text():
             start_dir = self.le.text()
         elif self.project_folder:
@@ -64,7 +68,7 @@ class ImportEmpty_CustomDialog(AlgorithmDialog):
         else:
             start_dir = QDir.homePath()
         file = QFileDialog.getSaveFileName(self, param.description(), start_dir, param.fileFilter(),
-                                           options=QFileDialog.DontConfirmOverwrite)
+                                           options=QT_FILE_DIALOG_DONT_CONFIRM_OVERWRITE)
         file = file[0]
         if not file:
             return
@@ -124,11 +128,11 @@ class ImportEmpty_CustomDialog(AlgorithmDialog):
 
     @property
     def empty_types(self) -> list[str]:
-        return self.mainWidget().wrappers['empty_type'].param.options()
+        return self.mainWidget().wrappers['empty_type'].parameterDefinition().options()
 
     @empty_types.setter
     def empty_types(self, value: list[str]):
-        self.mainWidget().wrappers['empty_type'].param.setOptions(value)
+        self.mainWidget().wrappers['empty_type'].parameterDefinition().setOptions(value)
 
     def get_tooltip_widget(self) -> QTextBrowser:
         if self.text_browser:

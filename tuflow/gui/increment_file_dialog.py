@@ -3,13 +3,19 @@ from pathlib import Path
 from typing import Generator, Union
 
 from qgis.core import QgsVectorLayer, QgsProject, QgsMapLayer, QgsVectorFileWriter
-from PyQt5.QtWidgets import (QDialog, QWidget, QFileDialog, QLineEdit, QTableWidgetItem, QTableWidget, QMenu, QAction,
+from qgis.PyQt.QtWidgets import (QDialog, QWidget, QFileDialog, QLineEdit, QTableWidgetItem, QTableWidget, QMenu,
                              QApplication)
-from PyQt5.QtGui import QResizeEvent
-from PyQt5.QtCore import QSettings, QDir, Qt, QPoint
+from qgis.PyQt.QtGui import QResizeEvent
+from qgis.PyQt.QtCore import QSettings, QDir, Qt, QPoint
 
+from ..compatibility_routines import QT_ITEM_FLAG_ITEM_IS_ENABLED, QT_ITEM_FLAG_ITEM_IS_SELECTABLE, is_qt6, QT_CHECKED, QT_CUSTOM_CONTEXT_MENU, QT_ITEM_FLAG_ITEM_IS_USER_CHECKABLE, QT_UNCHECKED
 from ..ui import Ui_IncrementFileDialog, Ui_IncrementDbLyrDialog, Ui_IncrementLayerDialog
 from ..utils import tuflow_plugin
+
+if is_qt6:
+    from qgis.PyQt.QtGui import QAction
+else:
+    from qgis.PyQt.QtWidgets import QAction
 
 
 class IncrementLayerDialogBase(QDialog):
@@ -47,24 +53,24 @@ class IncrementLayerDialogBase(QDialog):
         super().accept()
 
     def dlg_size_from_save(self) -> None:
-        if QSettings().contains('tuflow_catch/increment_dlg_size'):
-            w, h = QSettings().value('tuflow_catch/increment_dlg_size').split(',')
+        if QSettings().contains('tuflow_plugin/increment_dlg_size'):
+            w, h = QSettings().value('tuflow_plugin/increment_dlg_size').split(',')
             w, h = int(w), int(h)
             self.resize(int(w), int(h))
 
     def splitter_pos_from_save(self) -> None:
-        if QSettings().contains('tuflow_catch/increment_dlg_splitter_sizes'):
-            sizes = QSettings().value('tuflow_catch/increment_dlg_splitter_sizes').split(',')
+        if QSettings().contains('tuflow_plugin/increment_dlg_splitter_sizes'):
+            sizes = QSettings().value('tuflow_plugin/increment_dlg_splitter_sizes').split(',')
             sizes = [int(x) for x in sizes]
             self.splitter.setSizes(sizes)
 
     def resizeEvent(self, a0: QResizeEvent) -> None:
         super().resizeEvent(a0)
-        QSettings().setValue('tuflow_catch/increment_dlg_size', '{0},{1}'.format(self.width(), self.height()))
+        QSettings().setValue('tuflow_plugin/increment_dlg_size', '{0},{1}'.format(self.width(), self.height()))
 
     def splitter_moved(self, pos: int, index: int) -> None:
         sizes = ','.join([str(x) for x in self.splitter.sizes()])
-        QSettings().setValue('tuflow_catch/increment_dlg_splitter_sizes', sizes)
+        QSettings().setValue('tuflow_plugin/increment_dlg_splitter_sizes', sizes)
 
     def error_text_creator(self, text: str) -> str:
         return f'<font color="red">{text}</font>'
@@ -85,12 +91,22 @@ class IncrementLayerDialogBase(QDialog):
         from ..utils import get_driver_name_from_extension
         return get_driver_name_from_extension('vector', self.out_file().suffix)
 
+    def clone_layer(self) -> QgsVectorLayer:
+        return self.layer
+
+    def save_rem_layer_selection(self, checked: bool) -> None:
+        QSettings().setValue('tuflow_plugin/increment_dlg_rem_layer', checked)
+
     @property
     def remove_old_layer(self) -> bool:
-        return self.remove_old_layer_rb.isChecked()
+        if hasattr(self, 'remove_old_layer_rb'):
+            return self.remove_old_layer_rb.isChecked()
+        return True
 
     @remove_old_layer.setter
     def remove_old_layer(self, value: bool) -> None:
+        if not hasattr(self, 'remove_old_layer_rb'):
+            return
         if value:
             self.remove_old_layer_rb.setChecked(True)
         else:
@@ -150,6 +166,14 @@ class IncrementFileDialog(IncrementLayerDialogBase, Ui_IncrementFileDialog):
 
         # browse
         self.output_folder_browse_btn.clicked.connect(self.browse_output_folder)
+
+        # remove old layer
+        b = QSettings().value('tuflow_plugin/increment_dlg_rem_layer', True)
+        if isinstance(b, str):
+            b = True if b.lower() == 'true' else False
+        self.remove_old_layer_rb.setChecked(b)
+        self.keep_old_layer_rb.setChecked(not b)
+        self.remove_old_layer_rb.toggled.connect(self.save_rem_layer_selection)
 
         self.setup_ui()
 
@@ -251,24 +275,39 @@ class IncrementDbLyrDialog(IncrementLayerDialogBase, Ui_IncrementDbLyrDialog):
         self.output_database = str(self._active_file.parent / increment_name(self._active_file.name))
         self.output_layer_table.setHorizontalHeaderLabels(['Original Layer', 'Incremented Layer'])
         width = self.output_layer_table.sizeHint().width()
-        self.output_layer_table.setColumnWidth(0, width * 0.5)
-        self.output_layer_table.setColumnWidth(1, width * 0.5)
+        self.output_layer_table.setColumnWidth(0, int(width * 0.5))
+        self.output_layer_table.setColumnWidth(1, int(width * 0.5))
         self.output_layer_table.setRowCount(len(self.gpkg_layers))
         for i, layer in enumerate(self.gpkg_layers):
             item = QTableWidgetItem(layer)
-            item.setCheckState(Qt.Checked)
-            item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsUserCheckable)
+            item.setCheckState(QT_CHECKED)
+            item.setFlags(QT_ITEM_FLAG_ITEM_IS_SELECTABLE | QT_ITEM_FLAG_ITEM_IS_ENABLED | QT_ITEM_FLAG_ITEM_IS_USER_CHECKABLE)
             self.output_layer_table.setItem(i, 0, item)
             if layer == self._layer_name:
                 self.output_layer_table.setItem(i, 1, QTableWidgetItem(increment_name(layer)))
-        self.output_layer_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.output_layer_table.setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
         self.output_layer_table.customContextMenuRequested.connect(self.output_layer_table_context_menu)
+        self._add_as_new_layer = False
 
         # browse
         self.output_database_browse_btn.clicked.connect(self.browse_output_database)
 
+        # remove old layer
+        b = QSettings().value('tuflow_plugin/increment_dlg_rem_layer', True)
+        if isinstance(b, str):
+            b = True if b.lower() == 'true' else False
+        self.remove_old_layer_rb.setChecked(b)
+        self.keep_old_layer_rb.setChecked(not b)
+        self.remove_old_layer_rb.toggled.connect(self.save_rem_layer_selection)
+
         self.setup_ui()
         self.setWindowTitle(f'Increment Layer and Database: {self._layer_name}')
+
+    @property
+    def remove_old_layer(self) -> bool:
+        if hasattr(self, 'remove_old_layer_rb'):
+            return self.remove_old_layer_rb.isChecked() or not self._add_as_new_layer
+        return True
 
     @property
     def layer(self) -> QgsVectorLayer:
@@ -330,9 +369,10 @@ class IncrementDbLyrDialog(IncrementLayerDialogBase, Ui_IncrementDbLyrDialog):
             input_data_source = self._input_data_source(i)
             if not out_data_source:
                 continue
+            self._add_as_new_layer = bool(self.output_layer_table.item(i, 1))
             self._active_file = file_from_data_source(out_data_source)
             self._layer_name = layer_name_from_data_source(out_data_source)
-            if input_data_source in open_data_sources:
+            if input_data_source.replace('\\', '/') in open_data_sources:
                 self._layer = open_layers[open_data_sources.index(input_data_source)]
             else:
                 self._layer = QgsVectorLayer(input_data_source, self._layer_name, 'ogr')
@@ -348,7 +388,9 @@ class IncrementDbLyrDialog(IncrementLayerDialogBase, Ui_IncrementDbLyrDialog):
         from ..utils import clean_data_source
         for layer in QgsProject.instance().mapLayers().values():
             if layer.type() == QgsMapLayer.VectorLayer:
-                yield clean_data_source(layer.dataProvider().dataSourceUri())
+                yield clean_data_source(layer.dataProvider().dataSourceUri()).replace('\\', '/')
+            else:
+                yield ''  # for non-vector layers, return empty string - shouldn't ever be used as a data source but needs to match length of map layers
 
     def short_help_string(self) -> str:
         folder = Path(os.path.realpath(__file__)).parent.parent / 'alg'
@@ -412,19 +454,16 @@ class IncrementDbLyrDialog(IncrementLayerDialogBase, Ui_IncrementDbLyrDialog):
     def _input_data_source(self, row: int) -> str:
         from ..utils import file_from_data_source
         src = self.output_layer_table.item(row, 0)
-        if src.checkState() == Qt.Checked:
+        if src.checkState() == QT_CHECKED:
             return f'{Path(file_from_data_source(self.data_source)).as_posix()}|layername={src.text()}'
 
     def _output_data_source(self, row: int) -> str:
         src = self.output_layer_table.item(row, 0)
-        dst = self.output_layer_table.item(row, 1)
-        if not src or not dst:
+        if not src or not src.checkState() == QT_CHECKED:
             return
-        if src.checkState() == Qt.Checked:
-            if dst.text():
-                return f'{Path(self.output_database).as_posix()}|layername={dst.text()}'
-            else:
-                return f'{Path(self.output_database).as_posix()}|layername={src.text()}'
+        dst = self.output_layer_table.item(row, 1)
+        dst = dst.text() if dst is not None else src.text()
+        return f'{Path(self.output_database).as_posix()}|layername={dst}'
 
     def copy_text(self, text: str) -> None:
         QApplication.clipboard().setText(text)
@@ -439,24 +478,53 @@ class IncrementDbLyrDialog(IncrementLayerDialogBase, Ui_IncrementDbLyrDialog):
 class IncrementLayerDialog(IncrementLayerDialogBase, Ui_IncrementLayerDialog):
 
     def __init__(self, parent: QWidget, layer: QgsVectorLayer):
-        from ..utils import increment_name, clean_data_source, layer_name_from_data_source
+        from ..utils import increment_name, clean_data_source, layer_name_from_data_source, file_from_data_source
         super().__init__(parent, layer)
-        self.add_to_canvas = False
         self.setupUi(self)
 
         self.data_source = clean_data_source(layer.dataProvider().dataSourceUri())
+        self.database = file_from_data_source(self.data_source)
+        self.layername = layer_name_from_data_source(self.data_source)
         self.increment_layer_name = increment_name(layer_name_from_data_source(self.data_source))
         self.superseded_folder = Path(self.data_source).parent / 'ss'
         self.supersede_database = str(self.superseded_folder / f'{layer_name_from_data_source(self.data_source)}.gpkg')
         self.supersede_layer_name = layer_name_from_data_source(self.data_source)
 
         self.increment_layer_name_cb.toggled.connect(self.update_active_widgets)
+        self.supersede_src_cb.toggled.connect(self.update_active_widgets)
+
+        # load prev settings
+        self.increment_layer_name_cb.setChecked(QSettings().value('tuflow_plugin/increment_layer_dlg_inc_lyr_cb', False, type=bool))
+        self.supersede_src_cb.setChecked(QSettings().value('tuflow_plugin/increment_layer_dlg_supersede_src_cb', False, type=bool))
+        self.keep_old_layer_rb.setChecked(QSettings().value('tuflow_plugin/increment_layer_dlg_keep_old_layer_rb', True, type=bool))
+        self.cb_rename_layer.setChecked(QSettings().value('tuflow_plugin/increment_layer_dlg_cb_rename_layer', False, type=bool))
+
+        self.increment_layer_name_cb.toggled.connect(lambda x: QSettings().setValue('tuflow_plugin/increment_layer_dlg_inc_lyr_cb', x))
+        self.supersede_src_cb.toggled.connect(lambda x: QSettings().setValue('tuflow_plugin/increment_layer_dlg_supersede_src_cb', x))
+        self.keep_old_layer_rb.toggled.connect(lambda x: QSettings().setValue('tuflow_plugin/increment_layer_dlg_keep_old_layer_rb', x))
+        self.cb_rename_layer.toggled.connect(lambda x: QSettings().setValue('tuflow_plugin/increment_layer_dlg_cb_rename_layer', x))
 
         # browse
         self.supersede_database_browse_btn.clicked.connect(self.browse_supersede_database)
 
         self.setup_ui()
         self.update_active_widgets()
+
+    @property
+    def rename_layer(self) -> bool:
+        return self.cb_rename_layer.isChecked()
+
+    @rename_layer.setter
+    def rename_layer(self, value: bool) -> None:
+        self.cb_rename_layer.setChecked(value)
+
+    @property
+    def add_to_canvas(self) -> bool:
+        return not self.b_supersede_source
+
+    @add_to_canvas.setter
+    def add_to_canvas(self, value: bool) -> None:
+        pass
 
     @property
     def output_folder(self) -> str:
@@ -468,7 +536,10 @@ class IncrementLayerDialog(IncrementLayerDialogBase, Ui_IncrementLayerDialog):
 
     @property
     def output_name(self) -> str:
-        return self.supersede_layer_name
+        if self.b_increment_layer_name:
+            return self.increment_layer_name
+        else:
+            return self.supersede_layer_name
 
     @output_name.setter
     def output_name(self, value: str) -> None:
@@ -476,9 +547,20 @@ class IncrementLayerDialog(IncrementLayerDialogBase, Ui_IncrementLayerDialog):
 
     @property
     def action_on_existing(self) -> int:
-        if Path(self.supersede_database).exists():
+        if self.b_supersede_source:
+            if Path(self.supersede_database).exists():
+                return QgsVectorFileWriter.CreateOrOverwriteLayer
+            return QgsVectorFileWriter.CreateOrOverwriteFile
+        else:
             return QgsVectorFileWriter.CreateOrOverwriteLayer
-        return QgsVectorFileWriter.CreateOrOverwriteFile
+
+    @property
+    def b_supersede_source(self) -> bool:
+        return self.supersede_src_cb.isChecked()
+
+    @b_supersede_source.setter
+    def b_supersede_source(self, value: bool) -> None:
+        self.supersede_src_cb.setChecked(value)
 
     @property
     def b_increment_layer_name(self) -> bool:
@@ -513,6 +595,14 @@ class IncrementLayerDialog(IncrementLayerDialogBase, Ui_IncrementLayerDialog):
         self.supersede_layer_line_edit.setText(value)
 
     @property
+    def supersede_datasource(self) -> str:
+        return f'{self.supersede_database}|layername={self.supersede_layer_name}'
+
+    @supersede_datasource.setter
+    def supersede_datasource(self, value: str) -> None:
+        pass
+
+    @property
     def new_data_source(self):
         from ..utils import file_from_data_source
         if self.b_increment_layer_name:
@@ -520,14 +610,19 @@ class IncrementLayerDialog(IncrementLayerDialogBase, Ui_IncrementLayerDialog):
 
     @property
     def target_name(self) -> str:
-        if self.b_increment_layer_name:
+        if self.b_increment_layer_name and self.b_supersede_source:
             return self.increment_layer_name
 
+    def clone_layer(self) -> QgsVectorLayer:
+        if self.b_supersede_source:
+            return self.layer
+        return self.layer.clone()
+
     def out_file(self) -> Path:
-        return Path(self.supersede_database)
+        return Path(self.database)
 
     def out_data_source(self) -> str:
-        return f'{self.out_file()}|layername={self.supersede_layer_name}'
+        return f'{self.out_file()}|layername={self.output_name}'
 
     def open_layer_data_sources(self) -> Union[str, Path]:
         from ..utils import clean_data_source
@@ -600,4 +695,8 @@ class IncrementLayerDialog(IncrementLayerDialogBase, Ui_IncrementLayerDialog):
 
     def update_active_widgets(self, e: bool = False) -> None:
         self.increment_layer_name_line_edit.setEnabled(self.increment_layer_name_cb.isChecked())
+        self.cb_rename_layer.setEnabled(self.increment_layer_name_cb.isChecked())
+        self.supersede_database_line_edit.setEnabled(self.supersede_src_cb.isChecked())
+        self.supersede_layer_line_edit.setEnabled(self.supersede_src_cb.isChecked())
+        self.supersede_database_browse_btn.setEnabled(self.supersede_src_cb.isChecked())
 

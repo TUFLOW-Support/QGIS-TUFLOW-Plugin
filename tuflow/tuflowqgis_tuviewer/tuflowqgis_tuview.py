@@ -2,12 +2,12 @@ import os
 import re
 import sys
 from datetime import datetime
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
 from qgis.gui import *
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 from ..forms.tuflow_plotting_dock import Ui_Tuplot
 from ..dataset_view import DataSetModel
 from .tuflowqgis_turesults import TuResults
@@ -30,6 +30,10 @@ try:
 	from pathlib import Path
 except ImportError:
 	from ..pathlib_ import Path_ as Path
+
+
+
+from ..compatibility_routines import QT_DOCK_WIDGET_AREA_NONE, QT_RIGHT_BUTTON, QT_LEFT_BUTTON, QT_ITEM_SELECTION_SELECT, QT_HORIZONTAL
 
 
 class TuView(QDockWidget, Ui_Tuplot):
@@ -171,6 +175,11 @@ class TuView(QDockWidget, Ui_Tuplot):
 		self.tabWidget.setTabEnabled(index, visible)
 		self.style().unpolish(self)
 		self.style().polish(self)
+
+	# def showEvent(self, event):
+	# 	super().showEvent(event)
+	# 	self.qgisConnect()
+	# 	print('here')
 
 	def closeEvent(self, event):
 		"""
@@ -507,7 +516,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# force selected result types in widget to be active types
 		self.OpenResultTypes.selectionModel().clear()
 		selection = QItemSelection()
-		flags = QItemSelectionModel.Select
+		flags = QT_ITEM_SELECTION_SELECT
 		for index in self.tuResults.activeResultsIndexes:
 			selection.select(index, index)
 			self.OpenResultTypes.selectionModel().select(selection, flags)
@@ -531,7 +540,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# force selected result types in widget to be active types
 		self.OpenResultTypes.selectionModel().clear()
 		selection = QItemSelection()
-		flags = QItemSelectionModel.Select
+		flags = QT_ITEM_SELECTION_SELECT
 		for index in self.tuResults.activeResultsIndexes:
 			selection.select(index, index)
 			self.OpenResultTypes.selectionModel().select(selection, flags)
@@ -615,7 +624,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		the default layout is "narrow", otherwise initial location is the bottom.
 		"""
 
-		if area is None or area == Qt.NoDockWidgetArea:
+		if area is None or area == QT_DOCK_WIDGET_AREA_NONE:
 			return
 
 		if self.PlotLayout.isVisible():
@@ -650,7 +659,6 @@ class TuView(QDockWidget, Ui_Tuplot):
 		"""
 		Sets the plot window visible / not visible
 		"""
-
 		if initialisation:
 			self.originalWidth = self.PlotLayout.minimumSizeHint().width() + self.ResultLayout.minimumSizeHint().width()
 			self.PlotLayout.setVisible(False)
@@ -664,7 +672,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			if self.iface is not None:
 				docks = [x.windowTitle() for x in self.iface.mainWindow().findChildren(QDockWidget)]
 				if "TUFLOW Viewer" in docks:
-					self.iface.mainWindow().resizeDocks([self], [narrowWidth], Qt.Horizontal)
+					self.iface.mainWindow().resizeDocks([self], [narrowWidth], QT_HORIZONTAL)
 
 			return
 
@@ -681,7 +689,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			if self.iface is not None:
 				docks = [x.windowTitle() for x in self.iface.mainWindow().findChildren(QDockWidget)]
 				if "TUFLOW Viewer" in docks:
-					self.iface.mainWindow().resizeDocks([self], [narrowWidth], Qt.Horizontal)
+					self.iface.mainWindow().resizeDocks([self], [narrowWidth], QT_HORIZONTAL)
 		else:
 			QSettings().setValue("TUFLOW/tuview_previouslayout", "plot")
 			self.PlotLayout.setVisible(True)
@@ -689,10 +697,10 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.OpenResultsWidget.setVisible(True)
 			self.moveOpenResults("plot")
 			# self.dockWidgetContents.setMinimumWidth(self.originalWidth)
-			# self.iface.mainWindow().resizeDocks([self], [self.originalWidth], Qt.Horizontal)
+			# self.iface.mainWindow().resizeDocks([self], [self.originalWidth], QT_HORIZONTAL)
 			plotWidth = self.PlotLayout.minimumSizeHint().width() + self.ResultLayout.minimumSizeHint().width()
 			if self.iface is not None:
-				self.iface.mainWindow().resizeDocks([self], [plotWidth], Qt.Horizontal)
+				self.iface.mainWindow().resizeDocks([self], [plotWidth], QT_HORIZONTAL)
 		
 	def projectCleared(self):
 		"""
@@ -836,6 +844,14 @@ class TuView(QDockWidget, Ui_Tuplot):
 			self.tuPlot.tuPlotToolbar.qgisDisconnect()
 
 		if self.connected or completely_remove:
+			try:
+				self.pbHidePlotWindow.clicked.disconnect(self.plotWindowVisibilityToggled)
+			except:
+				pass
+			try:
+				self.pbShowPlotWindow.clicked.connect(self.plotWindowVisibilityToggled)
+			except:
+				pass
 
 			# dock widget location changed
 			try:
@@ -1102,12 +1118,12 @@ class TuView(QDockWidget, Ui_Tuplot):
 		Updates the active scalar and active vector datasets based on selected result types in tree widget
 
 		:param event: dict -> 'modelIndex': QModelIndex
-							  'button': mouse button e.g. Qt.RightButton
+							  'button': mouse button e.g. QT_RIGHT_BUTTON
 		:return:
 		"""
 
 		# update 1D and 2D results - map re-render and plot re-draw is in method
-		if event['button'] == Qt.LeftButton:
+		if event['button'] == QT_LEFT_BUTTON:
 			if not self.doubleClickEvent:
 				self.tuResults.updateActiveResultTypes(event['modelIndex'], skip_already_selected=event['drag_event'])
 		self.doubleClickEvent = False
@@ -1128,7 +1144,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# 	if self.iface is not None:
 		# 		self.meshDialog = tuflowqgis_meshSelection_dialog(self.iface, self.tuResults.tuResults2D.activeMeshLayers,
 		# 		                                                  'Select Which Result To Open Properties For...')
-		# 		self.meshDialog.exec_()
+		# 		self.meshDialog.exec()
 		# 		if self.meshDialog.selectedMesh is None:
 		# 			return False
 		# 		else:
@@ -1165,7 +1181,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 		# force selected result types in widget to be active types
 		#self.OpenResultTypes.selectionModel().clear()
 		#selection = QItemSelection()
-		#flags = QItemSelectionModel.Select
+		#flags = QT_ITEM_SELECTION_SELECT
 		#for index in self.tuResults.activeResultsIndexes:
 		#	selection.select(index, index)
 		#	self.OpenResultTypes.selectionModel().select(selection, flags)

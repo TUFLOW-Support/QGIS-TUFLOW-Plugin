@@ -1,10 +1,10 @@
 import os
 from datetime import datetime, timedelta
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 from ..TUFLOW_results import ResData
 from ..TUFLOW_results2013 import ResData as ResData_2013
 from ..tuflowqgis_library import (getPathFromRel, tuflowqgis_apply_check_tf_clayer, datetime2timespec,
@@ -22,6 +22,10 @@ from ..utils import set_vector_temporal_properties
 from ..gui import Logging
 
 from ..fvbc_tide_results import FVBC_TideResults
+
+
+
+from ..compatibility_routines import QT_MATCH_RECURSIVE, QT_TIMESPEC_UTC
 
 
 class TSResult(ResData):
@@ -196,7 +200,7 @@ class TuResults1D():
 				openResultNames.append(openResults.item(i).text())
 			if res.displayname not in openResultNames:
 				openResults.addItem(res.displayname)  # add to widget
-			k = openResults.findItems(res.displayname, Qt.MatchRecursive)[0]
+			k = openResults.findItems(res.displayname, QT_MATCH_RECURSIVE)[0]
 			k.setSelected(True)
 
 		self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
@@ -395,7 +399,7 @@ class TuResults1D():
 				openResultNames.append(openResults.item(i).text())
 			if res.displayname not in openResultNames:
 				openResults.addItem(res.displayname)  # add to widget
-			k = openResults.findItems(res.displayname, Qt.MatchRecursive)[0]
+			k = openResults.findItems(res.displayname, QT_MATCH_RECURSIVE)[0]
 			k.setSelected(True)
 
 		return True
@@ -422,7 +426,7 @@ class TuResults1D():
 			openResultNames.append(openResults.item(i).text())
 		if res.displayname not in openResultNames:
 			openResults.addItem(res.displayname)  # add to widget
-		k = openResults.findItems(res.displayname, Qt.MatchRecursive)[0]
+		k = openResults.findItems(res.displayname, QT_MATCH_RECURSIVE)[0]
 		k.setSelected(True)
 
 		return res
@@ -608,7 +612,7 @@ class TuResults1D():
 				self.tuView.tuResults.loadedTimeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
 		self.configTemporalProperties(result)
 
-		timesteps = result.timeSteps(datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1))
+		timesteps = result.timeSteps(datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, QT_TIMESPEC_UTC))
 		for t in timesteps:
 			date = self.tuView.tuOptions.zeroTime + timedelta(hours=t)
 			# date = datetime2timespec(self.tuView.tuOptions.zeroTime,
@@ -623,7 +627,7 @@ class TuResults1D():
 			date2time[date] = t
 
 			if qv >= 31300:
-				date_tspec = datetime2timespec(date, self.tuView.tuResults.loadedTimeSpec, 1)
+				date_tspec = datetime2timespec(date, self.tuView.tuResults.loadedTimeSpec, QT_TIMESPEC_UTC)
 			else:
 				date_tspec = date
 			self.tuView.tuResults.timekey2date_tspec['{0:.6f}'.format(t)] = date_tspec
@@ -1022,7 +1026,7 @@ class TuResults1D():
 				if qv >= 31600:
 					return self.tuView.tuOptions.zeroTime
 				else:
-					return datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
+					return datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, QT_TIMESPEC_UTC)
 
 	def configTemporalProperties(self, result):
 		"""
@@ -1045,7 +1049,7 @@ class TuResults1D():
 		if resname in self.results1d:
 			for result in resname:
 				if not result.has_reference_time:
-					result.reference_time = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
+					result.reference_time = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, QT_TIMESPEC_UTC)
 				self.getResultMetaData(result)
 
 	def loadTSResultLayer(self, layer):
@@ -1064,7 +1068,7 @@ class TuResults1D():
 			self.results1d[name] = [TSResult()]
 			self.tuView.tuResults.results[name] = {}
 			self.tuView.OpenResults.addItem(name)
-			k = self.tuView.OpenResults.findItems(name, Qt.MatchRecursive)[0]
+			k = self.tuView.OpenResults.findItems(name, QT_MATCH_RECURSIVE)[0]
 			k.setSelected(True)
 
 	def loadOpenTSLayers(self):

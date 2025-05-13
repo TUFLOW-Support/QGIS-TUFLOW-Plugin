@@ -1,7 +1,11 @@
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
 from qgis.core import *
 from qgis.gui import *
+
+
+from .compatibility_routines import QT_LEFT_BUTTON, QT_RIGHT_BUTTON
+
 
 class canvasEvent(QgsMapTool):
 	
@@ -25,9 +29,9 @@ class canvasEvent(QgsMapTool):
 	
 	def canvasReleaseEvent(self, event):
 		# Get the click
-		if event.button() == Qt.RightButton:
+		if event.button() == QT_RIGHT_BUTTON:
 			self.rightClicked.emit({'x': event.pos().x(), 'y': event.pos().y()})
-		elif event.button() == Qt.LeftButton:
+		elif event.button() == QT_LEFT_BUTTON:
 			self.leftClicked.emit({'x': event.pos().x(), 'y': event.pos().y()})
 			
 	def canvasDoubleClickEvent(self, event):

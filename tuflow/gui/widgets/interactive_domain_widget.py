@@ -1,18 +1,28 @@
 import math
 
 import numpy as np
-from PyQt5.QtCore import Qt, QObject, pyqtSignal
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QSpinBox, QDoubleSpinBox, QLabel,
-                             QSpacerItem, QSizePolicy, QApplication, QMenu, QAction, QToolButton)
-from PyQt5.QtGui import QIcon, QColor
+from qgis.PyQt.QtCore import Qt, QObject, pyqtSignal
+from qgis.PyQt.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QSpinBox, QDoubleSpinBox, QLabel,
+                                QSpacerItem, QSizePolicy, QApplication, QMenu, QAction, QToolButton)
+from qgis.PyQt.QtGui import QIcon, QColor
 from qgis.core import (QgsPointXY, QgsGeometry, QgsApplication, QgsMapLayer, QgsProject, QgsSettings, QgsLayerTreeNode,
-                       QgsRectangle)
+                        QgsRectangle, Qgis)
 from qgis.gui import QgsMapCanvas, QgsMessageBar, QgsColorButton
+from qgis.utils import iface
 
 from tuflow.gui.interactive_rect_map_tool import InteractiveRectMapTool
-from tuflow.compatibility_routines import Path
+from tuflow.compatibility_routines import QT_TOOLBUTTIN_INSTANT_POPUP, QT_WHITE, Path
 from tuflow.utils.create_grid_commands import ExtentCalculator
 from tuflow.toc.toc import node_to_layer
+
+if Qgis.QGIS_VERSION_INT >= 33000:
+    LOG_LEVEL_INFO = Qgis.MessageLevel.Info
+    LOG_LEVEL_WARNING = Qgis.MessageLevel.Warning
+    LOG_LEVEL_ERROR = Qgis.MessageLevel.Critical
+else:
+    LOG_LEVEL_INFO = 0
+    LOG_LEVEL_WARNING = 1
+    LOG_LEVEL_ERROR = 2
 
 
 class InteractiveDomainWidget(QWidget):
@@ -34,8 +44,10 @@ class InteractiveDomainWidget(QWidget):
         self.map_canvas = map_canvas  # the QGIS map canvas
         self.canvas_widget = QWidget()
         self.canvas = QgsMapCanvas(self.canvas_widget)  # the tool's canvas
-        self.canvas.setCanvasColor(Qt.white)
+        self.canvas.setCanvasColor(QT_WHITE)
         self.canvas.enableAntiAliasing(True)
+        self.canvas.setDestinationCrs(QgsProject.instance().crs())
+        QgsProject.instance().crsChanged.connect(self.on_crs_changed)
         self.layout.addWidget(self.canvas)
         self.setLayout(self.layout)
         self.canvas.setLayers(map_canvas.layers())
@@ -104,13 +116,17 @@ class InteractiveDomainWidget(QWidget):
         self.domain_input_widget.sb_angle.setValue(math.degrees(value))
 
     def log_info(self, msg):
-        self.msg_bar.pushMessage( 'TUFLOW Domain', msg, level=0)
+        self.msg_bar.pushMessage( 'TUFLOW Domain', msg, level=LOG_LEVEL_INFO)
 
     def log_warning(self, msg):
-        self.msg_bar.pushMessage('TUFLOW Domain', msg, level=1)
+        self.msg_bar.pushMessage('TUFLOW Domain', msg, level=LOG_LEVEL_WARNING)
 
     def log_error(self, msg):
-        self.msg_bar.pushMessage('TUFLOW Domain', msg, level=2)
+        self.msg_bar.pushMessage('TUFLOW Domain', msg, level=LOG_LEVEL_ERROR)
+
+    def on_crs_changed(self):
+        if self.canvas:
+            self.canvas.setDestinationCrs(QgsProject.instance().crs())
 
     def edit_toggled(self, b):
         if b:
@@ -249,7 +265,7 @@ class InteractiveDomainWidget(QWidget):
 
     def create_domain_commands(self):
         text = (f'Origin == {self.origin_x:.2f}, {self.origin_y:.2f}\n'
-                f'Orientation Angle == {math.degrees(self.angle):.2f}\n'
+                f'Orientation Angle == {math.degrees(self.angle):.6f}\n'
                 f'Grid Size (X,Y) == {self.x_size:.2f}, {self.y_size:.2f}\n')
         return text
 
@@ -307,7 +323,7 @@ class DomainInputWidget(QWidget):
         self.sb_origin_y.setRange(0., 10000000000.)
         self.label0 = QLabel('Angle:')
         self.sb_angle = QDoubleSpinBox()
-        self.sb_angle.setDecimals(2)
+        self.sb_angle.setDecimals(6)
         self.sb_angle.setSingleStep(1.)
         self.sb_angle.setSuffix('°')
         self.sb_angle.setRange(-1000, 1000.)
@@ -355,7 +371,7 @@ class DomainInputWidget(QWidget):
         self.menu_layers = QMenu()
         self.set_layers_in_extent_menu()
         self.btn_layer_extent.setMenu(self.menu_layers)
-        self.btn_layer_extent.setPopupMode(QToolButton.InstantPopup)
+        self.btn_layer_extent.setPopupMode(QT_TOOLBUTTIN_INSTANT_POPUP)
         self.menu_round_values = QMenu()
         self.menu_round_values.addActions(
             [CustomRoundingAction(1, 'Nearest 1', self.menu_round_values),
@@ -367,7 +383,7 @@ class DomainInputWidget(QWidget):
         self.btn_round_values.setToolTip('Round Domain Parameters')
         self.btn_round_values.setIcon(QIcon(str(Path(__file__).parents[2] / 'icons' / 'reduce-decimal-places-svgrepo-com.svg')))
         self.btn_round_values.setMenu(self.menu_round_values)
-        self.btn_round_values.setPopupMode(QToolButton.InstantPopup)
+        self.btn_round_values.setPopupMode(QT_TOOLBUTTIN_INSTANT_POPUP)
         self.btn_copy = QToolButton()
         self.btn_copy.setToolTip('Copy Domain Attributes to Clipboard')
         self.btn_copy.setIcon(QgsApplication.getThemeIcon('/mActionEditCopy.svg'))

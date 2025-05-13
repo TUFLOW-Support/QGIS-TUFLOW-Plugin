@@ -2,7 +2,7 @@ import os
 import re
 import typing
 
-from PyQt5.QtWidgets import QApplication
+from qgis.PyQt.QtWidgets import QApplication
 from qgis._core import QgsLayerTreeLayer, QgsProject
 from qgis.core import QgsMapLayer, QgsVectorLayer, QgsWkbTypes
 from qgis.utils import plugins

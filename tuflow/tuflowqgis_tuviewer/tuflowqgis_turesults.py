@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 from .tuflowqgis_turesults1d import TuResults1D
 from .tuflowqgis_turesults2d import TuResults2D
 from .tuflowqgis_turesultsParticles import TuResultsParticles
@@ -24,6 +24,8 @@ except ImportError:
 	from ..pathlib_ import Path_ as Path
 from ..tuflow_results_gpkg import ResData_GPKG
 from ..gui import Logging
+
+from ..compatibility_routines import QT_ITEM_SELECTION_SELECT, QT_TIMESPEC_UTC, is_qt6, QT_ITEM_SELECTION_DESELECT
 
 
 PROFILING = False
@@ -74,11 +76,11 @@ class TuResults():
 				if self.iface is not None:
 					self.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
 				else:
-					self.timeSpec = 1
+					self.timeSpec = QT_TIMESPEC_UTC
 			else:
-				self.timeSpec = 1
-			self.defaultTimeSpec = 1
-			self.loadedTimeSpec = 1
+				self.timeSpec = QT_TIMESPEC_UTC
+			self.defaultTimeSpec = QT_TIMESPEC_UTC
+			self.loadedTimeSpec = QT_TIMESPEC_UTC
 
 			# 1D results
 			self.tuResults1D = TuResults1D(TuView)
@@ -266,7 +268,10 @@ class TuResults():
 		for dataType in self.tuView.tuPlot.plotDataPlottingTypes:
 			menu = self.tuView.tuPlot.tuPlotToolbar.plotDataToPlotMenu[dataType]
 			if isinstance(menu, QAction):
-				menu = menu.parentWidget()
+				if is_qt6:
+					menu = menu.parent()
+				else:
+					menu = menu.parentWidget()
 			if isinstance(menu, DatasetMenuDepAv):
 				menu.clearAllSubMenus()
 				continue
@@ -526,7 +531,7 @@ class TuResults():
 			name = item.ds_name
 			index = openResultTypes.model().item2index(item)
 			if name in self.activeResults:
-				openResultTypes.selectionModel().select(index, QItemSelectionModel.Select)
+				openResultTypes.selectionModel().select(index, QT_ITEM_SELECTION_SELECT)
 				if item.ds_type == 1:
 					openResultTypes.activeScalarIdx = index
 				elif item.ds_type == 2:
@@ -544,7 +549,7 @@ class TuResults():
 			name = item.ds_name + nameAppend
 			index = openResultTypes.model().item2index(item)
 			if name in self.activeResults:
-				openResultTypes.selectionModel().select(index, QItemSelectionModel.Select)
+				openResultTypes.selectionModel().select(index, QT_ITEM_SELECTION_SELECT)
 				self.activeResultsItems.append(item)
 				self.activeResultsIndexes.append(openResultTypes.model().item2index(item))
 
@@ -554,7 +559,7 @@ class TuResults():
 			ind = openResultTypes.model().index(0, 0)
 			index = openResultTypes.indexBelow(ind)
 			if index.internalPointer().ds_name != 'None':
-				openResultTypes.selectionModel().select(index, QItemSelectionModel.Select)
+				openResultTypes.selectionModel().select(index, QT_ITEM_SELECTION_SELECT)
 				self.tuView.tuResults.activeResultsIndexes.append(index)
 				self.tuView.tuResults.activeResultsItems.append(index.internalPointer())
 				self.tuView.tuResults.activeResultsTypes.append(index.internalPointer().ds_type)
@@ -1349,10 +1354,10 @@ class TuResults():
 			if openResultTypes.selectionModel().isSelected (index):
 				if item.ds_type == 1 and not self.tuResults2D.activeScalar:
 					# deselect
-					openResultTypes.selectionModel().select(index, QItemSelectionModel.Deselect)
+					openResultTypes.selectionModel().select(index, QT_ITEM_SELECTION_DESELECT)
 				if item.ds_type == 2 and not self.tuResults2D.activeVector:
 					# deselect
-					openResultTypes.selectionModel().select(index, QItemSelectionModel.Deselect)
+					openResultTypes.selectionModel().select(index, QT_ITEM_SELECTION_DESELECT)
 
 		# force lists
 		self.activeResults = [x for x in self.activeResults if not TuResults.isMapOutputType(x)]
@@ -2119,7 +2124,7 @@ class TuResults():
 					if layer is not None:
 						if not meshprocessed:
 							if qv >= 31300 and not resinfo['hadTemporalProperties']:
-								layer.setReferenceTime(dt2qdt(datetime2timespec(self.tuView.tuOptions.zeroTime, self.loadedTimeSpec, 1), 1))
+								layer.setReferenceTime(dt2qdt(datetime2timespec(self.tuView.tuOptions.zeroTime, self.loadedTimeSpec, QT_TIMESPEC_UTC), QT_TIMESPEC_UTC))
 							self.tuResults2D.getResultMetaData(resname, layer, resinfo['ext'], resinfo['hadTemporalProperties'], loadRenderStyle=False)
 							meshprocessed = True
 				elif TuResults.isParticleType(restype):
@@ -2185,7 +2190,7 @@ class TuResults():
 
 				if qv >= 31300:
 					if self.iface is not None:
-						date_tspec = datetime2timespec(date, self.iface.mapCanvas().temporalRange().begin().timeSpec(), 1)
+						date_tspec = datetime2timespec(date, self.iface.mapCanvas().temporalRange().begin().timeSpec(), QT_TIMESPEC_UTC)
 					else:
 						date_tspec = 1
 				else:
@@ -2255,7 +2260,7 @@ class TuResults():
 							self.time2date[time] = date
 							self.date2timekey[date] = timeKey
 							self.date2time[date] = time
-							date_tspec = datetime2timespec(date, 1, 1)
+							date_tspec = datetime2timespec(date, QT_TIMESPEC_UTC, QT_TIMESPEC_UTC)
 							self.timekey2date_tspec[timeKey] = date_tspec
 							self.time2date_tspec[time] = date_tspec
 							self.date_tspec2timekey[date_tspec] = '{0:.6f}'.format(time)
@@ -2356,7 +2361,7 @@ class TuResults():
 				timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
 			else:
 				timeSpec = 1
-		begin = dt2qdt(time, 1)
+		begin = dt2qdt(time, QT_TIMESPEC_UTC)
 		end = begin.addSecs(int(self.output_timestep() * 60. * 60.))
 		dtr = QgsDateTimeRange(begin, end)
 		if qgsObject is not None:
@@ -2391,8 +2396,8 @@ class TuResults():
 					pass
 				begin = datetime.now()
 				end = begin + timedelta(seconds=1)
-				begin = dt2qdt(begin, 1)
-				end = dt2qdt(end, 1)
+				begin = dt2qdt(begin, QT_TIMESPEC_UTC)
+				end = dt2qdt(end, QT_TIMESPEC_UTC)
 				dtr = QgsDateTimeRange(begin, end)
 				qgsObject.setTemporalRange(dtr)
 				qgsObject.refresh()

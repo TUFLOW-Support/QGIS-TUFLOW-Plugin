@@ -6,7 +6,11 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from qgis.PyQt import QtCore, QtGui, QtWidgets
+
+
+from ..compatibility_routines import QT_ALIGN_V_CENTER, QT_ALIGN_TRAILING, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_FIXED, QT_ALIGN_RIGHT, QT_SIZE_POLICY_MINIMUM
+
 
 class Ui_UserPlotDataImportDialog(object):
     def setupUi(self, UserPlotDataImportDialog):
@@ -62,7 +66,7 @@ class Ui_UserPlotDataImportDialog(object):
         self.delimiter.setObjectName("delimiter")
         self.horizontalLayout_6.addWidget(self.delimiter)
         self.verticalLayout_2.addWidget(self.grouBox)
-        spacerItem = QtWidgets.QSpacerItem(20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem = QtWidgets.QSpacerItem(20, 10, QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_MINIMUM)
         self.verticalLayout_2.addItem(spacerItem)
         self.label_8 = QtWidgets.QLabel(UserPlotDataImportDialog)
         self.label_8.setObjectName("label_8")
@@ -77,7 +81,7 @@ class Ui_UserPlotDataImportDialog(object):
         self.sbLines2Discard.setProperty("value", 1)
         self.sbLines2Discard.setObjectName("sbLines2Discard")
         self.horizontalLayout.addWidget(self.sbLines2Discard)
-        spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem1 = QtWidgets.QSpacerItem(40, 20, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM)
         self.horizontalLayout.addItem(spacerItem1)
         self.verticalLayout_2.addLayout(self.horizontalLayout)
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
@@ -86,10 +90,10 @@ class Ui_UserPlotDataImportDialog(object):
         self.cbHeadersAsLabels.setChecked(True)
         self.cbHeadersAsLabels.setObjectName("cbHeadersAsLabels")
         self.horizontalLayout_2.addWidget(self.cbHeadersAsLabels)
-        spacerItem2 = QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        spacerItem2 = QtWidgets.QSpacerItem(20, 20, QT_SIZE_POLICY_FIXED, QT_SIZE_POLICY_MINIMUM)
         self.horizontalLayout_2.addItem(spacerItem2)
         self.label_7 = QtWidgets.QLabel(UserPlotDataImportDialog)
-        self.label_7.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_7.setAlignment(QT_ALIGN_RIGHT|QT_ALIGN_TRAILING|QT_ALIGN_V_CENTER)
         self.label_7.setObjectName("label_7")
         self.horizontalLayout_2.addWidget(self.label_7)
         self.sbLabelRow = QtWidgets.QSpinBox(UserPlotDataImportDialog)
@@ -98,15 +102,15 @@ class Ui_UserPlotDataImportDialog(object):
         self.sbLabelRow.setProperty("value", 1)
         self.sbLabelRow.setObjectName("sbLabelRow")
         self.horizontalLayout_2.addWidget(self.sbLabelRow)
-        spacerItem3 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem3 = QtWidgets.QSpacerItem(40, 20, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM)
         self.horizontalLayout_2.addItem(spacerItem3)
         self.verticalLayout_2.addLayout(self.horizontalLayout_2)
-        spacerItem4 = QtWidgets.QSpacerItem(20, 15, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem4 = QtWidgets.QSpacerItem(20, 15, QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_MINIMUM)
         self.verticalLayout_2.addItem(spacerItem4)
         self.horizontalLayout_3 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_3.setObjectName("horizontalLayout_3")
         self.label_2 = QtWidgets.QLabel(UserPlotDataImportDialog)
-        self.label_2.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_2.setAlignment(QT_ALIGN_RIGHT|QT_ALIGN_TRAILING|QT_ALIGN_V_CENTER)
         self.label_2.setObjectName("label_2")
         self.horizontalLayout_3.addWidget(self.label_2)
         self.cbXColumn = QtWidgets.QComboBox(UserPlotDataImportDialog)
@@ -114,10 +118,10 @@ class Ui_UserPlotDataImportDialog(object):
         self.cbXColumn.setEditable(True)
         self.cbXColumn.setObjectName("cbXColumn")
         self.horizontalLayout_3.addWidget(self.cbXColumn)
-        spacerItem5 = QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        spacerItem5 = QtWidgets.QSpacerItem(20, 20, QT_SIZE_POLICY_FIXED, QT_SIZE_POLICY_MINIMUM)
         self.horizontalLayout_3.addItem(spacerItem5)
         self.label_4 = QtWidgets.QLabel(UserPlotDataImportDialog)
-        self.label_4.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_4.setAlignment(QT_ALIGN_RIGHT|QT_ALIGN_TRAILING|QT_ALIGN_V_CENTER)
         self.label_4.setObjectName("label_4")
         self.horizontalLayout_3.addWidget(self.label_4)
         self.mcbYColumn = TableCheckableComboBox(UserPlotDataImportDialog)
@@ -125,7 +129,7 @@ class Ui_UserPlotDataImportDialog(object):
         self.mcbYColumn.setEditable(True)
         self.mcbYColumn.setObjectName("mcbYColumn")
         self.horizontalLayout_3.addWidget(self.mcbYColumn)
-        spacerItem6 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem6 = QtWidgets.QSpacerItem(40, 20, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM)
         self.horizontalLayout_3.addItem(spacerItem6)
         self.verticalLayout_2.addLayout(self.horizontalLayout_3)
         self.horizontalLayout_4 = QtWidgets.QHBoxLayout()
@@ -136,10 +140,10 @@ class Ui_UserPlotDataImportDialog(object):
         self.nullValue = QtWidgets.QLineEdit(UserPlotDataImportDialog)
         self.nullValue.setObjectName("nullValue")
         self.horizontalLayout_4.addWidget(self.nullValue)
-        spacerItem7 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem7 = QtWidgets.QSpacerItem(40, 20, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM)
         self.horizontalLayout_4.addItem(spacerItem7)
         self.verticalLayout_2.addLayout(self.horizontalLayout_4)
-        spacerItem8 = QtWidgets.QSpacerItem(20, 15, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem8 = QtWidgets.QSpacerItem(20, 15, QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_MINIMUM)
         self.verticalLayout_2.addItem(spacerItem8)
         self.gbUseDates = QgsCollapsibleGroupBox(UserPlotDataImportDialog)
         self.gbUseDates.setMinimumSize(QtCore.QSize(0, 0))
@@ -180,7 +184,7 @@ class Ui_UserPlotDataImportDialog(object):
         self.gridLayout_2.addLayout(self.verticalLayout_2, 0, 0, 1, 1)
         self.horizontalLayout_8 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_8.setObjectName("horizontalLayout_8")
-        spacerItem9 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem9 = QtWidgets.QSpacerItem(40, 20, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM)
         self.horizontalLayout_8.addItem(spacerItem9)
         self.pbOk = QtWidgets.QPushButton(UserPlotDataImportDialog)
         self.pbOk.setObjectName("pbOk")

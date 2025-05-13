@@ -1,6 +1,6 @@
 !_______________________________________________________
 ! GIS
-Spatial Database == ..\model\gis\${model_name}.${gis_ext}
+Spatial Database == ..\model\gis\${model_name}_001.${gis_ext}
 GIS Format == ${gis_format}
 GRID Format == TIF
 GPKG Projection == projection

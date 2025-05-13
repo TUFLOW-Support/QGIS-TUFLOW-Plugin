@@ -2066,9 +2066,11 @@ class Arr:
                         k = -1
                         cc_count = self.CCF.scenario_count() if self.CCF.meta.version > 2024000 else len(cc_years) * len(cc_RCP)
                         # create a list 1 - 10 repeated for all temporal pattern sets
+                        nid = 0
                         for i in [k for k in range(1, tp_count+1)] * (cc_count + 1):
                             if i > len(ids):
                                 break
+                            nid += 1
                             line1 = line1 + ', 1'
                             line2 = line2 + ', {0}'.format(ntimes)
                             if k + 1 >= tp_count:

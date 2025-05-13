@@ -6,7 +6,11 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from qgis.PyQt import QtCore, QtGui, QtWidgets
+
+
+from ..compatibility_routines import QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION
+
 
 class Ui_eventSelection(object):
     def setupUi(self, eventSelection):
@@ -15,7 +19,7 @@ class Ui_eventSelection(object):
         self.gridLayout = QtWidgets.QGridLayout(eventSelection)
         self.gridLayout.setObjectName("gridLayout")
         self.events_lw = QtWidgets.QListWidget(eventSelection)
-        self.events_lw.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.events_lw.setSelectionMode(QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION)
         self.events_lw.setObjectName("events_lw")
         self.gridLayout.addWidget(self.events_lw, 0, 0, 1, 3)
         self.ok_button = QtWidgets.QPushButton(eventSelection)

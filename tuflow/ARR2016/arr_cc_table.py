@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QTableWidget, QTableView
+from qgis.PyQt.QtWidgets import QTableWidget, QTableView
 
 from tuflow.bridge_editor.BridgeEditorTable import ComboBoxDelegate, SpinBoxDelegate
 

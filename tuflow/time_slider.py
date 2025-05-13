@@ -1,7 +1,11 @@
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
+from qgis.PyQt.QtWidgets import *
+
+
+
+from .compatibility_routines import QT_LEFT_BUTTON, QT_STYLE_CC_SLIDER, QT_STYLE_SC_SLIDER_HANDLE, is_qt6
 
 
 class TimeSlider(QSlider):
@@ -14,11 +18,14 @@ class TimeSlider(QSlider):
 		
 		option = QStyleOptionSlider()
 		self.initStyleOption(option)
-		sr = self.style().subControlRect(QStyle.CC_Slider, option, QStyle.SC_SliderHandle)
+		sr = self.style().subControlRect(QT_STYLE_CC_SLIDER, option, QT_STYLE_SC_SLIDER_HANDLE)
 		
-		if e.button() == Qt.LeftButton:
+		if e.button() == QT_LEFT_BUTTON:
 			if not sr.contains(e.pos()):
-				value = QStyle.sliderValueFromPosition(self.minimum(), self.maximum(), e.x(), self.width())
+				if is_qt6:
+					value = QStyle.sliderValueFromPosition(self.minimum(), self.maximum(), int(e.position().x()), self.width())
+				else:
+					value = QStyle.sliderValueFromPosition(self.minimum(), self.maximum(), e.x(), self.width())
 				self.setValue(value)
 				self.valueChanged.emit(value)
 			else:

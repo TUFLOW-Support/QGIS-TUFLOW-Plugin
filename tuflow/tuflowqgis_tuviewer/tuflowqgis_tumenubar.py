@@ -1,11 +1,11 @@
 import os
 import webbrowser
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
 from qgis.gui import *
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 from .tuflowqgis_tumenufunctions import TuMenuFunctions
 from ..tuflowqgis_library import about, goto_plugin_changelog, goto_tuflow_downloads
 

@@ -1,7 +1,11 @@
 from qgis.gui import QgsCheckableComboBox
 
-from PyQt5.QtCore import Qt, QEvent
-from PyQt5.QtWidgets import QLineEdit, QMenu, QApplication
+from qgis.PyQt.QtCore import Qt, QEvent
+from qgis.PyQt.QtWidgets import QLineEdit, QMenu, QApplication
+
+
+
+from ...compatibility_routines import QT_KEY_V, QT_KEY_MODIFIER_CONTROL, QT_KEY_C, QT_EVENT_KEY_RELEASE
 
 
 class CheckableComboBox(QgsCheckableComboBox):
@@ -26,17 +30,17 @@ class CheckableComboBox(QgsCheckableComboBox):
         self.installEventFilter(self)
 
     def eventFilter(self, object, event):
-        if event.type() == QEvent.KeyRelease:
-            if event.key() == Qt.Key_C and event.modifiers() == Qt.ControlModifier:
+        if event.type() == QT_EVENT_KEY_RELEASE:
+            if event.key() == QT_KEY_C and event.modifiers() == QT_KEY_MODIFIER_CONTROL:
                 self.copySelected()
         # capture ctrl+v paste event
-        if event.type() == QEvent.KeyRelease:
-            if event.key() == Qt.Key_V and event.modifiers() == Qt.ControlModifier:
+        if event.type() == QT_EVENT_KEY_RELEASE:
+            if event.key() == QT_KEY_V and event.modifiers() == QT_KEY_MODIFIER_CONTROL:
                 self.pasteSelected()
         return super().eventFilter(object, event)
 
     def showContextMenu(self, pos):
-        self.context_menu.exec_(self.line_edit.mapToGlobal(pos))
+        self.context_menu.exec(self.line_edit.mapToGlobal(pos))
 
     def copySelected(self):
         QApplication.clipboard().setText(self.line_edit.text())

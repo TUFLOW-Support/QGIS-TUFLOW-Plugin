@@ -1,5 +1,5 @@
 import re
-from PyQt5.QtCore import QObject, pyqtSignal
+from qgis.PyQt.QtCore import QObject, pyqtSignal
 from qgis.core import QgsVectorLayer, NULL, QgsProject, QgsFeature, QgsField
 from datetime import datetime
 

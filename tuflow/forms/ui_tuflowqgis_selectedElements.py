@@ -6,7 +6,11 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from qgis.PyQt import QtCore, QtGui, QtWidgets
+
+
+from ..compatibility_routines import QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION
+
 
 class Ui_selectedElements(object):
     def setupUi(self, selectedElements):
@@ -18,7 +22,7 @@ class Ui_selectedElements(object):
         self.pbSelectElements.setObjectName("pbSelectElements")
         self.gridLayout.addWidget(self.pbSelectElements, 1, 0, 1, 1)
         self.elementList = QtWidgets.QListWidget(selectedElements)
-        self.elementList.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.elementList.setSelectionMode(QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION)
         self.elementList.setObjectName("elementList")
         self.gridLayout.addWidget(self.elementList, 0, 0, 1, 2)
         self.pbCloseWindow = QtWidgets.QPushButton(selectedElements)

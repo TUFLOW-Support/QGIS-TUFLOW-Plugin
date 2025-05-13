@@ -1,11 +1,11 @@
 import os, sys
 import re
 import traceback
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
 from qgis.core import *
 from qgis.gui import *
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 from ..forms.integrity_tool_dock import Ui_IntegrityTool
 from ..tuflowqgis_library import (is1dNetwork, is1dTable, tuflowqgis_apply_check_tf_clayer, copyStyle)
 from tuflow.toc.toc import tuflowqgis_get_geopackage_from_layer, tuflowqgis_find_layer_in_datasource, tuflowqgis_find_layer, \
@@ -22,6 +22,10 @@ from .NullGeometry import NullGeometry, NullGeometryDialog
 
 from tuflow.tuflow_swmm.swmm_gis_info import is_swmm_network_layer
 from .helpers import SwmmHelper
+
+
+
+from ..compatibility_routines import QT_MESSAGE_BOX_CANCEL, QT_MESSAGE_BOX_YES, QT_ITEM_DATA_USER_ROLE, QT_MESSAGE_BOX_NO
 
 
 class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
@@ -200,8 +204,8 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                                                        "Layer does not look like a 1d_nwk type: \"{0}\" - "
                                                        "Tool might not work if layer is not a 1d_nwk type. "
                                                        "Do you wish to continue?".format(layer.name()),
-                                                       QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-                        if question != QMessageBox.Yes:
+                                                       QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+                        if question != QT_MESSAGE_BOX_YES:
                             return
                     if inputType == 'lines':
                         i = 2 if layer.storageType() == 'GPKG' else 1
@@ -275,7 +279,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             self.progressBar.setValue(100)
             QMessageBox.critical(self, "Integrity Tool", message)
             stackTraceDialog = StackTraceDialog(trace)
-            stackTraceDialog.exec_()
+            stackTraceDialog.exec()
 
         self.setGuiActive(True)
 
@@ -546,7 +550,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             return
         msg = self.plot.errmsg if self.plot.errmsg is not None else ''
         stackTraceDialog = StackTraceDialog(msg)
-        stackTraceDialog.exec_()
+        stackTraceDialog.exec()
 
     def runUniqueIdTool(self):
         """
@@ -662,7 +666,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             message = '{0}{1}<br><br>'.format(message, ids_)
 
         self.nullGeometryDialog = NullGeometryDialog(self, message)
-        self.nullGeometryDialog.exec_()
+        self.nullGeometryDialog.exec()
 
         if not self.nullGeometryDialog.confirmDelete:
             return
@@ -846,19 +850,19 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         if inputType == 'lines' or 'lines' in inputType:
             for i in range(self.lwLines.count()):
                 item = self.lwLines.item(i)
-                layer_id = item.data(Qt.UserRole)
+                layer_id = item.data(QT_ITEM_DATA_USER_ROLE)
                 layer = tuflowqgis_find_layer(layer_id, search_type='layerid')
                 inputs.append(layer)
         if inputType == 'points' or 'points' in inputType:
             for i in range(self.lwPoints.count()):
                 item = self.lwPoints.item(i)
-                layer_id = item.data(Qt.UserRole)
+                layer_id = item.data(QT_ITEM_DATA_USER_ROLE)
                 layer = tuflowqgis_find_layer(layer_id, search_type='layerid')
                 inputs.append(layer)
         if inputType == 'tables' or 'tables' in inputType:
             for i in range(self.lwTables.count()):
                 item = self.lwTables.item(i)
-                layer_id = item.data(Qt.UserRole)
+                layer_id = item.data(QT_ITEM_DATA_USER_ROLE)
                 layer = tuflowqgis_find_layer(layer_id, search_type='layerid')
                 inputs.append(layer)
 
@@ -875,7 +879,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         indices_to_remove = []
         for i in range(self.lwLines.count()):
             item = self.lwLines.item(i)
-            layer_id = item.data(Qt.UserRole)
+            layer_id = item.data(QT_ITEM_DATA_USER_ROLE)
             layer = tuflowqgis_find_layer(layer_id, search_type='layerid')
             if layer is None:
                 indices_to_remove.append(i)
@@ -885,7 +889,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         indices_to_remove = []
         for i in range(self.lwPoints.count()):
             item = self.lwPoints.item(i)
-            layer_id = item.data(Qt.UserRole)
+            layer_id = item.data(QT_ITEM_DATA_USER_ROLE)
             layer = tuflowqgis_find_layer(layer_id, search_type='layerid')
             if layer is None:
                 indices_to_remove.append(i)
@@ -895,7 +899,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         indices_to_remove = []
         for i in range(self.lwTables.count()):
             item = self.lwTables.item(i)
-            layer_id = item.data(Qt.UserRole)
+            layer_id = item.data(QT_ITEM_DATA_USER_ROLE)
             layer = tuflowqgis_find_layer(layer_id, search_type='layerid')
             if layer is None:
                 indices_to_remove.append(i)
@@ -1132,7 +1136,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
             for lw in lws:
                 for i in range(lw.count()):
                     item = lw.item(i)
-                    lw_layer_id = item.data(Qt.UserRole)
+                    lw_layer_id = item.data(QT_ITEM_DATA_USER_ROLE)
                     if lw_layer_id == layer_id and item.text() != layer_name:
                         item.setText(layer_name)
 
@@ -1188,7 +1192,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         for i in range(lw.count()):
             item = lw.item(i)
             # itemText = item.text()
-            addedLayerIds.append(item.data(Qt.UserRole))
+            addedLayerIds.append(item.data(QT_ITEM_DATA_USER_ROLE))
 
         layersAdded = False
 
@@ -1201,7 +1205,7 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                 if layer.geometryType() == geometryType:
                     if layer_id not in addedLayerIds:
                         new_item = QListWidgetItem(layer_text)
-                        new_item.setData(Qt.UserRole, layer_id)
+                        new_item.setData(QT_ITEM_DATA_USER_ROLE, layer_id)
                         lw.addItem(new_item)
                         addedLayerIds.append(layer_id)
                         layersAdded = True
@@ -1319,9 +1323,9 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
         self.populateInputs()
 
         answer = QMessageBox.information(self, '1D Integrity Tool', 'Replace inputs with tool outputs?',
-                                         QMessageBox.Yes, QMessageBox.No)
+                                         QT_MESSAGE_BOX_YES, QT_MESSAGE_BOX_NO)
 
-        if answer != QMessageBox.Yes:
+        if answer != QT_MESSAGE_BOX_YES:
             return
 
         layers_layerids = findAllVectorLyrsWithGroups()
@@ -1347,10 +1351,10 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                 # Replace layers with the old id
                 for i in range(lw.count()):
                     item = lw.item(i)
-                    lw_layer_id = item.data(Qt.UserRole)
+                    lw_layer_id = item.data(QT_ITEM_DATA_USER_ROLE)
                     if lw_layer_id == oldlyrid:
                         item.setText(new_layer_name)
-                        item.setData(Qt.UserRole, tmplyrid)
+                        item.setData(QT_ITEM_DATA_USER_ROLE, tmplyrid)
 
     def refreshControls(self):
         show_swmm_controls = False

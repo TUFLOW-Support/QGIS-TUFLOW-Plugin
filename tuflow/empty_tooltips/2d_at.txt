@@ -6,4 +6,4 @@ description == Used to spatially define 2D cells for monitoring to trigger the a
 
 wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#ESTRY_Control_file_.28ECF.29
 
-manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/Running-Simulations-1.html#AutoTerminateOptions-3
+manual link == https://docs.tuflow.com/classic-hpc/manual/2025.0/Running-Simulations-1.html#AutoTerminateOptions-3

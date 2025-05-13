@@ -1,14 +1,18 @@
 try:
     from qgis.core import QgsNetworkAccessManager
-    from PyQt5.QtNetwork import QNetworkRequest
-    from PyQt5.QtCore import QUrl
+    from qgis.PyQt.QtNetwork import QNetworkRequest
+    from qgis.PyQt.QtCore import QUrl
 except ImportError:
     QgsNetworkAccessManager = None
     QNetworkRequest = None
     QUrl = None
 
 import requests
-from PyQt5.QtCore import QSettings, QEventLoop
+from qgis.PyQt.QtCore import QSettings, QEventLoop
+
+
+
+from ..compatibility_routines import QT_EVENT_LOOP_EXCLUDE_USER_INPUT_EVENTS, QT_NETWORK_REQUEST_HTTP_STATUS_CODE_ATTRIBUTE
 
 
 class Downloader:
@@ -68,12 +72,12 @@ class DownloaderQGIS(Downloader):
         reply = netman.get(req)
         evloop = QEventLoop()
         reply.finished.connect(evloop.quit)
-        evloop.exec_(QEventLoop.ExcludeUserInputEvents)
+        evloop.exec(QT_EVENT_LOOP_EXCLUDE_USER_INPUT_EVENTS)
         if old_user_agent:
             QSettings().setValue('/qgis/networkAndProxy/userAgent', old_user_agent)
         else:
             QSettings().remove('/qgis/networkAndProxy/userAgent')
-        self.ret_code = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+        self.ret_code = reply.attribute(QT_NETWORK_REQUEST_HTTP_STATUS_CODE_ATTRIBUTE)
         if self.ret_code != 200:
             self.error_string = reply.errorString()
             return

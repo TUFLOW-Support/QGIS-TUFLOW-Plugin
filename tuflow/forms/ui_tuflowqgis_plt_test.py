@@ -7,8 +7,8 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui
-from PyQt5.QtWidgets import *
+from qgis.PyQt import QtCore, QtGui
+from qgis.PyQt.QtWidgets import *
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -24,12 +24,16 @@ except AttributeError:
     def _translate(context, text, disambig):
         return QApplication.translate(context, text, disambig)
 
+
+from ..compatibility_routines import QT_SIZE_POLICY_PREFERRED, QT_FRAME_STYLED_PANEL, QT_SIZE_POLICY_EXPANDING, QT_ELIDE_NONE, QT_SIZE_POLICY_FIXED, QT_FRAME_RAISED, QT_SIZE_POLICY_MINIMUM
+
+
 class Ui_tuflowqgis_plt_test(object):
     def setupUi(self, tuflowqgis_plt_test):
         tuflowqgis_plt_test.setObjectName(_fromUtf8("tuflowqgis_plt_test"))
         tuflowqgis_plt_test.resize(1032, 606)
         self.dockWidgetContents = QWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        sizePolicy = QSizePolicy(QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_EXPANDING)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.dockWidgetContents.sizePolicy().hasHeightForWidth())
@@ -41,11 +45,11 @@ class Ui_tuflowqgis_plt_test(object):
         self.tabWidget.setAutoFillBackground(True)
         self.tabWidget.setTabPosition(QTabWidget.North)
         self.tabWidget.setTabShape(QTabWidget.Rounded)
-        self.tabWidget.setElideMode(QtCore.Qt.ElideNone)
+        self.tabWidget.setElideMode(QT_ELIDE_NONE)
         self.tabWidget.setUsesScrollButtons(True)
         self.tabWidget.setObjectName(_fromUtf8("tabWidget"))
         self.tab_1 = QWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        sizePolicy = QSizePolicy(QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_EXPANDING)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.tab_1.sizePolicy().hasHeightForWidth())
@@ -78,17 +82,17 @@ class Ui_tuflowqgis_plt_test(object):
         self.cbxSaveAs.addItem(_fromUtf8(""))
         self.cbxSaveAs.addItem(_fromUtf8(""))
         self.horizontalLayout_4.addWidget(self.cbxSaveAs)
-        spacerItem = QSpacerItem(0, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        spacerItem = QSpacerItem(0, 20, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM)
         self.horizontalLayout_4.addItem(spacerItem)
         self.stackedWidget.addWidget(self.page)
         self.horizontalLayout_3.addWidget(self.stackedWidget)
-        spacerItem1 = QSpacerItem(1, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        spacerItem1 = QSpacerItem(1, 20, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM)
         self.horizontalLayout_3.addItem(spacerItem1)
         self.label = QLabel(self.widget_save_buttons)
         self.label.setObjectName(_fromUtf8("label"))
         self.horizontalLayout_3.addWidget(self.label)
         self.comboBox = QComboBox(self.widget_save_buttons)
-        sizePolicy = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+        sizePolicy = QSizePolicy(QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_FIXED)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.comboBox.sizePolicy().hasHeightForWidth())
@@ -99,13 +103,13 @@ class Ui_tuflowqgis_plt_test(object):
         self.horizontalLayout_3.addWidget(self.comboBox)
         self.gridLayout.addWidget(self.widget_save_buttons, 1, 0, 1, 1)
         self.frame_for_plot = QFrame(self.tab_1)
-        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy = QSizePolicy(QT_SIZE_POLICY_PREFERRED, QT_SIZE_POLICY_PREFERRED)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(1)
         sizePolicy.setHeightForWidth(self.frame_for_plot.sizePolicy().hasHeightForWidth())
         self.frame_for_plot.setSizePolicy(sizePolicy)
-        self.frame_for_plot.setFrameShape(QFrame.StyledPanel)
-        self.frame_for_plot.setFrameShadow(QFrame.Raised)
+        self.frame_for_plot.setFrameShape(QT_FRAME_STYLED_PANEL)
+        self.frame_for_plot.setFrameShadow(QT_FRAME_RAISED)
         self.frame_for_plot.setObjectName(_fromUtf8("frame_for_plot"))
         self.verticalLayout_9 = QVBoxLayout(self.frame_for_plot)
         self.verticalLayout_9.setObjectName(_fromUtf8("verticalLayout_9"))
@@ -114,7 +118,7 @@ class Ui_tuflowqgis_plt_test(object):
         self.verticalLayout = QVBoxLayout()
         self.verticalLayout.setObjectName(_fromUtf8("verticalLayout"))
         self.tableView = QTableView(self.tab_1)
-        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        sizePolicy = QSizePolicy(QT_SIZE_POLICY_PREFERRED, QT_SIZE_POLICY_EXPANDING)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.tableView.sizePolicy().hasHeightForWidth())

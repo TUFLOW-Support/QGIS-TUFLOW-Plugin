@@ -7,7 +7,7 @@ except ImportError:
 
 from typing import Union
 
-from PyQt5.QtWidgets import QAction, QMenu
+from qgis.PyQt.QtWidgets import QMenu
 from qgis.gui import QgisInterface
 from qgis.core import QgsMapLayer, QgsWkbTypes, QgsProcessingFeedback
 from qgis import processing
@@ -23,6 +23,13 @@ from .tuflow_swmm.gis_to_swmm import gis_to_swmm
 from .tuflow_swmm.qgis.dialogs.increment_gpkg import run_increment_dlg
 
 from .utils.add_features_from_layer import run_add_features_from_layer
+
+from .compatibility_routines import is_qt6
+
+if is_qt6:
+    from qgis.PyQt.QtGui import QAction
+else:
+    from qgis.PyQt.QtWidgets import QAction
 
 
 class TuflowContextMenuProvider(QMenu):

@@ -1,12 +1,16 @@
 from qgis.core import QgsCoordinateReferenceSystem
 from qgis.gui import QgsProjectionSelectionWidget, QgsCheckableComboBox
 
-from PyQt5.QtCore import Qt, pyqtSignal, QSize, QEvent
-from PyQt5.QtWidgets import (QStyledItemDelegate, QComboBox, QApplication, QStyle, QStyleOptionViewItem, QSpinBox,
+from qgis.PyQt.QtCore import Qt, pyqtSignal, QSize, QEvent
+from qgis.PyQt.QtWidgets import (QStyledItemDelegate, QComboBox, QApplication, QStyle, QStyleOptionViewItem, QSpinBox,
                              QDoubleSpinBox, QAbstractItemDelegate, QMenu, QLineEdit)
-from PyQt5.QtGui import QAbstractTextDocumentLayout, QTextDocument, QPalette
+from qgis.PyQt.QtGui import QAbstractTextDocumentLayout, QTextDocument, QPalette
 
 from tuflow.gui.widgets.checkable_combobox import CheckableComboBox
+
+
+
+from ...compatibility_routines import QT_STYLE_STATE_SELECTED, QT_ITEM_DATA_DISPLAY_ROLE, QT_ITEM_DATA_EDIT_ROLE, QT_PALETTE_TEXT
 
 
 class RichTextDelegate(QStyledItemDelegate):
@@ -21,11 +25,11 @@ class RichTextDelegate(QStyledItemDelegate):
 
         # Adjust the text document's layout to fit the cell
         option = QStyleOptionViewItem(option)
-        option.text = str(index.model().data(index, Qt.DisplayRole))
+        option.text = str(index.model().data(index, QT_ITEM_DATA_DISPLAY_ROLE))
         doc.setTextWidth(option.rect.width())
 
         # Draw the background
-        if option.state & QStyle.State_Selected:
+        if option.state & QT_STYLE_STATE_SELECTED:
             painter.fillRect(option.rect, option.palette.highlight())
 
         # Calculate the vertical position to center the text
@@ -37,8 +41,8 @@ class RichTextDelegate(QStyledItemDelegate):
 
         # Render the text document
         ctx = QAbstractTextDocumentLayout.PaintContext()
-        if option.state & QStyle.State_Selected:
-            ctx.palette.setColor(QPalette.Text, option.palette.highlightedText().color())
+        if option.state & QT_STYLE_STATE_SELECTED:
+            ctx.palette.setColor(QT_PALETTE_TEXT, option.palette.highlightedText().color())
         doc.documentLayout().draw(painter, ctx)
 
         painter.restore()
@@ -87,7 +91,7 @@ class ComboBoxDelegate(RichTextDelegate):
         if index.column() != -1 and index.column() != self.col_idx:
             super().setEditorData(editor, index)
             return
-        txt = index.model().data(index, Qt.EditRole)
+        txt = index.model().data(index, QT_ITEM_DATA_EDIT_ROLE)
         if txt is None:
             txt = ''
         if type(txt) is float:
@@ -105,7 +109,7 @@ class ComboBoxDelegate(RichTextDelegate):
         txt = editor.currentText()
         if txt not in self.items:
             txt = self.prev_val
-        model.setData(index, txt, Qt.EditRole)
+        model.setData(index, txt, QT_ITEM_DATA_EDIT_ROLE)
 
     def updateEditorGeometry(self, editor, option, index):
         super().updateEditorGeometry(editor, option, index)
@@ -138,7 +142,7 @@ class MultiComboBoxDelegate(ComboBoxDelegate):
         if index.column() != -1 and index.column() != self.col_idx:
             super().setEditorData(editor, index)
             return
-        txt = index.model().data(index, Qt.EditRole)
+        txt = index.model().data(index, QT_ITEM_DATA_EDIT_ROLE)
         if txt is None:
             txt = ''
         checked_items = [x.strip() for x in txt.split(',')]
@@ -149,7 +153,7 @@ class MultiComboBoxDelegate(ComboBoxDelegate):
             super().setModelData(editor, model, index)
             return
         txt = ', '.join([x for x in editor.checkedItems()])
-        model.setData(index, txt, Qt.EditRole)
+        model.setData(index, txt, QT_ITEM_DATA_EDIT_ROLE)
 
 
 class SpinBoxDelegate(RichTextDelegate):
@@ -176,7 +180,7 @@ class SpinBoxDelegate(RichTextDelegate):
             super().setEditorData(editor, index)
             return
         try:
-            value = int(index.model().data(index, Qt.EditRole))
+            value = int(index.model().data(index, QT_ITEM_DATA_EDIT_ROLE))
         except ValueError:
             value = 0
         except TypeError:
@@ -189,7 +193,7 @@ class SpinBoxDelegate(RichTextDelegate):
             return
         editor.interpretText()
         value = str(editor.value())
-        model.setData(index, value, Qt.EditRole)
+        model.setData(index, value, QT_ITEM_DATA_EDIT_ROLE)
 
     def updateEditorGeometry(self, editor, option, index):
         super().updateEditorGeometry(editor, option, index)
@@ -218,7 +222,7 @@ class DoubleSpinBoxDelegate(SpinBoxDelegate):
             super().setEditorData(editor, index)
             return
         try:
-            value = float(index.model().data(index, Qt.EditRole))
+            value = float(index.model().data(index, QT_ITEM_DATA_EDIT_ROLE))
         except ValueError:
             value = 0.
         except TypeError:
@@ -231,7 +235,7 @@ class DoubleSpinBoxDelegate(SpinBoxDelegate):
             return
         editor.interpretText()
         value = '{0:.{1}f}'.format(editor.value(), self.decimals)
-        model.setData(index, value, Qt.EditRole)
+        model.setData(index, value, QT_ITEM_DATA_EDIT_ROLE)
 
     def createEditor(self, parent, option, index):
         if index.column() != -1 and index.column() != self.col_idx:
@@ -262,7 +266,7 @@ class CRSDelegate(RichTextDelegate):
         if index.column() != -1 and index.column() != self.col_idx:
             super().setEditorData(editor, index)
             return
-        txt = index.model().data(index, Qt.EditRole)
+        txt = index.model().data(index, QT_ITEM_DATA_EDIT_ROLE)
         if ' - ' in txt:
             authid, desc = txt.split(' - ')
             crs = QgsCoordinateReferenceSystem(authid)
@@ -274,7 +278,7 @@ class CRSDelegate(RichTextDelegate):
             return
         crs = editor.crs()
         txt = f'{crs.authid()} - {crs.description()}'
-        model.setData(index, txt, Qt.EditRole)
+        model.setData(index, txt, QT_ITEM_DATA_EDIT_ROLE)
 
     def updateEditorGeometry(self, editor, option, index):
         super().updateEditorGeometry(editor, option, index)

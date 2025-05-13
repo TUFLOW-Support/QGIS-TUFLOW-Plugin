@@ -1,9 +1,13 @@
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QAbstractItemView
+from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtWidgets import QTableWidget, QTableWidgetItem, QAbstractItemView
 
 from tuflow.bridge_editor.BridgeEditorTable import HeaderChannelTable
 from tuflow.gui.widgets.custom_delegates import (ComboBoxDelegate, RichTextDelegate, SpinBoxDelegate,
                                                  DoubleSpinBoxDelegate, CRSDelegate)
+
+
+
+from ...compatibility_routines import QT_ITEM_FLAG_ITEM_IS_ENABLED, QT_ABSTRACT_ITEM_VIEW_ALL_EDIT_TRIGGERS, QT_ABSTRACT_ITEM_VIEW_NO_SELECTION
 
 
 class SettingsTable(QTableWidget):
@@ -11,10 +15,10 @@ class SettingsTable(QTableWidget):
 
     def __init__(self, parent=None, row_params: dict = None) -> None:
         super().__init__(parent)
-        self.setEditTriggers(QAbstractItemView.AllEditTriggers)
+        self.setEditTriggers(QT_ABSTRACT_ITEM_VIEW_ALL_EDIT_TRIGGERS)
         self.setVerticalHeader(HeaderChannelTable())
         self.verticalHeader().setVisible(False)
-        self.setSelectionMode(QAbstractItemView.NoSelection)
+        self.setSelectionMode(QT_ABSTRACT_ITEM_VIEW_NO_SELECTION)
         self.setAlternatingRowColors(True)
         self.row_params = row_params
         self.row_widgets = [SettingsRow(parent, key, settings) for key, settings in row_params.items()]
@@ -29,12 +33,12 @@ class SettingsTable(QTableWidget):
             self.setItemDelegateForRow(i, row_widget.delegate())
             text = self.rich_text(f'<b>{row_widget.key}</b>')
             item = QTableWidgetItem(text)
-            item.setFlags(Qt.ItemIsEnabled)
+            item.setFlags(QT_ITEM_FLAG_ITEM_IS_ENABLED)
             self.setItem(i, 0, item)
             self.model().setData(self.model().index(i, 1), row_widget.default_value())
             comment = row_widget.settings.get('comment', '')
             item = QTableWidgetItem(comment)
-            item.setFlags(Qt.ItemIsEnabled)
+            item.setFlags(QT_ITEM_FLAG_ITEM_IS_ENABLED)
             self.setItem(i, 2, item)
 
         total_height = sum(self.rowHeight(i) for i in range(self.rowCount()))

@@ -6,7 +6,11 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from qgis.PyQt import QtCore, QtGui, QtWidgets
+
+
+from ..compatibility_routines import QT_SIZE_POLICY_MINIMUM_EXPANDING, QT_BUTTON_BOX_CANCEL, QT_SIZE_POLICY_EXPANDING, QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION, QT_SIZE_POLICY_MINIMUM, QT_BUTTON_BOX_OK, QT_HORIZONTAL
+
 
 class Ui_BatchPlotExport(object):
     def setupUi(self, BatchPlotExport):
@@ -39,8 +43,8 @@ class Ui_BatchPlotExport(object):
         self.verticalLayout.addWidget(self.rbSelectedFeatures)
         self.gridLayout.addWidget(self.groupBox, 10, 0, 1, 2)
         self.buttonBox = QtWidgets.QDialogButtonBox(BatchPlotExport)
-        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Ok)
+        self.buttonBox.setOrientation(QT_HORIZONTAL)
+        self.buttonBox.setStandardButtons(QT_BUTTON_BOX_CANCEL|QT_BUTTON_BOX_OK)
         self.buttonBox.setObjectName("buttonBox")
         self.gridLayout.addWidget(self.buttonBox, 16, 0, 1, 3)
         self.groupBox_2 = QtWidgets.QGroupBox(BatchPlotExport)
@@ -57,7 +61,7 @@ class Ui_BatchPlotExport(object):
         self.cbImageFormat = QtWidgets.QComboBox(self.groupBox_2)
         self.cbImageFormat.setObjectName("cbImageFormat")
         self.gridLayout_2.addWidget(self.cbImageFormat, 1, 1, 1, 1)
-        spacerItem = QtWidgets.QSpacerItem(150, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem = QtWidgets.QSpacerItem(150, 20, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM)
         self.gridLayout_2.addItem(spacerItem, 1, 2, 1, 1)
         self.gridLayout_2.setColumnStretch(0, 1)
         self.gridLayout_2.setColumnStretch(1, 10)
@@ -73,7 +77,7 @@ class Ui_BatchPlotExport(object):
         self.label_4 = QtWidgets.QLabel(BatchPlotExport)
         self.label_4.setObjectName("label_4")
         self.gridLayout.addWidget(self.label_4, 8, 0, 1, 2)
-        spacerItem1 = QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.MinimumExpanding)
+        spacerItem1 = QtWidgets.QSpacerItem(20, 20, QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_MINIMUM_EXPANDING)
         self.gridLayout.addItem(spacerItem1, 15, 0, 1, 2)
         self.cbGISLayer = QtWidgets.QComboBox(BatchPlotExport)
         self.cbGISLayer.setEditable(True)
@@ -91,7 +95,7 @@ class Ui_BatchPlotExport(object):
         self.textBrowser.setObjectName("textBrowser")
         self.gridLayout.addWidget(self.textBrowser, 0, 2, 16, 1)
         self.lwResultMesh = QtWidgets.QListWidget(BatchPlotExport)
-        self.lwResultMesh.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.lwResultMesh.setSelectionMode(QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION)
         self.lwResultMesh.setObjectName("lwResultMesh")
         self.gridLayout.addWidget(self.lwResultMesh, 5, 0, 1, 2)
         self.label = QtWidgets.QLabel(BatchPlotExport)
@@ -102,14 +106,14 @@ class Ui_BatchPlotExport(object):
         self.mcbResultTypes.setEditable(True)
         self.mcbResultTypes.setObjectName("mcbResultTypes")
         self.gridLayout.addWidget(self.mcbResultTypes, 7, 0, 1, 2)
-        spacerItem2 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem2 = QtWidgets.QSpacerItem(20, 40, QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_EXPANDING)
         self.gridLayout.addItem(spacerItem2, 17, 0, 1, 1)
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
         self.label_5 = QtWidgets.QLabel(BatchPlotExport)
         self.label_5.setObjectName("label_5")
         self.horizontalLayout_2.addWidget(self.label_5)
-        spacerItem3 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem3 = QtWidgets.QSpacerItem(40, 20, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM)
         self.horizontalLayout_2.addItem(spacerItem3)
         self.label_7 = QtWidgets.QLabel(BatchPlotExport)
         self.label_7.setObjectName("label_7")

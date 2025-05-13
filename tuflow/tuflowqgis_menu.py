@@ -22,7 +22,7 @@
 # import setuptools
 
 # Import the PyQt and QGIS libraries
-# from PyQt5.QtWidgets  import ( QMenu )
+# from qgis.PyQt.QtWidgets  import ( QMenu )
 
 # Import the code for the dialog
 from .tuflowqgis_dialog import *
@@ -84,11 +84,11 @@ if pyds:
         tmpdir = tempfile.mkdtemp(prefix='tuflow_refh2')
         shutil.copy(pyd, tmpdir)
         sys.path.append(tmpdir)
-        try:
-            from refh2 import Refh2Dock
-        except Exception as e:
-            refh2_errmsg = str(e)
-            Refh2Dock = None
+        # try:
+        from refh2 import Refh2Dock
+        # except Exception as e:
+        #     refh2_errmsg = str(e)
+        #     Refh2Dock = None
     else:
         refh2_errmsg = 'Unsupported Python version installed with QGIS for ReFH2 tool.\nSupported versions: Python 3.9, Python 3.12'
         Refh2Dock = None
@@ -136,6 +136,10 @@ sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\plugins\python\helpers\pydev')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\plugins\python-ce\helpers\pydev')
+
+
+
+from .compatibility_routines import QT_MESSAGE_BOX_CANCEL, QT_DOCK_WIDGET_AREA_RIGHT, QT_MESSAGE_BOX_YES, QT_TOOLBUTTIN_INSTANT_POPUP, QT_MESSAGE_BOX_NO, QT_DIALOG_TYPE, QT_DOCK_WIDGET_AREA_BOTTOM
 
 
 class tuflowqgis_menu:
@@ -199,7 +203,7 @@ class tuflowqgis_menu:
 
         # About Submenu
         self.about_menu = QMenu(QCoreApplication.translate("TUFLOW", "&About"))
-        self.iface.addPluginToMenu("&TUFLOW", self.about_menu.menuAction())
+        self.tuflowMenu.addMenu(self.about_menu)
 
         icon = QIcon(os.path.join(dir, "icons", "info.png"))
         self.about_action = QAction(icon, "About", self.iface.mainWindow())
@@ -225,7 +229,7 @@ class tuflowqgis_menu:
         self.about_menu.addAction(self.changelog_action)
 
         self.about_menu.addSeparator()
-        self.tuflow_downloads_page_action = QAction('&TUFLOW Downloads Webpage', self.iface.mainWindow())
+        self.tuflow_downloads_page_action = QAction('TUFLOW Downloads Webpage', self.iface.mainWindow())
         self.tuflow_downloads_page_action.triggered.connect(goto_tuflow_downloads)
         self.about_menu.addAction(self.tuflow_downloads_page_action)
         self.download_dev_version_action = QAction("Download Latest Development Version of TUFLOW Plugin",
@@ -235,7 +239,7 @@ class tuflowqgis_menu:
 
         # Editing Submenu
         self.editing_menu = QMenu(QCoreApplication.translate("TUFLOW", "&Editing"))
-        self.iface.addPluginToMenu("&TUFLOW", self.editing_menu.menuAction())
+        self.tuflowMenu.addMenu(self.editing_menu)
 
         # icon = QIcon(os.path.dirname(__file__) + "/icons/tuflow_increment_24px.png")
         # icon = QIcon(os.path.join(dir, "icons", "tuflow.png"))
@@ -289,7 +293,7 @@ class tuflowqgis_menu:
 
         # RUN Submenu
         self.run_menu = QMenu(QCoreApplication.translate("TUFLOW", "&Run"))
-        self.iface.addPluginToMenu("&TUFLOW", self.run_menu.menuAction())
+        self.tuflowMenu.addMenu(self.run_menu)
 
         icon = QIcon(os.path.join(dir, "icons", "Run_TUFLOW.png"))
         self.run_tuflow_action = QAction(icon, "Run TUFLOW Simulation", self.iface.mainWindow())
@@ -305,7 +309,7 @@ class tuflowqgis_menu:
 
         # CLEAR Submenu
         self.clear_menu = QMenu(QCoreApplication.translate("TUFLOW", "&Clear"))
-        self.iface.addPluginToMenu("&TUFLOW", self.clear_menu.menuAction())
+        self.tuflowMenu.addMenu(self.clear_menu)
         self.clearGlobalSettingsAction = QAction("Clear TUFLOW Global Settings", self.iface.mainWindow())
         self.clearProjectSettingsAction = QAction("Clear TUFLOW Project Settings", self.iface.mainWindow())
         self.removeTuviewAction = QAction("Close TUFLOW Viewer Completely", self.iface.mainWindow())
@@ -326,21 +330,21 @@ class tuflowqgis_menu:
         self.reload_data_action = QAction(icon, "Reload Data", self.iface.mainWindow())
         self.reload_data_action.triggered.connect(self.reload_data)
         self.iface.addToolBarIcon(self.reload_data_action)
-        self.iface.addPluginToMenu("&TUFLOW", self.reload_data_action)
+        self.tuflowMenu.addAction(self.reload_data_action)
 
         # TuPlot
         icon = QIcon(os.path.join(dir, "icons", "tuview.png"))
         self.view_results_action = QAction(icon, "TUFLOW Viewer", self.iface.mainWindow())
         self.view_results_action.triggered.connect(self.openResultsPlottingWindow)
         self.iface.addToolBarIcon(self.view_results_action)
-        self.iface.addPluginToMenu("&TUFLOW", self.view_results_action)
+        self.tuflowMenu.addAction(self.view_results_action)
 
         # Integrity Tool
         icon = QIcon(os.path.join(dir, "icons", "IntegrityTool.png"))
         self.integrity_tool_action = QAction(icon, "1D Integrity Tool", self.iface.mainWindow())
         self.integrity_tool_action.triggered.connect(self.integrityToolWindow)
         self.iface.addToolBarIcon(self.integrity_tool_action)
-        self.iface.addPluginToMenu("&TUFLOW", self.integrity_tool_action)
+        self.tuflowMenu.addAction(self.integrity_tool_action)
 
         # configure project in toolbar
         self.iface.addToolBarIcon(self.configure_tf_action)
@@ -361,10 +365,10 @@ class tuflowqgis_menu:
         # menu.addAction(archBridgeAction)
         # menu.addAction(clearSpanAction)
         # toolButton.setMenu(menu)
-        # toolButton.setPopupMode(QToolButton.InstantPopup)
+        # toolButton.setPopupMode(QT_TOOLBUTTIN_INSTANT_POPUP)
         # self.iface.addToolBarWidget(toolButton)
         self.iface.addToolBarIcon(self.archBridgeAction)
-        self.iface.addPluginToMenu("&TUFLOW", self.archBridgeAction)
+        self.tuflowMenu.addAction(self.archBridgeAction)
 
         # TuPLOT External Added ES 2017/11
         # icon = QIcon(os.path.dirname(__file__) + "/icons/TuPLOT_External.PNG")
@@ -380,17 +384,17 @@ class tuflowqgis_menu:
         # QObject.connect(self.import_empty_tf_action, SIGNAL("triggered()"), self.import_empty_tf)
         self.import_empty_tf_action.triggered.connect(self.import_empty_tf)
         self.iface.addToolBarIcon(self.import_empty_tf_action)
-        self.iface.addPluginToMenu("&TUFLOW", self.import_empty_tf_action)
+        self.tuflowMenu.addAction(self.import_empty_tf_action)
 
         # insert TUFLOW attributes to existing GIS layer
-        self.iface.addPluginToMenu("&TUFLOW", self.insert_TUFLOW_attributes_action)
+        self.tuflowMenu.addAction(self.insert_TUFLOW_attributes_action)
         self.iface.addToolBarIcon(self.insert_TUFLOW_attributes_action)
 
         # ES 2018/05 Load input files from TCF
         icon = QIcon(os.path.join(dir, "icons", "Load_from_TCF.PNG"))
         self.load_tuflowFiles_from_TCF_action = QAction(icon, "Load TUFLOW Layers from TCF", self.iface.mainWindow())
         self.load_tuflowFiles_from_TCF_action.triggered.connect(self.loadTuflowLayersFromTCF)
-        self.iface.addPluginToMenu("&TUFLOW", self.load_tuflowFiles_from_TCF_action)
+        self.tuflowMenu.addAction(self.load_tuflowFiles_from_TCF_action)
         self.iface.addToolBarIcon(self.load_tuflowFiles_from_TCF_action)
 
         # ES 2019/01 Filter and Sort TUFLOW Layers in Map Window
@@ -398,7 +402,7 @@ class tuflowqgis_menu:
         self.filterAndSortLayersAction = QAction(icon, "Filter and Sort TUFLOW Layers in Map Window",
                                                  self.iface.mainWindow())
         self.filterAndSortLayersAction.triggered.connect(self.filterAndSortLayers)
-        self.iface.addPluginToMenu("&TUFLOW", self.filterAndSortLayersAction)
+        self.tuflowMenu.addAction(self.filterAndSortLayersAction)
         self.iface.addToolBarIcon(self.filterAndSortLayersAction)
 
         # Added MJS 24/11
@@ -407,7 +411,7 @@ class tuflowqgis_menu:
         # QObject.connect(self.increment_action, SIGNAL("triggered()"), self.increment_layer)
         self.increment_action.triggered.connect(self.increment_layer)
         self.iface.addToolBarIcon(self.increment_action)
-        self.iface.addPluginToMenu("&TUFLOW", self.increment_action)
+        self.tuflowMenu.addAction(self.increment_action)
 
         # Added MJS 11/02
         icon = QIcon(os.path.join(dir, "icons", "check_files_folder.png"))
@@ -415,7 +419,7 @@ class tuflowqgis_menu:
         # QObject.connect(self.import_chk_action, SIGNAL("triggered()"), self.import_check)
         self.import_chk_action.triggered.connect(self.import_check)
         self.iface.addToolBarIcon(self.import_chk_action)
-        self.iface.addPluginToMenu("&TUFLOW", self.import_chk_action)
+        self.tuflowMenu.addAction(self.import_chk_action)
 
         # PAR 2016/02/12
         icon = QIcon(os.path.join(dir, "icons", "check_files_open.png"))
@@ -423,7 +427,7 @@ class tuflowqgis_menu:
         # Object.connect(self.apply_chk_action, SIGNAL("triggered()"), self.apply_check)
         self.apply_chk_action.triggered.connect(self.apply_check)
         self.iface.addToolBarIcon(self.apply_chk_action)
-        self.iface.addPluginToMenu("&TUFLOW", self.apply_chk_action)
+        self.iface.addToolBarIcon(self.apply_chk_action)
 
         # PAR 2016/02/15
         icon = QIcon(os.path.join(dir, "icons", "check_files_currentlayer.png"))
@@ -454,7 +458,7 @@ class tuflowqgis_menu:
         # menu.addAction(self.apply_chk_cLayer_action)
         # menu.addAction(self.apply_stability_style_clayer_action)
         # self.toolButton.setMenu(menu)
-        # self.toolButton.setPopupMode(QToolButton.InstantPopup)
+        # self.toolButton.setPopupMode(QT_TOOLBUTTIN_INSTANT_POPUP)
         # self.iface.addToolBarWidget(self.toolButton)
 
         if spatial_database_option:
@@ -487,28 +491,28 @@ class tuflowqgis_menu:
         self.extract_arr2016_action = QAction(icon, "Extract ARR2019 for TUFLOW", self.iface.mainWindow())
         # QObject.connect(self.extract_arr2016_action, SIGNAL("triggered()"), self.extract_arr2016)
         self.extract_arr2016_action.triggered.connect(self.extract_arr2016)
-        self.iface.addPluginToMenu("&TUFLOW", self.extract_arr2016_action)
+        self.tuflowMenu.addAction(self.extract_arr2016_action)
         self.iface.addToolBarIcon(self.extract_arr2016_action)
 
         # ReFH2
         icon = QIcon(os.path.join(dir, "icons", "ReFH2icon.png"))
         self.extractRefh2Action = QAction(icon, "Extract ReFH 2 for TUFLOW", self.iface.mainWindow())
         self.extractRefh2Action.triggered.connect(self.extractRefh2)
-        self.iface.addPluginToMenu("&TUFLOW", self.extractRefh2Action)
+        self.tuflowMenu.addAction(self.extractRefh2Action)
         self.iface.addToolBarIcon(self.extractRefh2Action)
 
         # SCS
         icon = QIcon(os.path.join(dir, "icons", "CNicon.png"))
         self.extractSCSAction = QAction(icon, "Extract SCS for TUFLOW (beta)", self.iface.mainWindow())
         self.extractSCSAction.triggered.connect(self.extractSCS)
-        self.iface.addPluginToMenu("&TUFLOW", self.extractSCSAction)
+        self.tuflowMenu.addAction(self.extractSCSAction)
         self.iface.addToolBarIcon(self.extractSCSAction)
 
         # ES 2019/01 TUFLOW Utilities
         icon = QgsApplication.getThemeIcon('mActionTerminal.svg')
         self.tuflowUtilitiesAction = QAction(icon, "TUFLOW Utilities", self.iface.mainWindow())
         self.tuflowUtilitiesAction.triggered.connect(self.tuflowUtilities)
-        self.iface.addPluginToMenu("&TUFLOW", self.tuflowUtilitiesAction)
+        self.tuflowMenu.addAction(self.tuflowUtilitiesAction)
         self.iface.addToolBarIcon(self.tuflowUtilitiesAction)
 
         # Init classes variables
@@ -539,7 +543,7 @@ class tuflowqgis_menu:
         self.swanMenu.addAction(self.processingAction)
         self.swanAction = QAction("SWAN GIS Tools (beta)", self.iface.mainWindow())
         self.swanAction.setMenu(self.swanMenu)
-        self.iface.addPluginToMenu('&TUFLOW', self.swanAction)
+        self.tuflowMenu.addAction(self.swanAction)
         QgsProject.instance().cleared.connect(self.clearBuilderUI)
 
     def unload(self):
@@ -623,47 +627,47 @@ class tuflowqgis_menu:
     def configure_tf(self):
         project = QgsProject.instance()
         dialog = tuflowqgis_configure_tf_dialog(self.iface, project, self.iface.mainWindow())
-        dialog.exec_()
+        dialog.exec()
 
     def create_tf_dir(self):
         project = QgsProject.instance()
         dialog = tuflowqgis_create_tf_dir_dialog(self.iface, project)
-        dialog.exec_()
+        dialog.exec()
 
     def import_empty_tf(self):
         project = QgsProject.instance()
         dialog = tuflowqgis_import_empty_tf_dialog(self.iface, project)
-        dialog.exec_()
+        dialog.exec()
 
     def increment_layer(self):
         dialog = tuflowqgis_increment_dialog(self.iface)
-        dialog.exec_()
+        dialog.exec()
 
     def flow_trace(self):
         dialog = tuflowqgis_flowtrace_dialog(self.iface)
-        dialog.exec_()
+        dialog.exec()
 
     def points_to_lines(self):
         # QMessageBox.information(self.iface.mainWindow(), "debug", "points to lines")
         dialog = tuflowqgis_line_from_points(self.iface)
-        dialog.exec_()
+        dialog.exec()
 
     def split_MI(self):
         # QMessageBox.information(self.iface.mainWindow(), "debug", "points to lines")
         dialog = tuflowqgis_splitMI_dialog(self.iface)
-        dialog.exec_()
+        dialog.exec()
 
     def split_MI_folder(self):
         # QMessageBox.information(self.iface.mainWindow(), "debug", "points to lines")
         QMessageBox.information(self.iface.mainWindow(), "debug", "starting")
         dialog = tuflowqgis_splitMI_folder_dialog(self.iface)
-        dialog.exec_()
+        dialog.exec()
 
     #### external viewer interface
     #	def results_1d_ext(self):
     #		if self.dockOpened == False:
     #			self.dock = TUFLOWifaceDock(self.iface)
-    #			self.iface.addDockWidget( Qt.RightDockWidgetArea, self.dock )
+    #			self.iface.addDockWidget( QT_DOCK_WIDGET_AREA_RIGHT, self.dock )
     #			self.dockOpened = True
 
     def openResultsPlottingWindow(self, showmessage=True):
@@ -675,8 +679,8 @@ class tuflowqgis_menu:
             elif showmessage:
                 bRedock = QMessageBox.question(self.iface.mainWindow(), "TUFLOW Viewer",
                                                "Would you like to redock TUFLOW Viewer?",
-                                               QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-                if bRedock == QMessageBox.Yes:
+                                               QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+                if bRedock == QT_MESSAGE_BOX_YES:
                     self.resultsPlottingDock.setFloating(False)
         else:
             try:
@@ -684,20 +688,20 @@ class tuflowqgis_menu:
                                                   reloadTuview=self.reloadTuviewAction)
             except:
                 self.resultsPlottingDock = TuView(self.iface)
-            dockArea = Qt.BottomDockWidgetArea
+            dockArea = QT_DOCK_WIDGET_AREA_BOTTOM
             isTabified = False
             tabifiedWith = []
             if QSettings().value("TUFLOW/tuview_defaultlayout", "previous_state") == "narrow" or \
                     (QSettings().value("TUFLOW/tuview_defaultlayout", "previous_state") == 'previous_state' and
                      QSettings().value("TUFLOW/tuview_previouslayout", "plot") == "narrow"):
-                dockArea = Qt.RightDockWidgetArea
+                dockArea = QT_DOCK_WIDGET_AREA_RIGHT
                 if QSettings().contains("TUFLOW/tuview_docklocation"):
-                    dockArea = QSettings().value("TUFLOW/tuview_docklocation", Qt.RightDockWidgetArea)
+                    dockArea = QSettings().value("TUFLOW/tuview_docklocation", QT_DOCK_WIDGET_AREA_RIGHT)
                     if type(dockArea) is str:
                         try:
                             dockArea = int(dockArea)
                         except ValueError:
-                            dockArea = Qt.RightDockWidgetArea
+                            dockArea = QT_DOCK_WIDGET_AREA_RIGHT
                 isTabified = QSettings().value("TUFLOW/tuview_isdocktabified", False)
                 if type(isTabified) is str:
                     try:
@@ -812,7 +816,7 @@ class tuflowqgis_menu:
     def run_tuflow(self):
         project = QgsProject.instance()
         dialog = tuflowqgis_run_tf_simple_dialog(self.iface, project)
-        dialog.exec_()
+        dialog.exec()
 
     def launch_runner(self):
         if sys.platform != 'win32':
@@ -847,7 +851,7 @@ class tuflowqgis_menu:
     def import_check(self):
         project = QgsProject.instance()
         dialog = tuflowqgis_import_check_dialog(self.iface, project)
-        dialog.exec_()
+        dialog.exec()
 
     def apply_check(self):
         error, message = tuflowqgis_apply_check_tf(self.iface)
@@ -883,12 +887,12 @@ class tuflowqgis_menu:
 
     def extract_arr2016(self):
         dialog = tuflowqgis_extract_arr2016_dialog(self.iface)
-        dialog.exec_()
+        dialog.exec()
 
     def insert_TUFLOW_attributes(self):
         project = QgsProject.instance()
         dialog = tuflowqgis_insert_tuflow_attributes_dialog(self.iface, project)
-        dialog.exec_()
+        dialog.exec()
 
     def apply_label_cLayer(self):
         error, message = tuflowqgis_apply_autoLabel_clayer(self.iface)
@@ -957,7 +961,7 @@ class tuflowqgis_menu:
                     self.dialog = tuflowqgis_scenarioSelection_dialog(self.iface, inFileName, scenarios, events)
                     if not old_method:
                         self.dialog.setOptionsVisible(True)
-                    self.dialog.exec_()
+                    self.dialog.exec()
                     if not self.dialog.status:
                         return
                     scenarios = self.dialog.scenarios[:]
@@ -973,7 +977,7 @@ class tuflowqgis_menu:
                 if old_method:
                     openGisFromTcf(inFileName, self.iface, scenarios, load_rasters)
                 else:
-                    self.prog_dialog = QWidget(self.iface.mainWindow(), Qt.Dialog)
+                    self.prog_dialog = QWidget(self.iface.mainWindow(), QT_DIALOG_TYPE)
                     self.prog_dialog.setWindowTitle('Loading Control File Layers')
                     self.prog_label = QLabel()
                     self.prog_bar = QProgressBar()
@@ -1045,18 +1049,18 @@ class tuflowqgis_menu:
 
     def filterAndSortLayers(self):
         self.filterSortLayerDialog = FilterSortLayersDialog(self.iface)
-        self.filterSortLayerDialog.exec_()
+        self.filterSortLayerDialog.exec()
 
     def tuflowUtilities(self):
         self.tuflowUtilitiesDialog = TuflowUtilitiesDialog(self.iface)
-        self.tuflowUtilitiesDialog.exec_()
+        self.tuflowUtilitiesDialog.exec()
 
     def archBrideEditor(self):
         if self.archBridgeDockOpen:
             self.archBridgeDock.show()
         else:
             self.archBridgeDock = ArchBridgeDock(self.iface)
-            self.iface.addDockWidget(Qt.RightDockWidgetArea, self.archBridgeDock)
+            self.iface.addDockWidget(QT_DOCK_WIDGET_AREA_RIGHT, self.archBridgeDock)
             self.archBridgeDockOpen = True
 
     def clearSpanBridgeEditor(self):
@@ -1067,7 +1071,7 @@ class tuflowqgis_menu:
             self.integrityTool.show()
         else:
             self.integrityTool = IntegrityToolDock(self.iface)
-            self.iface.addDockWidget(Qt.RightDockWidgetArea, self.integrityTool)
+            self.iface.addDockWidget(QT_DOCK_WIDGET_AREA_RIGHT, self.integrityTool)
             self.integrityToolOpened = True
 
     def extractRefh2(self):
@@ -1094,7 +1098,7 @@ class tuflowqgis_menu:
             # 	return
 
             self.refh2Dock = Refh2Dock(self.iface)
-            self.iface.addDockWidget(Qt.RightDockWidgetArea, self.refh2Dock)
+            self.iface.addDockWidget(QT_DOCK_WIDGET_AREA_RIGHT, self.refh2Dock)
             self.refh2DockOpen = True
 
     def extractSCS(self):
@@ -1102,7 +1106,7 @@ class tuflowqgis_menu:
             self.scsDock.show()
         else:
             self.scsDock = SCSDock(self.iface)
-            self.iface.addDockWidget(Qt.RightDockWidgetArea, self.scsDock)
+            self.iface.addDockWidget(QT_DOCK_WIDGET_AREA_RIGHT, self.scsDock)
             self.scsDockOpen = True
 
     # swangis
@@ -1110,7 +1114,7 @@ class tuflowqgis_menu:
         if swangisSupported:
             if self.builderUI is None:
                 self.builderUI = BuilderUI()
-                self.iface.mainWindow().addDockWidget(Qt.RightDockWidgetArea, self.builderUI.dockWidget)
+                self.iface.mainWindow().addDockWidget(QT_DOCK_WIDGET_AREA_RIGHT, self.builderUI.dockWidget)
             else:
                 self.builderUI.dockWidget.setVisible(True)
         else:
@@ -1123,7 +1127,7 @@ class tuflowqgis_menu:
         if swangisSupported:
             if self.processingUI is None:
                 self.processingUI = PostProcessingUI()
-                self.iface.mainWindow().addDockWidget(Qt.RightDockWidgetArea, self.processingUI.dockWidget)
+                self.iface.mainWindow().addDockWidget(QT_DOCK_WIDGET_AREA_RIGHT, self.processingUI.dockWidget)
             else:
                 self.processingUI.dockWidget.setVisible(True)
         else:

@@ -4,9 +4,9 @@ from qgis.core import (QgsApplication, QgsMapLayer, QgsVectorLayer,
                        QgsProject, QgsWkbTypes, QgsUnitTypes)
 import processing
 from qgis.gui import QgisInterface
-from PyQt5.QtCore import *
-from PyQt5.QtGui import QIcon, QRegExpValidator, QPalette
-from PyQt5.QtWidgets import (QDockWidget, QLineEdit, QFileDialog,
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import QIcon, QPalette
+from qgis.PyQt.QtWidgets import (QDockWidget, QLineEdit, QFileDialog,
                              QComboBox, QMessageBox, QLabel)
 from ..forms.scs_dock import Ui_scs
 from .engine import SCS

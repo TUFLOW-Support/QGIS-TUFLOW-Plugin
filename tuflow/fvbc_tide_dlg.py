@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QDialog
+from qgis.PyQt.QtWidgets import QDialog
 
 from tuflow.forms.fv_bc_tide_nc import Ui_ImportFVBCTideDlg
 from tuflow.tuflowqgis_library import browse

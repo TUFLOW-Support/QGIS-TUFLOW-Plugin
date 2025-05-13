@@ -1,7 +1,7 @@
 import os
 import sys
 import re
-from PyQt5.QtGui import QIcon
+from qgis.PyQt.QtGui import QIcon
 from qgis._core import Qgis, QgsMessageLog
 from qgis.core import QgsProcessingProvider
 from pathlib import Path

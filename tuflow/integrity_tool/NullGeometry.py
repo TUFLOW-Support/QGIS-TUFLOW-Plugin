@@ -1,6 +1,6 @@
 import re
-from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtWidgets import QDialog
+from qgis.PyQt.QtCore import QObject, pyqtSignal
+from qgis.PyQt.QtWidgets import QDialog
 from qgis.core import QgsVectorLayer, NULL, QgsWkbTypes, QgsProject, QgsFeature
 from ..forms.ui_NullGeometryDialog import Ui_NullGeometryConfirmation
 

@@ -1,8 +1,8 @@
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
-from PyQt5.QtWidgets  import *
+from qgis.PyQt.QtWidgets  import *
 from ..dataset_menu import DatasetMenu, DatasetMenuDepAv
 import sys
 import os
@@ -18,6 +18,8 @@ from .tuflowqgis_tumenufunctions import TuMenuFunctions
 from .tuflowqgis_tuplottoolbar_viewtoolbar import ViewToolbar
 from ..spinbox_action import SingleSpinBoxAction, DoubleSpinBoxAction
 import numpy as np
+
+from ..compatibility_routines import is_qt6
 
 
 
@@ -386,7 +388,10 @@ class TuPlotToolbar():
 
 		if menu is not None:
 			if isinstance(menu, QAction):
-				menu = menu.parentWidget()
+				if is_qt6:
+					menu = menu.parent()
+				else:
+					menu = menu.parentWidget()
 
 			action = QAction(type, menu)
 			action.setCheckable(True)
@@ -436,7 +441,10 @@ class TuPlotToolbar():
 
 		menu = self.plotDataToPlotMenu[dataType]
 		if isinstance(menu, QAction):
-			menu = menu.parentWidget()
+			if is_qt6:
+				menu = menu.parent()
+			else:
+				menu = menu.parentWidget()
 		elif isinstance(menu, QToolButton):
 			return True
 
@@ -448,7 +456,10 @@ class TuPlotToolbar():
 
 		menu = self.plotDataToPlotMenu[dataType]
 		if isinstance(menu, QAction):
-			menu = menu.parentWidget()
+			if is_qt6:
+				menu = menu.parent()
+			else:
+				menu = menu.parentWidget()
 		elif isinstance(menu, QToolButton):
 			return True
 
@@ -518,8 +529,14 @@ class TuPlotToolbar():
 			                             value=(0, -10))
 
 		items = []
-		while parentMenu.parentWidget() is not None:
-			parentMenu = parentMenu.parentWidget()
+		while True:
+			if is_qt6:
+				parentMenu0 = parentMenu.parent()
+			else:
+				parentMenu0 = parentMenu.parentWidget()
+			if parentMenu0 is None:
+				break
+			parentMenu = parentMenu0
 		if isinstance(parentMenu, QMenu):
 			if 'time series' in parentMenu.menuAction().text().lower():
 				items = self.getItemsFromPlotOptions(TuPlot.DataTimeSeries2D, 'data type')
@@ -681,7 +698,10 @@ class TuPlotToolbar():
 		# if groupMetadata.maximumVerticalLevelsCount() < 2: return [None]
 
 		if dataType == TuPlot.DataTimeSeriesDepAv or dataType == TuPlot.DataCrossSectionDepAv:
-			menu = self.plotDataToPlotMenu[dataType].parentWidget()
+			if isinstance(self.plotDataToPlotMenu[dataType], (QAction, QWidgetAction)) and is_qt6:
+				menu = self.plotDataToPlotMenu[dataType].parent()
+			else:
+				menu = self.plotDataToPlotMenu[dataType].parentWidget()
 		else:
 			return [None]
 
@@ -703,7 +723,10 @@ class TuPlotToolbar():
 			return [None]
 
 	def getAveragingParameters(self, dataType, averagingMethod):
-		menu = self.plotDataToPlotMenu[dataType].parentWidget()
+		if isinstance(self.plotDataToPlotMenu[dataType], (QAction, QWidgetAction)) and is_qt6:
+			menu = self.plotDataToPlotMenu[dataType].parent()
+		else:
+			menu = self.plotDataToPlotMenu[dataType].parentWidget()
 
 		for action in menu.actions():
 			if action.text() in averagingMethod:

@@ -3,7 +3,7 @@ from json import JSONDecodeError
 import json
 from random import randrange
 
-from PyQt5.QtGui import QColor
+from qgis.PyQt.QtGui import QColor
 from qgis._core import QgsStyle
 from qgis.core import (QgsVectorLayer, QgsSymbol, QgsRendererCategory, QgsCategorizedSymbolRenderer, QgsWkbTypes,
                        QgsExpression, QgsExpressionContext, QgsExpressionContextUtils, Qgis, QgsGraduatedSymbolRenderer,

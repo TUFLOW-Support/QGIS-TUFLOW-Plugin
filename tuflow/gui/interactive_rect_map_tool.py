@@ -4,9 +4,13 @@ import numpy as np
 from qgis.core import Qgis, QgsGeometry, QgsPointXY, QgsRectangle
 from qgis.gui import QgsMapTool, QgsMapCanvas, QgsMapMouseEvent, QgsRubberBand, QgsVertexMarker
 
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtGui import QColor
+from qgis.PyQt.QtCore import Qt, pyqtSignal
+from qgis.PyQt.QtWidgets import QApplication
+from qgis.PyQt.QtGui import QColor
+
+
+
+from ..compatibility_routines import QT_CURSOR_SIZE_DIAG_B, QT_LEFT_BUTTON, QT_CURSOR_SIZE_DIAG_F, QT_CURSOR_SIZE_ALL, QT_CURSOR_SIZE_VER, QT_STYLE_DASHED_PEN, QT_CURSOR_CROSS, QT_CURSOR_SIZE_HOR, QT_TRANSPARENT, QT_BLACK
 
 
 def clamp_angle(angle):
@@ -115,7 +119,7 @@ class InteractiveRectMapTool(QgsMapTool):
     def canvasPressEvent(self, e: QgsMapMouseEvent) -> None:
         """Triggered when the mouse is pressed on the canvas."""
         super().canvasPressEvent(e)
-        if e.button() != Qt.LeftButton:
+        if e.button() != QT_LEFT_BUTTON:
             return
         p = e.mapPoint()
         self._mouse_is_down = True
@@ -133,7 +137,7 @@ class InteractiveRectMapTool(QgsMapTool):
     def canvasReleaseEvent(self, e: QgsMapMouseEvent) -> None:
         """Triggered when the mouse is released on the canvas."""
         super().canvasReleaseEvent(e)
-        if e.button() != Qt.LeftButton:
+        if e.button() != QT_LEFT_BUTTON:
             return
         self._mouse_is_down = False
         self._draw_mode = False
@@ -295,7 +299,7 @@ class InteractiveRectMapTool(QgsMapTool):
         # check if cursor is over centroid
         if self.geom_centre.geometry and cur.intersects(self.geom_centre.geometry):
             self._centroid_idx = 1
-            self.setCursor(Qt.SizeAllCursor)
+            self.setCursor(QT_CURSOR_SIZE_ALL)
             return
 
         # check if the cursor is on a domain corner
@@ -313,7 +317,7 @@ class InteractiveRectMapTool(QgsMapTool):
                     vec2 = np.array([p2_.x() - p1_.x(), p2_.y() - p1_.y()])
                     cos_theta = max(min(np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2)), 1.), -1.)
                     angle = np.degrees(np.arccos(cos_theta))
-                    cursor = Qt.SizeBDiagCursor if abs(angle) <= 45 or abs(angle) > 135 else Qt.SizeFDiagCursor
+                    cursor = QT_CURSOR_SIZE_DIAG_B if abs(angle) <= 45 or abs(angle) > 135 else QT_CURSOR_SIZE_DIAG_F
                     self.setCursor(cursor)
                     return
 
@@ -328,7 +332,7 @@ class InteractiveRectMapTool(QgsMapTool):
                     vec2 = np.array([p2_.x() - p1_.x(), p2_.y() - p1_.y()])
                     cos_theta = max(min(np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2)), 1.), -1.)
                     angle = np.degrees(np.arccos(cos_theta))
-                    cursor = Qt.SizeVerCursor if abs(angle) <= 45 or abs(angle) > 135 else Qt.SizeHorCursor
+                    cursor = QT_CURSOR_SIZE_VER if abs(angle) <= 45 or abs(angle) > 135 else QT_CURSOR_SIZE_HOR
                     self.setCursor(cursor)
                     return
 
@@ -351,11 +355,11 @@ class InteractiveRectMapTool(QgsMapTool):
                 vec2 = np.array([p2_.x() - p1_.x(), p2_.y() - p1_.y()])
                 cos_theta = max(min(np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2)), 1.), -1.)
                 angle = np.degrees(np.arccos(cos_theta))
-                cursor = Qt.SizeVerCursor if abs(angle) <= 45 or abs(angle) > 135 else Qt.SizeHorCursor
+                cursor = QT_CURSOR_SIZE_VER if abs(angle) <= 45 or abs(angle) > 135 else QT_CURSOR_SIZE_HOR
                 self.setCursor(cursor)
                 return
 
-        self.setCursor(Qt.CrossCursor)
+        self.setCursor(QT_CURSOR_CROSS)
 
 
 class RectDrawItem:
@@ -384,9 +388,9 @@ class RectDrawRubberBand(RectDrawItem):
     """Base class for drawing rubber-bands for the InteractiveRectMapTool."""
 
     DEFAULT_WIDTH = 2
-    DEFAULT_STYLE = Qt.DashLine
-    DEFAULT_COLOR = Qt.black
-    DEFAULT_FILL_COLOR = Qt.transparent
+    DEFAULT_STYLE = QT_STYLE_DASHED_PEN
+    DEFAULT_COLOR = QT_BLACK
+    DEFAULT_FILL_COLOR = QT_TRANSPARENT
     GEOMETRY = Qgis.GeometryType.Polygon
 
     def __init__(self, canvas: QgsMapCanvas, geometry: QgsGeometry, **styling):
@@ -440,7 +444,7 @@ class RectCentre(RectDrawItem):
         self.size = styling.get('size', 15)
         self.width = styling.get('width', 2)
         self.icon = styling.get('icon', QgsVertexMarker.ICON_CROSS)
-        self.color = styling.get('color', Qt.black)
+        self.color = styling.get('color', QT_BLACK)
         self.marker = QgsVertexMarker(canvas)
         self.marker.setColor(self.color)
         self.marker.setIconSize(self.size)

@@ -5,11 +5,13 @@ import subprocess
 import typing
 from pathlib import Path
 
+import numpy as np
 from qgis._core import QgsCoordinateReferenceSystem, QgsProject, QgsVectorLayer, QgsVectorFileWriter, \
     QgsCoordinateTransformContext
 
+from tuflow.tuflowqgis_library import get_driver_by_extension
 from .gdal_ import get_driver_name_from_extension
-from osgeo import gdal, osr
+from osgeo import gdal, osr, ogr
 from tuflow.tuflowqgis_settings import TF_Settings
 
 
@@ -196,7 +198,7 @@ class ProjectConfig:
             gis = 'shp'
         sep = os.sep
         if self.gis_template_type == 'db':
-            return f'{d[gis.lower()]} Projection == ..{sep}model{sep}gis{sep}{self.name}.{gis.lower()} >> projection'
+            return f'{d[gis.lower()]} Projection == ..{sep}model{sep}gis{sep}{self.name}_001.{gis.lower()} >> projection'
         else:
             return f'{d[gis.lower()]} Projection == ..{sep}model{sep}gis{sep}projection.{gis.lower()}'
 
@@ -224,7 +226,7 @@ class ProjectConfig:
         else:
             gis = self.gis_format.lower()
         if self.gis_template_type == 'db':
-            proj_file = gis_folder / f'{self.name}.{gis.lower()}'
+            proj_file = gis_folder / f'{self.name}_001.{gis.lower()}'
         else:
             proj_file = gis_folder / f'projection.{gis.lower()}'
         lyr = QgsVectorLayer(f'Point?crs={self.crs.authid()}&field=id:string', 'projection', 'memory')
@@ -246,7 +248,12 @@ class ProjectConfig:
             grid_folder.mkdir(parents=True, exist_ok=True)
         sr = osr.SpatialReference(self.crs.toWkt())
         tif = gdal.GetDriverByName('GTiff').Create(str(grid_folder / 'projection.tif'), 1, 1, 1, gdal.GDT_Float32)
+        tif.SetGeoTransform([0, 1, 0, 0, 0, -1])
         tif.SetSpatialRef(sr)
+        data = np.zeros((1, 1)).astype(np.float32)
+        band = tif.GetRasterBand(1)
+        band.WriteArray(data)
+        band.SetNoDataValue(-999)
         tif = None
 
     def create_hpc_empties(self) -> None:
@@ -474,3 +481,72 @@ class ProjectConfig:
             self._setup_hpc_templates(template_folder)
         if self.run_fv:
             self._setup_fv_templates(template_folder)
+
+    def create_domain_check_file(self, domain: str, crs_wkt: str) -> str:
+        """Creates a domain check file."""
+        checkfile = self.hpc_folder / 'check'/ f'create_project_2d_dom_check.{self.gis_format.lower()}'
+        if not checkfile.parent.exists():
+            checkfile.parent.mkdir(parents=True, exist_ok=True)
+
+        driver_name = get_driver_by_extension('vector', self.gis_format)
+        driver = ogr.GetDriverByName(driver_name)
+
+        e = ''
+        try:
+            if checkfile.exists():
+                ds = ogr.GetDriverByName(driver_name).Open(str(checkfile), 1)
+            else:
+                ds = ogr.GetDriverByName(driver_name).CreateDataSource(str(checkfile))
+        except (RuntimeError, UnboundLocalError) as e:
+            ds = None
+
+        if ds is None:
+            return f'ERROR: Unable to open/create domain check datasource: {e}'
+
+        sr = osr.SpatialReference(crs_wkt)
+
+        lyr = ds.GetLayer(checkfile.stem)
+        exists = lyr is not None
+        lyr = None
+        if exists:
+            ds.DeleteLayer(checkfile.stem)
+
+        lyr = ds.CreateLayer(checkfile.stem, sr, ogr.wkbPolygon)
+
+        if lyr is None:  # do it like this because old gdal versions returned None, newer versions raise exception
+            return f'ERROR: Unable to create domain check layer'
+
+        flds = [ogr.FieldDefn('Domain_Ind', ogr.OFTInteger), ogr.FieldDefn('Domain_Name', ogr.OFTString)]
+        for fld in flds:
+            lyr.CreateField(fld)
+
+        origin, angle, size = domain.split('--')
+        angle = float(angle)
+        origin_x, origin_y = [float(x) for x in origin.split(':')]
+        width, height = [float(x) for x in size.split(':')]
+
+        # create a rotated rectangle
+        a = np.array([[0., 0.], [width, 0.], [width, height], [0., height], [0., 0.]])
+        rot = np.array([[np.cos(np.radians(-angle)), -np.sin(np.radians(-angle))], [np.sin(np.radians(-angle)), np.cos(np.radians(-angle))]])
+        a = np.dot(a, rot) + np.array([origin_x, origin_y])
+
+        # create geometry from rotated rectangle
+        ring = ogr.Geometry(ogr.wkbLinearRing)
+        ring.AddPoint(a[0, 0], a[0, 1])
+        ring.AddPoint(a[1, 0], a[1, 1])
+        ring.AddPoint(a[2, 0], a[2, 1])
+        ring.AddPoint(a[3, 0], a[3, 1])
+        ring.AddPoint(a[0, 0], a[0, 1])
+        poly = ogr.Geometry(ogr.wkbPolygon)
+        poly.AddGeometry(ring)
+
+        # create feature
+        feat = ogr.Feature(lyr.GetLayerDefn())
+        feat.SetField('Domain_Ind', 1)
+        feat.SetField('Domain_Name', 'Domain_001')
+        feat.SetGeometry(poly)
+        lyr.CreateFeature(feat)
+
+        ds, lyr = None, None
+
+        return str(checkfile) if self.gis_format != 'GPKG' else f'{checkfile}|layername={checkfile.stem}'

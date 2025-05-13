@@ -6,4 +6,4 @@ description == Used for 2D flow constrictions to represent additional losses ass
 
 wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#TUFLOW_Geometry_Control_file_.28TGC.29
 
-manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/TwoD-Domains-1.html#tab:tab-LayeredFlow
+manual link == https://docs.tuflow.com/classic-hpc/manual/2025.0/TwoD-Domains-1.html#tab:tab-LayeredFlow

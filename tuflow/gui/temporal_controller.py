@@ -1,5 +1,12 @@
 from qgis.gui import QgisInterface
-from PyQt5.QtWidgets import QDockWidget, QToolButton, QAction, QDateTimeEdit, QDoubleSpinBox, QComboBox
+from qgis.PyQt.QtWidgets import QDockWidget, QToolButton, QDateTimeEdit, QDoubleSpinBox, QComboBox
+
+from ..compatibility_routines import is_qt6
+
+if is_qt6:
+    from qgis.PyQt.QtGui import QAction
+else:
+    from qgis.PyQt.QtWidgets import QAction
 
 
 def get_temporal_controller_dock(iface: QgisInterface) -> QDockWidget:

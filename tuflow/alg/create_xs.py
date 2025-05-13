@@ -1,7 +1,7 @@
 import os
 
 import numpy as np
-from PyQt5.QtCore import QVariant, QCoreApplication
+from qgis.PyQt.QtCore import QVariant, QCoreApplication
 from qgis._core import QgsProcessingContext
 from qgis.core import QgsProcessing
 from qgis.core import QgsProcessingAlgorithm

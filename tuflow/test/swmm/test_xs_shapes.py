@@ -1,7 +1,7 @@
 import math
 import unittest
 
-from tuflow.tuflow_swmm.xs_shapes import get_max_width, get_max_height, get_max_area
+from tuflow.tuflow_swmm.xs_shapes import get_max_width, get_max_height, get_max_area, get_xz_top
 
 
 class TestShapeMaxHeight(unittest.TestCase):
@@ -102,3 +102,19 @@ class TestShapeAreas(unittest.TestCase):
         # Checked for reasonableness (no separate calculation)
         area = get_max_area('ARCH', False, 3.0, 4.0, 0.0)
         self.assertAlmostEqual(area, 9.4548, places=2)
+
+
+class TestShapeXZTop(unittest.TestCase):
+    def test_arch_4_2(self):
+        lower_left = (10.0, 20.0)
+        x_arr, z_arr = get_xz_top('ARCH', False, lower_left, 2.0, 4.0)
+        # spot check some values
+        self.assertAlmostEqual(x_arr[4], 10.092, places=2)
+        self.assertAlmostEqual(z_arr[4], 20.444, places=2)
+
+    def test_ellipse_4_2(self):
+        lower_left = (10.0, 20.0)
+        x_arr, z_arr = get_xz_top('HORIZ_ELLIPSE', False, lower_left, 2.0, 4.0)
+        # spot check some values
+        self.assertAlmostEqual(x_arr[4], 10.130, places=2)
+        self.assertAlmostEqual(z_arr[4], 20.666, places=2)

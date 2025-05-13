@@ -4,7 +4,7 @@ from qgis.core import QgsProcessingParameterFile, Qgis, QgsProcessing, QgsSettin
 from qgis.gui import QgsProcessingGui
 from processing.gui.wrappers import FileWidgetWrapper, FileSelectionPanel
 
-from PyQt5.QtWidgets import QFileDialog
+from qgis.PyQt.QtWidgets import QFileDialog
 
 
 if Qgis.QGIS_VERSION_INT >= 33600:
@@ -31,9 +31,6 @@ class CustomFileSelectParameter(QgsProcessingParameterFile):
         self.dir_settings_key = dirSettingsKey
         self.setMetadata({'widget_wrapper': CustomFileWidgetWrapper})
 
-    def type(self):
-        return 'CustomFileSelectParameter'
-
     def typeName(self):
         return 'CustomFileSelectParameter'
 
@@ -51,7 +48,7 @@ class CustomFileWidgetWrapper(FileWidgetWrapper):
             return CustomFileSelectionPanel(
                 self.parameterDefinition().behavior() == QgsProcessingParameterFile.Behavior.Folder,
                 self.parameterDefinition().extension(),
-                self.param.dir_settings_key
+                self.parameterDefinition().dir_settings_key
             )
         else:
             return super().createWidget()
@@ -60,8 +57,8 @@ class CustomFileWidgetWrapper(FileWidgetWrapper):
         settings = QgsSettings()
         if os.path.isdir(os.path.dirname(self.combo.currentText())):
             path = os.path.dirname(self.combo.currentText())
-        if settings.contains(self.param.dir_settings_key):
-            path = settings.value(self.param.dir_settings_key)
+        if settings.contains(self.parameterDefinition().dir_settings_key):
+            path = settings.value(self.parameterDefinition().dir_settings_key)
         else:
             path = ''
 
@@ -77,7 +74,7 @@ class CustomFileWidgetWrapper(FileWidgetWrapper):
                                                                 filter)
         if filename:
             self.combo.setEditText(filename)
-            settings.setValue(self.param.dir_settings_key, filename)
+            settings.setValue(self.parameterDefinition().dir_settings_key, filename)
 
 
 class CustomFileSelectionPanel(FileSelectionPanel):

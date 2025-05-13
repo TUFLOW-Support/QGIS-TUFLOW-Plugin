@@ -4,4 +4,4 @@ command == Read GIS SA PO
 
 description == The SA PO option models seepage or infiltration based on a varying water level or flow rate elsewhere in the model.
 
-manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/Boundaries-InitialConditions-1.html#tab:tab-SA-PO
+manual link == https://docs.tuflow.com/classic-hpc/manual/2025.0/Boundaries-InitialConditions-1.html#FlowFeature-4

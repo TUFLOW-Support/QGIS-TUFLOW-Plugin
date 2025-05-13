@@ -16,7 +16,7 @@
  ***************************************************************************/
 """
 
-from PyQt5.QtCore import QSettings
+from qgis.PyQt.QtCore import QSettings
 from qgis.core import QgsProject
 
 class stored():

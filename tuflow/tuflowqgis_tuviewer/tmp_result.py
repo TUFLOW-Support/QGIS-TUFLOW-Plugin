@@ -2,9 +2,9 @@ import shutil
 from typing import TYPE_CHECKING
 import tempfile
 
-from PyQt5.QtWidgets import QMessageBox, QCheckBox, QWidget
+from qgis.PyQt.QtWidgets import QMessageBox, QCheckBox, QWidget
 
-from ..compatibility_routines import Path
+from ..compatibility_routines import QT_MESSAGE_BOX_YES, Path, QT_MESSAGE_BOX_QUESTION, QT_MESSAGE_BOX_NO
 from ..gui import Logging
 from ..utils import copy_file_with_progbar
 
@@ -50,17 +50,17 @@ class TmpResult:
     @staticmethod
     def ask_copy_res_dlg(parent: QWidget, options: 'TuOptions' = None) -> bool:
         """Create a dialog box to ask user if they want to create a temporary directory."""
-        dlg_ = QMessageBox(QMessageBox.Question,
+        dlg_ = QMessageBox(QT_MESSAGE_BOX_QUESTION,
                            'Copy Result',
                            'Do you want to create a temporary copy of the results before loading\n'
                            '(This is recommended only if loading results from a running simulation)',
-                           QMessageBox.Yes | QMessageBox.No,
+                           QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO,
                            parent)
         if options:
             cb = QCheckBox()
             cb.setText('Don\'t ask again (remember response)')
             dlg_.setCheckBox(cb)
-        res = dlg_.exec_() == QMessageBox.Yes
+        res = dlg_.exec() == QT_MESSAGE_BOX_YES
         if options and cb.isChecked():
             options.show_copy_mesh_dlg = False
             options.copy_mesh = res

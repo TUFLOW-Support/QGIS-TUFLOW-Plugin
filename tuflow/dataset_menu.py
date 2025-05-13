@@ -1,5 +1,7 @@
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 from .spinbox_action import SingleSpinBoxAction
+
+from .compatibility_routines import is_qt6
 
 
 
@@ -56,15 +58,23 @@ class DatasetMenuDepAv(DatasetMenu):
 
 	def addActionToSubMenus(self, action):
 		for a in self.actions():
-			if isinstance(a.parentWidget(), DatasetMenu):
-				for a2 in a.parentWidget().actions():
+			if is_qt6:
+				p = a.parent()
+			else:
+				p = a.parentWidget()
+			if isinstance(p, DatasetMenu):
+				for a2 in p.actions():
 					if isinstance(a2, SingleSpinBoxAction):
 						a2.cboAddItem(action.iconText())
 
 	def clearAllSubMenus(self):
 		for a in self.actions():
-			if isinstance(a.parentWidget(), DatasetMenu):
-				for a2 in a.parentWidget().actions():
+			if is_qt6:
+				p = a.parent()
+			else:
+				p = a.parentWidget()
+			if isinstance(p, DatasetMenu):
+				for a2 in p.actions():
 					if isinstance(a2, SingleSpinBoxAction):
 						a2.cboClear()
 
@@ -72,8 +82,12 @@ class DatasetMenuDepAv(DatasetMenu):
 		self.defaultItem = item
 		for a in self.actions():
 			if not a.isChecked():
-				if isinstance(a.parentWidget(), DatasetMenu):
-					for a2 in a.parentWidget().actions():
+				if is_qt6:
+					p = a.parent()
+				else:
+					p = a.parentWidget()
+				if isinstance(p, DatasetMenu):
+					for a2 in p.actions():
 						if isinstance(a2, SingleSpinBoxAction):
 							if a2.bCheckBox and a2.isChecked():
 								pass
@@ -83,9 +97,13 @@ class DatasetMenuDepAv(DatasetMenu):
 	def clearCheckedActions(self):
 		for a in self.actions():
 			a.setChecked(False)
-			if isinstance(a.parentWidget(), DatasetMenu):
+			if is_qt6:
+				p = a.parent()
+			else:
+				p = a.parentWidget()
+			if isinstance(p, DatasetMenu):
 				i = 0
-				for a2 in a.parentWidget().actions():
+				for a2 in p.actions():
 					if isinstance(a2, SingleSpinBoxAction):
 						a2.setChecked(False)
 						if i > 0:
@@ -99,8 +117,12 @@ class DatasetMenuDepAv(DatasetMenu):
 		for a in self.actions():
 			if a.isChecked():
 				counter = 0
-				if isinstance(a.parentWidget(), DatasetMenu):
-					for a2 in a.parentWidget().actions():
+				if is_qt6:
+					p = a.parent()
+				else:
+					p = a.parentWidget()
+				if isinstance(p, DatasetMenu):
+					for a2 in p.actions():
 						if isinstance(a2, SingleSpinBoxAction):
 							if a2.isChecked():
 								am = '{0}_{1}_'.format(a.text(), counter) if allDetails else ''
@@ -117,21 +139,25 @@ class DatasetMenuDepAv(DatasetMenu):
 		for a in self.actions():
 			if a.text() in ams:
 				a.setChecked(True)
-				if isinstance(a.parentWidget(), DatasetMenu):
+				if is_qt6:
+					p = a.parent()
+				else:
+					p = a.parentWidget()
+				if isinstance(p, DatasetMenu):
 					counter = 0
 					for i, am in enumerate(ams):
 						if am == a.text():
-							if counter == 0 or not a.parentWidget().actions():
-								if isinstance(a.parentWidget().actions()[0], SingleSpinBoxAction):
-									a2 = a.parentWidget().actions()[0]
+							if counter == 0 or not p.actions():
+								if isinstance(p.actions()[0], SingleSpinBoxAction):
+									a2 = p.actions()[0]
 								else:
 									a2 = act[i]
-									lastAction = a.parentWidget().actions()[-2]  # insert before separator
-									a.parentWidget().insertAction(lastAction, a2)
+									lastAction = p.actions()[-2]  # insert before separator
+									p.insertAction(lastAction, a2)
 							else:
 								a2 = act[i]
-								lastAction = a.parentWidget().actions()[-2]  # insert before separator
-								a.parentWidget().insertAction(lastAction, a2)
+								lastAction = p.actions()[-2]  # insert before separator
+								p.insertAction(lastAction, a2)
 							a2.setChecked(True)
 							a2.setValues(pms[i])
 							a2.cboSetValue(rts[i])
@@ -141,8 +167,12 @@ class DatasetMenuDepAv(DatasetMenu):
 		actions = []
 		for a in self.actions():
 			if a.isChecked():
-				if isinstance(a.parentWidget(), DatasetMenu):
-					for a2 in a.parentWidget().actions():
+				if is_qt6:
+					p = a.parent()
+				else:
+					p = a.parentWidget()
+				if isinstance(p, DatasetMenu):
+					for a2 in p.actions():
 						if isinstance(a2, SingleSpinBoxAction):
 							if a2.isChecked():
 								actions.append(a2.paramToText())
@@ -151,8 +181,12 @@ class DatasetMenuDepAv(DatasetMenu):
 	def resultTypes(self):
 		resultTypes = []
 		for a in self.actions():
-			if isinstance(a.parentWidget(), DatasetMenu):
-				for a2 in a.parentWidget().actions():
+			if is_qt6:
+				p = a.parent()
+			else:
+				p = a.parentWidget()
+			if isinstance(p, DatasetMenu):
+				for a2 in p.actions():
 					if isinstance(a2, SingleSpinBoxAction):
 						for i in range(a2.cbo.count()):
 							itemText = a2.cbo.itemText(i)

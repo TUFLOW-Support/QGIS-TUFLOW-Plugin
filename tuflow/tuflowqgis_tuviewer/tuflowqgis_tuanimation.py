@@ -7,14 +7,16 @@ import zipfile
 import subprocess
 import re
 from datetime import datetime, timedelta
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5.QtXml import QDomDocument
+from qgis.core import QgsApplication as qApp
+from qgis.PyQt.QtWidgets import *
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt.QtXml import QDomDocument
 from qgis.core import *
 from qgis.gui import *
-from PyQt5.QtNetwork import QNetworkRequest
+from qgis.PyQt.QtNetwork import QNetworkRequest
 from qgis.core import QgsNetworkAccessManager
+
 from ..forms.ui_animation_dialog import Ui_AnimationDialog
 from ..forms.animation_plot_properties import Ui_PlotProperties
 from ..forms.label_properties import Ui_textPropertiesDialog
@@ -42,6 +44,8 @@ from ..tuflowqgis_tuviewer.tuflowqgis_turesults2d import TuResults2D
 from ..tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 import requests
 from ..nc_grid_data_provider import NetCDFGrid
+
+from ..compatibility_routines import QT_HEADER_VIEW_RESIZE_TO_CONTENT, QT_MESSAGE_BOX_YES, QT_ALIGN_CENTER, QT_ALIGN_LEFT, QT_EVENT_LOOP_EXCLUDE_USER_INPUT_EVENTS, QT_ITEM_FLAG_ITEM_IS_SELECTABLE, QT_ALIGN_TOP, QT_MESSAGE_BOX_NO, QT_CUSTOM_CONTEXT_MENU, QT_IMAGE_FORMAT_ARGB32, QT_UNCHECKED, QT_NETWORK_REQUEST_HTTP_STATUS_CODE_ATTRIBUTE, is_qt6, QT_CHECKED, QT_CURSOR_WAIT, QT_ITEM_FLAG_ITEM_IS_USER_CHECKABLE, QT_BLACK, QT_ITEM_FLAG_ITEM_IS_ENABLED, QT_ITEM_DATA_DISPLAY_ROLE
 
 
 # http://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
@@ -85,7 +89,7 @@ def downloadBinPackage(packageUrl, destinationFileName):
 	# reply = QgsNetworkAccessManager.instance().get(request)
 	# evloop = QEventLoop()
 	# reply.finished.connect(evloop.quit)
-	# evloop.exec_(QEventLoop.ExcludeUserInputEvents)
+	# evloop.exec(QT_EVENT_LOOP_EXCLUDE_USER_INPUT_EVENTS)
 	# content_type = reply.rawHeader(b'Content-Type')
 	#if content_type == QByteArray().append('application/zip'):
 	# if content_type == b'application/zip':
@@ -99,7 +103,7 @@ def downloadBinPackage(packageUrl, destinationFileName):
 		destinationFile.write(bytearray(r.content))
 		destinationFile.close()
 	else:
-		# ret_code = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+		# ret_code = reply.attribute(QT_NETWORK_REQUEST_HTTP_STATUS_CODE_ATTRIBUTE)
 		raise IOError("{} {}".format(r.status_code, packageUrl))
 	
 	
@@ -114,7 +118,7 @@ def downloadFfmpeg(parent_widget=None):
 	# ffmpegUrl = downloadBaseUrl+'products/crayfish/viewer/binaries/'+findPlatformVersion()+'/extra/'+ffmpegZip
 	ffmpegUrl = '{0}{1}'.format(downloadBaseUrl, ffmpegZip)
 
-	qApp.setOverrideCursor(QCursor(Qt.WaitCursor))
+	qApp.setOverrideCursor(QCursor(QT_CURSOR_WAIT))
 	try:
 		# downloadBinPackage(ffmpegUrl, ffmpegZipPath)
 		downloader = DownloadBinPackage(ffmpegUrl, ffmpegZipPath, 'Downloading ffmpeg.exe. . . ')
@@ -666,7 +670,7 @@ def fix_legend(dialog, cfg, layout):
 							if 'legend' not in layoutcfg:
 								layoutcfg['legend'] = {}
 							layoutcfg['legend']['name'] = model.index2node(model.index(i, 0)).name()
-							layoutcfg['legend']['subname'] = model.layerOriginalLegendNodes(model.index2node(model.index(0, 0)))[0].data(Qt.DisplayRole)
+							layoutcfg['legend']['subname'] = model.layerOriginalLegendNodes(model.index2node(model.index(0, 0)))[0].data(QT_ITEM_DATA_DISPLAY_ROLE)
 							layoutcfg['legend']['different name'] = layer.name() != layoutcfg['legend']['name']
 							layoutcfg['legend']['needs to be updated'] = True
 							nodes = []
@@ -688,7 +692,7 @@ def fix_legend(dialog, cfg, layout):
 								if layoutcfg['legend']['different name']:
 									model.index2node(model.index(i, 0)).setName(layoutcfg['legend']['name'])
 								if model.layerOriginalLegendNodes(model.index2node(model.index(0, 0))):
-									model.layerOriginalLegendNodes(model.index2node(model.index(0, 0)))[0].setData(layoutcfg['legend']['subname'], Qt.DisplayRole)
+									model.layerOriginalLegendNodes(model.index2node(model.index(0, 0)))[0].setData(layoutcfg['legend']['subname'], QT_ITEM_DATA_DISPLAY_ROLE)
 			
 	
 	
@@ -923,8 +927,8 @@ def fix_legend_box_size(cfg, legend):
 	# call of the paint() function
 	w, h = cfg['img_size']
 	dpi = cfg['dpi']
-	image = QImage(w, h, QImage.Format_ARGB32)
-	image.setDevicePixelRatio(dpi)
+	image = QImage(int(w), int(h), QT_IMAGE_FORMAT_ARGB32)
+	image.setDevicePixelRatio(int(dpi))
 	p = QPainter(image)
 	s = QStyleOptionGraphicsItem()
 	legend.paint(p, s, None)
@@ -1083,8 +1087,8 @@ def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, 
 
 		set_composer_item_label(cTitle, layoutcfg['title'])
 		cTitle.setText(layoutcfg['title']['label'])
-		cTitle.setHAlign(Qt.AlignLeft)
-		cTitle.setVAlign(Qt.AlignTop)
+		cTitle.setHAlign(QT_ALIGN_LEFT)
+		cTitle.setVAlign(QT_ALIGN_TOP)
 		fix_label_box_size(layout, cTitle, layoutcfg)
 		set_item_pos(cTitle, layoutcfg['title']['position'], layout, margin)
 
@@ -1205,8 +1209,8 @@ def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, 
 				layout.addLayoutItem(graphicLabel)
 				
 				graphicLabel.setText(label)
-				graphicLabel.setHAlign(Qt.AlignCenter)
-				graphicLabel.setVAlign(Qt.AlignCenter)
+				graphicLabel.setHAlign(QT_ALIGN_CENTER)
+				graphicLabel.setVAlign(QT_ALIGN_CENTER)
 				set_composer_item_label(graphicLabel, layoutcfg['graphics'][graphic])
 				graphicLabel.adjustSizeToText()
 				graphicLabel.setReferencePoint(anchor)
@@ -1263,7 +1267,7 @@ def prepare_composition(layout, time, cfg, layoutcfg, extent, layers, crs, dir, 
 		path = os.path.join(path, 'svg', 'arrows', 'NorthArrow_02.svg')
 		cNorthArrow = QgsLayoutItemPicture(layout)
 		cNorthArrow.setId('north arrow')
-		cNorthArrow.setSvgFillColor(QColor(Qt.black))
+		cNorthArrow.setSvgFillColor(QColor(QT_BLACK))
 		cNorthArrow.setLinkedMap(layout_map)
 		cNorthArrow.setBackgroundEnabled(itemcfg['background'])
 		cNorthArrow.setBackgroundColor(itemcfg['background color'])
@@ -1409,8 +1413,8 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		self.tablePlots.horizontalHeader().setCascadingSectionResizes(True)
 		self.tableGraphics.horizontalHeader().setCascadingSectionResizes(True)
 		self.tableImages.horizontalHeader().setCascadingSectionResizes(True)
-		self.tableImages.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-		self.tablePlots.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+		self.tableImages.verticalHeader().setSectionResizeMode(QT_HEADER_VIEW_RESIZE_TO_CONTENT)
+		self.tablePlots.verticalHeader().setSectionResizeMode(QT_HEADER_VIEW_RESIZE_TO_CONTENT)
 		
 		total_width = 0
 		for i in range(self.tablePlots.columnCount()):
@@ -1629,7 +1633,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		font.setFamily(self.project.readEntry("TUFLOW", 'title_font_name', 'MS Shell Dlg 2')[0])
 		font.setPointSize(self.project.readNumEntry("TUFLOW", 'title_font_size', 9)[0])
 		font.setBold(self.project.readBoolEntry("TUFLOW", 'title_font_bold')[0])
-		font.setStyle(self.project.readNumEntry("TUFLOW", 'title_font_italic')[0])
+		font.setStyle(QFont.Style(self.project.readNumEntry("TUFLOW", 'title_font_italic')[0]))
 		font.setStrikeOut(self.project.readBoolEntry("TUFLOW", 'title_font_strikeout')[0])
 		font.setUnderline(self.project.readBoolEntry("TUFLOW", 'title_font_underline')[0])
 		self.fbtnTitle.setCurrentFont(font)
@@ -1653,7 +1657,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		font.setFamily(self.project.readEntry("TUFLOW", 'time_font_name', 'MS Shell Dlg 2')[0])
 		font.setPointSize(self.project.readNumEntry("TUFLOW", 'time_font_size', 9)[0])
 		font.setBold(self.project.readBoolEntry("TUFLOW", 'time_font_bold')[0])
-		font.setStyle(self.project.readNumEntry("TUFLOW", 'time_font_italic')[0])
+		font.setStyle(QFont.Style(self.project.readNumEntry("TUFLOW", 'time_font_italic')[0]))
 		font.setStrikeOut(self.project.readBoolEntry("TUFLOW", 'time_font_strikeout')[0])
 		font.setUnderline(self.project.readBoolEntry("TUFLOW", 'time_font_underline')[0])
 		self.fbtnTime.setCurrentFont(font)
@@ -1677,7 +1681,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		font.setFamily(self.project.readEntry("TUFLOW", 'legend_font_name', 'MS Shell Dlg 2')[0])
 		font.setPointSize(self.project.readNumEntry("TUFLOW", 'legend_font_size', 9)[0])
 		font.setBold(self.project.readBoolEntry("TUFLOW", 'legend_font_bold')[0])
-		font.setStyle(self.project.readNumEntry("TUFLOW", 'legend_font_italic')[0])
+		font.setStyle(QFont.Style(self.project.readNumEntry("TUFLOW", 'legend_font_italic')[0]))
 		font.setStrikeOut(self.project.readBoolEntry("TUFLOW", 'legend_font_strikeout')[0])
 		font.setUnderline(self.project.readBoolEntry("TUFLOW", 'legend_font_underline')[0])
 		self.fbtnLegend.setCurrentFont(font)
@@ -1766,7 +1770,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			font.setFamily(self.project.readEntry("TUFLOW", 'graphic_{0}_font_name'.format(i), 'MS Shell Dlg 2')[0])
 			font.setPointSize(self.project.readNumEntry("TUFLOW", 'graphic_{0}_font_size'.format(i), 9)[0])
 			font.setBold(self.project.readBoolEntry("TUFLOW", 'graphic_{0}_font_bold'.format(i))[0])
-			font.setStyle(self.project.readNumEntry("TUFLOW", 'graphic_{0}_font_italic'.format(i))[0])
+			font.setStyle(QFont.Style(self.project.readNumEntry("TUFLOW", 'graphic_{0}_font_italic'.format(i))[0]))
 			font.setStrikeOut(self.project.readBoolEntry("TUFLOW", 'graphic_{0}_font_strikeout'.format(i))[0])
 			font.setUnderline(self.project.readBoolEntry("TUFLOW", 'graphic_{0}_font_underline'.format(i))[0])
 			p.fntButton.setCurrentFont(font)
@@ -2029,11 +2033,11 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		
 		item1 = QTableWidgetItem(0)
 		item1.setText(label)
-		item1.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+		item1.setFlags(QT_ITEM_FLAG_ITEM_IS_USER_CHECKABLE | QT_ITEM_FLAG_ITEM_IS_SELECTABLE | QT_ITEM_FLAG_ITEM_IS_ENABLED)
 		if status:
-			item1.setCheckState(Qt.Checked)
+			item1.setCheckState(QT_CHECKED)
 		else:
-			item1.setCheckState(Qt.Unchecked)
+			item1.setCheckState(QT_UNCHECKED)
 		self.tableGraphics.setItem(rowNo, 0, item1)
 		
 		item2 = QTableWidgetItem(0)
@@ -2052,7 +2056,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		pb.setText('Text Properties')
 		dialog = TextPropertiesDialog()
 		self.rowNo2fntDialog[rowNo] = dialog
-		pb.clicked.connect(lambda: dialog.exec_())
+		pb.clicked.connect(lambda: dialog.exec())
 		self.tableGraphics.setCellWidget(rowNo, 3, pb)
 		
 		if rowNo == 0:
@@ -2331,7 +2335,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		if dialog is None:
 			dialog = ImagePropertiesDialog()
 		self.pbDialogsImage[pb] = dialog
-		pb.clicked.connect(lambda: dialog.exec_())
+		pb.clicked.connect(lambda: dialog.exec())
 		self.tableImages.setCellWidget(n, 2, pb)
 		if n == 0:
 			self.tableImages.setColumnWidth(1, self.tableImages.columnWidth(
@@ -2504,7 +2508,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		:return: None
 		"""
 		
-		self.tablePlots.verticalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+		self.tablePlots.verticalHeader().setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
 		self.tablePlots.verticalHeader().customContextMenuRequested.connect(self.plotTableMenu)
 	
 	def plotTableMenu(self, pos):
@@ -2544,7 +2548,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		:return: None
 		"""
 		
-		self.tableImages.verticalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+		self.tableImages.verticalHeader().setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
 		self.tableImages.verticalHeader().customContextMenuRequested.connect(self.imageTableMenu)
 	
 	def imageTableMenu(self, pos):
@@ -2738,14 +2742,14 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 					reply = QMessageBox.question(self,
 												 'Download FFmpeg',
 												 msg,
-												 QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+												 QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO, QT_MESSAGE_BOX_YES)
 				else:
 					reply = input(f'{msg}\n(Y/N)\n')
 					if reply.lower() == 'y':
-						reply = QMessageBox.Yes
+						reply = QT_MESSAGE_BOX_YES
 					else:
-						reply = QMessageBox.No
-				if reply != QMessageBox.Yes:
+						reply = QT_MESSAGE_BOX_NO
+				if reply != QT_MESSAGE_BOX_YES:
 					return
 
 				self.ffmpeg_bin = downloadFfmpeg(self)
@@ -2856,7 +2860,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		if not preview:
 			if self.tuView.iface is not None:
 				self.buttonBox.setEnabled(False)  # disable button box so users know something is happening
-				QApplication.setOverrideCursor(Qt.WaitCursor)
+				QApplication.setOverrideCursor(QT_CURSOR_WAIT)
 		
 		# save plot settings so line colours won't vary over time
 		#self.tuView.tuPlot.setNewPlotProperties(0)
@@ -3031,7 +3035,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			graphics = {}
 			for i in range(self.tableGraphics.rowCount()):
 				cb = self.tableGraphics.item(i, 0)
-				if cb.checkState() == Qt.Checked:
+				if cb.checkState() == QT_CHECKED:
 					graphicDict = {}
 					label = self.tableGraphics.item(i, 0)
 					graphic = self.label2graphic[label.text()]
@@ -3218,7 +3222,10 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		self.project.writeEntry("TUFLOW", 'title_font_name', self.fbtnTitle.currentFont().family())
 		self.project.writeEntry("TUFLOW", 'title_font_size', self.fbtnTitle.currentFont().pointSize())
 		self.project.writeEntry("TUFLOW", 'title_font_bold', self.fbtnTitle.currentFont().bold())
-		self.project.writeEntry("TUFLOW", 'title_font_italic', self.fbtnTitle.currentFont().style())
+		if is_qt6:
+			self.project.writeEntry("TUFLOW", 'title_font_italic', self.fbtnTitle.currentFont().style().value)
+		else:
+			self.project.writeEntry("TUFLOW", 'title_font_italic', self.fbtnTitle.currentFont().style())
 		self.project.writeEntry("TUFLOW", 'title_font_strikeout', self.fbtnTitle.currentFont().strikeOut())
 		self.project.writeEntry("TUFLOW", 'title_font_underline', self.fbtnTitle.currentFont().underline())
 		self.project.writeEntry("TUFLOW", 'title_font_color', self.colorTitleText.color().name())
@@ -3234,7 +3241,10 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		self.project.writeEntry("TUFLOW", 'time_font_name', self.fbtnTime.currentFont().family())
 		self.project.writeEntry("TUFLOW", 'time_font_size', self.fbtnTime.currentFont().pointSize())
 		self.project.writeEntry("TUFLOW", 'time_font_bold', self.fbtnTime.currentFont().bold())
-		self.project.writeEntry("TUFLOW", 'time_font_italic', self.fbtnTime.currentFont().style())
+		if is_qt6:
+			self.project.writeEntry("TUFLOW", 'time_font_italic', self.fbtnTime.currentFont().style().value)
+		else:
+			self.project.writeEntry("TUFLOW", 'time_font_italic', self.fbtnTime.currentFont().style())
 		self.project.writeEntry("TUFLOW", 'time_font_strikeout', self.fbtnTime.currentFont().strikeOut())
 		self.project.writeEntry("TUFLOW", 'time_font_underline', self.fbtnTime.currentFont().underline())
 		self.project.writeEntry("TUFLOW", 'time_font_color', self.colorTimeText.color().name())
@@ -3250,7 +3260,10 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 		self.project.writeEntry("TUFLOW", 'legend_font_name', self.fbtnLegend.currentFont().family())
 		self.project.writeEntry("TUFLOW", 'legend_font_size', self.fbtnLegend.currentFont().pointSize())
 		self.project.writeEntry("TUFLOW", 'legend_font_bold', self.fbtnLegend.currentFont().bold())
-		self.project.writeEntry("TUFLOW", 'legend_font_italic', self.fbtnLegend.currentFont().style())
+		if is_qt6:
+			self.project.writeEntry("TUFLOW", 'legend_font_italic', self.fbtnLegend.currentFont().style().value)
+		else:
+			self.project.writeEntry("TUFLOW", 'legend_font_italic', self.fbtnLegend.currentFont().style())
 		self.project.writeEntry("TUFLOW", 'legend_font_strikeout', self.fbtnLegend.currentFont().strikeOut())
 		self.project.writeEntry("TUFLOW", 'legend_font_underline', self.fbtnLegend.currentFont().underline())
 		self.project.writeEntry("TUFLOW", 'legend_font_color', self.colorLegendText.color().name())
@@ -3310,7 +3323,10 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			self.project.writeEntry("TUFLOW", 'graphic_{0}_font_name'.format(i), p.fntButton.currentFont().family())
 			self.project.writeEntry("TUFLOW", 'graphic_{0}_font_size'.format(i), p.fntButton.currentFont().pointSize())
 			self.project.writeEntry("TUFLOW", 'graphic_{0}_font_bold'.format(i), p.fntButton.currentFont().bold())
-			self.project.writeEntry("TUFLOW", 'graphic_{0}_font_italic'.format(i), p.fntButton.currentFont().style())
+			if is_qt6:
+				self.project.writeEntry("TUFLOW", 'graphic_{0}_font_italic'.format(i), p.fntButton.currentFont().style().value)
+			else:
+				self.project.writeEntry("TUFLOW", 'graphic_{0}_font_italic'.format(i), p.fntButton.currentFont().style())
 			self.project.writeEntry("TUFLOW", 'graphic_{0}_font_strikeout'.format(i), p.fntButton.currentFont().strikeOut())
 			self.project.writeEntry("TUFLOW", 'graphic_{0}_font_underline'.format(i), p.fntButton.currentFont().underline())
 			self.project.writeEntry("TUFLOW", 'graphic_{0}_font_color'.format(i), p.fntColor.color().name())
@@ -3430,7 +3446,7 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 			self.pbAutoCalcYLim.clicked.connect(lambda: self.setDefaults(self.animationDialog, self.cboPlotType, self.mcboPlotItems, 'not cross sections', static=False))
 			self.pbAutoCalcY2Lim.clicked.connect(lambda: self.setDefaults(self.animationDialog, self.cboPlotType, self.mcboPlotItems, 'not cross sections', static=False))
 
-		self.exec_()
+		self.exec()
 
 	def minmax_from_tv(self, axis):
 		from ..tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
@@ -3762,7 +3778,7 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 										ymax2 = max(ymax2, np.nanmax(y))
 							complete += 1 * animation.tuView.cboTime.count()
 							if maxProgress:
-								pComplete = complete / maxProgress * 100
+								pComplete = int(complete / maxProgress * 100)
 								if animation.iface is not None:
 									progress.setValue(pComplete)
 								else:
@@ -3799,7 +3815,7 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 										ymax = max(ymax, ymax_t)
 							complete += 1 * animation.tuView.cboTime.count()
 							if maxProgress:
-								pComplete = complete / maxProgress * 100
+								pComplete = int(complete / maxProgress * 100)
 								if animation.iface is not None:
 									progress.setValue(pComplete)
 								else:
@@ -3832,7 +3848,7 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 									xmax2 = max(xmax2, np.nanmax(x))
 							complete += 1 * animation.tuView.cboTime.count()
 							if maxProgress:
-								pComplete = complete / maxProgress * 100
+								pComplete = int(complete / maxProgress * 100)
 								if animation.iface is not None:
 									progress.setValue(pComplete)
 								else:
@@ -3855,7 +3871,7 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 									xmax = max(xmax, np.nanmax(x))
 							complete += 1 * animation.tuView.cboTime.count()
 							if maxProgress:
-								pComplete = complete / maxProgress * 100
+								pComplete = int(complete / maxProgress * 100)
 								if animation.iface is not None:
 									progress.setValue(pComplete)
 								else:
@@ -3967,7 +3983,7 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 												xmax = max(xmax, np.nanmax(x))
 									complete += 1
 									if maxProgress:
-										pComplete = complete / maxProgress * 100
+										pComplete = int(complete / maxProgress * 100)
 										if animation.iface is not None:
 											progress.setValue(pComplete)
 										else:
@@ -4016,7 +4032,7 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 												xmax = max(xmax, xmax_t)
 									complete += 1
 									if maxProgress:
-										pComplete = complete / maxProgress * 100
+										pComplete = int(complete / maxProgress * 100)
 										if animation.iface is not None:
 											progress.setValue(pComplete)
 										else:
@@ -4105,5 +4121,5 @@ class AxisLimitsMessage(QDialog, Ui_animationPlotLimitsWarning):
 	@staticmethod
 	def warning(parent):
 		dialog = AxisLimitsMessage(parent)
-		dialog.exec_()
+		dialog.exec()
 		return dialog.returnValue

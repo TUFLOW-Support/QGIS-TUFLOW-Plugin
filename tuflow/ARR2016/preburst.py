@@ -53,7 +53,7 @@ class ArrPreburst:
             The percentile to load. Can be 'median', 10, 25, 50, 75, 90
         """
         self.percentile = str(percentile).strip('%')
-        keytext = PREBURST_NAME.get(percentile, '[PREBURST]')
+        keytext = PREBURST_NAME.get(self.percentile, '[PREBURST]')
         try:
             self.data = DataBlock(fi, keytext, True)
             if self.data.empty():

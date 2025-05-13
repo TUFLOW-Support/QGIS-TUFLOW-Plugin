@@ -4,4 +4,4 @@ command == Read GIS SWMM Inlet Usage
 
 description == Used to define locations and attributes of inlets (pits) that connect the 2D TUFLOW and 1D SWMM models.
 
-manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/DomainLinking-1.html#tab:tab-SWMMinletusage
+manual link == https://docs.tuflow.com/classic-hpc/manual/2025.0/DomainLinking-1.html#tab:tab-SWMMinletusage

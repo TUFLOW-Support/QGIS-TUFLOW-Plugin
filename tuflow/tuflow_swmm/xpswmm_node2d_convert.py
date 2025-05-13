@@ -115,6 +115,7 @@ def xpswmm_2d_capture_to_swmm_gpd(
                                                                  crs,
                                                                  gdf_inlets,
                                                                  inlet_q_to_inlets_map)
+
         gdf_inlets_q['Type'] = 'CUSTOM'
         gdf_inlets_q['Custom_Curve'] = gdf_inlets_q['Name']
         gdf_inlets_q['geometry'] = None

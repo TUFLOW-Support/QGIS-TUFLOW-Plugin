@@ -1,7 +1,7 @@
 import sys
 from datetime import datetime
 
-from PyQt5.QtCore import QObject, pyqtSignal, QTimer, QThread, QSettings
+from qgis.PyQt.QtCore import QObject, pyqtSignal, QTimer, QThread, QSettings
 from qgis.core import QgsUnitTypes, NULL
 import numpy as np
 

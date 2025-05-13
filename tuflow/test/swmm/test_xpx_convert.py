@@ -98,6 +98,9 @@ class TestXpxToSwmmConvert(unittest.TestCase):
                                    str(tef_filename),
                                    crs)
 
+        gdf_out = gpd.read_file(intermediate_file, layer='Inlets--Inlets')
+        self.assertTrue(gdf_out['Curb_Throat'].dtype == object)
+
         # Happens in xpx_to_gpkg now
         # print('\n\nConverting to inp')
         # gis_to_swmm(lid_intermediate_file, lid_output_file)

@@ -11,11 +11,11 @@ from qgis.core import (QgsFeature,
                        )
 import pandas as pd
 
-from PyQt5.QtCore import QVariant
+from qgis.PyQt.QtCore import QVariant
 
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
-from tuflow.compatibility_routines import QT_STRING, QT_INT, QT_DOUBLE
+from tuflow.compatibility_routines import QT_DOUBLE, QT_STRING, QT_INT
 
 
 def remove_layer_joins(layer, feedback):

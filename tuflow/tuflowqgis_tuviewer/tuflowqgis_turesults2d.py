@@ -1,11 +1,11 @@
 import os
 import sys
 from datetime import datetime, timedelta
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 from qgis.PyQt.QtXml import QDomDocument
 from .tuflowqgis_turesultsindex import TuResultsIndex
 from ..tuflowqgis_library import loadSetting, roundSeconds, \
@@ -15,6 +15,10 @@ import re
 from .tmp_result import TmpResult
 from ..gui import Logging
 
+from ..compatibility_routines import QT_MESSAGE_BOX_ACCEPT_ROLE, QT_MESSAGE_BOX_REJECT_ROLE, QT_TIMESPEC_UTC, QT_MESSAGE_BOX_QUESTION
+
+
+from ..compatibility_routines import QT_MATCH_RECURSIVE
 
 
 class TuResults2D():
@@ -188,7 +192,7 @@ class TuResults2D():
 					names.append(self.tuView.OpenResults.item(i).text())
 			if name not in names:
 				self.tuView.OpenResults.addItem(name)  # add to widget
-			k = self.tuView.OpenResults.findItems(name, Qt.MatchRecursive)[0]
+			k = self.tuView.OpenResults.findItems(name, QT_MATCH_RECURSIVE)[0]
 			k.setSelected(True)
 			updated = self.updateActiveMeshLayers()  # update list of active mesh layers
 			if not updated:
@@ -386,7 +390,7 @@ class TuResults2D():
 		dp = layer.dataProvider()  # QgsMeshDataProvider
 		if self.tuView.OpenResults.count() == 0:
 			self.tuView.tuOptions.zeroTime = datetime2timespec(self.getReferenceTime(layer),
-			                                                   1, self.tuView.tuResults.timeSpec)
+			                                                   QT_TIMESPEC_UTC, self.tuView.tuResults.timeSpec)
 			if qv >= 31300:
 				if self.iface is not None:
 					self.tuView.tuOptions.timeSpec = self.iface.mapCanvas().temporalRange().begin().timeSpec()
@@ -641,7 +645,7 @@ class TuResults2D():
 
 				if qv >= 31300:
 					# date_tspec = datetime2timespec(date, self.tuView.tuResults.loadedTimeSpec, 1)
-					date_tspec = datetime2timespec(date, self.tuView.tuResults.loadedTimeSpec, 1)
+					date_tspec = datetime2timespec(date, self.tuView.tuResults.loadedTimeSpec, QT_TIMESPEC_UTC)
 				else:
 					date_tspec = date
 				self.tuView.tuResults.timekey2date_tspec['{0:.6f}'.format(t)] = date_tspec
@@ -802,12 +806,12 @@ class TuResults2D():
 			btn1.setText("Special Times")
 			btn2 = QPushButton()
 			btn2.setText("Skip")
-			msg = QMessageBox(QMessageBox.Question, "Special Times", "Found potential special times in results. "
+			msg = QMessageBox(QT_MESSAGE_BOX_QUESTION, "Special Times", "Found potential special times in results. "
 			                                                         "Would you like TUFLOW Viewer to interpret these "
 			                                                         "as special times or leave as is?:"
 			                                                         "\n{0}-> {1}\n".format(time, specialName))
-			msg.addButton(btn1, QMessageBox.AcceptRole)
-			msg.addButton(btn2, QMessageBox.RejectRole)
+			msg.addButton(btn1, QT_MESSAGE_BOX_ACCEPT_ROLE)
+			msg.addButton(btn2, QT_MESSAGE_BOX_REJECT_ROLE)
 			msg.exec()
 			if msg.clickedButton() == btn1:
 				self.bRecordSpecialTime = True
@@ -1150,7 +1154,7 @@ class TuResults2D():
 					self.results2d[ml] = {'path': layer.dataProvider().dataSourceUri()}
 					self.tuView.OpenResults.addItem(ml)
 
-					k = self.tuView.OpenResults.findItems(layer.name(), Qt.MatchRecursive)[0]
+					k = self.tuView.OpenResults.findItems(layer.name(), QT_MATCH_RECURSIVE)[0]
 					k.setSelected(True)
 				
 				layer.dataProvider().datasetGroupsAdded.connect(self.datasetGroupsAdded)
@@ -1346,7 +1350,10 @@ class TuResults2D():
 					shader.readXml(element)
 					shader.setMinimumValue(minValue)
 					shader.setMaximumValue(maxValue)
-					shader.setColorRampType(0)
+					if Qgis.QGIS_VERSION_INT >= 33800:
+						shader.setColorRampType(Qgis.ShaderInterpolationMethod.Linear)
+					else:
+						shader.setColorRampType(0)
 					shader.classifyColorRamp(5, -1, QgsRectangle(), None)
 					rsScalar.setColorRampShader(shader)
 				else:
@@ -1576,7 +1583,7 @@ class TuResults2D():
 				return self.tuView.tuResults.tmp_reference_time
 			else:
 				# return datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, self.tuView.tuResults.timeSpec)
-				return datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1)
+				return datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, QT_TIMESPEC_UTC)
 
 	def configTemporalProperties(self, layer):
 		"""
@@ -1590,7 +1597,7 @@ class TuResults2D():
 				tp.setIsActive(True)
 
 			if not tp.referenceTime().isValid() or self.tuView.tuResults.loadedTimeSpec != self.tuView.tuResults.timeSpec:
-				layer.setReferenceTime(dt2qdt(self.getReferenceTime(layer), 1))
+				layer.setReferenceTime(dt2qdt(self.getReferenceTime(layer), QT_TIMESPEC_UTC))
 
 	def getBedAndWLNames(self, layer, isMax=False, isMin=False):
 		possibleWlNames = ['water level', 'water surface elevation', 'h']
@@ -1651,7 +1658,7 @@ class TuResults2D():
 			if layer is None:
 				continue
 			node = QgsProject.instance().layerTreeRoot().findLayer(layer.id())
-			k = self.tuView.OpenResults.findItems(res, Qt.MatchRecursive)[0]
+			k = self.tuView.OpenResults.findItems(res, QT_MATCH_RECURSIVE)[0]
 			k.setSelected(node.itemVisibilityChecked())
 
 		updated = self.updateActiveMeshLayers()  # update list of active mesh layers

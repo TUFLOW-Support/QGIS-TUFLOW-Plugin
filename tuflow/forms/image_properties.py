@@ -6,7 +6,11 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from qgis.PyQt import QtCore, QtGui, QtWidgets
+
+
+from ..compatibility_routines import QT_BUTTON_BOX_CANCEL, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM, QT_BUTTON_BOX_OK, QT_HORIZONTAL
+
 
 class Ui_ImageProperties(object):
     def setupUi(self, ImageProperties):
@@ -19,7 +23,7 @@ class Ui_ImageProperties(object):
         self.label_2 = QtWidgets.QLabel(ImageProperties)
         self.label_2.setObjectName("label_2")
         self.gridLayout.addWidget(self.label_2, 2, 3, 1, 1)
-        spacerItem = QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem = QtWidgets.QSpacerItem(20, 20, QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_MINIMUM)
         self.gridLayout.addItem(spacerItem, 2, 0, 1, 1)
         self.sbSizeY = QtWidgets.QDoubleSpinBox(ImageProperties)
         self.sbSizeY.setDecimals(1)
@@ -49,16 +53,16 @@ class Ui_ImageProperties(object):
         self.sbSizeX.setProperty("value", 100.0)
         self.sbSizeX.setObjectName("sbSizeX")
         self.gridLayout.addWidget(self.sbSizeX, 2, 2, 1, 1)
-        spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem1 = QtWidgets.QSpacerItem(40, 20, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM)
         self.gridLayout.addItem(spacerItem1, 2, 6, 1, 1)
         self.verticalLayout.addLayout(self.gridLayout)
-        spacerItem2 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem2 = QtWidgets.QSpacerItem(20, 40, QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_EXPANDING)
         self.verticalLayout.addItem(spacerItem2)
         self.gridLayout_2 = QtWidgets.QGridLayout()
         self.gridLayout_2.setObjectName("gridLayout_2")
         self.buttonBox = QtWidgets.QDialogButtonBox(ImageProperties)
-        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Ok)
+        self.buttonBox.setOrientation(QT_HORIZONTAL)
+        self.buttonBox.setStandardButtons(QT_BUTTON_BOX_CANCEL|QT_BUTTON_BOX_OK)
         self.buttonBox.setObjectName("buttonBox")
         self.gridLayout_2.addWidget(self.buttonBox, 0, 0, 1, 1)
         self.verticalLayout.addLayout(self.gridLayout_2)

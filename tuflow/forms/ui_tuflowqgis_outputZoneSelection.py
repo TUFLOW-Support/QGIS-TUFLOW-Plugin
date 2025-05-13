@@ -6,7 +6,11 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from qgis.PyQt import QtCore, QtGui, QtWidgets
+
+
+from ..compatibility_routines import QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION
+
 
 class Ui_outputZoneSelection(object):
     def setupUi(self, outputZoneSelection):
@@ -15,7 +19,7 @@ class Ui_outputZoneSelection(object):
         self.gridLayout = QtWidgets.QGridLayout(outputZoneSelection)
         self.gridLayout.setObjectName("gridLayout")
         self.listWidget = QtWidgets.QListWidget(outputZoneSelection)
-        self.listWidget.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.listWidget.setSelectionMode(QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION)
         self.listWidget.setObjectName("listWidget")
         self.gridLayout.addWidget(self.listWidget, 0, 0, 1, 3)
         self.ok_button = QtWidgets.QPushButton(outputZoneSelection)

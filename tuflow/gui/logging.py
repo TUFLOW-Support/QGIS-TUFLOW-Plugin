@@ -9,10 +9,14 @@ try:
 except ImportError:
     has_traceback = False
 
-from PyQt5.QtWidgets import QMessageBox, QPushButton
+from qgis.PyQt.QtWidgets import QMessageBox, QPushButton
 
 if TYPE_CHECKING:
     from qgis.gui import QgisInterface
+
+
+
+from ..compatibility_routines import QT_MESSAGE_BOX_WARNING
 
 
 class _Logging:
@@ -38,7 +42,7 @@ class _Logging:
         if not isinstance(msg, str):
             msg = str(msg)
         if self.iface is not None and not silent:
-            self.iface.messageBar().pushMessage("TUFLOW Plugin", msg, level=0)
+            self.iface.messageBar().pushMessage("TUFLOW Plugin", msg, level=Qgis.MessageLevel.Info)
         else:
             QgsApplication.messageLog().logMessage(msg, 'TUFLOW Plugin', level=Qgis.MessageLevel.Info, notifyUser=False)
 
@@ -47,7 +51,7 @@ class _Logging:
         if not isinstance(msg, str):
             msg = str(msg)
         if self.iface is not None:
-            self.iface.messageBar().pushMessage("TUFLOW Plugin", msg, level=1)
+            self.iface.messageBar().pushMessage("TUFLOW Plugin", msg, level=Qgis.MessageLevel.Warning)
         else:
             QgsApplication.messageLog().logMessage(msg, 'TUFLOW Plugin', level=Qgis.MessageLevel.Warning, notifyUser=False)
 
@@ -65,15 +69,15 @@ class _Logging:
                 self.dlg.setWindowTitle('TUFLOW')
                 self.dlg.setText(msg)
                 self.dlg.setInformativeText(more_info)
-                self.dlg.setIcon(QMessageBox.Warning)
+                self.dlg.setIcon(QT_MESSAGE_BOX_WARNING)
                 widget = self.iface.messageBar().createMessage("TUFLOW Plugin", msg)
                 button = QPushButton(widget)
                 button.setText('More Info')
-                button.clicked.connect(self.dlg.exec_)
+                button.clicked.connect(self.dlg.exec)
                 widget.layout().addWidget(button)
-                self.iface.messageBar().pushWidget(widget, level=2)
+                self.iface.messageBar().pushWidget(widget, level=Qgis.MessageLevel.Critical)
             else:
-                self.iface.messageBar().pushMessage("TUFLOW Plugin", msg, level=2)
+                self.iface.messageBar().pushMessage("TUFLOW Plugin", msg, level=Qgis.MessageLevel.Critical)
         else:
             QgsApplication.messageLog().logMessage(msg, 'TUFLOW Plugin', level=Qgis.MessageLevel.Critical, notifyUser=False)
 

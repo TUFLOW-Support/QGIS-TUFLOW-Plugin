@@ -24,18 +24,22 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import sip
+# import sip
 # sip.setapi('QVariant', 2)
 import copy
 
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 
 import sys
 import os
+
+
+
+from .compatibility_routines import QT_ITEM_FLAG_ITEM_IS_ENABLED, QT_ITEM_DATA_USER_ROLE, QT_ITEM_FLAG_ITEM_IS_SELECTABLE, QT_LEFT_BUTTON, QT_ITEM_DATA_EDIT_ROLE, QT_EVENT_TOOL_TIP, QT_ICON_DISABLED, QT_ITEM_FLAG_NO_ITEM_FLAGS, QT_ITEM_DATA_DISPLAY_ROLE, QT_ITEM_FLAG_ITEM_IS_EDITABLE, QT_ITEM_SELECTION_DESELECT
 
 
 class DataSetTreeNode(object):
@@ -276,35 +280,35 @@ class DataSetModel(QAbstractItemModel):
             return
 
         item = index.internalPointer()
-        if role == Qt.DisplayRole or role == Qt.EditRole:
+        if role == QT_ITEM_DATA_DISPLAY_ROLE or role == QT_ITEM_DATA_EDIT_ROLE:
             # user may have renamed the dataset
             if item.ds_index in self.ds_user_names:
                 return self.ds_user_names[item.ds_index]
             return item.ds_name
-        if role == Qt.UserRole:
+        if role == QT_ITEM_DATA_USER_ROLE:
             return item.ds_type
-        if role == Qt.UserRole+1:
+        if role == QT_ITEM_DATA_USER_ROLE+1:
             return item == self.c_active
-        if role == Qt.UserRole+2:
+        if role == QT_ITEM_DATA_USER_ROLE+2:
             return item == self.v_active
-        if role == Qt.UserRole + 3:
+        if role == QT_ITEM_DATA_USER_ROLE + 3:
             if not item.enabled:
                 return False
             if item.secondaryActive:
                 return True
             else:
                 return False
-        if role == Qt.UserRole+4:
+        if role == QT_ITEM_DATA_USER_ROLE+4:
             if item.enabled:
                 return True
             else:
                 return False
-        if role == Qt.UserRole+7:
+        if role == QT_ITEM_DATA_USER_ROLE+7:
             if item.enabled:
                 return True
             else:
                 return False
-        if role == Qt.UserRole + 8:
+        if role == QT_ITEM_DATA_USER_ROLE + 8:
             return item.enabled
 
     def index(self, row, column, parent=None):
@@ -341,13 +345,13 @@ class DataSetModel(QAbstractItemModel):
     def flags(self, index):
         item = index.internalPointer()
         if item.parentItem == self.rootItem:
-            return Qt.ItemIsEnabled
+            return QT_ITEM_FLAG_ITEM_IS_ENABLED
         elif item.ds_name == 'None':
-            return Qt.NoItemFlags
+            return QT_ITEM_FLAG_NO_ITEM_FLAGS
         elif not item.enabled:
-            return Qt.NoItemFlags
+            return QT_ITEM_FLAG_NO_ITEM_FLAGS
         else:
-            return Qt.ItemIsEnabled | Qt.ItemIsSelectable #| Qt.ItemIsEditable
+            return QT_ITEM_FLAG_ITEM_IS_ENABLED | QT_ITEM_FLAG_ITEM_IS_SELECTABLE #| QT_ITEM_FLAG_ITEM_IS_EDITABLE
 
     def setData(self, index, value, role):
         """ allows renaming of datasets """
@@ -370,56 +374,56 @@ class DataSetItemDelegate(QStyledItemDelegate):
         transformer = QTransform()
         transformer.rotate(180)
         self.pix_c  = QPixmap(os.path.join(dir, "icons", "icon_contours.png"))
-        self.pix_c0 = QIcon(self.pix_c).pixmap(self.pix_c.width(),self.pix_c.height(), QIcon.Disabled)
+        self.pix_c0 = QIcon(self.pix_c).pixmap(self.pix_c.width(),self.pix_c.height(), QT_ICON_DISABLED)
         self.pix_v = QPixmap(os.path.join(dir, "icons", "icon_vectors.png"))
         self.pix_v0 = QPixmap(os.path.join(dir, "icons", "icon_vectors_disabled.png"))
         self.pix_2nd = QPixmap(os.path.join(dir, "icons", "2nd_axis_2.png"))
         self.pix_2nd0 = QPixmap(os.path.join(dir, "icons", "2nd_axis_20.png"))
-        #self.pix_2nd0 = QIcon(self.pix_2nd).pixmap(self.pix_2nd.width(), self.pix_2nd.height(), QIcon.Disabled)
+        #self.pix_2nd0 = QIcon(self.pix_2nd).pixmap(self.pix_2nd.width(), self.pix_2nd.height(), QT_ICON_DISABLED)
         #self.pix_2nd0 = QPixmap(os.path.dirname(__file__) + "\\icons\\2nd_axis_disabled.ico")
         self.pix_ts = QPixmap(os.path.join(dir, "icons", "results.png"))
-        self.pix_ts0 = QIcon(self.pix_ts).pixmap(self.pix_ts.width(), self.pix_ts.height(), QIcon.Disabled)
+        self.pix_ts0 = QIcon(self.pix_ts).pixmap(self.pix_ts.width(), self.pix_ts.height(), QT_ICON_DISABLED)
         # self.pix_lp = QPixmap(os.path.join(dir, "icons", "results_lp.png"))
         self.pix_lp = QPixmap(os.path.join(dir, "icons", "CrossSection_2.png"))
-        self.pix_lp0 = QIcon(self.pix_lp).pixmap(self.pix_lp.width(), self.pix_lp.height(), QIcon.Disabled)
+        self.pix_lp0 = QIcon(self.pix_lp).pixmap(self.pix_lp.width(), self.pix_lp.height(), QT_ICON_DISABLED)
         self.pix_max =  QPixmap(os.path.join(dir, "icons", "max.png"))
         self.pix_max0 = QPixmap(os.path.join(dir, "icons", "max_inactive.png"))
         self.pix_min = QPixmap(os.path.join(dir, "icons", "max.png")).transformed(transformer)
         self.pix_min0 = QPixmap(os.path.join(dir, "icons", "max_inactive.png")).transformed(transformer)
         self.pix_cs = QPixmap(os.path.join(dir, "icons", "CrossSection_2.png"))
-        self.pix_cs0 = QIcon(self.pix_cs).pixmap(self.pix_cs.width(), self.pix_cs.height(), QIcon.Disabled)
-        #self.pix_max0 = QIcon(self.pix_max).pixmap(self.pix_max.width(), self.pix_max.height(), QIcon.Disabled)
-        #self.pix_v0 = QIcon(self.pix_v).pixmap(self.pix_v.width(),self.pix_v.height(), QIcon.Disabled)
+        self.pix_cs0 = QIcon(self.pix_cs).pixmap(self.pix_cs.width(), self.pix_cs.height(), QT_ICON_DISABLED)
+        #self.pix_max0 = QIcon(self.pix_max).pixmap(self.pix_max.width(), self.pix_max.height(), QT_ICON_DISABLED)
+        #self.pix_v0 = QIcon(self.pix_v).pixmap(self.pix_v.width(),self.pix_v.height(), QT_ICON_DISABLED)
 
     def paint(self, painter, option, index):
 
         QStyledItemDelegate.paint(self, painter, option, index)
     
-        if index.data(Qt.UserRole) == 3:
+        if index.data(QT_ITEM_DATA_USER_ROLE) == 3:
             return
 
-        elif index.data(Qt.UserRole) == 2:  # also Vector
-            av = index.data(Qt.UserRole+2)
+        elif index.data(QT_ITEM_DATA_USER_ROLE) == 2:  # also Vector
+            av = index.data(QT_ITEM_DATA_USER_ROLE+2)
             painter.drawPixmap(self.iconRect(option.rect, option.rect.left(), POS_V), self.pix_v)
     
-        elif index.data(Qt.UserRole) == 1:
-            ac = index.data(Qt.UserRole+1)
+        elif index.data(QT_ITEM_DATA_USER_ROLE) == 1:
+            ac = index.data(QT_ITEM_DATA_USER_ROLE+1)
             painter.drawPixmap(self.iconRect(option.rect, option.rect.left(), POS_C), self.pix_c)
     
-        elif index.data(Qt.UserRole) == 4 or index.data(Qt.UserRole) == 5 or index.data(Qt.UserRole) == 6:
-            enabled = index.data(Qt.UserRole + 4)
+        elif index.data(QT_ITEM_DATA_USER_ROLE) == 4 or index.data(QT_ITEM_DATA_USER_ROLE) == 5 or index.data(QT_ITEM_DATA_USER_ROLE) == 6:
+            enabled = index.data(QT_ITEM_DATA_USER_ROLE + 4)
             painter.drawPixmap(self.iconRect(option.rect, option.rect.left(), POS_TS), self.pix_ts if enabled else self.pix_ts0)
 
-        elif index.data(Qt.UserRole) == 7:
-            enabled = index.data(Qt.UserRole + 7)
+        elif index.data(QT_ITEM_DATA_USER_ROLE) == 7:
+            enabled = index.data(QT_ITEM_DATA_USER_ROLE + 7)
             painter.drawPixmap(self.iconRect(option.rect, option.rect.left(), POS_LP),
                                self.pix_lp if enabled else self.pix_lp0)
 
-        elif index.data(Qt.UserRole) == 8:
-            enabled = index.data(Qt.UserRole + 8)
+        elif index.data(QT_ITEM_DATA_USER_ROLE) == 8:
+            enabled = index.data(QT_ITEM_DATA_USER_ROLE + 8)
             painter.drawPixmap(self.iconRect(option.rect, option.rect.left(), POS_C), self.pix_cs if enabled else self.pix_cs0)
 	
-        secondaryAxis = index.data(Qt.UserRole + 3)
+        secondaryAxis = index.data(QT_ITEM_DATA_USER_ROLE + 3)
         painter.drawPixmap(self.iconRect(option.rect, option.rect.right(), POS_2), self.pix_2nd if secondaryAxis else self.pix_2nd0)
     
         item = index.internalPointer()
@@ -501,7 +505,7 @@ class DataSetView(QTreeView):
         if idx.isValid():
             vr = self.visualRect(idx)
             if self.itemDelegate().iconRect(vr, vr.right(), POS_2).contains(event.pos()):
-                # if idx.data(Qt.UserRole) == 2: # has vector data?
+                # if idx.data(QT_ITEM_DATA_USER_ROLE) == 2: # has vector data?
                 if self.model().index2item(idx).enabled:
                     self.secondAxisClicked.emit({'parent': self.model().index2item(idx).parentItem,
                                                  'index': self.model().index2item(idx).ds_index})
@@ -525,13 +529,13 @@ class DataSetView(QTreeView):
         # only if the user did not click one of the icons do usual handling
         if not processed:
             QTreeView.mousePressEvent(self, event)
-            if event.button() == Qt.LeftButton:
+            if event.button() == QT_LEFT_BUTTON:
                 if idx.isValid():
                     index = self.model().index2item(idx)
                     if index.ds_type == 1:  # scalar
                         if index.ds_name != self.activeScalarName:
                             if self.activeScalarIdx in self.selectionModel().selectedIndexes():
-                                self.selectionModel().select(self.activeScalarIdx, QItemSelectionModel.Deselect)
+                                self.selectionModel().select(self.activeScalarIdx, QT_ITEM_SELECTION_DESELECT)
                             self.activeScalarIdx = idx
                             self.activeScalarName = index.ds_name
                         else:
@@ -540,7 +544,7 @@ class DataSetView(QTreeView):
                     elif index.ds_type == 2:  # vector
                         if index.ds_name != self.activeVectorName:
                             if self.activeVectorIdx in self.selectionModel().selectedIndexes():
-                                self.selectionModel().select(self.activeVectorIdx, QItemSelectionModel.Deselect)
+                                self.selectionModel().select(self.activeVectorIdx, QT_ITEM_SELECTION_DESELECT)
                             self.activeVectorIdx = idx
                             self.activeVectorName = index.ds_name
                         else:
@@ -574,15 +578,15 @@ class DataSetView(QTreeView):
         #m = QMenu()
         #for a in self.customActions:
         #    m.addAction(a)
-        #m.exec_(self.mapToGlobal(event.pos()))
+        #m.exec(self.mapToGlobal(event.pos()))
         
     def viewportEvent(self, event):
-        if event.type() == QEvent.ToolTip:
+        if event.type() == QT_EVENT_TOOL_TIP:
             idx = self.indexAt(event.pos())
             if idx.isValid():
                 vr = self.visualRect(idx)
                 if self.itemDelegate().iconRect(vr, vr.right(), POS_2).contains(event.pos()):
-                    # if idx.data(Qt.UserRole) == 2: # has vector data?
+                    # if idx.data(QT_ITEM_DATA_USER_ROLE) == 2: # has vector data?
                     if self.model().index2item(idx).enabled:
                         if self.model().index2item(idx).parentItem != self.model().rootItem:
                             if self.model().index2item(idx).ds_name != 'None':
@@ -618,5 +622,5 @@ def test_main():
 if __name__ == '__main__':
     a = QApplication([])
     w = test_main()
-    a.exec_()
+    a.exec()
     del w

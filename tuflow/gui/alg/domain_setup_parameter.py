@@ -6,8 +6,8 @@ from qgis.gui import QgsGui, QgsProcessingAlgorithmDialogBase, QgsPanelWidget
 from qgis.utils import iface, pluginDirectory
 from processing.gui.wrappers import WidgetWrapper, DIALOG_STANDARD, DIALOG_BATCH, DIALOG_MODELER
 
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLineEdit, QToolButton, QTextBrowser
+from qgis.PyQt.QtCore import pyqtSignal
+from qgis.PyQt.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLineEdit, QToolButton, QTextBrowser
 
 from tuflow.gui.widgets.interactive_domain_widget import InteractiveDomainWidget
 from tuflow.compatibility_routines import Path
@@ -159,7 +159,7 @@ class DomainSetupPanel(QgsPanelWidget):
 
     def domain_to_string(self):
         return (f'{self.domain_widget.origin_x:.2f}:{self.domain_widget.origin_y:.2f}--'
-                f'{math.degrees(self.domain_widget.angle):.2f}--'
+                f'{math.degrees(self.domain_widget.angle)}--'
                 f'{self.domain_widget.x_size:.2f}:{self.domain_widget.y_size:.2f}')
 
     def domain_from_string(self, domain_str):

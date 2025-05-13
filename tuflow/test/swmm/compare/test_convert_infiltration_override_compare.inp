@@ -1,0 +1,88 @@
+[OPTIONS]
+;;Option            Value
+;;----------------  ----------------
+FLOW_UNITS          CFS
+INFILTRATION        HORTON
+FLOW_ROUTING        DYNWAVE
+LINK_OFFSETS        DEPTH
+MIN_SLOPE           0
+ALLOW_PONDING       NO
+SKIP_STEADY_STATE   NO
+START_DATE          03/05/2025
+START_TIME          00:00:00
+REPORT_START_DATE   03/05/2025
+REPORT_START_TIME   00:00:00
+END_DATE            03/05/2025
+END_TIME            06:00:00
+SWEEP_START         1/1
+SWEEP_END           12/31
+DRY_DAYS            0
+REPORT_STEP         00:15:00
+WET_STEP            00:05:00
+DRY_STEP            01:00:00
+ROUTING_STEP        0:00:20
+RULE_STEP           00:00:00
+INERTIAL_DAMPING    PARTIAL
+NORMAL_FLOW_LIMITED BOTH
+FORCE_MAIN_EQUATION H-W
+VARIABLE_STEP       0.75
+LENGTHENING_STEP    0
+MIN_SURFAREA        0
+MAX_TRIALS          0
+HEAD_TOLERANCE      0
+SYS_FLOW_TOL        5
+LAT_FLOW_TOL        5
+MINIMUM_STEP        0.5
+THREADS             1
+
+[EVAPORATION]
+;;Format            Param1              Param2              Param3              Param4              Param5              Param6              Param7              Param8              Param9              Param10             Param11             Param12
+;;CONSTANT          evap
+;;MONTHLY           e1                  e2                  e3                  e4                  e5                  e6                  e7                  e8                  e9                  e10                 e11                 e12
+;;TIMESERIES        Tseries
+;;TEMPERATURE
+;;FILE              p1                  p2                  p3                  p4                  p5                  p6                  p7                  p8                  p9                  p10                 p11                 p12
+;;RECOVERY          patternId
+;;DRY_ONLY          DryYesNo
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------
+CONSTANT            0.0
+DRY_ONLY            NO
+
+[SUBCATCHMENTS]
+;;Name              Rain Gage           Outlet              Area                PctImperv           Width               PctSlope            CurbLen             SnowPack
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------
+1                   *                   *                   5.0                 25.0                500.0               0.5                 0.0
+
+[SUBAREAS]
+;;Subcatchment      Nimp                Nperv               Simp                Sperv               PctZero             RouteTo             PctRouted
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------    ----------------
+1                   0.01                0.1                 0.05                0.05                25.0                OUTLET
+
+[INFILTRATION]
+;;Subcatchment      p1                  p2                  p3                  p4                  p5                  Method
+;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------    ----------------
+1                   3.5                 0.5                 0.25                0                   0                   GREEN_AMPT
+
+[REPORT]
+;;Format            Value
+;;----------------  ----------------
+LINKS               ALL
+NODES               ALL
+SUBCATCHMENTS       ALL
+
+[MAP]
+;;Option            Value
+;;----------------  ----------------
+DIMENSIONS          0.000 0.000 10000.000 10000.000
+Units
+
+[POLYGONS]
+;;Name              X-Coord             Y-Coord
+;;----------------  ----------------    ----------------
+1                   2463.072            7282.127
+1                   4553.176            6521.418
+1                   3940.177            3980.798
+1                   1133.678            4106.352
+1                   528.065             6115.214
+1                   2056.869            7363.368
+

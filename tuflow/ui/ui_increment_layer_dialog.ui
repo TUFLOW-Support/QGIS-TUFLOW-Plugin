@@ -39,9 +39,36 @@
            <item>
             <widget class="QCheckBox" name="increment_layer_name_cb">
              <property name="text">
-              <string>Increment Layer Name</string>
+              <string>Increment layer name</string>
              </property>
             </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_2">
+             <item>
+              <spacer name="horizontalSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Fixed</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>10</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="cb_rename_layer">
+               <property name="text">
+                <string>Rename layer</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
            <item>
             <widget class="QLabel" name="output_name_err_txt">
@@ -67,9 +94,42 @@
             </widget>
            </item>
            <item>
+            <widget class="QRadioButton" name="remove_old_layer_rb">
+             <property name="text">
+              <string>Remove old layer</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">buttonGroup</string>
+             </attribute>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="keep_old_layer_rb">
+             <property name="text">
+              <string>Keep old layer</string>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">buttonGroup</string>
+             </attribute>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="supersede_src_cb">
+             <property name="text">
+              <string>Supersede source layer</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QLabel" name="supersede_database_label">
              <property name="text">
-              <string>Database to Supersede Into</string>
+              <string>Database to supersede into</string>
              </property>
             </widget>
            </item>

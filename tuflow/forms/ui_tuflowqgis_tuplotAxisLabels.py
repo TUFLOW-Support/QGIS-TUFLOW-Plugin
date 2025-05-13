@@ -7,8 +7,8 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui
-from PyQt5.QtWidgets import *
+from qgis.PyQt import QtCore, QtGui
+from qgis.PyQt.QtWidgets import *
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -24,14 +24,18 @@ except AttributeError:
     def _translate(context, text, disambig):
         return QApplication.translate(context, text, disambig)
 
+
+from ..compatibility_routines import QT_FRAME_VLINE, QT_ALIGN_V_CENTER, QT_ALIGN_TRAILING, QT_BUTTON_BOX_CANCEL, QT_ALIGN_RIGHT, QT_BUTTON_BOX_OK, QT_HORIZONTAL, QT_FRAME_SUNKEN
+
+
 class Ui_tuplotAxisLabel(object):
     def setupUi(self, tuplotAxisLabel):
         tuplotAxisLabel.setObjectName(_fromUtf8("tuplotAxisLabel"))
         tuplotAxisLabel.resize(337, 280)
         self.buttonBox = QDialogButtonBox(tuplotAxisLabel)
         self.buttonBox.setGeometry(QtCore.QRect(170, 250, 161, 32))
-        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Ok)
+        self.buttonBox.setOrientation(QT_HORIZONTAL)
+        self.buttonBox.setStandardButtons(QT_BUTTON_BOX_CANCEL|QT_BUTTON_BOX_OK)
         self.buttonBox.setObjectName(_fromUtf8("buttonBox"))
         self.xAxisLabel = QLineEdit(tuplotAxisLabel)
         self.xAxisLabel.setGeometry(QtCore.QRect(50, 82, 271, 20))
@@ -69,7 +73,7 @@ class Ui_tuplotAxisLabel(object):
         self.xAxisAuto_cb.setObjectName(_fromUtf8("xAxisAuto_cb"))
         self.label_6 = QLabel(tuplotAxisLabel)
         self.label_6.setGeometry(QtCore.QRect(2, 5, 40, 31))
-        self.label_6.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_6.setAlignment(QT_ALIGN_RIGHT|QT_ALIGN_TRAILING|QT_ALIGN_V_CENTER)
         self.label_6.setWordWrap(True)
         self.label_6.setObjectName(_fromUtf8("label_6"))
         self.yAxisAuto_cb = QCheckBox(tuplotAxisLabel)
@@ -86,8 +90,8 @@ class Ui_tuplotAxisLabel(object):
         self.yAxisAuto2_cb.setObjectName(_fromUtf8("yAxisAuto2_cb"))
         self.line = QFrame(tuplotAxisLabel)
         self.line.setGeometry(QtCore.QRect(37, 5, 20, 271))
-        self.line.setFrameShape(QFrame.VLine)
-        self.line.setFrameShadow(QFrame.Sunken)
+        self.line.setFrameShape(QT_FRAME_VLINE)
+        self.line.setFrameShadow(QT_FRAME_SUNKEN)
         self.line.setObjectName(_fromUtf8("line"))
 
         self.retranslateUi(tuplotAxisLabel)

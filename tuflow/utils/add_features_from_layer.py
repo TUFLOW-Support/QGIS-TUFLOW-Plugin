@@ -1,5 +1,5 @@
-from PyQt5.QtCore import Qt, QVariant
-from PyQt5.QtWidgets import QDialog, QApplication, QMessageBox
+from qgis.PyQt.QtCore import Qt, QVariant
+from qgis.PyQt.QtWidgets import QDialog, QApplication, QMessageBox
 
 from tuflow.forms.ui_replace_features import Ui_dlg_features_from_layer
 
@@ -7,6 +7,10 @@ from qgis.core import QgsMapLayer, QgsWkbTypes, QgsFeatureSink, edit, QgsFeature
 from qgis.utils import iface
 from tuflow.toc.toc import tuflowqgis_get_geopackage_from_layer, tuflowqgis_find_layer_in_datasource, tuflowqgis_find_layer, \
     findAllRasterLyrs, findAllVectorLyrsWithGroups
+
+
+
+from ..compatibility_routines import QT_CURSOR_WAIT
 
 
 class DlgAddFeaturesFromLayer(QDialog, Ui_dlg_features_from_layer):
@@ -48,7 +52,7 @@ class DlgAddFeaturesFromLayer(QDialog, Ui_dlg_features_from_layer):
         source_layer_id = self.comboBox.itemData(self.comboBox.currentIndex())
         source_layer = tuflowqgis_find_layer(source_layer_id, search_type='layerid')
         if source_layer is not None:
-            QApplication.setOverrideCursor(Qt.WaitCursor)
+            QApplication.setOverrideCursor(QT_CURSOR_WAIT)
 
             self.dest_layer.startEditing()
             self.dest_layer.beginEditCommand('TUFLOW Replace Features')

@@ -1,5 +1,7 @@
 from datetime import datetime
-from PyQt5.QtCore import *
+from qgis.PyQt.QtCore import *
+
+from ..compatibility_routines import QT_TIMESPEC_UTC
 
 
 
@@ -21,7 +23,7 @@ class TuOptions():
 		self.writeMeshIntersects = False
 		self.particlesWriteDebugInfo = False
 		self.verticalProfileInterpolated = False
-		self.timeSpec = 1
+		self.timeSpec = QT_TIMESPEC_UTC
 		self.secondary_axis_types = {0: 'y-axis', 1: 'y-axis', 2: 'y-axis', 3: 'x-axis'}
 		self.copy_mesh = True if settings.value('TUFLOW/tuview_copy_mesh', 'false') in ['True', 'true', True] else False
 		self.show_copy_mesh_dlg = True if settings.value('TUFLOW/tuview_show_copy_mesh_dlg', 'false') in ['True', 'true', True] else False

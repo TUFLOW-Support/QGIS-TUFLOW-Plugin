@@ -1,11 +1,13 @@
 import os, sys
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
 from qgis.gui import QgsCheckableComboBox
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 from .tuflowqgis_library import browse
+
+from .compatibility_routines import QT_VERTICAL, QT_CHECKED, QT_LEFT_BUTTON, QT_ITEM_DATA_EDIT_ROLE, QT_ABSTRACT_ITEM_VIEW_ALL_EDIT_TRIGGERS, QT_UNCHECKED
 
 
 class TableComboBox(QComboBox):
@@ -26,10 +28,10 @@ class TableCheckableComboBox(TableComboBox):
         
     def handleItemPressed(self, index):
         item = self.model().itemFromIndex(index)
-        if item.checkState() == Qt.Checked:
-            item.setCheckState(Qt.Unchecked)
+        if item.checkState() == QT_CHECKED:
+            item.setCheckState(QT_UNCHECKED)
         else:
-            item.setCheckState(Qt.Checked)
+            item.setCheckState(QT_CHECKED)
         self._changed = True
         
     def hidePopup(self):
@@ -42,7 +44,7 @@ class TableCheckableComboBox(TableComboBox):
         checkedItems = []
         for i in range(self.count()):
             item = self.model().item(i, 0)
-            if item.checkState() == Qt.Checked:
+            if item.checkState() == QT_CHECKED:
                 checkedItems.append(self.itemText(i))
         
         return checkedItems
@@ -51,15 +53,15 @@ class TableCheckableComboBox(TableComboBox):
         for i in range(self.count()):
             item = self.model().item(i, 0)
             if self.itemText(i) in items:
-                item.setCheckState(Qt.Checked)
+                item.setCheckState(QT_CHECKED)
             else:
-                item.setCheckState(Qt.Unchecked)
+                item.setCheckState(QT_UNCHECKED)
                 
     def addItems(self, Iterable, p_str=None):
         QComboBox.addItems(self, Iterable)
         for i in range(self.count()):
             item = self.model().item(i, 0)
-            item.setCheckState(Qt.Unchecked)
+            item.setCheckState(QT_UNCHECKED)
         self.setCurrentIndex(-1)
 
 
@@ -116,14 +118,14 @@ class ComboBoxBrowseDelegate(QStyledItemDelegate):
         return editor
 
     def setEditorData(self, editor, index):
-        txt = index.model().data(index, Qt.EditRole)
+        txt = index.model().data(index, QT_ITEM_DATA_EDIT_ROLE)
         if txt is None:
             txt = ''
         editor.layout().itemAt(1).widget().setCurrentText(txt)
 
     def setModelData(self, editor, model, index):
         txt = editor.layout().itemAt(1).widget().currentText()
-        model.setData(index, txt, Qt.EditRole)
+        model.setData(index, txt, QT_ITEM_DATA_EDIT_ROLE)
 
     def updateEditorGeometry(self, editor, option, index):
         editor.setGeometry(option.rect)
@@ -164,14 +166,14 @@ class LineEditBrowseDelegate(QStyledItemDelegate):
         return editor
     
     def setEditorData(self, editor, index):
-        txt = index.model().data(index, Qt.EditRole)
+        txt = index.model().data(index, QT_ITEM_DATA_EDIT_ROLE)
         if txt is None:
             txt = ''
         editor.layout().itemAt(1).widget().setText(txt)
     
     def setModelData(self, editor, model, index):
         txt = editor.layout().itemAt(1).widget().text()
-        model.setData(index, txt, Qt.EditRole)
+        model.setData(index, txt, QT_ITEM_DATA_EDIT_ROLE)
     
     def updateEditorGeometry(self, editor, option, index):
         editor.setGeometry(option.rect)
@@ -210,15 +212,15 @@ class ComboBoxDelegate(QStyledItemDelegate):
         return editor
     
     def setEditorData(self, editor, index):
-        txt = index.model().data(index, Qt.EditRole)
+        txt = index.model().data(index, QT_ITEM_DATA_EDIT_ROLE)
         editor.setCurrentText(txt)
         editor.showPopup()
     
     def setModelData(self, editor, model, index):
         txt = editor.currentText()
         if txt == '':
-            txt = model.data(index, Qt.EditRole)
-        model.setData(index, txt, Qt.EditRole)
+            txt = model.data(index, QT_ITEM_DATA_EDIT_ROLE)
+        model.setData(index, txt, QT_ITEM_DATA_EDIT_ROLE)
     
     def updateEditorGeometry(self, editor, option, index):
         editor.setGeometry(option.rect)
@@ -258,7 +260,7 @@ class CheckableComboBoxDelegate(QStyledItemDelegate):
         return editor
     
     def setEditorData(self, editor, index):
-        txt = index.model().data(index, Qt.EditRole)
+        txt = index.model().data(index, QT_ITEM_DATA_EDIT_ROLE)
         editor.setCurrentText(txt)
         editor.showPopup()
     
@@ -266,7 +268,7 @@ class CheckableComboBoxDelegate(QStyledItemDelegate):
         currentCheckedItems = editor.checkedItems()
         self.currentCheckedItems[index.row()] = currentCheckedItems
         txt = ';;'.join(currentCheckedItems)
-        model.setData(index, txt, Qt.EditRole)
+        model.setData(index, txt, QT_ITEM_DATA_EDIT_ROLE)
     
     def updateEditorGeometry(self, editor, option, index):
         editor.setGeometry(option.rect)
@@ -281,7 +283,7 @@ class CheckableComboBoxDelegate(QStyledItemDelegate):
 class HeaderTable(QHeaderView):
     
     def __init__(self):
-        QHeaderView.__init__(self, Qt.Vertical)
+        QHeaderView.__init__(self, QT_VERTICAL)
         self.setHighlightSections(True)
         self.setSectionsClickable(True)
         dir = os.path.dirname(__file__)
@@ -304,13 +306,13 @@ class TuViewTable(QTableWidget):
     def __init__(self, parent=None):
         QTableWidget.__init__(self, parent)
         self.setVerticalHeader(HeaderTable())
-        #self.setEditTriggers(QAbstractItemView.AllEditTriggers)
+        #self.setEditTriggers(QT_ABSTRACT_ITEM_VIEW_ALL_EDIT_TRIGGERS)
         
     #def mouseReleaseEvent(self, e):
     #    QTableWidget.mousePressEvent(self, e)
     #    index = self.indexAt(e.pos())
     #    if index.isValid():
-    #        if e.button() == Qt.LeftButton:
+    #        if e.button() == QT_LEFT_BUTTON:
     #            QTableWidget.mouseDoubleClickEvent(self, e)
             
 

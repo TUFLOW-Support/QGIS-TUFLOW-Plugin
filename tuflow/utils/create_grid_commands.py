@@ -7,7 +7,7 @@ from qgis.core import QgsGeometry, QgsWkbTypes, QgsFeature
 from qgis.gui import QgsMessageBar
 from qgis.core import Qgis, QgsMessageLog
 
-from PyQt5.QtWidgets import QInputDialog, QApplication
+from qgis.PyQt.QtWidgets import QInputDialog, QApplication
 from tuflow.tuflow_swmm.num_util import floor_to_n_digits, ceiling_to_n_digits
 
 from .plugin import tuflow_plugin

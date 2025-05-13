@@ -1,12 +1,14 @@
 import sys
 import os
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 from ..canvas_event import *
 from ..tuflowqgis_tuviewer.tuflowqgis_turubberband import TuRubberBand
+
+from ..compatibility_routines import QT_BLUE, QT_EVENT_KEY_PRESS, QT_KEY_NO_MODIFIER, QT_KEY_ESCAPE, QT_CURSOR_CROSS
 
 
 class TuFlowLine(TuRubberBand):
@@ -171,7 +173,7 @@ class TuFlowLine2():
 			# initialise rubberband
 			rubberBand = QgsRubberBand(self.canvas)  # setup rubberband class for drawing
 			rubberBand.setWidth(2)
-			rubberBand.setColor(QtGui.QColor(Qt.blue))
+			rubberBand.setColor(QtGui.QColor(QT_BLUE))
 			self.points = []  # list of x, y coords of line
 			rubberBand.setToGeometry(QgsGeometry.fromPolyline(self.points), None)
 			self.rubberBands.append(rubberBand)
@@ -195,7 +197,7 @@ class TuFlowLine2():
 			
 			self.cursorTrackingConnected = True
 			self.cursorPrev = 1
-			QApplication.setOverrideCursor(Qt.CrossCursor)
+			QApplication.setOverrideCursor(QT_CURSOR_CROSS)
 
 			self.line.moved.connect(self.moved)
 			self.line.rightClicked.connect(self.rightClick)
@@ -235,8 +237,8 @@ class TuFlowLine2():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 		
-		if QApplication.overrideCursor() != Qt.CrossCursor:
-			QApplication.setOverrideCursor(Qt.CrossCursor)
+		if QApplication.overrideCursor() != QT_CURSOR_CROSS:
+			QApplication.setOverrideCursor(QT_CURSOR_CROSS)
 			self.cursorPrev += 1
 		
 		# get position
@@ -286,7 +288,7 @@ class TuFlowLine2():
 		
 		# add vertex marker for locked in point
 		marker = QgsVertexMarker(self.canvas)
-		marker.setColor(Qt.blue)
+		marker.setColor(QT_BLUE)
 		marker.setIconSize(12)
 		marker.setIconType(QgsVertexMarker.ICON_DOUBLE_TRIANGLE)
 		marker.setCenter(QgsPointXY(point))
@@ -393,7 +395,7 @@ class TuFlowLine2():
 			feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in self.points]))
 		worked = self.tuPlot.tuPlot2D.plotFlowFromMap(None, feat)
 		if not worked:
-			self.escape(QKeyEvent(QEvent.KeyPress, Qt.Key_Escape, Qt.NoModifier))
+			self.escape(QKeyEvent(QT_EVENT_KEY_PRESS, QT_KEY_ESCAPE, QT_KEY_NO_MODIFIER))
 			self.clearGraphics()
 			return False
 		

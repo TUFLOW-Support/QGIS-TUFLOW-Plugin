@@ -7,7 +7,7 @@ from qgis.core import (QgsProcessing, QgsProcessingAlgorithm, QgsProcessingMulti
                        QgsFeatureSink)
 import processing
 
-from ..compatibility_routines import QT_DOUBLE, QT_STRING, Path
+from ..compatibility_routines import Path, QT_DOUBLE, QT_STRING
 
 class AssignElevations(QgsProcessingAlgorithm):
 

@@ -1,8 +1,10 @@
 import re
 from qgis.core import *
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
+from qgis.PyQt.QtWidgets import *
+from qgis.PyQt.QtCore import *
 from .Enumerators import *
+
+from ..compatibility_routines import QT_DOUBLE, QT_STRING
 
 
 class SnappingTool:
@@ -33,16 +35,10 @@ class SnappingTool:
                 uri = "point"
             self.outputLyr = QgsVectorLayer(uri, "output", "memory")
             self.dp = self.outputLyr.dataProvider()
-            if Qgis.QGIS_VERSION_INT < 33800:
-                self.dp.addAttributes([QgsField('Warning', QVariant.String),
-                                       QgsField("Message", QVariant.String),
-                                       QgsField("Tool", QVariant.String),
-                                       QgsField("Magnitude", QVariant.Double)])
-            else:
-                self.dp.addAttributes([QgsField('Warning', QMetaType.QString),
-                                       QgsField("Message", QMetaType.QString),
-                                       QgsField("Tool", QMetaType.QString),
-                                       QgsField("Magnitude", QMetaType.Double)])
+            self.dp.addAttributes([QgsField('Warning', QT_STRING),
+                                   QgsField("Message", QT_STRING),
+                                   QgsField("Tool", QT_STRING),
+                                   QgsField("Magnitude", QT_DOUBLE)])
             self.outputLyr.updateFields()
         else:
             self.dp = self.outputLyr.dataProvider()

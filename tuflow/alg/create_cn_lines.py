@@ -13,9 +13,9 @@ from qgis.core import QgsProcessingParameterBoolean
 from qgis.core import QgsProcessingParameterFeatureSink
 import processing
 
-from PyQt5.QtCore import QCoreApplication, QVariant
+from qgis.PyQt.QtCore import QCoreApplication, QVariant
 
-from ..compatibility_routines import Path, QT_STRING, QT_INT, QT_DOUBLE
+from ..compatibility_routines import QT_DOUBLE, Path, QT_STRING, QT_INT
 from ..mitools.perpendicular_lines import PerpendicularLines
 from ..tuflowqgis_library import is2dBCLayer
 

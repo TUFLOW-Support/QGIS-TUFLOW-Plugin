@@ -25,15 +25,16 @@ from datetime import datetime, timedelta
 import subprocess
 from time import sleep
 
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
 from qgis.gui import *
 from qgis.core import *
 from qgis.utils import plugins
-from PyQt5.QtWidgets import *
-from PyQt5.QtXml import *
-from PyQt5.QtNetwork import QNetworkRequest
+from qgis.PyQt.QtWidgets import *
+from qgis.PyQt.QtXml import *
+from qgis.PyQt.QtNetwork import QNetworkRequest
 from qgis.core import QgsNetworkAccessManager
+from qgis.core import QgsApplication as qApp
 from math import *
 import numpy
 import glob  # MJS 11/02
@@ -74,7 +75,17 @@ import webbrowser
 
 # from .utils.map_layer import layer_name_from_data_source
 
-from tuflow.compatibility_routines import QT_STRING, QT_INT, QT_DOUBLE
+from tuflow.compatibility_routines import (QT_DOUBLE, QT_FLOAT, QT_LONG_LONG, QT_LONG, QT_STYLE_DOTTED_PEN,
+                                           QT_MESSAGE_BOX_YES, QT_WA_DELETE_ON_CLOSE,
+                                           QT_EVENT_LOOP_EXCLUDE_USER_INPUT_EVENTS, QT_INT, QT_MESSAGE_BOX_NO,
+                                           QT_RED, QT_NETWORK_REQUEST_HTTP_STATUS_CODE_ATTRIBUTE, QT_CURSOR_WAIT,
+                                           QT_MESSAGE_BOX_INFORMATION, QT_MESSAGE_BOX_CRITICAL, QT_STYLE_DASHED_PEN,
+                                           QT_STRING, QT_BLACK, QT_MESSAGE_BOX_CANCEL, QT_DOUBLE, QT_RICH_TEXT,
+                                           QT_MESSAGE_BOX_ACTION_ROLE, QT_ITEM_DATA_EDIT_ROLE, QT_MESSAGE_BOX_CLOSE,
+                                           QT_FILE_DIALOG_ACCEPT_OPEN, QT_FILE_DIALOG_ACCEPT_SAVE,
+                                           QT_FILE_DIALOG_ANY_FILE, QT_FILE_DIALOG_DONT_CONFIRM_OVERWRITE,
+                                           QT_FILE_DIALOG_DETAIL, QT_FILE_DIALOG_DIRECTORY, QT_FILE_DIALOG_EXISTING_FILE,
+                                           QT_FILE_DIALOG_EXISTONG_FILES, QT_FILE_DIALOG_SHOW_DIRS_ONLY)
 
 
 # --------------------------------------------------------
@@ -177,7 +188,7 @@ def about(window):
 
     build_type, build_vers = version()
     dialog = AboutDialog(window, build_vers)
-    dialog.exec_()
+    dialog.exec()
 
 
 def tuflowqgis_duplicate_file(qgis, layer, savename, keepform):
@@ -294,11 +305,11 @@ def duplicate_database(iface, layer, db, layername, incrementDatabase, increment
         options.driverName = 'GPKG'
         try:
             if Qgis.QGIS_VERSION_INT >= 31030:
-                error = QgsVectorFileWriter.writeAsVectorFormatV2(layer, db, QgsCoordinateTransformContext(), options)
+                error = QgsVectorFileWriter.writeAsVectorFormatV2(layer.clone(), db, QgsCoordinateTransformContext(), options)
                 if error[0] != QgsVectorFileWriter.NoError:
                     return 'Error creating new layer: {0} | {1}\n{2}'.format(db, layername, error[1])
             else:
-                err, msg = QgsVectorFileWriter.writeAsVectorFormat(layer, db, 'SYSTEM', layer.crs(),
+                err, msg = QgsVectorFileWriter.writeAsVectorFormat(layer.clone(), db, 'SYSTEM', layer.crs(),
                                                                    options.driverName)
                 if err:
                     return 'Error writing layer to database: {0} | {1}\n{2}'.format(db, layername, msg)
@@ -350,12 +361,12 @@ def tuflowqgis_create_tf_dir(dialog, crs, basepath, engine, tutorial, gisFormat=
         # return "Projection file already exists: "+prjname
         reply = QMessageBox.question(dialog, "Create TUFLOW Empty Files", "Projection File Already Exists\n"
                                                                           "Do You Want To Overwrite The Existing File?",
-                                     QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-        if reply == QMessageBox.Cancel:
+                                     QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+        if reply == QT_MESSAGE_BOX_CANCEL:
             return "user cancelled"
-        elif reply == QMessageBox.No:
+        elif reply == QT_MESSAGE_BOX_NO:
             return
-        # elif reply == QMessageBox.Yes:
+        # elif reply == QT_MESSAGE_BOX_YES:
         # 	fields = QgsFields()
         # 	fields.append( QgsField( "notes", QVariant.String ) )
         # 	outfile = QgsVectorFileWriter(prjname, "System", fields, 1, crs, "ESRI Shapefile")
@@ -519,34 +530,34 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
                         answer = QMessageBox.question(dialog, 'Layer Already Exists',
                                                       '{0} already exists in {1}\nOverwrite existing layer?'.format(
                                                           layername, Path(fpath).name),
-                                                      QMessageBox.Yes | QMessageBox.YesToAll | QMessageBox.No | QMessageBox.Cancel)
-                        if answer == QMessageBox.Yes:
+                                                      QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_YESToAll | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+                        if answer == QT_MESSAGE_BOX_YES:
                             pass
-                        elif answer == QMessageBox.YesToAll:
+                        elif answer == QT_MESSAGE_BOX_YESToAll:
                             yestoall = True
-                        elif answer == QMessageBox.No:
+                        elif answer == QT_MESSAGE_BOX_NO:
                             return 'pass'
-                        elif answer == QMessageBox.Cancel:
+                        elif answer == QT_MESSAGE_BOX_CANCEL:
                             return
                 else:
                     if Path(fpath).exists() and not yestoall:
                         answer = QMessageBox.question(dialog, 'Layer Already Exists',
                                                       '{0} already exists\nOverwrite existing file?'.format(fpath),
-                                                      QMessageBox.Yes | QMessageBox.YesToAll | QMessageBox.No | QMessageBox.Cancel)
-                        if answer == QMessageBox.Yes:
+                                                      QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_YESToAll | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+                        if answer == QT_MESSAGE_BOX_YES:
                             pass
-                        elif answer == QMessageBox.YesToAll:
+                        elif answer == QT_MESSAGE_BOX_YESToAll:
                             yestoall = True
-                        elif answer == QMessageBox.No:
+                        elif answer == QT_MESSAGE_BOX_NO:
                             return 'pass'
-                        elif answer == QMessageBox.Cancel:
+                        elif answer == QT_MESSAGE_BOX_CANCEL:
                             return
 
                 # if QFile(savename).exists() and not isgpkg:
                 # 	overwriteExisting = QMessageBox.question(dialog, "Import Empty",
                 # 	                                         'Output file already exists\nOverwrite existing file?',
-                # 	                                         QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-                # 	if overwriteExisting != QMessageBox.Yes:
+                # 	                                         QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+                # 	if overwriteExisting != QT_MESSAGE_BOX_YES:
                 # 		# QMessageBox.critical(qgis.mainWindow(),"Info", ("File Exists: {0}".format(savename)))
                 # 		#message = 'Unable to complete utility because file already exists'
                 # 		return 1
@@ -785,7 +796,7 @@ class RunTuflow(QObject):
 
 
 def run_tuflow(qgis, tfexe, runfile):
-    # QMessageBox.Information(qgis.mainWindow(),"debug", "Running TUFLOW - tcf: "+tcf)
+    # QT_MESSAGE_BOX_INFORMATION(qgis.mainWindow(),"debug", "Running TUFLOW - tcf: "+tcf)
     try:
         from subprocess import Popen
         dir, ext = os.path.splitext(runfile)
@@ -807,7 +818,7 @@ def run_tuflow(qgis, tfexe, runfile):
     # tf_proc = Popen(tfarg, cwd=os.path.dirname(runfile))
     except:
         return "Error occurred starting TUFLOW"
-    # QMessageBox.Information(qgis.mainWindow(),"debug", "TUFLOW started")
+    # QT_MESSAGE_BOX_INFORMATION(qgis.mainWindow(),"debug", "TUFLOW started")
     return None
 
 
@@ -827,7 +838,7 @@ def run_tuflow(qgis, tfexe, runfile):
 
 
 def extract_all_points(qgis, layer, col):
-    # QMessageBox.Information(qgis.mainWindow(),"debug", "starting to extract points")
+    # QT_MESSAGE_BOX_INFORMATION(qgis.mainWindow(),"debug", "starting to extract points")
     try:
         iter = layer.getFeatures()
         npt = 0
@@ -837,11 +848,11 @@ def extract_all_points(qgis, layer, col):
         for feature in iter:
             npt = npt + 1
             geom = feat.geometry()
-            # QMessageBox.Information(qgis.mainWindow(),"debug", "x = "+str(geom.x())+", y = "+str(geom.y()))
+            # QT_MESSAGE_BOX_INFORMATION(qgis.mainWindow(),"debug", "x = "+str(geom.x())+", y = "+str(geom.y()))
             x.append(geom.x())
             y.append(geom.y())
             zt = feature.attributeMap()[col]
-            # QMessageBox.Information(qgis.mainWindow(),"debug", "z = "+str(zt))
+            # QT_MESSAGE_BOX_INFORMATION(qgis.mainWindow(),"debug", "z = "+str(zt))
             z.append(zt)
         return x, y, z, message
     except:
@@ -1115,7 +1126,7 @@ def region_renderer(layer):
                 symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
                 symbol_layer.setWidth(0.5)
                 symbol_layer.setStrokeColor(QColor(227, 26, 28))
-                symbol_layer.setPenStyle(Qt.DashLine)
+                symbol_layer.setPenStyle(QT_STYLE_DASHED_PEN)
                 symbol_layer2 = None
             else:
                 # rule.setLabel(unique_values2[i-1])
@@ -1126,14 +1137,14 @@ def region_renderer(layer):
                     symbol_layer.setWidth(0.25)
                     color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
                     symbol_layer.setStrokeColor(color)
-                    symbol_layer.setPenStyle(Qt.DotLine)
+                    symbol_layer.setPenStyle(QT_STYLE_DOTTED_PEN)
                     symbol_layer2 = None
                 elif 'bdy' in unique_values2[i].lower():
                     continue
                 # symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
                 # symbol_layer.setWidth(0.5)
                 # symbol_layer.setStrokeColor(QColor(227, 26, 28))
-                # symbol_layer.setPenStyle(Qt.DashLine)
+                # symbol_layer.setPenStyle(QT_STYLE_DASHED_PEN)
                 # symbol_layer2 = None
                 else:
                     symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
@@ -1162,7 +1173,7 @@ def region_renderer(layer):
             symbol_layer.setWidth(0.25)
             color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
             symbol_layer.setStrokeColor(color)
-            symbol_layer.setPenStyle(Qt.DotLine)
+            symbol_layer.setPenStyle(QT_STYLE_DOTTED_PEN)
             symbol_layer2 = None
             if symbol_layer is not None:
                 symbol.changeSymbolLayer(0, symbol_layer)
@@ -1319,13 +1330,13 @@ def region_renderer(layer):
                         symbol_layer.setWidth(0.25)
                         color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
                         symbol_layer.setStrokeColor(color)
-                        symbol_layer.setPenStyle(Qt.DotLine)
+                        symbol_layer.setPenStyle(QT_STYLE_DOTTED_PEN)
                         symbol_layer2 = None
                     elif 'bdy' in unique_value.lower():
                         symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
                         symbol_layer.setWidth(0.5)
                         symbol_layer.setStrokeColor(QColor(227, 26, 28))
-                        symbol_layer.setPenStyle(Qt.DashLine)
+                        symbol_layer.setPenStyle(QT_STYLE_DASHED_PEN)
                         symbol_layer2 = None
                     else:
                         symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
@@ -1379,7 +1390,7 @@ def region_renderer(layer):
 def graduatedRenderer(layer):
     from tuflow.gui.logging import Logging
     symbol = QgsSymbol.defaultSymbol(layer.geometryType())
-    symbol.setColor(Qt.red)
+    symbol.setColor(QT_RED)
     grad_rend = QgsGraduatedSymbolRenderer('Magnitude')
     grad_rend.setSourceSymbol(symbol)
     grad_rend.setGraduatedMethod(QgsGraduatedSymbolRenderer.GraduatedSize)
@@ -1396,8 +1407,8 @@ def graduatedRenderer(layer):
 
 
 def is1dIntegrityToolOutput(layer):
-    field_mapping = [('Warning', QVariant.String), ('Message', QVariant.String),
-                     ('Tool', QVariant.String), ('Magnitude', QVariant.Double)]
+    field_mapping = [('Warning', QT_STRING), ('Message', QT_STRING),
+                     ('Tool', QT_STRING), ('Magnitude', QT_DOUBLE)]
     len_ = len(field_mapping)
 
     return layer is not None and isinstance(layer, QgsVectorLayer) and layer.isValid() and \
@@ -1671,19 +1682,19 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
             answer = QMessageBox.question(dialog, 'Output Exists',
                                           '{0} already exists in {1}.\nOverwrite existing?'.format(layername,
                                                                                                    output_db.name),
-                                          QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-            if answer == QMessageBox.Cancel:
+                                          QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+            if answer == QT_MESSAGE_BOX_CANCEL:
                 return None
-            elif answer == QMessageBox.No:
+            elif answer == QT_MESSAGE_BOX_NO:
                 return 'pass'
     else:
         if Path(fpath).exists():
             answer = QMessageBox.question(dialog, 'Output Exists',
                                           '{0} already exists.\nOverwrite existing?'.format(fpath),
-                                          QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-            if answer == QMessageBox.Cancel:
+                                          QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+            if answer == QT_MESSAGE_BOX_CANCEL:
                 return None
-            elif answer == QMessageBox.No:
+            elif answer == QT_MESSAGE_BOX_NO:
                 return 'pass'
 
     if empty_ext == '.gpkg':
@@ -1703,10 +1714,16 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
         if field.name().lower() == 'fid':
             continue
         unique_names.append(field.name())
-        if field.type() == QVariant.LongLong:
+        if field.type() == QT_LONG_LONG:
             type_name = 'int8'
+        elif field.type() == QT_LONG:
+            type_name = 'integer'
+        elif field.type() == QT_FLOAT:
+            type_name = 'double'
+        elif field.type() == QT_DOUBLE:
+            type_name = 'double'
         else:
-            type_name = field.typeName()
+            type_name = field.typeName().lower()
         uri = '{0}&field={1}:{2}({3},{4})'.format(uri, field.name(), type_name, field.length(), field.precision())
     for field in inputLayer.fields():
         if field.name().lower() == 'fid':
@@ -1721,10 +1738,16 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
             new_name = field.name()
         unique_names.append(new_name)
         renamed_fields.append(new_name)
-        if field.type() == QVariant.LongLong:
+        if field.type() == QT_LONG_LONG:
             type_name = 'int8'
+        elif field.type() == QT_LONG:
+            type_name = 'integer'
+        elif field.type() == QT_FLOAT:
+            type_name = 'double'
+        elif field.type() == QT_DOUBLE:
+            type_name = 'double'
         else:
-            type_name = field.typeName()
+            type_name = field.typeName().lower()
         uri = '{0}&field={1}:{2}({3},{4})'.format(uri, new_name, type_name, field.length(), field.precision())
 
     out_lyr = QgsVectorLayer(uri, layername, 'memory')
@@ -1811,8 +1834,8 @@ def tuflowqgis_insert_tf_attributes(qgis, inputLayer, basedir, runID, template, 
 # 	if QFile(savename).exists():
 # 		overwriteExisting = QMessageBox.question(dialog, "Import Empty",
 # 		                                         'Output file already exists\nOverwrite existing file?',
-# 		                                         QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-# 		if overwriteExisting != QMessageBox.Yes:
+# 		                                         QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+# 		if overwriteExisting != QT_MESSAGE_BOX_YES:
 # 		#QMessageBox.critical(qgis.mainWindow(),"Info", ("File Exists: {0}".format(savename)))
 # 			message = 'Unable to complete utility because file already exists'
 # 			return 1
@@ -2501,7 +2524,7 @@ def setLabelProperties(label: QgsPalLayerSettings, properties: dict, layer: QgsV
     background.setEnabled(properties['box'])
     background.setSizeType(QgsTextBackgroundSettings.SizeBuffer)
     background.setSize(QSizeF(0.5, 0.5))
-    background.setStrokeColor(QColor(Qt.black))
+    background.setStrokeColor(QColor(QT_BLACK))
     background.setStrokeWidth(0.1)
     format.setBackground(background)
 
@@ -3946,9 +3969,9 @@ def getVariableNamesFromControlFile(controlFile, variables, scenarios=()):
                         variables[variable.lower()].append(value)
         except UnicodeDecodeError:
             msgBox = QMessageBox()
-            msgBox.setIcon(QMessageBox.Critical)
+            msgBox.setIcon(QT_MESSAGE_BOX_CRITICAL)
             msgBox.setWindowTitle("Load Results")
-            msgBox.setTextFormat(Qt.RichText)
+            msgBox.setTextFormat(QT_RICH_TEXT)
             msgBox.setText(
                 "Encoding error:<br>{0}<br><a href='https://wiki.tuflow.com/index.php?title=TUFLOW_Viewer#Loading_Results'>wiki.tuflow.com/index.php?title=TUFLOW_Viewer#Loading_Results</a>".format(
                     controlFile))
@@ -4109,9 +4132,9 @@ def getVariableNamesFromTCF(tcf, scenarios=()):
                                 return {}, True
         except UnicodeDecodeError:
             msgBox = QMessageBox()
-            msgBox.setIcon(QMessageBox.Critical)
+            msgBox.setIcon(QT_MESSAGE_BOX_CRITICAL)
             msgBox.setWindowTitle("Load Results")
-            msgBox.setTextFormat(Qt.RichText)
+            msgBox.setTextFormat(QT_RICH_TEXT)
             msgBox.setText(
                 "Encoding error:<br>{0}<br><a href='https://wiki.tuflow.com/index.php?title=TUFLOW_Viewer#Loading_Results'>wiki.tuflow.com/index.php?title=TUFLOW_Viewer#Loading_Results</a>".format(
                     controlFile))
@@ -6705,7 +6728,7 @@ def downloadBinPackage(packageUrl, destinationFileName):
     reply = QgsNetworkAccessManager.instance().get(request)
     evloop = QEventLoop()
     reply.finished.connect(evloop.quit)
-    evloop.exec_(QEventLoop.ExcludeUserInputEvents)
+    evloop.exec(QT_EVENT_LOOP_EXCLUDE_USER_INPUT_EVENTS)
     content_type = reply.rawHeader(b'Content-Type')
     # if content_type == QByteArray().append('application/zip'):
     if content_type == b'application/x-zip-compressed':
@@ -6716,7 +6739,7 @@ def downloadBinPackage(packageUrl, destinationFileName):
         destinationFile.write(bytearray(reply.readAll()))
         destinationFile.close()
     else:
-        ret_code = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+        ret_code = reply.attribute(QT_NETWORK_REQUEST_HTTP_STATUS_CODE_ATTRIBUTE)
         raise IOError("{} {}".format(ret_code, packageUrl))
 
 
@@ -6735,7 +6758,7 @@ class Downloader(QObject):
     def start(self):
         try:
             from qgis.core import QgsNetworkAccessManager
-            from PyQt5.QtNetwork import QNetworkRequest
+            from qgis.PyQt.QtNetwork import QNetworkRequest
             return self.start_with_qgis()
         except ImportError:
             return self.start_with_urlib()
@@ -6750,8 +6773,8 @@ class Downloader(QObject):
 
     def start_with_qgis(self):
         from qgis.core import QgsNetworkAccessManager
-        from PyQt5.QtNetwork import QNetworkRequest
-        from PyQt5.QtCore import QUrl, QEventLoop
+        from qgis.PyQt.QtNetwork import QNetworkRequest
+        from qgis.PyQt.QtCore import QUrl, QEventLoop
         try:
             with open(self.destinationFileName, 'wb') as f:
                 netman = QgsNetworkAccessManager.instance()
@@ -6765,8 +6788,8 @@ class Downloader(QObject):
                 netman.requestTimedOut.connect(self.timedout)
                 evloop = QEventLoop()
                 self.reply.finished.connect(evloop.quit)
-                evloop.exec_(QEventLoop.ExcludeUserInputEvents)
-                ret_code = self.reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+                evloop.exec(QT_EVENT_LOOP_EXCLUDE_USER_INPUT_EVENTS)
+                ret_code = self.reply.attribute(QT_NETWORK_REQUEST_HTTP_STATUS_CODE_ATTRIBUTE)
                 if self.timeout:
                     raise Exception('Timeout while downloading')
                 if ret_code != 200:
@@ -6813,7 +6836,7 @@ class DownloadProgressBar(QObject):
         self.progressBar.setRange(0, 0)
         self.layout.addWidget(self.progressBar)
         self.widget = QWidget()
-        self.widget.setAttribute(Qt.WA_DeleteOnClose)
+        self.widget.setAttribute(QT_WA_DELETE_ON_CLOSE)
         self.widget.setMinimumWidth(525)
         self.widget.setLayout(self.layout)
         self.widget.show()
@@ -6945,7 +6968,7 @@ def downloadUtility(utility, parent_widget=None):
     # url = downloadBaseUrl + exe
     url = downloadBaseUrl + "/" + latestUtilities[utility]
 
-    qApp.setOverrideCursor(QCursor(Qt.WaitCursor))
+    qApp.setOverrideCursor(QCursor(QT_CURSOR_WAIT))
     try:
         downloadBinPackage(url, exePath)
         # downloader = DownloadBinPackage(url, exePath, 'Downloading {0}. . .'.format(utility))
@@ -7849,30 +7872,30 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
     if icon is not None:
         dialog.setWindowIcon(icon)
     if browseType == 'existing folder':
-        dialog.setAcceptMode(QFileDialog.AcceptOpen)
-        dialog.setFileMode(QFileDialog.Directory)
-        dialog.setOption(QFileDialog.ShowDirsOnly)
-        dialog.setViewMode(QFileDialog.Detail)
+        dialog.setAcceptMode(QT_FILE_DIALOG_ACCEPT_OPEN)
+        dialog.setFileMode(QT_FILE_DIALOG_DIRECTORY)
+        dialog.setOption(QT_FILE_DIALOG_SHOW_DIRS_ONLY)
+        dialog.setViewMode(QT_FILE_DIALOG_DETAIL)
     # f = QFileDialog.getExistingDirectory(parent, dialogName, startDir)
     elif browseType == 'existing file':
-        dialog.setAcceptMode(QFileDialog.AcceptOpen)
-        dialog.setFileMode(QFileDialog.ExistingFile)
-        dialog.setViewMode(QFileDialog.Detail)
+        dialog.setAcceptMode(QT_FILE_DIALOG_ACCEPT_OPEN)
+        dialog.setFileMode(QT_FILE_DIALOG_EXISTING_FILE)
+        dialog.setViewMode(QT_FILE_DIALOG_DETAIL)
     # f = QFileDialog.getOpenFileName(parent, dialogName, startDir, fileType)[0]
     elif browseType == 'existing files':
-        dialog.setAcceptMode(QFileDialog.AcceptOpen)
-        dialog.setFileMode(QFileDialog.ExistingFiles)
-        dialog.setViewMode(QFileDialog.Detail)
+        dialog.setAcceptMode(QT_FILE_DIALOG_ACCEPT_OPEN)
+        dialog.setFileMode(QT_FILE_DIALOG_EXISTONG_FILES)
+        dialog.setViewMode(QT_FILE_DIALOG_DETAIL)
     # f = QFileDialog.getOpenFileNames(parent, dialogName, startDir, fileType)[0]
     elif browseType == 'output file':
-        dialog.setAcceptMode(QFileDialog.AcceptSave)
-        dialog.setFileMode(QFileDialog.AnyFile)
-        dialog.setViewMode(QFileDialog.Detail)
+        dialog.setAcceptMode(QT_FILE_DIALOG_ACCEPT_SAVE)
+        dialog.setFileMode(QT_FILE_DIALOG_ANY_FILE)
+        dialog.setViewMode(QT_FILE_DIALOG_DETAIL)
     elif browseType == 'output database':
-        dialog.setAcceptMode(QFileDialog.AcceptSave)
-        dialog.setFileMode(QFileDialog.AnyFile)
-        dialog.setViewMode(QFileDialog.Detail)
-        dialog.setOptions(QFileDialog.DontConfirmOverwrite)
+        dialog.setAcceptMode(QT_FILE_DIALOG_ACCEPT_SAVE)
+        dialog.setFileMode(QT_FILE_DIALOG_ANY_FILE)
+        dialog.setViewMode(QT_FILE_DIALOG_DETAIL)
+        dialog.setOptions(QT_FILE_DIALOG_DONT_CONFIRM_OVERWRITE)
     # f = QFileDialog.getSaveFileName(parent, dialogName, startDir, fileType)[0]
     else:
         return
@@ -7901,7 +7924,7 @@ def browse(parent: QWidget = None, browseType: str = '', key: str = "TUFLOW",
             elif type(lineEdit) is QTableWidgetItem:
                 lineEdit.setText(f)
             elif type(lineEdit) is QModelIndex:
-                lineEdit.model().setData(lineEdit, f, Qt.EditRole)
+                lineEdit.model().setData(lineEdit, f, QT_ITEM_DATA_EDIT_ROLE)
             elif type(lineEdit) is QListWidget:
                 items = [lineEdit.item(x).text() for x in range(lineEdit.count())]
                 for f2 in f.split(';;'):
@@ -9796,7 +9819,7 @@ def LoadRasterMessageBox(parent, title, text):
     pb_no.clicked.connect(lambda: LoadRasterMessageBox_signal(dialog, d[pb_no]))
     pb_invisible.clicked.connect(lambda: LoadRasterMessageBox_signal(dialog, d[pb_invisible]))
 
-    dialog.exec_()
+    dialog.exec()
     return LoadRasterMessageBox_result
 
 
@@ -9961,7 +9984,7 @@ def LoadTCFOptionsMessageBox(parent, title):
     rb7.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup3(rb_group3))
     rb8.clicked.connect(lambda: loadTCFOptionsMessageBox_signal_rbgroup3(rb_group3))
 
-    dialog.exec_()
+    dialog.exec()
     return loadTCFOptionsMessageBox_result
 
 
@@ -10332,11 +10355,11 @@ def download_latest_dev_plugin(iface=None):
                      'How to manually install the TUFLOW Plugin</a>'.format(download_path)
     message_box = QMessageBox(parent)
     message_box.setText(completed_text)
-    message_box.setIcon(QMessageBox.Information)
-    message_box.addButton(QMessageBox.Close)
+    message_box.setIcon(QT_MESSAGE_BOX_INFORMATION)
+    message_box.addButton(QT_MESSAGE_BOX_CLOSE)
     btn = QPushButton()
     btn.setText('Copy Path to Clipboard')
-    message_box.addButton(btn, QMessageBox.ActionRole)
+    message_box.addButton(btn, QT_MESSAGE_BOX_ACTION_ROLE)
     btn.disconnect()
     btn.clicked.connect(lambda: QApplication.clipboard().setText(download_path))
     message_box.open()

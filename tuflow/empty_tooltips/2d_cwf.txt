@@ -6,4 +6,4 @@ description == Used to adjust the 2D cell flow widths. The CWF is a factor, for 
 
 wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#TUFLOW_Geometry_Control_file_.28TGC.29
 
-manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/TwoD-Domains-1.html#cell-mods-3
+manual link == https://docs.tuflow.com/classic-hpc/manual/2025.0/TwoD-Domains-1.html#CWF-4

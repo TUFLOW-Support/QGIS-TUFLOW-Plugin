@@ -1,7 +1,7 @@
 import os, subprocess, re, csv
 import numpy as np
-from PyQt5.QtCore import QObject, pyqtSignal, QVariant
-from PyQt5.QtWidgets import QMessageBox
+from qgis.PyQt.QtCore import QObject, pyqtSignal, QVariant
+from qgis.PyQt.QtWidgets import QMessageBox
 from qgis.core import QgsVectorFileWriter, QgsFields, QgsField, QgsWkbTypes, QgsFeature, NULL
 
 

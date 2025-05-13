@@ -2,12 +2,19 @@
 
 <h3>Description</h3>
 
-<p>Increment the current layer by saving it into a superseded folder (therefore providing a backup) and allowing edits to be made to the current layer.</p>
+<p>Increment the current layer.</p>
 
 <h3>Parameters</h3>
 
 <ol>
-<li><strong>Increment Layer Name</strong>: Updates the name of the current layer. This step updates the layer name in the GPKG database directly and requires the File Management plugin to be installed.</li>
+<li><strong>Increment Layer Name</strong>: Updates the name of the current layer.
+<ul>
+<li><strong>Rename Layer</strong>: If checked, the source layer will be renamed. If unchecked, a copy of the source layer will be created.</li>
+</ul></li>
+<li><strong>Remove/Keep old layer</strong>: Determines if the old layer will be removed from the QGIS workspace. If the layer is renamed (as per the option above), this will have no effect as the old layer is the same as the new layer.</li>
+<li><strong>Supersede source layer</strong>: If checked, the tool will supersede a copy of the source layer into a new location. This is useful if you are not incrementing the source layer name, or renaming the source layer rather than copying it, as it allows a backup to be created.
+<ul>
 <li><strong>Database to Supersede Into</strong>: The database that will contain the superseded layer.</li>
 <li><strong>Superseded Layer Name</strong>: The name of the superseded layer.</li>
+</ul></li>
 </ol>

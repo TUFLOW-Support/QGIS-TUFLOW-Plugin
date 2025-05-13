@@ -34,6 +34,9 @@ def bc_layer_processing(bc_filename: str,
                              fatalError=True)
         return False
 
+    out_path = Path(out_bc_filename).parent
+    out_path.mkdir(parents=True, exist_ok=True)
+
     gdf_bc = gpd.read_file(bc_filename, layer=bc_layername)
 
     if gdf_bc.empty:

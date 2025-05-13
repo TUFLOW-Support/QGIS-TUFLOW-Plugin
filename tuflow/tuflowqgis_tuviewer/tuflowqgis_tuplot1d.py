@@ -3,7 +3,7 @@ import re
 from datetime import datetime
 
 import numpy as np
-from PyQt5.QtWidgets import QMessageBox
+from qgis.PyQt.QtWidgets import QMessageBox
 from ..tuflowqgis_library import (findPlotLayers, findIntersectFeat, is1dTable, is1dNetwork, isTSLayer, isPlotLayer)
 from ..TUFLOW_XS import XS_results
 from .tuflowqgis_turesultsindex import TuResultsIndex

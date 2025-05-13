@@ -1,6 +1,6 @@
 import os
-from PyQt5.QtGui import QColor
-from PyQt5.QtCore import *
+from qgis.PyQt.QtGui import QColor
+from qgis.PyQt.QtCore import *
 from qgis.core import QgsPoint, QgsPointXY, QgsGeometry, Qgis, QgsMeshLayer, QgsProject, QgsRasterLayer
 from qgis.gui import QgsVertexMarker, QgsRubberBand
 from tuflow.toc.toc import tuflowqgis_find_layer
@@ -9,6 +9,7 @@ from ..tuflowqgis_tuviewer.tuflowqgis_turesults import TuResults
 from ..tuflowqgis_tuviewer.tuflowqgis_tuplot import TuPlot
 from ..fvbc_tide_results import FVBC_TideResults
 
+from ..compatibility_routines import QT_RED, QT_BLUE
 
 
 class TuProject():
@@ -1023,8 +1024,8 @@ class TuProject():
 					point = QgsPointXY(x, y)
 					points.append(point)
 					marker = QgsVertexMarker(self.tuView.canvas)
-					marker.setColor(Qt.red)
-					marker.setFillColor(Qt.red)
+					marker.setColor(QT_RED)
+					marker.setFillColor(QT_RED)
 					marker.setIconSize(10)
 					marker.setIconType(QgsVertexMarker.ICON_CIRCLE)
 					marker.setCenter(QgsPointXY(point))
@@ -1068,11 +1069,11 @@ class TuProject():
 						if i + 1 == no:
 							marker = QgsVertexMarker(self.tuView.canvas)
 							if suffix == 'cs':
-								marker.setColor(Qt.red)
+								marker.setColor(QT_RED)
 								marker.setIconSize(10)
 								marker.setIconType(QgsVertexMarker.ICON_BOX)
 							else:  # 'q'
-								marker.setColor(Qt.blue)
+								marker.setColor(QT_BLUE)
 								marker.setIconSize(12)
 								marker.setIconType(QgsVertexMarker.ICON_DOUBLE_TRIANGLE)
 							marker.setCenter(QgsPointXY(point))
@@ -1080,9 +1081,9 @@ class TuProject():
 					line = QgsRubberBand(self.tuView.canvas)
 					line.setWidth(2)
 					if suffix == 'cs':
-						line.setColor(QColor(Qt.red))
+						line.setColor(QColor(QT_RED))
 					else:  # 'q'
-						line.setColor(QColor(Qt.blue))
+						line.setColor(QColor(QT_BLUE))
 					line.setToGeometry(QgsGeometry.fromPolyline(points), None)
 					lines.append(line)
 		except:

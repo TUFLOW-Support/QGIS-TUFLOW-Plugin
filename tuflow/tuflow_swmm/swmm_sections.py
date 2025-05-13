@@ -158,7 +158,7 @@ class SwmmSection:
                 df[col] = df[col].astype('float').astype('Int64')
 
         # Coverages and loadings work fine using the non-custom method for this direction
-        if self.custom_mapping and self.name.upper() not in ["COVERAGES", "LOADINGS", "PATTERNS"]:
+        if self.custom_mapping and self.name.upper() not in ["COVERAGES", "LOADINGS", "PATTERNS", "INFILTRATION"]:
             # Temp
             swmm_cols = [x[0] for x in self.cols_common_start]
             if 'Description' in df.columns:
@@ -236,7 +236,7 @@ class SwmmSection:
 
                 df.loc[curb_rows, 'Param1'] = df.loc[curb_rows, 'Curb_Length']
                 df.loc[curb_rows, 'Param2'] = df.loc[curb_rows, 'Curb_Height']
-                df.loc[curb_rows, 'Param3'] = df.loc[curb_rows, 'Curb_Throat']
+                df.loc[curb_rows, 'Param3'] = df.loc[curb_rows, 'Curb_Throat'].astype(str)
 
                 df.loc[slotted_rows, 'Param1'] = df.loc[slotted_rows, 'Slotted_Length']
                 df.loc[slotted_rows, 'Param2'] = df.loc[slotted_rows, 'Slotted_Width']
@@ -643,7 +643,7 @@ class SwmmSection:
                     elif inlet_type.upper() == 'CURB' or inlet_type.upper() == 'DROP_CURB':
                         row_vals['Curb_Length'] = float(row[2])
                         row_vals['Curb_Height'] = float(row[3])
-                        row_vals['Curb_Throat'] = row[4] if len(row) > 4 else None
+                        row_vals['Curb_Throat'] = str(row[4]) if len(row) > 4 else ''
                     elif inlet_type.upper() == 'SLOTTED':
                         row_vals['Slotted_Length'] = float(row[2])
                         row_vals['Slotted_Width'] = float(row[3])
@@ -656,6 +656,31 @@ class SwmmSection:
                         inlet_data[row_col].append(row_val)
 
                 df = pd.DataFrame(inlet_data)
+                df['Curb_Throat'] = df['Curb_Throat'].astype(str)
+            elif self.name == 'Infiltration':
+                # Custom mapping because we have to check for the method at the end
+                section_text_values = \
+                    [[y.strip() for y in x.split()] for x in text_array]
+
+                methods = []
+                section_text_values_new = []
+                for row in section_text_values:
+                    method_check = row[-1].upper()
+                    if method_check in ('HORTON', 'MODIFIED_HORTON', 'GREEN_AMPT', 'MODIFIED_GREEN_AMPT', 'CURVE_NUMBER'):
+                        methods.append(method_check)
+                        section_text_values_new.append(row[:-1])
+                    else:
+                        methods.append(None)
+                        section_text_values_new.append(row)
+
+                section_data = {}
+                for i_col, (col_name, col_type) in enumerate(self.cols_common_start[:-1]):
+                    values = [col_type(x[i_col]) if i_col < len(x) else None for x in section_text_values_new]
+                    section_data[col_name] = values
+
+                section_data['Method'] = methods
+
+                df = pd.DataFrame(section_data)
         else:
             if self.section_type == SectionType.KEYWORDS:
                 # Handle non-keyword columns (front)
@@ -1051,21 +1076,23 @@ def swmm_section_definitions() -> list[SwmmSection]:
         )
     )
 
+    section_infiltration = SwmmSection(
+        'Infiltration',
+        'Hydrology',
+        GeometryType.SUBCATCHMENTS,
+        SectionType.NO_KEYWORDS,
+        (('Subcatchment', str),
+         ('p1', float),
+         ('p2', float),
+         ('p3', float),
+         ('p4', float),
+         ('p5', float),
+         ('Method', str),
+         ),
+    )
+    section_infiltration.custom_mapping = True
     swmm_sections_info.append(
-        SwmmSection(
-            'Infiltration',
-            'Hydrology',
-            GeometryType.SUBCATCHMENTS,
-            SectionType.NO_KEYWORDS,
-            (('Subcatchment', str),
-             ('p1', float),
-             ('p2', float),
-             ('p3', float),
-             ('p4', float),
-             ('p5', float),
-             ('Method', str),
-             ),
-        ),
+        section_infiltration
     )
 
     swmm_sections_info.append(

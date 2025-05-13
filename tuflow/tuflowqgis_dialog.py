@@ -23,15 +23,15 @@
 #import csv
 import os.path
 
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
 import logging
 
 from tuflow.toc.toc import findAllRasterLyrs, findAllMeshLyrs, findAllVectorLyrs, tuflowqgis_find_layer
 
 # import processing
 from .tuflowqgis_library import *
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 from qgis.utils import active_plugins, plugins
 from datetime import datetime
 import sys
@@ -47,7 +47,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from .tuflowqgis_library import interpolate, convertStrftimToTuviewftim, convertTuviewftimToStrftim, browse
 
-from tuflow.compatibility_routines import QT_STRING, QT_INT, QT_DOUBLE
+from .compatibility_routines import is_qt6, QT_FONT_BOLD, QT_MESSAGE_BOX_YES, QT_INT, QT_ITEM_FLAG_ITEM_IS_SELECTABLE, QT_ALIGN_TOP, QT_MESSAGE_BOX_NO, QT_CUSTOM_CONTEXT_MENU, QT_ITEM_FLAG_ITEM_IS_EDITABLE, QT_UNCHECKED, QT_FONT_NORMAL, QT_RED, QT_CHECKED, QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION, QT_CURSOR_WAIT, QT_ITEM_FLAG_ITEM_IS_USER_CHECKABLE, QT_STRING, QT_BLACK, QT_ITEM_FLAG_ITEM_IS_ENABLED, QT_MESSAGE_BOX_CANCEL, QT_DOUBLE, QT_RICH_TEXT, QT_TIMESPEC_UTC
 
 currentFolder = os.path.dirname(os.path.abspath(__file__))
 spatial_database_option = True
@@ -92,11 +92,11 @@ class OverWrite_or_IncrementName_Dialog(QDialog):
 		self.text_2.setText('Incremented layer name')
 		self.layout.addWidget(self.text_2)
 		self.error_text = QLabel()
-		self.error_text.setTextFormat(Qt.RichText)
+		self.error_text.setTextFormat(QT_RICH_TEXT)
 		self.error_text.setVisible(False)
 		self.error_text.setText('File already exists')
 		palette = self.error_text.palette()
-		palette.setColor(QPalette.Foreground, Qt.red)
+		palette.setColor(QPalette.Foreground, QT_RED)
 		font = self.error_text.font()
 		font.setItalic(True)
 		self.error_text.setPalette(palette)
@@ -188,7 +188,7 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		QDialog.__init__(self)
 		self.iface = iface
 		self.setupUi(self)
-		self.layout().setAlignment(Qt.AlignTop)
+		self.layout().setAlignment(QT_ALIGN_TOP)
 		self.setMinimumWidth(450)
 		self.canvas = self.iface.mapCanvas()
 		cLayer = self.canvas.currentLayer()
@@ -434,7 +434,7 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		self.twTables.setRowCount(len(tablenames))
 		for i, table in enumerate(tablenames):
 			item = QTableWidgetItem()
-			item.setCheckState(Qt.Checked)
+			item.setCheckState(QT_CHECKED)
 			item.setText(table)
 			self.twTables.setItem(i, 0, item)
 
@@ -461,7 +461,7 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		for i in range(self.twTables.rowCount()):
 			item1 = self.twTables.item(i, 0)
 			item2 = self.twTables.item(i, 1)
-			if item1.checkState() == Qt.Checked:
+			if item1.checkState() == QT_CHECKED:
 				if item2 and item2.text().strip():
 					incrementedNames[item1.text()] = item2.text().strip()
 				else:
@@ -491,7 +491,7 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 			# check if exists - if so, give user opportunity to give a unique name
 			if Path(out_db).exists() and out_lyrname.lower() in [x.lower() for x in GPKG(out_db).layers()]:
 				dialog = OverWrite_or_IncrementName_Dialog(self, out_db, out_lyrname)  # custom dialog for this
-				dialog.exec_()
+				dialog.exec()
 				if not dialog.result():  # cancelled
 					return
 				if dialog.rb_increment.isChecked():  # user has changed name
@@ -508,8 +508,8 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 			if Path(out_db).exists() and out_lyrname.lower() in [x.lower() for x in GPKG(out_db).layers()]:
 				res = QMessageBox.warning(self, 'Layer already exists',
 				                          'Layer already exists. Do you want to overwrite the existing layer?',
-				                          QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-				if res != QMessageBox.Yes:
+				                          QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+				if res != QT_MESSAGE_BOX_YES:
 					return
 
 		return SuperSededRun(str(db), lyrname, str(out_db), out_lyrname)
@@ -568,15 +568,15 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 		if os.path.isfile(savename):
 			# ask if the user wants to override data
 			override_existing = QMessageBox.question(self, "Increment Layer", 'File already exists. Do you want to replace the existing file?',
-			                                         QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-			if override_existing == QMessageBox.No or override_existing == QMessageBox.Cancel:
+			                                         QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+			if override_existing == QT_MESSAGE_BOX_NO or override_existing == QT_MESSAGE_BOX_CANCEL:
 				return
 
 		try:
 			if self.isgpkg and outname in GPKG(outfolder).layers():
 				override_existing = QMessageBox.question(self, "Increment Layer", '{0} already exists within output GPKG database. Do you want to replace the existing layer?'.format(outname),
-				                                         QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-				if override_existing != QMessageBox.Yes:
+				                                         QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+				if override_existing != QT_MESSAGE_BOX_YES:
 					return
 		except Exception as e:
 			print('Error determining if layer exists in GPKG database.')
@@ -716,7 +716,10 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 		self.teToolTip.setVisible(showToolTip)
 		self.pbShowToolTip.setVisible(not showToolTip)
 		self.pbHideToolTip.setVisible(showToolTip)
-		self.teToolTip.setTabStopWidth(16)
+		if is_qt6:
+			self.teToolTip.setTabStopDistance(16.)
+		else:
+			self.teToolTip.setTabStopWidth(16)
 
 		self.sizes = self.splitter.sizes()
 		if not showToolTip:
@@ -859,10 +862,10 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 	def updateToolTip(self):
 		self.teToolTip.clear()
 		self.teToolTip.setFontUnderline(True)
-		self.teToolTip.setTextColor(QColor(Qt.black))
+		self.teToolTip.setTextColor(QColor(QT_BLACK))
 		self.teToolTip.setFontFamily('MS Shell Dlg 2')
 		self.teToolTip.setFontPointSize(18)
-		self.teToolTip.setFontWeight(QFont.Bold)
+		self.teToolTip.setFontWeight(QT_FONT_BOLD)
 		self.teToolTip.append('Tool Tip')
 		self.teToolTip.append('\n')
 		items = self.emptyType.selectedItems()
@@ -870,10 +873,10 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 			tooltip = findToolTip(item.text(), self.engine)
 			if tooltip['location'] is not None:
 				self.teToolTip.setFontUnderline(False)
-				self.teToolTip.setTextColor(QColor(Qt.black))
+				self.teToolTip.setTextColor(QColor(QT_BLACK))
 				self.teToolTip.setFontFamily('Courier New')
 				self.teToolTip.setFontPointSize(13)
-				self.teToolTip.setFontWeight(QFont.Normal)
+				self.teToolTip.setFontWeight(QT_FONT_NORMAL)
 				self.teToolTip.append(tooltip['location'])
 				self.teToolTip.append('\n')
 			if tooltip['command'] is not None:
@@ -886,18 +889,18 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 				self.teToolTip.append('\n')
 			if tooltip['description'] is not None:
 				self.teToolTip.setFontUnderline(False)
-				self.teToolTip.setTextColor(QColor(Qt.black))
+				self.teToolTip.setTextColor(QColor(QT_BLACK))
 				self.teToolTip.setFontFamily('MS Shell Dlg 2')
 				self.teToolTip.setFontPointSize(10)
-				self.teToolTip.setFontWeight(QFont.Normal)
+				self.teToolTip.setFontWeight(QT_FONT_NORMAL)
 				self.teToolTip.append(tooltip['description'])
 				self.teToolTip.append('\n')
 			if tooltip['wiki link'] is not None:
 				self.teToolTip.setFontUnderline(False)
-				self.teToolTip.setTextColor(QColor(Qt.black))
+				self.teToolTip.setTextColor(QColor(QT_BLACK))
 				self.teToolTip.setFontFamily('MS Shell Dlg 2')
 				self.teToolTip.setFontPointSize(10)
-				self.teToolTip.setFontWeight(QFont.Bold)
+				self.teToolTip.setFontWeight(QT_FONT_BOLD)
 				self.teToolTip.append('TUFLOW Wiki')
 				self.teToolTip.append('\n')
 				html = "<body style=\" font-family:'MS Shell Dlg 2'; font-size:10pt; font-weight:400; " \
@@ -909,10 +912,10 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 				self.teToolTip.append('\n')
 			if tooltip['manual link'] is not None:
 				self.teToolTip.setFontUnderline(False)
-				self.teToolTip.setTextColor(QColor(Qt.black))
+				self.teToolTip.setTextColor(QColor(QT_BLACK))
 				self.teToolTip.setFontFamily('MS Shell Dlg 2')
 				self.teToolTip.setFontPointSize(10)
-				self.teToolTip.setFontWeight(QFont.Bold)
+				self.teToolTip.setFontWeight(QT_FONT_BOLD)
 				self.teToolTip.append('TUFLOW Manual')
 				self.teToolTip.append('\n')
 				page = ''
@@ -1040,8 +1043,8 @@ class tuflowqgis_import_empty_tf_dialog(QDialog, Ui_tuflowqgis_import_empty):
 				# question = QMessageBox.question(self.iface.mainWindow(), 'Import Empty',
 				#                                 'The following layers already exist in the Kart repository.\n{0}\n\n'
 				#                                 'Do you want to override existing layers?'.format('\n'.join(invalid_layers)),
-				#                                 QMessageBox.Yes | QMessageBox.Cancel)
-				# if question == QMessageBox.Cancel:
+				#                                 QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_CANCEL)
+				# if question == QT_MESSAGE_BOX_CANCEL:
 				# 	return
 				QMessageBox.warning(self.iface.mainWindow(), 'Import Empty', 'The following layers already exist in the Kart repository.\n{0}\n\n'.format('\n'.join(invalid_layers)))
 				return
@@ -1185,7 +1188,7 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 		layout.addWidget(html_edit)
 		dlg.setLayout(layout)
 		dlg.resize(800, 600)
-		dlg.exec_()
+		dlg.exec()
 
 	def update(self, finished):
 		if not finished:
@@ -1443,6 +1446,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		self.iface = iface
 		self.setupUi(self)
 		self.canvas = self.iface.mapCanvas()
+		self.setWindowTitle('Configure / Create TUFLOW Project')
 		cLayer = self.canvas.currentLayer()
 		self.tfsettings = TF_Settings()
 		self.crs = None
@@ -1567,7 +1571,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 			crs = QgsProject.instance().crs()
 		self.crs = crs
 		dlg.setCrs(crs)
-		if dlg.exec_():
+		if dlg.exec():
 			self.crs = dlg.crs()
 			self.crsDesc.setText(self.crs.description())
 			self.form_crsID.setText(self.crs.authid())
@@ -1638,10 +1642,10 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 				                          "Executable Appears to be TUFLOW Flexible Mesh . . . "
 				                          "Would You Like to Create a TUFLOW Flexible Mesh Project "
 				                          "Instead of TUFLOW Classic / HPC?",
-				                          QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-				if fv == QMessageBox.Cancel:
+				                          QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+				if fv == QT_MESSAGE_BOX_CANCEL:
 					return
-				elif fv == QMessageBox.Yes:
+				elif fv == QT_MESSAGE_BOX_YES:
 					engine = 'flexible mesh'
 		
 		#Save Project Settings
@@ -2044,7 +2048,7 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 
 	def editCC(self):
 		dlg = ARRCCDialog(self, self.cc_scen)
-		if dlg.exec_():
+		if dlg.exec():
 			self.cc_scen = dlg.value
 			self.lwCCScen.clear()
 			for key, val in self.cc_scen.items():
@@ -2390,7 +2394,7 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		if self.progressCount == -1:
 			self.pbOk.setEnabled(False)
 			self.pbCancel.setEnabled(False)
-			QApplication.setOverrideCursor(Qt.WaitCursor)
+			QApplication.setOverrideCursor(QT_CURSOR_WAIT)
 			self.progressBar.setRange(0, 0)
 			self.progressCount = 0
 			start_again = True
@@ -3460,7 +3464,7 @@ class tuflowqgis_meshSelection_dialog(QDialog, Ui_meshSelection):
 	def run(self):
 		selection = self.mesh_lw.selectedItems()
 		if selection:
-			if self.mesh_lw.selectionMode() == QAbstractItemView.ExtendedSelection:
+			if self.mesh_lw.selectionMode() == QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION:
 				self.selectedMesh = [x.text() for x in selection]
 			else:
 				self.selectedMesh = selection[0].text()
@@ -3588,10 +3592,10 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		#d = QDate(self.tuOptions.zeroTime.year, self.tuOptions.zeroTime.month, self.tuOptions.zeroTime.day)
 		#t = QTime(self.tuOptions.zeroTime.hour, self.tuOptions.zeroTime.minute, self.tuOptions.zeroTime.second)
 		#dt = QDateTime(d, t)
-		dt = dt2qdt(self.tuOptions.zeroTime, 1)
+		dt = dt2qdt(self.tuOptions.zeroTime, QT_TIMESPEC_UTC)
 		if qv >= 31300:
 			dt.setTimeSpec(self.tuOptions.timeSpec)
-			dt = dt.toTimeSpec(1)
+			dt = dt.toTimeSpec(QT_TIMESPEC_UTC)
 
 		if qv >= 31600:
 			self.tpLabel.setVisible(True)
@@ -3876,9 +3880,9 @@ class TuOptionsDialog(QDialog, Ui_TuViewOptions):
 		#self.tuOptions.zeroTime = datetime(d[0], d[1], d[2], t[0], t[1], t[2])
 		self.tuOptions.zeroTime = qdt2dt(self.dteZeroDate)
 		if 31300 <= qv < 31600:
-			self.tuOptions.zeroTime = datetime2timespec(self.tuOptions.zeroTime, 1, self.tuOptions.timeSpec)
+			self.tuOptions.zeroTime = datetime2timespec(self.tuOptions.zeroTime, QT_TIMESPEC_UTC, self.tuOptions.timeSpec)
 		else:
-			self.tuOptions.zeroTime = datetime2timespec(self.tuOptions.zeroTime, 1, 1)
+			self.tuOptions.zeroTime = datetime2timespec(self.tuOptions.zeroTime, QT_TIMESPEC_UTC, QT_TIMESPEC_UTC)
 		settings.setValue('TUFLOW/tuview_zeroTime', self.tuOptions.zeroTime)
 		
 		# format time
@@ -3958,7 +3962,7 @@ class TuSelectedElementsDialog(QDialog, Ui_selectedElements):
 		# Signals
 		self.pbSelectElements.clicked.connect(self.newSelectionFromSelection)
 		self.pbCloseWindow.clicked.connect(self.accept)
-		self.elementList.setContextMenuPolicy(Qt.CustomContextMenu)
+		self.elementList.setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
 		self.elementList.customContextMenuRequested.connect(self.showMenu)
 		
 	def showMenu(self, pos):
@@ -4538,7 +4542,7 @@ class TuUserPlotDataTableView(QDialog, Ui_UserTableData):
 	def showPlot(self):
 		data = self.saveData(dummy=True)
 		self.tableDialog = TuUserPlotDataPlotView(self.iface, data)
-		self.tableDialog.exec_()
+		self.tableDialog.exec()
 		
 		
 # ----------------------------------------------------------
@@ -4623,10 +4627,10 @@ class TuUserPlotDataImportDialog(QDialog, Ui_UserPlotDataImportDialog):
 		
 		label = QLabel()
 		label.setVisible(True)
-		label.setTextFormat(Qt.RichText)
+		label.setTextFormat(QT_RICH_TEXT)
 		label.setText(txt)
 		palette = label.palette()
-		palette.setColor(QPalette.Foreground, Qt.red)
+		palette.setColor(QPalette.Foreground, QT_RED)
 		font = label.font()
 		font.setItalic(True)
 		label.setPalette(palette)
@@ -4918,11 +4922,11 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 		for i, userData in enumerate([k for k, v in sorted(self.tuUserPlotDataManager.datasets.items(), key=lambda x: x[-1].number)]):
 			name = self.tuUserPlotDataManager.datasets[userData].name
 			plotType = self.tuUserPlotDataManager.datasets[userData].plotType
-			status = Qt.Checked if self.tuUserPlotDataManager.datasets[userData].status else Qt.Unchecked
+			status = QT_CHECKED if self.tuUserPlotDataManager.datasets[userData].status else QT_UNCHECKED
 			self.UserPlotDataTable.setRowCount(self.UserPlotDataTable.rowCount() + 1)
 			item = QTableWidgetItem(0)
 			item.setText(name)
-			item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+			item.setFlags(QT_ITEM_FLAG_ITEM_IS_USER_CHECKABLE | QT_ITEM_FLAG_ITEM_IS_EDITABLE | QT_ITEM_FLAG_ITEM_IS_SELECTABLE | QT_ITEM_FLAG_ITEM_IS_ENABLED)
 			item.setCheckState(status)
 			item2 = QTableWidgetItem(0)
 			if plotType == 'Cross Section / Long Plot':
@@ -4941,7 +4945,7 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 		if 'add_data' in kwargs:
 			self.pythonPopulateGui(**kwargs)
 		else:
-			self.addDataDialog.exec_()
+			self.addDataDialog.exec()
 		if self.addDataDialog.ok:
 			for i, name in enumerate(self.addDataDialog.names):
 				# add data to class
@@ -4956,8 +4960,8 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 					self.UserPlotDataTable.setRowCount(self.UserPlotDataTable.rowCount() + 1)
 					item = QTableWidgetItem(0)
 					item.setText(name)
-					item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
-					item.setCheckState(Qt.Checked)
+					item.setFlags(QT_ITEM_FLAG_ITEM_IS_USER_CHECKABLE | QT_ITEM_FLAG_ITEM_IS_EDITABLE | QT_ITEM_FLAG_ITEM_IS_SELECTABLE | QT_ITEM_FLAG_ITEM_IS_ENABLED)
+					item.setCheckState(QT_CHECKED)
 					#combobox = QComboBox()
 					#combobox.setEditable(True)
 					#combobox.setMaximumHeight(30)
@@ -5030,7 +5034,7 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 		elif item is not None:
 			for name, widgets in self.loadedData.items():
 				if widgets[-1] == item:
-					status = True if item.checkState() == Qt.Checked else False
+					status = True if item.checkState() == QT_CHECKED else False
 					self.tuUserPlotDataManager.editDataSet(name, newname=item.text(), status=status)
 	
 	def showDataTable(self):
@@ -5040,7 +5044,7 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 			item = self.UserPlotDataTable.item(row, 0)
 			data = self.tuUserPlotDataManager.datasets[item.text()]
 			self.tableDialog = TuUserPlotDataTableView(self.iface, data)
-			self.tableDialog.exec_()
+			self.tableDialog.exec()
 			break  # just do first selection only
 			
 	def showDataPlot(self):
@@ -5050,7 +5054,7 @@ class TuUserPlotDataManagerDialog(QDialog, Ui_UserPlotDataManagerDialog):
 			item = self.UserPlotDataTable.item(row, 0)
 			data = self.tuUserPlotDataManager.datasets[item.text()]
 			self.tableDialog = TuUserPlotDataPlotView(self.iface, data)
-			self.tableDialog.exec_()
+			self.tableDialog.exec()
 			break  # just do first selection only
 			
 	def removeData(self, e=None, item_name=None):
@@ -5616,7 +5620,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 			QMessageBox.critical(self, "TUFLOW Utilities", "Must specify res_to_res.exe location before populating XMDF information.")
 			return
 
-		QApplication.setOverrideCursor(Qt.WaitCursor)
+		QApplication.setOverrideCursor(QT_CURSOR_WAIT)
 
 		error, message = resToRes(self.leRes2Res.text().strip('"').strip("'"), 'info', '',
 								  [self.leMeshToGis.text().strip('"\'')],
@@ -5628,7 +5632,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 			QMessageBox.critical(self, "TUFLOW Utilities", "Error occurred reading XMDF header information.\nPlease see output log information for more information.")
 			output_dialog = StackTraceDialog(message)
 			output_dialog.setWindowTitle('Res_to_Res Output Log')
-			output_dialog.exec_()
+			output_dialog.exec()
 			return
 
 		self.xmdf_header = XMDF_Header_Info(message)
@@ -5699,8 +5703,8 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 							self.cboDiffGrid2.currentText().strip('"').strip("'"):
 						reply = QMessageBox.warning(self, "TUFLOW Utilities",
 						                            "Input grid 1 and grid 2 are the same. Do you wish to continue?",
-						                            QMessageBox.Yes | QMessageBox.No)
-						if reply == QMessageBox.No:
+						                            QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO)
+						if reply == QT_MESSAGE_BOX_NO:
 							return
 				elif self.rbAscConv.isChecked():
 					if not self.lwGrids.count():
@@ -5729,8 +5733,8 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 							reply = QMessageBox.warning(self, "TUFLOW Utilities",
 							                            "Input grid {0} and grid {1} are the same. "
 							                            "Do you wish to continue?".format(j+1, i+1),
-							                            QMessageBox.Yes | QMessageBox.No)
-							if reply == QMessageBox.No:
+							                            QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO)
+							if reply == QT_MESSAGE_BOX_NO:
 								return
 						else:
 							grids.append(grid)
@@ -5792,8 +5796,8 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 							reply = QMessageBox.warning(self, "TUFLOW Utilities",
 							                            "Input mesh {0} and mesh {1} are the same. "
 							                            "Do you wish to continue?".format(j + 1, i + 1),
-							                            QMessageBox.Yes | QMessageBox.No)
-							if reply == QMessageBox.No:
+							                            QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_NO)
+							if reply == QT_MESSAGE_BOX_NO:
 								return
 						else:
 							meshes.append(self.lwMeshes.item(i).text())
@@ -5837,7 +5841,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 	def run(self):
 		self.pbOK.setEnabled(False)
 		self.pbCancel.setEnabled(False)
-		QgsApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+		QgsApplication.setOverrideCursor(QCursor(QT_CURSOR_WAIT))
 		error = False
 		
 		# precoded functions
@@ -5982,7 +5986,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 			if message.count('\n') > 50:
 				QMessageBox.critical(self, "TUFLOW Utilities", "Error Occured")
 				self.errorDialog = UtilityErrorDialog(message)
-				self.errorDialog.exec_()
+				self.errorDialog.exec()
 			else:
 				QMessageBox.critical(self, "TUFLOW Utilities", "Error Occured: {0}".format(message))
 			self.pbOK.setEnabled(True)
@@ -5991,7 +5995,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 			if self.rbCommonFunctions.isChecked() and \
 					self.cboCommonUtility.currentIndex() == 2 and self.rbMeshInfo.isChecked():
 				self.xmdfInfoDialog = XmdfInfoDialog(message)
-				self.xmdfInfoDialog.exec_()
+				self.xmdfInfoDialog.exec()
 			else:
 				#QMessageBox.information(self, "TUFLOW Utilities", "Utility Finished")
 				# self.accept()

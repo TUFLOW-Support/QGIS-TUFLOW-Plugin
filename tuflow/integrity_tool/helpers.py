@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from PyQt5.QtCore import QVariant
+from qgis.PyQt.QtCore import QVariant
 import math
 import re
 

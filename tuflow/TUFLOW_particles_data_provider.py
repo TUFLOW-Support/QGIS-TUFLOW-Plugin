@@ -1,7 +1,7 @@
 from datetime import datetime
 import re
 import netCDF4
-from PyQt5.QtWidgets import QMessageBox
+from qgis.PyQt.QtWidgets import QMessageBox
 
 class TuParticlesDataProviderError(BaseException):
     pass

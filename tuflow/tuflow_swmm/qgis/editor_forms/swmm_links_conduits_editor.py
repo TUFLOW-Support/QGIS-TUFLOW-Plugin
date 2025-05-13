@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QApplication, QComboBox, QDialog, QWidget
+from qgis.PyQt.QtWidgets import QApplication, QComboBox, QDialog, QWidget
 
 
 shape_geom_types = {

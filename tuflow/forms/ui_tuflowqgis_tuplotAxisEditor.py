@@ -7,8 +7,8 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui
-from PyQt5.QtWidgets import *
+from qgis.PyQt import QtCore, QtGui
+from qgis.PyQt.QtWidgets import *
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -24,14 +24,18 @@ except AttributeError:
     def _translate(context, text, disambig):
         return QApplication.translate(context, text, disambig)
 
+
+from ..compatibility_routines import QT_FRAME_VLINE, QT_BUTTON_BOX_CANCEL, QT_BUTTON_BOX_OK, QT_HORIZONTAL, QT_FRAME_SUNKEN
+
+
 class Ui_tuplotAxisEditor(object):
     def setupUi(self, tuplotAxisEditor):
         tuplotAxisEditor.setObjectName(_fromUtf8("tuplotAxisEditor"))
         tuplotAxisEditor.resize(291, 196)
         self.buttonBox = QDialogButtonBox(tuplotAxisEditor)
         self.buttonBox.setGeometry(QtCore.QRect(50, 160, 171, 32))
-        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Ok)
+        self.buttonBox.setOrientation(QT_HORIZONTAL)
+        self.buttonBox.setStandardButtons(QT_BUTTON_BOX_CANCEL|QT_BUTTON_BOX_OK)
         self.buttonBox.setObjectName(_fromUtf8("buttonBox"))
         self.tabWidget = QTabWidget(tuplotAxisEditor)
         self.tabWidget.setGeometry(QtCore.QRect(0, 0, 291, 161))
@@ -40,8 +44,8 @@ class Ui_tuplotAxisEditor(object):
         self.tab.setObjectName(_fromUtf8("tab"))
         self.line = QFrame(self.tab)
         self.line.setGeometry(QtCore.QRect(140, 3, 20, 121))
-        self.line.setFrameShape(QFrame.VLine)
-        self.line.setFrameShadow(QFrame.Sunken)
+        self.line.setFrameShape(QT_FRAME_VLINE)
+        self.line.setFrameShadow(QT_FRAME_SUNKEN)
         self.line.setObjectName(_fromUtf8("line"))
         self.xAxisCustom_rb = QRadioButton(self.tab)
         self.xAxisCustom_rb.setGeometry(QtCore.QRect(20, 23, 121, 17))
@@ -118,8 +122,8 @@ class Ui_tuplotAxisEditor(object):
         self.tab_2.setObjectName(_fromUtf8("tab_2"))
         self.line_2 = QFrame(self.tab_2)
         self.line_2.setGeometry(QtCore.QRect(140, 3, 20, 121))
-        self.line_2.setFrameShape(QFrame.VLine)
-        self.line_2.setFrameShadow(QFrame.Sunken)
+        self.line_2.setFrameShape(QT_FRAME_VLINE)
+        self.line_2.setFrameShadow(QT_FRAME_SUNKEN)
         self.line_2.setObjectName(_fromUtf8("line_2"))
         self.groupBox = QGroupBox(self.tab_2)
         self.groupBox.setGeometry(QtCore.QRect(150, 0, 141, 141))

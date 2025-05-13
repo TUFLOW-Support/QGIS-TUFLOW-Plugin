@@ -2,9 +2,9 @@ import re
 import io
 import numpy as np
 from os.path import dirname, join
-from PyQt5.QtWidgets import QDialog, QAction, QMenu, QApplication, QMessageBox, QWidget
-from PyQt5.QtCore import pyqtSignal, QThread, QTimer, QSize, Qt
-from PyQt5.QtGui import QImage, QIcon
+from qgis.PyQt.QtWidgets import QDialog, QMenu, QApplication, QMessageBox, QWidget
+from qgis.PyQt.QtCore import pyqtSignal, QThread, QTimer, QSize, Qt
+from qgis.PyQt.QtGui import QImage, QIcon
 from qgis.core import QgsVectorLayer, QgsApplication, QgsUnitTypes, Qgis, QgsRectangle
 from qgis.gui import QgsRubberBand
 from .DataCollector import DataCollector
@@ -19,6 +19,14 @@ from matplotlib.patches import Polygon
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 from tuflow.dataset_menu import DatasetMenu
 from tuflow.tuflowqgis_library import browse
+
+from ..compatibility_routines import QT_RED, QT_MESSAGE_BOX_CANCEL, is_qt6, QT_CUSTOM_CONTEXT_MENU, QT_MESSAGE_BOX_RETRY, QT_WINDOW_TYPE
+
+if is_qt6:
+    from qgis.PyQt.QtGui import QAction
+else:
+    from qgis.PyQt.QtWidgets import QAction
+
 
 class Annotation:
 
@@ -307,7 +315,7 @@ class FlowTracePlot(QWidget, Ui_flowTracePlotWidget):
 
     def __init__(self, parent=None, flowTraceTool=None, iface=None):
         # QDialog.__init__(self, parent=parent)
-        super().__init__(parent, Qt.Window)
+        super().__init__(parent, QT_WINDOW_TYPE)
         self.setupUi(self)
         qv = Qgis.QGIS_VERSION_INT
 
@@ -371,7 +379,7 @@ class FlowTracePlot(QWidget, Ui_flowTracePlotWidget):
         self._export_menu_actions = []
         self._init_context_menu_actions()
         self._context_menu = None
-        self.plotWidget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.plotWidget.setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
         self.plotWidget.customContextMenuRequested.connect(self._show_context_menu)
 
         # rubber band
@@ -1382,8 +1390,8 @@ class FlowTracePlot(QWidget, Ui_flowTracePlotWidget):
                 return
             except PermissionError:
                 retry = QMessageBox.warning(self, 'Export...', 'File is currently locked by another application',
-                                            QMessageBox.Retry | QMessageBox.Cancel)
-                if retry == QMessageBox.Cancel:
+                                            QT_MESSAGE_BOX_RETRY | QT_MESSAGE_BOX_CANCEL)
+                if retry == QT_MESSAGE_BOX_CANCEL:
                     return
 
     def _legend_toggled(self):
@@ -1554,7 +1562,7 @@ class ChannelRubberBand:
 
         self._rubber_band = QgsRubberBand(self._map_canvas)
         self._rubber_band.setWidth(2)
-        self._rubber_band.setColor(Qt.red)
+        self._rubber_band.setColor(QT_RED)
 
     def update_geometry(self, geometry):
         if self._iface is None:

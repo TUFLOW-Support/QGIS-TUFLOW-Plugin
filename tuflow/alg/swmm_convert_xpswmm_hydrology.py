@@ -30,7 +30,7 @@ from qgis.core import (QgsExpressionContext,
                        QgsProcessingUtils,
                        QgsSpatialIndex,
                        Qgis)
-from PyQt5.QtCore import QVariant, QMetaType
+from qgis.PyQt.QtCore import QVariant, QMetaType
 
 from osgeo import ogr, gdal
 
@@ -58,10 +58,14 @@ except ImportError:
     pass  # defaulted to false
 
 
+
+from ..compatibility_routines import QT_DOUBLE, QT_STRING, QT_INT
+
+
 def geopandas_dtype_to_field_type(dtype):
-    STRING = QVariant.String if Qgis.QGIS_VERSION_INT < 33800 else QMetaType.QString
-    INT = QVariant.Int if Qgis.QGIS_VERSION_INT < 33800 else QMetaType.Int
-    DOUBLE = QVariant.Double if Qgis.QGIS_VERSION_INT < 33800 else QMetaType.Double
+    STRING = QT_STRING
+    INT = QT_INT
+    DOUBLE = QT_DOUBLE
 
     if is_integer_dtype(dtype):
         return INT

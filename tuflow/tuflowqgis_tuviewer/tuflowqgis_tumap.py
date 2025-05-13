@@ -3,11 +3,12 @@ import tempfile
 import shutil
 import re
 from datetime import datetime
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5.QtXml import QDomDocument
+from qgis.PyQt.QtWidgets import *
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt.QtXml import QDomDocument
 from qgis.core import *
+from qgis.core import QgsApplication as qApp
 from qgis.gui import *
 from ..forms.ui_map_dialog import Ui_MapDialog
 from ..forms.MapExportImportDialog import Ui_MapExportImportDialog
@@ -22,6 +23,8 @@ from ..tuflowqgis_tuviewer.tuflowqgis_turesults2d import TuResults2D
 from datetime import datetime, timedelta
 from matplotlib.collections import PolyCollection
 from matplotlib.quiver import Quiver
+
+from ..compatibility_routines import QT_ITEM_FLAG_ITEM_IS_ENABLED, QT_HEADER_VIEW_RESIZE_TO_CONTENT, QT_ITEM_FLAG_ITEM_IS_SELECTABLE, QT_CHECKED, QT_CUSTOM_CONTEXT_MENU, QT_CURSOR_WAIT, QT_ITEM_FLAG_ITEM_IS_USER_CHECKABLE, QT_UNCHECKED
 
 
 
@@ -259,8 +262,8 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		self.tablePlots.horizontalHeader().setCascadingSectionResizes(True)
 		self.tableGraphics.horizontalHeader().setCascadingSectionResizes(True)
 		self.tableImages.horizontalHeader().setCascadingSectionResizes(True)
-		self.tableImages.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-		self.tablePlots.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+		self.tableImages.verticalHeader().setSectionResizeMode(QT_HEADER_VIEW_RESIZE_TO_CONTENT)
+		self.tablePlots.verticalHeader().setSectionResizeMode(QT_HEADER_VIEW_RESIZE_TO_CONTENT)
 		
 		total_width = self.tablePlots.verticalHeader().width() + self.tablePlots.horizontalHeader().length() + self.tablePlots.frameWidth() * 2
 		primarywidth = 175.
@@ -400,7 +403,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 	def importMapTableData(self):
 		"""imports data from external file and populates map table"""
 		
-		self.importMapTable.exec_()
+		self.importMapTable.exec()
 		
 		if self.importMapTable.imported:
 			for i in range(len(self.importMapTable.col1)):
@@ -540,11 +543,11 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		
 		item1 = QTableWidgetItem(0)
 		item1.setText(label)
-		item1.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+		item1.setFlags(QT_ITEM_FLAG_ITEM_IS_USER_CHECKABLE | QT_ITEM_FLAG_ITEM_IS_SELECTABLE | QT_ITEM_FLAG_ITEM_IS_ENABLED)
 		if status:
-			item1.setCheckState(Qt.Checked)
+			item1.setCheckState(QT_CHECKED)
 		else:
-			item1.setCheckState(Qt.Unchecked)
+			item1.setCheckState(QT_UNCHECKED)
 		self.tableGraphics.setItem(rowNo, 0, item1)
 		
 		item2 = QTableWidgetItem(0)
@@ -563,7 +566,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		pb.setText('Text Properties')
 		dialog = TextPropertiesDialog()
 		self.rowNo2fntDialog[rowNo] = dialog
-		pb.clicked.connect(lambda: dialog.exec_())
+		pb.clicked.connect(lambda: dialog.exec())
 		self.tableGraphics.setCellWidget(rowNo, 3, pb)
 		
 		if rowNo == 0:
@@ -666,7 +669,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		self.pbDialogs[pb] = dialog
 		self.dialog2Plot[dialog] = [item1, item2, item3]
 		pb.clicked.connect(lambda: dialog.setDefaults(self, item1, item2, static=True))
-		pb.clicked.connect(lambda: dialog.exec_())
+		pb.clicked.connect(lambda: dialog.exec())
 		self.tablePlots.setCellWidget(n, 3, pb)
 		if n == 0:
 			self.tablePlots.setColumnWidth(2, self.tablePlots.columnWidth(2) - self.tablePlots.verticalHeader().sizeHint().width())
@@ -916,7 +919,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		if dialog is None:
 			dialog = ImagePropertiesDialog()
 		self.pbDialogsImage[pb] = dialog
-		pb.clicked.connect(lambda: dialog.exec_())
+		pb.clicked.connect(lambda: dialog.exec())
 		self.tableImages.setCellWidget(n, 2, pb)
 		if n == 0:
 			self.tableImages.setColumnWidth(1, self.tableImages.columnWidth(
@@ -1413,7 +1416,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		:return: None
 		"""
 		
-		self.tableMaps.verticalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+		self.tableMaps.verticalHeader().setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
 		self.tableMaps.verticalHeader().customContextMenuRequested.connect(self.mapTableMenu)
 	
 	def mapTableMenu(self, pos):
@@ -1453,7 +1456,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		:return: None
 		"""
 		
-		self.tablePlots.verticalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+		self.tablePlots.verticalHeader().setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
 		self.tablePlots.verticalHeader().customContextMenuRequested.connect(self.plotTableMenu)
 	
 	def plotTableMenu(self, pos):
@@ -1493,7 +1496,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		:return: None
 		"""
 		
-		self.tableImages.verticalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+		self.tableImages.verticalHeader().setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
 		self.tableImages.verticalHeader().customContextMenuRequested.connect(self.imageTableMenu)
 	
 	def imageTableMenu(self, pos):
@@ -1576,7 +1579,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 		
 		if not preview and self.tuView.iface is not None:
 			self.buttonBox.setEnabled(False)  # disable button box so users know something is happening
-			QApplication.setOverrideCursor(Qt.WaitCursor)
+			QApplication.setOverrideCursor(QT_CURSOR_WAIT)
 			
 		# save plot settings so line colours won't vary over time
 		self.tuView.tuPlot.setNewPlotProperties(0)
@@ -1663,7 +1666,7 @@ class TuMapDialog(QDialog, Ui_MapDialog):
 			graphics = {}
 			for i in range(self.tableGraphics.rowCount()):
 				cb = self.tableGraphics.item(i, 0)
-				if cb.checkState() == Qt.Checked:
+				if cb.checkState() == QT_CHECKED:
 					graphicDict = {}
 					label = self.tableGraphics.item(i, 0)
 					graphic = self.label2graphic[label.text()]

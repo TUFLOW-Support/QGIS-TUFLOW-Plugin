@@ -3,11 +3,15 @@ import os
 import shutil
 from time import sleep
 
-from PyQt5.QtCore import QObject, QThread, pyqtSignal
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QProgressBar, QDialog
+from qgis.PyQt.QtCore import QObject, QThread, pyqtSignal
+from qgis.PyQt.QtWidgets import QWidget, QVBoxLayout, QProgressBar, QDialog
 
 # differs from shutil.COPY_BUFSIZE on platforms != Windows
 READINTO_BUFSIZE = 1024 * 1024
+
+
+
+from ..compatibility_routines import QT_DIALOG_REJECTED
 
 
 def copy_file_with_progbar(src, dst, parent):
@@ -20,7 +24,7 @@ def copy_file_with_progbar(src, dst, parent):
     # To prevent overflows store in KB and make sure it is at least one
     size = max(size // 1024, 1)
     prog_bar = CopyFileProgressBar(src, dst, 0, size, parent)
-    if prog_bar.exec_() == QDialog.Rejected:
+    if prog_bar.exec() == QT_DIALOG_REJECTED:
         raise RuntimeError(prog_bar.errmsg)
     prog_bar.deleteLater()
 
@@ -39,9 +43,9 @@ class CopyFileProgressBar(QDialog):
         self.copy.moveToThread(self.thread)
         self.thread.started.connect(self.copy.copy)
 
-    def exec_(self):
+    def exec(self):
         self.thread.start()
-        super().exec_()
+        super().exec()
 
     def init_gui(self, min_: int, max_: int):
         self.setWindowTitle('Copying file...')

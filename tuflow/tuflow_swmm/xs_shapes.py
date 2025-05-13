@@ -2,6 +2,8 @@ import math
 import numpy as np
 import pandas as pd
 
+import matplotlib.pyplot as plt
+
 width_ratios_list = {
     'BasketHandle':
         np.array([
@@ -17,6 +19,24 @@ width_ratios_list = {
              .9850, .9700, .9400, .8960, .8360, .7640, .6420, .3100,
              .0
              ]),
+    'Arch':
+        np.array(
+            [.0, .6272, .8521, .9243, .9645, .9846, .9964, .9988, .9917, .9811,
+             .9680, .9515, .9314, .9101, .8864, .8592, .8284, .7917, .7527, .7065,
+             .6544, .5953, .5231, .4355, .3195, .0]
+        ),
+    'Horiz_Ellipse':
+        np.array(
+            [.0, .3919, .5426, .6499, .7332, .8000, .8542, .8980, .9330, .9600,
+             .9798, .9928, .9992, .9992, .9928, .9798, .9600, .9330, .8980, .8542,
+             .8000, .7332, .6499, .5426, .3919, .0]
+        ),
+    'Vert_Ellipse':
+        np.array(
+            [.0, .3919, .5426, .6499, .7332, .8000, .8542, .8980, .9330, .9600,
+             .9798, .9928, .9992, .9992, .9928, .9798, .9600, .9330, .8980, .8542,
+             .8000, .7332, .6499, .5426, .3919, .0]
+        ),
 }
 
 area_ratios = {
@@ -101,6 +121,10 @@ standard_width_tables = {
         23, 30, 34, 38, 42, 45, 49, 53, 60, 68, 76, 83, 91, 98, 106, 113, 121, 128, 136, 143, 151, 166, 180
     ],
 }
+
+
+def get_case_insensitive_key(input_dict, key):
+    return next((dict_key for dict_key, value in input_dict.items() if dict_key.lower() == key.lower()), None)
 
 
 def is_open_channel(shape):
@@ -358,9 +382,47 @@ def get_max_area(shape, customary_units, geom1, geom2=None, geom3=None, geom4=No
         return 1.0  # We can't compute it here but this avoids an error
 
     # Must not have a valid shape - just return 0 to prevent exception
-    #raise ValueError(f"Invalid shape type: {shape}")
+    # raise ValueError(f"Invalid shape type: {shape}")
     return 0.0
+
+
+# Returns coordinates for top half of shape ignores initial shape width decreases
+def get_xz_top(shape, customary_units, lower_left, geom1, geom2=None, geom3=None, geom4=None):
+    height = geom1
+    width = geom2
+
+    key = get_case_insensitive_key(width_ratios_list, shape)
+    if key:
+        shape = key
+
+    df = get_width_vs_height(shape, geom1, geom2)
+
+    # remove decreasing portion
+    df['dwidth'] = df['width'] - df['width'].shift(-1)
+    df = df.fillna(1.0)
+    df = df[df['dwidth'] > 0]
+
+    # renormalize
+    df['height_renorm'] = df['height'] - df['height'].min()
+    df['height_renorm'] = df['height_renorm'] / df['height_renorm'].max()
+
+    df['width_renorm'] = df['width'] / df['width'].max()
+
+    center_x = lower_left[0] + df['width'].max() / 2.0
+
+    df['x1'] = center_x - df['width_renorm'] * width/2.0
+    df['x2'] = center_x + df['width_renorm'] * width/2.0
+
+    df['z'] = lower_left[1] + df['height_renorm'] * height
+
+    x_arr = np.hstack([df['x1'].values, df['x2'].values[::-1]])
+    z_arr = np.hstack([df['z'].values, df['z'].values[::-1]])
+
+    return x_arr, z_arr
 
 
 if __name__ == "__main__":
     df_basket = get_width_vs_height('BasketHandle', 2.0)
+
+    df_arch = get_width_vs_height('Arch', 5.0, 15.0)
+    print(df_arch)

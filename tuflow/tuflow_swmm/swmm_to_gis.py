@@ -168,10 +168,16 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
             df_polys,
             geometry=gpd.points_from_xy(df_polys['X-Coord'], df_polys['Y-Coord'],
                                         crs=crs))
-        gdf_polys = gdf_polys.groupby(['Subcatchment'])['geometry'].apply(lambda x: Polygon([(i.x, i.y) for i in x]))
-        gdf_polys = gpd.GeoDataFrame(gdf_polys,
-                                     geometry='geometry',
-                                     crs=crs)
+        # I have learned that sometimes SWMM writes non-catchment information to this table. It is bizarre and
+        # the data is duplicated other places. Throw out items with less than 3 points
+        subcatch_size = df_polys.groupby(['Subcatchment']).size()
+        too_few = subcatch_size[subcatch_size < 3].reset_index()['Subcatchment']
+        gdf_polys = gdf_polys[~gdf_polys['Subcatchment'].isin(too_few)]
+        if not gdf_polys.empty:
+            gdf_polys = gdf_polys.groupby(['Subcatchment'])['geometry'].apply(lambda x: Polygon([(i.x, i.y) for i in x]))
+            gdf_polys = gpd.GeoDataFrame(gdf_polys,
+                                         geometry='geometry',
+                                         crs=crs)
 
     # Use X-Coord and Y-Coord for tables that are not nodes, links and subcatchments
     for swmm_section in swmm_section_list:

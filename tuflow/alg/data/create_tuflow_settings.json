@@ -27,6 +27,16 @@
         "default": "ON",
         "comment":  "Sets whether to use Sub-Grid Sampling (SGS).",
         "validation": "Solution Scheme == HPC"
+      },
+      "Cell Size":
+      {
+        "type": "doublespinbox",
+        "min": 0.01,
+        "max": 99999,
+        "step": 1,
+        "decimals": 2,
+        "default": 1,
+        "comment": "Base cell size."
       }
     },
     "GIS Settings":

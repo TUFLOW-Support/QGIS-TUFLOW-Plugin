@@ -6,4 +6,4 @@ description == Used to define the location of internal source area flow verse ti
 
 wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#TUFLOW_Boundary_Control_file_.28TBC.29
 
-manual link == https://docs.tuflow.com/classic-hpc/manual/2023-03/Boundaries-InitialConditions-1.html#tab:tab-SA-RF
+manual link == https://docs.tuflow.com/classic-hpc/manual/2025.0/Boundaries-InitialConditions-1.html#RFOption-4

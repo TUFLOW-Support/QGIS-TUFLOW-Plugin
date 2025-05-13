@@ -2,11 +2,15 @@ import json
 import os
 from collections import OrderedDict
 from pathlib import Path
+from qgis.utils import plugins, pluginDirectory
 
-from PyQt5.QtCore import QCoreApplication, QSettings
-from PyQt5.QtGui import QIcon
+from qgis.PyQt.QtCore import QCoreApplication, QSettings
+from qgis.PyQt.QtGui import QIcon
+from qgis.core import QgsProcessingUtils
+from qgis.core import QgsVectorLayer
 
 # processing
+import processing
 from qgis.core import QgsProcessingAlgorithm
 from qgis.core import QgsProcessingMultiStepFeedback
 from qgis.core import QgsProcessingParameterCrs
@@ -220,6 +224,7 @@ class CreateTuflowProject(QgsProcessingAlgorithm):
         # overall progress through the model
         feedback = QgsProcessingMultiStepFeedback(5, model_feedback)
         results = {}
+        outputs = {}
         feedback.setCurrentStep(0)
 
         d = json.loads(self.parameterAsString(parameters, 'settings', context), object_pairs_hook=OrderedDict)
@@ -240,6 +245,7 @@ class CreateTuflowProject(QgsProcessingAlgorithm):
                 feedback.reportError('Cannot setup control file templates without creating folder structure.', True)
                 return {}
 
+        domain = self.parameterAsString(parameters, 'domain', context)
 
         project = ProjectConfig(
             self.parameterAsString(parameters, 'project_name', context),
@@ -248,7 +254,7 @@ class CreateTuflowProject(QgsProcessingAlgorithm):
             gis_format,
             self.parameterAsFile(parameters, 'tuflow_executable', context),
             None,
-            self.parameterAsString(parameters, 'domain', context),
+            domain,
             d,
             res_fmts
         )
@@ -271,6 +277,33 @@ class CreateTuflowProject(QgsProcessingAlgorithm):
             feedback.pushInfo('Creating folder structure...')
             project.create_folders()
         feedback.setCurrentStep(2)
+
+        # domain check file - if domain has been specified
+        if domain:
+            feedback.pushInfo('Creating domain check file...')
+            dom_check = project.create_domain_check_file(domain, crs.toWkt())
+            if dom_check.startswith('ERROR:'):
+                feedback.pushWarning(dom_check)
+            else:
+                feedback.pushInfo(dom_check)
+                alg_params = {
+                    'INPUT': dom_check,
+                    'NAME': Path(dom_check).stem
+                }
+                outputs['LoadLayer'] = processing.run('native:loadlayer', alg_params, context=context, feedback=feedback,
+                                                      is_child_algorithm=True)
+                if plugins and plugins.get('tuflow'):
+                    stylefile = Path(pluginDirectory('tuflow'))  / 'QGIS_Styles' / '_dom_check_R.qml'
+                    if stylefile.exists():
+                        alg_params = {
+                            'INPUT': outputs['LoadLayer']['OUTPUT'],
+                            'STYLE': str(stylefile)
+                        }
+                        outputs['SetLayerStyle'] = processing.run('native:setlayerstyle', alg_params, context=context,
+                                                                  feedback=feedback, is_child_algorithm=True)
+                    else:
+                        feedback.reportWarning(f'Cannot find style file: {stylefile}')
+
         # empty files
         if self.parameterAsBool(parameters, 'create_empty_files', context):
             project.create_proj_gis_file(project.folder / 'model' / 'gis', False)

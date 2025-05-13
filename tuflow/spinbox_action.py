@@ -1,10 +1,20 @@
-from PyQt5.QtWidgets import (QWidget, QWidgetAction, QSpinBox,
+from qgis.PyQt.QtWidgets import (QWidget, QWidgetAction, QSpinBox,
                              QDoubleSpinBox, QHBoxLayout, QLabel,
-                             QCheckBox, QMenu, QAction, QComboBox,
+                             QCheckBox, QMenu, QComboBox,
                              QDoubleSpinBox, QWidgetItem)
-from PyQt5.QtCore import Qt, pyqtSignal, QPoint, QEvent
-from PyQt5.QtGui import QPalette, QMouseEvent
+from qgis.PyQt.QtCore import Qt, pyqtSignal, QPoint, QEvent
+from qgis.PyQt.QtGui import QPalette, QMouseEvent
 
+
+
+
+from .compatibility_routines import (is_qt6, QT_PALETTE_HIGHLIGHT, QT_LEFT_BUTTON, QT_CUSTOM_CONTEXT_MENU,
+                                     QT_PALETTE_WINDOW, QT_COMBOBOX_ADJUST_TO_CONTENTS)
+
+if is_qt6:
+    from qgis.PyQt.QtGui import QAction
+else:
+    from qgis.PyQt.QtGui import QAction
 
 
 class CustomMenuWidget(QWidget):
@@ -28,9 +38,9 @@ class CustomMenuWidget(QWidget):
 
     def set_highlighted(self, h):
         if h:
-            self.setBackgroundRole(QPalette.Highlight)
+            self.setBackgroundRole(QT_PALETTE_HIGHLIGHT)
         else:
-            self.setBackgroundRole(QPalette.Window)
+            self.setBackgroundRole(QT_PALETTE_WINDOW)
         self.setAutoFillBackground(h)
 
     def enterEvent(self, a0: QEvent) -> None:
@@ -41,7 +51,7 @@ class CustomMenuWidget(QWidget):
 
     def mouseReleaseEvent(self, a0: QMouseEvent) -> None:
         if self.bCheckable:
-            if a0.button() == Qt.LeftButton:
+            if a0.button() == QT_LEFT_BUTTON:
                 layout = self.layout()
                 for i in range(layout.count()):
                     item = layout.itemAt(i)
@@ -87,12 +97,12 @@ class SingleSpinBoxAction(QWidgetAction):
                 cb.setChecked(kwargs['cb_setChecked'])
             else:
                 cb.setChecked(True)
-            cb.setContextMenuPolicy(Qt.CustomContextMenu)
+            cb.setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
             cb.customContextMenuRequested.connect(self.contextMenu)
             self.layout.addWidget(cb)
         for i, a in enumerate(args):
             label = QLabel(a)
-            label.setContextMenuPolicy(Qt.CustomContextMenu)
+            label.setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
             label.customContextMenuRequested.connect(self.contextMenu)
 
             spinbox = QSpinBox()
@@ -121,7 +131,7 @@ class SingleSpinBoxAction(QWidgetAction):
             self.layout.setContentsMargins(8, 1, 1, 1)
 
         self.cbo = QComboBox()
-        self.cbo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.cbo.setSizeAdjustPolicy(QT_COMBOBOX_ADJUST_TO_CONTENTS)
         self.layout.addWidget(self.cbo)
         self.layout.addStretch(1)
         if 'set_cbo_items' in kwargs:
@@ -141,16 +151,25 @@ class SingleSpinBoxAction(QWidgetAction):
             # s.append('{0} - {1}'.format(self.labels[i], self.value(i)))
             s.append('{0}'.format(self.value(i)))
 
-        return '{0}: {1}: '.format(self.cbo.currentText(), self.parentWidget().title()) + ' - '.join(s)
+        if is_qt6:
+            return '{0}: {1}: '.format(self.cbo.currentText(), self.parent().parent().title()) + ' - '.join(s)
+        else:
+            return '{0}: {1}: '.format(self.cbo.currentText(), self.parentWidget().title()) + ' - '.join(s)
 
     def defaultItem(self):
         if self.isChecked():
             pass
         else:
             menu = None
-            pw = self.parentWidget()
+            if is_qt6:
+                pw = self.parent()
+            else:
+                pw = self.parentWidget()
             if pw is not None:
-                menu = pw.parentWidget()
+                if isinstance(pw, (QAction, QWidgetAction)) and is_qt6:
+                    menu = pw.parent()
+                else:
+                    menu = pw.parentWidget()
 
             if menu is not None:
                 return menu.defaultItem
@@ -270,7 +289,7 @@ class SingleSpinBoxAction(QWidgetAction):
 
         cb = QCheckBox()
         cb.setChecked(True)
-        cb.setContextMenuPolicy(Qt.CustomContextMenu)
+        cb.setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
         cb.customContextMenuRequested.connect(self.contextMenu)
         self.layout.insertWidget(0, cb)
         self.bCheckBox = True
@@ -348,12 +367,12 @@ class DoubleSpinBoxAction(SingleSpinBoxAction):
                 cb.setChecked(kwargs['cb_setChecked'])
             else:
                 cb.setChecked(True)
-            cb.setContextMenuPolicy(Qt.CustomContextMenu)
+            cb.setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
             cb.customContextMenuRequested.connect(self.contextMenu)
             self.layout.addWidget(cb)
         for i, a in enumerate(args):
             label = QLabel(a)
-            label.setContextMenuPolicy(Qt.CustomContextMenu)
+            label.setContextMenuPolicy(QT_CUSTOM_CONTEXT_MENU)
             label.customContextMenuRequested.connect(self.contextMenu)
 
             spinbox = QDoubleSpinBox()
@@ -390,7 +409,7 @@ class DoubleSpinBoxAction(SingleSpinBoxAction):
             self.layout.setContentsMargins(8, 1, 1, 1)
 
         self.cbo = QComboBox()
-        self.cbo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.cbo.setSizeAdjustPolicy(QT_COMBOBOX_ADJUST_TO_CONTENTS)
         self.layout.addWidget(self.cbo)
         self.layout.addStretch(1)
         if 'set_cbo_items' in kwargs:

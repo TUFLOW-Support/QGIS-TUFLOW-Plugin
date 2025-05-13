@@ -6,7 +6,11 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from qgis.PyQt import QtCore, QtGui, QtWidgets
+
+
+from ..compatibility_routines import QT_FRAME_RAISED, QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_EXPANDING, QT_FRAME_STYLED_PANEL
+
 
 class Ui_UserPlotData(object):
     def setupUi(self, UserPlotData):
@@ -17,7 +21,7 @@ class Ui_UserPlotData(object):
         self.pbRefresh = QtWidgets.QPushButton(UserPlotData)
         self.pbRefresh.setObjectName("pbRefresh")
         self.gridLayout.addWidget(self.pbRefresh, 2, 2, 1, 1)
-        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem = QtWidgets.QSpacerItem(40, 20, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM)
         self.gridLayout.addItem(spacerItem, 2, 1, 1, 1)
         self.pbOK = QtWidgets.QPushButton(UserPlotData)
         self.pbOK.setObjectName("pbOK")
@@ -28,8 +32,8 @@ class Ui_UserPlotData(object):
         self.gridLayout_2 = QtWidgets.QGridLayout()
         self.gridLayout_2.setObjectName("gridLayout_2")
         self.plotFrame = QtWidgets.QFrame(UserPlotData)
-        self.plotFrame.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        self.plotFrame.setFrameShadow(QtWidgets.QFrame.Raised)
+        self.plotFrame.setFrameShape(QT_FRAME_STYLED_PANEL)
+        self.plotFrame.setFrameShadow(QT_FRAME_RAISED)
         self.plotFrame.setObjectName("plotFrame")
         self.gridLayout_2.addWidget(self.plotFrame, 0, 0, 1, 1)
         self.gridLayout.addLayout(self.gridLayout_2, 0, 0, 1, 4)

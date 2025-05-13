@@ -1,11 +1,13 @@
 import sys
 import os
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
-from PyQt5.QtWidgets import *
+from qgis.PyQt.QtWidgets import *
 from ..canvas_event import *
+
+from ..compatibility_routines import QT_RED, QT_EVENT_KEY_PRESS, QT_KEY_NO_MODIFIER, QT_KEY_ESCAPE, QT_CURSOR_CROSS
 
 
 class TuRubberBand():
@@ -25,7 +27,7 @@ class TuRubberBand():
     """
 
 	def __init__(self, TuPlot, plotNo, dataType, button, plotFunction,
-	             colour=Qt.red, symbol=QgsVertexMarker.ICON_BOX, bAllowLiveTracking=False):
+	             colour=QT_RED, symbol=QgsVertexMarker.ICON_BOX, bAllowLiveTracking=False):
 		self.tuPlot = TuPlot
 		self.tuView = TuPlot.tuView
 		self.iface = TuPlot.iface
@@ -120,7 +122,7 @@ class TuRubberBand():
 		if not self.cursorTrackingConnected:
 			self.cursorTrackingConnected = True
 			self.cursorPrev = 1
-			QApplication.setOverrideCursor(Qt.CrossCursor)
+			QApplication.setOverrideCursor(QT_CURSOR_CROSS)
 
 			self.line.moved.connect(self.moved)
 			self.line.rightClicked.connect(self.rightClick)
@@ -160,8 +162,8 @@ class TuRubberBand():
         :return: bool -> True for successful, False for unsuccessful
         """
 
-		if QApplication.overrideCursor() != Qt.CrossCursor:
-			QApplication.setOverrideCursor(Qt.CrossCursor)
+		if QApplication.overrideCursor() != QT_CURSOR_CROSS:
+			QApplication.setOverrideCursor(QT_CURSOR_CROSS)
 			self.cursorPrev += 1
 
 		# get position
@@ -264,7 +266,7 @@ class TuRubberBand():
 		rubberBand = self.rubberBands[-1]
 
 		# if key is escape draw line up to last locked in point and disconnect
-		if key is None or key.key() == Qt.Key_Escape:  # Escape key
+		if key is None or key.key() == QT_KEY_ESCAPE:  # Escape key
 			self.canvas.scene().removeItem(rubberBand)  # Remove previous temp layer
 			self.mouseTrackDisconnect()
 
@@ -303,21 +305,21 @@ class TuRubberBand():
 					eval("self.tuPlot.{0}".format(self.tuView.tuOptions.liveMapTracking)) and self.allowLiveTracking:
 				worked = self.plotFromRubberBand(feat)
 				if not worked:
-					self.escape(QKeyEvent(QEvent.KeyPress, Qt.Key_Escape, Qt.NoModifier))
+					self.escape(QKeyEvent(QT_EVENT_KEY_PRESS, QT_KEY_ESCAPE, QT_KEY_NO_MODIFIER))
 					self.clearRubberBand()
 					return False
 				exec("self.tuPlot.{0} = False".format(self.clearedPlot[self.plotNo]))
 			else:
 				worked = self.plotFromRubberBand(feat, bypass=True)
 				if not worked:
-					self.escape(QKeyEvent(QEvent.KeyPress, Qt.Key_Escape, Qt.NoModifier))
+					self.escape(QKeyEvent(QT_EVENT_KEY_PRESS, QT_KEY_ESCAPE, QT_KEY_NO_MODIFIER))
 					self.clearGraphics()
 					return False
 			exec("self.tuPlot.{0} = False".format(self.holdPlot[self.plotNo]))
 		else:
 			worked = self.plotFromRubberBand(feat)
 			if not worked:
-				self.escape(QKeyEvent(QEvent.KeyPress, Qt.Key_Escape, Qt.NoModifier))
+				self.escape(QKeyEvent(QT_EVENT_KEY_PRESS, QT_KEY_ESCAPE, QT_KEY_NO_MODIFIER))
 				self.clearGraphics()
 				return False
 			exec("self.tuPlot.{0} = False".format(self.clearedPlot[self.plotNo]))
@@ -367,7 +369,7 @@ class TuRubberBand():
 class TuMarker():
 
 	def __init__(self, tuPlot, plotNo, dataType, button, plotFunction,
-	             colour=Qt.red, symbol=QgsVertexMarker.ICON_BOX, bAllowLiveTracking=False):
+	             colour=QT_RED, symbol=QgsVertexMarker.ICON_BOX, bAllowLiveTracking=False):
 		self.tuPlot = tuPlot
 		self.tuView = tuPlot.tuView
 		self.iface = tuPlot.iface
@@ -463,7 +465,7 @@ class TuMarker():
 
 			self.cursorTrackingConnected = True
 			self.cursorPrev = 1
-			QApplication.setOverrideCursor(Qt.CrossCursor)
+			QApplication.setOverrideCursor(QT_CURSOR_CROSS)
 
 			self.point.moved.connect(self.moved)
 			self.point.rightClicked.connect(self.rightClick)
@@ -519,8 +521,8 @@ class TuMarker():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		if QApplication.overrideCursor() != Qt.CrossCursor:
-			QApplication.setOverrideCursor(Qt.CrossCursor)
+		if QApplication.overrideCursor() != QT_CURSOR_CROSS:
+			QApplication.setOverrideCursor(QT_CURSOR_CROSS)
 			self.cursorPrev += 1
 
 		x = position['x']
@@ -532,14 +534,14 @@ class TuMarker():
 			if self.tuView.tuOptions.liveMapTracking and self.allowLiveTracking:
 				worked = self.plotFromMarker(QgsPointXY(point), bypass=True)
 				if not worked:
-					self.escape({'key': Qt.Key_Escape})
+					self.escape({'key': QT_KEY_ESCAPE})
 					return False
 			exec("self.tuPlot.{0} = False".format(self.holdPlot[self.plotNo]))  # turn off after first signal
 		else:
 			if self.tuView.tuOptions.liveMapTracking and self.allowLiveTracking:
 				worked = self.plotFromMarker(QgsPointXY(point))
 				if not worked:
-					self.escape({'key': Qt.Key_Escape})
+					self.escape({'key': QT_KEY_ESCAPE})
 					return False
 
 		return True
@@ -572,7 +574,7 @@ class TuMarker():
 			# plot point and do not disconnect because multi location is on, bypass on so plotting is frozen for location
 			worked = self.plotFromMarker(QgsPointXY(point), bypass=True)
 			if not worked:
-				self.escape({'key': Qt.Key_Escape})
+				self.escape({'key': QT_KEY_ESCAPE})
 				return False
 		else:
 			# plot and disconnect because only single location needed
@@ -580,7 +582,7 @@ class TuMarker():
 			self.canvas.scene().removeItem(self.marker)
 			worked = self.plotFromMarker(QgsPointXY(point))
 			if not worked:
-				self.escape({'key': Qt.Key_Escape})
+				self.escape({'key': QT_KEY_ESCAPE})
 				return False
 
 			# unpress time series button
@@ -654,7 +656,7 @@ class TuMarker():
 		:return: bool -> True for successful, False for unsuccessful
 		"""
 
-		if key is None or key['key'] == Qt.Key_Escape:
+		if key is None or key['key'] == QT_KEY_ESCAPE:
 			# clear last plot location so that cursor tracking plot is not kept
 			if self.tuView.tuOptions.liveMapTracking and self.allowLiveTracking:
 				# self.tuPlot.clearPlotLastDatasetOnly(self.plotNo)
@@ -713,7 +715,7 @@ class TuCrossSection(TuRubberBand):
 
 	def __init__(self, tuView, plotNo):
 		TuRubberBand.__init__(self, tuView, plotNo)
-		self.colour = Qt.red
+		self.colour = QT_RED
 		self.symbol = QgsVertexMarker.ICON_BOX
 		self.allowLiveTracking = True
 
@@ -748,7 +750,7 @@ class TuTimeSeriesPoint(TuMarker):
 
 	def __init__(self, tuView, plotNo):
 		TuMarker.__init__(self, tuView, plotNo)
-		self.colour = Qt.red
+		self.colour = QT_RED
 		self.symbol = QgsVertexMarker.ICON_CIRCLE
 		self.allowLiveTracking = True
 

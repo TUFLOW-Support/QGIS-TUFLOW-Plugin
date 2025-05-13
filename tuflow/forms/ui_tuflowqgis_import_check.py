@@ -6,8 +6,8 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui
-from PyQt5.QtWidgets import *
+from qgis.PyQt import QtCore, QtGui
+from qgis.PyQt.QtWidgets import *
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -23,10 +23,14 @@ except AttributeError:
     def _translate(context, text, disambig):
         return QApplication.translate(context, text, disambig)
 
+
+from ..compatibility_routines import QT_WINDOW_MODALITY_APPLICATION_MODAL, QT_BUTTON_BOX_CANCEL, QT_BUTTON_BOX_OK, QT_HORIZONTAL
+
+
 class Ui_tuflowqgis_import_check(object):
     def setupUi(self, tuflowqgis_import_check):
         tuflowqgis_import_check.setObjectName(_fromUtf8("tuflowqgis_import_check"))
-        tuflowqgis_import_check.setWindowModality(QtCore.Qt.ApplicationModal)
+        tuflowqgis_import_check.setWindowModality(QT_WINDOW_MODALITY_APPLICATION_MODAL)
         tuflowqgis_import_check.setEnabled(True)
         tuflowqgis_import_check.resize(388, 183)
         tuflowqgis_import_check.setMouseTracking(False)
@@ -54,8 +58,8 @@ class Ui_tuflowqgis_import_check(object):
         self.showchecks.setObjectName(_fromUtf8("showchecks"))
         self.gridLayout.addWidget(self.showchecks, 5, 0, 1, 1)
         self.buttonBox = QDialogButtonBox(tuflowqgis_import_check)
-        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Ok)
+        self.buttonBox.setOrientation(QT_HORIZONTAL)
+        self.buttonBox.setStandardButtons(QT_BUTTON_BOX_CANCEL|QT_BUTTON_BOX_OK)
         self.buttonBox.setObjectName(_fromUtf8("buttonBox"))
         self.gridLayout.addWidget(self.buttonBox, 6, 0, 1, 1)
 

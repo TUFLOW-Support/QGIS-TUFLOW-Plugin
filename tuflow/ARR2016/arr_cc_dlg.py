@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from PyQt5.QtWidgets import QDialog
+from qgis.PyQt.QtWidgets import QDialog
 from qgis.core import QgsApplication
 
 from tuflow.forms.arr_cc_scenarios import Ui_ARRCCDialog

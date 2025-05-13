@@ -6,7 +6,11 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from qgis.PyQt import QtCore, QtGui, QtWidgets
+
+
+from ..compatibility_routines import QT_BUTTON_BOX_CANCEL, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM, QT_BUTTON_BOX_OK, QT_HORIZONTAL
+
 
 class Ui_textPropertiesDialog(object):
     def setupUi(self, textPropertiesDialog):
@@ -16,7 +20,7 @@ class Ui_textPropertiesDialog(object):
         self.verticalLayout.setObjectName("verticalLayout")
         self.gridLayout = QtWidgets.QGridLayout()
         self.gridLayout.setObjectName("gridLayout")
-        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem = QtWidgets.QSpacerItem(40, 20, QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_MINIMUM)
         self.gridLayout.addItem(spacerItem, 0, 2, 1, 1)
         self.fntButton = QgsFontButton(textPropertiesDialog)
         self.fntButton.setMinimumSize(QtCore.QSize(0, 21))
@@ -53,8 +57,8 @@ class Ui_textPropertiesDialog(object):
         self.gridLayout.addWidget(self.frameColor, 2, 3, 1, 1)
         self.verticalLayout.addLayout(self.gridLayout)
         self.buttonBox = QtWidgets.QDialogButtonBox(textPropertiesDialog)
-        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Ok)
+        self.buttonBox.setOrientation(QT_HORIZONTAL)
+        self.buttonBox.setStandardButtons(QT_BUTTON_BOX_CANCEL|QT_BUTTON_BOX_OK)
         self.buttonBox.setObjectName("buttonBox")
         self.verticalLayout.addWidget(self.buttonBox)
 

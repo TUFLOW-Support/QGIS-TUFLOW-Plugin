@@ -6,7 +6,7 @@ import tempfile
 import zipfile
 import re
 
-from PyQt5.QtCore import QCoreApplication
+from qgis.PyQt.QtCore import QCoreApplication
 from qgis._core import (QgsProcessingAlgorithm, QgsProcessingParameterFile, QgsProcessingParameterEnum,
                         QgsProcessingParameterBoolean, QgsProcessingParameterDefinition, QgsProcessingContext,
                         QgsProcessingFeedback, QgsProcessingMultiStepFeedback, QgsProcessingParameterString)

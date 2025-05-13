@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import numpy as np
 from qgis._core import QgsGeometry, QgsFeature, QgsPointXY, QgsWkbTypes, QgsMapLayer
 from qgis.core import QgsRasterLayer, QgsSingleBandPseudoColorRenderer, QgsColorRampShader, QgsStyle
-from PyQt5.QtCore import pyqtSignal
+from qgis.PyQt.QtCore import pyqtSignal
 
 netcdf_loaded = False
 try:

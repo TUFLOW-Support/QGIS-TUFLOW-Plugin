@@ -1,11 +1,11 @@
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5 import QtGui
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt import QtGui
 from qgis.core import *
 from qgis.gui import QgsVertexMarker
-from PyQt5.QtWidgets  import *
+from qgis.PyQt.QtWidgets  import *
 import sys
 import os
 import re
@@ -41,6 +41,8 @@ from ..tuflowqgis_library import (applyMatplotLibArtist, getMean, roundSeconds, 
                                   convertFormattedTimeToTime, getPolyCollectionData, mpl_version_int)
 from tuflow.toc.toc import tuflowqgis_find_layer, findAllMeshLyrs
 from .tuflowqgis_tuplot3d import (TuPlot3D, ColourBar)
+
+from ..compatibility_routines import QT_RED, QT_BLUE, QT_LEFT_BUTTON, QT_DARK_GREEN, QT_SIZE_POLICY_EXPANDING, QT_MAGENTA, QT_GREEN, QT_EVENT_MOUSE_BUTTON_PRESS, QT_TIMESPEC_UTC
 
 
 
@@ -339,25 +341,25 @@ class TuPlot():
 		# rubberband class plot class
 		self.tuTSPoint = TuMarker(self, TuPlot.TimeSeries, TuPlot.DataTimeSeries2D,
 		                          self.tuPlotToolbar.plotTSMenu, self.tuPlot2D.plotTimeSeriesFromMap,
-		                          Qt.red, QgsVertexMarker.ICON_CIRCLE, True)
+		                          QT_RED, QgsVertexMarker.ICON_CIRCLE, True)
 		self.tuCrossSection = TuRubberBand(self, TuPlot.CrossSection, TuPlot.DataCrossSection2D,
 		                                   self.tuPlotToolbar.plotLPMenu, self.tuPlot2D.plotCrossSectionFromMap,
-		                                   Qt.red, QgsVertexMarker.ICON_BOX, True)
+		                                   QT_RED, QgsVertexMarker.ICON_BOX, True)
 		self.tuFlowLine = TuFlowLine(self, TuPlot.TimeSeries, TuPlot.DataFlow2D,
 		                             self.tuPlotToolbar.plotFluxButton, self.tuPlot2D.plotFlowFromMap,
-		                             Qt.blue, QgsVertexMarker.ICON_DOUBLE_TRIANGLE, False)
+		                             QT_BLUE, QgsVertexMarker.ICON_DOUBLE_TRIANGLE, False)
 		self.tuCurtainLine = TuRubberBand(self, TuPlot.CrossSection, TuPlot.DataCurtainPlot,
 		                                  self.tuPlotToolbar.curtainPlotMenu, self.tuPlot3D.plotCurtainFromMap,
-		                                  Qt.green, QgsVertexMarker.ICON_BOX, False)
+		                                  QT_GREEN, QgsVertexMarker.ICON_BOX, False)
 		self.tuTSPointDepAv = TuMarker(self, TuPlot.TimeSeries, TuPlot.DataTimeSeriesDepAv,
 		                               self.tuPlotToolbar.averageMethodTSMenu, self.tuPlot3D.plotTimeSeriesFromMap,
-		                               Qt.darkGreen, QgsVertexMarker.ICON_CIRCLE, True)
+		                               QT_DARK_GREEN, QgsVertexMarker.ICON_CIRCLE, True)
 		self.tuCSLineDepAv = TuRubberBand(self, TuPlot.CrossSection, TuPlot.DataCrossSectionDepAv,
 		                                   self.tuPlotToolbar.averageMethodCSMenu, self.tuPlot3D.plotCrossSectionFromMap,
-		                                   Qt.darkGreen, QgsVertexMarker.ICON_BOX, True)
+		                                   QT_DARK_GREEN, QgsVertexMarker.ICON_BOX, True)
 		self.tuVPPoint = TuMarker(self, TuPlot.VerticalProfile, TuPlot.DataVerticalProfile,
 		                          self.tuPlotToolbar.plotVPMenu, self.tuPlot3D.plotVerticalProfileFromMap,
-		                          Qt.magenta, QgsVertexMarker.ICON_CIRCLE, True)
+		                          QT_MAGENTA, QgsVertexMarker.ICON_CIRCLE, True)
 
 		self.markers = {
 			self.tuTSPoint: 'Time Series',
@@ -567,7 +569,7 @@ class TuPlot():
 		subplot.set_xbound(0, 1000)
 		subplot.set_ybound(0, 1000)
 		self.manageMatplotlibAxe(subplot)
-		sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+		sizePolicy = QSizePolicy(QT_SIZE_POLICY_EXPANDING, QT_SIZE_POLICY_EXPANDING)
 		sizePolicy.setHorizontalStretch(0)
 		sizePolicy.setVerticalStretch(0)
 		plotWidget.setSizePolicy(sizePolicy)
@@ -3823,7 +3825,7 @@ class TuPlot():
 			elif '{0:.6f}'.format(datum) in self.tuView.tuResults.timekey2date_tspec.keys():
 				time = self.tuView.tuResults.timekey2date_tspec['{0:.6f}'.format(datum)]
 			else:
-				time = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, 1) \
+				time = datetime2timespec(self.tuView.tuOptions.zeroTime, self.tuView.tuResults.loadedTimeSpec, QT_TIMESPEC_UTC) \
 				       + timedelta(hours=datum)
 				time = roundSeconds(time, 2)
 				modelDates = sorted([x for x in self.tuView.tuResults.date_tspec2time.keys()])
@@ -3933,7 +3935,7 @@ class TuPlot():
 		x2, y2 = None, None
 		if e.inaxes == subplot:
 			# if e.button == MouseButton.LEFT and not e.dblclick:
-			if e.guiEvent.type() == QEvent.MouseButtonPress and e.guiEvent.button() == Qt.LeftButton:
+			if e.guiEvent.type() == QT_EVENT_MOUSE_BUTTON_PRESS and e.guiEvent.button() == QT_LEFT_BUTTON:
 				x = e.xdata
 				y = e.ydata
 				x2 = None
@@ -3944,7 +3946,7 @@ class TuPlot():
 					if pci is not None:
 						z = pc.get_array()[pci]
 		elif subplot2 is not None and e.inaxes == subplot2:
-			if e.guiEvent.type() == QEvent.MouseButtonPress and e.guiEvent.button() == Qt.LeftButton:
+			if e.guiEvent.type() == QT_EVENT_MOUSE_BUTTON_PRESS and e.guiEvent.button() == QT_LEFT_BUTTON:
 				x2 = e.xdata
 				y2 = e.ydata
 				if PolyCollection in [type(x) for x in artists[0]]:
@@ -4926,8 +4928,8 @@ class CursorMarker:
 			p = self.transform(artist, geom, plot_x)
 			if marker is None:
 				marker = QgsVertexMarker(self.canvas)
-				marker.setColor(Qt.red)
-				marker.setFillColor(Qt.red)
+				marker.setColor(QT_RED)
+				marker.setFillColor(QT_RED)
 				marker.setIconType(QgsVertexMarker.ICON_CIRCLE)
 				marker.setIconSize(10)
 				self.ids[id_] = (artist, geom, marker)
