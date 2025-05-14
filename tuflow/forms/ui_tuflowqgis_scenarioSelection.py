@@ -12,7 +12,8 @@ from qgis.PyQt import QtCore, QtGui, QtWidgets
 
 
 
-from ..compatibility_routines import QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_EXPANDING, QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION
+from ..compatibility_routines import (QT_SIZE_POLICY_MINIMUM, QT_SIZE_POLICY_EXPANDING,
+                                      QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION, QT_ABSTRACT_ITEM_VIEW_SELECT_ITEMS)
 
 
 class Ui_scenarioSelection(object):
@@ -46,7 +47,7 @@ class Ui_scenarioSelection(object):
         self.event_lw = QtWidgets.QListWidget(scenarioSelection)
         self.event_lw.setAlternatingRowColors(False)
         self.event_lw.setSelectionMode(QT_ABSTRACT_ITEM_VIEW_EXTENDED_SELECTION)
-        self.event_lw.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectItems)
+        self.event_lw.setSelectionBehavior(QT_ABSTRACT_ITEM_VIEW_SELECT_ITEMS)
         self.event_lw.setSelectionRectVisible(True)
         self.event_lw.setObjectName("event_lw")
         self.verticalLayout_4.addWidget(self.event_lw)

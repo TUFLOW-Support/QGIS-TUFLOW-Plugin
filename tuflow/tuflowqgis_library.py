@@ -85,7 +85,8 @@ from tuflow.compatibility_routines import (QT_DOUBLE, QT_FLOAT, QT_LONG_LONG, QT
                                            QT_FILE_DIALOG_ACCEPT_OPEN, QT_FILE_DIALOG_ACCEPT_SAVE,
                                            QT_FILE_DIALOG_ANY_FILE, QT_FILE_DIALOG_DONT_CONFIRM_OVERWRITE,
                                            QT_FILE_DIALOG_DETAIL, QT_FILE_DIALOG_DIRECTORY, QT_FILE_DIALOG_EXISTING_FILE,
-                                           QT_FILE_DIALOG_EXISTONG_FILES, QT_FILE_DIALOG_SHOW_DIRS_ONLY)
+                                           QT_FILE_DIALOG_EXISTONG_FILES, QT_FILE_DIALOG_SHOW_DIRS_ONLY,
+                                           QT_KEEP_ASPECT_RATIO, QT_LAYOUT_SET_FIXED_SIZE)
 
 
 # --------------------------------------------------------
@@ -9811,7 +9812,7 @@ def LoadRasterMessageBox(parent, title, text):
     layout_vert = QVBoxLayout()
     layout_vert.addLayout(layout_hori_1)
     layout_vert.addLayout(layout_hori_2)
-    layout_vert.setSizeConstraint(QLayout.SetFixedSize)
+    layout_vert.setSizeConstraint(QT_LAYOUT_SET_FIXED_SIZE)
     dialog.setLayout(layout_vert)
 
     d = {pb_yes: 'yes', pb_no: 'no', pb_invisible: 'invisible'}
@@ -9878,7 +9879,7 @@ def LoadTCFOptionsMessageBox(parent, title):
     dialog = QDialog(parent)
     dialog.setWindowTitle(title)
     image = QLabel()
-    image.setPixmap(QPixmap(":/icons/icons/question.svg").scaled(35, 35, Qt.KeepAspectRatio))
+    image.setPixmap(QPixmap(":/icons/icons/question.svg").scaled(35, 35, QT_KEEP_ASPECT_RATIO))
     label = QLabel()
     label.setText('<b>Load from Control File import options</b>')
     hlayout1 = QHBoxLayout()
@@ -9971,7 +9972,7 @@ def LoadTCFOptionsMessageBox(parent, title):
     vlayout.addLayout(hlayout4)
     dialog.setLayout(vlayout)
 
-    vlayout.setSizeConstraint(QLayout.SetFixedSize)
+    vlayout.setSizeConstraint(QT_LAYOUT_SET_FIXED_SIZE)
 
     pbOk.clicked.connect(lambda: loadTCFOptionsMessageBox_signal(dialog, 'ok'))
     pbCancel.clicked.connect(lambda: loadTCFOptionsMessageBox_signal(dialog, 'cancel'))

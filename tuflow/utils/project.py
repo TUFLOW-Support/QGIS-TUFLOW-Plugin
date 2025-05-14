@@ -542,8 +542,8 @@ class ProjectConfig:
 
         # create feature
         feat = ogr.Feature(lyr.GetLayerDefn())
-        feat.SetField('Domain_Ind', 1)
-        feat.SetField('Domain_Name', 'Domain_001')
+        feat.SetField(0, 1)
+        feat.SetField(1, 'Domain_001')
         feat.SetGeometry(poly)
         lyr.CreateFeature(feat)
 

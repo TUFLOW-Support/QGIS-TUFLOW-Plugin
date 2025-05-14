@@ -23,8 +23,9 @@ from qgis.core import Qgis
 from qgis.PyQt.QtCore import QVariant, QMetaType, Qt, QEvent, QItemSelectionModel, QEventLoop, QRegularExpression
 from qgis.PyQt.QtWidgets import (QSizePolicy, QFrame, QAbstractItemView, QListView, QComboBox, QSlider, QToolButton,
                                  QStyle, QDateTimeEdit, QFormLayout, QDialogButtonBox, QMessageBox, QHeaderView,
-                                 QDialog, QAbstractScrollArea, QAbstractSpinBox, QFileDialog)
-from qgis.PyQt.QtGui import QIcon, QPalette, QFont, QImage, QKeySequence
+                                 QDialog, QAbstractScrollArea, QAbstractSpinBox, QFileDialog, QTabWidget,
+                                 QLayout)
+from qgis.PyQt.QtGui import QIcon, QPalette, QFont, QImage, QKeySequence, QPainter
 from qgis.PyQt.QtNetwork import QNetworkRequest
 
 try:
@@ -126,6 +127,8 @@ if is_qt6:
     QT_LAYOUT_DIRECTION_RIGHT_TO_LEFT = Qt.LayoutDirection.RightToLeft
     QT_LAYOUT_DIRECTION_AUTO = Qt.LayoutDirection.LayoutDirectionAuto
 
+    QT_LAYOUT_SET_FIXED_SIZE = QLayout.SizeConstraint.SetFixedSize
+
     # keys
     QT_KEY_RETURN = Qt.Key.Key_Return
     QT_KEY_ESCAPE = Qt.Key.Key_Escape
@@ -193,6 +196,10 @@ if is_qt6:
     # brush style
     QT_STYLE_NO_BRUSH = Qt.BrushStyle.NoBrush
     QT_STYLE_SOLID_BRUSH = Qt.BrushStyle.SolidPattern
+
+    # line style
+    QT_DASH_LINE = Qt.PenStyle.DashLine
+    QT_SOLID_LINE = Qt.PenStyle.SolidLine
 
     # pen style
     QT_STYLE_NO_PEN = Qt.PenStyle.NoPen
@@ -589,6 +596,22 @@ if is_qt6:
     QT_FILE_DIALOG_DIRECTORY = QFileDialog.FileMode.Directory
     QT_FILE_DIALOG_DETAIL = QFileDialog.ViewMode.Detail
     QT_FILE_DIALOG_SHOW_DIRS_ONLY = QFileDialog.Option.ShowDirsOnly
+
+    QT_WA_STYLED_BACKGROUND = Qt.WidgetAttribute.WA_StyledBackground
+
+    QT_TOP_RIGHT_CORNER = Qt.Corner.TopRightCorner
+    QT_BOTTOM_RIGHT_CORNER = Qt.Corner.BottomRightCorner
+    QT_BOTTOM_LEFT_CORNER = Qt.Corner.BottomLeftCorner
+    QT_TOP_LEFT_CORNER = Qt.Corner.TopLeftCorner
+
+    # qtabwidget
+    QT_TAB_WIDGET_ROUNDED = QTabWidget.TabShape.Rounded
+    QT_TAB_WIDGET_TRIANGULAR = QTabWidget.TabShape.Triangular
+
+    # qpainter
+    QT_PAINTER_ANTIALIASING = QPainter.RenderHint.Antialiasing
+
+    QT_KEEP_ASPECT_RATIO = Qt.AspectRatioMode.KeepAspectRatio
 else:
     # data types
     try:
@@ -679,6 +702,8 @@ else:
     QT_LAYOUT_DIRECTION_RIGHT_TO_LEFT = Qt.RightToLeft
     QT_LAYOUT_DIRECTION_AUTO = Qt.LayoutDirectionAuto
 
+    QT_LAYOUT_SET_FIXED_SIZE = QLayout.SetFixedSize
+
     # keys
     QT_KEY_RETURN = Qt.Key_Return
     QT_KEY_ESCAPE = Qt.Key_Escape
@@ -746,6 +771,10 @@ else:
     # brush style
     QT_STYLE_NO_BRUSH = Qt.NoBrush
     QT_STYLE_SOLID_BRUSH = Qt.SolidPattern
+
+    # line style
+    QT_DASH_LINE = Qt.DashLine
+    QT_SOLID_LINE = Qt.SolidLine
 
     # pen style
     QT_STYLE_NO_PEN = Qt.NoPen
@@ -1142,6 +1171,22 @@ else:
     QT_FILE_DIALOG_DIRECTORY = QFileDialog.Directory
     QT_FILE_DIALOG_DETAIL = QFileDialog.Detail
     QT_FILE_DIALOG_SHOW_DIRS_ONLY = QFileDialog.ShowDirsOnly
+
+    QT_WA_STYLED_BACKGROUND = Qt.WA_StyledBackground
+
+    QT_TOP_RIGHT_CORNER = Qt.Corner.TopRightCorner
+    QT_BOTTOM_RIGHT_CORNER = Qt.Corner.BottomRightCorner
+    QT_BOTTOM_LEFT_CORNER = Qt.Corner.BottomLeftCorner
+    QT_TOP_LEFT_CORNER = Qt.Corner.TopLeftCorner
+
+    # qtabwidget
+    QT_TAB_WIDGET_ROUNDED = QTabWidget.Rounded
+    QT_TAB_WIDGET_TRIANGULAR = QTabWidget.Triangular
+
+    # qpainter
+    QT_PAINTER_ANTIALIASING = QPainter.Antialiasing
+
+    QT_KEEP_ASPECT_RATIO = Qt.KeepAspectRatio
 
 # end PyQt5/PyQt6 enumerators
 
