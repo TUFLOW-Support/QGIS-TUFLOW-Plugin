@@ -14,7 +14,7 @@ from .compatibility_routines import (is_qt6, QT_PALETTE_HIGHLIGHT, QT_LEFT_BUTTO
 if is_qt6:
     from qgis.PyQt.QtGui import QAction
 else:
-    from qgis.PyQt.QtGui import QAction
+    from qgis.PyQt.QtWidgets import QAction
 
 
 class CustomMenuWidget(QWidget):
