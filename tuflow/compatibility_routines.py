@@ -865,7 +865,7 @@ else:
     QT_ABSTRACT_ITEM_VIEW_POSITION_AT_CENTER = QAbstractItemView.PositionAtCenter
     QT_ABSTRACT_ITEM_VIEW_SCROLL_PER_ITEM = QAbstractItemView.ScrollPerItem
     QT_ABSTRACT_ITEM_VIEW_SCROLL_PER_PIXEL = QAbstractItemView.ScrollPerPixel
-    QT_ABSTRACT_ITEM_VIEW_SELECT_ITEMS = QAbstractItemView.SingleSelection
+    QT_ABSTRACT_ITEM_VIEW_SELECT_ITEMS = QAbstractItemView.SelectItems
     QT_ABSTRACT_ITEM_VIEW_SELECT_ROWS = QAbstractItemView.SelectRows
     QT_ABSTRACT_ITEM_VIEW_SELECT_COLUMNS = QAbstractItemView.SelectColumns
     QT_ABSTRACT_ITEM_VIEW_SINGLE_SELECTION = QAbstractItemView.SingleSelection
