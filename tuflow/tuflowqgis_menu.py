@@ -70,7 +70,13 @@ for f in for_deleting:
 
 refh2dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ReFH2")
 pyds = glob.glob(os.path.join(refh2dir, "*.pyd"))
-if pyds:
+if os.path.exists(os.path.join(refh2dir, 'refh2.py')):
+    try:
+        from .ReFH2.refh2 import Refh2Dock
+    except ImportError as e:
+        refh2_errmsg = str(e)
+        Refh2Dock = None
+elif pyds and sys.platform == 'win32':
     pyd = None
     if sys.version_info.major == 3 and sys.version_info.minor == 12:
         pyd = [x for x in pyds if "cp312" in x]
@@ -92,14 +98,8 @@ if pyds:
     else:
         refh2_errmsg = 'Unsupported Python version installed with QGIS for ReFH2 tool.\nSupported versions: Python 3.9, Python 3.12'
         Refh2Dock = None
-elif os.path.exists(os.path.join(refh2dir, 'refh2.py')):
-    try:
-        from .ReFH2.refh2 import Refh2Dock
-    except ImportError as e:
-        refh2_errmsg = str(e)
-        Refh2Dock = None
 else:
-    refh2_errmsg = 'ReFH2 tool not found'
+    refh2_errmsg = 'ReFH2 tool not found or not supported on this platform.'
     Refh2Dock = None
 
 # from tuflow.ReFH2.refh2 import Refh2Dock

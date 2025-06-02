@@ -614,20 +614,36 @@ if is_qt6:
     QT_KEEP_ASPECT_RATIO = Qt.AspectRatioMode.KeepAspectRatio
 else:
     # data types
-    try:
-        QT_STRING = QVariant.String if Qgis.QGIS_VERSION_INT < 33800 else QMetaType.QString
-        QT_INT = QVariant.Int if Qgis.QGIS_VERSION_INT < 33800 else QMetaType.Int
-        QT_LONG = QVariant.Long if Qgis.QGIS_VERSION_INT < 33800 else QMetaType.Long
-        QT_LONG_LONG = QVariant.LongLong if Qgis.QGIS_VERSION_INT < 33800 else QMetaType.LongLong
-        QT_FLOAT = QVariant.Float if Qgis.QGIS_VERSION_INT < 33800 else QMetaType.Float
-        QT_DOUBLE = QVariant.Double if Qgis.QGIS_VERSION_INT < 33800 else QMetaType.Double
-    except:
-        QT_STRING = QMetaType.QString
-        QT_INT = QMetaType.Int
-        QT_LONG = QMetaType.Long
-        QT_LONG_LONG = QMetaType.LongLong
-        QT_FLOAT = QMetaType.Float
-        QT_DOUBLE = QMetaType.Double
+    if Qgis.QGIS_VERSION_INT < 33800:
+        try:
+            QT_STRING = QVariant.String
+            QT_INT = QVariant.Int
+            QT_LONG = QVariant.LongLong
+            QT_LONG_LONG = QVariant.LongLong
+            QT_FLOAT = QVariant.Double
+            QT_DOUBLE = QVariant.Double
+        except:
+            QT_STRING = QMetaType.QString
+            QT_INT = QMetaType.Int
+            QT_LONG = QMetaType.Long
+            QT_LONG_LONG = QMetaType.LongLong
+            QT_FLOAT = QMetaType.Float
+            QT_DOUBLE = QMetaType.Double
+    else:
+        try:
+            QT_STRING = QMetaType.QString
+            QT_INT = QMetaType.Int
+            QT_LONG = QMetaType.Long
+            QT_LONG_LONG = QMetaType.LongLong
+            QT_FLOAT = QMetaType.Double
+            QT_DOUBLE = QMetaType.Double
+        except:
+            QT_STRING = QVariant.String
+            QT_INT = QVariant.Int
+            QT_LONG = QVariant.LongLong
+            QT_LONG_LONG = QVariant.LongLong
+            QT_FLOAT = QVariant.Float
+            QT_DOUBLE = QVariant.Double
 
     # colours
     QT_RED = Qt.red

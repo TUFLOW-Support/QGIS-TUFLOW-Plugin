@@ -86,7 +86,7 @@ from tuflow.compatibility_routines import (QT_DOUBLE, QT_FLOAT, QT_LONG_LONG, QT
                                            QT_FILE_DIALOG_ANY_FILE, QT_FILE_DIALOG_DONT_CONFIRM_OVERWRITE,
                                            QT_FILE_DIALOG_DETAIL, QT_FILE_DIALOG_DIRECTORY, QT_FILE_DIALOG_EXISTING_FILE,
                                            QT_FILE_DIALOG_EXISTONG_FILES, QT_FILE_DIALOG_SHOW_DIRS_ONLY,
-                                           QT_KEEP_ASPECT_RATIO, QT_LAYOUT_SET_FIXED_SIZE)
+                                           QT_KEEP_ASPECT_RATIO, QT_LAYOUT_SET_FIXED_SIZE, QT_MESSAGE_BOX_YES_TO_ALL)
 
 
 # --------------------------------------------------------
@@ -531,10 +531,10 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
                         answer = QMessageBox.question(dialog, 'Layer Already Exists',
                                                       '{0} already exists in {1}\nOverwrite existing layer?'.format(
                                                           layername, Path(fpath).name),
-                                                      QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_YESToAll | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+                                                      QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_YES_TO_ALL | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
                         if answer == QT_MESSAGE_BOX_YES:
                             pass
-                        elif answer == QT_MESSAGE_BOX_YESToAll:
+                        elif answer == QT_MESSAGE_BOX_YES_TO_ALL:
                             yestoall = True
                         elif answer == QT_MESSAGE_BOX_NO:
                             return 'pass'
@@ -544,10 +544,10 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
                     if Path(fpath).exists() and not yestoall:
                         answer = QMessageBox.question(dialog, 'Layer Already Exists',
                                                       '{0} already exists\nOverwrite existing file?'.format(fpath),
-                                                      QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_YESToAll | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
+                                                      QT_MESSAGE_BOX_YES | QT_MESSAGE_BOX_YES_TO_ALL | QT_MESSAGE_BOX_NO | QT_MESSAGE_BOX_CANCEL)
                         if answer == QT_MESSAGE_BOX_YES:
                             pass
-                        elif answer == QT_MESSAGE_BOX_YESToAll:
+                        elif answer == QT_MESSAGE_BOX_YES_TO_ALL:
                             yestoall = True
                         elif answer == QT_MESSAGE_BOX_NO:
                             return 'pass'
