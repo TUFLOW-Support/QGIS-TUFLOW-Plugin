@@ -1,6 +1,6 @@
 *.exe
-.idea*
-.vscode*
+QGIS-TUFLOW-Plugin/.idea*
+*vscode*
 __pycache__*
 _utilities*
 ARR2016/__pycache__*
