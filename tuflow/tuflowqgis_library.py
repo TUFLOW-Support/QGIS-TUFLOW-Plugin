@@ -38,6 +38,7 @@ from qgis.core import QgsApplication as qApp
 from math import *
 import numpy
 import glob  # MJS 11/02
+import importlib
 
 from tuflow.toc.toc import tuflowqgis_find_layer
 
@@ -86,7 +87,8 @@ from tuflow.compatibility_routines import (QT_DOUBLE, QT_FLOAT, QT_LONG_LONG, QT
                                            QT_FILE_DIALOG_ANY_FILE, QT_FILE_DIALOG_DONT_CONFIRM_OVERWRITE,
                                            QT_FILE_DIALOG_DETAIL, QT_FILE_DIALOG_DIRECTORY, QT_FILE_DIALOG_EXISTING_FILE,
                                            QT_FILE_DIALOG_EXISTONG_FILES, QT_FILE_DIALOG_SHOW_DIRS_ONLY,
-                                           QT_KEEP_ASPECT_RATIO, QT_LAYOUT_SET_FIXED_SIZE, QT_MESSAGE_BOX_YES_TO_ALL)
+                                           QT_KEEP_ASPECT_RATIO, QT_LAYOUT_SET_FIXED_SIZE, QT_MESSAGE_BOX_YES_TO_ALL,
+                                           QT_FONT_MONOSPACE, QT_MESSAGE_BOX_OK)
 
 
 # --------------------------------------------------------
@@ -166,29 +168,67 @@ def get_latest_dev_plugin_version():
     return 'Unable to determine latest dev version'
 
 
+def check_python_lib(qgis):
+    py_modules = ['scipy', 'numpy', 'matplotlib', 'pandas', 'pyarrow', 'fiona', 'geopandas', 'rtree', 'shapely', 'netCDF4']
+    msg = OrderedDict()
+    for module in py_modules:
+        msg[module] = ''
+        try:
+            mod = importlib.import_module(module)
+            msg[module] = version = getattr(mod, "__version__", 'installed')
+        except ImportError as e:
+            msg[module] = 'not installed'
+
+    return msg
+
+
 def about(window):
     from .forms.ui_AboutDialog import Ui_AboutDialog
     class AboutDialog(QDialog, Ui_AboutDialog):
-        def __init__(self, iface, plugin_version):
+        def __init__(self, iface, plugin_version, python_dependencies):
             QDialog.__init__(self)
             self.setupUi(self)
             self.iface = iface
+            font = QFont('Monospace')
+            font.setStyleHint(QT_FONT_MONOSPACE)
+            font.setPointSize(10)
+            self.textEdit.setCurrentFont(font)
+            max_len = max(len(k) for k in python_dependencies.keys()) + 2
+            python_lib_msg = '\n'.join(['{0:{2}s}: {1}'.format(k, v, max_len) for k, v in python_dependencies.items()])
             self.textEdit.setText('{0}\t: {1}\n'
                                   '{6}\t: {7}\n'
                                   '{2}\t\t: {3}\n'
-                                  '{4}\t\t: {5}'
+                                  '{4}\t\t: {5}\n\n'
+                                  'Python Libraries\n{8}'
                                   .format("TUFLOW Plugin Version", plugin_version, "QGIS Version", Qgis.QGIS_VERSION,
                                           "Python Version", sys.version.split('(')[0].strip(),
-                                          "Latest Plugin Dev Version", get_latest_dev_plugin_version()))
+                                          "Latest Plugin Dev Version", get_latest_dev_plugin_version(),
+                                          python_lib_msg))
             self.pbClose.clicked.connect(self.accept)
             self.pbCopyText.clicked.connect(self.copy)
+            self.adjustSizeToText(self.textEdit.toPlainText(), font)
+
+        def adjustSizeToText(self, text, font):
+            metrics = QFontMetrics(font)
+
+            # Estimate width and height
+            lines = text.splitlines() or [""]
+            max_line_width = max(metrics.width(line) for line in lines)
+            line_height = metrics.lineSpacing()
+            total_height = line_height * len(lines)
+
+            # Add internal margins/padding
+            width = max_line_width + 60  # padding
+            height = total_height + 120  # padding for button and layout
+
+            self.resize(width, height)
 
         def copy(self):
             clipboard = QApplication.clipboard()
             clipboard.setText(self.textEdit.toPlainText())
 
     build_type, build_vers = version()
-    dialog = AboutDialog(window, build_vers)
+    dialog = AboutDialog(window, build_vers, check_python_lib(window))
     dialog.exec()
 
 
@@ -427,10 +467,10 @@ def tuflowqgis_create_tf_dir(dialog, crs, basepath, engine, tutorial, gisFormat=
     # Write .tcf file
     ext = '.fvc' if engine == 'flexible mesh' else '.tcf'
     runfile = os.path.join(basepath, parent_folder_name, "runs", "Create_Empties{0}".format(ext))
-    create_empty_tcf(runfile, gisFormat, tutorial)
+    create_empty_tcf(runfile, gisFormat, tutorial, engine, crs)
 
 
-def create_empty_tcf(tcf_path, gis_format, tutorial_model):
+def create_empty_tcf(tcf_path, gis_format, tutorial_model, engine='hpc', crs=None):
     with open(tcf_path, 'w') as f:
         f.write("GIS FORMAT == {0}\n".format(gis_format))
         if gis_format == 'SHP':
@@ -440,6 +480,30 @@ def create_empty_tcf(tcf_path, gis_format, tutorial_model):
         if tutorial_model:
             f.write("Tutorial Model == ON\n")
         f.write("Write Empty GIS Files == ..{0}model{0}gis{0}empty\n".format(os.sep))
+
+        if engine == 'flexible mesh':
+            f.write('Spherical == {0}\n'.format(1 if crs.isGeographic() else 0))
+            # try:
+            feet = [Qgis.DistanceUnit.Feet]
+            if Qgis.QGIS_VERSION_INT >= 34000:
+                feet.append(Qgis.DistanceUnit.FeetBritish1865)
+                feet.append(Qgis.DistanceUnit.FeetBritish1936)
+                feet.append(Qgis.DistanceUnit.FeetBritishBenoit1895A)
+                feet.append(Qgis.DistanceUnit.FeetBritishBenoit1895B)
+                feet.append(Qgis.DistanceUnit.FeetBritishSears1922Truncated)
+                feet.append(Qgis.DistanceUnit.FeetBritishSears1922)
+                feet.append(Qgis.DistanceUnit.FeetClarkes)
+                feet.append(Qgis.DistanceUnit.FeetGoldCoast)
+                feet.append(Qgis.DistanceUnit.FeetIndian)
+                feet.append(Qgis.DistanceUnit.FeetIndian1937)
+                feet.append(Qgis.DistanceUnit.FeetIndian1962)
+                feet.append(Qgis.DistanceUnit.FeetIndian1975)
+                feet.append(Qgis.DistanceUnit.FeetUSSurvey)
+            # except:
+            #     feet = [Qgis.QgsUnitTypes.DistanceFeet]
+            f.write('Units == {0}\n'.format('US Customary' if crs.mapUnits() in feet else 'Metric'))
+            if not crs.isGeographic():
+                f.write('!Latitude == Y  ! User needs to replace "Y" with a representative latitude for the model domain.\n')
 
 
 def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines, regions, dialog,
@@ -659,62 +723,6 @@ def tuflowqgis_get_selected_IDs(qgis, layer):
         id = feature.attributeMap()[idx].toString()
         IDs.append(id)
     return IDs, None
-
-
-def check_python_lib(qgis):
-    error = False
-    py_modules = []
-    try:
-        py_modules.append('numpy')
-        import numpy
-    except:
-        error = True
-        QMessageBox.critical(qgis.mainWindow(), "Error", "python library 'numpy' not installed.")
-    try:
-        py_modules.append('csv')
-        import csv
-    except:
-        error = True
-        QMessageBox.critical(qgis.mainWindow(), "Error", "python library 'csv' not installed.")
-    try:
-        py_modules.append('matplotlib')
-        import matplotlib
-    except:
-        error = True
-        QMessageBox.critical(qgis.mainWindow(), "Error", "python library 'matplotlib' not installed.")
-    try:
-        py_modules.append('PyQt5')
-        import PyQt5
-    except:
-        error = True
-        QMessageBox.critical(qgis.mainWindow(), "Error", "python library 'PyQt4' not installed.")
-    try:
-        py_modules.append('osgeo.ogr')
-        import osgeo.ogr as ogr
-    except:
-        error = True
-        QMessageBox.critical(qgis.mainWindow(), "Error", "python library 'osgeo.ogr' not installed.")
-    try:
-        py_modules.append('glob')
-        import glob
-    except:
-        error = True
-        QMessageBox.critical(qgis.mainWindow(), "Error", "python library 'glob' not installed.")
-    try:
-        py_modules.append('os')
-        import os
-    except:
-        error = True
-        QMessageBox.critical(qgis.mainWindow(), "Error", "python library 'os' not installed.")
-    msg = 'Modules tested: \n'
-    for mod in py_modules:
-        msg = msg + mod + '\n'
-    QMessageBox.information(qgis.mainWindow(), "Information", msg)
-
-    if error:
-        return True
-    else:
-        return None
 
 
 class RunTuflow(QObject):
@@ -2449,7 +2457,7 @@ def getLabelFieldName(layer: QgsVectorLayer, properties: dict) -> str:
 
     a = []
     for i in properties['label_attributes']:
-        i = min(i, fields.size() - 1)
+        i = min(i, fields.size())
         # if fields.size() >= i:
         if properties['use_attribute_name']:
             a.append("'{0}: ' + if ( \"{0}\" IS NULL, '', to_string( \"{0}\" ) )".format(get_field(i - 1 + add).name()))

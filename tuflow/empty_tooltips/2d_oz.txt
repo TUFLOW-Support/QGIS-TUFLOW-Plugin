@@ -6,4 +6,4 @@ description == This file contains one or more polygons defining the 2D regions t
 
 wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#TUFLOW_Control_file_.28TCF.29
 
-manual link == https://docs.tuflow.com/classic-hpc/manual/2025.0/Outputs-1.html#OutputZones-3
+manual link == https://docs.tuflow.com/classic-hpc/manual/2025.1/Outputs-1.html#OutputZones-3

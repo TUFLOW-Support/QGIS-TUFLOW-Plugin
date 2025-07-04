@@ -388,8 +388,12 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                 QMessageBox.information(self.iface.mainWindow(), "Integrity Tool",
                                         "No auto snapping operations performed.")
             else:
-                self.replaceInputs([self.snappingToolLines.tmplyr2oldlyr, self.snappingToolPoints.tmplyr2oldlyr],
-                                   TOOL_TYPE.Snapping)
+                inputs = []
+                if self.snappingToolLines:
+                    inputs.append(self.snappingToolLines.tmplyr2oldlyr)
+                if self.snappingToolPoints:
+                    inputs.append(self.snappingToolPoints.tmplyr2oldlyr)
+                self.replaceInputs(inputs, TOOL_TYPE.Snapping)
 
     def runContinuityTool(self):
         """

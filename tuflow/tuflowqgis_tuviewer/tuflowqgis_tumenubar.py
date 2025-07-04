@@ -9,6 +9,13 @@ from qgis.PyQt.QtWidgets import *
 from .tuflowqgis_tumenufunctions import TuMenuFunctions
 from ..tuflowqgis_library import about, goto_plugin_changelog, goto_tuflow_downloads
 
+from matplotlib.backends.backend_qtagg import FigureManagerQT
+from matplotlib.backends.qt_editor import figureoptions
+from .tuflowqgis_figure_options import figure_edit, figure_edit_old
+mpl_figure_edit = figureoptions.figure_edit
+
+from tuflow.gui.logging import Logging
+
 
 class TuMenuBar():
 	"""
@@ -306,10 +313,11 @@ class TuMenuBar():
 
 			#self.userPlotDataManager_action.triggered.connect(self.tuMenuFunctions.openUserPlotDataManager)
 			if not self.viewMenu_connected:
-				self.tuView.tuPlot.tuPlotToolbar.lstActionsTimeSeries[7].triggered.connect(self.tuMenuFunctions.updateLegend)
-				self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot[7].triggered.connect(self.tuMenuFunctions.updateLegend)
-				self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection[7].triggered.connect(self.tuMenuFunctions.updateLegend)
-				self.tuView.tuPlot.tuPlotToolbar.lstActionsVerticalProfile[7].triggered.connect(self.tuMenuFunctions.updateLegend)
+				figureoptions.figure_edit = self.custom_figure_edit
+				# self.tuView.tuPlot.tuPlotToolbar.lstActionsTimeSeries[7].triggered.connect(self.tuMenuFunctions.updateLegend)
+				# self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot[7].triggered.connect(self.tuMenuFunctions.updateLegend)
+				# self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection[7].triggered.connect(self.tuMenuFunctions.updateLegend)
+				# self.tuView.tuPlot.tuPlotToolbar.lstActionsVerticalProfile[7].triggered.connect(self.tuMenuFunctions.updateLegend)
 				self.viewMenu_connected = True
 
 			self.saveColorRampForActiveResult_action.triggered.connect(
@@ -348,6 +356,19 @@ class TuMenuBar():
 			self.settingsMenu.addAction(self.menu.options_action)
 		
 		return True
+
+	def custom_figure_edit(self, ax, parent=None):
+		idx = self.tuView.tabWidget.currentIndex()
+		cur_ax = self.tuPlot.plotEnumerator(idx)[2] if idx >= 0 else None
+		if ax != cur_ax:
+			return mpl_figure_edit(ax, parent)
+		try:
+			dialog = figure_edit(ax, parent, incl_title=False)
+		except:
+			dialog = figure_edit_old(ax, parent, incl_title=False)
+		if isinstance(dialog, QDialog):
+			dialog.accepted.connect(self.tuMenuFunctions.updateLegend)
+			dialog.show()
 	
 	def loadExportMenu(self, plotNo, **kwargs):
 		"""

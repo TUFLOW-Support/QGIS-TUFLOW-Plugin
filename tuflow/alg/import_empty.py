@@ -13,6 +13,7 @@ from qgis.core import QgsProcessingParameterEnum
 from qgis.core import QgsProcessingParameterString
 from qgis.core import QgsProcessingParameterDefinition
 from qgis.core import QgsProcessingParameterFileDestination
+from qgis.core import QgsProcessingParameterFolderDestination
 from qgis.core import QgsProcessingParameterBoolean
 from qgis.core import QgsProject
 import processing
@@ -42,6 +43,7 @@ class ImportEmpty_CustomDialog(AlgorithmDialog):
         self._project_folder = self.project_folder
         self.empty_type_btn = self.mainWidget().wrappers['empty_type'].wrappedWidget().findChild(QToolButton)
         self.empty_type_btn.installEventFilter(self)
+        self.mainWidget().wrappers['gpkg_options'].wrappedWidget().currentIndexChanged.connect(self.gpkg_option_changed)
 
     def eventFilter(self, obj, event):
         if event.type() == QT_EVENT_MOUSE_BUTTON_RELEASE:
@@ -59,6 +61,13 @@ class ImportEmpty_CustomDialog(AlgorithmDialog):
         self.btn.setMenu(None)
         self.btn.clicked.connect(self.browse)
 
+        self.kart_repo_input = self.mainWidget().wrappers['kart_repo']
+        self.kart_btn = self.kart_repo_input.wrappedWidget().findChild(QToolButton)
+        self.kart_le = self.kart_repo_input.wrappedWidget().findChild(QLineEdit)
+        self.kart_le.setPlaceholderText('[Kart Repository]')
+        self.kart_btn.setMenu(None)
+        self.kart_btn.clicked.connect(self.browse_folder)
+
     def browse(self):
         param = self.gpkg_input.parameterDefinition()
         if self.le.text():
@@ -74,6 +83,23 @@ class ImportEmpty_CustomDialog(AlgorithmDialog):
             return
         self.le.setText(file)
         self.gpkg_input.setParameterValue(file, self.processingContext())
+
+    def browse_folder(self):
+        param = self.kart_repo_input.parameterDefinition()
+        if self.kart_le.text():
+            start_dir = self.kart_le.text()
+        elif QgsProject.instance().readEntry('tuflow', 'import_empty/import_gpkg_kart_repo', None)[0]:
+            start_dir = QgsProject.instance().readEntry('tuflow', 'import_empty/import_gpkg_kart_repo', None)[0]
+        elif self.project_folder:
+            start_dir = self.project_folder
+        else:
+            start_dir = QDir.homePath()
+        folder = QFileDialog.getExistingDirectory(self, param.description(), start_dir)
+        if not folder:
+            return
+        folder = str(folder)
+        self.kart_le.setText(folder)
+        self.kart_repo_input.setParameterValue(folder, self.processingContext())
 
     def changeEvent(self,  *args, **kwargs):
         super().changeEvent(*args, **kwargs)
@@ -105,6 +131,13 @@ class ImportEmpty_CustomDialog(AlgorithmDialog):
             self.empty_types = empty_types_from_project_folder(self.project_folder)
             self._project_folder = self.project_folder
 
+        self.mainWidget().wrappers['export_to_gpkg_all_to_one'].wrappedWidget().setEnabled(self.gpkg_export_option == 'All to one')
+        self.mainWidget().wrappers['kart_repo'].wrappedWidget().setEnabled(self.gpkg_export_option == 'Kart Repo')
+
+    def gpkg_option_changed(self, index: int):
+        self.mainWidget().wrappers['export_to_gpkg_all_to_one'].wrappedWidget().setEnabled(self.gpkg_export_option == 'All to one')
+        self.mainWidget().wrappers['kart_repo'].wrappedWidget().setEnabled(self.gpkg_export_option == 'Kart Repo')
+
     def update_tooltip_widget(self, text_browser: QTextBrowser, list_view: QListView):
         model = list_view.model()
         idxs = list_view.selectionModel().selectedIndexes()
@@ -133,6 +166,19 @@ class ImportEmpty_CustomDialog(AlgorithmDialog):
     @empty_types.setter
     def empty_types(self, value: list[str]):
         self.mainWidget().wrappers['empty_type'].parameterDefinition().setOptions(value)
+
+    @property
+    def gpkg_export_option(self) -> str:
+        param = self.mainWidget().wrappers['gpkg_options'].parameterDefinition()
+        idx = self.mainWidget().wrappers['gpkg_options'].wrappedWidget().currentIndex()
+        return param.options()[idx]
+
+    @gpkg_export_option.setter
+    def gpkg_export_option(self, value: str):
+        param = self.mainWidget().wrappers['gpkg_options'].parameterDefinition()
+        if value in param.options():
+            idx = param.options().index(value)
+            self.mainWidget().wrappers['gpkg_options'].wrappedWidget().setCurrentIndex(idx)
 
     def get_tooltip_widget(self) -> QTextBrowser:
         if self.text_browser:
@@ -216,7 +262,7 @@ class ImportEmpty(QgsProcessingAlgorithm):
         param = QgsProcessingParameterEnum('gpkg_options',
                                            'GPKG Options',
                                            optional=False,
-                                           options=['Separate', 'Group Geometry Types', 'All to one'],
+                                           options=['Separate', 'Group Geometry Types', 'All to one', 'Kart Repo'],
                                            allowMultiple=False,
                                            usesStaticStrings=False,
                                            defaultValue=prev_export_option)
@@ -229,6 +275,13 @@ class ImportEmpty(QgsProcessingAlgorithm):
                                                       optional=True,
                                                       fileFilter='GPKG (*.gpkg *.GPKG)',
                                                       defaultValue=prev_gpkg_db)
+        self.addParameter(param)
+
+        prev_kart = QgsProject.instance().readEntry('tuflow', 'import_empty/import_gpkg_kart_repo', None)[0]
+        param = QgsProcessingParameterFolderDestination('kart_repo',
+                                                      'Kart Repository',
+                                                      optional=True,
+                                                      defaultValue=prev_kart)
         self.addParameter(param)
 
     def processAlgorithm(self, parameters, context, model_feedback):
@@ -245,10 +298,12 @@ class ImportEmpty(QgsProcessingAlgorithm):
         overwrite = self.parameterAsBool(parameters, 'overwrite', context)
         gpkg_export_option = self.parameterAsEnum(parameters, 'gpkg_options', context)
         gpkg_folder = self.parameterAsString(parameters, 'export_to_gpkg_all_to_one', context)
+        kart_repo = self.parameterAsString(parameters, 'kart_repo', context)
 
         # save settings
         QgsProject.instance().writeEntry('tuflow', 'import_empty/import_gpkg_option', gpkg_export_option)
         QgsProject.instance().writeEntry('tuflow', 'import_empty/import_gpkg_db', gpkg_folder)
+        QgsProject.instance().writeEntry('tuflow', 'import_empty/import_gpkg_kart_repo', kart_repo)
 
         project_folder_path = Path(project_folder)
         if project_folder_path != project.folder and project_folder_path.exists():
@@ -262,13 +317,13 @@ class ImportEmpty(QgsProcessingAlgorithm):
         geometry_options = ['Point', 'Line', 'Region']
         geometry_types = [geometry_options[x] for x in geometry_types]
 
-        gpkg_export_options = ['Separate', 'Group Geometry Types', 'All to one']
+        gpkg_export_options = ['Separate', 'Group Geometry Types', 'All to one', 'Kart Repo']
         gpkg_export_option = gpkg_export_options[gpkg_export_option]
 
         total_steps = len(empty_types) * len(geometry_types)
         feedback = QgsProcessingMultiStepFeedback(total_steps, model_feedback)
 
-        creator = EmptyCreator(project_folder, gpkg_export_option, gpkg_folder, overwrite, feedback)
+        creator = EmptyCreator(project_folder, gpkg_export_option, gpkg_folder, kart_repo, overwrite, feedback)
         for empty_type in empty_types:
             for geometry_type in geometry_types:
                 feedback.pushInfo(f'Creating {empty_type} {geometry_type} empty...')

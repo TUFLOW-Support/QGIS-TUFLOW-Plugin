@@ -6,4 +6,4 @@ description == Ground water depth or level inputs.
 
 wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#TUFLOW_Geometry_Control_file_.28TGC.29
 
-manual link == https://docs.tuflow.com/classic-hpc/manual/2025.0/Boundaries-InitialConditions-1.html#IGW-3
+manual link == https://docs.tuflow.com/classic-hpc/manual/2025.1/Boundaries-InitialConditions-1.html#IGW-3

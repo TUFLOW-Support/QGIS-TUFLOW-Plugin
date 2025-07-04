@@ -6,4 +6,4 @@ description == Used to set the initial water level within a 1D channel or node a
 
 wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#ESTRY_Control_file_.28ECF.29
 
-manual link == https://docs.tuflow.com/classic-hpc/manual/2025.0/Boundaries-InitialConditions-1.html#IWL-3
+manual link == https://docs.tuflow.com/classic-hpc/manual/2025.1/Boundaries-InitialConditions-1.html#IWL-3

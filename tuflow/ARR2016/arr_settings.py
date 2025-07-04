@@ -22,7 +22,18 @@ class Singleton(type):
 class ArrSettings(metaclass=Singleton):
 
     def __init__(self):
+        self.arr_data_file = None
+        self.bom_data_file = None
+        self.frequent_events = False
+        self.rare_events = False
         self.preburst_percentile = 'median'
+        self.use_nsw_prob_neutral_losses = False
+        self.limb_option = None
+        self.limb_recalc_pb_ratios = False  # in code but no option to turn this on in interface at the moment
+        self.loss_method = '60min'
+        self.mar = 0.
+        self.static_loss = 0.
+        self.cc_use_old_il_method = False
         self.persistent_data = ArrPersistent()
 
     @staticmethod

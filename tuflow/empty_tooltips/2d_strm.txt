@@ -4,4 +4,4 @@ command == Read GIS Streams
 
 description == GIS streamlines used in conjunction with the "Read GIS SA" or "Read GIS SA Stream Only" commands.
 
-manual link == https://docs.tuflow.com/classic-hpc/manual/2025.0/Boundaries-InitialConditions-1.html#Streamlines-4
+manual link == https://docs.tuflow.com/classic-hpc/manual/2025.1/Boundaries-InitialConditions-1.html#Streamlines-4

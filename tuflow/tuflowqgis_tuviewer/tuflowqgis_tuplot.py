@@ -1890,6 +1890,7 @@ class TuPlot():
 		# can use regular expressions
 		units = OrderedDict({
 			r'Time of Peak.*': ('hrs', 'hrs', ''),
+			r'GW Moisture.*': ('m/m', 'ft/ft', ''),
 			r'.*elevation.*': ('m RL', 'ft RL', ''),
 			r'level': ('m RL', 'ft RL', ''),
 			r'obvert': ('m RL', 'ft RL', ''),
@@ -1967,6 +1968,7 @@ class TuPlot():
 		
 		shortNames = OrderedDict({
 			r'Time of Peak.*': 't',
+			r'GW Moisture.*': 'GWm',
 			r'.*elevation.*': 'h',
 			r'flow': 'Q',
 			r'2d flow': 'Q',

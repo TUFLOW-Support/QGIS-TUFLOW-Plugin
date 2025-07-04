@@ -364,15 +364,15 @@ class tuflowqgis_increment_dialog(QDialog, Ui_tuflowqgis_increment):
 			db, lyrname = re.split(r'\|layername=', layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)
 			new_lyrname = tuflowqgis_increment_fname(lyrname)
 			new_lyrname = new_lyrname.split('|')[0]
-			if re.findall(pattern, new_lyrname, flags=re.IGNORECASE):
-				vers_num = re.findall(pattern, new_lyrname, flags=re.IGNORECASE)[0]
-				if re.findall(pattern, Path(db).stem, flags=re.IGNORECASE):
-					new_db = re.sub(pattern, vers_num, Path(db).stem, flags=re.IGNORECASE)
-				else:
-					new_db = tuflowqgis_increment_fname(Path(db).stem)
-			else:
-				new_db = new_lyrname
-			db = str(Path(db).parent / '{0}{1}'.format(new_db, Path(db).suffix))
+			# if re.findall(pattern, new_lyrname, flags=re.IGNORECASE):
+			# 	vers_num = re.findall(pattern, new_lyrname, flags=re.IGNORECASE)[0]
+			# 	if re.findall(pattern, Path(db).stem, flags=re.IGNORECASE):
+			# 		new_db = re.sub(pattern, vers_num, Path(db).stem, flags=re.IGNORECASE)
+			# 	else:
+			# 		new_db = tuflowqgis_increment_fname(Path(db).stem)
+			# else:
+			# 	new_db = new_lyrname
+			# db = str(Path(db).parent / '{0}{1}'.format(new_db, Path(db).suffix))
 		else:
 			# name_ = re.split(r'\|layername=', layer.dataProvider().dataSourceUri(), flags=re.IGNORECASE)[0]
 			ds = Path(layer.dataProvider().dataSourceUri().split('|')[0])
@@ -1680,11 +1680,9 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 				QMessageBox.information( self.iface.mainWindow(),"Error", "Error Saving Global Settings. Message: "+message)
 			#else:
 			#	QMessageBox.information( self.iface.mainWindow(),"Information", "Global Settings Saved")
-		
+		crs = QgsCoordinateReferenceSystem()
+		crs.createFromString(tf_prj)
 		if self.cbCreate.isChecked():
-			crs = QgsCoordinateReferenceSystem()
-			crs.createFromString(tf_prj)
-
 			gisFormat = 'GPKG' if self.rbGPKG.isChecked() else 'SHP'
 			message = tuflowqgis_create_tf_dir(self, crs, basedir, engine, tutorial, gisFormat)
 			if message == 'user cancelled':
@@ -1698,7 +1696,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 			runfile = os.path.join(basedir, parent_folder_name, "runs", "Create_Empties{0}".format(ext))
 			if not os.path.exists(runfile):
 				gisFormat = 'GPKG' if self.rbGPKG.isChecked() else 'SHP'
-				create_empty_tcf(runfile, gisFormat, tutorial)
+				create_empty_tcf(runfile, gisFormat, tutorial, engine, crs)
 			#QMessageBox.information(self.iface.mainWindow(), "Running {0}".format(parent_folder_name),"Starting simulation: "+runfile+"\n Executable: "+tfexe)
 			message = run_tuflow(self.iface, tfexe, runfile)
 			if message != None:
@@ -2665,7 +2663,8 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			            '-global_continuing_loss', globalCL,
 			            '-limb', limb,
 						'-all_point_tp', all_point_tp, '-add_areal_tp', add_areal_tp,
-						'-cc', self.cc, '-cc_param', self.cc_param]
+						'-cc', self.cc, '-cc_param', self.cc_param,
+						'-cc_use_old_il', str(self.cb_cc_il_old_method.isChecked())]
 			self.arr2016.append(sys_args, name_list[i])
 			
 		self.arr2016.moveToThread(self.thread)

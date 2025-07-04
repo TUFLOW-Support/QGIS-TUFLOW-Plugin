@@ -24,20 +24,22 @@ class Bom:
         self.winter_factor_7d_rare = []
         self.logger = logging.getLogger('ARR2019')
 
-    # noinspection PyBroadException
     def load(self, fname, frequent_events, rare_events):
-        # print('Loading BOM website output .html file')
         if not os.path.isfile(fname):
             self.error = True
             self.message = 'File does not exist {0}'.format(fname)
             return
+
         try:
-            fi = open(fname, 'r')
+            with open(fname, 'r') as fi:
+                self._load(fi, frequent_events, rare_events)
         except IOError:
             self.error = True
             self.message = 'Unexpected error opening file {0}'.format(fname)
             return
 
+    # noinspection PyBroadException
+    def _load(self, fi, frequent_events, rare_events):
         # Load standard IFD
         found = False
         for ln, line in enumerate(fi):

@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from collections import OrderedDict
 
@@ -19,6 +20,8 @@ def enums():
                 continue
             if not line.strip() or line.strip().startswith('#'):
                 continue
+            if '=' not in line:
+                continue
             val, key = line.strip().split(' = ', 1)
             key1 = f'QtCore.{key}'
             enums[key1] = val
@@ -39,7 +42,8 @@ def enums():
 def main():
     e = enums()
     p = Path(__file__).parent
-    for file in p.glob('**/*.py'):
+    files = [Path(x) for x in sys.argv[1:]] if len(sys.argv) > 1 else [x for x in p.glob('**/*.py')]
+    for file in files:
         if file.name in ['compatibility_routines.py', 'qt5_to_qt6_enum.py']:
             continue
         with file.open('r') as f:
@@ -59,6 +63,8 @@ def main():
             if line.startswith('class') or line.startswith('def'):
                 if import_line_idx == -1:
                     import_line_idx = i
+            if line.startswith('from PyQt5'):
+                line = line.replace('PyQt5', 'qgis.PyQt')
             for key, val in e.items():
                 if key in line:
                     line = line.replace(key, val)

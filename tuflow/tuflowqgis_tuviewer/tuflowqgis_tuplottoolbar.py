@@ -188,7 +188,7 @@ class TuPlotToolbar():
 		self.plotTSMenu = DatasetMenu('Plot Time Series From Map Output')
 		self.plotTSMenu.menuAction().setIcon(tsIcon)
 		self.plotTSMenu.menuAction().setCheckable(True)
-		self.plotLPMenu = DatasetMenu('Plot Cross Section / Long PLot From Map Output')
+		self.plotLPMenu = DatasetMenu('Plot Cross Section / Long Plot From Map Output')
 		self.plotLPMenu.menuAction().setIcon(csIcon)
 		self.plotLPMenu.menuAction().setCheckable(True)
 		self.plotFluxButton = QToolButton(self.mapOutputPlotToolbar)

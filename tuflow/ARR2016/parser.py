@@ -38,6 +38,9 @@ class DataBlock:
         self._line = ''
         self._collect()
 
+    def __bool__(self) -> bool:
+        return not self.empty()
+
     def empty(self) -> bool:
         """Returns whether the data block is empty.
 

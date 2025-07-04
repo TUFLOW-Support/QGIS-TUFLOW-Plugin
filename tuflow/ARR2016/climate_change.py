@@ -21,6 +21,8 @@ elif len(pdv) == 1:
 
 from tuflow.ARR2016.meta import ArrMeta
 from tuflow.ARR2016.parser import DataBlock
+from tuflow.ARR2016.arr_settings import ArrSettings
+from tuflow.ARR2016.ARR_TUFLOW_func_lib import common_data, extend_array_dur, interpolate_nan, extend_array_aep
 
 
 with open(Path(__file__).parent / 'data' / 'cc_rate_of_change.json') as f:
@@ -83,9 +85,20 @@ class ArrCCF:
         scen = self.get_scenario(name)
         scen.calc_rainfall_adj_factors(depths)
 
-    def calc_rainfall_losses(self, name: str, init_loss: float, cont_loss: float, il_a: np.ndarray, tp_region: str) -> None:
+    def calc_rainfall_losses_on_bursts(self, name: str, init_loss: float, cont_loss: float, ilb: pd.DataFrame, tp_region: str):
+        """Factors the initial burst loss using the climate change adjustment factors."""
         scen = self.get_scenario(name)
-        scen.calc_loss_adj_factors(init_loss, cont_loss, il_a, tp_region)
+        scen.calc_losses_on_bursts(init_loss, cont_loss, ilb, tp_region)
+        self.logger.info(f'Losses calculated for scenario {name}- Initial Loss {scen.init_loss:.2f}, Continuing Loss {scen.cont_loss:.2f}')
+
+    def calc_rainfall_losses_with_ratios(self, name: str, init_loss: float, cont_loss: float, pb_ratio: pd.DataFrame, tp_region: str):
+        """Calculate rainfall burst losses by using preburst ratios on the climate change adjusted rainfall depths
+        and subtracting from the adjusted initial loss (storm).
+
+        ILb = ILs_cc - (RF_cc * PB_ratio)
+        """
+        scen = self.get_scenario(name)
+        scen.calc_losses_with_ratios(init_loss, cont_loss, pb_ratio, tp_region)
         self.logger.info(f'Losses calculated for scenario {name}- Initial Loss {scen.init_loss:.2f}, Continuing Loss {scen.cont_loss:.2f}')
 
     def write_rainfall_to_file(self, name: str, out_dir: Path) -> None:
@@ -211,12 +224,46 @@ class CCScenario:
             self.rf_f[col] = (1 + roc / 100) ** self.dtemp
         self.rf = depths * self.rf_f
 
-    def calc_loss_adj_factors(self, init_loss: float, cont_loss: float, il_a: np.ndarray, tp_region: str) -> None:
+    def calc_losses_on_bursts(self, init_loss: float, cont_loss: float, ilb: pd.DataFrame, tp_region: str):
         self.init_loss_f = (1 + self._get_rate_of_change('initial_loss', tp_region) / 100) ** self.dtemp
         self.cont_loss_f = (1 + self._get_rate_of_change('continuing_loss', tp_region) / 100) ** self.dtemp
         self.init_loss = init_loss * self.init_loss_f
         self.cont_loss = cont_loss * self.cont_loss_f
-        self.init_losses_a = pd.DataFrame(il_a * self.init_loss_f, index=self.rf.index, columns=self.rf.columns)
+        self.init_losses_a = ilb * self.init_loss_f  # initial loss array
+
+    def calc_losses_with_ratios(self, init_loss: float, cont_loss: float, pb_ratio: pd.DataFrame, tp_region: str):
+        from tuflow.ARR2016.preburst import CONV2AEP
+        self.init_loss_f = (1 + self._get_rate_of_change('initial_loss', tp_region) / 100) ** self.dtemp
+        self.cont_loss_f = (1 + self._get_rate_of_change('continuing_loss', tp_region) / 100) ** self.dtemp
+        self.init_loss = init_loss * self.init_loss_f
+        self.cont_loss = cont_loss * self.cont_loss_f
+        rf = self.rf.copy()
+        rf.columns = [CONV2AEP[x] for x in rf.columns]
+        rf = rf.reindex_like(pb_ratio)
+        pb_depth = rf * pb_ratio
+        self.init_losses_a = self.init_loss - pb_depth  # initial loss array
+        self.extend_loss_array()
+
+    def extend_loss_array(self):
+        from tuflow.ARR2016.preburst import AEP2NAME
+        rf_aep_names = self.rf.columns.tolist()
+        rf_duration = self.rf.index.tolist()
+        pb_aep_names = [AEP2NAME[x] for x in self.init_losses_a.columns]
+        if pb_aep_names.count('63.2%') == 2:
+            i = pb_aep_names.index('63.2%')
+            pb_aep_names[i] = '1EY'
+        pb_duration = self.init_losses_a.index.tolist()
+
+        # copied from main export function
+        settings = ArrSettings.get_instance()
+        b_com_aep, b_com_dur, b_dep_com, b_com_dur_index = common_data(rf_aep_names, rf_duration,
+                                                                       pb_aep_names, pb_duration,
+                                                                       self.rf.to_numpy())
+        ilb_complete = extend_array_dur(b_com_dur_index, b_com_aep, self.init_losses_a.to_numpy(), rf_duration)  # add all durations to array
+        ilb_complete = interpolate_nan(ilb_complete, rf_duration, self.init_loss, lossMethod=settings.loss_method, mar=settings.mar, staticLoss=settings.static_loss)
+        ilb_complete = extend_array_aep(b_com_aep, rf_aep_names, ilb_complete)
+        self.init_losses_a = ilb_complete
+        self.init_losses_a = pd.DataFrame(self.init_losses_a, index=rf_duration, columns=rf_aep_names)
 
     def _get_delta_temp(self) -> float:
         if self.temp_change == -1:

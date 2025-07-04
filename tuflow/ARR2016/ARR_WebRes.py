@@ -1601,6 +1601,7 @@ class Arr:
         else:  # original method of using preburst and storm loss
             # write out burst initial loss
             preBurst_depths = self.PreBurst.get_depths(self.Losses)
+
             # if preBurst == '10%':
             #     preBurst_depths = self.PreBurst.Depths10
             #     preBurst_ratios = self.PreBurst.Ratios10
@@ -1630,10 +1631,6 @@ class Arr:
                                                                                self.PreBurst.Duration,
                                                                                bom.aep_names,
                                                                                bom.duration, preBurst_depths)
-            # pb_com_aep, pb_com_dur, pb_rto_com, pb_com_dur_index = common_data(self.PreBurst.AEP_names,
-            #                                                                    self.PreBurst.Duration,
-            #                                                                    bom.aep_names,
-            #                                                                    bom.duration, preBurst_ratios)
 
             # calculate the maximum preburst depths
             # pb_rto_d_com = numpy.multiply(b_dep_com, pb_rto_com)  # convert preburst ratios to depths
@@ -1743,7 +1740,11 @@ class Arr:
         if cc:
             out_dir = Path(fpath) / 'data'
             for name in cc_param:
-                self.CCF.calc_rainfall_losses(name, self.Losses.init_loss, self.Losses.cont_loss, ilb_complete, self.Temporal.tp_region)
+                if (self.Losses.existsPNLosses and probability_neutral_losses) or self.settings.cc_use_old_il_method:
+                    ilb_ = pd.DataFrame(ilb_complete, index=bom.duration, columns=bom.aep_names)
+                    self.CCF.calc_rainfall_losses_on_bursts(name, self.Losses.init_loss, self.Losses.cont_loss, ilb_, self.Temporal.tp_region)
+                else:
+                    self.CCF.calc_rainfall_losses_with_ratios(name, self.Losses.init_loss, self.Losses.cont_loss, self.PreBurst.ratios, self.Temporal.tp_region)
                 self.CCF.write_losses_to_file(name, out_dir)
 
         # copy ilb_complete incase complete storm is used later on - change values in routine further down as required

@@ -635,14 +635,14 @@ else:
             QT_INT = QMetaType.Int
             QT_LONG = QMetaType.Long
             QT_LONG_LONG = QMetaType.LongLong
-            QT_FLOAT = QMetaType.Double
+            QT_FLOAT = QMetaType.Float
             QT_DOUBLE = QMetaType.Double
         except:
             QT_STRING = QVariant.String
             QT_INT = QVariant.Int
             QT_LONG = QVariant.LongLong
             QT_LONG_LONG = QVariant.LongLong
-            QT_FLOAT = QVariant.Float
+            QT_FLOAT = QVariant.Double
             QT_DOUBLE = QVariant.Double
 
     # colours

@@ -1347,8 +1347,15 @@ def images_to_video2(tmp_img_dir="/tmp/vid/%03d.png", output_file="/tmp/vid/test
 	cmd.extend(opts)
 	cmd.extend(['-r', f'{fps}', '-y', output_file])
 
-	res = subprocess.call(cmd, stdin=subprocess.PIPE)
-	return res == 0, ""
+	if sys.version_info >= (3, 12):
+		f = tempfile.NamedTemporaryFile(prefix="tuflow", suffix=".txt", delete=False, delete_on_close=False)
+	else:
+		f = tempfile.NamedTemporaryFile(prefix="tuflow", suffix=".txt", delete=False)
+	f.write(str.encode(" ".join(cmd) + "\n\n"))
+
+	res = subprocess.call(cmd, stdin=subprocess.PIPE, stdout=f, stderr=f)
+
+	return res == 0, f.name
 
 
 def images_to_video_gif(tmp_img_dir="/tmp/vid/%03d.png", output_file="/tmp/vid/test.avi", fps=10, qual=1,

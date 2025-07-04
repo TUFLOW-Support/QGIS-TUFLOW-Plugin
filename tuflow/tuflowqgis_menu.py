@@ -139,7 +139,10 @@ sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\plugins\python-ce\
 
 
 
-from .compatibility_routines import QT_MESSAGE_BOX_CANCEL, QT_DOCK_WIDGET_AREA_RIGHT, QT_MESSAGE_BOX_YES, QT_TOOLBUTTIN_INSTANT_POPUP, QT_MESSAGE_BOX_NO, QT_DIALOG_TYPE, QT_DOCK_WIDGET_AREA_BOTTOM
+from .compatibility_routines import (QT_MESSAGE_BOX_CANCEL, QT_DOCK_WIDGET_AREA_RIGHT, QT_MESSAGE_BOX_YES,
+                                     QT_TOOLBUTTIN_INSTANT_POPUP, QT_MESSAGE_BOX_NO, QT_DIALOG_TYPE,
+                                     QT_DOCK_WIDGET_AREA_BOTTOM, QT_MESSAGE_BOX_INFORMATION, QT_MESSAGE_BOX_OK,
+                                     QT_FONT_MONOSPACE)
 
 
 class tuflowqgis_menu:
@@ -836,11 +839,20 @@ class tuflowqgis_menu:
     def check_dependencies(self):
         # QMessageBox.critical(self.iface.mainWindow(), "Info", "Not yet implemented!")
         from .tuflowqgis_library import check_python_lib
-        error = check_python_lib(self.iface)
-        if error != None:
-            QMessageBox.critical(self.iface.mainWindow(), "Error", "Not all dependencies installed.")
-        else:
-            QMessageBox.information(self.iface.mainWindow(), "Information", "All dependencies installed :)")
+        lib_check = check_python_lib(self.iface)
+
+        max_len = max(len(k) for k in lib_check.keys()) + 2
+        msg = '\n'.join(['{0:{2}s}: {1}'.format(k, v, max_len) for k, v in lib_check.items()])
+
+        dlg = QMessageBox(self.iface.mainWindow())
+        dlg.setIcon(QT_MESSAGE_BOX_INFORMATION)
+        dlg.setWindowTitle('Python Dependencies Check')
+        font = QFont('Monospace')
+        font.setStyleHint(QT_FONT_MONOSPACE)
+        dlg.setFont(font)
+        dlg.setText(msg)
+        dlg.setStandardButtons(QT_MESSAGE_BOX_OK)
+        dlg.exec()
 
     def about_tuflowqgis(self):
         # QMessageBox.information(self.iface.mainWindow(), "About TUFLOW QGIS", 'This is a developmental version of the TUFLOW QGIS utitlity, build: '+build_vers)

@@ -88,6 +88,7 @@ def ARR_to_TUFLOW(args_list):
     limb_data = None
     all_point_tp = False
     add_areal_tp = 0
+    cc_use_old_il_method = False
 
     # batch inputs (system/cmd arguments). If not running from GIS, will use above inputs as defaults so be careful.
     try:
@@ -140,7 +141,7 @@ def ARR_to_TUFLOW(args_list):
                'urban_initial_loss': 21, 'urban_continuing_loss': 22,
                'global_continuing_loss': 22.5, 'addtp': 23,
                'point_tp': 24, 'areal_tp': 25, 'arffreq': 26, 'minarf': 27, 'out': 28, 'offline_mode': 29, 'arr_file': 30,
-               'bom_file': 31, 'catchment_no': 32, 'limb': 33, 'all_point_tp': 34, 'add_areal_tp': 35}
+               'bom_file': 31, 'catchment_no': 32, 'limb': 33, 'all_point_tp': 34, 'add_areal_tp': 35, 'cc_use_old_il': 36}
     for key in sorted(args, key=lambda k: arg_map[k]):
         value = args[key]
         #print('{0}={1};'.format(key, ",".join(map(str,value))))
@@ -474,7 +475,20 @@ def ARR_to_TUFLOW(args_list):
     if 'add_areal_tp' in args.keys():
         add_areal_tp = int(args['add_areal_tp'][0])
 
+    # use old cc il method
+    if 'cc_use_old_il' in args.keys():
+        cc_use_old_il_method = True if args['cc_use_old_il'][0].lower() == 'true' else False
+
     warnings = []
+
+    settings.use_nsw_prob_neutral_losses = probability_neutral_losses
+    settings.limb_option = limb_data
+    settings.frequent_events = frequent_events
+    settings.rare_events = rare_events
+    settings.loss_method = lossMethod
+    settings.mar = mar
+    settings.static_loss = staticLoss
+    settings.cc_use_old_il_method = cc_use_old_il_method
 
     # BOM Depth Data
     # Open and save raw BOM depth information
@@ -621,6 +635,7 @@ def ARR_to_TUFLOW(args_list):
         # fo.flush()
         fo.close()
         #print('Done saving file.')
+        settings.bom_data_file = bom_raw_fname
         logger.info('Done saving file.')
 
     # Load BOM file

@@ -2,9 +2,12 @@ import typing
 import logging
 
 import numpy
+import pandas as pd
 
 from tuflow.ARR2016.meta import ArrMeta
 from tuflow.ARR2016.parser import DataBlock
+from tuflow.ARR2016.arr_settings import ArrSettings
+from tuflow.ARR2016.BOM_WebRes import Bom
 
 
 PREBURST_NAME = {
@@ -15,6 +18,22 @@ PREBURST_NAME = {
     '75': '[PREBURST75]',
     '90': '[PREBURST90]'
 }
+
+LIMB_NAME = {
+    'enveloped': '[LIMBifdenv]',
+    'high res': '[LIMBifdhr]',
+    'bom res': '[LIMBifdbom]'
+}
+
+# note 12EY does not equal 99.9% AEP, but this needs a value and needs to have the highest value so 99.9 used as dummy value
+CONV2AEP = {'12EY': '99.9', '6EY': '99.75', '4EY': '98.17', '3EY': '95.02', '2EY': '86.47', '1EY': '63.23',
+            '0.5EY': '39.35', '0.2EY': '18.13', '1 in 200': '0.5', '1 in 500': '0.2', '1 in 1000': '0.1',
+            '1 in 2000': '0.05', '63.2%': '63.23', '50%': '50.0', '20%': '20.0', '10%': '10.0', '5%': '5.0',
+            '2%': '2.0', '1%': '1.0'}
+AEP2NAME = {'99.9': '12EY', '99.75': '6EY', '98.17': '4EY', '95.02': '3EY', '86.47': '2EY',
+            '39.35': '0.5EY', '18.13': '0.2EY', '0.5': '1 in 200', '0.2': '1 in 500', '0.1': '1 in 1000',
+            '0.05': '1 in 2000', '63.23': '63.2%', '50.0': '50%', '20.0': '20%', '10.0': '10%', '5.0': '5%',
+            '2.0': '2%', '1.0': '1%'}
 
 
 class ArrPreburst:
@@ -39,8 +58,14 @@ class ArrPreburst:
         self.meta = ArrMeta()
         self.data = {}
         self.depths = None
+        self.ratios = pd.DataFrame()
         self.percentile = 'median'
         self.pbtrans = False
+        self.il_storm = -1
+        self.nsw_losses = pd.DataFrame()
+        self.settings = ArrSettings.get_instance()
+        self.bom = pd.DataFrame()
+        self.limb = pd.DataFrame()
 
     def load(self, fi: typing.TextIO, percentile: typing.Union[str, int]) -> None:
         """Load the ARR Preburst Rainfall from a file.
@@ -53,37 +78,99 @@ class ArrPreburst:
             The percentile to load. Can be 'median', 10, 25, 50, 75, 90
         """
         self.percentile = str(percentile).strip('%')
-        keytext = PREBURST_NAME.get(self.percentile, '[PREBURST]')
-        try:
-            self.data = DataBlock(fi, keytext, True)
-            if self.data.empty():
-                self.data = DataBlock(fi, '[PREBURST_TRANS]', True)
-                self.pbtrans = True
-            else:
-                self.meta.time_accessed = self.data.time_accessed
-                self.meta.version = self.data.version
-        except Exception as e:
-            return
-        self.depths = self.data.df
-
-        # remove hours from the index and just use minutes
-        self.depths.index = [int(x.split('(')[0]) for x in self.depths.index]
-
+        self.load_depths(fi)
         self.Duration = self.depths.index.astype(int).tolist()
         self.AEP = self.depths.columns.astype(float).tolist()
         self.AEP_names = ['{0:.0f}%'.format(x) for x in self.AEP]
 
-        # remove ratios from depths columns and just keep the depths
-        if self.pbtrans:
-            pass
-        else:
-            for col in self.depths.columns:
-                self.depths[col] = self.depths[col].str.replace(r'\(\d+(?:\.\d*)?\)', '', regex=True).astype(float)
+    def load_depths(self, fi: typing.TextIO):
+        try:
+            keytext = PREBURST_NAME.get(self.percentile, '[PREBURST]')
+            self.data = DataBlock(fi, keytext, True)
+            if self.data:
+                self.data.df.index = [int(str(x).split('(')[0]) for x in self.data.df.index]
+                self.data.df.columns = [f'{float(x):.1f}' for x in self.data.df.columns]
+                self.depths = self.data.df
+                self.meta.time_accessed = self.data.time_accessed
+                self.meta.version = self.data.version
 
-        # self.load_(fi)  # hopefully remove this in the future - tbe future is now!
+            burst_data = DataBlock(fi, 'BURSTIL', True)  # nsw probability neutral losses
+            limb_data = DataBlock(fi, LIMB_NAME.get(self.settings.limb_option, 'enveloped'), True)  # limb data
+            if self.settings.use_nsw_prob_neutral_losses and burst_data:
+                self.pbtrans = True
+                self.data = DataBlock(fi, '[PREBURST_TRANS]', True)
+                if not self.load_storm_initial_loss(fi):
+                    raise Exception('Could not load storm initial loss as part of preburst data extraction - '
+                                    'please email log file, catchment file, and ARR_Web_data.txt to support@tuflow.com')
+                if not self.load_nsw_prob_neutral_losses(fi):
+                    raise Exception('Could not load NSW probability neutral losses as part of preburst data extraction - '
+                                    'please email log file, catchment file, and ARR_Web_data.txt to support@tuflow.com')
+                self.data.df.index = [int(x.split('(')[0]) for x in self.data.df.index]
+                self.depths = self.il_storm - self.data.df
+                rf_depths = self.get_rainfall_depths(fi)
+                rf_ = rf_depths.reindex_like(self.data.df)
+                self.ratios = self.depths / rf_
+            elif self.settings.limb_option and limb_data and self.settings.limb_recalc_pb_ratios:
+                self.ratios = self.data.df.copy()
+                for col in self.ratios.columns:
+                    self.ratios[col] = self.ratios[col].str.extract(r'(\d+\.\d+\s+)(\(\d+(?:\.\d*)?\))').iloc[:,
+                                       1].str.replace(r'\(|\)', '', regex=True).astype(float)
+                rf_depths = self.get_rainfall_depths(fi)
+                rf_ = rf_depths.reindex_like(self.data.df)
+                self.depths = rf_ * self.ratios
+            else:
+                self.ratios = self.data.df.copy()
+                for col in self.depths.columns:
+                    self.depths[col] = self.depths[col].str.replace(r'\(\d+(?:\.\d*)?\)', '', regex=True).astype(float)
+                for col in self.ratios.columns:
+                    self.ratios[col] = self.ratios[col].str.extract(r'(\d+\.\d+\s+)(\(\d+(?:\.\d*)?\))').iloc[:,
+                                       1].str.replace(r'\(|\)', '', regex=True).astype(float)
+        except Exception as e:
+            raise Exception('Error loading preburst rainfall data: {0}'.format(e)) from e
 
     def get_depths(self, losses):
         return self.depths.to_numpy()
+
+    def get_ratios(self, losses):
+        return self.ratios.to_numpy()
+
+    def load_storm_initial_loss(self, fi: typing.TextIO) -> bool:
+        data = DataBlock(fi, 'LOSSES', True)
+        if data.empty():
+            return False
+        self.il_storm = data.df.loc['Storm Initial Losses (mm)'].values[0]
+        return True
+
+    def load_nsw_prob_neutral_losses(self, fi: typing.TextIO) -> bool:
+        data = DataBlock(fi, 'BURSTIL', True)
+        if data.empty():
+            return False
+        data.df.index = [int(str(x).split('(')[0]) for x in data.df.index]
+        self.nsw_losses = data.df
+        return True
+
+    def get_rainfall_depths(self, fi: typing.TextIO) -> pd.DataFrame:
+        bom = Bom()
+        bom.load(self.settings.bom_data_file, self.settings.frequent_events, self.settings.rare_events)
+        self.bom = pd.DataFrame(bom.depths, columns=bom.aep_names, index=bom.duration)
+        self.bom.columns = [CONV2AEP.get(x, x) for x in self.bom.columns]
+
+        keytext = LIMB_NAME.get(self.settings.limb_option)
+        if not keytext:
+            return self.bom
+
+        limb_data = DataBlock(fi, keytext, True)
+        if not limb_data:
+            return self.bom
+
+        limb_data.df.index = [int(str(x).split('(')[0]) for x in limb_data.df.index]
+        self.limb = limb_data.df
+
+        # update bom rainfdall depths with limb data where available
+        df = self.bom.copy()
+        df1 = self.limb.reindex_like(df).combine_first(self.limb)
+        df.update(df1)
+        return df
 
     def load_(self, fi):
         for line in fi:

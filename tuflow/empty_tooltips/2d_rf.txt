@@ -6,4 +6,4 @@ description == Used for "direct rainfall" modelling, also called "rainfall on gr
 
 wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#TUFLOW_Boundary_Control_file_.28TBC.29
 
-manual link == https://docs.tuflow.com/classic-hpc/manual/2025.0/Boundaries-InitialConditions-1.html#RF-Layers-4
+manual link == https://docs.tuflow.com/classic-hpc/manual/2025.1/Boundaries-InitialConditions-1.html#RF-Layers-4

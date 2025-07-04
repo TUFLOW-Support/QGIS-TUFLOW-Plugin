@@ -72,8 +72,8 @@
       <widget class="QWidget" name="scrollAreaWidgetContents">
        <property name="geometry">
         <rect>
-         <x>-4</x>
-         <y>0</y>
+         <x>0</x>
+         <y>-158</y>
          <width>583</width>
          <height>968</height>
         </rect>
@@ -1615,10 +1615,16 @@
                </spacer>
               </item>
               <item>
-               <widget class="QCheckBox" name="cbFindNonCompIDs">
+               <widget class="QRadioButton" name="cbFindNonCompIDs">
                 <property name="text">
                  <string>Flag non-compliant channel IDs</string>
                 </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+                <attribute name="buttonGroup">
+                 <string notr="true">buttonGroup_3</string>
+                </attribute>
                </widget>
               </item>
              </layout>
@@ -1658,10 +1664,13 @@
                </spacer>
               </item>
               <item>
-               <widget class="QCheckBox" name="cbFixChannelIDs">
+               <widget class="QRadioButton" name="cbFixChannelIDs">
                 <property name="text">
                  <string>Fix non-compliant channel IDs</string>
                 </property>
+                <attribute name="buttonGroup">
+                 <string notr="true">buttonGroup_3</string>
+                </attribute>
                </widget>
               </item>
              </layout>
@@ -2171,5 +2180,6 @@
  <buttongroups>
   <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_3"/>
  </buttongroups>
 </ui>

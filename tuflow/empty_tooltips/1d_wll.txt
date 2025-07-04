@@ -6,4 +6,4 @@ description == Used to translate 1D results into 2D map output for viewing in SM
 
 wiki link == https://wiki.tuflow.com/TUFLOW_Empty_Files#ESTRY_Control_file_.28ECF.29
 
-manual link == https://docs.tuflow.com/classic-hpc/manual/2025.0/Outputs-1.html#WLL-4
+manual link == https://docs.tuflow.com/classic-hpc/manual/2025.1/Outputs-1.html#WLL-4

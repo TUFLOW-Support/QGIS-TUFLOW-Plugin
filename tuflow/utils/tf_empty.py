@@ -1,4 +1,9 @@
 import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
 import typing
 from pathlib import Path
 
@@ -91,7 +96,7 @@ def empty_tooltip(empty_type: str) -> str:
 
 class EmptyCreator:
 
-    def __init__(self, project_folder: str, gpkg_export_type: str, gpkg_folder: str, overwrite: bool, feedback=None):
+    def __init__(self, project_folder: str, gpkg_export_type: str, gpkg_folder: str, kart_repo: str, overwrite: bool, feedback=None):
         self.proj_folder = Path(project_folder)
         self.overwrite = overwrite
         self.feedback = feedback
@@ -124,6 +129,7 @@ class EmptyCreator:
         # gpkg settings
         self.gpkg_export_type = gpkg_export_type
         self.gpkg_folder = Path(gpkg_folder)
+        self.kart_repo = Path(kart_repo)
 
     def gis_type(self, folder: Path, default: str) -> str:
         if not folder.exists():
@@ -190,6 +196,9 @@ class EmptyCreator:
                 return str(self.hpc_gis_dir / f'{name[:-2]}{self.gis_ext(self.hpc_gis_type)}')
             elif self.gpkg_export_type == 'All to one':
                 return str(self.gpkg_folder)
+            elif self.gpkg_export_type == 'Kart Repo':
+                temp_dir = tempfile.mkdtemp(prefix='import_empty')
+                return str(Path(temp_dir) / 'temp.gpkg')
         return str(self.hpc_gis_dir / f'{name}{self.gis_ext(self.hpc_gis_type)}')
 
     def in_database_name(self, solver, empty_type, suffix):
@@ -207,7 +216,63 @@ class EmptyCreator:
                 return str(files[0])
         return ''
 
-    def create_empty(self, empty_type: str, geom: str, run_id: str) -> QgsVectorLayer:
+    def actual_kart_folder(self):
+        git = self.kart_repo / '.git'
+        if git.exists():
+            try:
+                kart_dir = None
+                with git.open() as f:
+                    for line in f:
+                        if 'gitdir' in line:
+                            kart_dir = git.parent / line.split(':')[1].strip()
+                if kart_dir and kart_dir.exists():
+                    config = kart_dir / 'config'
+                    with config.open() as f:
+                        contents = f.read()
+                    if re.findall(r'\[kart', contents):
+                        return str(kart_dir)
+            except Exception as e:
+                return ''
+        else:
+            return ''
+
+    @staticmethod
+    def kart_executable():
+        if os.name == "nt":
+            defaultFolder = os.path.join(os.environ["PROGRAMFILES"], "Kart")
+        elif sys.platform == "darwin":
+            defaultFolder = "/Applications/Kart.app/Contents/MacOS/"
+        else:
+            defaultFolder = "/opt/kart"
+        folder = defaultFolder
+        for exe_name in ("kart.exe", "kart_cli_helper", "kart_cli", "kart"):
+            path = os.path.join(folder, exe_name)
+            if os.path.isfile(path):
+                return path
+        return path
+
+    def kart_gpkg(self):
+        kart_folder = self.actual_kart_folder()
+        if not kart_folder:
+            return
+        config = Path(kart_folder) / 'config'
+        if not config.exists():
+            return
+        with config.open() as f:
+            contents = f.read()
+        if '[kart "workingcopy"]' not in contents:
+            return
+        try:
+            working_copy = re.split(r'\[kart "workingcopy"\]', contents)[1].split('[')[0]
+            working_copy_settings = zip(working_copy.split('=')[::2], working_copy.split('=')[1::2])
+            for param, value in working_copy_settings:
+                if param.strip() == 'location':
+                    gpkg = self.kart_repo / value.strip()
+                    return str(os.path.abspath(gpkg))
+        except Exception as e:
+            return
+
+    def create_empty(self, empty_type: str, geom: str, run_id: str) -> tuple[str | None, str | None]:
         solver = self.solver(empty_type)
         if self.feedback:
             self.feedback.pushInfo(f'Solver: {solver}')
@@ -257,6 +322,19 @@ class EmptyCreator:
         ret = QgsVectorFileWriter.writeAsVectorFormatV3(out_lyr, out_db, QgsCoordinateTransformContext(), options)
         if ret[0] != QgsVectorFileWriter.NoError:
             raise Exception(ret[1])
+
+        if self.gpkg_export_type == 'Kart Repo':
+            kart_exe = self.kart_executable()
+            wkdir = self.actual_kart_folder()
+            proc = subprocess.run([kart_exe, 'import', '{0}'.format(out_db), out_name], cwd=wkdir,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            Path(out_db).unlink()
+            shutil.rmtree(Path(out_db).parent, ignore_errors=True)
+            if proc.returncode != 0:
+                raise Exception(proc.stderr.decode('utf-8', errors='ignore'))
+
+            uri = '{0}|layername={1}'.format(self.kart_gpkg(), out_name)
+            return uri, out_name
 
         if options.driverName == 'GPKG':
             uri = f'{out_db}|layername={out_name}'
