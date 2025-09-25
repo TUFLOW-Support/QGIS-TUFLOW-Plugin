@@ -7,6 +7,7 @@ GPKG Projection == projection
 
 !_______________________________________________________
 ! SOLVER
+Tutorial Model == OFF
 Solution scheme == HPC
 Hardware == GPU
 

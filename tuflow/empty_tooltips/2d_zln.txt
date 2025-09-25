@@ -1,0 +1,10 @@
+location == TUFLOW FV Control File (.fvc)
+
+command == Read GIS Z Line
+
+description == Used to update topography within a model. Point, line and polygon objects are permitted. Polylines are treated as breaklines in the model’s topography (with the breakline height or elevation varying along its length). 
+
+See https://fvwiki.tuflow.com/Advanced_GIS_Updates for examples.
+
+
+

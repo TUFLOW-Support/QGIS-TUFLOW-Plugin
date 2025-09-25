@@ -211,6 +211,8 @@ class ImportEmpty(QgsProcessingAlgorithm):
 
     def initAlgorithm(self, config: typing.Dict[str, typing.Any] = ...) -> None:
         project = ProjectConfig.from_qgs_project()
+        if not project.name:
+            project = ProjectConfig.from_global_settings()
 
         # empty directory
         self.addParameter(

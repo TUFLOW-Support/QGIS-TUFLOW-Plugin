@@ -1,0 +1,10 @@
+location == TUFLOW FV Control File (.fvc)
+
+command == Read GIS PO
+
+description == Used to define the 2D and 3D point plot output locations. If running a 3D model, for a given point location the vert_min and vert_max attributes will override the 
+default vertical averaging limits (0,99999.) or those specified via the Vertical Averaging == output block command
+
+See https://fvwiki.tuflow.com/Tutorial_M04 for example.
+
+

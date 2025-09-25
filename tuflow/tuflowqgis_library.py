@@ -76,7 +76,7 @@ import webbrowser
 
 # from .utils.map_layer import layer_name_from_data_source
 
-from tuflow.compatibility_routines import (QT_DOUBLE, QT_FLOAT, QT_LONG_LONG, QT_LONG, QT_STYLE_DOTTED_PEN,
+from tuflow.compatibility_routines import (is_qt6, QT_DOUBLE, QT_FLOAT, QT_LONG_LONG, QT_LONG, QT_STYLE_DOTTED_PEN,
                                            QT_MESSAGE_BOX_YES, QT_WA_DELETE_ON_CLOSE,
                                            QT_EVENT_LOOP_EXCLUDE_USER_INPUT_EVENTS, QT_INT, QT_MESSAGE_BOX_NO,
                                            QT_RED, QT_NETWORK_REQUEST_HTTP_STATUS_CODE_ATTRIBUTE, QT_CURSOR_WAIT,
@@ -213,7 +213,10 @@ def about(window):
 
             # Estimate width and height
             lines = text.splitlines() or [""]
-            max_line_width = max(metrics.width(line) for line in lines)
+            if is_qt6:
+                max_line_width = max(metrics.horizontalAdvance(line) for line in lines)
+            else:
+                max_line_width = max(metrics.width(line) for line in lines)
             line_height = metrics.lineSpacing()
             total_height = line_height * len(lines)
 
@@ -3246,6 +3249,8 @@ def check1DResultsForData(tpc):
                     if value > 0:
                         return True
                 elif '2d' in command.lower():
+                    return True
+                elif 'gpkg time series' in command.lower():
                     return True
     elif Path(tpc).suffix.lower() == '.gpkg':
         from .tuflow_results_gpkg import ResData_GPKG
@@ -7585,7 +7590,7 @@ def is1dTable(layer):
 
     if fieldTypes == correct1dTableType:
         i_source = 1 if isgpkg else 0
-        if fields.field(i_source).length() < 5:
+        if 0 < fields.field(i_source).length() < 5:
             return False
         return True
     else:
@@ -9692,7 +9697,7 @@ def getOutputDirs(path, settings=None):
             if command.in_1d_domain_block():
                 continue
 
-            wildcards = [r'(~[es]\d?~)']
+            wildcards = [r'<<~[es]\d~>>', r'~[es]\d~']
             re_name = re_ify(settings.tcf.with_suffix('').name, wildcards)
             re_name = r'{0}((_[A-^`-z0-9%&\-]+)(\+[A-^`-z0-9%&\-]+)*)?'.format(re_name)
 

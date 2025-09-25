@@ -28,13 +28,15 @@ class ProjectConfig:
             fvexe: str = '',
             domain: str = '',
             settings: dict = None,
-            output_formats: dict = None
+            output_formats: dict = None,
+            save_settings_globally: bool = False
     ):
         self.name = name
         self.folder = Path(folder)
         self.hpc_folder = self.folder
         self.fv_folder = self.folder
         self.crs = crs
+        self.save_settings_globally = save_settings_globally
         if isinstance(gis_format, int):
             self.gis_format = self.gis_format_extension(gis_format)
         else:
@@ -79,19 +81,39 @@ class ProjectConfig:
     def from_qgs_project() -> 'ProjectConfig':
         """Returns a Project object from the current QGS project."""
         project = QgsProject.instance()
-        name = project.readEntry('tuflow', 'project/name', '')
-        folder = project.readEntry('tuflow', 'project/folder', '')
-        crs = project.readEntry('tuflow', 'project/crs', '')
-        gis_format = project.readEntry('tuflow', 'project/gis_format', '')
-        hpcexe = project.readEntry('tuflow', 'project/hpcexe', '')
-        fvexe = project.readEntry('tuflow', 'project/fvexe', '')
+        name, _ = project.readEntry('tuflow', 'project/name', '')
+        folder, _ = project.readEntry('tuflow', 'project/folder', '')
+        crs, _ = project.readEntry('tuflow', 'project/crs', '')
+        gis_format, _ = project.readEntry('tuflow', 'project/gis_format', '')
+        hpcexe, _ = project.readEntry('tuflow', 'project/hpcexe', '')
+        fvexe, _ = project.readEntry('tuflow', 'project/fvexe', '')
         return ProjectConfig(
-            name[0],
-            folder[0],
-            QgsCoordinateReferenceSystem(crs[0]),
-            gis_format[0],
-            hpcexe[0],
-            fvexe[0]
+            name,
+            folder,
+            QgsCoordinateReferenceSystem(crs),
+            gis_format,
+            hpcexe,
+            fvexe
+        )
+
+    @staticmethod
+    def from_global_settings() -> 'ProjectConfig':
+        """Returns a project object from the old TUFLOW settings."""
+        tf_settings = TF_Settings()
+        tf_settings.Load()
+        name = ''
+        folder = tf_settings.combined.base_dir if tf_settings.combined.base_dir is not None else ''
+        crs = tf_settings.combined.CRS_ID
+        gis_format = tf_settings.combined.gis_format if tf_settings.combined.gis_format else 'GPKG'
+        hpcexe = tf_settings.combined.tf_exe if tf_settings.combined.tf_exe is not None else ''
+        fvexe = ''
+        return ProjectConfig(
+            name,
+            folder,
+            QgsCoordinateReferenceSystem(crs),
+            gis_format,
+            hpcexe,
+            fvexe
         )
 
     def gis_format_extension(self, enum: int) -> str:
@@ -143,6 +165,15 @@ class ProjectConfig:
         tfsettings.project_settings.base_dir = str(self.folder)
         tfsettings.project_settings.engine = 'classic'
         tfsettings.project_settings.tutorial = False
+        tfsettings.project_settings.gis_format = self.gis_format
+        err, msg = tfsettings.Save_Project()
+        if err:
+            print(msg)
+        if self.save_settings_globally:
+            tfsettings.global_settings = tfsettings.project_settings
+            err, msg = tfsettings.Save_Global()
+            if err:
+                print(msg)
 
     def write_json(self) -> None:
         """Writes settings to JSON file. Use posix for path otherwise json write out with double backslashes

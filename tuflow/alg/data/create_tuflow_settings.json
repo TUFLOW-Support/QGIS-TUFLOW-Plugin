@@ -37,6 +37,14 @@
         "decimals": 2,
         "default": 1,
         "comment": "Base cell size."
+      },
+      "Tutorial Model":
+      {
+        "type":  "combobox",
+        "options":  ["ON", "OFF"],
+        "default": "OFF",
+        "comment":  "Sets the license to the TUTORIAL mode",
+        "validation": "Tutorial Model == ON"
       }
     },
     "GIS Settings":

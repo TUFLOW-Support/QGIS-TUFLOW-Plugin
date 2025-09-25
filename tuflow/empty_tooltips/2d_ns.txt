@@ -1,0 +1,9 @@
+location == TUFLOW FV Control File (.fvc)
+
+command == Read GIS Nodestring
+
+description == Used to define the location of model nodestrings. Nodestrings select a series of cell faces and are used to define open boundary conditions, and connections between 1D hydraulic structures and the 2D/3D domain. Also used to define flux reporting time series locations. 
+
+See https://fvwiki.tuflow.com/Introduction_to_GIS_Integration for examples.
+
+

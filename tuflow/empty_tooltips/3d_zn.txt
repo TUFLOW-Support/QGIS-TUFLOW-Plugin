@@ -1,0 +1,9 @@
+location == TUFLOW FV Control File (.fvc)
+
+command == Read GIS Zone 
+
+description == Used to define connections between 1D hydraulics structures and the 2D/3D domain when using linked zone structure types.
+
+See https://downloads.tuflow.com/TUFLOWFV/Releases/2023/TUFLOW_FV_Release_Notes_2023.1.pdf Section 3.2.6 for an example.
+
+

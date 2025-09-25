@@ -219,6 +219,16 @@ class CreateTuflowProject(QgsProcessingAlgorithm):
             )
         )
 
+        # checkbox to save the settings globally
+        self.addParameter(
+            QgsProcessingParameterBoolean(
+                'save_settings_globally',
+                'Save Settings Globally',
+                optional=True,
+                defaultValue=False
+            )
+        )
+
     def processAlgorithm(self, parameters, context, model_feedback):
         # Use a multi-step feedback, so that individual child algorithm progress reports are adjusted for the
         # overall progress through the model
@@ -247,6 +257,8 @@ class CreateTuflowProject(QgsProcessingAlgorithm):
 
         domain = self.parameterAsString(parameters, 'domain', context)
 
+        save_settings_globally = self.parameterAsBool(parameters, 'save_settings_globally', context)
+
         project = ProjectConfig(
             self.parameterAsString(parameters, 'project_name', context),
             self.parameterAsFile(parameters, 'project_folder', context),
@@ -256,7 +268,8 @@ class CreateTuflowProject(QgsProcessingAlgorithm):
             None,
             domain,
             d,
-            res_fmts
+            res_fmts,
+            save_settings_globally
         )
         # save settings
         feedback.pushInfo('Saving settings...')

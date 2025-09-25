@@ -272,7 +272,8 @@ class EmptyCreator:
         except Exception as e:
             return
 
-    def create_empty(self, empty_type: str, geom: str, run_id: str) -> tuple[str | None, str | None]:
+    CREATE_EMPTY_RETURN = typing.Union[str, None]
+    def create_empty(self, empty_type: str, geom: str, run_id: str) -> tuple[CREATE_EMPTY_RETURN, CREATE_EMPTY_RETURN]:
         solver = self.solver(empty_type)
         if self.feedback:
             self.feedback.pushInfo(f'Solver: {solver}')

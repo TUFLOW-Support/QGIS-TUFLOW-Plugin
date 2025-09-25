@@ -723,7 +723,7 @@ def ARR_to_TUFLOW(args_list):
                 downloader = Downloader(url_atp, headers)
                 downloader.download()
                 if not downloader.ok():
-                    logger.warning("ERROR: failed to download areal temporal pattern.. skipping step. Contact support@tuflow.com\n{0}".format(e))
+                    logger.warning("ERROR: failed to download areal temporal pattern.. skipping step. Contact support@tuflow.com\n{0}".format(downloader.error_string))
                 else:
                     atp_success = True
         if atp_success:

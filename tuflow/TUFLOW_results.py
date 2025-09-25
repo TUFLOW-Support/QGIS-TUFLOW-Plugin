@@ -4,6 +4,7 @@ import numpy
 import csv
 import ctypes
 import re
+from qgis.PyQt.QtWidgets import QMessageBox
 from .tuflowqgis_library import (getOSIndependentFilePath, NC_Error,
 									   NcDim, NcVar, getNetCDFLibrary)
 from dateutil.parser import parse
@@ -11,7 +12,6 @@ from datetime import timedelta
 # from .utils.map_layer import layer_name_from_data_source
 from .compatibility_routines import Path
 version = '2018-03-AA' #added reporting location regions
-
 
 def clean_data_source(data_source: str) -> str:
 	if '|layername=' in data_source:
@@ -1102,6 +1102,8 @@ class ResData():
 		self._tmp_reference_time = None
 
 		self.supports_new_profile_plot = False
+
+		self.gpkg_filenames = []
 
 	def __eq__(self, other):
 		if type(other) is type(self):
@@ -2306,6 +2308,9 @@ class ResData():
 			tmp = data[i, 1]
 			rdata = tmp.strip()
 
+			if dat_type == "GPKG Time Series":
+				return "GPKG"
+
 			if dat_type == "Time Series Output Format":
 				rtypes = rdata.split(" ")
 				if "CSV" in rtypes:
@@ -2328,7 +2333,7 @@ class ResData():
 			return error, message
 
 		self.resFileFormat = self.getResFileFormat()
-		if self.resFileFormat == "CSV":  # use CSV if available
+		if self.resFileFormat == "CSV" or "GPKG":  # use CSV if available
 			pass
 		elif self.resFileFormat == "NC":
 			self.loadNetCDFHeader()
@@ -2845,6 +2850,14 @@ class ResData():
 						self.Types.append('2D Line Flow Area')
 						if self.Data_2D.QA.loaded:
 							self.times = self.Data_2D.QA.Values[:, 1]
+			elif dat_type.find('GPKG Time Series') >= 0:
+				fullpath = getOSIndependentFilePath(self.fpath, rdata)
+				self.gpkg_filenames.append(fullpath)
+				# from .tuflow_results_gpkg import ResData_GPKG
+				# res = ResData_GPKG()
+				# err, msg = res.Load(fullpath)
+				# if err:
+				# 	return err, msg
 			elif dat_type.find('2D Line Flow') >= 0:
 				if self.resFileFormat == "CSV":
 					if rdata != 'NONE':

@@ -168,7 +168,9 @@ class TuMenuFunctions():
 			
 		if not inFileNames[0]:
 			return False
-		
+
+		is_tpc_file = False
+
 		# Prompt user if they want to load in GIS files
 		for inFileName in inFileNames[0]:
 			if os.path.splitext(inFileName)[1].lower() == '.gpkg':
@@ -179,6 +181,7 @@ class TuMenuFunctions():
 				break
 			alsoOpenGis = QT_MESSAGE_BOX_NO
 			if os.path.splitext(inFileName)[1].lower() in ['.tpc']:
+				is_tpc_file = True
 				if askGis:
 					alsoOpenGis = QMessageBox.question(self.iface.mainWindow(),
 					                                   "TUFLOW Viewer", 'Do you also want to open result GIS layer?',
@@ -191,12 +194,27 @@ class TuMenuFunctions():
 		# 	self.tuView.tuResults.tuResults1D.openGis(inFileNames[0][0])
 		if alsoOpenGis == QT_MESSAGE_BOX_CANCEL:
 			return False
-		
+
+		if is_tpc_file:
+			self.tuView.tuResults.tuResults1D.gpkg_filenames = []
+
 		# import results
 		success = self.tuView.tuResults.importResults('timeseries', inFileNames[0])
 		if success:
 			self.tuView.tuResults.tuResults1D.open_gis(alsoOpenGis == QT_MESSAGE_BOX_YES)
-		
+
+		# QMessageBox.information(None, "GPKG Filenames", ", ".join(
+		#								  self.tuView.tuResults.tuResults1D.gpkg_filenames))
+		if is_tpc_file:
+			self.load1dResults(result_1D=[self.tuView.tuResults.tuResults1D.gpkg_filenames])
+		#for gpkg_filename in self.tuView.tuResults.tuResults1D.gpkg_filenames:
+		#	self.load1dResults(result_1D=[gpkg_filename])
+			#QMessageBox.information(None, "GPKG Filename", gpkg_filename, QT_MESSAGE_BOX_YES)
+			#success = self.tuView.tuResults.importResults('timeseries', gpkg_filename)
+			#if success:
+			#	QMessageBox.information(None, "GPKG Filename - Success", gpkg_filename, QT_MESSAGE_BOX_YES)
+			#	self.tuView.tuResults.tuResults1D.open_gis(True)
+
 		# unlock map output timesteps only
 		if unlock:
 			if self.tuView.lock2DTimesteps:
@@ -625,7 +643,12 @@ class TuMenuFunctions():
 							del self.tuView.tuResults.tuResults2D.layer_reloaded_signals[layer.id()]
 					except:
 						pass
-				self.tuView.project.removeMapLayer(layer.id())
+				if Qgis.QGIS_VERSION_INT >= 33000:
+					if layer.type() != QgsMapLayer.LayerType.Vector:
+						self.tuView.project.removeMapLayer(layer.id())
+				else:
+					if layer.type() != QgsMapLayer.VectorLayer:
+						self.tuView.project.removeMapLayer(layer.id())
 
 		if self.tuView.canvas is not None:
 			self.tuView.canvas.refresh()

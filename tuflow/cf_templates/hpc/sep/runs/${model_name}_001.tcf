@@ -6,6 +6,7 @@ ${gis_projection_command}
 
 !_______________________________________________________
 ! SOLVER
+Tutorial Model == OFF
 Solution scheme == HPC
 Hardware == GPU
 

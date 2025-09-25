@@ -27,6 +27,7 @@ class stored():
 		self.engine = None
 		self.tutorial = None
 		self.empty_dir = None
+		self.gis_format = None
 
 class TF_Settings():
 	def __init__(self):
@@ -48,6 +49,7 @@ class TF_Settings():
 			self.global_settings.engine = self.settings.value('TUFLOW/engine', None)
 			self.global_settings.tutorial = self.settings.value('TUFLOW/tutorial', None)
 			self.global_settings.empty_dir = self.settings.value('TUFLOW/empty_dir', None)
+			self.global_settings.gis_format = self.settings.value('TUFLOW/gis_format', None)
 		except:
 			error = True
 			message = 'Unable to load global setting'
@@ -69,6 +71,7 @@ class TF_Settings():
 			self.project_settings.engine = self.project.readEntry("TUFLOW", "engine", None)[0]
 			self.project_settings.tutorial = self.project.readEntry("TUFLOW", 'tutorial', '')[0]
 			self.project_settings.empty_dir = self.project.readEntry("TUFLOW", 'empty_dir', '')[0]
+			self.project_settings.gis_format = self.project.readEntry('TUFLOW', 'gis_format', None)[0]
 		except:
 			error = True
 			message = 'Unable to load project setting'

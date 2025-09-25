@@ -111,6 +111,7 @@ class TuResults1D():
 		self.lineXS = []  # 1D cross section line types
 		self.typesXSRes = []  # store results that can be plotted on XS (i.e. water level)
 		self.new_results = []
+		self.gpkg_filenames = []
 
 	def importResults(self, inFilePaths):
 		"""
@@ -152,6 +153,8 @@ class TuResults1D():
 						lambda: self.tuView.resultsChanged('item clicked'))
 					QMessageBox.critical(self.tuView, "TUFLOW Viewer", message)
 					return False
+
+				self.gpkg_filenames += res.gpkg_filenames
 			elif ext.upper() == '.GPKG':
 				res = ResData_GPKG()
 				error, message = res.Load(filePath)

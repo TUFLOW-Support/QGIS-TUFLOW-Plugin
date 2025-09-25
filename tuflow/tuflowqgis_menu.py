@@ -121,6 +121,8 @@ from .gui.tuflowdrophandler import TuflowDropHandler
 
 from .toc.toc import toc_selected_layers
 
+from .qgis_listener import QgisListener
+
 # remote debugging
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\plugins\python\helpers\pydev')
@@ -167,6 +169,8 @@ class tuflowqgis_menu:
         self.provider = TuflowAlgorithmProvider()
         self.menu_provider = TuflowContextMenuProvider(self.iface)
         Logging.init_logging(iface)
+
+        self.listener = QgisListener()
 
     def icon(self, icon_name: str) -> QIcon:
         """Get icon."""
@@ -325,6 +329,16 @@ class tuflowqgis_menu:
         self.clearProjectSettingsAction.triggered.connect(lambda: resetQgisSettings(scope='Project'))
         self.removeTuviewAction.triggered.connect(self.removeTuview)
         self.reloadTuviewAction.triggered.connect(self.reloadTuview)
+
+        # Listener Menu
+        # self.listener_menu = QMenu(QCoreApplication.translate("TUFLOW", "QGIS &Listener (experimental)"))
+        # self.tuflowMenu.addMenu(self.listener_menu)
+        # self.start_listener_action = QAction("Start QGIS Listener")
+        # self.start_listener_action.triggered.connect(self.listener.start)
+        # self.listener_menu.addAction(self.start_listener_action)
+        # self.stop_listener_action = QAction("Stop QGIS Listener")
+        # self.stop_listener_action.triggered.connect(self.listener.stop)
+        # self.listener_menu.addAction(self.stop_listener_action)
 
         # top level in menu
 

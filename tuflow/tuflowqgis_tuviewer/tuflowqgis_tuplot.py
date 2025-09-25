@@ -4173,7 +4173,10 @@ class TuPlot():
 					self.longPlotHoverPoint.set_visible(False)
 
 				if self.longPlotHoverLine is not None:
-					self.longPlotHoverLine.remove()
+					try:
+						self.longPlotHoverLine.remove()
+					except NotImplementedError:
+						pass
 					self.longPlotHoverLine = None
 				xmin, xmax = subplot.get_xlim()
 				x = (xmin + xmax) / 2.

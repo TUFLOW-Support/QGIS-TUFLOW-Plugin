@@ -1005,7 +1005,7 @@ class Arr:
 
         # PREBURST DEPTH
         #print('Loading median preburst data')
-        self.logger.info('Loading median preburst data')
+        self.logger.info(f'Loading preburst data: {self.settings.preburst_percentile}')
         self.PreBurst.load(fi, self.settings.preburst_percentile)
         if self.PreBurst.error:
             #print('An error was encountered, when reading median preburst data.')

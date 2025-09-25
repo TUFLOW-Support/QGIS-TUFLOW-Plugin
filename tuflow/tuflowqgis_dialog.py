@@ -1654,6 +1654,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 		self.tfsettings.project_settings.base_dir = basedir
 		self.tfsettings.project_settings.engine = engine
 		self.tfsettings.project_settings.tutorial = tutorial
+		self.tfsettings.project_settings.gis_format = 'GPKG' if self.rbGPKG.isChecked() else 'SHP'
 		tf_folder = 'TUFLOW' if engine == 'classic' else 'TUFLOWFV'
 		if re.findall(r'TUFLOW\\?$', basedir, flags=re.IGNORECASE):
 			empty_dir = os.path.join(basedir, 'model', 'gis', 'empty')
@@ -1675,6 +1676,7 @@ class tuflowqgis_configure_tf_dialog(QDialog, Ui_tuflowqgis_configure_tf):
 			self.tfsettings.global_settings.engine = engine
 			self.tfsettings.global_settings.tutorial = tutorial
 			self.tfsettings.global_settings.empty_dir = empty_dir
+			self.tfsettings.global_settings.gis_format = 'GPKG' if self.rbGPKG.isChecked() else 'SHP'
 			error, message = self.tfsettings.Save_Global()
 			if error:
 				QMessageBox.information( self.iface.mainWindow(),"Error", "Error Saving Global Settings. Message: "+message)
