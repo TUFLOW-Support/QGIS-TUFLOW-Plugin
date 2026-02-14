@@ -72,6 +72,7 @@ def df_to_swmm_section(df: pd.DataFrame,
         'TEMPERATURE',
         'TIMESERIES',
         'TRANSECTS',
+        'CONTROLS',
     ]
     if title.upper() not in sections_to_not_sort:
         df = df.sort_values(str(df.columns[0]), kind='stable')

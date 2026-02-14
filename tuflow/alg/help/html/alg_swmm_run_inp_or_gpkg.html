@@ -1,0 +1,15 @@
+<p>This tool runs a SWMM inp file using a SWMM executable.</p>
+
+<p>Provide a SWMM inp file or a SWMM GeoPackage (GPKG). If a GPKG is provided, the inp is generated first, then SWMM runs.</p>
+
+<p>Provide the path to <code>runswmm.exe</code>, or leave it blank if the executable is in a standard path like <code>C:\Program Files\EPA SWMM 5.2.2</code>. Typically the default path search should be enough. If multiple SWMM installations are present the latest version is picked by default.</p>
+
+<p>If a "Save with new name" value is specified, it is used for the <code>.inp</code>, <code>.rpt</code>, and <code>.out</code> files. If not specified they are saved with the same name as Input.</p>
+
+<p>Optional start/end date/time fields update the <code>[OPTIONS]</code> section of the inp before running using <code>MM/DD/YYYY</code> and <code>HH:MM:SS</code>.</p>
+
+<p>After the run completes, the report is scanned and up to 10 lines containing
+<code>ERROR</code> or <code>WARNING</code> are printed in the QGIS log. If more exist the log is truncated.</p>
+
+<p>You can click "Run in background" in the Processing dialog to keep QGIS responsive
+while SWMM is simulating.</p>
