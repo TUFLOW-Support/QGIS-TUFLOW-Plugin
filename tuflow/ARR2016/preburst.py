@@ -1,5 +1,6 @@
 import typing
 import logging
+import re
 
 import numpy
 import pandas as pd
@@ -113,18 +114,16 @@ class ArrPreburst:
             elif self.settings.limb_option and limb_data and self.settings.limb_recalc_pb_ratios:
                 self.ratios = self.data.df.copy()
                 for col in self.ratios.columns:
-                    self.ratios[col] = self.ratios[col].str.extract(r'(\d+\.\d+\s+)(\(\d+(?:\.\d*)?\))').iloc[:,
-                                       1].str.replace(r'\(|\)', '', regex=True).astype(float)
+                    self.ratios[col] = self.ratios[col].map(self._parse_ratio_cell)
                 rf_depths = self.get_rainfall_depths(fi)
                 rf_ = rf_depths.reindex_like(self.data.df)
                 self.depths = rf_ * self.ratios
             else:
                 self.ratios = self.data.df.copy()
                 for col in self.depths.columns:
-                    self.depths[col] = self.depths[col].str.replace(r'\(\d+(?:\.\d*)?\)', '', regex=True).astype(float)
+                    self.depths[col] = self.depths[col].map(self._parse_depth_cell)
                 for col in self.ratios.columns:
-                    self.ratios[col] = self.ratios[col].str.extract(r'(\d+\.\d+\s+)(\(\d+(?:\.\d*)?\))').iloc[:,
-                                       1].str.replace(r'\(|\)', '', regex=True).astype(float)
+                    self.ratios[col] = self.ratios[col].map(self._parse_ratio_cell)
         except Exception as e:
             raise Exception('Error loading preburst rainfall data: {0}'.format(e)) from e
 
@@ -133,6 +132,22 @@ class ArrPreburst:
 
     def get_ratios(self, losses):
         return self.ratios.to_numpy()
+
+    @staticmethod
+    def _parse_depth_cell(value: typing.Any) -> float:
+        if pd.isna(value):
+            return numpy.nan
+        text = re.sub(r'\(\d+(?:\.\d*)?\)', '', str(value)).strip()
+        return float(text)
+
+    @staticmethod
+    def _parse_ratio_cell(value: typing.Any) -> float:
+        if pd.isna(value):
+            return numpy.nan
+        match = re.search(r'\((\d+(?:\.\d*)?)\)', str(value))
+        if not match:
+            raise ValueError(f'Could not parse preburst ratio from "{value}"')
+        return float(match.group(1))
 
     def load_storm_initial_loss(self, fi: typing.TextIO) -> bool:
         data = DataBlock(fi, 'LOSSES', True)

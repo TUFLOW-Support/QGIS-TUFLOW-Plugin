@@ -7,6 +7,10 @@ from tuflow.ARR2016.arr_settings import ArrSettings
 
 class TestPreburst(TestCase):
 
+    def test_parse_preburst_cells(self):
+        self.assertEqual(12.3, ArrPreburst._parse_depth_cell('12.3(0.45)'))
+        self.assertEqual(0.45, ArrPreburst._parse_ratio_cell('12.3(0.45)'))
+
     def test_load(self):
         data_file = Path(__file__).parent / 'data' / 'ARR_Web_data_test_catchment.txt'
         pb = ArrPreburst()
