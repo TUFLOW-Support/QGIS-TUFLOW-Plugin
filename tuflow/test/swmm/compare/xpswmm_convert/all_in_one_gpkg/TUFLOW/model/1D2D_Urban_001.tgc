@@ -10,7 +10,7 @@ Read GIS IWL == 1D2D_Urban_001_2d_iwl_R
 
 # Setup the base topography
 Set Zpts == 64.162000
-Read Grid Zpts == grid\ubran_grid_1d2d.tif
+Read Grid Zpts == grid/ubran_grid_1d2d.tif
 Read GIS Z Shape == 1D2D_Urban_001_2d_zsh_L | 1D2D_Urban_001_2d_zsh_P
 
 

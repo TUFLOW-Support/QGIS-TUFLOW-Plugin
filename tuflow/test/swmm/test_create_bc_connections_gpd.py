@@ -1,17 +1,19 @@
 import math
 import geopandas as gpd
 import pandas as pd
+import platform
 import subprocess
 import unittest
 
-from tuflow_swmm.gis_messages import GisMessages
+from tuflow.tuflow_swmm.gis_messages import GisMessages
 
 try:
     from pathlib import Path
 except ImportError:
     from pathlib_ import Path_ as Path
 
-from test.swmm.test_files import get_compare_path, get_output_path, get_input_full_filenames
+from tuflow.test.swmm.test_files import get_compare_path, get_output_path, get_input_full_filenames
+from tuflow.test.swmm.compare_options import do_git_diff
 
 from tuflow.tuflow_swmm.create_bc_connections_gpd import create_bc_connections_gpd
 from tuflow.tuflow_swmm.gis_to_swmm import gis_to_swmm
@@ -34,9 +36,11 @@ class TestSWMMDownstreamJunctionsToOutfalls(unittest.TestCase):
             text2 = f2.readlines()
             # print(text1)
             # print(text2)
-            subprocess.run(['C:\\Program Files\\git\\cmd\\git.exe',
-                            'diff',
-                            '--no-index', first, second], shell=True)
+            current_os = platform.system().lower()
+            if current_os == "windows" and do_git_diff:
+                subprocess.run(['C:\\Program Files\\git\\cmd\\git.exe',
+                                'diff',
+                                '--no-index', first, second], shell=True)
 
             self.assertEqual(len(text1), len(text2))
             for line_num, (l1, l2) in enumerate(zip(text1, text2)):

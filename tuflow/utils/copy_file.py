@@ -1,6 +1,7 @@
 # https://stackoverflow.com/questions/29967487/get-progress-back-from-shutil-file-copy-thread
 import os
 import shutil
+import typing
 from time import sleep
 
 from qgis.PyQt.QtCore import QObject, QThread, pyqtSignal
@@ -14,7 +15,7 @@ READINTO_BUFSIZE = 1024 * 1024
 from ..compatibility_routines import QT_DIALOG_REJECTED
 
 
-def copy_file_with_progbar(src, dst, parent):
+def copy_file_with_progbar(src, dst, parent, on_finished: typing.Callable = None):
     """
     Copies file with a progress bar.
     Assumes src, dst are not special files (sockets, devices, ...) or anything like that.
@@ -27,6 +28,8 @@ def copy_file_with_progbar(src, dst, parent):
     if prog_bar.exec() == QT_DIALOG_REJECTED:
         raise RuntimeError(prog_bar.errmsg)
     prog_bar.deleteLater()
+    if on_finished:
+        on_finished(dst)
 
 
 class CopyFileProgressBar(QDialog):

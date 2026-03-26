@@ -1,8 +1,12 @@
+import re
 import typing
 import logging
 
 import numpy
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    from ..pt.pytuflow._outputs.pymesh.stubs import pandas as pd
 
 from tuflow.ARR2016.meta import ArrMeta
 from tuflow.ARR2016.parser import DataBlock
@@ -110,21 +114,36 @@ class ArrPreburst:
                 rf_depths = self.get_rainfall_depths(fi)
                 rf_ = rf_depths.reindex_like(self.data.df)
                 self.ratios = self.depths / rf_
-            elif self.settings.limb_option and limb_data and self.settings.limb_recalc_pb_ratios:
-                self.ratios = self.data.df.copy()
-                for col in self.ratios.columns:
-                    self.ratios[col] = self.ratios[col].str.extract(r'(\d+\.\d+\s+)(\(\d+(?:\.\d*)?\))').iloc[:,
-                                       1].str.replace(r'\(|\)', '', regex=True).astype(float)
-                rf_depths = self.get_rainfall_depths(fi)
-                rf_ = rf_depths.reindex_like(self.data.df)
-                self.depths = rf_ * self.ratios
+            # elif self.settings.limb_option and limb_data and self.settings.limb_recalc_pb_ratios:
+            #     self.ratios = self.data.df.copy()
+            #     for col in self.ratios.columns:
+            #         self.ratios[col] = self.ratios[col].str.extract(r'(\d+\.\d+\s+)(\(\d+(?:\.\d*)?\))').iloc[:,
+            #                            1].str.replace(r'\(|\)', '', regex=True).astype(float)
+            #     rf_depths = self.get_rainfall_depths(fi)
+            #     rf_ = rf_depths.reindex_like(self.data.df)
+            #     self.ratios = self.depths / rf_
             else:
                 self.ratios = self.data.df.copy()
                 for col in self.depths.columns:
-                    self.depths[col] = self.depths[col].str.replace(r'\(\d+(?:\.\d*)?\)', '', regex=True).astype(float)
+                    try:
+                        self.depths[col] = self.depths[col].str.replace(r'\(\d+(?:\.\d*)?\)', '', regex=True).astype(float)
+                    except AttributeError:
+                        self.depths[col] = [float(re.sub(r'\(\d+(?:\.\d*)?\)', '', str(x))) for x in self.depths[col].values]
                 for col in self.ratios.columns:
-                    self.ratios[col] = self.ratios[col].str.extract(r'(\d+\.\d+\s+)(\(\d+(?:\.\d*)?\))').iloc[:,
-                                       1].str.replace(r'\(|\)', '', regex=True).astype(float)
+                    try:
+                        self.ratios[col] = self.ratios[col].str.extract(r'(\d+\.\d+\s+)(\(\d+(?:\.\d*)?\))').iloc[:,
+                                           1].str.replace(r'\(|\)', '', regex=True).astype(float)
+                    except AttributeError:
+                        for i, val in enumerate(self.ratios[col].values):
+                            val_ = re.match(r'(\d+\.\d+\s+)(\(\d+(?:\.\d*)?\))', str(val))
+                            if val_:
+                                self.ratios.at[self.ratios.index[i], col] = val_.group(2).strip('()')
+                        self.ratios[col] = self.ratios[col].astype(float)
+            if self.settings.limb_option and limb_data and self.settings.limb_recalc_pb_ratios:
+                rf_depths = self.get_rainfall_depths(fi)
+                rf_ = rf_depths.reindex_like(self.data.df)
+                self.ratios = self.depths / rf_
+
         except Exception as e:
             raise Exception('Error loading preburst rainfall data: {0}'.format(e)) from e
 

@@ -13,6 +13,8 @@ from qgis._core import (QgsProcessingAlgorithm, QgsProcessingParameterFile, QgsP
 
 from ..compatibility_routines import Path
 from ..tuflowqgis_settings import TF_Settings
+from ..tfversion_manager import tuflow_binaries
+from ..gui.alg.tuflow_version_parameter import TuflowVersionParameter
 
 
 def create_command(command: str, value: str) -> str:
@@ -29,13 +31,19 @@ class PackageModel(QgsProcessingAlgorithm):
         tf_settings = TF_Settings()
         tf_settings.Load()
         default = tf_settings.combined.tf_exe
+        # self.addParameter(
+        #     QgsProcessingParameterFile(
+        #         'tf_exe',
+        #         'TUFLOW exe',
+        #         behavior=QgsProcessingParameterFile.File,
+        #         fileFilter='executable (*.exe)',
+        #         defaultValue=default
+        #     )
+        # )
         self.addParameter(
-            QgsProcessingParameterFile(
-                'tf_exe',
-                'TUFLOW exe',
-                behavior=QgsProcessingParameterFile.File,
-                fileFilter='executable (*.exe)',
-                defaultValue=default
+            TuflowVersionParameter(
+                'tuflow_version',
+                'TUFLOW Version',
             )
         )
         # TCF
@@ -137,20 +145,26 @@ class PackageModel(QgsProcessingAlgorithm):
         feedback_ = QgsProcessingMultiStepFeedback(steps, feedback)
         feedback_.setCurrentStep(0)
 
+        tf_version = self.parameterAsString(parameters, 'tuflow_version', context)
+        if not tf_version or tf_version not in tuflow_binaries.version2bin:
+            feedback_.reportError('Invalid TUFLOW version selected')
+            return results
+        tf_exe = tuflow_binaries.version2bin[tf_version]
+
         # save TUFLOW exe
-        if Path(parameters['tf_exe']).exists():
+        if Path(tf_exe).exists():
             tf_settings = TF_Settings()
             tf_settings.Load()
-            tf_settings.project_settings.tf_exe = parameters['tf_exe']
+            tf_settings.project_settings.tf_exe = tf_exe
             tf_settings.Save_Project()
-            tf_settings.global_settings.tf_exe = parameters['tf_exe']
+            tf_settings.global_settings.tf_exe = tf_exe
             tf_settings.Save_Global()
 
         tcf = Path(parameters['tcf'])
         outdir = tcf.parent / 'pm_{0}'.format(tcf.stem)
 
         # start building args list
-        args = [parameters['tf_exe']]
+        args = [tf_exe]
 
         # setup ini
         ini_file = ''

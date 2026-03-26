@@ -38,10 +38,10 @@ TEMPERATURE
 ;;Option            Value
 ;;----------------  ----------------
 FILE                "BostonTemperature.txt"
-WINDSPEED           MONTHLY  13.7 13.7 13.6 13.1 12 11.4 11 10.8 11.3 11.9 12.7 13.4
+WINDSPEED           MONTHLY 13.7 13.7 13.6 13.1 12 11.4 11 10.8 11.3 11.9 12.7 13.4
 SNOWMELT            32 0.5 0.6 20 42.3 -16
-ADC                 IMPERVIOUS     0.10 0.35 0.53 0.66 0.75 0.82 0.87 0.92 0.95 0.98
-ADC                 PERVIOUS       0.10 0.35 0.53 0.66 0.75 0.82 0.87 0.92 0.95 0.98
+ADC                 IMPERVIOUS 0.10 0.35 0.53 0.66 0.75 0.82 0.87 0.92 0.95 0.98
+ADC                 PERVIOUS 0.10 0.35 0.53 0.66 0.75 0.82 0.87 0.92 0.95 0.98
 
 [RAINGAGES]
 ;;Name              Form                Intvl               SnowCatchDeficiency Format              Param1              Param2              Param3

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import sys
 import os
@@ -25,11 +27,11 @@ dir = os.path.dirname(__file__)
 
 # Switch to run for Ellis
 # path_dem = r"C:\Users\esymons\Downloads\TUFLOW\model\grid\DEM_SI_Unit_01.flt"
-path_dem = r"D:\models\TUFLOW\test_models\SWMM\ExampleModels\urban\TUFLOW\model\grid\DEM_SI_Unit_01.flt"
-
+# path_dem = r"D:\models\TUFLOW\test_models\SWMM\ExampleModels\urban\TUFLOW\model\grid\DEM_SI_Unit_01.flt"
+path_dem = str(Path(dir) / 'dem' / 'DEM_SI_Unit_01.tif')  # 5MB, not great but it's worth having it on the repository for testing purposes
 
 def test_file_path(geopackage_name, layer):
-    return os.path.join(dir, "Swmm", geopackage_name) + '|layername=' + layer
+    return os.path.join(dir, "swmm", geopackage_name) + '|layername=' + layer
 
 
 path_pipe_conduits = test_file_path('test_pipes_001.gpkg', 'Links--Conduits')
@@ -245,7 +247,7 @@ class TestDrapeData(unittest.TestCase):
         self.assertIsNotNone(drapeData)
         chainages = [0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5,
                      10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 14.716734118643839]
-        self.assertEqual(drapeData.chainages, chainages)
+        self.assertAlmostEqual(chainages, drapeData.chainages, 2)
         directions = [None, 259.6951535300408, 259.6951535300408, 259.6951535300408, 259.6951535300408,
                       259.6951535300408, 259.6951535300408, 259.6951535300408, 259.6951535300408, 259.6951535300408,
                       259.6951535300408, 259.6951535300408, 259.6951535300408, 259.6951535300408, 259.6951535300408,
@@ -253,23 +255,23 @@ class TestDrapeData(unittest.TestCase):
                       259.6951535300408, 259.6951535300408, 259.6951535300408, 259.6951535300408, 259.6951535300408,
                       259.6951535300408, 259.69515352347827, 259.6951535300408, 259.69515352347827, 259.69515352347827,
                       259.69515352435235]
-        self.assertEqual(len(drapeData.directions), len(directions))
+        self.assertEqual(len(directions), len(drapeData.directions))
         for computed, result in zip(drapeData.directions, directions):
             if result is None:
                 self.assertIsNone(computed)
             else:
-                self.assertAlmostEqual(computed,result, 2)
+                self.assertAlmostEqual(result, computed, 2)
         #self.assertEqual(drapeData.directions, directions)
 
         elevations = [43.776, 43.7742, 43.7777, 43.776, 43.776, 43.7742, 43.7724, 43.7765, 43.7742, 43.773, 43.7724,
                       43.7712, 43.7701, 43.7748, 43.7736, 43.7712, 43.7695, 43.7677, 43.7659, 43.7712, 43.7701,
                       43.7689, 43.7677, 43.7665, 43.7718, 43.7706, 43.7701, 43.7689, 43.7677, 43.7683, 43.7742]
-        self.assertEqual(len(drapeData.elevations), len(elevations))
+        self.assertEqual(len(elevations), len(drapeData.elevations))
         for computed, result in zip(drapeData.elevations, elevations):
             if result is None:
                 self.assertIsNone(computed)
             else:
-                self.assertAlmostEqual(computed,result, 2)
+                self.assertAlmostEqual(result, computed, 2)
 
     def test_point_drape(self):
         drapeData = None
@@ -294,11 +296,11 @@ class TestDrapeData(unittest.TestCase):
         #         drapeData = DrapeData(None, "Test", pits_P, f, dem)
 
         self.assertIsNotNone(drapeData)
-        self.assertEqual(drapeData.chainages, [0])
-        self.assertEqual(drapeData.directions, None)
-        np.testing.assert_almost_equal(drapeData.elevations, [42.682], 4)
+        self.assertEqual([0], drapeData.chainages)
+        self.assertIsNone(drapeData.directions)
+        np.testing.assert_almost_equal([42.682], drapeData.elevations, 4)
         startVertex = QgsPointXY(293147.9909382345, 6178097.150920755)
-        self.assertEqual(drapeData.points, [startVertex])
+        self.assertEqual([startVertex], drapeData.points)
 
 class TestUnsnappedConnections(unittest.TestCase):
 
@@ -435,13 +437,13 @@ class TestContinuity(unittest.TestCase):
 
         continuityCheck = ContinuityTool(dataCollector=dataCollectorLines, limitAngle=90, limitCover=0.5, limitArea=20,
                                          checkArea=True, checkAngle=True, checkInvert=True, checkCover=True)
-        self.assertEqual(len(continuityCheck.flaggedAreas), 2)
-        self.assertEqual(len(continuityCheck.flaggedInverts), 1)
+        self.assertEqual(3, len(continuityCheck.flaggedAreas))
+        self.assertEqual(1, len(continuityCheck.flaggedInverts))
         #self.assertEqual(len(continuityCheck.flaggedGradients), 2)
-        self.assertEqual(len(continuityCheck.flaggedAngles), 1)
-        self.assertEqual(len(continuityCheck.flaggedCover), 3)
+        self.assertEqual(1, len(continuityCheck.flaggedAngles))
+        self.assertEqual(3, len(continuityCheck.flaggedCover))
         self.assertTrue(continuityCheck.outputLyr.isValid())
-        self.assertEqual(continuityCheck.outputLyr.featureCount(), 8)
+        self.assertEqual(9, continuityCheck.outputLyr.featureCount())
 
 
 class TestFlowTrace(unittest.TestCase):

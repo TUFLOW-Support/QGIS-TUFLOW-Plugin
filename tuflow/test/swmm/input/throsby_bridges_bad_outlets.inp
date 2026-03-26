@@ -147,7 +147,7 @@ TC_R_1690.1         5.93
 TC_R_1710.1         4.93                                                                                               
 TC__0180.1          14.92                                                                                              
 TC__0580.1          8.9                                                                                                
-TC_b_0200.1         12.49                                                                                              
+TC_B_0200.1         12.49                                                                                              
 
 [OUTFALLS]
 ;;Name              Elev                Type                Param1              Gated               RouteTo            
@@ -257,7 +257,7 @@ TC_R_1690.2         5.8                 FIXED               5.8
 TC_R_1710.2         4.79                FIXED               4.79                                                       
 TC__0180.2          14.71               FIXED               14.71                                                      
 TC__0580.2          8.8                 FIXED               8.8                                                        
-TC_b_0200.2         12.49               FIXED               12.49                                                      
+TC_B_0200.2         12.49               FIXED               12.49                                                      
 
 [CONDUITS]
 ;;Name              From Node           To Node             Length              Roughness           InOffset            OutOffset           InitFlow            MaxFlow            
@@ -370,7 +370,7 @@ TC_R_1690           TC_R_1690.1         TC_R_1690.2         10.0                
 TC_R_1710           TC_R_1710.1         TC_R_1710.2         10.0                0.012               0.0                 0.0                                                        
 TC__0180            TC__0180.1          TC__0180.2          10.0                0.012               0.0                 0.0                                                        
 TC__0580            TC__0580.1          TC__0580.2          10.0                0.012               0.0                 0.0                                                        
-TC_b_0200           TC_b_0200.1         TC_b_0200.2         10.0                0.012               0.0                 0.0                                                        
+TC_B_0200           TC_B_0200.1         TC_B_0200.2         10.0                0.012               0.0                 0.0                                                        
 
 [LOSSES]
 ;;Link              Kentry              Kexit               Kavg                Flap                Seepage            
@@ -493,7 +493,7 @@ TC_R_1690           RECT_CLOSED         1.15                2.8                 
 TC_R_1710           RECT_CLOSED         1.15                3.7                 0.0                 0.0                 1                                      
 TC__0180            RECT_CLOSED         2.0                 2.85                0.0                 0.0                 1                                      
 TC__0580            RECT_CLOSED         1.415               2.38                0.0                 0.0                 1                                      
-TC_b_0200           CUSTOM              1.56                TC_b_0200_hw        0.0                 0.0                 1                                      
+TC_B_0200           CUSTOM              1.56                TC_b_0200_hw        0.0                 0.0                 1                                      
 
 [STREETS]
 ;;Name              Tcrown              Hcurb               Sx                  nRoad               a                   W                   Sides               Tback               Sback               nBack              
@@ -983,8 +983,8 @@ TC__0180.1          366640.83           1354144.19
 TC__0180.2          366638.17           1354193.79         
 TC__0580.1          366601.95           1356176.55         
 TC__0580.2          366606.4            1356145.58         
-TC_b_0200.1         366864.1            1354505.45         
-TC_b_0200.2         366882.88           1354530.02         
+TC_B_0200.1         366864.1            1354505.45         
+TC_B_0200.2         366882.88           1354530.02         
 
 [VERTICES]
 ;;Name              X-Coord             Y-Coord            

@@ -1,8 +1,12 @@
 from pathlib import Path
-import geopandas as gpd
 import numpy as np
-import pandas as pd
 import re
+try:
+    import pandas as pd
+    import geopandas as gpd
+except ImportError:
+    pd = None
+    gpd = None
 try:
     from shapely.validation import make_valid
     has_shapely = True
@@ -19,6 +23,9 @@ def convert_xpswmm_hydrology(gdf_gis_nodes,
                              feedback=ScreenProcessingFeedback()):
     if not has_shapely:
         feedback.reportError('Shapely not installed and is required for function: convert_xpswmm_hydrology().',
+                             fatalError=True)
+    if pd is None or gpd is None:
+        feedback.reportError('Pandas and Geopandas are required for function: convert_xpswmm_hydrology().',
                              fatalError=True)
 
     max_subcatch_per_node = 5

@@ -4,7 +4,7 @@ Converts an XPX file and modifies a converted tcf file to add the SWMM informati
     a. SWMM inp file (and gpkg)
     b. Inlet usage file
     c. Messages file for conversion
-2. Creates the TUFLOW-SWMM control file ..\\model\\swmm folder and fills it in
+2. Creates the TUFLOW-SWMM control file ../model/swmm folder and fills it in
 3. Modifies the TCF file (leaves copy of original)
     a. Adds tscf, start/end time, and other stuff
     b. Comment out commands not used for TUFLOW-SWMM or no longer recommended
@@ -50,7 +50,7 @@ def get_bc_dbase_filename(tcf_filename: str, feedback) -> Path:
                 return bc_dbase_path
 
     # if we get here we didn't find anything
-    bc_dbase_path = Path(tcf_filename) / '..\\bc_dbase\\bc_dbase.csv'
+    bc_dbase_path = Path(tcf_filename) / '../bc_dbase/bc_dbase.csv'
     bc_dbase_path = bc_dbase_path.resolve()
     bc_dbase_path.parent.mkdir(parents=True, exist_ok=True)
     feedback.pushWarning(f'No BC Database Found. Creating: {bc_dbase_path}')
@@ -157,7 +157,7 @@ def convert_xpswmm(output_folder_1donly: str,
     else:
         tcf_path = Path(tcf_filename)
         tuflow_folder = Path(tcf_filename).parent.parent
-        swmm_folder = tuflow_folder / 'model\\swmm'
+        swmm_folder = tuflow_folder / 'model/swmm'
 
     swmm_folder.mkdir(exist_ok=True, parents=True)
     swmm_inp_gpkg_filename = swmm_folder / f'{swmm_prefix}_001.gpkg'
@@ -169,12 +169,12 @@ def convert_xpswmm(output_folder_1donly: str,
     tef_filename = None
 
     if tuflow_folder is not None:
-        tscf_filename = tuflow_folder / f'model\\{swmm_prefix}_001.tscf'
-        tef_filename = tuflow_folder / f'runs\\tuflow_events.tef'
+        tscf_filename = tuflow_folder / f'model/{swmm_prefix}_001.tscf'
+        tef_filename = tuflow_folder / f'runs/tuflow_events.tef'
 
         bc_dbase_filename = get_bc_dbase_filename(tcf_filename, feedback)
     else:
-        bc_dbase_filename = swmm_folder / f'bc_dbase\\bc_dbase.csv'
+        bc_dbase_filename = swmm_folder / f'bc_dbase/bc_dbase.csv'
 
     bc_abs_paths_and_layernames = []
     bc_out_paths_and_layernames = []
@@ -202,11 +202,11 @@ def convert_xpswmm(output_folder_1donly: str,
         return
 
     with open(tscf_filename, 'w') as tscf_file:
-        tscf_file.write(f'Read SWMM == .\\swmm\\{swmm_inp_filename.name}\n\n')
+        tscf_file.write(f'Read SWMM == ./swmm/{swmm_inp_filename.name}\n\n')
 
         # If there are no inlets this file will not exist
         if Path(swmm_iu_filename).exists():
-            tscf_file.write(f'Read GIS SWMM Inlet Usage == .\\swmm\\{swmm_iu_filename.name} >> inlet_usage_001\n\n')
+            tscf_file.write(f'Read GIS SWMM Inlet Usage == ./swmm/{swmm_iu_filename.name} >> inlet_usage_001\n\n')
 
         if 'Timeseries_curves' in swmm_info:
             tscf_file.write(f'Read BC Timeseries == {" | ".join(swmm_info["Timeseries_curves"])}\n')
@@ -272,12 +272,12 @@ def convert_xpswmm(output_folder_1donly: str,
         tcf_file.write(f'Event File == {tef_filename.name}\n')
         tcf_file.write(f'Solution Scheme == {solution_scheme}\n')
         tcf_file.write(f'Hardware == {hardware}\n')
-        tcf_file.write('Write Check Files == ..\\check\\\n')
-        tcf_file.write('Output Folder == ..\\results\\\n')
+        tcf_file.write('Write Check Files == ../check/\n')
+        tcf_file.write('Output Folder == ../results/\n')
         tcf_file.write('Log Folder == log\n')
         tcf_file.write(f'\n')
         tcf_file.write('GIS Format == GPKG\n')
-        tcf_file.write(f'SWMM Control File == ..\\model\\{tscf_filename.name}\n')
+        tcf_file.write(f'SWMM Control File == ../model/{tscf_filename.name}\n')
 
         num_hours = 0.0
         if 'start_date' not in swmm_info or 'end_date' not in swmm_info:
@@ -393,23 +393,26 @@ def convert_xpswmm(output_folder_1donly: str,
                     # Append reference to new bc connection layers if they were created
                     if gis_layers_filename is not None:
                         gis_layers_filename = Path(gis_layers_filename)
+                        # TEMP
                         if '2d_bc_swmm_connections' in get_gis_layers(gis_layers_filename):
                             tbc_file.write('\n! Add SWMM 1D nodal HX/SX connections\n')
                             relative_filename = gis_layers_filename.relative_to(tbc_path.parent.resolve())
                             tbc_file.write(f'Read GIS BC == {relative_filename} >> 2d_bc_swmm_connections\n')
+                        else:
+                            print(f"2d_bc_swmm_connections not found in: {get_gis_layers(gis_layers_filename)}")
             except Exception as e:
                 feedback.reportError(f'Unknown error parsing tbc file and processing BC layers. Aborted: {str(e)}')
 
 
 if __name__ == "__main__":
-    tcf_folder_to_copy = Path(r"D:\support\TSC240873\190702_Model\model_convert_gpkg")
+    tcf_folder_to_copy = Path(r"D:/support/TSC240873/190702_Model/model_convert_gpkg")
     out_folder = tcf_folder_to_copy.with_name(tcf_folder_to_copy.name + '_001')
     if out_folder.exists():
         shutil.rmtree(out_folder)
     shutil.copytree(tcf_folder_to_copy, out_folder)
 
-    xpx_filename = r"D:\support\TSC240873\190702_Model\02-Existing\EX_US77_100yr.xpx"
-    tcf_filename = out_folder / 'runs\\EX_US77_100yr.tcf'
+    xpx_filename = r"D:/support/TSC240873/190702_Model/02-Existing/EX_US77_100yr.xpx"
+    tcf_filename = out_folder / 'runs/EX_US77_100yr.tcf'
     swmm_prefix = 'us77'
     crs_ex = (r'PROJCRS["unnamed",BASEGEOGCRS["Unknown datum based upon the GRS 1980 ellipsoid",DATUM["Not specified ('
               r'based on GRS 1980 ellipsoid)",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],'
@@ -425,7 +428,7 @@ if __name__ == "__main__":
               r'"Foot_US",0.304800609601219]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["Foot_US",0.304800609601219]]]')
     event_name_to_use = 'event1'
 
-    gis_layers_filename = out_folder / r"model\gis\us77_add_gis_layers.gpkg"
+    gis_layers_filename = out_folder / r"model/gis/us77_add_gis_layers.gpkg"
     output_folder_1donly = ''  # not used
 
     convert_xpswmm(output_folder_1donly,

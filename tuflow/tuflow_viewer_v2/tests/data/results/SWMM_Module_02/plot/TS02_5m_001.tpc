@@ -1,0 +1,44 @@
+Format Version == 2
+Units == METRIC
+Simulation ID == TS02_5m_001
+Time Series Output Format == CSV 
+
+GIS Plot Layer Points == .\gis\TS02_5m_001_PLOT.gpkg|layername=TS02_5m_001_PLOT_P
+GIS Plot Layer Lines == .\gis\TS02_5m_001_PLOT.gpkg|layername=TS02_5m_001_PLOT_L
+GIS Plot Layer Regions == .\gis\TS02_5m_001_PLOT.gpkg|layername=TS02_5m_001_PLOT_R
+GIS Plot Objects == .\gis\TS02_5m_001_PLOT.csv
+
+NetCDF Time Series == NONE
+
+GPKG Time Series == .\TS02_5m_001_swmm_ts.gpkg
+
+Number 1D Nodes == 0
+Number 1D Channels == 0
+
+1D Node Info == NONE
+1D Channel Info == NONE
+
+1D Node Maximums == NONE
+1D Water Levels == NONE
+1D Node Volumes == NONE
+1D Flow Integrals == NONE
+1D Energy Levels == NONE
+1D Mass Balance Errors == NONE
+1D Node Regime == NONE
+
+1D Channel Maximums == NONE
+1D Flows == NONE
+1D Velocities == NONE
+1D Flow Areas == NONE
+1D Channel Losses == NONE
+1D Channel Regime == NONE
+
+Number Reporting Location Points == 0
+
+Number Reporting Location Lines == 0
+
+Number Reporting Location Regions == 0
+
+2D Line Flow [1] == .\csv\TS02_5m_001_2d_Q.csv
+2D Point Water Level [1] == .\csv\TS02_5m_001_2d_H.csv
+2D Point Velocity [1] == .\csv\TS02_5m_001_2d_V.csv

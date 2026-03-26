@@ -1,5 +1,6 @@
 import math
 import pandas as pd
+import platform
 import shutil
 import subprocess
 import unittest
@@ -11,7 +12,8 @@ try:
 except ImportError:
     from pathlib_ import Path_ as Path
 
-from test.swmm.test_files import get_compare_path, get_output_path, get_input_full_filenames
+from tuflow.test.swmm.test_files import get_compare_path, get_output_path, get_input_full_filenames
+from tuflow.test.swmm.compare_options import do_git_diff
 
 from tuflow.tuflow_swmm.fix_invalid_bc_connections import fix_invalid_bc_connections
 from tuflow.tuflow_swmm.gis_list_layers import get_gis_layers
@@ -33,11 +35,18 @@ class TestFixInvalidBC(unittest.TestCase):
             text2 = f2.readlines()
             # print(text1)
             # print(text2)
-            subprocess.run(['C:\\Program Files\\git\\cmd\\git.exe',
-                            'diff',
-                            '--no-index',
-                            '--ignore-space-at-eol',
-                            first, second], shell=True)
+
+            current_os = platform.system().lower()
+            if current_os == "windows" and do_git_diff:
+                result = subprocess.run(['C:\\Program Files\\git\\cmd\\git.exe',
+                                'diff',
+                                '--no-index',
+                                '--ignore-space-at-eol',
+                                first, second],
+                                capture_output=True,
+                                text=True)
+                print(result.stdout)
+                print(result.stderr)
 
             self.assertEqual(len(text1), len(text2))
             for line_num, (l1, l2) in enumerate(zip(text1, text2)):

@@ -1,5 +1,6 @@
 import math
 import pandas as pd
+import platform
 import shutil
 import subprocess
 import unittest
@@ -11,7 +12,9 @@ try:
 except ImportError:
     from pathlib_ import Path_ as Path
 
-from test.swmm.test_files import get_compare_path, get_output_path, get_input_full_filenames
+from tuflow.test.swmm.test_files import get_compare_path, get_output_path, get_input_full_filenames
+from tuflow.test.swmm.compare_tools import process_floats
+from tuflow.test.swmm.compare_options import do_git_diff
 
 from tuflow.tuflow_swmm.xpswmm_xpx_to_gpkg import xpx_to_gpkg
 
@@ -32,15 +35,20 @@ class TestXpxToSwmmConvert(unittest.TestCase):
             text2 = f2.readlines()
             # print(text1)
             # print(text2)
-            subprocess.run(['C:\\Program Files\\git\\cmd\\git.exe',
-                            'diff',
-                            '--no-index',
-                            '--ignore-space-at-eol',
-                            first, second], shell=True)
+            current_os = platform.system().lower()
+            if current_os == "windows" and do_git_diff:
+                subprocess.run(['C:/Program Files/git/cmd/git.exe',
+                                'diff',
+                                '--no-index',
+                                '--ignore-space-at-eol',
+                                first, second], shell=True)
 
             self.assertEqual(len(text1), len(text2))
             for line_num, (l1, l2) in enumerate(zip(text1, text2)):
-                self.assertEqual(l1, l2, msg=f'Line: {line_num + 1}')
+                # we want to ignore differences in / and \\ make all \\ /
+                l1_mod = process_floats(l1.replace('\\', '/'))
+                l2_mod = process_floats(l2.replace('\\', '/'))
+                self.assertEqual(l1_mod, l2_mod, msg=f'Line: {line_num + 1}')
 
     def compare_messages_file(self, messages_filename_gpkg):
         messages_json_file = messages_filename_gpkg.with_suffix('.geojson')
@@ -74,7 +82,7 @@ class TestXpxToSwmmConvert(unittest.TestCase):
 
         messages_file = Path(get_output_path('xpx_urban_001_out_messages.gpkg'))
 
-        bc_dbase_folder = Path(get_output_path('xpx_urban_001_bc_dbase\\'))
+        bc_dbase_folder = Path(get_output_path('xpx_urban_001_bc_dbase/'))
         shutil.rmtree(bc_dbase_folder, ignore_errors=True)
         bc_dbase_file = bc_dbase_folder / 'bc_dbase.txt'
 
@@ -109,11 +117,11 @@ class TestXpxToSwmmConvert(unittest.TestCase):
 
         self.compare_messages_file(messages_file)
 
-        compare_bc_dbase = get_compare_path('xpx_urban_001_bc_dbase\\bc_dbase.txt')
+        compare_bc_dbase = get_compare_path('xpx_urban_001_bc_dbase/bc_dbase.txt')
         self.compare_files(compare_bc_dbase, str(bc_dbase_file))
 
-        compare_bc_curve_file = get_compare_path('xpx_urban_001_bc_dbase\\Q100_rf_default.csv')
-        output_bc_curve_file = get_output_path('xpx_urban_001_bc_dbase\\Q100_rf_default.csv')
+        compare_bc_curve_file = get_compare_path('xpx_urban_001_bc_dbase/Q100_rf_default.csv')
+        output_bc_curve_file = get_output_path('xpx_urban_001_bc_dbase/Q100_rf_default.csv')
         self.compare_files(compare_bc_curve_file, output_bc_curve_file)
 
         compare_tef_file = get_compare_path('xpx_urban_001_out.tef')
@@ -142,7 +150,7 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         messages_file = Path(get_output_path('xpx_shapes_001_messages.gpkg'))
         messages_file.unlink(missing_ok=True)
 
-        bc_dbase_folder = Path(get_output_path('xpx_shapes_001_bc_dbase\\'))
+        bc_dbase_folder = Path(get_output_path('xpx_shapes_001_bc_dbase/'))
         shutil.rmtree(bc_dbase_folder, ignore_errors=True)
         bc_dbase_file = bc_dbase_folder / 'bc_dbase.txt'
 
@@ -191,7 +199,7 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         messages_file = Path(get_output_path('xpx_natural_channel_01_messages.gpkg'))
         messages_file.unlink(missing_ok=True)
 
-        bc_dbase_folder = Path(get_output_path('xpx_natural_channel_01_bc_dbase\\'))
+        bc_dbase_folder = Path(get_output_path('xpx_natural_channel_01_bc_dbase/'))
         shutil.rmtree(bc_dbase_folder, ignore_errors=True)
         bc_dbase_file = bc_dbase_folder / 'bc_dbase.txt'
 
@@ -243,7 +251,7 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         output_messages_file = Path(get_output_path('xpx_connections_1d2d_messages.gpkg'))
         output_messages_file.unlink(missing_ok=True)
 
-        bc_dbase_folder = Path(get_output_path('xpx_connections_1d2d_bc_dbase\\'))
+        bc_dbase_folder = Path(get_output_path('xpx_connections_1d2d_bc_dbase/'))
         shutil.rmtree(bc_dbase_folder, ignore_errors=True)
         bc_dbase_file = bc_dbase_folder / 'bc_dbase.txt'
 
@@ -290,7 +298,7 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         messages_file = Path(get_output_path('xpx_inflows_001_messages.gpkg'))
         messages_file.unlink(missing_ok=True)
 
-        bc_dbase_folder = Path(get_output_path('xpx_inflows_001_bc_dbase\\'))
+        bc_dbase_folder = Path(get_output_path('xpx_inflows_001_bc_dbase/'))
         shutil.rmtree(bc_dbase_folder, ignore_errors=True)
         bc_dbase_file = bc_dbase_folder / 'bc_dbase.txt'
 
@@ -338,7 +346,7 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         messages_file = Path(get_output_path('xpx_inactive_001_messages.gpkg'))
         messages_file.unlink(missing_ok=True)
 
-        bc_dbase_folder = Path(get_output_path('xpx_inactive_001_bc_dbase\\'))
+        bc_dbase_folder = Path(get_output_path('xpx_inactive_001_bc_dbase/'))
         shutil.rmtree(bc_dbase_folder, ignore_errors=True)
         bc_dbase_file = bc_dbase_folder / 'bc_dbase.txt'
 
@@ -386,7 +394,7 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         messages_file = Path(get_output_path('xpx_alt_link_types_001_messages.gpkg'))
         messages_file.unlink(missing_ok=True)
 
-        bc_dbase_folder = Path(get_output_path('xpx_alt_link_types_001_bc_dbase\\'))
+        bc_dbase_folder = Path(get_output_path('xpx_alt_link_types_001_bc_dbase/'))
         shutil.rmtree(bc_dbase_folder, ignore_errors=True)
         bc_dbase_file = bc_dbase_folder / 'bc_dbase.txt'
 
@@ -435,7 +443,7 @@ class TestXpxToSwmmConvert(unittest.TestCase):
 
         messages_file = Path(get_output_path(f'{prefix}_out_messages.gpkg'))
 
-        bc_dbase_folder = Path(get_output_path(f'{prefix}_bc_dbase\\'))
+        bc_dbase_folder = Path(get_output_path(f'{prefix}_bc_dbase/'))
         shutil.rmtree(bc_dbase_folder, ignore_errors=True)
         bc_dbase_file = bc_dbase_folder / 'bc_dbase.txt'
 
@@ -467,11 +475,11 @@ class TestXpxToSwmmConvert(unittest.TestCase):
 
         self.compare_messages_file(messages_file)
 
-        compare_bc_dbase = get_compare_path(f'{prefix}_bc_dbase\\bc_dbase.txt')
+        compare_bc_dbase = get_compare_path(f'{prefix}_bc_dbase/bc_dbase.txt')
         self.compare_files(compare_bc_dbase, str(bc_dbase_file))
 
-        compare_bc_curve_file = get_compare_path(f'{prefix}_bc_dbase\\2-YEAR_rf.csv')
-        output_bc_curve_file = get_output_path(f'{prefix}_bc_dbase\\2-YEAR_rf.csv')
+        compare_bc_curve_file = get_compare_path(f'{prefix}_bc_dbase/2-YEAR_rf.csv')
+        output_bc_curve_file = get_output_path(f'{prefix}_bc_dbase/2-YEAR_rf.csv')
         self.compare_files(compare_bc_curve_file, output_bc_curve_file)
 
         compare_tef_file = get_compare_path(f'{prefix}_out.tef')
@@ -504,7 +512,7 @@ class TestXpxToSwmmConvert(unittest.TestCase):
 
         messages_file = Path(get_output_path(f'{prefix}_out_messages.gpkg'))
 
-        bc_dbase_folder = Path(get_output_path(f'{prefix}_bc_dbase\\'))
+        bc_dbase_folder = Path(get_output_path(f'{prefix}_bc_dbase/'))
         shutil.rmtree(bc_dbase_folder, ignore_errors=True)
         bc_dbase_file = bc_dbase_folder / 'bc_dbase.txt'
 
@@ -557,7 +565,7 @@ class TestXpxToSwmmConvert(unittest.TestCase):
 
         messages_file = Path(get_output_path(f'{prefix}_out_messages.gpkg'))
 
-        bc_dbase_folder = Path(get_output_path(f'{prefix}_bc_dbase\\'))
+        bc_dbase_folder = Path(get_output_path(f'{prefix}_bc_dbase/'))
         shutil.rmtree(bc_dbase_folder, ignore_errors=True)
         bc_dbase_file = bc_dbase_folder / 'bc_dbase.txt'
 
@@ -610,7 +618,7 @@ class TestXpxToSwmmConvert(unittest.TestCase):
 
         messages_file = Path(get_output_path(f'{prefix}_out_messages.gpkg'))
 
-        bc_dbase_folder = Path(get_output_path(f'{prefix}_bc_dbase\\'))
+        bc_dbase_folder = Path(get_output_path(f'{prefix}_bc_dbase/'))
         shutil.rmtree(bc_dbase_folder, ignore_errors=True)
         bc_dbase_file = bc_dbase_folder / 'bc_dbase.txt'
 
@@ -643,34 +651,34 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         self.compare_messages_file(messages_file)
 
     def test_matt_bugs_001(self):
-        folder_name = 'xpswmm_convert\\matt_bugs'
+        folder_name = 'xpswmm_convert/matt_bugs'
         prefix = 'xpx_bugs_from_matt'
         urban_input_file = get_input_full_filenames(
             [
-                f'{folder_name}\\{prefix}.xpx',
+                f'{folder_name}/{prefix}.xpx',
             ]
         )[0]
-        intermediate_file = get_output_path(f'{folder_name}\\{prefix}_out.gpkg')
+        intermediate_file = get_output_path(f'{folder_name}/{prefix}_out.gpkg')
         output_file = Path(intermediate_file).with_suffix('.inp')
         Path(intermediate_file).unlink(missing_ok=True)
         output_file.unlink(missing_ok=True)
-        compare_file = get_compare_path(f'{folder_name}\\{prefix}_out.inp')
+        compare_file = get_compare_path(f'{folder_name}/{prefix}_out.inp')
 
-        gis_layers_file = Path(get_output_path(f'{folder_name}\\{prefix}_gislayers_out.gpkg'))
+        gis_layers_file = Path(get_output_path(f'{folder_name}/{prefix}_gislayers_out.gpkg'))
 
-        iu_output_file = Path(get_output_path(f'{folder_name}\\{prefix}_iu_out.gpkg'))
+        iu_output_file = Path(get_output_path(f'{folder_name}/{prefix}_iu_out.gpkg'))
         iu_output_file.unlink(missing_ok=True)
         # iu_compare_file = get_compare_path('xpx_urban_iu_001_out.inp')
 
-        messages_file = Path(get_output_path(f'{folder_name}\\{prefix}_out_messages.gpkg'))
+        messages_file = Path(get_output_path(f'{folder_name}/{prefix}_out_messages.gpkg'))
 
-        bc_dbase_folder = Path(get_output_path(f'{folder_name}\\{prefix}_bc_dbase\\'))
+        bc_dbase_folder = Path(get_output_path(f'{folder_name}/{prefix}_bc_dbase/'))
         shutil.rmtree(bc_dbase_folder, ignore_errors=True)
         bc_dbase_file = bc_dbase_folder / 'bc_dbase.txt'
 
         default_event = 'default'
 
-        tef_filename = Path(get_output_path(f'{folder_name}\\{prefix}_out.tef'))
+        tef_filename = Path(get_output_path(f'{folder_name}/{prefix}_out.tef'))
         tef_filename.unlink(missing_ok=True)
 
         crs = 'EPSG:32760'
@@ -697,34 +705,34 @@ class TestXpxToSwmmConvert(unittest.TestCase):
         self.compare_messages_file(messages_file)
 
     def test_matt_bugs_002(self):
-        folder_name = 'xpswmm_convert\\matt_bugs'
+        folder_name = 'xpswmm_convert/matt_bugs'
         prefix = 'xpx_bug_nonnumeric_return_period'
         urban_input_file = get_input_full_filenames(
             [
-                f'{folder_name}\\{prefix}.xpx',
+                f'{folder_name}/{prefix}.xpx',
             ]
         )[0]
-        intermediate_file = get_output_path(f'{folder_name}\\{prefix}_out.gpkg')
+        intermediate_file = get_output_path(f'{folder_name}/{prefix}_out.gpkg')
         output_file = Path(intermediate_file).with_suffix('.inp')
         Path(intermediate_file).unlink(missing_ok=True)
         output_file.unlink(missing_ok=True)
-        compare_file = get_compare_path(f'{folder_name}\\{prefix}_out.inp')
+        compare_file = get_compare_path(f'{folder_name}/{prefix}_out.inp')
 
-        gis_layers_file = Path(get_output_path(f'{folder_name}\\{prefix}_gislayers_out.gpkg'))
+        gis_layers_file = Path(get_output_path(f'{folder_name}/{prefix}_gislayers_out.gpkg'))
 
-        iu_output_file = Path(get_output_path(f'{folder_name}\\{prefix}_iu_out.gpkg'))
+        iu_output_file = Path(get_output_path(f'{folder_name}/{prefix}_iu_out.gpkg'))
         iu_output_file.unlink(missing_ok=True)
         # iu_compare_file = get_compare_path('xpx_urban_iu_001_out.inp')
 
-        messages_file = Path(get_output_path(f'{folder_name}\\{prefix}_out_messages.gpkg'))
+        messages_file = Path(get_output_path(f'{folder_name}/{prefix}_out_messages.gpkg'))
 
-        bc_dbase_folder = Path(get_output_path(f'{folder_name}\\{prefix}_bc_dbase\\'))
+        bc_dbase_folder = Path(get_output_path(f'{folder_name}/{prefix}_bc_dbase/'))
         shutil.rmtree(bc_dbase_folder, ignore_errors=True)
         bc_dbase_file = bc_dbase_folder / 'bc_dbase.txt'
 
         default_event = 'default'
 
-        tef_filename = Path(get_output_path(f'{folder_name}\\{prefix}_out.tef'))
+        tef_filename = Path(get_output_path(f'{folder_name}/{prefix}_out.tef'))
         tef_filename.unlink(missing_ok=True)
 
         crs = 'EPSG:32760'

@@ -132,9 +132,11 @@ if is_qt6:
     # keys
     QT_KEY_RETURN = Qt.Key.Key_Return
     QT_KEY_ESCAPE = Qt.Key.Key_Escape
+    QT_KEY_D = Qt.Key.Key_D
     QT_KEY_C = Qt.Key.Key_C
     QT_KEY_V = Qt.Key.Key_V
     QT_KEY_F = Qt.Key.Key_F
+    QT_KEY_F1 = Qt.Key.Key_F1
     QT_KEY_F3 = Qt.Key.Key_F3
 
     # keyboard modifiers
@@ -337,6 +339,7 @@ if is_qt6:
     QT_EVENT_KEY_PRESS = QEvent.Type.KeyPress
     QT_EVENT_KEY_RELEASE = QEvent.Type.KeyRelease
     QT_EVENT_TOOL_TIP = QEvent.Type.ToolTip
+    QT_EVENT_CONTEXT_MENU = QEvent.Type.ContextMenu
 
     # qslider
     QT_SLIDER_TO_TICKS = QSlider.TickPosition.NoTicks
@@ -723,9 +726,11 @@ else:
     # keys
     QT_KEY_RETURN = Qt.Key_Return
     QT_KEY_ESCAPE = Qt.Key_Escape
+    QT_KEY_D = Qt.Key_D
     QT_KEY_C = Qt.Key_C
     QT_KEY_V = Qt.Key_V
     QT_KEY_F = Qt.Key_F
+    QT_KEY_F1 = Qt.Key_F1
     QT_KEY_F3 = Qt.Key_F3
 
     # keyboard modifiers
@@ -928,6 +933,7 @@ else:
     QT_EVENT_KEY_PRESS = QEvent.KeyPress
     QT_EVENT_KEY_RELEASE = QEvent.KeyRelease
     QT_EVENT_TOOL_TIP = QEvent.ToolTip
+    QT_EVENT_CONTEXT_MENU = QEvent.ContextMenu
 
     # qslider
     QT_SLIDER_TO_TICKS = QSlider.NoTicks

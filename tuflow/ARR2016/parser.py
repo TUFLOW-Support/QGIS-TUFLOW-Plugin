@@ -4,7 +4,10 @@ import typing
 import io
 from datetime import datetime
 
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    from ..pt.pytuflow._outputs.pymesh.stubs import pandas as pd
 
 
 class DataBlock:

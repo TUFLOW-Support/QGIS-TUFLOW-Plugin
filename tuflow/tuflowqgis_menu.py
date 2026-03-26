@@ -19,6 +19,8 @@
  *                                                                         *
  ***************************************************************************/
 """
+from .pt import pytuflow  # import pytuflow early so it can be initialised properly
+pytuflow.set_prefer_gdal(True)
 # import setuptools
 
 # Import the PyQt and QGIS libraries
@@ -44,7 +46,7 @@ import glob
 import sys
 import traceback
 
-from subprocess import Popen, PIPE
+from subprocess import Popen
 
 if sys.platform == 'win32':
     from subprocess import DETACHED_PROCESS
@@ -60,6 +62,10 @@ except ImportError:
 except Exception as e:
     swangisSupported = False
     QMessageBox.warning(None, 'TUFLOW Plugin', 'Error loading swangis tools: {0}'.format(e))
+
+from tuflow.tuflow_viewer_v2.tuflow_viewer import TuflowViewer
+from tuflow.tuflow_viewer_v2.widgets.settings.tv_options_dialog import TVOptionsDialog
+from tuflow.tuflow_viewer_v2.widgets.plugin_menu import TuflowViewerPluginMenu
 
 # clean up previous tempfiles
 for_deleting = glob.glob(os.path.join(tempfile.gettempdir(), "tuflow_refh2*"))
@@ -119,10 +125,13 @@ from .menu_provider import TuflowContextMenuProvider
 
 from .gui import Logging
 from .gui.tuflowdrophandler import TuflowDropHandler
+from .gui.browser import TuflowBrowserProvider, init_browser_helper
 
 from .toc.toc import toc_selected_layers
 
 from .qgis_listener import QgisListener
+
+from qgis.PyQt import QtWidgets
 
 # remote debugging
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2020.3.1\debug-eggs')
@@ -143,9 +152,11 @@ sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\plugins\python-ce\
 
 
 from .compatibility_routines import (QT_MESSAGE_BOX_CANCEL, QT_DOCK_WIDGET_AREA_RIGHT, QT_MESSAGE_BOX_YES,
-                                     QT_TOOLBUTTIN_INSTANT_POPUP, QT_MESSAGE_BOX_NO, QT_DIALOG_TYPE,
+                                     QT_MESSAGE_BOX_NO, QT_DIALOG_TYPE,
                                      QT_DOCK_WIDGET_AREA_BOTTOM, QT_MESSAGE_BOX_INFORMATION, QT_MESSAGE_BOX_OK,
                                      QT_FONT_MONOSPACE)
+
+from .tfversion_manager import TuflowVersionDialog
 
 
 class tuflowqgis_menu:
@@ -167,6 +178,7 @@ class tuflowqgis_menu:
         self.icons = {}
 
         self.dropHandler = TuflowDropHandler(iface)
+        self.browserProvider = TuflowBrowserProvider()
         self.provider = TuflowAlgorithmProvider()
         self.menu_provider = TuflowContextMenuProvider(self.iface)
         Logging.init_logging(iface)
@@ -204,6 +216,12 @@ class tuflowqgis_menu:
         QgsProject.instance().layersAdded.connect(self.menu_provider.register_layers)
 
         self.iface.registerCustomDropHandler(self.dropHandler)
+        QgsApplication.instance().dataItemProviderRegistry().addProvider(self.browserProvider)
+        init_browser_helper()
+        try:
+            self.iface.mainWindow().findChildren(QtWidgets.QWidget, 'Browser')[0].refresh()
+        except Exception:
+            pass
 
         dir = os.path.dirname(__file__)
         icon = QIcon(os.path.join(dir, "tuflow.png"))
@@ -244,6 +262,21 @@ class tuflowqgis_menu:
                                                    self.iface.mainWindow())
         self.download_dev_version_action.triggered.connect(lambda: download_latest_dev_plugin(self.iface))
         self.about_menu.addAction(self.download_dev_version_action)
+
+        # new tuflow result handling
+        self.use_new_tuflow_viewer_menu = TuflowViewerPluginMenu('TUFLOW Viewer V2', self.tuflowMenu)
+        # self.use_new_tuflow_viewer_action = QAction('Use TUFLOW Viewer V2', self.use_new_tuflow_viewer_menu)
+        self.use_new_tuflow_viewer_action = self.use_new_tuflow_viewer_menu.menuAction()
+        self.use_new_tuflow_viewer_action.setCheckable(True)
+        self.use_new_tuflow_viewer_action.setChecked(QSettings().value('TUFLOW/UseNewTuflowViewer', False, type=bool))
+        self.use_new_tuflow_viewer_action.triggered.connect(self.toggle_use_new_tuflow_viewer)
+        # self.use_new_tuflow_viewer_menu.addAction(self.use_new_tuflow_viewer_action)
+        self.tuflowMenu.addMenu(self.use_new_tuflow_viewer_menu)
+
+        # tuflow viewer v2 settings / options
+        self.tuflow_viewer_options_action = QAction('TUFLOW Viewer Settings', self.use_new_tuflow_viewer_menu)
+        self.tuflow_viewer_options_action.triggered.connect(self.open_tuflow_viewer_options)
+        self.use_new_tuflow_viewer_menu.addAction(self.tuflow_viewer_options_action)
 
         # Editing Submenu
         self.editing_menu = QMenu(QCoreApplication.translate("TUFLOW", "&Editing"))
@@ -303,6 +336,11 @@ class tuflowqgis_menu:
         self.run_menu = QMenu(QCoreApplication.translate("TUFLOW", "&Run"))
         self.tuflowMenu.addMenu(self.run_menu)
 
+        icon = QIcon(os.path.join(dir, 'icons', 'console.svg'))
+        self.version_dialog_action = QAction(icon, 'Manage TUFLOW Versions', self.iface.mainWindow())
+        self.version_dialog_action.triggered.connect(lambda: TuflowVersionDialog(self.iface.mainWindow()).exec())
+        self.run_menu.addAction(self.version_dialog_action)
+
         icon = QIcon(os.path.join(dir, "icons", "Run_TUFLOW.png"))
         self.run_tuflow_action = QAction(icon, "Run TUFLOW Simulation", self.iface.mainWindow())
         # QObject.connect(self.run_tuflow_action, SIGNAL("triggered()"), self.run_tuflow)
@@ -350,12 +388,13 @@ class tuflowqgis_menu:
         self.iface.addToolBarIcon(self.reload_data_action)
         self.tuflowMenu.addAction(self.reload_data_action)
 
-        # TuPlot
+        # TuPlot - moved below integrity tool
         icon = QIcon(os.path.join(dir, "icons", "tuview.png"))
         self.view_results_action = QAction(icon, "TUFLOW Viewer", self.iface.mainWindow())
         self.view_results_action.triggered.connect(self.openResultsPlottingWindow)
-        self.iface.addToolBarIcon(self.view_results_action)
-        self.tuflowMenu.addAction(self.view_results_action)
+        # self.iface.addToolBarIcon(self.view_results_action)
+        # self.tuflowMenu.addAction(self.view_results_action)
+
 
         # Integrity Tool
         icon = QIcon(os.path.join(dir, "icons", "IntegrityTool.png"))
@@ -363,6 +402,12 @@ class tuflowqgis_menu:
         self.integrity_tool_action.triggered.connect(self.integrityToolWindow)
         self.iface.addToolBarIcon(self.integrity_tool_action)
         self.tuflowMenu.addAction(self.integrity_tool_action)
+
+        # TuPlot
+        if self.use_new_tuflow_viewer_action.isChecked():
+            self.load_tuflow_viewer_v2()
+        else:
+            self.load_tuflow_viewer_v1()
 
         # configure project in toolbar
         self.iface.addToolBarIcon(self.configure_tf_action)
@@ -564,11 +609,33 @@ class tuflowqgis_menu:
         self.tuflowMenu.addAction(self.swanAction)
         QgsProject.instance().cleared.connect(self.clearBuilderUI)
 
+        self.tuflow_viewer = None
+        if QSettings().value('TUFLOW/UseNewTuflowViewer', False, type=bool):
+            self.load_tuflow_viewer_v2()
+        else:
+            self.load_tuflow_viewer_v1()
+
     def unload(self):
         self.menu_provider.unregister_menu()
 
+        try:
+            self.iface.unregisterCustomDropHandler(self.dropHandler)
+        except (RuntimeError, TypeError):
+            pass
+        try:
+            QgsApplication.instance().dataItemProviderRegistry().removeProvider(self.browserProvider)
+        except Exception:
+            pass
+        try:
+            self.iface.mainWindow().findChildren(QtWidgets.QWidget, 'Browser')[0].refresh()
+        except Exception:
+            pass
+
         # tuflow viewer
-        self.removeTuview(no_popup=True)
+        if self.use_new_tuflow_viewer_action.isChecked():
+            self.unload_tuflow_viewer_v2()
+        else:
+            self.unload_tuflow_viewer_v1()
 
         # integrity tool
         try:
@@ -622,7 +689,6 @@ class tuflowqgis_menu:
         self.iface.pluginMenu().removeAction(self.tuflowMenu.menuAction())
 
         self.iface.removeToolBarIcon(self.reload_data_action)
-        self.iface.removeToolBarIcon(self.view_results_action)
         self.iface.removeToolBarIcon(self.integrity_tool_action)
         self.iface.removeToolBarIcon(self.import_empty_tf_action)
         self.iface.removeToolBarIcon(self.insert_TUFLOW_attributes_action)
@@ -642,6 +708,58 @@ class tuflowqgis_menu:
         self.iface.removeToolBarIcon(self.archBridgeAction)
         self.iface.removeToolBarIcon(self.configure_tf_action)
 
+    def show_tfversion_dialog(self):
+        dialog = TuflowVersionDialog(self.iface.mainWindow())
+        dialog.exec()
+
+    def open_tuflow_viewer_options(self):
+        if not self.tuflow_viewer:
+            Logging.warning('TUFLOW Viewer V2 needs to be checked on to open the options dialog.')
+            return
+        dlg = TVOptionsDialog(self.iface.mainWindow())
+        dlg.show()
+
+    def toggle_use_new_tuflow_viewer(self, checked: bool):
+        if self.use_new_tuflow_viewer_action.isChecked():
+            QSettings().setValue('TUFLOW/UseNewTuflowViewer', True)
+            self.unload_tuflow_viewer_v1()
+            self.load_tuflow_viewer_v2()
+        else:
+            QSettings().setValue('TUFLOW/UseNewTuflowViewer', False)
+            self.unload_tuflow_viewer_v2()
+            self.load_tuflow_viewer_v1()
+
+    def load_tuflow_viewer_v1(self):
+        tuf_menu = [x for x in self.iface.pluginMenu().actions() if x.text() == "&TUFLOW"][0].menu()
+        plugin_toolbar = self.iface.pluginToolBar()
+        tuf_menu.insertAction(self.integrity_tool_action, self.view_results_action)
+        plugin_toolbar.insertAction(self.integrity_tool_action, self.view_results_action)
+
+    def unload_tuflow_viewer_v1(self):
+        self.removeTuview(no_popup=True)
+        self.iface.removeToolBarIcon(self.view_results_action)
+        tuf_menu = [x for x in self.iface.pluginMenu().actions() if x.text() == "&TUFLOW"][0].menu()
+        tuf_menu.removeAction(self.view_results_action)
+
+    def load_tuflow_viewer_v2(self):
+        try:
+            import pandas as pd
+        except ImportError:
+            Logging.warning('TUFLOW Viewer V2 requires pandas to be installed.',
+                            more_info='See <a href="https://wiki.tuflow.com/QGIS_Installation_with_OSGeo4W#Installing_Python_Dependencies_(works_for_any_installation_method)">wiki.tuflow.com/QGIS_Installation_with_OSGeo4W</a>')
+            self.use_new_tuflow_viewer_action.setChecked(False)
+            self.toggle_use_new_tuflow_viewer(False)
+            return
+        self.tuflow_viewer = TuflowViewer(self.iface, self.integrity_tool_action)
+
+    def unload_tuflow_viewer_v2(self):
+        if self.tuflow_viewer is not None:
+            try:
+                self.tuflow_viewer.unload()
+            except Exception:
+                pass
+        self.tuflow_viewer = None
+
     def configure_tf(self):
         project = QgsProject.instance()
         dialog = tuflowqgis_configure_tf_dialog(self.iface, project, self.iface.mainWindow())
@@ -653,9 +771,8 @@ class tuflowqgis_menu:
         dialog.exec()
 
     def import_empty_tf(self):
-        project = QgsProject.instance()
-        dialog = tuflowqgis_import_empty_tf_dialog(self.iface, project)
-        dialog.exec()
+        import processing
+        processing.execAlgorithmDialog('TUFLOW:import_empty')
 
     def increment_layer(self):
         dialog = tuflowqgis_increment_dialog(self.iface)
@@ -743,6 +860,8 @@ class tuflowqgis_menu:
         no_popup = kwargs['no_popup'] if 'no_popup' in kwargs else False
         resetQgisSettings(scope='Project', tuviewer=True, feedback=False)
         try:
+            if not self.resultsPlottingDock:
+                return
             self.resultsPlottingDock.tuPlot.clearAllPlots()
             self.resultsPlottingDock.qgisDisconnect(completely_remove=True)
             self.resultsPlottingDock.close()
@@ -913,6 +1032,12 @@ class tuflowqgis_menu:
         tuflowqgis_apply_gpkg_layername(self.iface)
 
     def extract_arr2016(self):
+        try:
+            import pandas as pd
+        except ImportError:
+            Logging.warning('Extract ARR for TUFLOW requires pandas to be installed.',
+                            more_info='See <a href="https://wiki.tuflow.com/QGIS_Installation_with_OSGeo4W#Installing_Python_Dependencies_(works_for_any_installation_method)">wiki.tuflow.com/QGIS_Installation_with_OSGeo4W</a>')
+            return
         dialog = tuflowqgis_extract_arr2016_dialog(self.iface)
         dialog.exec()
 
@@ -931,24 +1056,25 @@ class tuflowqgis_menu:
         p = os.path.join(dir, "layer_labelling")
         os.startfile(p)
 
-    def loadTuflowLayersFromTCF(self):
+    def loadTuflowLayersFromTCF(self, inFileName=None):
         settings = QSettings()
-        lastFolder = str(settings.value("TUFLOW/load_TCF_last_folder", os.sep))
-        if (len(lastFolder) > 0):  # use last folder if stored
-            fpath = lastFolder
-        else:
-            cLayer = self.iface.mapCanvas.currentLayer()
-            if cLayer:  # if layer selected use the path to this
-                dp = cLayer.dataProvider()
-                ds = dp.dataSourceUri()
-                fpath = os.path.dirname(unicode(ds))
-            else:  # final resort to current working directory
-                fpath = os.getcwd()
-
         old_method = sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 9)
-        inFileName, _ = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Open TUFLOW Control File', fpath,
-                                                    "All control files (*.tcf *.ecf *.tgc *.tbc *.tef *.toc *.qcf *.trfc *.trfcf *.trd *.escf *.adcf *.tscf);;"
-                                                    "TCF (*.tcf);;ECF (*.ecf);;TGC (*.tgc);;TBC (*.tbc);;TEF (*.tef);;TOC (*.toc);;QCF (.qcf);;TRFC (*.trfc *.trfcf);;TRD (*.trd);;ESCF (*.escf);;ADCF (*.adcf);;TSCF (*.tscf)")
+        if not inFileName:
+            lastFolder = str(settings.value("TUFLOW/load_TCF_last_folder", os.sep))
+            if (len(lastFolder) > 0):  # use last folder if stored
+                fpath = lastFolder
+            else:
+                cLayer = self.iface.mapCanvas.currentLayer()
+                if cLayer:  # if layer selected use the path to this
+                    dp = cLayer.dataProvider()
+                    ds = dp.dataSourceUri()
+                    fpath = os.path.dirname(unicode(ds))
+                else:  # final resort to current working directory
+                    fpath = os.getcwd()
+
+            inFileName, _ = QFileDialog.getOpenFileName(self.iface.mainWindow(), 'Open TUFLOW Control File', fpath,
+                                                        "All control files (*.tcf *.ecf *.tgc *.tbc *.tef *.toc *.qcf *.trfc *.trfcf *.trd *.escf *.adcf *.tscf);;"
+                                                        "TCF (*.tcf);;ECF (*.ecf);;TGC (*.tgc);;TBC (*.tbc);;TEF (*.tef);;TOC (*.toc);;QCF (.qcf);;TRFC (*.trfc *.trfcf);;TRD (*.trd);;ESCF (*.escf);;ADCF (*.adcf);;TSCF (*.tscf)")
         if inFileName:
             if old_method:
                 load_rasters = LoadRasterMessageBox(self.iface.mainWindow(), 'Load Rasters',
@@ -1072,7 +1198,10 @@ class tuflowqgis_menu:
 
     def reload_data(self):
         for layer in toc_selected_layers(self.iface):
-            reload_data(layer)
+            if layer.customProperty('tuflow_viewer') is not None and self.tuflow_viewer is not None:
+                self.tuflow_viewer.reload_layer(layer)
+            else:
+                reload_data(layer)
 
     def filterAndSortLayers(self):
         self.filterSortLayerDialog = FilterSortLayersDialog(self.iface)

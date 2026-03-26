@@ -1,8 +1,13 @@
-import geopandas as gpd
+try:
+    import geopandas as gpd
+except ImportError:
+    gpd = None
 
 
 class GisMessages:
     def __init__(self):
+        if gpd is None:
+            raise ImportError("geopandas is required to use GisMessages. Please install it using 'pip install geopandas'.")
         self.message_data = {
             'Location': [],
             'Severity': [],

@@ -9,7 +9,7 @@ try:
 except ImportError:
     from pathlib_ import Path_ as Path
 
-from tuflow_swmm.layer_util import increment_layer
+from tuflow.tuflow_swmm.layer_util import increment_layer
 
 
 class TestIncrementLayer(unittest.TestCase):

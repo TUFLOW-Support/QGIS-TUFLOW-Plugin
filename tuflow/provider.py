@@ -1,3 +1,4 @@
+import importlib
 import os
 import sys
 import re
@@ -93,8 +94,22 @@ class TuflowAlgorithmProvider(QgsProcessingProvider):
             alg = self.algorithmName(file)
             if alg is not None:
                 try:
-                    exec('from .alg.{0} import {1}'.format(file.stem, alg))
-                    self.algs.append(eval('{0}()'.format(alg)))
+                    # Construct the module path (e.g., '.alg.my_script')
+                    module_path = f".alg.{file.stem}"
+    
+                    # Import the module relative to the current package
+                    # __package__ provides the necessary context for the relative dot notation
+                    module = importlib.import_module(module_path, package=__package__)
+                    
+                    # Get the class/function from the module
+                    alg_class = getattr(module, alg)
+                    
+                    # Instantiate and append
+                    self.algs.append(alg_class())
+
+                except (ImportError, AttributeError) as err:
+                    QgsMessageLog.logMessage(f"Failed to load {alg} from {file.stem}: {str(err)}", 
+                                            'TUFLOW', level=Qgis.Warning)
                 except SyntaxError as err:
                     QgsMessageLog.logMessage(f"Syntax error loading processing algorithm from file: {file}\n"
                                              f"  {err.__class__.__name__} {err.args[0]} on line {err.lineno}",

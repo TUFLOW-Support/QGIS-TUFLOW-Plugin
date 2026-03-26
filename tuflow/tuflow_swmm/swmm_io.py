@@ -4,12 +4,14 @@ from collections import defaultdict
 has_gpd = False
 try:
     import geopandas as gpd
+    import pandas as pd
 
     has_gpd = True
 except ImportError:
+    gpd = None
+    pd = None
     pass  # defaulted to false
 import numpy as np
-import pandas as pd
 
 from tuflow.tuflow_swmm import swmm_sections
 from tuflow.tuflow_swmm.gis_list_layers import get_gis_layers
@@ -24,6 +26,8 @@ def is_tuflow_swmm_file(filename):
 
 
 def write_tuflow_version(filename):
+    if pd is None:
+        raise ImportError("Pandas is required to use write_tuflow_version(). Please install pandas.")
     df_file_version = pd.DataFrame(
         {'version': [tuflow_swmm_version]}
     )
@@ -49,8 +53,16 @@ def format_line(items: Sequence[str], header: bool = False, column_width: int = 
 
     return line
 
+def format_float(x) -> str:
+    if pd.isnan(x):
+        return ""
+    the_string = f"{x:.5f}" if x % 1 else f"{x:.1f}"
+    the_string = the_string.rstrip('0')
+    if the_string[-1] == '.' or len(the_string) == 0:
+        the_string += '0'
+    return the_string
 
-def df_to_swmm_section(df: pd.DataFrame,
+def df_to_swmm_section(df: 'pd.DataFrame',
                        title: str,
                        allow_none: bool = False,
                        allow_blanks_in_middle: bool = False) -> str:
@@ -66,6 +78,7 @@ def df_to_swmm_section(df: pd.DataFrame,
 
     sections_to_not_sort = [
         'OPTIONS',
+        'CONTROLS',
         'CURVES',
         'VERTICES',
         'POLYGONS',
@@ -81,6 +94,8 @@ def df_to_swmm_section(df: pd.DataFrame,
 
     column_width = max(column_width, df.iloc[:, 0].str.len().max() + 1)
     # print(f'Column width: {column_width}')
+
+    pd.options.display.float_format = lambda x: ('%.5g' % x) if x % 1 else f"{x:.1f}"
 
     # Write headers
     section += format_line([str(x) for x in df.columns],
@@ -129,13 +144,16 @@ def df_to_swmm_section(df: pd.DataFrame,
     for index, row in df.iterrows():
         # if we have descriptions write in front if not blank
         if descriptions is not None:
-            description_value = descriptions[index]
-            if description_value is not None and description_value != '' and description_value != 'None':
+            description_value = str(descriptions[index])
+            if description_value is not None and description_value != '' and description_value != 'None'\
+                    and description_value != 'nan':
                 section += f';{description_value}\n'
         # This caused geometric rounding which I didn't like. May try again later with different values
         # for geometry and other tables
-        #row_vals = [f'{x:.5g}' if isinstance(x, float) else str(x) for x in row]
+        #row_vals = ["" if x is None or x == "None" else format_float(x) if isinstance(x, float) else str(x) for x in row]
         row_vals = [str(x).strip() if x is not None and x != 'None' else '' for x in row]
+        row_vals = [x if x != 'nan' else '' for x in row_vals]
+
         # TODO - give error message if not enough values provided (may be influenced by keyword)
         if not allow_blanks_in_middle:
             # if we have blanks in the middle replace with 0 otherwise SWMM will skip whitespace and have value in wrong

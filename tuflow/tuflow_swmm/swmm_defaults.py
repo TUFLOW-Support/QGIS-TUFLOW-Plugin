@@ -1,14 +1,33 @@
 has_gpd = False
 try:
     import geopandas as gpd
+    import pandas as pd
 
     has_gpd = True
 except ImportError:
     pass  # defaulted to false
-import pandas as pd
+
 
 from tuflow.tuflow_swmm.create_swmm_section_gpkg import create_section_gdf, create_section_from_gdf
 
+def float_to_str_min1_decimal(value):
+    """
+    Convert a float to a string with at least one decimal place.
+    No rounding is performed beyond the original precision.
+    """
+    if not isinstance(value, (float, int)):
+        raise TypeError("Value must be an int or float.")
+
+    # Convert to string preserving precision
+    s = str(value)
+
+    # If it's an integer-like float, ensure ".0" is added
+    if '.' not in s:
+        s += '.0'
+    elif s.endswith('.'):
+        s += '0'
+
+    return s
 
 def default_options_table(crs, report_step, min_surfarea):
     option_values = {
@@ -44,7 +63,7 @@ def default_options_table(crs, report_step, min_surfarea):
         'MINIMUM_STEP': '0.001',
         'INERTIAL_DAMPING': 'PARTIAL',
         'NORMAL_FLOW_LIMITED': 'BOTH',
-        'MIN_SURFAREA': min_surfarea,
+        'MIN_SURFAREA': float_to_str_min1_decimal(min_surfarea),
         'MAX_TRIALS': '20',
         'HEAD_TOLERANCE': '0.001',
         'THREADS': '8',

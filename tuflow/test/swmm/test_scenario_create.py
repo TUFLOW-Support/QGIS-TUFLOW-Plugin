@@ -1,5 +1,6 @@
 import math
 import pandas as pd
+import platform
 import shutil
 import subprocess
 import unittest
@@ -11,7 +12,8 @@ try:
 except ImportError:
     from pathlib_ import Path_ as Path
 
-from test.swmm.test_files import get_compare_path, get_output_path, get_input_full_filenames
+from tuflow.test.swmm.test_files import get_compare_path, get_output_path, get_input_full_filenames
+from tuflow.test.swmm.compare_options import do_git_diff
 
 from tuflow.tuflow_swmm.swmm_extract_scenarios import extract_scenarios
 
@@ -32,11 +34,13 @@ class TestSwmmCreateScenarios(unittest.TestCase):
             text2 = f2.readlines()
             # print(text1)
             # print(text2)
-            subprocess.run(['C:\\Program Files\\git\\cmd\\git.exe',
-                            'diff',
-                            '--no-index',
-                            '--ignore-space-at-eol',
-                            first, second], shell=True)
+            current_os = platform.system().lower()
+            if current_os == "windows" and do_git_diff:
+                subprocess.run(['C:/Program Files/git/cmd/git.exe',
+                                'diff',
+                                '--no-index',
+                                '--ignore-space-at-eol',
+                                first, second], shell=True)
 
             self.assertEqual(len(text1), len(text2))
             for line_num, (l1, l2) in enumerate(zip(text1, text2)):
@@ -57,8 +61,8 @@ class TestSwmmCreateScenarios(unittest.TestCase):
         model_prefix = 'scenarios'
         gpkg_filenames = get_input_full_filenames(
             [
-                'scenarios\\scenarios_base_001.gpkg',
-                'scenarios\\scenarios_remove-pipes_001.gpkg',
+                'scenarios/scenarios_base_001.gpkg',
+                'scenarios/scenarios_remove-pipes_001.gpkg',
             ]
         )
         scenario_names = [
@@ -66,22 +70,23 @@ class TestSwmmCreateScenarios(unittest.TestCase):
             'remove_pipes',
         ]
         output_prefix = 'base_remove_pipes'
-        output_folder = get_output_path(f'scenarios\\{output_prefix}\\')
-        #output_file = get_output_path(f'scenarios\\{output_prefix}\\{output_prefix}.inp')
+        output_folder = get_output_path(f'scenarios/{output_prefix}/')
+        #output_file = get_output_path(f'scenarios/{output_prefix}/{output_prefix}.inp')
         #Path(output_file).unlink(missing_ok=True)
 
         output_control_file_lines = Path(output_folder) / f'control_file_lines.txt'
 
         extract_scenarios(gpkg_filenames, scenario_names, output_folder, model_prefix, output_control_file_lines)
 
-        compare_files = [Path(get_compare_path(f'scenarios\\{output_prefix}\\{model_prefix}_{s}.inp'))
+        compare_files = [Path(get_compare_path(f'scenarios/{output_prefix}/{model_prefix}_{s}.inp'))
                          for s in scenario_names] + [Path(
-            get_compare_path(f'scenarios\\{output_prefix}\\{model_prefix}_Common.inp'))]
+            get_compare_path(f'scenarios/{output_prefix}/{model_prefix}_Common.inp'))]
         compare_files = [x for x in compare_files if x.exists()]
 
-        output_files = [Path(get_output_path(f'scenarios\\{output_prefix}\\{model_prefix}_{s}.inp'))
+        output_files = [Path(get_output_path(f'scenarios/{output_prefix}/{model_prefix}_{s}.inp'))
                          for s in scenario_names] + [Path(
-            get_output_path(f'scenarios\\{output_prefix}\\{model_prefix}_Common.inp'))]
+            get_output_path(f'scenarios/{output_prefix}/{model_prefix}_Common.inp'))]
+        print(f"Output files (before): {", ".join([x.stem for x in output_files])}\n")
         output_files = [x for x in output_files if x.exists()]
 
         self.assertEqual(len(compare_files), len(output_files),
@@ -96,8 +101,8 @@ class TestSwmmCreateScenarios(unittest.TestCase):
         model_prefix = 'scenarios'
         gpkg_filenames = get_input_full_filenames(
             [
-                'scenarios\\scenarios_base_001.gpkg',
-                'scenarios\\scenarios_culvert-size_001.gpkg',
+                'scenarios/scenarios_base_001.gpkg',
+                'scenarios/scenarios_culvert-size_001.gpkg',
             ]
         )
         scenario_names = [
@@ -105,22 +110,22 @@ class TestSwmmCreateScenarios(unittest.TestCase):
             'culvert_size',
         ]
         output_prefix = 'base_culvert_size'
-        output_folder = get_output_path(f'scenarios\\{output_prefix}\\')
-        #output_file = get_output_path(f'scenarios\\{output_prefix}\\{model_prefix}.inp')
+        output_folder = get_output_path(f'scenarios/{output_prefix}/')
+        #output_file = get_output_path(f'scenarios/{output_prefix}/{model_prefix}.inp')
         #Path(output_file).unlink(missing_ok=True)
 
         output_control_file_lines = Path(output_folder) / f'control_file_lines.txt'
 
         extract_scenarios(gpkg_filenames, scenario_names, output_folder, model_prefix, output_control_file_lines)
 
-        compare_files = [Path(get_compare_path(f'scenarios\\{output_prefix}\\{model_prefix}_{s}.inp'))
+        compare_files = [Path(get_compare_path(f'scenarios/{output_prefix}/{model_prefix}_{s}.inp'))
                          for s in scenario_names] + [Path(
-            get_compare_path(f'scenarios\\{output_prefix}\\{model_prefix}_Common.inp'))]
+            get_compare_path(f'scenarios/{output_prefix}/{model_prefix}_Common.inp'))]
         compare_files = [x for x in compare_files if x.exists()]
 
-        output_files = [Path(get_output_path(f'scenarios\\{output_prefix}\\{model_prefix}_{s}.inp'))
+        output_files = [Path(get_output_path(f'scenarios/{output_prefix}/{model_prefix}_{s}.inp'))
                          for s in scenario_names] + [Path(
-            get_output_path(f'scenarios\\{output_prefix}\\{model_prefix}_Common.inp'))]
+            get_output_path(f'scenarios/{output_prefix}/{model_prefix}_Common.inp'))]
         output_files = [x for x in output_files if x.exists()]
 
         self.assertEqual(len(compare_files), len(output_files),
@@ -135,8 +140,8 @@ class TestSwmmCreateScenarios(unittest.TestCase):
         model_prefix = 'scenarios'
         gpkg_filenames = get_input_full_filenames(
             [
-                'scenarios\\scenarios_base_001.gpkg',
-                'scenarios\\scenarios_change-node-values_001.gpkg',
+                'scenarios/scenarios_base_001.gpkg',
+                'scenarios/scenarios_change-node-values_001.gpkg',
             ]
         )
         scenario_names = [
@@ -144,23 +149,23 @@ class TestSwmmCreateScenarios(unittest.TestCase):
             'change_node_values',
         ]
         output_prefix = 'base_change_node_values'
-        output_folder = get_output_path(f'scenarios\\{output_prefix}\\')
+        output_folder = get_output_path(f'scenarios/{output_prefix}/')
 
         output_control_file_lines = Path(output_folder) / f'control_file_lines.txt'
-        #output_file = get_output_path(f'scenarios\\{output_prefix}\\{model_prefix}.inp')
+        #output_file = get_output_path(f'scenarios/{output_prefix}/{model_prefix}.inp')
         #Path(output_file).unlink(missing_ok=True)
 
         extract_scenarios(gpkg_filenames, scenario_names, output_folder, model_prefix,
                           output_control_file_lines)
 
-        compare_files = [Path(get_compare_path(f'scenarios\\{output_prefix}\\{model_prefix}_{s}.inp'))
+        compare_files = [Path(get_compare_path(f'scenarios/{output_prefix}/{model_prefix}_{s}.inp'))
                          for s in scenario_names] + [Path(
-            get_compare_path(f'scenarios\\{output_prefix}\\{model_prefix}_Common.inp'))]
+            get_compare_path(f'scenarios/{output_prefix}/{model_prefix}_Common.inp'))]
         compare_files = [x for x in compare_files if x.exists()]
 
-        output_files = [Path(get_output_path(f'scenarios\\{output_prefix}\\{model_prefix}_{s}.inp'))
+        output_files = [Path(get_output_path(f'scenarios/{output_prefix}/{model_prefix}_{s}.inp'))
                          for s in scenario_names] + [Path(
-            get_output_path(f'scenarios\\{output_prefix}\\{model_prefix}_Common.inp'))]
+            get_output_path(f'scenarios/{output_prefix}/{model_prefix}_Common.inp'))]
         output_files = [x for x in output_files if x.exists()]
 
         self.assertEqual(len(compare_files), len(output_files),
@@ -175,10 +180,10 @@ class TestSwmmCreateScenarios(unittest.TestCase):
         model_prefix = 'scenarios'
         gpkg_filenames = get_input_full_filenames(
             [
-                'scenarios\\scenarios_base_001.gpkg',
-                'scenarios\\scenarios_remove-pipes_001.gpkg',
-                'scenarios\\scenarios_culvert-size_001.gpkg',
-                'scenarios\\scenarios_change-node-values_001.gpkg',
+                'scenarios/scenarios_base_001.gpkg',
+                'scenarios/scenarios_remove-pipes_001.gpkg',
+                'scenarios/scenarios_culvert-size_001.gpkg',
+                'scenarios/scenarios_change-node-values_001.gpkg',
             ]
         )
         scenario_names = [
@@ -188,22 +193,22 @@ class TestSwmmCreateScenarios(unittest.TestCase):
             'change_node_values',
         ]
         output_prefix = 'all'
-        output_folder = get_output_path(f'scenarios\\{output_prefix}\\')
-        #output_file = get_output_path(f'scenarios\\{output_prefix}\\{model_prefix}.inp')
+        output_folder = get_output_path(f'scenarios/{output_prefix}/')
+        #output_file = get_output_path(f'scenarios/{output_prefix}/{model_prefix}.inp')
         #Path(output_file).unlink(missing_ok=True)
 
         output_control_file_lines = Path(output_folder) / f'control_file_lines.txt'
 
         extract_scenarios(gpkg_filenames, scenario_names, output_folder, model_prefix, output_control_file_lines)
 
-        compare_files = [Path(get_compare_path(f'scenarios\\{output_prefix}\\{model_prefix}_{s}.inp'))
+        compare_files = [Path(get_compare_path(f'scenarios/{output_prefix}/{model_prefix}_{s}.inp'))
                          for s in scenario_names] + [Path(
-            get_compare_path(f'scenarios\\{output_prefix}\\{model_prefix}_Common.inp'))]
+            get_compare_path(f'scenarios/{output_prefix}/{model_prefix}_Common.inp'))]
         compare_files = [x for x in compare_files if x.exists()]
 
-        output_files = [Path(get_output_path(f'scenarios\\{output_prefix}\\{model_prefix}_{s}.inp'))
+        output_files = [Path(get_output_path(f'scenarios/{output_prefix}/{model_prefix}_{s}.inp'))
                          for s in scenario_names] + [Path(
-            get_output_path(f'scenarios\\{output_prefix}\\{model_prefix}_Common.inp'))]
+            get_output_path(f'scenarios/{output_prefix}/{model_prefix}_Common.inp'))]
         output_files = [x for x in output_files if x.exists()]
 
         self.assertEqual(len(compare_files), len(output_files),

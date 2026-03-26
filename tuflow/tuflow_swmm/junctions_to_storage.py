@@ -47,7 +47,7 @@ def junctions_to_storage(gdf_junctions,
                                     (gdf_junctions['BC_Type'].astype(str) != 'nan') &
                                     (gdf_junctions['BC_Type'].astype(str) != ''))
 
-    print(gdf_junctions)
+    #print(gdf_junctions)
 
     gdf_out_junctions = gdf_junctions[~gdf_junctions['has_bc_conn']].copy(deep=True)[orig_junction_columns]
 
@@ -73,8 +73,8 @@ def junctions_to_storage(gdf_junctions,
         'Tag',
         'Description'
     ]
-    print(gdf_out_storage.columns)
-    print(type(gdf_out_storage.columns))
+    #print(gdf_out_storage.columns)
+    #print(type(gdf_out_storage.columns))
     new_fields = list(set(storage_fields) - set([str(x) for x in gdf_out_storage.columns.values]))
     gdf_out_storage.loc[:, new_fields] = None
     gdf_out_storage = gdf_out_storage[storage_fields + ['geometry']]
@@ -98,13 +98,13 @@ if __name__ == '__main__':
     junction_filename = r"D:\models\TUFLOW\test_models\SWMM\Throsby\HWRS_Huxley\model\swmm\swmm_throsby_114.gpkg"
     gdf_throsby_junctions = gpd.read_file(junction_filename, layer='Nodes--Junctions')
 
-    print(gdf_throsby_junctions.crs)
+    #print(gdf_throsby_junctions.crs)
 
     bc_throsby_conn_filename = r"D:\models\TUFLOW\test_models\SWMM\Throsby\HWRS_Huxley\model\gis\Throsby_102_TBC.gpkg"
     bc_throsby_conn_layername = '2d_bc_swmm_connections_112D_L'
     gdf_throsby_bc_conn = gpd.read_file(bc_throsby_conn_filename, layer=bc_throsby_conn_layername)
 
-    print(gdf_throsby_bc_conn.crs)
+    #print(gdf_throsby_bc_conn.crs)
 
     gdf_throsby_out_junctions, gdf_throsby_out_storage = junctions_to_storage(gdf_throsby_junctions,
                                                                               gdf_throsby_bc_conn,

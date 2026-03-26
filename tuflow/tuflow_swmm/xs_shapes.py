@@ -1,6 +1,9 @@
 import math
 import numpy as np
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 import matplotlib.pyplot as plt
 
@@ -136,6 +139,8 @@ def get_height_ratios(width_ratios):
 
 
 def get_width_vs_height(name, full_height, full_width=None):
+    if pd is None:
+        raise ImportError("Pandas is required to use get_width_vs_height() function")
     width_ratios = width_ratios_list[name]
     height_ratios = get_height_ratios(width_ratios)
 

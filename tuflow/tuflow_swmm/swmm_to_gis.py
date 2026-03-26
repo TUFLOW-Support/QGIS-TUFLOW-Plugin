@@ -4,12 +4,12 @@ import os
 has_gpd = False
 try:
     import geopandas as gpd
+    import pandas as pd
 
     has_gpd = True
 except ImportError:
     gpd = None
 import datetime
-import pandas as pd
 from pathlib import Path
 try:
     from shapely.geometry import LineString, Polygon

@@ -36,7 +36,7 @@ class NetCDFGrid(QgsRasterLayer):
 
         self.fid = None
         self.canvas = None
-        self._nc_file = ':'.join(uri.split(':')[1:-1])
+        self._nc_file = ':'.join(uri.split(':')[1:-1]).strip('"')
         self._lyr_name = uri.split(':')[-1]
         self._existing_layer = bool(existing_layer)
 

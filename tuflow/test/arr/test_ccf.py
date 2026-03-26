@@ -62,4 +62,4 @@ class TestCCF(TestCase):
             ccf.calc_rainfall_depths(name, rf)
 
         for name in cc_param:
-            ccf.calc_rainfall_losses(name, 16., 0., pb.ratios, 'East Coast North')
+            ccf.calc_rainfall_losses_on_bursts(name, 16., 0., pb.ratios, 'East Coast North')

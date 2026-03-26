@@ -176,7 +176,12 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
                               'conv_tf_gis_format', 'convert_tuflow_gis_format.py')
         sys.path.append(os.path.dirname(script))
 
-        args = ['python', '-u', script, '-tcf', str(tcf), '-gis', str(gis), '-grid', str(grid), '-op', str(op)]
+        if os.name == 'nt':
+            args = ['python']
+        else:
+            args = ['python3']
+
+        args.extend(['-u', script, '-tcf', str(tcf), '-gis', str(gis), '-grid', str(grid), '-op', str(op)])
         if of:
             args.extend(['-o', str(of)])
         if rf:
@@ -201,8 +206,10 @@ class ConvertTuflowModelGisFormat(QgsProcessingAlgorithm):
         feedback.pushInfo('args: {0}'.format(args[3:]))
 
         count = 0
-        with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                              creationflags=subprocess.CREATE_NO_WINDOW, bufsize=0, universal_newlines=True) as proc:
+        kwargs = {'stdout': subprocess.PIPE, 'stderr': subprocess.STDOUT, 'bufsize': 0, 'universal_newlines': True}
+        if os.name == 'nt':
+            kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
+        with subprocess.Popen(args, **kwargs) as proc:
             for line in proc.stdout:
                 if line.strip():
                     count += 1

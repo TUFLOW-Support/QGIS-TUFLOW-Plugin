@@ -1,0 +1,63 @@
+{
+  "version": 0.1,
+  "name": "res",
+  "outputs": [
+    "index",
+    "fv_res",
+    "run"
+  ],
+  "index": "index",
+  "result types": [
+    "Bed Elevation",
+    "Water Level",
+    "Velocity",
+    "Depth Maximums",
+    "Water Level Maximums",
+    "Depth",
+    "Time of Peak h"
+  ],
+  "units": "metric",
+  "time units": "hours since 1990-01-01 00:00",
+  "output data": {
+    "index": {
+      "format": "netcdf mesh",
+      "path": "index.nc",
+      "result type map": {
+        "Bed Elevation": "Bed Elevation",
+        "Water Level": "Water Level",
+        "Velocity": "Velocity",
+        "Depth Maximums": "Depth Maximums",
+        "Water Level Maximums": "Water Level Maximums",
+        "Depth": "Depth",
+        "Time of Peak h": "Time of Peak h"
+      }
+    },
+    "fv_res": {
+      "format": "netcdf mesh",
+      "path": "fv_res.nc",
+      "result type map": {
+        "Bed Elevation": "Bed Elevation",
+        "Water Level": "water surface elevation",
+        "Velocity": "Velocity",
+        "Depth Maximums": "none",
+        "Water Level Maximums": "none",
+        "Depth": "none",
+        "Time of Peak h": "none"
+      }
+    },
+    "run": {
+      "format": "xmdf",
+      "path": "run.xmdf",
+      "result type map": {
+        "Bed Elevation": "Bed Elevation",
+        "Depth Maximums": "Depth/Maximums",
+        "Water Level Maximums": "Water Level/Maximums",
+        "Velocity": "Vector Velocity",
+        "Depth": "Depth",
+        "Water Level": "Water Level",
+        "Time of Peak h": "Time of Peak h"
+      },
+      "2dm": "run.2dm"
+    }
+  }
+}

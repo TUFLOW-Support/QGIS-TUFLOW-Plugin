@@ -27,6 +27,9 @@ from tuflow.gui.alg.custom_file_select_parameter import CustomFileSelectParamete
 from tuflow.gui.alg.domain_setup_parameter import DomainSetupParameter
 from tuflow.gui.alg.settings_table_parameter import SettingsTableParameter
 from tuflow.gui.alg.output_format_parameter import OutputFormatParameter
+from tuflow.gui.alg.tuflow_version_parameter import TuflowVersionParameter
+
+from tuflow.tfversion_manager import tuflow_binaries
 
 
 if Qgis.QGIS_VERSION_INT >= 33600:
@@ -129,15 +132,21 @@ class CreateTuflowProject(QgsProcessingAlgorithm):
         )
 
         # HPC Executable input
-        default_hpc_exe = QSettings().value('/tuflow/create_project/project_exe', None)
+        # default_hpc_exe = QSettings().value('/tuflow/create_project/project_exe', None)
+        # self.addParameter(
+        #     CustomFileSelectParameter(
+        #         'tuflow_executable',
+        #         'TUFLOW Executable',
+        #         behavior=FILE_BEHAVIOUR,
+        #         fileFilter='EXE (*.exe *.EXE)',
+        #         defaultValue=default_hpc_exe,
+        #         dirSettingsKey='/tuflow/create_project/project_exe'
+        #     )
+        # )
         self.addParameter(
-            CustomFileSelectParameter(
-                'tuflow_executable',
-                'TUFLOW Executable',
-                behavior=FILE_BEHAVIOUR,
-                fileFilter='EXE (*.exe *.EXE)',
-                defaultValue=default_hpc_exe,
-                dirSettingsKey='/tuflow/create_project/project_exe'
+            TuflowVersionParameter(
+                'tuflow_version',
+                'TUFLOW Version',
             )
         )
 
@@ -259,12 +268,18 @@ class CreateTuflowProject(QgsProcessingAlgorithm):
 
         save_settings_globally = self.parameterAsBool(parameters, 'save_settings_globally', context)
 
+        tuflow_version = self.parameterAsString(parameters, 'tuflow_version', context)
+        if not tuflow_version or tuflow_version not in tuflow_binaries.version2bin:
+            feedback.reportError('Invalid TUFLOW version selected.', True)
+            return {}
+        hpcexe = tuflow_binaries.version2bin[tuflow_version]
+
         project = ProjectConfig(
             self.parameterAsString(parameters, 'project_name', context),
             self.parameterAsFile(parameters, 'project_folder', context),
             crs,
             gis_format,
-            self.parameterAsFile(parameters, 'tuflow_executable', context),
+            hpcexe,
             None,
             domain,
             d,

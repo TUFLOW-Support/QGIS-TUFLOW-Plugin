@@ -1,12 +1,12 @@
 has_gpd = False
 try:
     import geopandas as gpd
+    import pandas as pd
 
     has_gpd = True
 except ImportError:
     pass  # defaulted to false
 import numpy as np
-import pandas as pd
 from pathlib import Path
 
 from tuflow.tuflow_swmm.create_swmm_section_gpkg import create_section_gdf, create_section_from_gdf
@@ -174,7 +174,7 @@ def xpswmm_2d_capture_to_swmm(
         return
 
     gdf = gpd.read_file(gis_filename)
-    print(gdf)
+    #print(gdf)
 
     gdfs_to_write = []
 

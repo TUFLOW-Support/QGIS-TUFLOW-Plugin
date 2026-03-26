@@ -7,3 +7,6 @@
 [submodule "tuflow/runner/tuflow-runner"]
 	path = tuflow/runner/tuflow-runner
 	url = https://gitlab.com/tuflow-user-group/tuflow/simulation-management/tuflow-runner.git
+[submodule "tuflow/pt"]
+	path = tuflow/pt
+	url = git@github.com:TUFLOW-Support/PyTuflow.git

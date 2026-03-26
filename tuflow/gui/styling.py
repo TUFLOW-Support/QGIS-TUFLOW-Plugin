@@ -4,24 +4,26 @@ import json
 from random import randrange
 
 from qgis.PyQt.QtGui import QColor
-from qgis._core import QgsStyle
 from qgis.core import (QgsVectorLayer, QgsSymbol, QgsRendererCategory, QgsCategorizedSymbolRenderer, QgsWkbTypes,
                        QgsExpression, QgsExpressionContext, QgsExpressionContextUtils, Qgis, QgsGraduatedSymbolRenderer,
-                       QgsRenderContext)
+                       QgsRenderContext, QgsRuleBasedRenderer, QgsStyle, QgsSimpleLineSymbolLayer,
+                       QgsMarkerLineSymbolLayer, QgsSimpleMarkerSymbolLayer, QgsSimpleMarkerSymbolLayerBase,
+                       QgsMarkerSymbol, QgsSimpleFillSymbolLayer)
 from qgis.utils import plugins
 
 from .logging import Logging
-from ..compatibility_routines import Path
+from ..compatibility_routines import Path, QT_STYLE_DOTTED_PEN, QT_STYLE_DASHED_PEN
 from ..utils.map_layer import set_vector_temporal_properties, file_from_data_source, layer_name_from_data_source
 from .temporal_controller import (turn_on_temporal_controller_animated_nav, refresh_temporal_controller_range,
                                   set_temporal_controller_time_interval)
 from ..tuflow_results_gpkg import ResData_GPKG
 
 
-def apply_tf_style(e: bool = False) -> None:
-    lyr = plugins['tuflow'].iface.activeLayer()
-    styling = Styling(lyr)
-    styling.apply_styling(lyr)
+def apply_tf_style(e: bool = False, layer: QgsVectorLayer = None, style: str = '') -> None:
+    if not layer:
+        layer = plugins['tuflow'].iface.activeLayer()
+    styling = Styling(layer, style=style)
+    styling.apply_styling(layer)
 
 
 def apply_tf_style_message_ids(e: bool = False) -> None:
@@ -37,13 +39,14 @@ def apply_tf_style_gpkg_ts(lyr: QgsVectorLayer, type_: str, field_name: str):
     styling.apply_styling(lyr)
 
 
-def apply_tf_style_temporal(type_name: str):
+def apply_tf_style_temporal(type_name: str, lyr: QgsVectorLayer = None, skip_temporal_init: bool = False):
     tuflow = plugins['tuflow']
-    lyr = tuflow.iface.activeLayer()
+    if not lyr:
+        lyr = tuflow.iface.activeLayer()
     subset_str = _styling_subset_string(lyr.subsetString(), False)
     lyr.setSubsetString(subset_str)
     res_name = re.sub(r'_[PLR]$', '', lyr.name(), flags=re.IGNORECASE)
-    if tuflow.resultsPlottingDockOpened and res_name in tuflow.resultsPlottingDock.tuResults.tuResults1D.results1d:
+    if skip_temporal_init or (tuflow.resultsPlottingDockOpened and res_name in tuflow.resultsPlottingDock.tuResults.tuResults1D.results1d):
         # just apply styling - temporal settings should already be active
         apply_tf_style_gpkg_ts(lyr, type_name, type_name)
     else:
@@ -111,22 +114,27 @@ def _styling_subset_string(subset_str, static) -> str:
 
 class Styling:
 
-    def __new__(cls, layer: QgsVectorLayer, sub_folder: str = '', layer_name: str = ''):
+    def __new__(cls, layer: QgsVectorLayer, sub_folder: str = '', layer_name: str = '', style: str = ''):
         from ..utils import layer_name_from_data_source
         if layer_name:
             name = layer_name
         else:
             name = layer_name_from_data_source(layer.dataProvider().dataSourceUri())
+            if name.startswith('memory?'):
+                name = layer.name()
         style_file = None
-        if StylingQML.style_file(layer, name, sub_folder):
+        if style == 'QML' or (not style and StylingQML.style_file(layer, name, sub_folder)):
             cls = StylingQML
             style_file = StylingQML.style_file(layer, name, sub_folder)
-        elif StylingCategorized.style_file(layer, name, sub_folder):
+        elif style == 'Categorized' or (not style and StylingCategorized.style_file(layer, name, sub_folder)):
             cls = StylingCategorized
             style_file = StylingCategorized.style_file(layer, name, sub_folder)
-        elif StylingGraduated.style_file(layer, name, sub_folder):
+        elif style == 'Graduated' or (not style and StylingGraduated.style_file(layer, name, sub_folder)):
             cls = StylingGraduated
             style_file = StylingGraduated.style_file(layer, name, sub_folder)
+        elif style == 'Dynamic' or (not style and StylingDynamic.dynamic_class(layer, name)):
+            cls = StylingDynamic.dynamic_class(layer, name)
+            style_file = ''
         self = super().__new__(cls)
         self._init(name, style_file)
         return self
@@ -148,7 +156,9 @@ class Styling:
         pass
 
 
+
 class StylingQML(Styling):
+    NAME = 'QML'
 
     @staticmethod
     def style_file(layer: QgsVectorLayer, name: str, sub_folder: str = '') -> Path:
@@ -157,11 +167,14 @@ class StylingQML(Styling):
                 return file
 
     def apply_styling(self, layer: QgsVectorLayer) -> None:
+        custom_properties = layer.customProperties()
         layer.loadNamedStyle(str(self._style_file))
+        layer.setCustomProperties(custom_properties)
         layer.triggerRepaint()
 
 
 class StylingCategorized(Styling):
+    NAME = 'Categorized'
 
     @staticmethod
     def styling_folder(sub_folder: str = ''):
@@ -319,6 +332,7 @@ class StylingCategorized(Styling):
 
 
 class StylingGraduated(StylingCategorized):
+    NAME = 'Graduated'
 
     @staticmethod
     def styling_folder(sub_folder: str = ''):
@@ -390,3 +404,216 @@ class StylingGraduated(StylingCategorized):
                             symbol_layer_.setStrokeColor(symbol_layer_.fillColor())
         layer.setRenderer(renderer)
         layer.triggerRepaint()
+
+
+class StylingFM(Styling):
+    NAME = 'FM'
+
+    def apply_styling(self, layer: QgsVectorLayer) -> None:
+        # generates a rule based renderer
+        field_name = ''
+        try:
+            field_names = [x.name() for x in [f for f in layer.getFeatures()][0].fields()]
+            upstrm_type = 'Upstrm_Type' if 'Upstrm_Type' in field_names else 'Upstrm_Typ'
+        except (IndexError, AttributeError):
+            upstrm_type = 'Upstrm_Type'
+        if layer.geometryType() == QgsWkbTypes.LineGeometry:
+            field_name = upstrm_type
+        elif layer.geometryType() == QgsWkbTypes.PointGeometry:
+            field_name = 'Unit_Type'
+        if not field_name:
+            return
+        if layer.geometryType() == QgsWkbTypes.LineGeometry:
+            renderer = self.rule_based_renderer(layer, field_name)
+        else:
+            renderer = self.categorized_renderer(layer, field_name)
+
+        layer.setRenderer(renderer)
+        layer.triggerRepaint()
+
+    def categorized_renderer(self, layer, field_name):
+        categories = []
+        vals = layer.dataProvider().fieldNameIndex(field_name)
+        unique_values = layer.dataProvider().uniqueValues(vals)
+        for unique_value in unique_values:
+            symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+            layer_style = {}
+            color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))
+            layer_style['color'] = color
+            layer_style['outline'] = '#000000'
+            symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
+            if unique_value.lower() == 'river':
+                symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Diamond)
+                symbol_layer.setSize(2.5)
+                symbol_layer.setStrokeWidth(0.4)
+                symbol_layer.setStrokeColor(QColor(50, 87, 128))
+                symbol_layer.setFillColor(QColor(100, 153, 208))
+            elif 'bdy' in unique_value.lower():
+                symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Square)
+                symbol_layer.setSize(2.5)
+                symbol_layer.setStrokeWidth(0.)
+                symbol_layer.setStrokeColor(QColor(35, 35, 35))
+                symbol_layer.setFillColor(QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256)))
+            else:
+                symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
+                symbol_layer.setSize(2.0)
+                symbol_layer.setStrokeWidth(0.)
+                symbol_layer.setStrokeColor(QColor(35, 35, 35))
+                symbol_layer.setFillColor(QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256)))
+            symbol.changeSymbolLayer(0, symbol_layer)
+            category = QgsRendererCategory(unique_value, symbol, str(unique_value))
+            categories.append(category)
+
+        return QgsCategorizedSymbolRenderer(field_name, categories)
+
+    def rule_based_renderer(self, layer, field_name):
+        vals = layer.dataProvider().fieldNameIndex(field_name)
+        unique_values = layer.dataProvider().uniqueValues(vals)
+        unique_values2 = [x.upper() for x in unique_values if
+                          x.upper() != 'SPILL' and x.upper() != 'JUNCTION' and x.upper() != 'INTERPOLATE']
+
+        try:
+            field_names = [x.name() for x in [f for f in layer.getFeatures()][0].fields()]
+            upstrm_type = 'Upstrm_Type' if 'Upstrm_Type' in field_names else 'Upstrm_Typ'
+            dnstrm_type = 'Dnstrm_Type' if 'Upstrm_Type' in field_names else 'Dnstrm_Typ'
+        except (IndexError, AttributeError):
+            upstrm_type = 'Upstrm_Type'
+            dnstrm_type = 'Dnstrm_Type'
+        spill_exists = 'SPILL' in [x.upper() for x in unique_values]
+        junct_exists = 'JUNCTION' in [x.upper() for x in unique_values]
+        intp_exists = 'INTERPOLATE' in [x.upper() for x in unique_values]
+        expressions = [
+            f'"{upstrm_type}" ILIKE \'{x}\' and {upstrm_type} NOT ILIKE \'%BDY%\' and {dnstrm_type} NOT ILIKE \'%BDY%\''
+            for x in unique_values2]
+        if spill_exists:
+            expressions = [f'{x} and "{dnstrm_type}" NOT ILIKE \'SPILL\'' for x in expressions]
+        if junct_exists:
+            expressions = [f'{x} and "{dnstrm_type}" NOT ILIKE \'JUNCTION\'' for x in expressions]
+        if intp_exists:
+            expressions = [f'{x} and "{dnstrm_type}" NOT ILIKE \'INTERPOLATE\'' for x in expressions]
+        expressions.insert(0, f'"{upstrm_type}" ILIKE \'%BDY%\' or "{dnstrm_type}" ILIKE \'%BDY%\'')
+        symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+        renderer = QgsRuleBasedRenderer(symbol)
+        root_rule = renderer.rootRule()
+        for j, exp in enumerate(expressions):
+            i = j - 1
+            layer_style = {}
+            color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))
+            layer_style['color'] = color
+            layer_style['outline'] = '#000000'
+            symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+            rule = root_rule.children()[0].clone()
+            if j == 0:
+                rule.setLabel('BDY')
+                rule.setFilterExpression(exp)
+                symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+                symbol_layer.setWidth(0.5)
+                symbol_layer.setStrokeColor(QColor(227, 26, 28))
+                symbol_layer.setPenStyle(QT_STYLE_DASHED_PEN)
+                symbol_layer2 = None
+            else:
+                rule.setLabel(unique_values2[i])
+                rule.setFilterExpression(exp)
+                if unique_values2[i].lower() == 'lateral':
+                    symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+                    symbol_layer.setWidth(0.25)
+                    color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
+                    symbol_layer.setStrokeColor(color)
+                    symbol_layer.setPenStyle(QT_STYLE_DOTTED_PEN)
+                    symbol_layer2 = None
+                elif 'bdy' in unique_values2[i].lower():
+                    continue
+                else:
+                    symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+                    symbol_layer.setWidth(0.5)
+                    symbol_layer2 = QgsMarkerLineSymbolLayer.create({'placement': 'lastvertex'})
+                    layer_style['color_border'] = color
+                    marker_symbol = QgsSimpleMarkerSymbolLayer.create(layer_style)
+                    marker_symbol.setShape(QgsSimpleMarkerSymbolLayerBase.ArrowHeadFilled)
+                    marker_symbol.setSize(4)
+                    marker = QgsMarkerSymbol()
+                    marker.changeSymbolLayer(0, marker_symbol)
+                    symbol_layer2.setSubSymbol(marker)
+                if symbol_layer is not None:
+                    symbol.changeSymbolLayer(0, symbol_layer)
+                    if symbol_layer2 is not None:
+                        symbol.appendSymbolLayer(symbol_layer2)
+            rule.setSymbol(symbol)
+            root_rule.appendChild(rule)
+        if spill_exists:
+            symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+            exp = f'"{upstrm_type}" ILIKE \'SPILL\' or  "{dnstrm_type}" ILIKE \'SPILL\''
+            rule = root_rule.children()[0].clone()
+            rule.setLabel('SPILL')
+            rule.setFilterExpression(exp)
+            symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+            symbol_layer.setWidth(0.25)
+            color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
+            symbol_layer.setStrokeColor(color)
+            symbol_layer.setPenStyle(QT_STYLE_DOTTED_PEN)
+            symbol_layer2 = None
+            if symbol_layer is not None:
+                symbol.changeSymbolLayer(0, symbol_layer)
+                if symbol_layer2 is not None:
+                    symbol.appendSymbolLayer(symbol_layer2)
+            rule.setSymbol(symbol)
+            root_rule.appendChild(rule)
+        if junct_exists:
+            symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+            exp = f'("{upstrm_type}" ILIKE \'JUNCTION\' or "{dnstrm_type}" ILIKE \'JUNCTION\') AND "{upstrm_type}" NOT ILIKE \'SPILL\' AND "{dnstrm_type}" NOT ILIKE \'SPILL\''
+            rule = root_rule.children()[0].clone()
+            rule.setLabel('CONN')
+            rule.setFilterExpression(exp)
+            symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+            symbol_layer.setWidth(0.25)
+            color = QColor(35, 35, 35)
+            symbol_layer.setColor(color)
+            symbol_layer2 = None
+            if symbol_layer is not None:
+                symbol.changeSymbolLayer(0, symbol_layer)
+                if symbol_layer2 is not None:
+                    symbol.appendSymbolLayer(symbol_layer2)
+            rule.setSymbol(symbol)
+            root_rule.appendChild(rule)
+        if intp_exists:
+            layer_style = {}
+            color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))
+            layer_style['color'] = color
+            layer_style['outline'] = '#000000'
+            symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+            exp = f'("{upstrm_type}" ILIKE \'INTERPOLATE\' or "{dnstrm_type}" ILIKE \'INTERPOLATE\') AND "{upstrm_type}" NOT ILIKE \'SPILL\' AND "{dnstrm_type}" NOT ILIKE \'SPILL\''
+            rule = root_rule.children()[0].clone()
+            rule.setLabel('INTERPOLATE')
+            rule.setFilterExpression(exp)
+            symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
+            symbol_layer.setWidth(0.5)
+            symbol_layer2 = QgsMarkerLineSymbolLayer.create({'placement': 'lastvertex'})
+            layer_style['color_border'] = color
+            marker_symbol = QgsSimpleMarkerSymbolLayer.create(layer_style)
+            marker_symbol.setShape(QgsSimpleMarkerSymbolLayerBase.ArrowHeadFilled)
+            marker_symbol.setSize(4)
+            marker = QgsMarkerSymbol()
+            marker.changeSymbolLayer(0, marker_symbol)
+            symbol_layer2.setSubSymbol(marker)
+            if symbol_layer is not None:
+                symbol.changeSymbolLayer(0, symbol_layer)
+                if symbol_layer2 is not None:
+                    symbol.appendSymbolLayer(symbol_layer2)
+            rule.setSymbol(symbol)
+            root_rule.appendChild(rule)
+        root_rule.removeChildAt(0)
+        return renderer
+
+
+class StylingDynamic(Styling):
+    NAME = 'Dynamic'
+    SUPPORTED = {
+        r'_FM_PLOT_[PLR]': StylingFM
+    }
+
+    @staticmethod
+    def dynamic_class(layer: QgsVectorLayer, name: str) -> type[Styling] | None:
+        for supported, cls in StylingDynamic.SUPPORTED.items():
+            if re.findall(supported, name, flags=re.IGNORECASE):
+                return cls
+        return None

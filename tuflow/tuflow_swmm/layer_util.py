@@ -1,5 +1,9 @@
-import geopandas as gpd
-import pandas as pd
+try:
+    import geopandas as gpd
+    import pandas as pd
+except ImportError:
+    gpd = None
+    pd = None
 from pathlib import Path
 import re
 

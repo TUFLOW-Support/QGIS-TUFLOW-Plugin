@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>467</width>
-    <height>272</height>
+    <width>465</width>
+    <height>314</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,7 +17,7 @@
    <item>
     <widget class="QLabel" name="label_1">
      <property name="text">
-      <string>TUFLOW Control File (.tcf or .fvc)</string>
+      <string>TUFLOW Control File (.tcf)</string>
      </property>
     </widget>
    </item>
@@ -45,30 +45,19 @@
    <item>
     <widget class="QLabel" name="label_2">
      <property name="text">
-      <string>TUFLOW executable</string>
+      <string>TUFLOW version</string>
      </property>
     </widget>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_2">
-     <item>
-      <widget class="QLineEdit" name="TUFLOW_exe">
-       <property name="text">
-        <string>&lt;TUFLOW exe&gt;</string>
-       </property>
-       <property name="readOnly">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="browseexe">
-       <property name="text">
-        <string>Browse...</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
+    <layout class="QHBoxLayout" name="tuflow_version_layout"/>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="cb_case_insensitive">
+     <property name="text">
+      <string>Case Insensitive Flag (linux only)</string>
+     </property>
+    </widget>
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_4">
@@ -157,6 +146,16 @@
       </size>
      </property>
     </spacer>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_linux_warning">
+     <property name="text">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;Make sure to open the Python console before running on linux. This is where the stdout and stderr are written.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_3">

@@ -8,7 +8,10 @@ try:
 except ImportError:
     pass  # defaulted to false
 import math
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 from pathlib import Path
 
 try:
@@ -39,6 +42,9 @@ def extend_multi_link_outfalls_gdf(
     channel_ext_length,
     feedback,
 ):
+    if pd is None:
+        feedback.reportError('Pandas not installed and is required for function: extend_multi_link_outfalls_gdf().',
+                             fatalError=True)
     if not has_shapely:
         feedback.reportError('Shapely not installed and is required for function: extend_multi_link_outfalls_gdf().',
                              fatalError=True)

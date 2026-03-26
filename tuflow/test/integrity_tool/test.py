@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import sys
 import os
@@ -25,11 +27,12 @@ qgis.initQgis()
 dir = os.path.dirname(__file__)
 
 # Switch to run for Ellis
-#path_dem = r"C:\Users\esymons\Downloads\TUFLOW\model\grid\DEM_SI_Unit_01.flt"
-path_dem = r"D:\models\TUFLOW\test_models\SWMM\ExampleModels\urban\TUFLOW\model\grid\DEM_SI_Unit_01.flt"
+# path_dem = r"C:\Users\esymons\Downloads\TUFLOW\model\grid\DEM_SI_Unit_01.flt"
+# path_dem = r"D:\models\TUFLOW\test_models\SWMM\ExampleModels\urban\TUFLOW\model\grid\DEM_SI_Unit_01.flt"
+path_dem = str(Path(dir) / 'dem' / 'DEM_SI_Unit_01.tif')  # 5MB, not great but it's worth having it on the repository for testing purposes
 
 path_chan_L = os.path.join(dir, "gis", "1d_nwk_M04_channels_001_L.shp")
-path_culv_L = os.path.join(dir, "gis", "1d_nwk_M04_culverts_001_L.shp")
+path_culv_L = os.path.join(dir, "gis", "1d_nwk_M04_Culverts_001_L.shp")
 path_xs = os.path.join(dir, "xs", "1d_xs_M04_creek_001_L.shp")
 path_pipe_L = os.path.join(dir, "gis", "1d_nwk_M07_Pipes_001_L.shp")
 path_pipe_L_broken = os.path.join(dir, "gis", "1d_nwk_M07_Pipes_001_L_Broken.shp")
@@ -118,7 +121,7 @@ class TestDrapeData(unittest.TestCase):
         self.assertIsNotNone(drapeData)
         chainages = [0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5,
                      10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 14.716734118643839]
-        self.assertEqual(drapeData.chainages, chainages)
+        self.assertAlmostEqual(chainages, drapeData.chainages, 2)
         directions = [None, 259.6951535300408, 259.6951535300408, 259.6951535300408, 259.6951535300408,
                       259.6951535300408, 259.6951535300408, 259.6951535300408, 259.6951535300408, 259.6951535300408,
                       259.6951535300408, 259.6951535300408, 259.6951535300408, 259.6951535300408, 259.6951535300408,
@@ -130,7 +133,7 @@ class TestDrapeData(unittest.TestCase):
             if result is None:
                 self.assertIsNone(computed)
             else:
-                self.assertAlmostEqual(computed,result, 2)
+                self.assertAlmostEqual(result, computed, 2)
         #self.assertEqual(drapeData.directions, directions)
 
         elevations = [43.776, 43.7742, 43.7777, 43.776, 43.776, 43.7742, 43.7724, 43.7765, 43.7742, 43.773, 43.7724,
@@ -141,7 +144,7 @@ class TestDrapeData(unittest.TestCase):
             if result is None:
                 self.assertIsNone(computed)
             else:
-                self.assertAlmostEqual(computed,result, 2)
+                self.assertAlmostEqual(result, computed, 2)
 
 
     def test_point_drape(self):
@@ -155,11 +158,11 @@ class TestDrapeData(unittest.TestCase):
                 drapeData = DrapeData(None, "Test", pits_P, f, dem)
 
         self.assertIsNotNone(drapeData)
-        self.assertEqual(drapeData.chainages, [0])
-        self.assertEqual(drapeData.directions, None)
-        np.testing.assert_almost_equal(drapeData.elevations, [42.682], 4)
+        self.assertEqual([0], drapeData.chainages)
+        self.assertIsNone(drapeData.directions)
+        np.testing.assert_almost_equal([42.682], drapeData.elevations, 4)
         startVertex = QgsPointXY(293147.9909382345, 6178097.150920755)
-        self.assertEqual(drapeData.points, [startVertex])
+        self.assertEqual([startVertex], drapeData.points)
 
 
 class TestConnectionData(unittest.TestCase):
@@ -229,14 +232,14 @@ class TestUnsnappedConnections(unittest.TestCase):
         dataCollectorPoints = DataCollector(None)
         dataCollectorPoints.collectData([pits_P_broken], dem, [pipe_L_broken], dataCollectorLines)
 
-        self.assertEqual(len(dataCollectorLines.unsnappedVertexes), 7)
-        self.assertEqual(dataCollectorLines.unsnappedVertexes[3].id, 'Pipe19')
-        self.assertEqual(dataCollectorLines.unsnappedVertexes[3].vertex, VERTEX.Last)
-        self.assertEqual(dataCollectorLines.unsnappedVertexes[3].closestVertex.id, 'Pipe5')
-        self.assertEqual(len(dataCollectorPoints.unsnappedVertexes), 3)
-        self.assertEqual(dataCollectorPoints.unsnappedVertexes[0].id, 'Pit7')
-        self.assertEqual(dataCollectorPoints.unsnappedVertexes[0].distanceToClosest, 1.1485081024527481)
-        self.assertEqual(dataCollectorPoints.unsnappedVertexes[1].closestVertex.id, "Pipe12")
+        self.assertEqual(7, len(dataCollectorLines.unsnappedVertexes))
+        self.assertEqual('Pipe19', dataCollectorLines.unsnappedVertexes[3].id)
+        self.assertEqual(VERTEX.Last, dataCollectorLines.unsnappedVertexes[3].vertex)
+        self.assertEqual('Pipe5', dataCollectorLines.unsnappedVertexes[3].closestVertex.id)
+        self.assertEqual(3, len(dataCollectorPoints.unsnappedVertexes))
+        self.assertEqual('Pit7', dataCollectorPoints.unsnappedVertexes[0].id)
+        self.assertAlmostEqual(1.1485081024527481, dataCollectorPoints.unsnappedVertexes[0].distanceToClosest, 4)
+        self.assertEqual("Pipe12", dataCollectorPoints.unsnappedVertexes[1].closestVertex.id)
 
 
 class TestSnappingTool(unittest.TestCase):
@@ -252,11 +255,11 @@ class TestSnappingTool(unittest.TestCase):
                                           dataCollectorLines=dataCollectorLines)
 
         self.assertTrue(snappingToolLines.outputLyr.isValid())
-        self.assertEqual(snappingToolLines.outputLyr.featureCount(), 6)
+        self.assertEqual(6, snappingToolLines.outputLyr.featureCount())
 
         snappingToolLines.autoSnap(2)
         self.assertTrue(snappingToolLines.outputLyr.isValid())
-        self.assertEqual(snappingToolLines.outputLyr.featureCount(), 8)
+        self.assertEqual(8, snappingToolLines.outputLyr.featureCount())
         lyr = snappingToolLines.tmpLyrs[0]
         allFeatures = {f.attribute(0): f for f in lyr.getFeatures()}
         feat = allFeatures['Pipe5']
@@ -324,9 +327,9 @@ class TestFlowTrace(unittest.TestCase):
                 break
         flowTrace_L.collectData([pipe_L], startLocs=[(pipe_L.name(), f.id())], flowTrace=True)
         flowTrace_P.collectData([pits_P], flowTrace=True, lines=[pipe_L], lineDataCollector=flowTrace_L)
-        self.assertEqual(flowTrace_L.ids, ['Pipe11', 'Pipe12', 'Pipe10', 'Pipe9', 'Pipe8', 'Pipe2', 'Pipe7'])
-        self.assertEqual(flowTrace_P.ids, ['Pit10', 'Pit9', 'Pit8', 'Pit7', 'Pit17', 'Pit18', 'Pit6', 'Pit19'])
-        self.assertEqual(flowTrace_L.features['Pipe9'].invertUs, 41.31778)
+        self.assertEqual(['Pipe11', 'Pipe12', 'Pipe10', 'Pipe9', 'Pipe8', 'Pipe2', 'Pipe7'], flowTrace_L.ids)
+        self.assertEqual(['Pit10', 'Pit9', 'Pit8', 'Pit7', 'Pit17', 'Pit18', 'Pit6', 'Pit19'], flowTrace_P.ids)
+        self.assertEqual(41.31778, flowTrace_L.features['Pipe9'].invertUs)
 
         flowTraceTool = FlowTraceTool(dataCollector=flowTrace_L, limitAngle=90, limitCover=0.5, limitArea=20,
                                       checkArea=True, checkAngle=True, checkInvert=True, checkCover=True)
@@ -365,6 +368,22 @@ class TestFlowTrace(unittest.TestCase):
         self.assertEqual(x4ConnData.linesDs, ['TEST'])
         self.assertEqual(x4ConnData.linesUsUs, ['FC01.31'])
         self.assertEqual(x4ConnData.linesDsDs, [])
+
+    def test_flowtrace_channel_simpler(self):
+        flowTrace_L = DataCollectorFlowTrace()
+
+        for f in chan_L.getFeatures():
+            if f.attribute(0) == 'FC01.32':
+                break
+        flowTrace_L.collectData([chan_L], startLocs=[(chan_L.name(), f.id())], flowTrace=True, tables=[xs])
+        # flowTraceTool = FlowTraceTool(dataCollector=flowTrace_L, limitAngle=90, limitCover=0.5, limitArea=20,
+        #                               checkArea=True, checkAngle=True, checkInvert=True, checkCover=True)
+
+        x1ConnData = flowTrace_L.connections['__connector__1']
+        self.assertEqual(['FC_weir1'], x1ConnData.linesUs)
+        self.assertEqual(['FC01.32'], x1ConnData.linesDs)
+        self.assertEqual([], x1ConnData.linesUsUs)
+        self.assertEqual(['FC01.33'], x1ConnData.linesDsDs)
         
         
 

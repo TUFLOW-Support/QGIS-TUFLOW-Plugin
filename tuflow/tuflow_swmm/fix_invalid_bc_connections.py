@@ -7,7 +7,10 @@ except ImportError:
     gpd = None
 import math
 import numpy as np
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pass
 from pathlib import Path
 
 try:
@@ -26,10 +29,11 @@ from tuflow.tuflow_swmm.gis_list_layers import get_gis_layers
 from tuflow.tuflow_swmm.layer_util import increment_layer, read_and_concat_layers
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
-pd.set_option('display.max_columns', 500)
-pd.set_option('display.max_rows', 50)
-pd.set_option('display.width', 300)
-pd.set_option('max_colwidth', 100)
+if pd is not None:
+    pd.set_option('display.max_columns', 500)
+    pd.set_option('display.max_rows', 50)
+    pd.set_option('display.width', 300)
+    pd.set_option('max_colwidth', 100)
 
 
 def last_segment_vector_normalized(row):
@@ -194,6 +198,7 @@ def move_inflow_nodes(
                                                      gdf_bc_inflows_extensions['geometry_inflows'])
     columns_to_drop = set(gdf_bc_inflows_extensions.columns) - set(gdf_bc_inflows.columns)
     gdf_bc_inflows_extensions = gdf_bc_inflows_extensions.drop(columns=columns_to_drop)
+    gdf_bc_inflows_extensions.set_geometry('geometry', crs=gdf_new_junctions.crs)
 
     return gdf_bc_inflows_extensions
 
@@ -277,6 +282,8 @@ def fix_invalid_bc_connections_gdf(
 
     TODO Add tool
     """
+    if pd is None:
+        feedback.reportError('Pandas is required to run fix_invalid_bc_connections_gdf().', fatalError=True)
     # dictionary with return information
     output_info = {}
 
@@ -530,13 +537,17 @@ def fix_invalid_bc_connections(input_gpkg,
     # Remove output geopackage if exists
     Path(output_gpkg).unlink(missing_ok=True)
 
+    out_crs = None
+
     if 'Nodes--Junctions' in get_gis_layers(input_gpkg):
         gdf_junctions = gpd.read_file(input_gpkg, layer='Nodes--Junctions')
+        out_crs = gdf_junctions.crs
     else:
         gdf_junctions = None
 
     if 'Nodes--Storage' in get_gis_layers(input_gpkg):
         gdf_storage = gpd.read_file(input_gpkg, layer='Nodes--Storage')
+        out_crs = gdf_storage.crs
     else:
         gdf_storage = None
 
@@ -598,8 +609,9 @@ def fix_invalid_bc_connections(input_gpkg,
         output_info['Modified_outfalls'].to_file(output_gpkg, layer='Nodes--Outfalls')
     if output_info['Modified_conduits'] is not None:
         output_info['Modified_conduits'].to_file(output_gpkg, layer='Links--Conduits')
-    if output_info['Modified_bc_inflows'] is not None:
-        output_info['Modified_bc_inflows'].to_file(output_gpkg, layer='BC--Inflows')
+    if output_info['Modified_bc_inflows'] is not None and len(output_info['Modified_bc_inflows']) > 0:
+        gdf_out = gpd.GeoDataFrame(output_info['Modified_bc_inflows'], geometry='geometry', crs=out_crs)
+        gdf_out.to_file(output_gpkg, layer='BC--Inflows')
 
     # Only modified bc files (not None) need to be written
     if output_info['Modified_bc_connections'] is not None:
@@ -634,7 +646,7 @@ if __name__ == '__main__':
     output_connection_file_and_layernames = [
         increment_layer(x, y) for x, y in zip(bc_connections_filenames, bc_connections_layernames)
     ]
-    print(output_connection_file_and_layernames)
+    #print(output_connection_file_and_layernames)
 
     fix_invalid_bc_connections(swmm_gpkg,
                                out_gpkg,

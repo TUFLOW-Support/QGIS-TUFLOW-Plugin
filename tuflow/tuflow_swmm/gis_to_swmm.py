@@ -16,7 +16,10 @@ try:
 except ImportError:
     pass  # defaulted to false
 import os
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 try:
     from shapely.geometry import Point, MultiPoint
@@ -125,6 +128,12 @@ def gis_to_swmm(gpkg_filename,
                 feedback=ScreenProcessingFeedback()):
     if not has_shapely:
         feedback.reportError('Shapely not installed and is required for function: gis_to_swmm().',
+                             fatalError=True)
+    if pd is None:
+        feedback.reportError('Pandas not installed and is required for function: gis_to_swmm().',
+                             fatalError=True)
+    if not has_gpd:
+        feedback.reportError('Geopandas not installed and is required for function: gis_to_swmm().',
                              fatalError=True)
 
     folder = Path(gpkg_filename).parent
@@ -314,8 +323,9 @@ def gis_to_swmm(gpkg_filename,
                     df_tags['Object_type'] = tag_table_type[section.name]
                     df_tags = df_tags[['Object_type', df_section.columns[0], 'Tag']]
                     df_tags['Tag'] = df_tags['Tag'].str.strip()
-                    df_tags = df_tags[~(df_tags['Tag'].isin(['', 'None', None]))]
+                    df_tags = df_tags[~(df_tags['Tag'].isin(['', 'None', 'nan', None]))]
                     df_tags = df_tags.dropna(subset=['Tag'])
+                    # print(df_tags)
                     if len(df_tags) > 0:
                         dfs_tags.append(df_tags)
 

@@ -9,7 +9,10 @@ from qgis.core import (QgsFeature,
                        QgsField,
                        QgsPoint,
                        )
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 from qgis.PyQt.QtCore import QVariant
 
@@ -63,6 +66,11 @@ def get_junction_atts(features_junctions,
                       no_ponding_for_subcatch_nodes,
                       ymax_from_inlet_elev,
                       feedback=ScreenProcessingFeedback()):
+    if pd is None:
+        message = ('This tool requires pandas: to install please follow instructions on the following webpage: '
+                   'https://wiki.tuflow.com/QGIS_Intallation_with_OSGeo4W')
+        feedback.reportError(message)
+        return
     if not has_gpd:
         message = ('This tool requires geopandas: to install please follow instructions on the following webpage: '
                    'https://wiki.tuflow.com/QGIS_Intallation_with_OSGeo4W')

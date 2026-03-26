@@ -3,7 +3,10 @@ import threading
 from collections import OrderedDict
 from pathlib import Path
 
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    from ..pt.pytuflow._outputs.pymesh.stubs import pandas as pd
 
 lock = threading.Lock()
 
@@ -29,7 +32,7 @@ class ArrSettings(metaclass=Singleton):
         self.preburst_percentile = 'median'
         self.use_nsw_prob_neutral_losses = False
         self.limb_option = None
-        self.limb_recalc_pb_ratios = False  # in code but no option to turn this on in interface at the moment
+        self.limb_recalc_pb_ratios = True  # in code but no option to turn this on in interface at the moment
         self.loss_method = '60min'
         self.mar = 0.
         self.static_loss = 0.

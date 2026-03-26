@@ -2,13 +2,18 @@ import os
 
 # os.environ['USE_PYGEOS'] = '0'
 
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 from pathlib import Path
 
 from swmm_to_gis import swmm_to_gpkg
 from gis_to_swmm import gis_to_swmm
 
 if __name__ == "__main__":
+    if pd is None:
+        raise ImportError('pandas is required')
     pd.set_option('display.max_columns', 500)
     # pd.set_option('display.max_rows', 500)
     pd.set_option('display.width', 200)

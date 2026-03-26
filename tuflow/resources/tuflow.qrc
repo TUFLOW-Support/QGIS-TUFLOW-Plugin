@@ -7,5 +7,29 @@
     <file>../icons/cross_section.svg</file>
     <file>../icons/vertical_profile.svg</file>
     <file>../icons/question.svg</file>
+    <file>../icons/console.svg</file>
+    <file>../icons/folder.svg</file>
+  </qresource>
+  <qresource prefix="tuflow-plugin">
+    <file>../icons/mouse-left-button.svg</file>
+    <file>../icons/mouse-right-button.svg</file>
+    <file>../icons/draw.svg</file>
+    <file>../icons/plus.svg</file>
+    <file>../tuflow_viewer_v2/flow_regime/culvert_flow_regime_A.png</file>
+    <file>../tuflow_viewer_v2/flow_regime/culvert_flow_regime_B.png</file>
+    <file>../tuflow_viewer_v2/flow_regime/culvert_flow_regime_C.png</file>
+    <file>../tuflow_viewer_v2/flow_regime/culvert_flow_regime_D.png</file>
+    <file>../tuflow_viewer_v2/flow_regime/culvert_flow_regime_E.png</file>
+    <file>../tuflow_viewer_v2/flow_regime/culvert_flow_regime_F.png</file>
+    <file>../tuflow_viewer_v2/flow_regime/culvert_flow_regime_G.png</file>
+    <file>../tuflow_viewer_v2/flow_regime/culvert_flow_regime_H.png</file>
+    <file>../tuflow_viewer_v2/flow_regime/culvert_flow_regime_J.png</file>
+    <file>../tuflow_viewer_v2/flow_regime/culvert_flow_regime_K.png</file>
+    <file>../tuflow_viewer_v2/flow_regime/culvert_flow_regime_L.png</file>
+  </qresource>
+  <qresource prefix="version-manager">
+    <file>../tfversion_manager/images/available_versions.png</file>
+    <file>../tfversion_manager/images/locations.png</file>
+    <file>../tfversion_manager/images/release_directory.png</file>
   </qresource>
 </RCC>

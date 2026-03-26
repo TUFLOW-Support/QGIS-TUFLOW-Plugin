@@ -1,0 +1,14 @@
+0:#efefef
+2:#ffffff
+3:#cacaca
+5:#b8b8b8
+6:#000000
+9:#ffffff
+10:#efefef
+12:#308cc6
+13:#ffffff
+14:#0000ff
+15:#ff00ff
+18:#ffffdc
+19:#000000
+20:#000000

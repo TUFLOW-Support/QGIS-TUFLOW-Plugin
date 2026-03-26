@@ -1,6 +1,7 @@
 has_gpd = False
 try:
     import geopandas as gpd
+    import pandas as pd
 
     has_gpd = True
 except ImportError:
@@ -8,7 +9,6 @@ except ImportError:
 import h5py
 import numpy as np
 from osgeo import ogr
-import pandas as pd
 from pathlib import Path
 import datetime
 import sqlite3

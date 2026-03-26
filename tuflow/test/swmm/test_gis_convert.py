@@ -9,7 +9,7 @@ try:
 except ImportError:
     from pathlib_ import Path_ as Path
 
-from test.swmm.test_files import get_compare_path, get_output_path, get_input_full_filenames
+from tuflow.test.swmm.test_files import get_compare_path, get_output_path, get_input_full_filenames
 
 from tuflow.tuflow_swmm.gis_to_swmm import gis_to_swmm
 from tuflow.tuflow_swmm.swmm_to_gis import swmm_to_gpkg

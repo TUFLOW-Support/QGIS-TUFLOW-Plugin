@@ -1,6 +1,10 @@
-import geopandas as gpd
 import numpy as np
-import pandas as pd
+try:
+    import geopandas as gpd
+    import pandas as pd
+except ImportError:
+    gpd = None
+    pd = None
 try:
     import shapely
     from shapely import LineString
@@ -22,6 +26,9 @@ def convert_nonoutfall_sx_to_hx_gdfs(
 ) -> gpd.GeoDataFrame:
     if not has_shapely:
         feedback.reportError('Shapely not installed and is required for function: convert_nonoutfall_sx_to_hx().',
+                             fatalError=True)
+    if gpd is None or pd is None:
+        feedback.reportError('Pandas and GeoPandas not installed and are required for function: convert_nonoutfall_sx_to_hx().',
                              fatalError=True)
 
     feedback.pushInfo(f'Number of SWMM Nodes: {len(gdf_swmm_nodes)}.')
@@ -65,7 +72,7 @@ def convert_nonoutfall_sx_to_hx_gdfs(
         gdf_nodes_cn_sx['Name'] = ''
         gdf_nodes_cn_sx['Type'] = 'CN'
         gdf_nodes_cn_sx['Flags'] = ''
-        gdf_nodes_cn_sx.loc[:, ['f', 'd', 'td', 'a', 'b']] = None
+        gdf_nodes_cn_sx.loc[:, ['f', 'd', 'td', 'a', 'b']] = np.nan
 
         gdf_new_cn = gdf_nodes_cn_sx[['Type', 'Flags', 'Name', 'f', 'd', 'td', 'a', 'b', 'geometry']].copy(deep=True)
         feedback.pushInfo(f'Adding {len(gdf_new_cn)} new CN lines to connect converted HX polylines.')

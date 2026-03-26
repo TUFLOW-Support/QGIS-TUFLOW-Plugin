@@ -1076,9 +1076,16 @@ from .forms.ui_tuflowqgis_run_tf_simple import *
 
 class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 	def __init__(self, iface, project):
-		QDialog.__init__(self)
+		from .gui.alg.tuflow_version_parameter import TuflowVersionWidget
+		from .tfversion_manager import tuflow_binaries
+
+		super().__init__(iface.mainWindow())
 		self.iface = iface
 		self.setupUi(self)
+		self.tfversion_widget = TuflowVersionWidget()
+		self.tuflow_version_layout.addWidget(self.tfversion_widget)
+		if os.name == 'nt':
+			self.label_linux_warning.hide()
 		self.tfsettings = TF_Settings()
 		project_loaded = False
 		
@@ -1103,12 +1110,17 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 		if not project_loaded:
 			QMessageBox.information( self.iface.mainWindow(),"Information", "Project not loaded using last saved location.")
 			
-		self.TUFLOW_exe.setText(tfexe)
+		# self.TUFLOW_exe.setText(tfexe)
+		versions = sorted(tuflow_binaries.version2bin.keys(), reverse=True)
+		default = versions[0] if versions else None
+		prev_value = QSettings().value('tuflow_plugin/run_simple/tfversion', default)
+		if prev_value and prev_value in versions:
+			self.tfversion_widget.value = prev_value
 		
 		#QObject.connect(self.browsetcffile, SIGNAL("clicked()"), self.browse_tcf)
 		self.browsetcffile.clicked.connect(self.browse_tcf)
 		#QObject.connect(self.browseexe, SIGNAL("clicked()"), self.browse_exe)
-		self.browseexe.clicked.connect(self.browse_exe)
+		# self.browseexe.clicked.connect(self.browse_exe)
 		#QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), self.run)
 		# self.buttonBox.accepted.connect(self.run)
 		self.pbCancel.clicked.connect(self.reject)
@@ -1120,8 +1132,10 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 		if (len(files) > 0):
 			files.sort(key=os.path.getmtime, reverse=True)
 			self.tcfin = files[0]
+		self.tcfin = QSettings().value('tuflow_plugin/run_simple/tcf', self.tcfin)
 		if (len(self.tcfin)>3):
 			self.tcf.setText(self.tcfin)
+
 
 		self.prog_inc = 0
 		self.progressText.hide()
@@ -1144,8 +1158,7 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 	def browse_tcf(self):
 		# Get the file name
 		inFileName = QFileDialog.getOpenFileName(self, 'Select TUFLOW Control File', self.runfolder,
-		                                         "All Supported Formats (*.tcf *.fvc *.TCF *.FVC);;"
-		                                         "TCF (*.tcf *.TCF);;FVC (*.fvc *.FVC)")
+		                                         "TCF (*.tcf *.TCF)")
 		inFileName = inFileName[0]
 		if len(inFileName) == 0: # If the length is 0 the user pressed cancel 
 			return
@@ -1213,16 +1226,32 @@ class tuflowqgis_run_tf_simple_dialog(QDialog, Ui_tuflowqgis_run_tf_simple):
 		self._kill_run = True
 
 	def run(self):
+		from .tfversion_manager import tuflow_binaries
+
 		tcf = unicode(self.tcf.displayText()).strip()
-		tfexe = unicode(self.TUFLOW_exe.displayText()).strip()
+		QSettings().setValue('tuflow_plugin/run_simple/tcf', tcf)
+
+		if not self.tfversion_widget.value:
+			self.on_error('No TUFLOW version selected')
+			return
+		if self.tfversion_widget.value not in tuflow_binaries:
+			self.on_error('No TUFLOW executable found for selected version')
+			return
+		tfexe = tuflow_binaries[self.tfversion_widget.value]
+		QSettings().setValue('tuflow_plugin/run_simple/tfversion', self.tfversion_widget.value)
+
 		capture_output = self.cbCaptureOutput.isChecked()
-		if capture_output:
+		if capture_output or os.name != 'nt':
+			print('here')
 			self.progressText.setText('TUFLOW Running')
 			self.progressText.show()
 			self.pbKillRun.show()
+		add_args = []
+		if self.cb_case_insensitive.isChecked():
+			add_args = ['-cs1']
 		self.prog_inc = 0
 		self._kill_run = False
-		self.run_tuflow = RunTuflow(tfexe, tcf, capture_output, self.update)
+		self.run_tuflow = RunTuflow(tfexe, tcf, capture_output, self.update, add_args)
 		self.run_tuflow.finished.connect(self.on_finish)
 		self.run_tuflow.error.connect(self.on_error)
 		self.run_tuflow.run()
@@ -2044,7 +2073,17 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 
 		self.pbCCEdit.clicked.connect(self.editCC)
 
+		old_method_checked = QSettings().value('TUFLOW/ARR_IL_CC_method', True, type=bool)
+		self.rb_scale_burst_il.setChecked(old_method_checked)
+		self.rb_scale_storm_il.setChecked(not old_method_checked)
+		self.rb_scale_burst_il.toggled.connect(self.cc_il_method_changed)
+		self.rb_scale_storm_il.toggled.connect(self.cc_il_method_changed)
+
 		self.sizeDialog()
+
+	def cc_il_method_changed(self, checked):
+		old_method_checked = self.rb_scale_burst_il.isChecked()
+		QSettings().setValue('TUFLOW/ARR_IL_CC_method', old_method_checked)
 
 	def editCC(self):
 		dlg = ARRCCDialog(self, self.cc_scen)
@@ -2666,7 +2705,7 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			            '-limb', limb,
 						'-all_point_tp', all_point_tp, '-add_areal_tp', add_areal_tp,
 						'-cc', self.cc, '-cc_param', self.cc_param,
-						'-cc_use_old_il', str(self.cb_cc_il_old_method.isChecked())]
+						'-cc_use_old_il', str(self.rb_scale_burst_il.isChecked())]
 			self.arr2016.append(sys_args, name_list[i])
 			
 		self.arr2016.moveToThread(self.thread)

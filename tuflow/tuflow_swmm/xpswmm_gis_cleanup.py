@@ -1,4 +1,7 @@
-import geopandas as gpd
+try:
+    import geopandas as gpd
+except ImportError:
+    gpd = None
 from pathlib import Path
 try:
     from shapely.ops import snap
@@ -21,6 +24,9 @@ def bc_layer_processing(bc_filename: str,
     """
     if not has_shapely:
         feedback.reportError('Shapely not installed and is required for function: bc_layer_processing().',
+                             fatalError=True)
+    if gpd is None:
+        feedback.reportError('Geopandas not installed and is required for function: bc_layer_processing().',
                              fatalError=True)
 
     bc_path = Path(bc_filename)

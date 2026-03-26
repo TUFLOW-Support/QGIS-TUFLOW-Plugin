@@ -10,7 +10,6 @@ The imported files will be saved into the relevant location in the project direc
 
 1. **Project Folder**: The location of the project folder or empty directory. This is the parent TUFLOW folder. This will be automatically populated if the create project tool has been run.
 2. **Empty Type**: The available empty types available for import.
-3. **Geometry Type**: The geometry type of the input file. This will determine what geometry is assigned to the empty files on import.
 4. **Run ID**: Custom name that will be given to the imported files. The file name will have the following convention `<empty_type>_<run_id>_<geometry_type>`. E.g. `2d_code_CatchA_R`.
 5. **Overwrite Output if Exists**: If checked, will overwrite any existing layers if they already exist. If unchecked, will skip those layers and not import them.
 6. **GPKG Export Options**: only applicable if the empty files are GPKG format. This option dictates how the tool will import GPKG layers:

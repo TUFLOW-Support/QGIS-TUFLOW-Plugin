@@ -6,7 +6,10 @@ import typing
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    from ..pt.pytuflow._outputs.pymesh.stubs import pandas as pd
 
 pdv = pd.__version__.split('.')
 if len(pdv) == 3:
@@ -211,6 +214,7 @@ class CCScenario:
         self.init_loss_f = 1
         self.cont_loss_f = 1
         self.init_losses_a = pd.DataFrame()  # array
+        self.pb_depth = pd.DataFrame()  # array
 
     def param_to_string(self) -> str:
         return (f'Horizon {self.horizon}; SSP {self.ssp}; Baseline change {self.baseline}; '
@@ -230,6 +234,7 @@ class CCScenario:
         self.init_loss = init_loss * self.init_loss_f
         self.cont_loss = cont_loss * self.cont_loss_f
         self.init_losses_a = ilb * self.init_loss_f  # initial loss array
+        self.pb_depth = self.init_loss - self.init_losses_a
 
     def calc_losses_with_ratios(self, init_loss: float, cont_loss: float, pb_ratio: pd.DataFrame, tp_region: str):
         from tuflow.ARR2016.preburst import CONV2AEP
@@ -240,8 +245,8 @@ class CCScenario:
         rf = self.rf.copy()
         rf.columns = [CONV2AEP[x] for x in rf.columns]
         rf = rf.reindex_like(pb_ratio)
-        pb_depth = rf * pb_ratio
-        self.init_losses_a = self.init_loss - pb_depth  # initial loss array
+        self.pb_depth = rf * pb_ratio
+        self.init_losses_a = self.init_loss - self.pb_depth  # initial loss array
         self.extend_loss_array()
 
     def extend_loss_array(self):
@@ -264,6 +269,7 @@ class CCScenario:
         ilb_complete = extend_array_aep(b_com_aep, rf_aep_names, ilb_complete)
         self.init_losses_a = ilb_complete
         self.init_losses_a = pd.DataFrame(self.init_losses_a, index=rf_duration, columns=rf_aep_names)
+        self.pb_depth = self.init_loss - self.init_losses_a
 
     def _get_delta_temp(self) -> float:
         if self.temp_change == -1:

@@ -111,7 +111,7 @@ def get_line_offset_from_point(point: Point,
     pt1 = mid_offset + perm_norm * (width * 0.5)
     pt2 = mid_offset - perm_norm * (width * 0.5)
 
-    print(pt1)
-    print(pt2)
+    #print(pt1)
+    #print(pt2)
 
     return LineString([pt1[0], pt2[0]])

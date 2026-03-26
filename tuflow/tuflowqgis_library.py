@@ -733,14 +733,18 @@ class RunTuflow(QObject):
     error = pyqtSignal(str)
     finished = pyqtSignal(str)
 
-    def __init__(self, tfexe, runfile, capture_output, callback):
+    def __init__(self, tfexe, runfile, capture_output, callback, add_args = ()):
         super().__init__()
         self.capture_output = capture_output
         self.callback = callback
+        self.add_args = add_args
         self.tfexe = tfexe
         self.runfile = runfile
         self.isfv = Path(tfexe).stem.lower() == 'tuflowfv'
-        self.args = [tfexe, '-b', runfile] if not self.isfv else [tfexe, runfile]
+        self.args = [tfexe, '-b'] if not self.isfv else [tfexe, runfile]
+        if self.add_args:
+            self.args.extend(list(self.add_args))
+        self.args.append(runfile)
         self.proc = None
         self.timer = None
         self.stdout = []
@@ -760,6 +764,16 @@ class RunTuflow(QObject):
                 self.timer.start()
                 self.proc = subprocess.Popen(self.args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                              creationflags=subprocess.CREATE_NO_WINDOW, cwd=cwd)
+            elif os.name != 'nt':
+                with subprocess.Popen(self.args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=0,
+                                      universal_newlines=True) as self.proc:
+                    for line in self.proc.stdout:
+                        print(line.strip('\n'))
+                        if self.callback:
+                            kill_proc = self.callback(False)
+                            if kill_proc:
+                                self.proc.terminate()
+                self.callback(True)
             else:
                 self.proc = subprocess.Popen(self.args, cwd=cwd)
         except:

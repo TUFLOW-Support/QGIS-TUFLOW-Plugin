@@ -5,7 +5,10 @@ from datetime import datetime
 import numpy as np
 from math import log10
 import matplotlib as mpl
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    from ..pt.pytuflow._outputs.pymesh.stubs import pandas as pd
 
 mpl.use('qt5agg')
 import matplotlib.pyplot as plt

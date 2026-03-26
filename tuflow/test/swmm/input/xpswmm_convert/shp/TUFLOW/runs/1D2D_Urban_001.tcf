@@ -1,29 +1,29 @@
 Check MI Save Date == OFF
-MI Projection == ..\model\mi\1D2D_Urban_001_proj.mif
-SHP Projection == ..\model\gis\1D2D_Urban_001_proj.shp
-TIF Projection == ..\model\grid\ubran_grid_1d2d.tif
+MI Projection == ../model/mi/1D2D_Urban_001_proj.mif
+SHP Projection == ../model/gis/1D2D_Urban_001_proj.shp
+TIF Projection == ../model/grid/ubran_grid_1d2d.tif
 
 MI Projection Check == WARNING
 
-BC Database == ..\bc_dbase\1D2D_Urban_001_2d_bc_db.csv
+BC Database == ../bc_dbase/1D2D_Urban_001_2d_bc_db.csv
 
-BC Control File == ..\model\1D2D_Urban_001.tbc
-Geometry Control File == ..\model\1D2D_Urban_001.tgc
+BC Control File == ../model/1D2D_Urban_001.tbc
+Geometry Control File == ../model/1D2D_Urban_001.tgc
 
 Timestep (s) == 1.000000
 Timestep == 1.000000
-Read GIS PO == ..\model\gis\1D2D_Urban_001_2d_po_P.shp
-Read GIS PO == ..\model\gis\1D2D_Urban_001_2d_po_L.shp
+Read GIS PO == ../model/gis/1D2D_Urban_001_2d_po_P.shp
+Read GIS PO == ../model/gis/1D2D_Urban_001_2d_po_L.shp
 
 Cell Wet/Dry Depth == 0.002000
-Read GIS XP Nodes == ..\model\gis\1D2D_Urban_001_1d_nodes_P.shp
+Read GIS XP Nodes == ../model/gis/1D2D_Urban_001_1d_nodes_P.shp
 
-Read Materials File == ..\model\1D2D_Urban_001_Mat.csv
+Read Materials File == ../model/1D2D_Urban_001_Mat.csv
 
 !Output Directory
 Write Check Files == OFF
-Output Folder == ..\results\Output
-Log Folder == log\Log
+Output Folder == ../results/Output
+Log Folder == log/Log
 
 Simulations Log Folder == .
 
@@ -43,5 +43,5 @@ SX ZC Check == OFF
 SX Storage Approach == Cell Only
 HX ZC Check == OFF
 Mass Balance Corrector == OFF
-Read Soils File == ..\model\1D2D_Urban_001.tsoilf
+Read Soils File == ../model/1D2D_Urban_001.tsoilf
 Units == Metric

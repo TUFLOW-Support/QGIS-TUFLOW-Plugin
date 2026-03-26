@@ -155,9 +155,9 @@ class SwmmXpswmmConvert(QgsProcessingAlgorithm):
                            params_gis_format,
                            feedback=model_feedback)
 
-            created_tcf_filename = Path(of) / f'runs\\{Path(tcf).name}'
+            created_tcf_filename = Path(of) / f'runs/{Path(tcf).name}'
 
-            gis_layers_filename = Path(of) / f'model\\gis\\{Path(tcf).stem}_gis_layers_1d.gpkg'
+            gis_layers_filename = Path(of) / f'model/gis/{Path(tcf).stem}_gis_layers_1d.gpkg'
         else:
             created_tcf_filename = None
             gis_layers_filename = Path(of) / f'{swmm_prefix}_gis_layers_1d.gpkg'

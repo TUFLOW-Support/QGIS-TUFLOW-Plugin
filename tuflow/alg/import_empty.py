@@ -20,6 +20,8 @@ import processing
 from processing.gui.AlgorithmDialog import AlgorithmDialog
 
 from ..utils import tuflow_plugin, ProjectConfig, empty_types_from_project_folder, empty_tooltip, EmptyCreator
+from ..gui.alg.empty_selector_parameter import EmptySelectorParameter, EmptySelectorPanel
+from ..gui.alg.project_directory_parameter import ProjectDirectoryParameter
 
 
 
@@ -41,8 +43,6 @@ class ImportEmpty_CustomDialog(AlgorithmDialog):
         super().__init__(*args)
         self.override_output_btn()
         self._project_folder = self.project_folder
-        self.empty_type_btn = self.mainWidget().wrappers['empty_type'].wrappedWidget().findChild(QToolButton)
-        self.empty_type_btn.installEventFilter(self)
         self.mainWidget().wrappers['gpkg_options'].wrappedWidget().currentIndexChanged.connect(self.gpkg_option_changed)
 
     def eventFilter(self, obj, event):
@@ -153,11 +153,17 @@ class ImportEmpty_CustomDialog(AlgorithmDialog):
 
     @property
     def project_folder(self) -> str:
-        return self.mainWidget().wrappers['project_directory'].wrappedWidget().filePath()
+        try:
+            return self.mainWidget().wrappers['project_directory'].widgetValue()
+        except Exception as e:
+            return ''
 
     @project_folder.setter
     def project_folder(self, value: str):
-        self.mainWidget().wrappers['project_directory'].wrappedWidget().setFilePath(value)
+        try:
+            self.mainWidget().wrappers['project_directory'].setWidgetValue(value)
+        except Exception as e:
+            return
 
     @property
     def empty_types(self) -> list[str]:
@@ -211,43 +217,35 @@ class ImportEmpty(QgsProcessingAlgorithm):
 
     def initAlgorithm(self, config: typing.Dict[str, typing.Any] = ...) -> None:
         project = ProjectConfig.from_qgs_project()
-        if not project.name:
+        if not str(project.folder) or str(project.folder) == '.':
             project = ProjectConfig.from_global_settings()
+        if not str(project.folder) or str(project.folder) == '.':
+            folder = QSettings().value('tuflow_plugin/import_empty/project_directory', '')
+        else:
+            folder = project.folder
+        if folder:
+            folder = str(Path(folder))
 
-        # empty directory
+        # project/empty directory
         self.addParameter(
-            QgsProcessingParameterFile(
+            ProjectDirectoryParameter(
                 'project_directory', 'Project Directory / Empty Directory',
-                behavior=QgsProcessingParameterFile.Folder,
-                fileFilter='All files (*.*)',
-                defaultValue=str(project.folder) if str(project.folder) else None
+                defaultValue=str(folder) if str(project.folder) else None
             )
         )
         options = []
-        if str(project.folder):
-            options = empty_types_from_project_folder(project.folder)
-        # empty type selection
+        if str(folder) and str(folder) != '.':
+            options = empty_types_from_project_folder(folder)
+
         self.addParameter(
-            QgsProcessingParameterEnum(
+            EmptySelectorParameter(
                 'empty_type',
                 'Empty Type',
                 options=options,
-                allowMultiple=True,
-                usesStaticStrings=False,
-                defaultValue=[]
+                defaultValue=()
             )
         )
-        # geometry type
-        self.addParameter(
-            QgsProcessingParameterEnum(
-                'geometry_type',
-                'Geometry Type',
-                options=['Point', 'Line', 'Region'],
-                allowMultiple=True,
-                usesStaticStrings=False,
-                defaultValue=[]
-            )
-        )
+
         # run id
         self.addParameter(QgsProcessingParameterString('run_id', 'Run ID', multiLine=False, defaultValue=''))
         # overwrite file if existing
@@ -294,8 +292,10 @@ class ImportEmpty(QgsProcessingAlgorithm):
 
         # get parameters
         project_folder = self.parameterAsString(parameters, 'project_directory', context)
-        empty_types = parameters['empty_type']  # doesn't work with 'parameterAsEnums' because the list is dynamic i think
-        geometry_types = self.parameterAsEnums(parameters, 'geometry_type', context)
+        empty_types_param = parameters['empty_type']
+        empty_types_param = EmptySelectorPanel.parse_empty_type_string(empty_types_param)
+        empty_types = [(type_, geom) for type_ in empty_types_param for geom in empty_types_param[type_] if empty_types_param[type_][geom]]
+        # geometry_types = self.parameterAsEnums(parameters, 'geometry_type', context)
         run_id = self.parameterAsString(parameters, 'run_id', context)
         overwrite = self.parameterAsBool(parameters, 'overwrite', context)
         gpkg_export_option = self.parameterAsEnum(parameters, 'gpkg_options', context)
@@ -312,36 +312,31 @@ class ImportEmpty(QgsProcessingAlgorithm):
             project.folder = project_folder_path
             project.write_qgs_project(param='folder')
 
-        # convert paramters to something meaningful
-        empty_options = empty_types_from_project_folder(project_folder)
-        empty_types = [empty_options[x] for x in empty_types]
-
-        geometry_options = ['Point', 'Line', 'Region']
-        geometry_types = [geometry_options[x] for x in geometry_types]
-
         gpkg_export_options = ['Separate', 'Group Geometry Types', 'All to one', 'Kart Repo']
         gpkg_export_option = gpkg_export_options[gpkg_export_option]
 
-        total_steps = len(empty_types) * len(geometry_types)
+        total_steps = len(empty_types)
         feedback = QgsProcessingMultiStepFeedback(total_steps, model_feedback)
+        feedback.pushInfo(str(empty_types_param))
+        feedback.pushInfo(str(empty_types))
 
         creator = EmptyCreator(project_folder, gpkg_export_option, gpkg_folder, kart_repo, overwrite, feedback)
-        for empty_type in empty_types:
-            for geometry_type in geometry_types:
-                feedback.pushInfo(f'Creating {empty_type} {geometry_type} empty...')
-                uri, name = creator.create_empty(empty_type, geometry_type, run_id)
-                if not uri:
-                    feedback.pushWarning('Empty file already exists. Skipping...')
-                    continue
-                # results['OUTPUT'].append(name)
-                # open output file
-                alg_params = {
-                    'INPUT': uri,
-                    'NAME': name
-                }
-                processing.run('native:loadlayer', alg_params, context=context, feedback=feedback,
-                               is_child_algorithm=True)
-                feedback.setProgress(feedback.progress() + 1)
+        for empty_type, geometry_type in empty_types:
+            # for geometry_type in geometry_types:
+            feedback.pushInfo(f'Creating {empty_type} {geometry_type} empty...')
+            uri, name = creator.create_empty(empty_type, geometry_type, run_id)
+            if not uri:
+                feedback.pushWarning('Empty file already exists. Skipping...')
+                continue
+            # results['OUTPUT'].append(name)
+            # open output file
+            alg_params = {
+                'INPUT': uri,
+                'NAME': name
+            }
+            processing.run('native:loadlayer', alg_params, context=context, feedback=feedback,
+                           is_child_algorithm=True)
+            feedback.setProgress(feedback.progress() + 1)
 
         return results
 

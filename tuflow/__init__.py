@@ -23,7 +23,14 @@
 import re
 
 from qgis.core import *
+from qgis.PyQt import QtCore
 import sys
+
+from .tuflow_viewer_v2.widgets.tv_plot_widget.pyqtgraph_subclass.tuflow_viewer_curve import TuflowViewerCurve
+#from .tuflow_viewer_v2.temporal_controller_widget import temporal_controller
+
+global get_viewer_instance
+get_viewer_instance = lambda: None
 
 
 def name():
@@ -55,6 +62,8 @@ def email():
 
 
 def openTuview(event, tuflowqgis):
+    if QtCore.QSettings().value('TUFLOW/UseNewTuflowViewer', False, type=bool):
+        return
     if Qgis.QGIS_VERSION_INT >= 30400:
         tuviewOpen = QgsProject().instance().readEntry("TUVIEW", "dock_opened")[0]
         if tuviewOpen == 'Open':
@@ -92,5 +101,8 @@ def classFactory(iface):
     conn = QgsProject.instance().readProject.connect(lambda event: openTuview(event, menu))
 
     menu.addLambdaConnection(conn)
+
+    global get_viewer_instance
+    from tuflow.tuflow_viewer_v2.tvinstance import get_viewer_instance
 
     return menu

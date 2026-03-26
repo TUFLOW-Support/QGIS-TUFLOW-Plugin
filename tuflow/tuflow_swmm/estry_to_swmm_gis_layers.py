@@ -18,7 +18,10 @@ except ImportError:
     pass  # defaulted to false
 
 import numpy as np
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 from pathlib import Path
 
 from tuflow.tuflow_swmm.create_swmm_section_gpkg import create_section_gdf, create_section_from_gdf
@@ -27,11 +30,12 @@ from tuflow.tuflow_swmm.gis_to_swmm import gis_to_swmm
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 from tuflow.tuflow_swmm.swmm_defaults import default_options_table, default_reporting_table
 
-pd.set_option('display.max_columns', 500)
-pd.set_option('display.max_rows', 100)
-pd.set_option('display.min_rows', 50)
-pd.set_option('display.width', 300)
-pd.set_option('max_colwidth', 100)
+if pd is not None:
+    pd.set_option('display.max_columns', 500)
+    pd.set_option('display.max_rows', 100)
+    pd.set_option('display.min_rows', 50)
+    pd.set_option('display.width', 300)
+    pd.set_option('max_colwidth', 100)
 
 # TODO
 # Handle Irregular culverts
@@ -221,6 +225,11 @@ def convert_layers(network_layers, node_layers, pit_layers, table_link_layers,
                    crs,
                    feedback=ScreenProcessingFeedback(),
                    logger=None):
+    if pd is None:
+        message = ('This tool requires pandas: to install please follow instructions on the following webpage: '
+                   'https://wiki.tuflow.com/QGIS_Intallation_with_OSGeo4W')
+        feedback.reportError(message)
+        return
     if not has_gpd:
         message = ('This tool requires geopandas: to install please follow instructions on the following webpage: '
                    'https://wiki.tuflow.com/QGIS_Intallation_with_OSGeo4W')
@@ -352,7 +361,7 @@ def convert_layers(network_layers, node_layers, pit_layers, table_link_layers,
             gdf_chan_join_nwk_P.loc[gdf_chan_join_nwk_P['Invert'] < -99998., 'Elev']
 
         # If the node doesn't have a name give one based on the channel
-        blank_rows = gdf_chan_join_nwk_P['Name'].isin(['', 'nan', 'None'])
+        blank_rows = gdf_chan_join_nwk_P['Name'].isin(['', 'nan', 'NaN', 'None']) | gdf_chan_join_nwk_P['Name'].isnull()
         gdf_chan_join_nwk_P.loc[blank_rows, 'Name'] = \
             gdf_chan_join_nwk_P.loc[blank_rows, 'ChanID'].str.cat(
                 gdf_chan_join_nwk_P.loc[blank_rows, 'NodePos'].astype(str),

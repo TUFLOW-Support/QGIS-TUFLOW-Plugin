@@ -1,6 +1,10 @@
 from enum import Enum
-import geopandas as gpd
-import pandas as pd
+try:
+    import geopandas as gpd
+    import pandas as pd
+except ImportError:
+    gpd = None
+    pd = None
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 try:
     import shapely
@@ -18,17 +22,20 @@ class BcOption(Enum):
 
 
 def find_nodes_with_bc_conn(
-        gdf_nodes: gpd.GeoDataFrame,
-        gdf_bc: gpd.GeoDataFrame,
+        gdf_nodes: 'gpd.GeoDataFrame',
+        gdf_bc: 'gpd.GeoDataFrame',
         bc_option: BcOption,
         feedback=ScreenProcessingFeedback(),
-) -> gpd.GeoDataFrame:
+) -> 'gpd.GeoDataFrame':
     """
     This function returns a GeoDataFrame containing that contains nodes with the appropriate boundaries.
     Fields: CnSide = 1 or 2 for side of CN line at the node
     """
     if not has_shapely:
         feedback.reportError('Shapely not installed and is required for function: find_nodes_with_bc_conn().',
+                             fatalError=True)
+    if pd is None or gpd is None:
+        feedback.reportError('Pandas and GeoPandas not installed and are required for function: find_nodes_with_bc_conn().',
                              fatalError=True)
     # feedback.pushInfo(f'Finding nodes with BC connections: {bc_option.name}')
 
@@ -89,10 +96,9 @@ def find_nodes_with_bc_conn(
     gdf_cn_lines_endpoints = gdf_bc_lines_endpoints[gdf_bc_lines_endpoints['Type'].str.lower() == 'cn'].copy(deep=True)
 
     # print(gdf_cn_lines_endpoints)
-    gdf_nodes_cn = gdf_nodes.sjoin(gdf_cn_lines_endpoints,
+    gdf_nodes_cn = gdf_nodes.sjoin_nearest(gdf_cn_lines_endpoints,
                                    how='left',
-                                   predicate='dwithin',
-                                   distance=0.01).copy(deep=True)
+                                   max_distance=0.01).copy(deep=True)
 
     gdf_nodes_cn['CnSide'] = gdf_nodes_cn['Side'].apply(lambda x: 1 if x == 2 else 2)
 

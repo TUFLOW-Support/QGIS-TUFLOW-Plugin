@@ -19,7 +19,10 @@ import math
 import logging
 import io
 
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    from ..pt.pytuflow._outputs.pymesh.stubs import pandas as pd
 
 from tuflow.ARR2016.ARR_TUFLOW_func_lib import *
 from tuflow.ARR2016.BOM_WebRes import Bom
@@ -1962,7 +1965,7 @@ class Arr:
                         times.append(times[-1] + dt)
                         # sort data into nice array
                         for i, tpid in enumerate(ids):
-                            if bComplete_storm and preburst_pattern_tp == 'design_burst':
+                            if bComplete_storm and preburst_pattern_tp == 'design_burst' and increments_pb:
                                 tp_number = self.Temporal.get_tp_number(tpid)
                                 increments_pb = self.Temporal.get_tp_increments(tp_number, duration, aep_bands, preburst_pattern_dur, bpreburst_dur_proportional)
                             i2 = 1
@@ -1979,10 +1982,11 @@ class Arr:
                             if self.CCF.meta.version > 2024000:
                                 for name in cc_param:
                                     cc_multip = self.CCF.get_scenario(name).rf_f.iloc[dur_ind,aep_ind]
+                                    pb_depth_cc = self.CCF.get_scenario(name).pb_depth.iloc[dur_ind, aep_ind]
                                     for i in range(nid):
                                         i2 = 1
                                         for j in range(len(increments_pb)):
-                                            cc_rf_array[i, i2] = increments_pb[j] * pb_depth / 100.
+                                            cc_rf_array[i, i2] = increments_pb[j] * pb_depth_cc / 100.
                                             i2 += 1
                                         for j in range(len(increments[i])):
                                             cc_rf_array[i, i2] = increments[i][j] * depth * cc_multip / 100

@@ -16,7 +16,10 @@ except ImportError:
     pass  # defaulted to false
 from io import StringIO
 import numpy as np
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 from pathlib import Path
 
 from tuflow.tuflow_swmm.create_swmm_section_gpkg import create_section_gdf, create_section_from_gdf
@@ -33,6 +36,8 @@ from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
 
 def create_curves_from_dfs(curve_type, curve_names, df_curves, crs):
+    if pd is None:
+        raise ImportError('Pandas is required to create curves from dataframes.')
     gdf_curves = []
 
     for curve_name, df in zip(curve_names, df_curves):
@@ -60,6 +65,8 @@ def create_curves_from_dfs(curve_type, curve_names, df_curves, crs):
 
 
 def create_hw_curves2(gdf, filename_ta_tables, crs, feedback):
+    if pd is None:
+        raise ImportError('Pandas is required to create curves from dataframes.')
     # Read in the check file looking for channels
     dfs_hw = {}  # dataframes for channel data by channel name
 
@@ -75,7 +82,7 @@ def create_hw_curves2(gdf, filename_ta_tables, crs, feedback):
                 if line.strip() == '':
                     # current table finished
                     df = pd.read_csv(StringIO(current_table_lines), sep=',', usecols=range(9), skipinitialspace=True)
-                    print(df)
+                    # print(df)
                     dfs_hw[current_table] = df
                     current_table = None
                     current_table_lines = ""
@@ -85,7 +92,7 @@ def create_hw_curves2(gdf, filename_ta_tables, crs, feedback):
     # Handle last table if one found
     if current_table is not None:
         df = pd.read_csv(StringIO(current_table_lines), sep=',', usecols=range(9), skipinitialspace=True)
-        print(df)
+        # print(df)
         dfs_hw[current_table] = df
 
     curve_names = []
@@ -94,7 +101,7 @@ def create_hw_curves2(gdf, filename_ta_tables, crs, feedback):
 
     # print(gdf['Link'])
     for _, (channel_name, *_) in gdf[['Link']].iterrows():
-        print(channel_name)
+        # print(channel_name)
 
         df_trim = dfs_hw[channel_name]
 
@@ -104,7 +111,7 @@ def create_hw_curves2(gdf, filename_ta_tables, crs, feedback):
                 'Flow Width': 'Width',
             }
         )
-        print(df_trim)
+        # print(df_trim)
 
         curve_names.append(str(channel_name))
         max_heights.append(df_trim['Height'].max())
@@ -175,6 +182,8 @@ def ConvertEstryToSwmm(check_filename,
                        reference_cell_size,
                        feedback=ScreenProcessingFeedback(),
                        ):
+    if pd is None:
+        feedback.reportError('pandas is required to run ConvertEstryToSwmm().', fatalError=True)
     # Create the curves table based upon the pit_inlet_dbase
     gdf_curves, curves_layername = pit_inlet_dbase_to_df(pit_inlet_dbase_path, crs, feedback)
 
@@ -304,7 +313,7 @@ def ConvertEstryToSwmm(check_filename,
                                   (gdf_check_nwk_n['ID'].isin(gdf_check_1d2d['Secondary_Node'].unique()))
     gdf_check_nwk_n.loc[gdf_check_nwk_n['CanSpill'], 'Surcharge'] = 0.0
 
-    print(gdf_check_nwk_n)
+    # print(gdf_check_nwk_n)
 
     gdf_check_nwk_n['Apond'] = default_pond_area
     nwk_to_junction_cols = {

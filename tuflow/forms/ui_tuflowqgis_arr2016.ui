@@ -75,7 +75,7 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>801</width>
+        <width>797</width>
         <height>1123</height>
        </rect>
       </property>
@@ -2909,20 +2909,16 @@
               <item>
                <layout class="QHBoxLayout" name="horizontalLayout_22">
                 <item>
-                 <widget class="QCheckBox" name="cb_cc_il_old_method">
+                 <widget class="QRadioButton" name="rb_scale_burst_il">
                   <property name="text">
-                   <string/>
+                   <string>Scale Burst IL (old method)</string>
                   </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="label_6">
-                  <property name="text">
-                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://docs.tuflow.com/qgis-tuflow-plugin/changelog/3.16/#arr-to-tuflow---update-to-climate-change-initial-loss-calculation&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;Use old IL calc method (prior to v3.16)&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                  </property>
-                  <property name="openExternalLinks">
+                  <property name="checked">
                    <bool>true</bool>
                   </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup</string>
+                  </attribute>
                  </widget>
                 </item>
                 <item>
@@ -2939,6 +2935,43 @@
                  </spacer>
                 </item>
                </layout>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_23">
+                <item>
+                 <widget class="QRadioButton" name="rb_scale_storm_il">
+                  <property name="text">
+                   <string>Scale Storm IL (new method)</string>
+                  </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup</string>
+                  </attribute>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacer_17">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>40</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <widget class="QLabel" name="label_cc_il_options">
+                <property name="text">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://docs.tuflow.com/qgis-tuflow-plugin/changelog/2026.0.0/#arr-to-tuflow---update-to-climate-change-initial-loss-options&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;More details on IL options&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="openExternalLinks">
+                 <bool>true</bool>
+                </property>
+               </widget>
               </item>
              </layout>
             </widget>
@@ -7270,4 +7303,7 @@
  </customwidgets>
  <resources/>
  <connections/>
+ <buttongroups>
+  <buttongroup name="buttonGroup"/>
+ </buttongroups>
 </ui>

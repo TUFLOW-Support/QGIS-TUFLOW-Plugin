@@ -2,6 +2,7 @@ import itertools
 import numpy as np
 import os
 import pandas as pd
+import platform
 from pathlib import Path
 import subprocess
 import unittest
@@ -16,7 +17,8 @@ except ImportError:
 
 from tuflow.tuflow_swmm.estry_to_swmm_gis_layers import convert_layers
 from tuflow.tuflow_swmm.estry_to_swmm import array_from_csv, hw_curve_from_xz
-from test.swmm.test_files import get_compare_path, get_input_full_filenames
+from tuflow.test.swmm.test_files import get_compare_path, get_input_full_filenames
+from tuflow.test.swmm.compare_options import do_git_diff
 
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_rows', 50)
@@ -49,6 +51,8 @@ def get_output_filenames(test_name):
     folder = os.path.dirname(__file__)
 
     output_filename = os.path.join(folder, "output", test_name)
+    if not Path(output_filename).exists():
+        Path(output_filename).mkdir(parents=True)
     external_gpkg_filename = f'{output_filename}_ext'
     output_filename = output_filename + '.gpkg'
     external_gpkg_filename = external_gpkg_filename + '.gpkg'
@@ -68,17 +72,23 @@ class TestEstryConvert(unittest.TestCase):
             text2 = f2.readlines()
             # print(text1)
             # print(text2)
-            subprocess.run(['C:\\Program Files\\git\\cmd\\git.exe',
-                            'diff',
-                            '--no-index',
-                            '--ignore-space-at-eol',
-                            first, second], shell=True)
+            current_os = platform.system().lower()
+            if current_os == "windows" and do_git_diff:
+                subprocess.run(['C:/Program Files/git/cmd/git.exe',
+                                'diff',
+                                '--no-index',
+                                '--ignore-space-at-eol',
+                                first, second], shell=True)
 
             self.assertEqual(len(text1), len(text2))
             for line_num, (l1, l2) in enumerate(zip(text1, text2)):
                 self.assertEqual(l1, l2, msg=f'Line: {line_num + 1}')
 
     def compare_geopackage_files(self, first, second):
+        print(f'Comparing: {first} {second}')
+        self.assertTrue(Path(first).exists(), 'File1 does not exist')
+        self.assertTrue(Path(second).exists(), 'File2 does not exist')
+        
         df1 = gpd.read_file(first)
         df2 = gpd.read_file(second)
 
@@ -90,7 +100,7 @@ class TestEstryConvert(unittest.TestCase):
         res_array = array_from_csv(
             get_input_full_filenames(
                 [
-                    'bg\\TC_B_0930.csv'
+                    'bg/TC_B_0930.csv'
                 ]
             )[0],
             ['x', 'z'],
@@ -109,7 +119,7 @@ class TestEstryConvert(unittest.TestCase):
         res_array = array_from_csv(
             get_input_full_filenames(
                 [
-                    'bg\\TC_B_0930_mod.csv'
+                    'bg/TC_B_0930_mod.csv'
                 ]
             )[0],
             ['x', 'z'],
@@ -128,7 +138,7 @@ class TestEstryConvert(unittest.TestCase):
         minval, maxval, df = hw_curve_from_xz(
             get_input_full_filenames(
                 [
-                    'bg\\TC_B_0930_mod.csv'
+                    'bg/TC_B_0930_mod.csv'
                 ]
             )[0]
         )
@@ -159,7 +169,7 @@ class TestEstryConvert(unittest.TestCase):
         )
         test_data['inlet_dbase'] = get_input_full_filenames(
             [
-                'pit_dbase\BIV_pit_dbase_001B.csv'
+                'pit_dbase/BIV_pit_dbase_001B.csv'
             ]
         )[0]
 
@@ -460,7 +470,7 @@ class TestEstryConvert(unittest.TestCase):
         ])
 
         test_data['inlet_dbase'] = get_input_full_filenames([
-            'pit_dbase\BIV_pit_dbase_001B.csv'
+            'pit_dbase/BIV_pit_dbase_001B.csv'
         ])[0]
 
         (test_data['swmm_out_filename'],

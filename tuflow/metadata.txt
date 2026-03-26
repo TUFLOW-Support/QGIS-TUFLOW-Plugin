@@ -6,14 +6,14 @@
 [general]
 name=TUFLOW
 qgisMinimumVersion=3.6
-qgisMaximumVersion=4.0
+qgisMaximumVersion=4.99
 supportsQt6=yes
 description=A collection of utilities for TUFLOW flood and coastal simulation in QGIS
 about=A collection of utilities for TUFLOW flood and coastal simulation in QGIS.
       Includes visualisation of results / inputs
       Editing tools
       Styling tools
-version=3.18.1
+version=2026.0.0
 author=Phillip Ryan, Ellis Symons, Pavlina Monhartova
 email=support@tuflow.com
 

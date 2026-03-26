@@ -1,6 +1,10 @@
-import geopandas as gpd
 from itertools import chain
-import pandas as pd
+try:
+    import geopandas as gpd
+    import pandas as pd
+except ImportError:
+    gpd = None
+    pd = None
 from pathlib import Path
 
 from tuflow.tuflow_swmm.gis_list_layers import get_gis_layers
@@ -13,6 +17,9 @@ from tuflow.tuflow_swmm.swmm_sections import primary_node_sections, primary_link
 def extract_scenarios(gpkg_filenames, scenario_names, output_folder, output_prefix,
                       output_control_file_lines,
                       feedback=ScreenProcessingFeedback()):
+    if gpd is None or pd is None:
+        feedback.reportError('Geopandas and pandas are required to run extract_scenarios(). Please install these packages.',
+                             fatalError=True)
     feedback.pushInfo(f'Extracting scenarios from SWMM GPKG.')
     feedback.pushInfo(f'\n\tScenario, filename')
     scenarios_and_paths = [f'{x} {y}' for x, y in zip(scenario_names, gpkg_filenames)]
@@ -122,7 +129,7 @@ def extract_scenarios(gpkg_filenames, scenario_names, output_folder, output_pref
             feedback.pushInfo(f'\nSkipping {output_filename} (no unique components).\n')
 
     # Do messages for if statements
-    tscf_text = f'Read SWMM == SWMM\\{common_filename.with_suffix('.inp').name}\n'
+    tscf_text = f'Read SWMM == SWMM/{common_filename.with_suffix('.inp').name}\n'
 
     if_block_started = False
     for scenario, output_filename in zip(scenario_names, output_filenames):

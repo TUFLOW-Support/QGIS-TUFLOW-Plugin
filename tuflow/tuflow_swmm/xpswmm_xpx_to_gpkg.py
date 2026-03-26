@@ -5,10 +5,14 @@ from pathlib import Path
 
 import csv
 import datetime
-import geopandas as gpd
 import numpy as np
-import pandas as pd
 import re
+try:
+    import geopandas as gpd
+    import pandas as pd
+except ImportError:
+    gpd = None
+    pd = None
 try:
     from shapely.geometry import LineString, Polygon
     has_shapely = True
@@ -103,6 +107,9 @@ def xpx_to_gpkg(xpx_filename,
                 feedback=ScreenProcessingFeedback()) -> dict:
     if not has_shapely:
         feedback.reportError('Shapely not installed and is required for function: xpx_to_gpkg().',
+                             fatalError=True)
+    if gpd is None or pd is None:
+        feedback.reportError('Geopandas and pandas not installed and are required for function: xpx_to_gpkg().',
                              fatalError=True)
 
     if isinstance(gpkg_filename, str):
@@ -434,16 +441,17 @@ def xpx_to_gpkg(xpx_filename,
             continue
 
         pts.append(
-            (gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node1, 'geometry'].x,
-             gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node1, 'geometry'].y)
+            (float(gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node1, 'geometry'].x.values[0]),
+             float(gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node1, 'geometry'].y.values[0]))
         )
         if link_name in vertices:
             for vertex in vertices[link_name]:
                 pts.append(vertex)
         pts.append(
-            (gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node2, 'geometry'].x,
-             gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node2, 'geometry'].y)
+            (float(gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node2, 'geometry'].x.values[0]),
+             float(gdf_all_nodes.loc[gdf_all_nodes['Name'] == link_node2, 'geometry'].y.values[0]))
         )
+
         conduit_geom = LineString(pts)
         # If the link number is greater than one we want to have extra points to distinguish the links
         if link_num > 1:
@@ -589,17 +597,19 @@ def xpx_to_gpkg(xpx_filename,
         gdf_subs.loc[:, 'Subareas_Nimp'] = 0.02
         gdf_subs.loc[:, 'Subareas_Nperv'] = 0.05
         gdf_subs.loc[:, ['Subareas_Simp', 'Subareas_Sperv', 'Subareas_PctZero']] = 0.0
+        gdf_subs.loc[:, 'Tag'] = ''
 
         # if we have any null geometries, generate polygons around the outlet
         no_geom_catchment_size = 50.0
         null_sub_geom = gdf_subs['geometry'].isnull()
-        outlet_nodes_null_geom = gdf_subs.loc[null_sub_geom, 'Outlet']
-        new_geom = outlet_nodes_null_geom.apply(
-            lambda x: gdf_all_nodes.loc[
-                gdf_all_nodes['Name'] == x, 'geometry'
-            ].iloc[0].buffer(no_geom_catchment_size)
-        )
-        gdf_subs.loc[null_sub_geom, 'geometry'] = new_geom
+        if any(null_sub_geom):
+            outlet_nodes_null_geom = gdf_subs.loc[null_sub_geom, 'Outlet']
+            new_geom = outlet_nodes_null_geom.apply(
+                lambda x: gdf_all_nodes.loc[
+                    gdf_all_nodes['Name'] == x, 'geometry'
+                ].iloc[0].buffer(no_geom_catchment_size)
+            )
+            gdf_subs.loc[null_sub_geom, 'geometry'] = new_geom
 
     if gdf_raingages is not None:
         gdf_raingages['Form'] = 0
@@ -1234,7 +1244,7 @@ def xpx_to_gpkg(xpx_filename,
     if gdf_subs is not None:
         gdf_subs['PctSlope'] = gdf_subs['PctSlope'] * 100.0
         # infiltration
-        subs_infiltration = ~gdf_subs['Tag'].isnull()
+        subs_infiltration = gdf_subs['Tag'] != ""
         subs_tags = gdf_subs.loc[subs_infiltration, 'Tag']
         gdf_subs.loc[subs_infiltration, 'Infiltration_Method'] = subs_tags.apply(
             lambda x: infiltration_data[x]['Type'] if x in infiltration_data and
@@ -1251,7 +1261,7 @@ def xpx_to_gpkg(xpx_filename,
             )
 
         infil_types = gdf_subs.loc[subs_infiltration, 'Infiltration_Method'].unique()
-        if len(infil_types) == 1:
+        if len(infil_types) == 1 and infil_types[0] is not None:
             infiltration_type = infil_types[0]
 
         if len(gdf_subs[gdf_subs['Infiltration_Method'] == 'CURVE_NUMBER']):
@@ -1265,7 +1275,7 @@ def xpx_to_gpkg(xpx_filename,
             feedback.reportError(
                 'Infiltration options were encountered that used unsupported infiltration method. These were defaulted to '
                 'GREEN_AMPT.')
-        gdf_subs['Tag'] = None
+        gdf_subs['Tag'] = ''
 
     if do_runoff:
         raingages_intvl_minutes = gdf_raingages['IntvlType'] == 0
@@ -1924,8 +1934,9 @@ def xpx_to_gpkg(xpx_filename,
     for gdf_out, layername_out in output_gdfs:
         if gdf_out is not None and len(gdf_out) > 0:
             feedback.pushInfo(f'    Writing section: {layername_out}')
-            gdf_out.set_crs(crs)
-            gdf_out.to_file(gpkg_filename, layer=layername_out, driver='GPKG', index=False)
+            gdf_out2 = gpd.GeoDataFrame(gdf_out, geometry=gdf_out.geometry, crs=crs)
+            #gdf_out.set_crs(crs)
+            gdf_out2.to_file(gpkg_filename, layer=layername_out, driver='GPKG', index=False)
 
     swmm_io.write_tuflow_version(gpkg_filename)
 

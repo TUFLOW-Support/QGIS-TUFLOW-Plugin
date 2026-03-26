@@ -1,4 +1,6 @@
 import os
+
+import numpy as np
 from qgis.PyQt.QtCore import *
 from qgis.PyQt.QtGui import *
 from qgis.core import *
@@ -170,7 +172,7 @@ class DataCollector(QObject):
             # check if current feature is the start location - if yes start tracing upstream
             if not self.hasStarted:
                 loc = (layer.name(), f.id())
-                if loc in startLocs:
+                if loc in startLocs or not startLocs:
                     self.hasStarted = True
             
             # populate current feature information if haven't already
@@ -264,7 +266,7 @@ class DataCollector(QObject):
                         if self.isSnapped(featureData, reqFeatData):
                             # is snapped so need to work out if upstream or downstream
                             isUpstream = self.populateConnectionData(featureData, reqFeatData, lineDataCollector,
-                                                                     closestVertexToUs, closestVertexToDs)
+                                                                     closestVertexToUs, closestVertexToDs, reqInputs)
                             if self.hasStarted:
                                 if isUpstream and not lines:
                                     snappedFeatures.append(reqFeat)
@@ -375,7 +377,7 @@ class DataCollector(QObject):
 
         return featureData
 
-    def populateConnectionData(self, featData1, featData2, lineDataCollector, vDataUs, vDataDs):
+    def populateConnectionData(self, featData1, featData2, lineDataCollector, vDataUs, vDataDs, reqInputs):
         """
 
 
@@ -397,7 +399,8 @@ class DataCollector(QObject):
         # out which direction is upstream
         if featData1.feature not in self.featuresAssessed:
             if '__connector__' in featData1.id:
-                connectionData.getConnectorData(featData1, featData2, X_OBJECT.IsFirst, vDataUs=vDataUs, vDataDs=vDataDs)
+                xIn = self.getXIn(featData1, self.spatialIndexes, reqInputs)
+                connectionData.getConnectorData(featData1, featData2, X_OBJECT.IsFirst, xIn=xIn, vDataUs=vDataUs, vDataDs=vDataDs)
             elif '__connector__' in featData2.id:
                 if featData1.geomType == GEOM_TYPE.Point and featData2.geomType == GEOM_TYPE.Line:
                     connData2 = lineDataCollector.connections[featData2.id]
@@ -429,6 +432,26 @@ class DataCollector(QObject):
             return True
         else:
             return False
+
+    def getXIn(self, fData, spatial_indexes, req_inputs):
+        def is_snapped(p1, p2):
+            p1_ = np.array([p1.x(), p1.y()])
+            p2_ = np.array([p2.x(), p2.y()])
+            return np.isclose(p1_, p2_, atol=0.0001, rtol=0.).all()
+        rect = QgsRectangle(fData.startVertex, fData.startVertex).buffered(0.0001)
+        for lyr in req_inputs:
+            si = spatial_indexes[lyr.name()]
+            for fid in si.intersects(rect):
+                if fid == fData.fid:
+                    continue
+                f = lyr.getFeature(fid)
+                v1 = f.geometry().asMultiPolyline()[0][0] if f.geometry().isMultipart() else f.geometry().asPolyline()[0]
+                v2 = f.geometry().asMultiPolyline()[0][-1] if f.geometry().isMultipart() else f.geometry().asPolyline()[-1]
+                if is_snapped(fData.startVertex, v1):
+                    return True
+                elif is_snapped(fData.startVertex, v2):
+                    return False
+        return False
 
     def createRequest(self, featureData, buffer):
         """

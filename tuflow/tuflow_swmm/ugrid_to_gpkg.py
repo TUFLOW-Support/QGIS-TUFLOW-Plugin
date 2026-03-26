@@ -1,13 +1,13 @@
 has_gpd = False
 try:
     import geopandas as gpd
+    import pandas as pd
 
     has_gpd = True
 except ImportError:
     pass  # defaulted to false
 import h5py
 import numpy as np
-import pandas as pd
 from pathlib import Path
 import datetime
 try:

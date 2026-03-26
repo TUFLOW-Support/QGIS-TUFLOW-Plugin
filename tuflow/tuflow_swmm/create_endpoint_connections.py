@@ -19,12 +19,12 @@ def adjacent_conduits_exist(layer, feat, check_upstream):
     feat_att = 'From Node' if check_upstream else 'To Node'
     adj_att = 'To Node' if check_upstream else 'From Node'
 
-    print(feat_att)
-    print(adj_att)
+    #print(feat_att)
+    #print(adj_att)
 
     common_node = feat.attribute(feat_att)
     check_text = f'"{adj_att}" = \'{common_node}\''
-    print(check_text)
+    #print(check_text)
 
     # if check_upstream:
     #     adj_features = layer.getFeatures(QgsFeatureRequest().setFilterExpression(

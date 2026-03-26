@@ -59,7 +59,8 @@ def create_and_load_incremented_layer(
         dlg: IncrementLayerDialogBase,
         on_success: Callable[[QgsVectorLayer, str], None] = None
 ) -> None:
-    if dlg.result() == QT_DIALOG_ACCEPTED:
+    iface = tuflow_plugin().iface
+    if dlg.result() == QDialog.Accepted:
         for _ in dlg.iter():
             if not dlg.out_file().parent.exists():
                 dlg.out_file().parent.mkdir(parents=True, exist_ok=True)

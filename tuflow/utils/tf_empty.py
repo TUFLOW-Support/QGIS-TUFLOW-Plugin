@@ -159,9 +159,9 @@ class EmptyCreator:
 
     def geom_to_uri(self, geom: str) -> str:
         d = {
-            'Point': 'point',
-            'Line': 'linestring',
-            'Region': 'polygon'
+            'P': 'point',
+            'L': 'linestring',
+            'R': 'polygon'
         }
         return d.get(geom, '')
 
@@ -292,7 +292,7 @@ class EmptyCreator:
             self.feedback.pushInfo('Successfully Loaded layer')
 
         # output stuff
-        out_name = f'{empty_type}_{run_id}{suffix}_{self.geom_suffix(geom)}'
+        out_name = f'{empty_type}_{run_id}{suffix}_{geom}'
         out_db = self.out_database_name(out_name, solver)
         if self.feedback:
             self.feedback.pushInfo(f'Output file: {out_db}')

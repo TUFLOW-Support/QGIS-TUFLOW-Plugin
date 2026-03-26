@@ -459,11 +459,14 @@ class IncrementDbLyrDialog(IncrementLayerDialogBase, Ui_IncrementDbLyrDialog):
 
     def _output_data_source(self, row: int) -> str:
         src = self.output_layer_table.item(row, 0)
-        if not src or not src.checkState() == QT_CHECKED:
-            return
         dst = self.output_layer_table.item(row, 1)
-        dst = dst.text() if dst is not None else src.text()
-        return f'{Path(self.output_database).as_posix()}|layername={dst}'
+        if not src or not dst:
+            return
+        if src.checkState() == Qt.Checked:
+            if dst.text():
+                return f'{Path(self.output_database).as_posix()}|layername={dst.text()}'
+            else:
+                return f'{Path(self.output_database).as_posix()}|layername={src.text()}'
 
     def copy_text(self, text: str) -> None:
         QApplication.clipboard().setText(text)

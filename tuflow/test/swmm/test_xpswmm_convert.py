@@ -1,5 +1,7 @@
 import math
+import os
 import pandas as pd
+import platform
 import shutil
 import subprocess
 import unittest
@@ -11,7 +13,8 @@ try:
 except ImportError:
     from pathlib_ import Path_ as Path
 
-from test.swmm.test_files import get_compare_path, get_input_path, get_output_path, get_input_full_filenames
+from tuflow.test.swmm.test_files import get_compare_path, get_input_path, get_output_path, get_input_full_filenames
+from tuflow.test.swmm.compare_options import do_git_diff
 
 from tuflow.tuflow_swmm.xpswmm_xpx_convert import convert_xpswmm
 from tuflow.tuflow_swmm.xpswmm_gis_cleanup import bc_layer_processing
@@ -33,13 +36,18 @@ class TestXpswmmConvert(unittest.TestCase):
             text2 = f2.readlines()
             # print(text1)
             # print(text2)
-            subprocess.run(['C:\\Program Files\\git\\cmd\\git.exe',
-                            'diff',
-                            '--no-index', first, second], shell=True)
+            current_os = platform.system().lower()
+            if current_os == "windows" and do_git_diff:
+                subprocess.run(['C:/Program Files/git/cmd/git.exe',
+                                'diff',
+                                '--no-index', first, second], shell=True)
 
             self.assertEqual(len(text1), len(text2))
             for line_num, (l1, l2) in enumerate(zip(text1, text2)):
-                self.assertEqual(l1, l2, msg=f'Line: {line_num + 1}')
+                # we want to ignore differences in / and \\ make all \\ /
+                l1_mod = l1.replace('\\', '/')
+                l2_mod = l2.replace('\\', '/')
+                self.assertEqual(l1_mod, l2_mod, msg=f'Line: {line_num + 1}')
 
     def compare_gpkg_file(self, filename_gpkg, layername):
         json_file = filename_gpkg.with_suffix('.geojson')
@@ -58,7 +66,7 @@ class TestXpswmmConvert(unittest.TestCase):
 
     def test_all_in_one(self):
         # copy the files into a new folder
-        test_folder = 'xpswmm_convert\\all_in_one_gpkg\\'
+        test_folder = 'xpswmm_convert/all_in_one_gpkg/'
         input_folder = Path(get_input_path(test_folder))
         output_folder = Path(get_output_path(test_folder))
 
@@ -71,14 +79,14 @@ class TestXpswmmConvert(unittest.TestCase):
 
         base_output_folder = Path(get_output_path(''))
         xpx_filename = input_folder / '1D2D_Urban_001.xpx'
-        tcf_filename_in = output_folder / 'TUFLOW\\runs\\1D2D_Urban_001.tcf'
-        tcf_filename_out = output_folder / 'TUFLOW\\runs\\1D2D_Urban_001_~e1~.tcf'
+        tcf_filename_in = output_folder / 'TUFLOW/runs/1D2D_Urban_001.tcf'
+        tcf_filename_out = output_folder / 'TUFLOW/runs/1D2D_Urban_001_~e1~.tcf'
         swmm_prefix = 'urban'
         crs = 'EPSG:32760'
 
         output_folder_1donly = '' # not used
         default_event_name = 'event1'
-        gis_layers_filename = output_folder / 'TUFLOW\\model\\gis\\1d2d_urban_gis_layers_001.gpkg'
+        gis_layers_filename = output_folder / 'TUFLOW/model/gis/1d2d_urban_gis_layers_001.gpkg'
 
         convert_xpswmm(output_folder_1donly,
                        xpx_filename,
@@ -96,14 +104,14 @@ class TestXpswmmConvert(unittest.TestCase):
         tcf_compare = Path(get_compare_path(tcf_filename_out.relative_to(base_output_folder)))
         self.compare_files(tcf_filename_out, tcf_compare)
 
-        tbc_relative = 'TUFLOW\\model\\1D2D_Urban_001.tbc'
+        tbc_relative = 'TUFLOW/model/1D2D_Urban_001.tbc'
         tbc_compare = Path(get_compare_path(test_folder + tbc_relative))
         tbc_output = Path(get_output_path(test_folder + tbc_relative))
         self.compare_files(tbc_compare, tbc_output)
 
     def test_multiple_gpkg(self):
         # copy the files into a new folder
-        test_folder = 'xpswmm_convert\\multiple_gpkg\\'
+        test_folder = 'xpswmm_convert/multiple_gpkg/'
         input_folder = Path(get_input_path(test_folder))
         output_folder = Path(get_output_path(test_folder))
 
@@ -118,11 +126,11 @@ class TestXpswmmConvert(unittest.TestCase):
         output_folder_1donly = ''  # not used
         base_output_folder = Path(get_output_path(''))
         xpx_filename = output_folder / '1D2D_Urban_001.xpx'
-        tcf_filename_in = output_folder / 'TUFLOW\\runs\\1D2D_Urban_001.tcf'
-        tcf_filename_out = output_folder / 'TUFLOW\\runs\\1D2D_Urban_001_~e1~.tcf'
+        tcf_filename_in = output_folder / 'TUFLOW/runs/1D2D_Urban_001.tcf'
+        tcf_filename_out = output_folder / 'TUFLOW/runs/1D2D_Urban_001_~e1~.tcf'
         swmm_prefix = 'urban'
         crs = 'EPSG:32760'
-        gis_layers_filename = output_folder / 'TUFLOW\\model\\gis\\1d2d_urban_gis_layers_001.gpkg'
+        gis_layers_filename = output_folder / 'TUFLOW/model/gis/1d2d_urban_gis_layers_001.gpkg'
 
         convert_xpswmm(output_folder_1donly, xpx_filename, tcf_filename_in, swmm_prefix, 'HPC', 'GPU',
                        default_event_name, 10, 1.0, gis_layers_filename, crs)
@@ -131,14 +139,14 @@ class TestXpswmmConvert(unittest.TestCase):
         tcf_compare = Path(get_compare_path(tcf_filename_out.relative_to(base_output_folder)))
         self.compare_files(tcf_filename_out, tcf_compare)
 
-        tbc_relative = 'TUFLOW\\model\\1D2D_Urban_001.tbc'
+        tbc_relative = 'TUFLOW/model/1D2D_Urban_001.tbc'
         tbc_compare = Path(get_compare_path(test_folder + tbc_relative))
         tbc_output = Path(get_output_path(test_folder + tbc_relative))
         self.compare_files(tbc_compare, tbc_output)
 
     def test_shp(self):
         # copy the files into a new folder
-        test_folder = 'xpswmm_convert\\shp\\'
+        test_folder = 'xpswmm_convert/shp/'
         output_folder = Path(get_output_path(test_folder))
 
         skip_delete = False
@@ -152,11 +160,11 @@ class TestXpswmmConvert(unittest.TestCase):
         output_folder_1donly = ''  # not used
         base_output_folder = Path(get_output_path(''))
         xpx_filename = output_folder / '1D2D_Urban_001.xpx'
-        tcf_filename_in = output_folder / 'TUFLOW\\runs\\1D2D_Urban_001.tcf'
-        tcf_filename_out = output_folder / 'TUFLOW\\runs\\1D2D_Urban_001_~e1~.tcf'
+        tcf_filename_in = output_folder / 'TUFLOW/runs/1D2D_Urban_001.tcf'
+        tcf_filename_out = output_folder / 'TUFLOW/runs/1D2D_Urban_001_~e1~.tcf'
         swmm_prefix = 'urban'
         crs = 'EPSG:32760'
-        gis_layers_filename = output_folder / 'TUFLOW\\model\\gis\\1d2d_urban_gis_layers_001.gpkg'
+        gis_layers_filename = output_folder / 'TUFLOW/model/gis/1d2d_urban_gis_layers_001.gpkg'
 
         convert_xpswmm(output_folder_1donly, xpx_filename, tcf_filename_in, swmm_prefix, 'HPC', 'GPU',
                        default_event_name, 10, 1.0, gis_layers_filename, crs)
@@ -165,14 +173,14 @@ class TestXpswmmConvert(unittest.TestCase):
         tcf_compare = Path(get_compare_path(tcf_filename_out.relative_to(base_output_folder)))
         self.compare_files(tcf_filename_out, tcf_compare)
 
-        tbc_relative = 'TUFLOW\\model\\1D2D_Urban_001.tbc'
+        tbc_relative = 'TUFLOW/model/1D2D_Urban_001.tbc'
         tbc_compare = Path(get_compare_path(test_folder + tbc_relative))
         tbc_output = Path(get_output_path(test_folder + tbc_relative))
         self.compare_files(tbc_compare, tbc_output)
 
 
     def test_gis_processing_remove_sx_layer(self):
-        test_folder = 'xpswmm_convert\\gis_processing\\'
+        test_folder = 'xpswmm_convert/gis_processing/'
         output_folder = Path(get_output_path(test_folder))
 
         bc_in_filename = get_input_full_filenames([f'{test_folder}bc_processing_test.gpkg'])[0]
@@ -191,7 +199,7 @@ class TestXpswmmConvert(unittest.TestCase):
                                              bc_out_layername))
 
     def test_gis_processing_keep_non_sx(self):
-        test_folder = 'xpswmm_convert\\gis_processing\\'
+        test_folder = 'xpswmm_convert/gis_processing/'
         output_folder = Path(get_output_path(test_folder))
 
         bc_in_filename = get_input_full_filenames([f'{test_folder}bc_processing_test.gpkg'])[0]
@@ -212,7 +220,7 @@ class TestXpswmmConvert(unittest.TestCase):
         self.compare_gpkg_file(bc_out_filename, bc_out_layername)
 
     def test_gis_processing_snap_L(self):
-        test_folder = 'xpswmm_convert\\gis_processing\\'
+        test_folder = 'xpswmm_convert/gis_processing/'
         output_folder = Path(get_output_path(test_folder))
 
         bc_in_filename = get_input_full_filenames([f'{test_folder}bc_processing_test.gpkg'])[0]

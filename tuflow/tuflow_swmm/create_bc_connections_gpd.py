@@ -1,4 +1,7 @@
-import geopandas as gpd
+try:
+    import geopandas as gpd
+except ImportError:
+    gpd = None
 
 try:
     from shapely import get_coordinates
@@ -26,6 +29,9 @@ def fill_bc_data(row,
                  feedback: any):
     if not has_shapely:
         feedback.reportError('Shapely not installed and is required for function: fill_bc_data().',
+                             fatalError=True)
+    if gpd is None:
+        feedback.reportError('Geopandas not installed and is required for function: fill_bc_data().',
                              fatalError=True)
 
     if outfall_connections:
