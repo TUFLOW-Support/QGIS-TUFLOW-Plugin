@@ -87,7 +87,7 @@ def df_to_swmm_section(df: 'pd.DataFrame',
         'TRANSECTS',
     ]
     if title.upper() not in sections_to_not_sort:
-        df = df.sort_values(str(df.columns[0]), kind='stable')
+        df = df.sort_values(str(df.columns[0]), kind='stable', key=lambda col: col.str.casefold())
 
     # Write section title
     section += f'[{title.upper()}]\n'

@@ -21,6 +21,7 @@ except ImportError:
 from tuflow.tuflow_swmm import swmm_io
 from tuflow.tuflow_swmm import swmm_sections
 from tuflow.tuflow_swmm.create_swmm_section_gpkg import create_section_gdf
+from tuflow.tuflow_swmm.swmm_sanitize import make_capitalization_consistent
 from tuflow.tuflow_swmm.swmm_sections import swmm_section_definitions
 from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 
@@ -89,6 +90,49 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
     swmm_section_list.extend(added_sections)
     swmm_section_list = [x for x in swmm_section_list if x.name not in dropped_sections]
 
+    feedback.pushInfo('\n\nEnsuring consistent capitalization for geometry sections (Nodes, Links, and Subcatchments):')
+    # Nodes
+    dfs_nodes_primary = [dfs[x] for x in swmm_sections.primary_node_sections if x in dfs]
+    node_names_series = [x['Name'] for x in dfs_nodes_primary]
+    all_node_names = pd.concat(node_names_series).to_list() if node_names_series else []
+    # For non-primary node fields make referring fields Node, From Node, To Node use base capitalization
+    node_ref_fields = ['Node', 'From Node', 'To Node']
+    for name, df in dfs.items():
+        for ref_field in node_ref_fields:
+            if ref_field in df.columns:
+                make_capitalization_consistent(df, ref_field, all_node_names)
+
+    # Links
+    link_names = []
+    for swmm_section in swmm_section_list:
+        if swmm_section.geometry == swmm_sections.GeometryType.LINKS:
+            df = dfs[swmm_section.name]
+            # don't do vertices to get names
+            if swmm_section.name == 'Vertices':
+                continue
+            if df is None:
+                continue
+            link_names += df['Name'].to_list()
+    for name, df in dfs.items():
+        if not df.empty:
+            if 'Link' in df.columns:
+                make_capitalization_consistent(df, 'Link', link_names)
+
+    # Subcatchments
+    subcatchment_names = []
+    if 'Subcatchments' in dfs.keys():
+        df = dfs['Subcatchments']
+        subcatchment_names += df['Name'].to_list()
+        for name, df in dfs.items():
+            if not df.empty:
+                if 'Subcatchment' in df.columns:
+                    make_capitalization_consistent(df, 'Subcatchment', subcatchment_names)
+
+    # Subcatchments use Outlet which can be a node or subcatchment
+    if 'Subcatchments' in dfs.keys():
+        df = dfs['Subcatchments']
+        make_capitalization_consistent(df, 'Outlet', all_node_names + subcatchment_names)
+
     feedback.pushInfo('\n\nProcessing the data...')
     # Create the point geometries
     feedback.pushInfo('Creating coordinates table')
@@ -132,20 +176,29 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
                 df_coords1['index'] = -1
                 # print(df_coords1)
                 df_coords1 = df_coords1[['Link', 'index', 'geometry']]
-                # print(df_coords1)
+                gdf_links.to_csv(f'D:/temp/swmm_to_gis_err/df_coords1_{swmm_section}.csv')
                 df_coords2 = df.merge(gdf_coords, how='left', left_on='To Node', right_on='Node')
                 df_coords2 = df_coords2[['Name', 'geometry']].rename(columns={'Name': 'Link'})
                 # want second node to be last
                 df_coords2['index'] = 999999
                 df_coords2 = df_coords2[['Link', 'index', 'geometry']]
-                # print(df_coords2)
+                gdf_links.to_csv(f'D:/temp/swmm_to_gis_err/df_coords2_{swmm_section}.csv')
 
                 dfs_exterior_pts.append(df_coords1)
                 dfs_exterior_pts.append(df_coords2)
 
     gdf_links = pd.concat([gdf_links] + dfs_exterior_pts, axis=0)
+    gdf_links.to_csv(r'D:\temp\swmm_to_gis_err\exported_conduits.csv')
     if len(gdf_links) > 0:
         gdf_links = gdf_links.sort_values(['Link', 'index'])
+        rows_null_geometry = gdf_links[gdf_links['geometry'].isna()]
+        if len(rows_null_geometry) > 0:
+            feedback.reportError(
+                f'The following links (conduits, weirs, etc) have invalid geometries. Check that the starting '
+                f'and ending nodes exist and are properly identified. Links: {",".join(rows_null_geometry['Link'])}'
+            )
+            gdf_links = gdf_links.dropna(subset='geometry')
+            gdf_links = gdf_links.groupby('Link').filter(lambda x: len(x) >= 2)
         try:
             gdf_links = gdf_links.groupby(['Link'])['geometry'].apply(lambda x: LineString(x.tolist()))
             gdf_links = gpd.GeoDataFrame(gdf_links,
@@ -155,7 +208,7 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
             feedback.reportError(
                 'Some of the Link geometry is invalid.'
                 ' Check that all links (conduits, weirs, etc) have valid to and from nodes.')
-            gdf_links = None
+            gdf_links = gdf_links
     else:
         gdf_links = None
 
@@ -549,7 +602,7 @@ if __name__ == "__main__":
     #    )
     # ]
 
-    folder = Path(r"D:\support\Arnaud")
+    folder = Path(r"D:\temp\swmm_to_gis_err")
     pattern = '*.inp'
 
     files = list(folder.glob(pattern))

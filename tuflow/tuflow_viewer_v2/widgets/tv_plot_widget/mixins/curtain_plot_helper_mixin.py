@@ -162,11 +162,18 @@ class CurtainPlotHelperMixin(PlotHelperMixin):
         maxval = shader.maximumValue()
         f = lambda x: (np.clip(x, minval, maxval) - minval) / (maxval - minval)
         stops = {f(x.value): x.color for x in shader.colorRampItemList()}
-        interpolation_method = {
-            Qgis.ShaderInterpolationMethod.Linear: 'linear',
-            Qgis.ShaderInterpolationMethod.Discrete: 'constant',
-            Qgis.ShaderInterpolationMethod.Exact: 'exact',
-        }[shader.colorRampType()]
+        if Qgis.QGIS_VERSION_INT >= 33800:
+            interpolation_method = {
+                Qgis.ShaderInterpolationMethod.Linear: 'linear',
+                Qgis.ShaderInterpolationMethod.Discrete: 'constant',
+                Qgis.ShaderInterpolationMethod.Exact: 'exact',
+            }[shader.colorRampType()]
+        else:
+            interpolation_method = {
+                0: 'linear',
+                1: 'constant',
+                2: 'exact',
+            }[shader.colorRampType()]
         return minval, maxval, stops, interpolation_method
 
     def _create_vector_painter(self, output: TuflowViewerOutput, ismax: bool, ismin: bool, only_if_updated: bool = True) -> ArrowPainter | None:

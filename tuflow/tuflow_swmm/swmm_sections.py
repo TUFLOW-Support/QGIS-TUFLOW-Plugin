@@ -37,7 +37,7 @@ primary_node_sections = {
     'Junctions',
     'Outfalls',
     'Dividers',
-    'Inflows',
+    # 'Inflows', This is a bc on existing nodes not a primary node field
     'Storage',
 }
 
@@ -49,7 +49,7 @@ primary_link_sections = {
     'Outlets',
 }
 
-# Section merges: list of tuplies (prefix, table, merge_col1, merge_col2)
+# Section merges: list of tuples (prefix, table, merge_col1, merge_col2)
 sections_to_append = {
     'Conduits': [
         ('xsec', 'XSections', 'Name', 'Link'),
@@ -100,7 +100,6 @@ tables_with_description = {
     'Timeseries',
     'Patterns',
 }
-
 
 class SwmmSection:
     name: str

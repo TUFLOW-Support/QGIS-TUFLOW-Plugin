@@ -7,7 +7,7 @@ from ...tvinstance import get_viewer_instance
 
 class PlotSourceItem:
 
-    def __init__(self, id_: str, plot_type: str, output_id: str, data_type: str, loc: str, domain: str, geom: list | tuple, is_tv_layer: bool,
+    def __init__(self, id_: str, plot_type: str, output_id: str, data_type: str, loc: str, domain: str, geom: list, is_tv_layer: bool,
                  colour: str, sel_type: str, static: bool, chan_type: str):
         self.id = id_
         self.plot_type = plot_type

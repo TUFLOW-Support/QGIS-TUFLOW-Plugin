@@ -23,30 +23,32 @@ class TemporalControllerWidget:
         self._controller = self._get_temporal_controller_dock(self.iface)
         self._cur_time = None
         if not self._controller:
+            logger.error('Could not find temporal controller.')
             return
         self._step = self._controller.findChild(QDoubleSpinBox, 'mStepSpinBox')
         if not self._step:
             logger.error('Could not find temporal controller timestep spinbox.')
-            return
         self._cbo_units = self._controller.findChild(QComboBox, 'mTimeStepsComboBox')
         if not self._cbo_units:
             logger.error('Could not find temporal controller units combobox.')
-            return
         self._start_time_edit = self._controller.findChild(QDateTimeEdit, 'mStartDateTime')
         if not self._start_time_edit:
             logger.error('Could not find temporal controller start time edit.')
-            return
         self._end_time_edit = self._controller.findChild(QDateTimeEdit, 'mEndDateTime')
         if not self._end_time_edit:
             logger.error('Could not find temporal controller end time edit.')
-            return
         self._time_slider = self._controller.findChild(QSlider, 'mAnimationSlider')
         if not self._time_slider:
+            self._time_slider = self._controller.findChild(QSlider, 'mSlider')
+        if not self._time_slider:
             logger.error('Could not find temporal controller time slider.')
-            return
         anim_controller = self._controller.findChild(QWidget, 'mAnimationController')
+        if not anim_controller:  # old versions don't have different controllers
+            anim_controller = self._controller
         self._play_btn = anim_controller.findChild(QPushButton, 'mForwardButton')
         self._pause_btn = anim_controller.findChild(QPushButton, 'mPauseButton')
+        if not self._pause_btn:
+            self._pause_btn = anim_controller.findChild(QPushButton, 'mStopButton')  # old name
         self._next_btn = anim_controller.findChild(QPushButton, 'mNextButton')
         self._rewind_btn = anim_controller.findChild(QPushButton, 'mRewindButton')
 

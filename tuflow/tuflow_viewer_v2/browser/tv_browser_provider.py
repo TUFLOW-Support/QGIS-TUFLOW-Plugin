@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from qgis.core import QgsDataItemProvider, Qgis
+from qgis.core import QgsDataItemProvider, Qgis, QgsDataProvider
 from . import TPCBrowserItem
 
 
@@ -10,7 +10,9 @@ class TVBrowserProvider(QgsDataItemProvider):
         return "TUFLOW Viewer Browser Provider"
 
     def capabilities(self):
-        return  Qgis.DataItemProviderCapability.Files
+        if Qgis.QGIS_VERSION_INT >= 33600:
+            return  Qgis.DataItemProviderCapability.Files
+        return QgsDataProvider.DataCapability.File
 
     def createDataItem(self, path, parentItem):
         if Path(path).suffix.lower() == '.tpc':

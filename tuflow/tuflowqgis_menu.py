@@ -97,11 +97,11 @@ elif pyds and sys.platform == 'win32':
         tmpdir = tempfile.mkdtemp(prefix='tuflow_refh2')
         shutil.copy(pyd, tmpdir)
         sys.path.append(tmpdir)
-        # try:
-        from refh2 import Refh2Dock
-        # except Exception as e:
-        #     refh2_errmsg = str(e)
-        #     Refh2Dock = None
+        try:
+            from refh2 import Refh2Dock
+        except Exception as e:
+            refh2_errmsg = str(e)
+            Refh2Dock = None
     else:
         refh2_errmsg = 'Unsupported Python version installed with QGIS for ReFH2 tool.\nSupported versions: Python 3.9, Python 3.12'
         Refh2Dock = None

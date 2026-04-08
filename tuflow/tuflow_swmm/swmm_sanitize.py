@@ -8,3 +8,8 @@ def sanitize_name(name_in: str) -> str:
     # Some testing in SWMM suggested these are okay
     #name_out = re.sub('[^a-zA-Z0-9_.]', '-', name_out)
     return name_out
+
+
+def make_capitalization_consistent(df, ref_field, all_node_names):
+    mapping = {name.lower(): name for name in all_node_names}
+    df[ref_field] = df[ref_field].str.lower().map(lambda x: mapping[x] if x.lower() in mapping.keys() else x)

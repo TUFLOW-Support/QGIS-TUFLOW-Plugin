@@ -260,8 +260,8 @@ THREADS             8
 13S0219             28.57
 13S0220             35.19
 13S0221             24.35
-Irr_cul.1           20.8
 ds_culvert.1        20.5
+Irr_cul.1           20.8
 
 [OUTFALLS]
 ;;Name              Elev                Type                Param1              Gated               RouteTo
@@ -272,8 +272,8 @@ ds_culvert.1        20.5
 ;;                                      TIMESERIES          Tseries             Gated               RouteTo
 ;;----------------  ----------------    ----------------    ----------------    ----------------    ----------------
 13S0184             19.85               FIXED               19.85
-Irr_cul.2           20.7                FIXED               20.7
 ds_culvert.2        20.0                FIXED               20.0
+Irr_cul.2           20.7                FIXED               20.7
 
 [CONDUITS]
 ;;Name              From Node           To Node             Length              Roughness           InOffset            OutOffset           InitFlow            MaxFlow
@@ -501,8 +501,8 @@ ds_culvert.2        20.0                FIXED               20.0
 13C0219             13S0219             13S0107             50.1                0.016               0.0                 0.0
 13C0220             13S0220             13S0015             53.2                0.016               0.0                 0.29999999999999716
 13C0221             13S0221             13S0054             28.2                0.016               0.0                 0.0
-Irr_cul             Irr_cul.1           Irr_cul.2           9.3                 0.016               0.0                 0.0
 ds_culvert          ds_culvert.1        ds_culvert.2        8.830838012223563   0.016               0.0                 0.0
+Irr_cul             Irr_cul.1           Irr_cul.2           9.3                 0.016               0.0                 0.0
 
 [LOSSES]
 ;;Link              Kentry              Kexit               Kavg                Flap                Seepage
@@ -730,8 +730,8 @@ ds_culvert          ds_culvert.1        ds_culvert.2        8.830838012223563   
 13C0219             0.5                 1.0                 0.0                 No
 13C0220             0.5                 1.0                 0.0                 No
 13C0221             0.5                 1.0                 0.0                 No
-Irr_cul             0.5                 1.0                 0.0                 No
 ds_culvert          0.5                 1.0                 0.0                 No
+Irr_cul             0.5                 1.0                 0.0                 No
 
 [XSECTIONS]
 ;;Link              XsecType            Param1              Param2              Param3              Param4              Param5              Param6
@@ -963,8 +963,8 @@ ds_culvert          0.5                 1.0                 0.0                 
 13C0219             CIRCULAR            0.9                 0.9                 0                   0                   1
 13C0220             CIRCULAR            0.375               0.375               0                   0                   1
 13C0221             RECT_CLOSED         0.9                 2.4                 0                   0                   1
-Irr_cul             CUSTOM              0.0                 0                   0                   0                   1
 ds_culvert          CIRCULAR            1.2                 1.2                 0                   0                   3
+Irr_cul             CUSTOM              0.0                 0                   0                   0                   1
 
 [STREETS]
 ;;Name              Tcrown              Hcurb               Sx                  nRoad               a                   W                   Sides               Tback               Sback               nBack
@@ -1914,8 +1914,8 @@ SUBCATCHMENTS       ALL
 13S0219             314862.83           6249733.46
 13S0220             314666.16           6250334.99
 13S0221             314967.59           6250081.45
-Irr_cul.1           315248.69           6250167.58
-Irr_cul.2           315252.13           6250173.16
 ds_culvert.1        315259.79           6250184.83
 ds_culvert.2        315264.7            6250192.17
+Irr_cul.1           315248.69           6250167.58
+Irr_cul.2           315252.13           6250173.16
 

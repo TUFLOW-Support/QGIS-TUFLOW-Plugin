@@ -22,7 +22,7 @@ if typing.TYPE_CHECKING:
 
 class SelectionItem:
 
-    def __init__(self, id_: str, geom: list | tuple, domain: str, domain_geom: str, chan_type: str,
+    def __init__(self, id_: str, geom: list, domain: str, domain_geom: str, chan_type: str,
                  is_tv_layer: bool, sel_type: str, colour: str | None, lyrid: str):
         self.id = id_
         self.geom = geom

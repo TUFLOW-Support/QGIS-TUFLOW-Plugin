@@ -171,6 +171,14 @@ def get_latest_dev_plugin_version():
 def check_python_lib(qgis):
     py_modules = ['scipy', 'numpy', 'matplotlib', 'pandas', 'pyarrow', 'fiona', 'geopandas', 'rtree', 'shapely', 'netCDF4']
     msg = OrderedDict()
+
+    # first check pytuflow
+    try:
+        from tuflow.pt import pytuflow
+        msg['pytuflow'] = pytuflow.__version__
+    except ImportError:
+        msg['pytuflow'] = 'not found'
+
     for module in py_modules:
         msg[module] = ''
         try:
