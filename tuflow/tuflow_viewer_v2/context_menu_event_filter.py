@@ -28,6 +28,8 @@ class ContextMenuEventFilter(QObject):
                 return False
 
             lyr = iface.activeLayer()
+            if lyr is None:
+                return False
             try:
                 d = json.loads(lyr.customProperty('tuflow_viewer'))
                 output = get_viewer_instance().output(d['id'])
