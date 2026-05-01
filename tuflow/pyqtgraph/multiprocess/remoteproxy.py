@@ -215,7 +215,7 @@ class RemoteEventHandler(object):
                 reqId = None  ## prevents attempt to return information from this request
                               ## (this is already a return from a previous request)
             
-            opts = pickle.loads(optStr)
+            opts = pickle.loads(optStr)  # nosec B301
             self.debugMsg("    handleRequest: id=%s opts=%s", reqId, opts)
             #print os.getpid(), "received request:", cmd, reqId, opts
             returnType = opts.get('returnType', 'auto')

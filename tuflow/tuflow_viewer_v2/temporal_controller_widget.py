@@ -100,7 +100,7 @@ class TemporalControllerWidget:
         if not self._controller:
             return self._cur_time
         try:
-            td = eval(f'timedelta({self.units}={self._time_slider.value() * self.timestep})')
+            td = timedelta(**{self.units: self._time_slider.value() * self.timestep})
         except TypeError:
             if self.units == 'months':
                 td = timedelta(days=self._time_slider.value() * self.timestep * 30)

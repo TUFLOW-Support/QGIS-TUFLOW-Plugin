@@ -176,19 +176,19 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
                 df_coords1['index'] = -1
                 # print(df_coords1)
                 df_coords1 = df_coords1[['Link', 'index', 'geometry']]
-                gdf_links.to_csv(f'D:/temp/swmm_to_gis_err/df_coords1_{swmm_section}.csv')
+                # gdf_links.to_csv(f'D:/temp/swmm_to_gis_err/df_coords1_{swmm_section}.csv')
                 df_coords2 = df.merge(gdf_coords, how='left', left_on='To Node', right_on='Node')
                 df_coords2 = df_coords2[['Name', 'geometry']].rename(columns={'Name': 'Link'})
                 # want second node to be last
                 df_coords2['index'] = 999999
                 df_coords2 = df_coords2[['Link', 'index', 'geometry']]
-                gdf_links.to_csv(f'D:/temp/swmm_to_gis_err/df_coords2_{swmm_section}.csv')
+                # gdf_links.to_csv(f'D:/temp/swmm_to_gis_err/df_coords2_{swmm_section}.csv')
 
                 dfs_exterior_pts.append(df_coords1)
                 dfs_exterior_pts.append(df_coords2)
 
     gdf_links = pd.concat([gdf_links] + dfs_exterior_pts, axis=0)
-    gdf_links.to_csv(r'D:\temp\swmm_to_gis_err\exported_conduits.csv')
+    # gdf_links.to_csv(r'D:\temp\swmm_to_gis_err\exported_conduits.csv')
     if len(gdf_links) > 0:
         gdf_links = gdf_links.sort_values(['Link', 'index'])
         rows_null_geometry = gdf_links[gdf_links['geometry'].isna()]

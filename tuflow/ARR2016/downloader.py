@@ -126,7 +126,7 @@ class DownloaderRequests(Downloader):
         return 'Requests'
 
     def download(self):
-        r = requests.get(self.url, headers=self.headers)
+        r = requests.get(self.url, headers=self.headers, timeout=20)
         self.ret_code = r.status_code
         if not r.ok:
             self.error_string = r.text

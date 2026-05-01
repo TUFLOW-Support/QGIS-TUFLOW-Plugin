@@ -158,7 +158,7 @@ def parseString(lines, start=0, **scope):
                 raise ParseError('Missing name preceding colon', ln+1, l)
             if k[0] == '(' and k[-1] == ')':  ## If the key looks like a tuple, try evaluating it.
                 try:
-                    k1 = eval(k, scope)
+                    k1 = eval(k, scope)  # nosec B307
                     if type(k1) is tuple:
                         k = k1
                 except:
@@ -166,7 +166,7 @@ def parseString(lines, start=0, **scope):
                     pass
             if re.search(r'\S', v) and v[0] != '#':  ## eval the value
                 try:
-                    val = eval(v, scope)
+                    val = eval(v, scope)  # nosec B307
                 except:
                     ex = sys.exc_info()[1]
                     raise ParseError("Error evaluating expression '%s': [%s: %s]" % (v, ex.__class__.__name__, str(ex)), (ln+1), l)

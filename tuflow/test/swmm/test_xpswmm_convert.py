@@ -40,7 +40,7 @@ class TestXpswmmConvert(unittest.TestCase):
             if current_os == "windows" and do_git_diff:
                 subprocess.run(['C:/Program Files/git/cmd/git.exe',
                                 'diff',
-                                '--no-index', first, second], shell=True)
+                                '--no-index', first, second])
 
             self.assertEqual(len(text1), len(text2))
             for line_num, (l1, l2) in enumerate(zip(text1, text2)):

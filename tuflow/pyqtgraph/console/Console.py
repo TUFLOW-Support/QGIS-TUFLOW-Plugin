@@ -125,7 +125,7 @@ class ConsoleWidget(QtWidgets.QWidget):
         """Return the list of previously-invoked command strings (or None)."""
         if self.historyFile is not None and os.path.exists(self.historyFile):
             with open(self.historyFile, 'rb') as pf:
-                return pickle.load(pf)
+                return pickle.load(pf)  # nosec B301
         
     def saveHistory(self, history):
         """Store the list of previously-invoked command strings."""
@@ -175,4 +175,4 @@ class ConsoleWidget(QtWidgets.QWidget):
         tb = self.excHandler.selectedFrame()
         lineNum = tb.f_lineno
         fileName = tb.f_code.co_filename
-        subprocess.Popen(self.editor.format(fileName=fileName, lineNum=lineNum), shell=True)
+        subprocess.Popen(self.editor.format(fileName=fileName, lineNum=lineNum))

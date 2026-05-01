@@ -11,6 +11,7 @@ from qgis.PyQt.QtWidgets import (QDockWidget, QLineEdit, QFileDialog,
 from ..forms.scs_dock import Ui_scs
 from .engine import SCS
 from ..tuflowqgis_library import (browse, makeDir)
+import ast
 from tuflow.toc.toc import tuflowqgis_find_layer
 
 
@@ -114,7 +115,8 @@ class SCSDock(QDockWidget, Ui_scs):
         select = True if self.cbSelectAllEvents.isChecked() else False
         aris = [2, 5, 10, 20, 50, 100]
         for ari in aris:
-            eval(f'self.cb{ari:03d}Year').setChecked(select)
+            cb = getattr(self, f'cb{ari:03d}Year')
+            cb.setChecked(select)
 
     def toggleSelectAllCC(self) -> None:
         """ Select or deselect All CC check boxes when toggled on / off. """
@@ -122,7 +124,8 @@ class SCSDock(QDockWidget, Ui_scs):
         selectCC = True if self.cbSelectAllEventsCC.isChecked() else False
         aris = [2, 5, 10, 20, 50, 100]
         for ari in aris:
-            eval(f'self.cb{ari:03d}YearCC').setChecked(selectCC)
+            cb = getattr(self, f'cb{ari:03d}YearCC')
+            cb.setChecked(selectCC)
 
     def createEventsList(self) -> list:
         """ Create list of events based on what is checked in the QGIS tool.
@@ -133,11 +136,11 @@ class SCSDock(QDockWidget, Ui_scs):
         eventsCC = []
         aris = [2, 5, 10, 20, 50, 100]
         for ari in aris:
-            event = eval(f'self.cb{ari:03d}Year')
+            event = getattr(self, f'cb{ari:03d}Year')
             if event.isChecked():
                 ariString = f'{ari:03d}yr'
                 events.append(ariString)
-            eventCC = eval(f'self.cb{ari:03d}YearCC')
+            eventCC = getattr(self, f'cb{ari:03d}YearCC')
             if eventCC.isChecked():
                 ariStringCC = f'{ari:03d}yrCC'
                 eventsCC.append(ariStringCC)

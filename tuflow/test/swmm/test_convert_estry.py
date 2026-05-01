@@ -78,7 +78,7 @@ class TestEstryConvert(unittest.TestCase):
                                 'diff',
                                 '--no-index',
                                 '--ignore-space-at-eol',
-                                first, second], shell=True)
+                                first, second])
 
             self.assertEqual(len(text1), len(text2))
             for line_num, (l1, l2) in enumerate(zip(text1, text2)):

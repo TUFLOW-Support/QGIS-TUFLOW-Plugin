@@ -112,7 +112,7 @@ class TuflowViewerContextMenuProvider(QMenu):
         return xml
 
     @staticmethod
-    def merge_existing_xml( doc: QDomDocument, path: str, tag: str) -> str:
+    def merge_existing_xml(doc: QDomDocument, path: str, tag: str) -> str:
         """This is so vector and scalar settings can be stored in the same xml, so don't want to necessarily
          throw out any existing settings."""
         existing = get_cached_content(path, str)
@@ -122,6 +122,7 @@ class TuflowViewerContextMenuProvider(QMenu):
             existing_elem = doc1.documentElement().elementsByTagName(tag)
             if existing_elem.count():
                 doc1.documentElement().replaceChild(doc.documentElement().elementsByTagName(tag).item(0), existing_elem.item(0))
+                doc1.documentElement().setAttribute('mapping-type', doc.documentElement().attribute('mapping-type'))
             else:
                 doc1.documentElement().appendChild(doc.documentElement().elementsByTagName(tag).item(0))
             return doc1.toString()

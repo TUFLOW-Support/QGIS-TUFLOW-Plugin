@@ -600,16 +600,13 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
                 append_number=self.rbDuplicateUseNumbers.isChecked(),
                 delimiter=self.leCustomDelim.text().strip()
             )
-            # stuff needed for eval in list comprehension
-            globs = globals()
-            locs = locals()
             createNameRuleList = [
                 CreateNameRule(
                     duplicate_rule=duplicateRule,
-                    type=eval('self.leType{0}.text().strip()'.format(x), globs, locs),
-                    prefix=eval('self.lePrefix{0}.text().strip()'.format(x), globs, locs)
+                    type=getattr(self, f'leType{x}').text().strip(),
+                    prefix=getattr(self, f'lePrefix{x}').text().strip()
                 )
-                for x in range(1, 5) if eval('self.leType{0}.text().strip()'.format(x), globs, locs)
+                for x in range(1, 5) if getattr(self, f'leType{x}').text().strip()
             ]
             createNameRuleList.append(
                 CreateNameRule(

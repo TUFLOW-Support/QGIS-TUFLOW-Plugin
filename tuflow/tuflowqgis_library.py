@@ -49,7 +49,7 @@ from typing import Tuple, List
 import matplotlib.gridspec as gridspec
 from matplotlib.quiver import Quiver
 from matplotlib.collections import PolyCollection
-import xml.etree.ElementTree as ET
+from .defusedxml import ElementTree as ET
 import colorsys
 import locale
 import codecs
@@ -3288,7 +3288,7 @@ def check1DResultsForData(tpc):
             pass
         finally:
             res.close()
-            return b
+        return b
 
     return False
 
@@ -4214,7 +4214,8 @@ def loadGisFile(iface, path, group, processed_paths, processed_layers, error, lo
                             loaded = True
                         except:
                             loaded = False
-                    assert (loaded)
+                    if not loaded:
+                        raise RuntimeError(f'Failed to load raster layer: {p}')
                     group.addLayer(lyr)
                     processed_paths.append(path)
                     processed_layers.append(lyr)
@@ -4354,7 +4355,16 @@ class LoadGisFiles(QObject):
                 continue
             self.start_layer_load.emit(lyrname)
             self.update_progress(lyrname)
-            maplyr = eval(lyr)
+            _, args = lyr.split('(', 1)
+            args, _ = args.split(')', 1)
+            args = [re.sub(r'\s*\'$', '', re.sub(r'^r?\s*\'', '', x)) for x in args.split(',')]
+            if 'QgsVectorLayer' in lyr:
+                maplyr = QgsVectorLayer(*args)
+            elif 'QgsRasterLayer' in lyr:
+                maplyr = QgsRasterLayer(*args)
+            else:
+                continue
+
             if not maplyr.isValid():
                 files_failed.append(lyrname)
                 continue
@@ -6834,11 +6844,20 @@ class Downloader(QObject):
         except Exception as e:
             self.finished.emit(str(e))
 
-    def start_with_urlib(self):
+    def _safe_urlopen(self, url: str):
+        from urllib.parse import urlparse
         from urllib.request import urlopen
 
+        parsed = urlparse(url)
+
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(f"Unsupported URL scheme: {parsed.scheme}")
+
+        return urlopen(url, timeout=30)  # nosec B310
+
+    def start_with_urlib(self):
         try:
-            with urlopen(self.packageUrl) as request:
+            with self._safe_urlopen(self.packageUrl) as request:
                 total_length = request.length
                 if os.path.isfile(self.destinationFileName):
                     os.unlink(self.destinationFileName)
@@ -6940,7 +6959,7 @@ class DownloadBinPackage(QObject):
             self.thread.setTerminationEnabled(True)
             self.thread.start()
         else:
-            r = requests.get(self.packageUrl)
+            r = requests.get(self.packageUrl, timeout=30)
             if r.status_code == requests.codes.ok and r.headers['Content-Type'] == 'application/zip':
                 if os.path.isfile(self.destinationFileName):
                     os.unlink(self.destinationFileName)
@@ -8923,7 +8942,8 @@ def getPolyCollectionData(pc, axis):
     axis options: 'x', 'y', 'scalar'
     """
 
-    assert axis.lower() in ['x', 'y', 'scalar'], "'axis' variable not one of 'x', 'y', or 'scalar'"
+    if axis.lower() not in ('x', 'y', 'scalar'):
+        raise ValueError("'axis' variable not one of 'x', 'y', or 'scalar'")
 
     if axis.lower() == 'x':
         a = numpy.array([x.vertices[:, 0] for x in pc.get_paths()])
@@ -8942,7 +8962,8 @@ def getQuiverData(qv, axis):
     axis options: 'x', 'y', 'scalar'
     """
 
-    assert axis.lower() in ['x', 'y', 'scalar'], "'axis' variable not one of 'x', 'y', or 'scalar'"
+    if axis.lower() not in ('x', 'y', 'scalar'):
+        raise ValueError("'axis' variable not one of 'x', 'y', or 'scalar'")
 
     if axis.lower() == 'x':
         a = qv.X
@@ -8962,7 +8983,8 @@ def getPolyCollectionExtents(pc, axis, empty_return=(999999, -999999)):
     empty_return: dictates what is returned if array is empty
     """
 
-    assert axis.lower() in ['x', 'y', 'scalar'], "'axis' variable not one of 'x', 'y', or 'scalar'"
+    if axis.lower() not in ('x', 'y', 'scalar'):
+        raise ValueError("'axis' variable not one of 'x', 'y', or 'scalar'")
 
     if axis.lower() == 'x':
         a = numpy.array([x.vertices[:, 0] for x in pc.get_paths()])
@@ -9000,7 +9022,8 @@ def getQuiverExtents(qv, axis, empty_return=(999999, -999999)):
     empty_return: dictates what is returned if Quiver is empty
     """
 
-    assert axis.lower() in ['x', 'y', 'scalar'], "'axis' variable not one of 'x', 'y', or 'scalar'"
+    if axis.lower() not in ('x', 'y', 'scalar'):
+        raise ValueError("'axis' variable not one of 'x', 'y', or 'scalar'")
 
     if axis.lower() == 'x':
         a = qv.X
@@ -9020,7 +9043,8 @@ def convertTimeToDate(refTime, t, unit):
     Convert time to date
     """
 
-    assert unit in ['s', 'h'], "'unit' variable not one of 's', or 'h'"
+    if unit not in ('s', 'h'):
+        raise ValueError("'unit' variable not one of 's', or 'h'")
 
     if unit == 's':
         date = refTime + timedelta(seconds=t)
@@ -9574,6 +9598,10 @@ class XMDF_Header_Info:
                         return a[0].key(), str(a[0].times()[0])
                 else:
                     a = [x for x in self._res_types if x.name() == item1]
+                    if len(a) > 1:
+                        a = [x for x in a if numpy.isclose(x.times(), float(item2), atol=0.001, rtol=0.).any()]
+                    if len(a) > 1:
+                        a = [x for x in a if len(x.times()) > 1]
                     if a:
                         for t in a[0].times():
                             if abs(t - float(item2)) < 0.001:
@@ -9620,6 +9648,8 @@ class XMDF_Res_Type:
         self._times = []
 
     def add_times(self, times):
+        if self._folder.lower() in ['maximums', 'minimums', 'final']:
+            return
         for time in times:
             if time not in self._times:
                 self._times.append(time)

@@ -1387,7 +1387,7 @@ class TuPlot2D():
 					mdb = layer.dataProvider().datasetValue(res, face)
 				else:
 					return np.nan
-			return eval("mdb.{0}()".format(restype))
+			return getattr(mdb, restype)()
 
 	def datasetValueAvgDep2(self, dp, res, v, f, avgmethod, restype, dataType):
 		"""

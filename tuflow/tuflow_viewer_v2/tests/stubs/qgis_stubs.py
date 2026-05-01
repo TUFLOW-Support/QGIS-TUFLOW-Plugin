@@ -1,16 +1,12 @@
 import sys
 import os
 
-try:
-    from PyQt5.QtCore import QSettings, QCoreApplication
-    from PyQt5.QtWidgets import QMainWindow, QApplication, QAction
-except ImportError:
-    from PyQt6.QtCore import QSettings, QCoreApplication
-    from PyQt6.QtWidgets import QMainWindow, QApplication
-    from PyQt6.QtGui import QAction
-
 from qgis.core import (QgsApplication, QgsProject, QgsLayerTreeModel, QgsMapLayer, QgsVectorLayer, QgsFeature,
                        QgsGeometry, QgsPointXY)
+
+from qgis.PyQt.QtCore import QSettings, QCoreApplication
+from qgis.PyQt.QtWidgets import QMainWindow, QApplication, QAction
+
 from qgis.gui import QgisInterface, QgsLayerTreeView, QgsMapCanvas, QgsMessageBar
 import qgis.utils
 

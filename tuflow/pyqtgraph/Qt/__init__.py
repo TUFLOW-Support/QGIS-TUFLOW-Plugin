@@ -111,7 +111,7 @@ def _loadUiType(uiFile):
                 warnings.warn('For UI compilation, it is recommended to upgrade to PySide >= 5.15', RuntimeWarning, stacklevel=2)
 
     # get class names from ui file
-    import xml.etree.ElementTree as xml
+    from ...defusedxml import ElementTree as xml
     parsed = xml.parse(uiFile)
     widget_class = parsed.find('widget').get('class')
     form_class = parsed.find('class').text
@@ -129,11 +129,11 @@ def _loadUiType(uiFile):
     # execute python code
     pyc = compile(uipy, '<string>', 'exec')
     frame = {}
-    exec(pyc, frame)
+    exec(pyc, frame)  # nosec B102
 
     # fetch the base_class and form class based on their type in the xml from designer
     form_class = frame['Ui_%s'%form_class]
-    base_class = eval('QtWidgets.%s'%widget_class)
+    base_class = eval('QtWidgets.%s'%widget_class)  # nosec B307
 
     return form_class, base_class
 

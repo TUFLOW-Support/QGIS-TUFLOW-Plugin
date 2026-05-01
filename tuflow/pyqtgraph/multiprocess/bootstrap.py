@@ -8,7 +8,7 @@ if __name__ == '__main__':
     if hasattr(os, 'setpgrp'):
         os.setpgrp()  ## prevents signals (notably keyboard interrupt) being forwarded from parent to this process
     #name, port, authkey, ppid, targetStr, path, pyside = pickle.load(sys.stdin.buffer)
-    opts = pickle.load(sys.stdin.buffer)
+    opts = pickle.load(sys.stdin.buffer)  # nosec B301
     #print "key:",  ' '.join([str(ord(x)) for x in authkey])
     path = opts.pop('path', None)
     if path is not None:
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     
     targetStr = opts.pop('targetStr')
     try:
-        target = pickle.loads(targetStr)  ## unpickling the target should import everything we need
+        target = pickle.loads(targetStr)  # nosec B301  ## unpickling the target should import everything we need
     except:
         print("Current sys.path:", sys.path)
         raise

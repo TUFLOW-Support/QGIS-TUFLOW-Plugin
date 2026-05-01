@@ -488,11 +488,19 @@ class TuContextMenu():
 		
 		return True
 
+	@staticmethod
+	def _resolve_signal_caller(path: str, context: object) -> object:
+		parts = path.split('.')
+		obj = context
+		for part in parts[1:]:
+			obj = getattr(obj, part)
+		return obj
+
 	def qgisDisconnect(self):
 		nsignals = len(self.signals)
 		for i, (signal_caller, signal) in enumerate(reversed(self.signals[:])):
 			try:
-				signal_caller = eval(signal_caller)
+				signal_caller = self._resolve_signal_caller(signal_caller, self)
 			except Exception as e:
 				pass
 			try:

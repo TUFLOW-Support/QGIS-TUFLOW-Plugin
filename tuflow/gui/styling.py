@@ -234,9 +234,9 @@ class StylingCategorized(Styling):
                         self.replace_variables(v, values, recursive)
 
     def import_(self, name) -> object:
+        import qgis.core
         cls = name.split(' ')[-1]
-        exec('from qgis.core import ' + cls)
-        return eval(cls)
+        return getattr(qgis.core, cls)
 
     def load_imports(self, properties: dict) -> None:
         for key, value in properties.copy().items():
@@ -379,7 +379,10 @@ class StylingGraduated(StylingCategorized):
             cls = self.rules['classification_method']
             renderer.setClassificationMethod(cls())
         if 'graduated_method' in self.rules:
-            enum = eval(self.rules['graduated_method'])
+            parts = self.rules['graduated_method'].split('.')
+            enum = Qgis
+            for part in parts[1:]:
+                enum = getattr(enum, part)
             renderer.setGraduatedMethod(enum)
         if renderer.graduatedMethod() == Qgis.GraduatedMethod.Size:
             min_symbol_size = self.rules.get('min_symbol_size', 0.26)

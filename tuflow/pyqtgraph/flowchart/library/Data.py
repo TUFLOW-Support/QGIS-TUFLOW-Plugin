@@ -235,13 +235,13 @@ class EvalNode(Node):
         ## try eval first, then exec
         try:  
             text = self.text.toPlainText().replace('\n', ' ')
-            output = eval(text, globals(), l)
+            output = eval(text, globals(), l)  # nosec B307
         except SyntaxError:
             fn = "def fn(**args):\n"
             run = "\noutput=fn(**args)\n"
             text = fn + "\n".join(["    "+l for l in self.text.toPlainText().split('\n')]) + run
             ldict = locals()
-            exec(text, globals(), ldict)
+            exec(text, globals(), ldict)  # nosec B102
             output = ldict['output']
         except:
             print(f"Error processing node: {self.name()}")

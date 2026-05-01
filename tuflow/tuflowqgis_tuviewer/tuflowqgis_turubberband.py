@@ -72,14 +72,14 @@ class TuRubberBand():
 				for rubberBand in self.rubberBands:
 					self.canvas.scene().removeItem(rubberBand)  # Remove previous temp layers
 				self.rubberBands = []
-				exec("self.tuPlot.{0} = False".format(self.firstTimePlotting[self.plotNo]))
+				setattr(self.tuPlot, self.firstTimePlotting[self.plotNo], False)
 			else:
 				# multi select so only clear plot if plotting for the first time
-				if eval("self.tuPlot.{0}".format(self.firstTimePlotting[self.plotNo])):  # first plot so need to remove test line
+				if getattr(self.tuPlot, self.firstTimePlotting[self.plotNo]):  # first plot so need to remove test line
 					self.clearPlot(True)
-					exec("self.tuPlot.{0} = False".format(self.firstTimePlotting[self.plotNo]))
+					setattr(self.tuPlot, self.firstTimePlotting[self.plotNo], False)
 				else:
-					exec("self.tuPlot.{0} = True".format(self.holdPlot[self.plotNo]))
+					setattr(self.tuPlot, self.holdPlot[self.plotNo], True)
 
 			# remove line vertex points regardless
 			for linePoint in self.linePoints:
@@ -287,7 +287,7 @@ class TuRubberBand():
 		self.tuPlot.tuPlot2D.multiFlowLineSelectCount = len(
 			self.rubberBands)  # force counting to match number of rubberbands
 		if self.rubberBands:  # force counting if there are rubberbands
-			exec("self.tuPlot.{0} = False".format(self.clearedPlot[self.plotNo]))
+			setattr(self.tuPlot, self.clearedPlot[self.plotNo], False)
 
 		points = kwargs['points'] if 'points' in kwargs else self.points[:]
 		if points is None:
@@ -300,29 +300,29 @@ class TuRubberBand():
 		except:
 			feat.setGeometry(QgsGeometry.fromPolyline([QgsPoint(x.x(), x.y()) for x in points]))
 
-		if eval("self.tuPlot.{0}".format(self.holdPlot[self.plotNo])):
-			if eval("self.tuPlot.{0}".format(self.clearedPlot[self.plotNo])) and \
-					eval("self.tuPlot.{0}".format(self.tuView.tuOptions.liveMapTracking)) and self.allowLiveTracking:
+		if getattr(self.tuPlot, self.holdPlot[self.plotNo]):
+			if getattr(self.tuPlot, self.clearedPlot[self.plotNo]) and \
+					self.tuView.tuOptions.liveMapTracking and self.allowLiveTracking:
 				worked = self.plotFromRubberBand(feat)
 				if not worked:
 					self.escape(QKeyEvent(QT_EVENT_KEY_PRESS, QT_KEY_ESCAPE, QT_KEY_NO_MODIFIER))
 					self.clearRubberBand()
 					return False
-				exec("self.tuPlot.{0} = False".format(self.clearedPlot[self.plotNo]))
+				setattr(self.tuPlot, self.clearedPlot[self.plotNo], False)
 			else:
 				worked = self.plotFromRubberBand(feat, bypass=True)
 				if not worked:
 					self.escape(QKeyEvent(QT_EVENT_KEY_PRESS, QT_KEY_ESCAPE, QT_KEY_NO_MODIFIER))
 					self.clearGraphics()
 					return False
-			exec("self.tuPlot.{0} = False".format(self.holdPlot[self.plotNo]))
+			setattr(self.tuPlot, self.holdPlot[self.plotNo], False)
 		else:
 			worked = self.plotFromRubberBand(feat)
 			if not worked:
 				self.escape(QKeyEvent(QT_EVENT_KEY_PRESS, QT_KEY_ESCAPE, QT_KEY_NO_MODIFIER))
 				self.clearGraphics()
 				return False
-			exec("self.tuPlot.{0} = False".format(self.clearedPlot[self.plotNo]))
+			setattr(self.tuPlot, self.clearedPlot[self.plotNo], False)
 
 		return True
 
@@ -427,19 +427,19 @@ class TuMarker():
 					self.canvas.scene().removeItem(marker)  # Remove previous temp
 				self.markers.clear()  # list of QgsVertexMarker
 				self.canvas.scene().removeItem(self.marker)  # Remove previous temp layer
-				exec("self.tuPlot.{0} = False".format(self.firstTimePlotting[self.plotNo]))
-				exec("self.tuPlot.{0} = False".format(self.holdPlot[self.plotNo]))
+				setattr(self.tuPlot, self.firstTimePlotting[self.plotNo], False)
+				setattr(self.tuPlot, self.holdPlot[self.plotNo], False)
 
 			else:  # do not clear existing plot
 
 				# multi select so only clear plot if plotting for the first time
-				if eval("self.tuPlot.{0}".format(self.firstTimePlotting[self.plotNo])):
+				if getattr(self.tuPlot, self.firstTimePlotting[self.plotNo]):
 					# self.tuPlot.clearPlot(0, retain_1d=True, retain_flow=True)
 					self.clearPlot(True, False)
-					exec("self.tuPlot.{0} = False".format(self.firstTimePlotting[self.plotNo]))
+					setattr(self.tuPlot, self.firstTimePlotting[self.plotNo], False)
 				else:
 					if self.markers:
-						exec("self.tuPlot.{0} = True".format(self.holdPlot[self.plotNo]))
+						setattr(self.tuPlot, self.holdPlot[self.plotNo], True)
 
 			# initialise markers
 			self.marker = QgsVertexMarker(self.canvas)
@@ -530,13 +530,13 @@ class TuMarker():
 		point = self.canvas.getCoordinateTransform().toMapCoordinates(x, y)
 		self.marker.setCenter(QgsPointXY(point))
 
-		if eval("self.tuPlot.{0}".format(self.holdPlot[self.plotNo])):
+		if getattr(self.tuPlot, self.holdPlot[self.plotNo]):
 			if self.tuView.tuOptions.liveMapTracking and self.allowLiveTracking:
 				worked = self.plotFromMarker(QgsPointXY(point), bypass=True)
 				if not worked:
 					self.escape({'key': QT_KEY_ESCAPE})
 					return False
-			exec("self.tuPlot.{0} = False".format(self.holdPlot[self.plotNo]))  # turn off after first signal
+			setattr(self.tuPlot, self.holdPlot[self.plotNo], False)  # turn off after first signal
 		else:
 			if self.tuView.tuOptions.liveMapTracking and self.allowLiveTracking:
 				worked = self.plotFromMarker(QgsPointXY(point))

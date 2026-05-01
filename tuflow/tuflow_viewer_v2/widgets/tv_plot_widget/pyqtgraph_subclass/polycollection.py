@@ -166,7 +166,11 @@ class PolyCollection(Polygons):
             self.maxval = np.nanmax(values)
         self.minval = src_item.qgis_data_min if src_item and src_item.qgis_data_min is not None else self.minval
         self.maxval = src_item.qgis_data_max if src_item and src_item.qgis_data_max is not None else self.maxval
-        self.values_norm = (np.clip(self.values, self.minval, self.maxval) - self.minval) / (self.maxval - self.minval)
+        # make sure there is no divide by zero
+        diff = self.maxval - self.minval
+        if diff == 0 or np.isnan(diff):
+            diff = 1
+        self.values_norm = (np.clip(self.values, self.minval, self.maxval) - self.minval) / diff
         self.colours = [self.colour_gradient.color(v) for v in self.values_norm]
         self.qpolygons = [QPolygonF([QPointF(float(px), float(py)) for px, py in poly]) for poly in self.polygons]
         if self.qpolygons:

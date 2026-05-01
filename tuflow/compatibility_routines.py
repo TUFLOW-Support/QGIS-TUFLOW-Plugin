@@ -1239,7 +1239,7 @@ class GPKG:
         cur = conn.cursor()
 
         try:
-            cur.execute(f"SELECT table_name FROM gpkg_contents;")
+            cur.execute("SELECT table_name FROM gpkg_contents;")
             res = [x[0] for x in cur.fetchall()]
         except Exception:
             pass
@@ -1260,9 +1260,9 @@ class GPKG:
 
         try:
             cur.execute(
-                f'SELECT contents.table_name FROM gpkg_contents AS contents '
-                f'  INNER JOIN gpkg_geometry_columns AS columns ON contents.table_name = columns.table_name '
-                f' WHERE columns.geometry_type_name != "GEOMETRY";'
+                'SELECT contents.table_name FROM gpkg_contents AS contents '
+                '  INNER JOIN gpkg_geometry_columns AS columns ON contents.table_name = columns.table_name '
+                ' WHERE columns.geometry_type_name != "GEOMETRY";'
             )
             res = [x[0] for x in cur.fetchall()]
         except Exception:
@@ -1284,7 +1284,7 @@ class GPKG:
 
         try:
             cur.execute(
-                f'SELECT table_name FROM gpkg_contents WHERE data_type = "2d-gridded-coverage";'
+                'SELECT table_name FROM gpkg_contents WHERE data_type = "2d-gridded-coverage";'
             )
             res = cur.fetchall()
             if res:
@@ -1310,9 +1310,9 @@ class GPKG:
 
         try:
             cur.execute(
-                f'SELECT contents.table_name FROM gpkg_contents AS contents '
-                f'  INNER JOIN gpkg_geometry_columns AS columns ON contents.table_name = columns.table_name '
-                f' WHERE columns.geometry_type_name = "GEOMETRY";'
+                'SELECT contents.table_name FROM gpkg_contents AS contents '
+                '  INNER JOIN gpkg_geometry_columns AS columns ON contents.table_name = columns.table_name '
+                ' WHERE columns.geometry_type_name = "GEOMETRY";'
             )
             res = [x[0] for x in cur.fetchall()]
         except Exception:
@@ -1326,7 +1326,10 @@ class GPKG:
         conn = sqlite3.connect(self.gpkg_path)
         cur = conn.cursor()
         try:
-            cur.execute(f"SELECT geometry_type_name FROM gpkg_geometry_columns where table_name = '{layer_name}';")
+            cur.execute(
+                "SELECT geometry_type_name FROM gpkg_geometry_columns WHERE table_name = ?;",
+                (layer_name,)
+            )
             res = [x[0] for x in cur.fetchall()][0]
         except Exception:
             pass
@@ -1346,7 +1349,7 @@ class GPKG:
         cur = conn.cursor()
         res = None
         try:
-            cur.execute(f"SELECT table_name FROM gpkg_contents WHERE table_name='{item}';")
+            cur.execute("SELECT table_name FROM gpkg_contents WHERE table_name = ?;", (item,))
             res = [x[0] for x in cur.fetchall()]
         except:
             pass

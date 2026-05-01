@@ -5866,7 +5866,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 				return
 			utilities = ['Asc2Asc', 'TUFLOW2GIS', 'Res2Res', '12da2GIS', 'Convert2TS1','Tin2Tin', 'XSGenerator']
 			i = self.cboAdvancedUtility.currentIndex()
-			leutil = eval("self.le{0}".format(utilities[i]))
+			leutil = getattr(self, "le{0}".format(utilities[i]))
 			if not leutil.text():
 				QMessageBox.critical(self, "TUFLOW Utilities", "{0} path is not specified in the Executables tab".format(self.cboAdvancedUtility.currentText()))
 				return

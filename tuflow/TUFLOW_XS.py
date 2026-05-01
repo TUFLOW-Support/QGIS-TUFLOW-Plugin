@@ -134,11 +134,10 @@ class XS_Data():
 			except:
 				self.error = True
 				self.message = 'ERROR - Unable to find '+self.col1+ ' in header.'
-			finally:
-				if self.error or not found:
-					self.error = True
-					self.message = 'ERROR - Unable to find ' + self.col1 + ' in header.'
-					return
+			if self.error or not found:
+				self.error = True
+				self.message = 'ERROR - Unable to find ' + self.col1 + ' in header.'
+				return
 		if self.col2 == None:
 			c2_ind = c1_ind + 1
 		else:
@@ -153,11 +152,10 @@ class XS_Data():
 			except:
 				self.error = True
 				self.message = 'ERROR - Unable to find '+self.col2+ ' in header.'
-			finally:
-				if self.error or not found:
-					self.error = True
-					self.message = 'ERROR - Unable to find ' + self.col2 + ' in header.'
-					return
+			if self.error or not found:
+				self.error = True
+				self.message = 'ERROR - Unable to find ' + self.col2 + ' in header.'
+				return
 		if self.flags:
 			if self.col3 == None:
 				c3_ind = c2_ind + 1
@@ -180,13 +178,7 @@ class XS_Data():
 					self.mat_type = None
 					self.col3 = None
 					self.has_mat = False
-					# self.error = True
-					# self.message = 'ERROR - Unable to find '+self.col3+ ' in header.'
-				# finally:
-				# 	if self.error or not found:
-				# 		self.error = True
-				# 		self.message = 'ERROR - Unable to find ' + self.col3 + ' in header.'
-				# 		return
+
 			if self.col4 == None:
 				c4_ind = c3_ind + 1
 			else:
@@ -201,11 +193,11 @@ class XS_Data():
 				except:
 					self.error = True
 					self.message = 'ERROR - Unable to find '+self.col4+ ' in header.'
-				finally:
-					if self.error or not found:
-						self.error = True
-						self.message = 'ERROR - Unable to find ' + self.col4 + ' in header.'
-						return
+
+				if self.error or not found:
+					self.error = True
+					self.message = 'ERROR - Unable to find ' + self.col4 + ' in header.'
+					return
 			if self.col5 == None:
 				c5_ind = c4_ind + 1
 			else:
@@ -220,11 +212,11 @@ class XS_Data():
 				except:
 					self.error = True
 					self.message = 'ERROR - Unable to find '+self.col5+ ' in header.'
-				finally:
-					if self.error or not found:
-						self.error = True
-						self.message = 'ERROR - Unable to find ' + self.col5 + ' in header.'
-						return
+
+				if self.error or not found:
+					self.error = True
+					self.message = 'ERROR - Unable to find ' + self.col5 + ' in header.'
+					return
 			if self.col6 == None:
 				c6_ind = c5_ind + 1
 			else:
@@ -239,11 +231,11 @@ class XS_Data():
 				except:
 					self.error = True
 					self.message = 'ERROR - Unable to find '+self.col6+ ' in header.'
-				finally:
-					if self.error or not found:
-						self.error = True
-						self.message = 'ERROR - Unable to find ' + self.col5 + ' in header.'
-						return
+
+				if self.error or not found:
+					self.error = True
+					self.message = 'ERROR - Unable to find ' + self.col5 + ' in header.'
+					return
 
 		with open(self.fullpath, 'r') as csvfile:
 			reader = csv.reader(csvfile, delimiter=',', quotechar='"')

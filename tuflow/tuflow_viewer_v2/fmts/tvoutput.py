@@ -5,6 +5,9 @@ from pathlib import Path
 from uuid import uuid4
 
 import numpy as np
+
+from ..tvinstance import get_viewer_instance
+
 try:
     import pandas as pd
 except ImportError:
@@ -85,8 +88,8 @@ class TuflowViewerOutput:
             if not lyr.isValid():
                 logger.error('Vector layer for {class} output not found in project: {name}'.format(**d))
                 raise ValueError('Vector layer for {class} output not found in project: {name}'.format(**d))
-        exec('from . import {0}'.format(d['class']))
-        res = eval('{class}(r"{fpath}", layers=lyrs)'.format(**d))
+        cls = get_viewer_instance().output_handlers.get(d['class'])
+        res = cls(fpath=d['fpath'], layers=lyrs)
         res.id = d['id']
         res.duplicated_outputs = [QgsProject.instance().mapLayer(x) for x in d['duplicated'] if QgsProject.instance().mapLayer(x)]
         res.copied_files = d.get('copied_files', {})
@@ -184,6 +187,7 @@ class TuflowViewerOutput:
         #     self.end_time += timedelta(seconds=self.timestep)
 
     def _set_custom_property(self, *args, **kwargs):
+        logger.debug(f'Setting custom property for {self.__class__.__name__} ({self.name})')
         for lyr in self.map_layers():
             if not lyr.customProperty('tuflow_viewer'):
                 continue

@@ -29,7 +29,7 @@ class GPKG:
         cur = conn.cursor()
 
         try:
-            cur.execute(f"SELECT table_name FROM gpkg_contents;")
+            cur.execute("SELECT table_name FROM gpkg_contents;")
             res = [x[0] for x in cur.fetchall()]
         except Exception:
             pass

@@ -484,6 +484,8 @@ class ProjectConfig:
         for in_file in template_folder.glob('**/*.*'):
             rel_path = os.path.relpath(in_file, template_folder)
             out_file = self.folder / self._replace_variables(str(rel_path))
+            if Path(out_file.stem).suffix in ['.bat', '.ps1']:
+                out_file = out_file.with_suffix('')
             with in_file.open() as fi:
                 if out_file.exists():
                     continue

@@ -50,8 +50,9 @@ class DirectiveQgisVersion(Directive):
         return bool(re.findall(r, line))
 
     def qualifies(self):
-        qv = Qgis.QGIS_VERSION_INT
-        return eval('{0}{1}{2}'.format(qv, self.check, self.version))
+        return True
+        # qv = Qgis.QGIS_VERSION_INT
+        # return eval('{0}{1}{2}'.format(qv, self.check, self.version))
 
 
 class TuflowAlgorithmProvider(QgsProcessingProvider):

@@ -127,7 +127,7 @@ class TuflowViewer(QObject):
 
         # plot window
         self._plot_windows = {}  # store open plot windows so they can be closed if the tool is unloaded
-        self._action_plot_window = QAction(self.icon('time_series', QgsApplication.instance().themeName()),
+        self._action_plot_window = QAction(self.icon('time_series', True),
                                            'TUFLOW Viewer Plot Window', self.iface.mainWindow())
         self._action_plot_window.triggered.connect(self._create_plot_window)
         if insert_before_action:
@@ -245,6 +245,7 @@ class TuflowViewer(QObject):
         theme_name = self.theme.theme_name
         if use_qgis_theme:
             theme_name = QgsApplication.instance().themeName()
+            theme_name = theme_name if theme_name else 'Light'
             if theme_name == 'Default':
                 theme_name = 'Light'
         theme_dir = dir_ / theme_name
@@ -388,7 +389,18 @@ class TuflowViewer(QObject):
             return None
         try:
             d = json.loads(serialized)
-            return self.output(d.get('id'))
+            output = self.output(d.get('id'))
+            if output:
+                return output
+
+            # some functions (restore default style) can cause this to break (annoyingly)
+            # try and repair
+            for id_, output_ in self._outputs.copy().items():
+                for layer_ in output_.map_layers():
+                    if layer_ == layer:
+                        output_._set_custom_property()  # this should set it back to what it should be
+                        return output_
+            return None
         except json.JSONDecodeError:
             return None
 
@@ -514,8 +526,11 @@ class TuflowViewer(QObject):
                     self._logger.info(f'Removing output from TUFLOW Viewer: {output}')
                     removed_outputs.append(output.id)
                     output.close()
-                    del self._outputs[output_id]
-                    QgsProject.instance().removeEntry('tuflow_viewer', f'output/{output_id}')
+                    popped = self._outputs.pop(output_id, None)
+                    if not popped:
+                        self._logger.warning(f'Something has gone wrong, the ID of the output being removed does not match and ID within TUFLOW Viewer: {output}')
+                    else:
+                        QgsProject.instance().removeEntry('tuflow_viewer', f'output/{output_id}')
 
         if removed_outputs:
             self.configure_temporal_controller()
@@ -549,10 +564,16 @@ class TuflowViewer(QObject):
             self.start_time = start_time
 
         if start_time is not None:
-            for output in self._outputs.values():
+            for key, output in self._outputs.copy().items():
                 if not output.has_reference_time:
                     output.reference_time = start_time
-                    output.init_temporal_properties()
+                    try:
+                        output.init_temporal_properties()
+                    except RuntimeError:
+                        self._logger.warning(
+                            f'An output is no longer present in QGIS. Most likely it was not removed correctly '
+                            f'from TUFLOW Viewer due to a previous warning/error: {output}')
+                        self._outputs.pop(key, None)
 
         end_time = [output.end_time for output in self._outputs.values() if output.end_time is not None]
         if end_time:

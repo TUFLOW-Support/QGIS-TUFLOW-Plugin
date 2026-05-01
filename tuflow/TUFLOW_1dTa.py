@@ -36,7 +36,7 @@ class HydTableData():
 					            flags=re.IGNORECASE)  # displayname
 					self.displayName  = '{0}_1d_ta'.format(self.displayName)
 				elif 'section' in line.lower():
-					a = re.split('[\[\] ]', line)  # split by [ ] and space
+					a = re.split(r'[\[\] ]', line)  # split by [ ] and space
 					self.xsNos.append(a[1])
 					self.xsSources.append(a[-2])
 					self.xsNames.append(os.path.basename(a[-2]))
@@ -113,7 +113,7 @@ class HydTableData():
 						self.xsBeds.append(bed)
 						break  # break data block loop
 				elif 'channel' in line.lower():
-					a = re.split('[\(\) ]', line)  # split by ( ) and space
+					a = re.split(r'[\(\) ]', line)  # split by ( ) and space
 					self.channelNames.append(a[1])
 					xs = []
 					intp = []

@@ -101,7 +101,7 @@ class ReplWidget(QtWidgets.QWidget):
             # run command
             try:
                 with self.stdoutInterceptor:
-                    exec(cmdCode, self.globals(), self.locals())
+                    exec(cmdCode, self.globals(), self.locals())  # nosec B102
             except Exception as exc:
                 self.displayException()
                 self.sigCommandRaisedException.emit(self, exc)

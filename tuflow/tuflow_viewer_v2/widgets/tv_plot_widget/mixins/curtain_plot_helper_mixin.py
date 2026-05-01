@@ -160,7 +160,10 @@ class CurtainPlotHelperMixin(PlotHelperMixin):
     def _extract_shader_info(self, shader: QgsColorRampShader) -> tuple[float, float, dict, str]:
         minval = shader.minimumValue()
         maxval = shader.maximumValue()
-        f = lambda x: (np.clip(x, minval, maxval) - minval) / (maxval - minval)
+        diff = maxval - minval
+        if diff == 0 or np.isnan(diff):
+            diff = 1
+        f = lambda x: (np.clip(x, minval, maxval) - minval) / diff
         stops = {f(x.value): x.color for x in shader.colorRampItemList()}
         if Qgis.QGIS_VERSION_INT >= 33800:
             interpolation_method = {

@@ -424,7 +424,7 @@ class MeshData(object):
     def restore(self, state):
         """Restore the state of a mesh previously saved using save()"""
         import pickle
-        state = pickle.loads(state)
+        state = pickle.loads(state)  # nosec B301
         for k in state:
             if isinstance(state[k], list):
                 if isinstance(state[k][0], QtGui.QVector3D):

@@ -15,6 +15,16 @@ GisLayerType = typing.Union['QgsVectorLayer', 'ogr.Layer']
 GisFeatureType = typing.Union['QgsFeature', 'ogr.Feature']
 
 
+import re
+
+_VALID_IDENTIFIER = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_\s\\-]*$")
+
+def _safe_identifier(name: str) -> str:
+    if not _VALID_IDENTIFIER.match(name):
+        raise ValueError(f"Invalid SQL identifier: {name}")
+    return '"' + name.replace('"', '""') + '"'
+
+
 @dataclass
 class Pos:
     x: float = field(default=None)
@@ -410,12 +420,8 @@ class ResData_GPKG(ResData):
             try:
                 self.open_db()
                 self._cur.execute(
-                    'SELECT'
-                    ' Count '
-                    'FROM'
-                    ' Timeseries_info '
-                    'WHERE'
-                    ' Table_name = "{0}" LIMIT 1;'.format(self.gis_point_layer_name)
+                    'SELECT Count FROM Timeseries_info WHERE Table_name = ? LIMIT 1;',
+                    (self.gis_point_layer_name,)
                 )
                 ret = self._cur.fetchone()
                 if ret:
@@ -442,12 +448,8 @@ class ResData_GPKG(ResData):
             try:
                 self.open_db()
                 self._cur.execute(
-                    'SELECT'
-                    ' Count '
-                    'FROM'
-                    ' Timeseries_info '
-                    'WHERE'
-                    ' Table_name = "{0}" LIMIT 1;'.format(self.gis_line_layer_name)
+                    'SELECT Count FROM Timeseries_info WHERE Table_name = ? LIMIT 1;',
+                    (self.gis_line_layer_name,)
                 )
                 ret = self._cur.fetchone()
                 if ret:
@@ -473,12 +475,8 @@ class ResData_GPKG(ResData):
             try:
                 self.open_db()
                 self._cur.execute(
-                    'SELECT'
-                    ' Count '
-                    'FROM'
-                    ' Timeseries_info '
-                    'WHERE'
-                    ' Table_name = "{0}" LIMIT 1;'.format(self.gis_region_layer_name)
+                    'SELECT Count FROM Timeseries_info WHERE Table_name = ? LIMIT 1;',
+                    (self.gis_region_layer_name,)
                 )
                 ret = self._cur.fetchone()
                 if ret:
@@ -583,9 +581,10 @@ class ResData_GPKG(ResData):
     def timestep_interval(self, layer_name: str, result_type: str) -> float:
         try:
             self.open_db()
-            sql = 'SELECT dt FROM Timeseries_info WHERE Table_name = "{0}" and "Column_name" = "{1}";'.format(
-                layer_name, result_type)
-            self._cur.execute(sql)
+            self._cur.execute(
+                'SELECT dt FROM Timeseries_info WHERE Table_name = ? AND "Column_name" = ?;',
+                (layer_name, result_type)
+            )
             try:
                 step = float(self._cur.fetchone()[0])
             except (TypeError, IndexError):
@@ -595,7 +594,7 @@ class ResData_GPKG(ResData):
             step = 0.
         finally:
             self.close_db()
-            return step
+        return step
 
     def timeSteps(self, zero_time=None):
         if self._timesteps is not None:
@@ -613,7 +612,7 @@ class ResData_GPKG(ResData):
         finally:
             self.close_db()
             self._timesteps = timesteps
-            return self._timesteps
+        return self._timesteps
 
     def lineResultTypesLP(self) -> typing.List[str]:
         types = []
@@ -657,7 +656,8 @@ class ResData_GPKG(ResData):
         y = []
         try:
             self.open_db()
-            for row in self._cur.execute('SELECT "{0}" FROM "{1}" WHERE ID = "{2}";'.format(res, tbl, id_)):
+            for row in self._cur.execute(
+                    f'SELECT {_safe_identifier(res)} FROM {_safe_identifier(tbl)} WHERE ID = ?;', (id_,)):  # nosec B608
                 try:
                     y.append(float(row[0]))
                 except (TypeError, ValueError, IndexError):
@@ -679,7 +679,7 @@ class ResData_GPKG(ResData):
         try:
             self.open_db()
             start = False
-            for row in self._cur.execute('PRAGMA "main".TABLE_INFO("{0}");'.format(table)):
+            for row in self._cur.execute(f'PRAGMA "main".TABLE_INFO({_safe_identifier(table)});'):  # nosec B608
                 if row[1] == 'Datetime':
                     start = True
                     continue
@@ -689,7 +689,7 @@ class ResData_GPKG(ResData):
             Logging.warning(e)
         finally:
             self.close_db()
-            return types
+        return types
 
     def parse_reference_time(self, string: str) -> datetime:
         if 'hour' in string:
@@ -716,7 +716,7 @@ class ResData_GPKG(ResData):
             pass
         finally:
             self.close_db()
-            return reference_time
+        return reference_time
 
     def create_key(self, id_: str, res: str):
         return '{0}_{1}'.format(id_, res)
@@ -833,17 +833,17 @@ class ResData_GPKG(ResData):
 
         # max water level
         if self.LP.node_list:
-            node_list = [f'ID = "{id_}"' for id_ in self.LP.node_list]
-            node_list = ' OR '.join(node_list)
-            order_case = [f' WHEN "{id_}" THEN {i}' for i, id_ in enumerate(self.LP.node_list)]
-            order_case = ''.join(order_case)
-            sql = 'SELECT MAX("Water Level") FROM "{0}" WHERE {1} GROUP BY ID ORDER BY CASE ID{2} END;'.format(
-                self.gis_point_layer_name,
-                node_list,
-                order_case)
+            placeholders = ', '.join('?' * len(self.LP.node_list))
+            case_whens = ''.join(f' WHEN ? THEN {i}' for i in range(len(self.LP.node_list)))
+            sql = (
+                f'SELECT MAX("Water Level") FROM {_safe_identifier(self.gis_point_layer_name)} '  # nosec B608
+                f'WHERE ID IN ({placeholders}) GROUP BY ID '  # nosec B608
+                f'ORDER BY CASE ID{case_whens} END;'  # nosec B608
+            )
+            params = list(self.LP.node_list) * 2  # once for IN, once for CASE WHEN
             try:
                 self.open_db()
-                self._cur.execute(sql)
+                self._cur.execute(sql, params)  # nosec B608
                 for row in self._cur.fetchall():
                     try:
                         self.LP.Hmax.append(float(row[0]))
@@ -863,12 +863,14 @@ class ResData_GPKG(ResData):
         # pit elevations
         if self.LP.node_list:
             should_not_bere_here = []
-            node_list = [f'ID = "{id_}"' for id_ in self.LP.node_list]
-            node_list = ' OR '.join(node_list)
-            sql = f'SELECT ID, "Inlet_elevation" FROM "{self.gis_point_layer_name}" WHERE ({node_list}) AND "Inlet_elevation" IS NOT NULL;'
+            placeholders = ', '.join('?' * len(self.LP.node_list))
+            sql = (
+                f'SELECT ID, "Inlet_elevation" FROM {_safe_identifier(self.gis_point_layer_name)} '  # nosec B608
+                f'WHERE ID IN ({placeholders}) AND "Inlet_elevation" IS NOT NULL;'  # nosec B608
+            )  # nosec B608
             try:
                 self.open_db()
-                self._cur.execute(sql)
+                self._cur.execute(sql, list(self.LP.node_list))  # nosec B608
                 for row in self._cur.fetchall():
                     if row[1] == 'Inlet_elevation':
                         raise Exception('Missing inlet elevation data')
@@ -966,11 +968,7 @@ class ChanInfo_GPKG(ChanInfo):
             try:
                 self.parent.open_db()
                 self.cur.execute(
-                    'SELECT'
-                    ' ID '
-                    'FROM'
-                    ' "{0}" '
-                    'LIMIT {1};'.format(self.parent.gis_line_layer_name, self.nChan)
+                    f'SELECT ID FROM {_safe_identifier(self.parent.gis_line_layer_name)} LIMIT {self.nChan};'  # nosec B608
                 )
                 ret = self.cur.fetchall()
                 if ret:
@@ -995,8 +993,8 @@ class ChanInfo_GPKG(ChanInfo):
                 if not self._chan_US_Node:
                     self.parent.open_db()
                     self.cur.execute(
-                        'SELECT p.ID FROM "{0}" AS p, "{1}" as l WHERE p.fid = l.US_Node AND l.TimeId = 1;'.
-                        format(self.parent.gis_point_layer_name, self.parent.gis_line_layer_name)
+                        f'SELECT p.ID FROM {_safe_identifier(self.parent.gis_point_layer_name)} AS p, '  # nosec B608
+                        f'{_safe_identifier(self.parent.gis_line_layer_name)} as l WHERE p.fid = l.US_Node AND l.TimeId = 1;'  # nosec B608
                     )
                     ret = self.cur.fetchall()
                     if ret:
@@ -1018,8 +1016,8 @@ class ChanInfo_GPKG(ChanInfo):
                 if not self._chan_DS_Node:
                     self.parent.open_db()
                     self.cur.execute(
-                        'SELECT p.ID FROM "{0}" AS p, "{1}" as l WHERE p.fid = l.DS_Node AND l.TimeId = 1;'.
-                        format(self.parent.gis_point_layer_name, self.parent.gis_line_layer_name)
+                        f'SELECT p.ID FROM {_safe_identifier(self.parent.gis_point_layer_name)} AS p, '  # nosec B608
+                        f'{_safe_identifier(self.parent.gis_line_layer_name)} as l WHERE p.fid = l.DS_Node AND l.TimeId = 1;'  # nosec B608
                     )
                     ret = self.cur.fetchall()
                     if ret:
@@ -1081,7 +1079,7 @@ class ChanInfo_GPKG(ChanInfo):
                 try:
                     self.parent.open_db()
                     self.cur.execute(
-                        'SELECT Length FROM "{0}" WHERE TimeId = 1;'.format(self.parent.gis_line_layer_name)
+                        f'SELECT Length FROM {_safe_identifier(self.parent.gis_line_layer_name)} WHERE TimeId = 1;'  # nosec B608
                     )
                     ret = self.cur.fetchall()
                     if ret:
@@ -1132,7 +1130,7 @@ class ChanInfo_GPKG(ChanInfo):
                 try:
                     self.parent.open_db()
                     self.cur.execute(
-                        'SELECT US_Invert FROM "{0}" WHERE TimeId = 1;'.format(self.parent.gis_line_layer_name)
+                        f'SELECT US_Invert FROM {_safe_identifier(self.parent.gis_line_layer_name)} WHERE TimeId = 1;'  # nosec B608
                     )
                     ret = self.cur.fetchall()
                     if ret:
@@ -1153,7 +1151,7 @@ class ChanInfo_GPKG(ChanInfo):
             try:
                 self.parent.open_db()
                 self.cur.execute(
-                    'SELECT DS_Invert FROM "{0}" WHERE TimeId = 1;'.format(self.parent.gis_line_layer_name)
+                    f'SELECT DS_Invert FROM {_safe_identifier(self.parent.gis_line_layer_name)} WHERE TimeId = 1;'  # nosec B608
                 )
                 ret = self.cur.fetchall()
                 if ret:
@@ -1175,7 +1173,7 @@ class ChanInfo_GPKG(ChanInfo):
                 try:
                     self.parent.open_db()
                     self.cur.execute(
-                        'SELECT US_Obvert FROM "{0}" WHERE TimeId = 1;'.format(self.parent.gis_line_layer_name)
+                        f'SELECT US_Obvert FROM {_safe_identifier(self.parent.gis_line_layer_name)} WHERE TimeId = 1;'  # nosec B608
                     )
                     ret = self.cur.fetchall()
                     if ret:
@@ -1202,7 +1200,7 @@ class ChanInfo_GPKG(ChanInfo):
             try:
                 self.parent.open_db()
                 self.cur.execute(
-                    'SELECT DS_Obvert FROM "{0}" WHERE TimeId = 1;'.format(self.parent.gis_line_layer_name)
+                    f'SELECT DS_Obvert FROM {_safe_identifier(self.parent.gis_line_layer_name)} WHERE TimeId = 1;'  # nosec B608
                 )
                 ret = self.cur.fetchall()
                 if ret:
@@ -1230,7 +1228,7 @@ class ChanInfo_GPKG(ChanInfo):
                 try:
                     self.parent.open_db()
                     self.cur.execute(
-                        'SELECT LBUS_Obvert FROM "{0}" WHERE TimeId = 1;'.format(self.parent.gis_line_layer_name)
+                        f'SELECT LBUS_Obvert FROM {_safe_identifier(self.parent.gis_line_layer_name)} WHERE TimeId = 1;'  # nosec B608
                     )
                     ret = self.cur.fetchall()
                     if ret:
@@ -1256,7 +1254,7 @@ class ChanInfo_GPKG(ChanInfo):
                 try:
                     self.parent.open_db()
                     self.cur.execute(
-                        'SELECT RBUS_Obvert FROM "{0}" WHERE TimeId = 1;'.format(self.parent.gis_line_layer_name)
+                        f'SELECT RBUS_Obvert FROM {_safe_identifier(self.parent.gis_line_layer_name)} WHERE TimeId = 1;'  # nosec B608
                     )
                     ret = self.cur.fetchall()
                     if ret:
@@ -1282,7 +1280,7 @@ class ChanInfo_GPKG(ChanInfo):
                 try:
                     self.parent.open_db()
                     self.cur.execute(
-                        'SELECT LBDS_Obvert FROM "{0}" WHERE TimeId = 1;'.format(self.parent.gis_line_layer_name)
+                        f'SELECT LBDS_Obvert FROM {_safe_identifier(self.parent.gis_line_layer_name)} WHERE TimeId = 1;'  # nosec B608
                     )
                     ret = self.cur.fetchall()
                     if ret:
@@ -1308,7 +1306,7 @@ class ChanInfo_GPKG(ChanInfo):
                 try:
                     self.parent.open_db()
                     self.cur.execute(
-                        'SELECT RBDS_Obvert FROM "{0}" WHERE TimeId = 1;'.format(self.parent.gis_line_layer_name)
+                        f'SELECT RBDS_Obvert FROM {_safe_identifier(self.parent.gis_line_layer_name)} WHERE TimeId = 1;'  # nosec B608
                     )
                     ret = self.cur.fetchall()
                     if ret:
@@ -1379,11 +1377,7 @@ class NodeInfo_GPKG(NodeInfo):
                 try:
                     self.parent.open_db()
                     self.cur.execute(
-                        'SELECT'
-                        ' ID '
-                        'FROM'
-                        ' "{0}" '
-                        'LIMIT {1};'.format(self.parent.gis_point_layer_name, self.nNode)
+                        f'SELECT ID FROM {_safe_identifier(self.parent.gis_point_layer_name)} LIMIT {self.nNode};'  # nosec B608
                     )
                     ret = self.cur.fetchall()
                     if ret:

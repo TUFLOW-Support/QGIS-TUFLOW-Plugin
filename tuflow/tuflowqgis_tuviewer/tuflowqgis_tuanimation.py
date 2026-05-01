@@ -93,7 +93,7 @@ def downloadBinPackage(packageUrl, destinationFileName):
 	# content_type = reply.rawHeader(b'Content-Type')
 	#if content_type == QByteArray().append('application/zip'):
 	# if content_type == b'application/zip':
-	r = requests.get(packageUrl, stream=True)
+	r = requests.get(packageUrl, stream=True, timeout=30)
 	if r.status_code == requests.codes.ok and r.headers['Content-Type'] == 'application/zip':
 		if os.path.isfile(destinationFileName):
 			os.unlink(destinationFileName)
@@ -1307,7 +1307,7 @@ def count_images(img_dir):
 	return len(images)
 
 
-def images_to_video(tmp_img_dir="/tmp/vid/%03d.png", output_file="/tmp/vid/test.avi", fps=10, qual=1,
+def images_to_video(tmp_img_dir, output_file, fps=10, qual=1,
 					ffmpeg_bin="ffmpeg"):
 	if qual == 0:  # lossless
 		opts = ["-vcodec", "ffv1"]
@@ -1331,7 +1331,7 @@ def images_to_video(tmp_img_dir="/tmp/vid/%03d.png", output_file="/tmp/vid/test.
 	return res == 0, f.name
 
 
-def images_to_video2(tmp_img_dir="/tmp/vid/%03d.png", output_file="/tmp/vid/test.avi", fps=10, qual=1,
+def images_to_video2(tmp_img_dir, output_file, fps=10, qual=1,
                     ffmpeg_bin="ffmpeg", target_dur=15):
 
 	t = count_images(tmp_img_dir) / target_dur  # input framerate (not output fps)
@@ -1358,7 +1358,7 @@ def images_to_video2(tmp_img_dir="/tmp/vid/%03d.png", output_file="/tmp/vid/test
 	return res == 0, f.name
 
 
-def images_to_video_gif(tmp_img_dir="/tmp/vid/%03d.png", output_file="/tmp/vid/test.avi", fps=10, qual=1,
+def images_to_video_gif(tmp_img_dir, output_file, fps=10, qual=1,
                         ffmpeg_bin="ffmpeg", target_dur=15):
 	# get images
 	dir = os.path.dirname(tmp_img_dir)
@@ -1566,7 +1566,7 @@ class TuAnimationDialog(QDialog, Ui_AnimationDialog):
 			self.populateResultTypes()
 
 		if load_project_settings:
-			folderIcon = QgsApplication.getThemeIcon('\mActionFileOpen.svg')
+			folderIcon = QgsApplication.getThemeIcon('/mActionFileOpen.svg')
 			self.btnBrowseOutput.setIcon(folderIcon)
 			# apply project settings
 			if self.project.readEntry("TUFLOW", 'start_time')[0]:

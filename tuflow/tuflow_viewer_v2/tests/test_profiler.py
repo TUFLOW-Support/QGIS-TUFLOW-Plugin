@@ -1,3 +1,5 @@
+from .stubs.qgis_stubs import QGIS
+
 from ._utils import TuflowViewerTestCase
 from ..tvdeveloper_tools import Profiler
 

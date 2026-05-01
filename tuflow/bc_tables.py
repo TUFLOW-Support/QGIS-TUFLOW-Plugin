@@ -298,7 +298,7 @@ class BC_Tables_Parser:
         return next(self)
 
 
-if __name__ == '__main__':
-    file = r"C:\Users\esymons\Downloads\TGD-477\example_models\check\EG00\EG00_001_2d_bc_tables_check.csv"
-    bc_tables = BC_Tables_Parser(file)
-    print('here')
+# if __name__ == '__main__':
+#     file = r"C:\Users\esymons\Downloads\TGD-477\example_models\check\EG00\EG00_001_2d_bc_tables_check.csv"
+#     bc_tables = BC_Tables_Parser(file)
+#     print('here')
