@@ -37,7 +37,7 @@ class TextCurveItem(HoverableScatterPlot):
         self.symbols = {}
         self.letter_scatter = {}
         for letter in self.df['letters'].unique():
-            if not letter.strip():
+            if not isinstance(letter, str) or not letter.strip():
                 continue
             path = self.make_letter_path(str(letter))
             self.symbols[str(letter)] = path

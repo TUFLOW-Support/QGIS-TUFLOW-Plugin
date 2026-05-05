@@ -120,6 +120,13 @@ class TestPlotsGeneral(TuflowViewerTestCase):
             isclose = np.isclose(data, plot_data, equal_nan=True)
             self.assertTrue(isclose.all())
 
+            # check flow regime
+            r_action = [x for x in plot.toolbar.data_types_menu.actions() if x.text() == 'channel flow regime'][0]
+            r_action.setChecked(True)
+            plot.update_plot()
+            curves = [x for x in plot.plot_graph.items() if isinstance(x, TuflowViewerCurve)]
+            self.assertEqual(2, len(curves), "Flow regime test failed")
+
     # def test_tpc_big_dataset_tmp(self):
     #     # ok if fails in regular testing - tmp test of a bigger dataset bug
     #     p = r"C:\TUFLOW\working\TSC250992\new_data\plot\BAT_N44003_4m_NQ_SGS_C04_1p00_00010m_5090_2100_SSP3_08.tpc"
