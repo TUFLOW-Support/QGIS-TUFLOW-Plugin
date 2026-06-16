@@ -75,7 +75,7 @@ class BCTablesCheck(BCTablesCheckBase, TimeSeriesMixin):
         lyrname = fpath.stem if fpath.lyrname is None else fpath.lyrname
         is_single_gpkg = fpath.stem != lyrname  # it is in a central check file gpkg e.g. "<name>_Check.gpkg"
         if is_single_gpkg:
-            check_base_fpath = fpath.parent / re.sub(r'_Check(?:_[12]D)?', '', fpath.stem)
+            check_base_fpath = fpath.parent / re.sub(r'_Check(?:_?[12]D)?', '', fpath.stem)
         if BC_2D_REGEX.findall(lyrname):
             if not check_base_fpath:
                 check_base_fpath = fpath.parent / BC_2D_REGEX.sub('', fpath.stem)
@@ -115,7 +115,9 @@ class BCTablesCheck(BCTablesCheckBase, TimeSeriesMixin):
     def ids(self, filter_by: str = None, internal_id: bool = False) -> list[str]:
         if not self._loaded:
             self._complete_load()
-        return super().ids(filter_by, internal_id=True)
+        ids_internal = set(super().ids(filter_by, internal_id=True))
+        ids_user = set(super().ids(filter_by, internal_id=False))
+        return list(ids_internal.union(ids_user)) if not internal_id else list(ids_internal)
 
     def data_types(self, filter_by: str = None, bndry_type: bool = True) -> list[str]:
         if not self._loaded:

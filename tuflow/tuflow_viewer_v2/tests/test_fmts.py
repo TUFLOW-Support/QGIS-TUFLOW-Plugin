@@ -7,6 +7,7 @@ from qgis.core import QgsVectorLayer
 from tuflow.tuflow_viewer_v2.fmts import (XMDF, TPC, GPKG1D, GPKG2D, GPKGRL, NCMesh, NCGrid, TuflowCrossSections,
                                           BCTablesCheck, HydTablesCheck, DAT, FMTS, DATCrossSections,
                                           CATCHJson, FVBCTide)
+from tuflow.pt.pytuflow import TuflowPath
 from ._utils import get_dataset_path, add_layer_to_qgis, add_layers_to_qgis, TuflowViewerTestCase
 
 
@@ -397,6 +398,16 @@ class TestFmts(TuflowViewerTestCase):
                 self.assertTrue(lyr.isValid())
             self.assertTrue(res.id, res2.id)
             self.assertEqual(res.map_layers(), res2.map_layers())
+
+    def test_2d_bc_tables_check_gpkg_check2d_name(self):
+        p = get_dataset_path('M03_5m_001_Check2D.gpkg', 'result')
+        p1 = get_dataset_path('M03_5m_001_2d_bc_tables_check.csv', 'result')
+
+        uri = f'{p}|layername=M03_5m_001_bcc_check_R'
+        tf_p = TuflowPath(uri)
+        csv = BCTablesCheck.bc_tables_csv_from_gis_file(tf_p)
+
+        self.assertEqual(str(p1.resolve()), str(csv.resolve()))
 
     def test_2d_bc_tables_check_sa(self):
         p = get_dataset_path('EG15_001_sac_check_R.shp', 'result')

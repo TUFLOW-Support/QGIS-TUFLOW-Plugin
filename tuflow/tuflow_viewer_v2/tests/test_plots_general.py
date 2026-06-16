@@ -476,6 +476,28 @@ class TestPlotsGeneral(TuflowViewerTestCase):
             close = np.isclose(data, plot_data, equal_nan=True)
             self.assertTrue(close.all())
 
+    def test_sac_check(self):
+        p = get_dataset_path('M03_5m_001_Check2D.gpkg', 'result')
+        uri = f'{p}|layername=M03_5m_001_sac_check_R'
+        layer = QgsVectorLayer(uri, 'M03_5m_001_sac_check_R', 'ogr')
+        res = BCTablesCheck(uri, [layer])
+
+        with add_result_to_viewer(res):
+            plot_window = PlotWindow(get_viewer_instance())
+            plot = plot_window.tabWidget_view1.widget(0)
+
+            action = [x for x in plot.toolbar.data_types_menu.actions() if x.text() == 'SA'][0]
+            action.setChecked(True)
+
+            plot.toggle_selection_tool(True)
+            QGIS.iface.setActiveLayer(layer)
+            ch = list(layer.getFeatures('"BC_Name" = \'FC06\''))[0]
+            layer.selectByIds([ch.id()])
+
+            # check the curve has been added to the plot
+            curves = [x for x in plot.plot_graph.items() if isinstance(x, TuflowViewerCurve)]
+            self.assertEqual(1, len(curves))
+
     def test_dat_time_series(self):
         p = get_dataset_path('small_model_001_h.dat', 'result')
         res = DAT(p)
