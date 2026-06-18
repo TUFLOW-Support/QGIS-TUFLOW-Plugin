@@ -174,14 +174,11 @@ class DatabasePreviewWidget(QtWidgets.QDialog):
 
     def should_show_plot_button(self, row_index: int, model=None) -> bool:
         """Placeholder: return True when an action button should be shown for the given row."""
-        entry = self.db.entries.get(self.db.df.index[row_index])
+        item = self.db.df.index[row_index]
+        entry = self.db.entries.get(item)
         if not entry:
             return False
-        if entry.uses_source_file:
-            return True
-        if self.db.TUFLOW_TYPE in [pytuflow.const.DB.MAT, pytuflow.const.DB.MAT_TMF] and entry.is_list():
-            return True  # depth varying roughness
-        return False
+        return self.db.is_plottable(item)
 
     def closeEvent(self, event):
         self.closed.emit(self)
@@ -199,9 +196,18 @@ class DatabasePreviewWidget(QtWidgets.QDialog):
             if self.tab_widget.tabText(i) == name:
                 return i
 
+        if self.db.TUFLOW_TYPE == pytuflow.const.DB.BC_DBASE:
+            entry = self.db.entries.get(name)
+            time_index = self.db.TIME_INDEX if isinstance(self.db, pytuflow.BuildState) else self.db.bs.TIME_INDEX
+            val_index = self.db.VALUE_INDEX if isinstance(self.db, pytuflow.BuildState) else self.db.bs.VALUE_INDEX
+            if entry and entry.uses_source_file and entry[time_index].value in ['', 'nan'] and entry[val_index].value in ['', 'nan']:
+                self.messageBar().pushMessage('Error', 'Boundary plotting does not support grouped boundaries using "|" yet', level=Qgis.Critical)
+                return -1
+
         try:
             data = self.db.value(name)
         except Exception as e:
+            self.messageBar().pushMessage('Error', f'Could not retrieve data for {name}: {str(e)}', level=Qgis.Critical)
             return -1
 
         data_widget = QtWidgets.QWidget()
@@ -215,7 +221,7 @@ class DatabasePreviewWidget(QtWidgets.QDialog):
 
         # setup - mostly unimportant, the class is from TUFLOW Viewer
         src_item = PlotSourceItem(
-            name, 'curve', self.db.fpath.name, data.columns[0], name, 'database',
+            name, 'curve', self.db.fpath.name, data.columns[0].replace(':', ''), name, 'database',
             [], False, '#4181e8', 'selection', True, None
         )
         src_item.xdata = data.index.values

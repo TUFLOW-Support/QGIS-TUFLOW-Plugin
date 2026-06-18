@@ -79,7 +79,7 @@ class TuflowViewerCurve:
     @staticmethod
     def create_pretty_data_type_string(data_type) -> str:
         data_type_pretty = data_type
-        if ':' in data_type:
+        if data_type.count(':') >= 2:
             data_type, _, avg_method = data_type.split(':', 2)
             avg_method_comp = avg_method.split('&')
             avg_method_str = avg_method_comp[0]

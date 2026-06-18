@@ -67,6 +67,10 @@ class ControlFileItem(QgsDataItem, TuflowDataItemBaseMixin):
         return [u]
 
     def createChildren(self):
+        # import sys, io
+        # sys.stderr = io.StringIO()
+        # import pydevd_pycharm
+        # pydevd_pycharm.settrace('localhost', port=50000, stdout_to_server=True, stderr_to_server=True)
         try:
             children = self._create_children(self)
         except Exception:
@@ -116,6 +120,7 @@ class ControlFileItem(QgsDataItem, TuflowDataItemBaseMixin):
             func = lambda x: x.TUFLOW_TYPE in desired_inputs
 
         for inp in self.cf.find_input(recursive=False, callback=func):
+            data_item = None
             if inp.trd and not self.trd_path:
                 if self.cur_trd == inp.trd:
                     continue
@@ -135,7 +140,7 @@ class ControlFileItem(QgsDataItem, TuflowDataItemBaseMixin):
                         try:
                             data_item = ControlFileItem(str(file), None, inp, self.cur_trd)
                         except Exception as e:
-                            Logging.warning(f'Failed to create ControlFileDataItem for {file} in QGIS Browser: {e}', silent=True)
+                            Logging.warning(f'Populating Browser Panel: Failed to create ControlFileDataItem for {file} in QGIS Browser: {e}', silent=True)
                             continue
 
                         data_item.dataChanged.connect(self.add_warnings_from_child)
@@ -163,7 +168,7 @@ class ControlFileItem(QgsDataItem, TuflowDataItemBaseMixin):
                                 lyrname = file.lyrname if file.lyrname else file.stem
                                 data_item = TuflowLayerItem(None, lyrname, str(file), 'tuflow_plugin', inp, layer_type)
                             except Exception as e:
-                                Logging.warning(f'Failed to create TuflowLayerDataItem for {file} in QGIS Browser: {e}', silent=True)
+                                Logging.warning(f'Populating Browser Panel: Failed to create TuflowLayerDataItem for {file} in QGIS Browser: {e}', silent=True)
                                 continue
                             data_item.dataChanged.connect(self.add_warnings_from_child)
                             data_item.setState(Qgis.BrowserItemState.NotPopulated)
@@ -184,7 +189,7 @@ class ControlFileItem(QgsDataItem, TuflowDataItemBaseMixin):
                                 try:
                                     data_item = TuflowLayerItem(None, file.lyrname, uri, 'ogr', inp, BROWSER_LAYER_TYPE.get(geom, Qgis.BrowserLayerType.Vector))
                                 except Exception as e:
-                                    Logging.warning(f'Failed to create TuflowLayerDataItem for {file} in QGIS Browser: {e}', silent=True)
+                                    Logging.warning(f'Populating Browser Panel: Failed to create TuflowLayerDataItem for {file} in QGIS Browser: {e}', silent=True)
                                     continue
                                 data_item.dataChanged.connect(self.add_warnings_from_child)
                                 data_item.setState(Qgis.BrowserItemState.NotPopulated)
@@ -200,12 +205,14 @@ class ControlFileItem(QgsDataItem, TuflowDataItemBaseMixin):
                             try:
                                 data_item = TuflowLayerItem(None, lyrname, uri, 'gdal', inp, Qgis.BrowserLayerType.Raster)
                             except Exception as e:
-                                Logging.warning(f'Failed to create TuflowLayerDataItem for {file} in QGIS Browser: {e}', silent=True)
+                                Logging.warning(f'Populating Browser Panel: Failed to create TuflowLayerDataItem for {file} in QGIS Browser: {e}', silent=True)
                                 continue
                             data_item.dataChanged.connect(self.add_warnings_from_child)
                             data_item.setState(Qgis.BrowserItemState.NotPopulated)
                             children.append(data_item)
                             self.file_refs[file] = data_item
+                        else:
+                            Logging.info(f'Populating Browser Panel: File is not a Vector or Raster layer... skipping: {file}', silent=True)
                 except Exception as e:
                     pass
             elif inp.TUFLOW_TYPE in [pytuflow.const.INPUT.DB, pytuflow.const.INPUT.DB_MAT]:
@@ -220,13 +227,13 @@ class ControlFileItem(QgsDataItem, TuflowDataItemBaseMixin):
                             try:
                                 data_item = TuflowLayerItem(None, file.name, str(file), 'ogr', inp, Qgis.BrowserLayerType.Table)
                             except Exception as e:
-                                Logging.warning(f'Failed to create TuflowLayerDataItem for {file} in QGIS Browser: {e}', silent=True)
+                                Logging.warning(f'Populating Browser Panel: Failed to create TuflowLayerDataItem for {file} in QGIS Browser: {e}', silent=True)
                                 continue
                         else:
                             try:
                                 data_item = TuflowTableItem(Qgis.BrowserItemType.Custom, None, file.name, str(file), 'tuflow_plugin', inp)
                             except Exception as e:
-                                Logging.warning(f'Failed to create TuflowTableItem for {file} in QGIS Browser: {e}', silent=True)
+                                Logging.warning(f'Populating Browser Panel: Failed to create TuflowTableItem for {file} in QGIS Browser: {e}', silent=True)
                                 continue
                         data_item.dataChanged.connect(self.add_warnings_from_child)
                         data_item.setState(Qgis.BrowserItemState.NotPopulated)

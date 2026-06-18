@@ -4356,7 +4356,7 @@ class LoadGisFiles(QObject):
             self.start_layer_load.emit(lyrname)
             self.update_progress(lyrname)
             _, args = lyr.split('(', 1)
-            args, _ = args.split(')', 1)
+            args, _ = args.rsplit(')', 1)
             args = [re.sub(r'\s*\'$', '', re.sub(r'^r?\s*\'', '', x)) for x in args.split(',')]
             if 'QgsVectorLayer' in lyr:
                 maplyr = QgsVectorLayer(*args)
