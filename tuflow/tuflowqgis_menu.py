@@ -101,15 +101,15 @@ elif pyds and sys.platform == 'win32':
         tmpdir = cache_dir('refh2')
         if not tmpdir.exists():
             tmpdir.mkdir(parents=True)
-        existing_pyd = glob.glob('*.pyd')
+        existing_pyd = glob.glob(f'{tmpdir}/*.pyd')
         make_copy = True
         for f in existing_pyd:
-            if Path(f).name == Path(pyd.name) and os.path.getmtime(f) >= os.path.getmtime(pyd):
+            if Path(f).name == Path(pyd).name and os.path.getmtime(f) >= os.path.getmtime(pyd):
                 make_copy = False
                 break
         if make_copy:
             shutil.copy(pyd, tmpdir)
-        sys.path.append(tmpdir)
+        sys.path.append(str(tmpdir))
         try:
             from refh2 import Refh2Dock
         except Exception as e:
