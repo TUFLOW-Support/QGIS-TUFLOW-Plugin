@@ -460,6 +460,7 @@ class TuflowViewer(QObject):
         """
         from .tvlogging import QgisTuflowLoggingHandler
         tvlogger = logging.getLogger('tuflow_viewer')
+        tvlogger.propagate = False
         loggers = [tvlogger]
         for logger in loggers:
             for hnd in logger.handlers.copy():
