@@ -4,10 +4,10 @@ from .tvlogging import QgisTuflowLoggingHandler
 from qgis.PyQt.QtCore import QSettings
 import logging
 from time import perf_counter
-logger = logging.getLogger('tuflow_viewer')
 
 
 def set_log_level(level: str):
+    logger = logging.getLogger('tuflow_viewer')
     logger.setLevel(level)
     for hnd in logger.handlers:
         if isinstance(hnd, QgisTuflowLoggingHandler):
@@ -53,6 +53,7 @@ class Profiler(metaclass=Singleton):
             self._tasks[key].update()
 
     def report(self):
+        logger = logging.getLogger('tuflow_viewer')
         for key, task in reversed(self._tasks.items()):
             if task.running:
                 task.update()

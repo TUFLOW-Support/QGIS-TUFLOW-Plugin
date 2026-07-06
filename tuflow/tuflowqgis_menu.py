@@ -45,6 +45,7 @@ import os
 import glob
 import sys
 import traceback
+from uuid import uuid4
 
 from subprocess import Popen
 
@@ -76,7 +77,7 @@ for f in for_deleting:
         continue
 
 # copy refh2 pyd to a cache directory
-from .tuflow_plugin_cache import cache_dir
+from .tuflow_plugin_cache import cache_dir, get_cached_content, save_cached_content
 
 refh2dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ReFH2")
 pyds = glob.glob(os.path.join(refh2dir, "*.pyd"))
@@ -98,18 +99,41 @@ elif pyds and sys.platform == 'win32':
             pyd = pyd[0]
     if pyd:
         # tmpdir = tempfile.mkdtemp(prefix='tuflow_refh2')
-        tmpdir = cache_dir('refh2')
-        if not tmpdir.exists():
-            tmpdir.mkdir(parents=True)
-        existing_pyd = glob.glob(f'{tmpdir}/*.pyd')
+        cache_settings = get_cached_content('plugin_settings.json', str)
+        if cache_settings:
+            try:
+                cache_settings = json.loads(cache_settings)
+            except json.JSONDecodeError:
+                cache_settings = {}
+        else:
+            cache_settings = {}
+        refh2_dir = cache_settings.get('refh2_directory')
+        refh2_mtime = cache_settings.get('refh2_mtime')
         make_copy = True
-        for f in existing_pyd:
-            if Path(f).name == Path(pyd).name and os.path.getmtime(f) >= os.path.getmtime(pyd):
-                make_copy = False
-                break
+        if refh2_dir and refh2_mtime is not None:
+            existing_pyd = glob.glob(f'{refh2_dir}/*.pyd')
+            for f in existing_pyd:
+                if Path(f).name == Path(pyd).name and os.path.getmtime(pyd) >= refh2_mtime:
+                    make_copy = False
+                    break
+
+        if not refh2_dir or make_copy:
+            tmpdir = cache_dir('refh2') / str(uuid4())
+            refh2_dir = tmpdir
+            if not tmpdir.exists():
+                tmpdir.mkdir(parents=True)
+
         if make_copy:
-            shutil.copy(pyd, tmpdir)
-        sys.path.append(str(tmpdir))
+            Path(tmpdir).parent.mkdir(parents=True, exist_ok=True)
+            try:
+                shutil.copy(pyd, tmpdir)
+                cache_settings['refh2_directory'] = str(tmpdir)
+                cache_settings['refh2_mtime'] = os.path.getmtime(pyd)
+                save_cached_content('plugin_settings.json', json.dumps(cache_settings))
+            except Exception as e:
+                QgsMessageLog.logMessage('Unable to copy refh2.pyd to cache directory: {0}'.format(e), level=Qgis.Warning)
+
+        sys.path.append(str(refh2_dir))
         try:
             from refh2 import Refh2Dock
         except Exception as e:
