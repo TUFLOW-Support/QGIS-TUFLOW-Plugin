@@ -2,7 +2,11 @@ import json
 from collections import OrderedDict
 
 from qgis.PyQt.QtCore import pyqtSignal, Qt
-from qgis._gui import QgsProcessingAlgorithmDialogBase
+from qgis.core import Qgis
+if Qgis.QGIS_VERSION_INT >= 40200:
+    from qgis.gui import QgsProcessingAlgorithmWidgetBase as QgsProcessingAlgorithmDialogBase
+else:
+    from qgis.gui import QgsProcessingAlgorithmDialogBase
 from qgis.core import QgsApplication, QgsProcessingParameterDefinition
 from qgis.gui import QgsPanelWidget, QgsGui
 from processing.gui.wrappers import WidgetWrapper, DIALOG_STANDARD, DIALOG_BATCH, DIALOG_MODELER

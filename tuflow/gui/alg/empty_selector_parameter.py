@@ -2,8 +2,12 @@ import json
 from collections import OrderedDict
 
 from qgis.PyQt import QtWidgets, QtCore
-from qgis.core import QgsProcessingParameterDefinition
-from qgis.gui import QgsGui, QgsPanelWidget, QgsProcessingAlgorithmDialogBase
+from qgis.core import QgsProcessingParameterDefinition, Qgis
+if Qgis.QGIS_VERSION_INT >= 40200:
+    from qgis.gui import QgsProcessingAlgorithmWidgetBase as QgsProcessingAlgorithmDialogBase
+else:
+    from qgis.gui import QgsProcessingAlgorithmDialogBase
+from qgis.gui import QgsGui, QgsPanelWidget
 from processing.gui.wrappers import WidgetWrapper, DIALOG_STANDARD, DIALOG_BATCH, DIALOG_MODELER
 
 from ...utils import empty_tooltip

@@ -1,8 +1,12 @@
 import json
 import math
 
-from qgis.core import QgsProcessingParameterDefinition, NULL
-from qgis.gui import QgsGui, QgsProcessingAlgorithmDialogBase, QgsPanelWidget
+from qgis.core import QgsProcessingParameterDefinition, NULL, Qgis
+if Qgis.QGIS_VERSION_INT >= 40200:
+    from qgis.gui import QgsProcessingAlgorithmWidgetBase as QgsProcessingAlgorithmDialogBase
+else:
+    from qgis.gui import QgsProcessingAlgorithmDialogBase
+from qgis.gui import QgsGui, QgsPanelWidget
 from qgis.utils import iface, pluginDirectory
 from processing.gui.wrappers import WidgetWrapper, DIALOG_STANDARD, DIALOG_BATCH, DIALOG_MODELER
 

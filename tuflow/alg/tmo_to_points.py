@@ -5,13 +5,17 @@ from qgis.PyQt.QtCore import QCoreApplication, QVariant
 from qgis.PyQt.QtWidgets import QComboBox
 from qgis.core import (QgsProcessingParameterFile, QgsProject, QgsProcessingParameterDefinition,
                         QgsProcessingParameterEnum, QgsProcessingOutputLayerDefinition, QgsProcessingMultiStepFeedback,
-                        QgsProcessingParameterVectorDestination, QgsExpressionContext, QgsProcessingAlgorithm)
+                        QgsProcessingParameterVectorDestination, QgsExpressionContext, QgsProcessingAlgorithm, Qgis)
 from qgis.gui import QgsProcessingHiddenWidgetWrapper, QgsProcessingParametersGenerator
 import processing
 from processing.tools.dataobjects import createContext
 from processing.gui.wrappers import WidgetWrapper
-from processing.gui.AlgorithmDialogBase import AlgorithmDialogBase
-from processing.gui.AlgorithmDialog import AlgorithmDialog
+if Qgis.QGIS_VERSION_INT >= 40200:
+    from processing.gui.algorithm_widget import AlgorithmWidget as AlgorithmDialog
+    from processing.gui.algorithm_widget import AlgorithmWidget as AlgorithmDialog
+else:
+    from processing.gui.AlgorithmDialog import AlgorithmDialog
+    from processing.gui.AlgorithmDialog import AlgorithmDialog
 from processing.gui.ParametersPanel import ParametersPanel
 
 from ..tmo import TMO

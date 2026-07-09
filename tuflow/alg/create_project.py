@@ -8,6 +8,7 @@ from qgis.PyQt.QtCore import QCoreApplication, QSettings
 from qgis.PyQt.QtGui import QIcon
 from qgis.core import QgsProcessingUtils
 from qgis.core import QgsVectorLayer
+from qgis.core import Qgis
 
 # processing
 import processing
@@ -19,7 +20,10 @@ from qgis.core import QgsProcessingParameterBoolean
 from qgis.core import QgsProcessingParameterEnum
 from qgis.core import QgsProcessingParameterString
 from qgis.core import Qgis, QgsCoordinateReferenceSystem
-from processing.gui.AlgorithmDialog import AlgorithmDialog
+if Qgis.QGIS_VERSION_INT >= 40200:
+    from processing.gui.algorithm_widget import AlgorithmWidget as AlgorithmDialog
+else:
+    from processing.gui.AlgorithmDialog import AlgorithmDialog
 from processing.gui.wrappers import WidgetWrapper
 
 from ..utils import ProjectConfig, tuflow_plugin
@@ -152,8 +156,11 @@ class CreateTuflowProject(QgsProcessingAlgorithm):
 
         # TUFLOW Settings
         table_params_fpath = Path(__file__).parent / 'data' / 'create_tuflow_settings.json'
-        with table_params_fpath.open() as f:
-            d = json.load(f)
+        try:
+            with table_params_fpath.open() as f:
+                d = json.load(f)
+        except Exception as e:
+            pass
         table_params = d['command settings']
         default_value = QSettings().value('/tuflow/create_project/tuflow_settings', None)
         if not default_value:
@@ -354,8 +361,11 @@ class CreateTuflowProject(QgsProcessingAlgorithm):
     def shortHelpString(self) -> str:
         folder = Path(os.path.realpath(__file__)).parent
         help_filename = folder / 'help' / 'html' / 'create_project.html'
-        with help_filename.open() as f:
-            return self.tr(f.read().replace('\n', '<p>'))
+        try:
+            with help_filename.open() as f:
+                return self.tr(f.read().replace('\n', '<p>'))
+        except Exception as e:
+            return self.tr(f'Error loading help file: {e}')
 
     def name(self):
         return 'create_tuflow_project'

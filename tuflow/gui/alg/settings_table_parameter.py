@@ -1,7 +1,11 @@
 import json
 
-from qgis.core import QgsProcessingParameterDefinition, QgsCoordinateReferenceSystem
-from qgis.gui import QgsGui, QgsPanelWidget, QgsProcessingAlgorithmDialogBase
+from qgis.core import QgsProcessingParameterDefinition, QgsCoordinateReferenceSystem, Qgis
+if Qgis.QGIS_VERSION_INT >= 40200:
+    from qgis.gui import QgsProcessingAlgorithmWidgetBase as QgsProcessingAlgorithmDialogBase
+else:
+    from qgis.gui import QgsProcessingAlgorithmDialogBase
+from qgis.gui import QgsGui, QgsPanelWidget
 from processing.gui.wrappers import WidgetWrapper, DIALOG_STANDARD, DIALOG_BATCH, DIALOG_MODELER
 
 from qgis.PyQt.QtCore import pyqtSignal

@@ -16,8 +16,12 @@ from qgis.core import QgsProcessingParameterFileDestination
 from qgis.core import QgsProcessingParameterFolderDestination
 from qgis.core import QgsProcessingParameterBoolean
 from qgis.core import QgsProject
+from qgis.core import Qgis
 import processing
-from processing.gui.AlgorithmDialog import AlgorithmDialog
+if Qgis.QGIS_VERSION_INT >= 40200:
+    from processing.gui.algorithm_widget import AlgorithmWidget as AlgorithmDialog
+else:
+    from processing.gui.AlgorithmDialog import AlgorithmDialog
 
 from ..utils import tuflow_plugin, ProjectConfig, empty_types_from_project_folder, empty_tooltip, EmptyCreator
 from ..gui.alg.empty_selector_parameter import EmptySelectorParameter, EmptySelectorPanel
