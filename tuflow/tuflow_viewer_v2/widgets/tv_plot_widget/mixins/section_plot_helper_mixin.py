@@ -27,7 +27,7 @@ class SectionPlotHelperMixin(PlotHelperMixin):
         if data_type not in output.data_types('section'):
             return
         if src_item.output.LAYER_TYPE != 'Surface':
-            if output.DRIVER_NAME == 'Flood Modeller':
+            if output.DRIVER_NAME in ['Flood Modeller', 'TUFLOW Cross Sections']:
                 loc = output._id_to_uid(src_item.loc)
                 if loc not in output.ids(src_item.domain):
                     return

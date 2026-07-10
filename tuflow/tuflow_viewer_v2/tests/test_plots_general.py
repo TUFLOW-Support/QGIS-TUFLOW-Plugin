@@ -14,7 +14,7 @@ from qgis.gui import QgsVertexMarker, QgsRubberBand
 from .stubs.qgis_stubs import QGIS  # import so that it's initialised
 from ._utils import get_dataset_path, add_result_to_viewer, add_results_to_viewer, TuflowViewerTestCase
 from tuflow.tuflow_viewer_v2.fmts import (XMDF, TPC, BCTablesCheck, NCMesh, DAT, FMTS, DATCrossSections, CATCHJson,
-                                          NCGrid, GPKG1D, GPKG2D)
+                                          NCGrid, GPKG1D, GPKG2D, TuflowCrossSections)
 from tuflow.tuflow_viewer_v2.widgets.tv_plot_widget.time_series_plot_widget import TimeSeriesPlotWidget
 from tuflow.tuflow_viewer_v2.widgets.plot_window import PlotWindow
 from tuflow.tuflow_viewer_v2.tvinstance import get_viewer_instance
@@ -801,3 +801,51 @@ class TestPlotsGeneral(TuflowViewerTestCase):
             with custom_log_handler.catch_with_filter(['Location "Pipe10/channel" not found in the output or a valid location filter - removing.']):
                 lyr.selectByIds([ch.id()])
                 self.assertEqual(0, custom_log_handler.msg_count)
+
+    def test_tuflow_cross_sections(self):
+        p = get_dataset_path('1d_xs_EG14_001_L.shp', 'result')
+        lyr = QgsVectorLayer(str(p), p.name, 'ogr')
+        res = TuflowCrossSections(p, layers=[lyr])
+
+        with add_result_to_viewer(res):
+            plot_window = PlotWindow(get_viewer_instance())
+            plot_window.tabWidget_view1.change_tab_to_section(checked=True, tab_idx=0)
+            plot = plot_window.tabWidget_view1.widget(0)
+
+            # select a channel and plot bed level, pipes, pits
+            plot.toggle_selection_tool(True)
+            actions = [x for x in plot.toolbar.data_types_menu.actions() if x.text() in ['xz']]
+            _ = [x.setChecked(True) for x in actions]
+            lyr = res.map_layers()[0]
+            QGIS.iface.setActiveLayer(lyr)
+            ch = list(lyr.getFeatures('"Source" = \'..\\\\csv\\\\1d_xs_M14_ds1.csv\''))
+            temporal_controller.setCurrentTime(datetime(1990, 1, 1, 1, 0, 0))
+            lyr.selectByIds([x.id() for x in ch])
+
+            # check the curve has been added to the plot
+            curves = [x for x in plot.plot_graph.items() if isinstance(x, TuflowViewerCurve)]
+            self.assertEqual(1, len(curves))
+
+    def test_tuflow_cross_sections_packed_csv(self):
+        p = get_dataset_path('1d_xs_EG14_003_L.shp', 'result')
+        lyr = QgsVectorLayer(str(p), p.name, 'ogr')
+        res = TuflowCrossSections(p, layers=[lyr])
+
+        with add_result_to_viewer(res):
+            plot_window = PlotWindow(get_viewer_instance())
+            plot_window.tabWidget_view1.change_tab_to_section(checked=True, tab_idx=0)
+            plot = plot_window.tabWidget_view1.widget(0)
+
+            # select a channel and plot bed level, pipes, pits
+            plot.toggle_selection_tool(True)
+            actions = [x for x in plot.toolbar.data_types_menu.actions() if x.text() in ['xz']]
+            _ = [x.setChecked(True) for x in actions]
+            lyr = res.map_layers()[0]
+            QGIS.iface.setActiveLayer(lyr)
+            ch = list(lyr.getFeatures('"Column_2" = \'1d_xs_M14_ds1_Z\''))
+            temporal_controller.setCurrentTime(datetime(1990, 1, 1, 1, 0, 0))
+            lyr.selectByIds([x.id() for x in ch])
+
+            # check the curve has been added to the plot
+            curves = [x for x in plot.plot_graph.items() if isinstance(x, TuflowViewerCurve)]
+            self.assertEqual(1, len(curves))

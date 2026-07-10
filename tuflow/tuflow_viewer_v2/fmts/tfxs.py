@@ -43,7 +43,7 @@ class TuflowCrossSections(CrossSections, TuflowViewerOutput):
     def __init__(self, fpath: str, layers: list[QgsVectorLayer] = ()):
         super(TuflowCrossSections, self).__init__(fpath)
         self._init_viewer_output_mixin(self.name)
-        self._map_layers = layers.copy()
+        self._map_layers = list(layers).copy()
         self._loaded = False
         self._data_types = []
         self._soft_load()
@@ -76,6 +76,16 @@ class TuflowCrossSections(CrossSections, TuflowViewerOutput):
             return
         CrossSections._load(self)
         self._loaded = True
+
+    def ids(self, filter_by: str = None) -> list[str]:
+        if not self._loaded:
+            self._complete_load()
+        for filt in ['crosssection', 'section', 'line', 'static', 'na', 'point', 'static']:
+            if filter_by is not None and filt in filter_by:
+                filter_by = filter_by.replace(filt, '').strip('/')
+                if not filter_by:
+                    filter_by = None
+        return super().ids(filter_by)
 
     def data_types(self, filter_by: str = None) -> list[str]:
         if not self._loaded:
@@ -136,3 +146,8 @@ class TuflowCrossSections(CrossSections, TuflowViewerOutput):
         xdata = df.iloc[:,i].to_numpy()
         ydata = df.iloc[:,j].to_numpy()
         yield xdata, ydata, {}
+
+    def _id_to_uid(self, id_: str) -> str:
+        if Path(id_).suffix.lower() == '.csv':
+            return Path(id_).stem
+        return str(id_).rsplit(':', 1)[-1]
