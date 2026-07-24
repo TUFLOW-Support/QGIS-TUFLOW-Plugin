@@ -1010,7 +1010,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			if completely_remove:
 				meshLayers = findAllMeshLyrs()
 				for ml in meshLayers:
-					layer = tuflowqgis_find_layer(ml)
+					layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 					try:
 						layer.dataProvider().datasetGroupsAdded.disconnect(self.datasetGroupsAdded)
 					except:

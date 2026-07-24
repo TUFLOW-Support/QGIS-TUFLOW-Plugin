@@ -74,7 +74,7 @@ class TuResults2D():
 			pass
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
-			layer = tuflowqgis_find_layer(ml)
+			layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 			try:
 				layer.dataProvider().datasetGroupsAdded.disconnect(self.datasetGroupsAdded)
 			except:
@@ -208,7 +208,7 @@ class TuResults2D():
 			lambda: self.tuView.resultsChanged('item clicked'))
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
-			layer = tuflowqgis_find_layer(ml)
+			layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 			layer.dataProvider().datasetGroupsAdded.connect(self.datasetGroupsAdded)
 			layer.repaintRequested.connect(self.repaintRequested)
 
@@ -233,12 +233,12 @@ class TuResults2D():
 		dirname = os.path.dirname(basepath)
 		
 		# does mesh layer already exist in workspace
-		layer = tuflowqgis_find_layer(basename)
+		layer = tuflowqgis_find_layer(basename, layer_class=QgsMeshLayer)
 		if layer is not None:
 			return layer, basename, True
 		# TUFLOW FV 2dm is named differently so also check provided name does not exist
 		if name is not None:
-			layer_alternative = tuflowqgis_find_layer(name)
+			layer_alternative = tuflowqgis_find_layer(name, layer_class=QgsMeshLayer)
 			if layer_alternative is not None:
 				return layer_alternative, name, True
 		
@@ -911,7 +911,7 @@ class TuResults2D():
 		meshLayers = findAllMeshLyrs()
 		nodes = []
 		for ml in meshLayers:
-			layer = tuflowqgis_find_layer(ml)
+			layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 			node = QgsProject.instance().layerTreeRoot().findLayer(layer.id())
 			if not node:
 				continue
@@ -1254,7 +1254,7 @@ class TuResults2D():
 
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
-			layer = tuflowqgis_find_layer(ml)
+			layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 			if layer is not None:
 				if layer.datasetGroupCount() == 0:
 					return
@@ -1273,7 +1273,7 @@ class TuResults2D():
 		signalConnected = False
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
-			layer = tuflowqgis_find_layer(ml)
+			layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 			try:
 				layer.repaintRequested.disconnect(self.repaintRequested)
 				signalConnected = True
@@ -1302,7 +1302,7 @@ class TuResults2D():
 		# for QGIS 3.18.1 hack to force mesh to show
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
-			layer = tuflowqgis_find_layer(ml)
+			layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 			if layer in self.activeMeshLayers:
 				rs = layer.rendererSettings()
 				rsMesh = rs.nativeMeshSettings()
@@ -1319,7 +1319,7 @@ class TuResults2D():
 		if signalConnected:
 			meshLayers = findAllMeshLyrs()
 			for ml in meshLayers:
-				layer = tuflowqgis_find_layer(ml)
+				layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 				layer.repaintRequested.connect(self.repaintRequested)
 
 	def applyScalarRenderSettings(self, layer, datasetGroupIndex, file, type, save_type='xml'):
@@ -1643,7 +1643,7 @@ class TuResults2D():
 			pass
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
-			layer = tuflowqgis_find_layer(ml)
+			layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 			try:
 				layer.dataProvider().datasetGroupsAdded.disconnect(self.datasetGroupsAdded)
 			except:
@@ -1654,7 +1654,7 @@ class TuResults2D():
 				pass
 
 		for res in self.results2d:
-			layer = tuflowqgis_find_layer(res)
+			layer = tuflowqgis_find_layer(res, layer_class=QgsMeshLayer)
 			if layer is None:
 				continue
 			node = QgsProject.instance().layerTreeRoot().findLayer(layer.id())
@@ -1671,7 +1671,7 @@ class TuResults2D():
 			lambda: self.tuView.resultsChanged('item clicked'))
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
-			layer = tuflowqgis_find_layer(ml)
+			layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 			layer.dataProvider().datasetGroupsAdded.connect(self.datasetGroupsAdded)
 			layer.repaintRequested.connect(self.repaintRequested)
 

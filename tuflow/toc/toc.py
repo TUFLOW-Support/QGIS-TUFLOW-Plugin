@@ -88,8 +88,11 @@ def tuflowqgis_get_all_layers_for_datasource(datasource, **kwargs):
 def tuflowqgis_find_layer(layer_name, **kwargs):
     search_type = kwargs['search_type'] if 'search_type' in kwargs.keys() else 'name'
     return_type = kwargs['return_type'] if 'return_type' in kwargs else 'layer'
+    layer_class = kwargs['layer_class'] if 'layer_class' in kwargs else None
 
     for name, search_layer in QgsProject.instance().mapLayers().items():
+        if layer_class is not None and not isinstance(search_layer, layer_class):
+            continue  # e.g. a vector layer sharing a name with a mesh result should not be matched
         if search_type.lower() == 'name':
             if search_layer.name() == layer_name:
                 if return_type == 'layer':

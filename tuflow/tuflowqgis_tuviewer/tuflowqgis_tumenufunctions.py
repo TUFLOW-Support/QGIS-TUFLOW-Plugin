@@ -1623,7 +1623,9 @@ class TuMenuFunctions():
 		
 		# what happens if there are no mesh layer or more than one active mesh layer
 		if meshIndex is not None and result is not None:
-			meshLayer = tuflowqgis_find_layer(result)
+			meshLayer = tuflowqgis_find_layer(result, layer_class=QgsMeshLayer)
+			if meshLayer is None:  # a non-mesh layer may share the result name
+				return False
 		elif not self.tuView.tuResults.tuResults2D.activeMeshLayers:
 				QMessageBox.information(self.iface.mainWindow(), 'TUFLOW Viewer', 'No Active Result Datasets')
 				return False
@@ -1965,7 +1967,9 @@ class TuMenuFunctions():
 		# get mesh layers (QgsMeshLayer)
 		mLayers = []
 		for mesh in resultMesh:
-			mLayers.append(tuflowqgis_find_layer(mesh))
+			mLayer = tuflowqgis_find_layer(mesh, layer_class=QgsMeshLayer)
+			if mLayer is not None:
+				mLayers.append(mLayer)
 		if not mLayers:
 			return False
 			
