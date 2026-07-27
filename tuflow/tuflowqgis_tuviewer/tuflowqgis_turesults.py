@@ -1005,7 +1005,7 @@ class TuResults():
 			pass
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
-			layer = tuflowqgis_find_layer(ml)
+			layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 			try:
 				layer.repaintRequested.disconnect(self.tuResults2D.repaintRequested)
 			except:
@@ -1027,7 +1027,7 @@ class TuResults():
 		self.tuView.resultSelectionChangeSignal = self.tuView.OpenResults.itemSelectionChanged.connect(
 			lambda: self.tuView.resultsChanged('item clicked'))
 		for ml in meshLayers:
-			layer = tuflowqgis_find_layer(ml)
+			layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 			layer.repaintRequested.connect(self.tuResults2D.repaintRequested)
 
 		# Update viewport with enabled / disabled items
@@ -1880,7 +1880,7 @@ class TuResults():
 
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
-			layer = tuflowqgis_find_layer(ml)
+			layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 			self.tuResults2D.getResultMetaData(ml, layer, loadRenderStyle=False)
 
 			# update 1D results based on new reference time for mesh layer
@@ -2124,7 +2124,7 @@ class TuResults():
 			tsprocessed = False
 			for restype, resinfo in res.items():
 				if TuResults.isMapOutputType(restype):
-					layer = tuflowqgis_find_layer(resname)
+					layer = tuflowqgis_find_layer(resname, layer_class=QgsMeshLayer)
 					if layer is not None:
 						if not meshprocessed:
 							if qv >= 31300 and not resinfo['hadTemporalProperties']:
@@ -2558,21 +2558,21 @@ class TuResults():
 	@staticmethod
 	def layersToMethodLower(layers):
 		"""turns layers to find next lower timestep"""
-
 		for lyr in layers:
 			if type(lyr) is str:
-				lyr = tuflowqgis_find_layer(lyr)
+				lyr = tuflowqgis_find_layer(lyr, layer_class=QgsMeshLayer)
+			if lyr is None:
+				continue
 			lyr.setTemporalMatchingMethod(QgsMeshDataProviderTemporalCapabilities.FindClosestDatasetBeforeStartRangeTime)
 
 	@staticmethod
 	def layersToMethodHigher(layers):
 		"""turns layers to find next lower timestep"""
-
 		for lyr in layers:
 			if type(lyr) is str:
-				lyr = tuflowqgis_find_layer(lyr)
+				lyr = tuflowqgis_find_layer(lyr, layer_class=QgsMeshLayer)
 			if lyr is None:
-				return
+				continue
 			lyr.setTemporalMatchingMethod(QgsMeshDataProviderTemporalCapabilities.FindClosestDatasetFromStartRangeTime)
 
 	def dateToTimeInCombobox(self, inputDate):

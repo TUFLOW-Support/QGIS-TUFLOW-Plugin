@@ -36,7 +36,7 @@ except ImportError:
 from ..compatibility_routines import QT_DOCK_WIDGET_AREA_NONE, QT_RIGHT_BUTTON, QT_LEFT_BUTTON, QT_ITEM_SELECTION_SELECT, QT_HORIZONTAL
 
 
-class TuView(QDockWidget, Ui_Tuplot):
+class 	TuView(QDockWidget, Ui_Tuplot):
 	
 	def __init__(self, iface=None, **kwargs):
 
@@ -1010,7 +1010,7 @@ class TuView(QDockWidget, Ui_Tuplot):
 			if completely_remove:
 				meshLayers = findAllMeshLyrs()
 				for ml in meshLayers:
-					layer = tuflowqgis_find_layer(ml)
+					layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 					try:
 						layer.dataProvider().datasetGroupsAdded.disconnect(self.datasetGroupsAdded)
 					except:

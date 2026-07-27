@@ -485,7 +485,9 @@ class TuProject():
 			for result, rtypeDict in results.items():
 				# result -> 'M03_5m_001'
 				# rtype -> 'Depth' or 'point_ts'
-				layer = tuflowqgis_find_layer(result)
+				layer = tuflowqgis_find_layer(result, layer_class=QgsMeshLayer)
+				if layer is None:
+					continue
 				for rtype, timeDict in rtypeDict.items():
 					#if '_ts' not in rtype and '_lp' not in rtype and '_particles' not in rtype:
 					if TuResults.isMapOutputType(rtype):

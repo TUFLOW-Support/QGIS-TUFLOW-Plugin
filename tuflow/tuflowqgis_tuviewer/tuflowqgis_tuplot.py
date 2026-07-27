@@ -4875,7 +4875,7 @@ class TuPlot():
 		meshLayers = findAllMeshLyrs()
 		ref_time_changed = False
 		for ml in meshLayers:
-			ml = tuflowqgis_find_layer(ml)
+			ml = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 			if ml is None:
 				continue
 			if ml.name() not in results:
