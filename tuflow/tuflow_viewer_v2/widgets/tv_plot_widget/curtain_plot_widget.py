@@ -92,7 +92,7 @@ class CurtainPlotWidget(TVPlotWidget, CurtainPlotHelperMixin):
             dtypes = get_viewer_instance().data_types([output_name], 'section')
             if ('bed level' not in dtypes or 'water level' not in dtypes) and not get_viewer_instance().data_types([output_name], '3d'):
                 continue
-            data_types.extend([x for x in dtypes if x not in excluded_types and excluded_pat not in x.lower()])
+            data_types.extend([x for x in dtypes if x not in excluded_types and x not in data_types and excluded_pat not in x.lower()])
         return data_types
 
     def qgis_time_changed(self):
