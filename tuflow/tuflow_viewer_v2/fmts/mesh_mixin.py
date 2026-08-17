@@ -180,4 +180,5 @@ class MeshMixin(MapOutputMixin):
         self._layer.setTemporalMatchingMethod(QgsMeshDataProviderTemporalCapabilities.FindClosestDatasetFromStartRangeTime)
         if self.has_reference_time:
             return  # layer already has temporal properties setup
+        logger.debug(f'Setting layer {self} reference time to: {self.reference_time}')
         self.set_reference_time(self.reference_time)

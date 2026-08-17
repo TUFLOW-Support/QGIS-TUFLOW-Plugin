@@ -68,7 +68,7 @@ class CATCHJson(CATCHJsonBase, MapOutputMixin, CATCHQgisHooks):
         d = {
             'class': self.__class__.__name__,
             'id': self.id,
-            'fpath': str(self.fpath),
+            'fpath': str(self._rel_path(self.fpath)),
             'name': self.name,
             'alias': self.alias,
             'lyrids': [x.id() for x in self.map_layers()],
@@ -77,8 +77,8 @@ class CATCHJson(CATCHJsonBase, MapOutputMixin, CATCHQgisHooks):
         }
         return json.dumps(d)
 
-    @staticmethod
-    def from_json(string) -> 'TuflowViewerOutput':
+    @classmethod
+    def from_json(cls, string) -> 'TuflowViewerOutput':
         """Deserialize the object from a JSON string.
         Used for saving/loading sessions.
         """
@@ -92,7 +92,7 @@ class CATCHJson(CATCHJsonBase, MapOutputMixin, CATCHQgisHooks):
             if not lyr.isValid():
                 logger.error('Vector layer for TPC output not found in project: {0}'.format(d['name']))
                 raise ValueError('Vector layer for TPC output not found in project: {0}'.format(d['name']))
-        res = CATCHJson(d['fpath'], layers=lyrs, alias=d['alias'])
+        res = CATCHJson(cls._abs_path(d['fpath']), layers=lyrs, alias=d['alias'])
         res.id = d['id']
         res.copied_files = d.get('copied_files', {})
         return res

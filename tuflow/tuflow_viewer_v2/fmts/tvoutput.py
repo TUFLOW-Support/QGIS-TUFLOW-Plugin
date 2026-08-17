@@ -1,4 +1,5 @@
 import json
+import os
 import typing
 from datetime import timedelta, datetime
 from pathlib import Path
@@ -66,7 +67,7 @@ class TuflowViewerOutput:
         d = {
             'class': self.__class__.__name__,
             'id': self.id,
-            'fpath': str(self.fpath),
+            'fpath': str(self._rel_path(self.fpath)),
             'name': self.name,
             'lyrids': [x.id() for x in self.map_layers()],
             'duplicated': [lyr.id() for x in self.duplicated_outputs for lyr in x.map_layers()],
@@ -74,8 +75,8 @@ class TuflowViewerOutput:
         }
         return json.dumps(d)
 
-    @staticmethod
-    def from_json(string) -> 'TuflowViewerOutput | None':
+    @classmethod
+    def from_json(cls, string) -> 'TuflowViewerOutput | None':
         """Deserialize the object from a JSON string.
         Used for saving/loading sessions.
         """
@@ -202,3 +203,20 @@ class TuflowViewerOutput:
             if custom_property:
                 continue
             lyr.customPropertyChanged.connect(self._set_custom_property)
+
+    @classmethod
+    def _rel_path(cls, fpath: Path | str) -> Path | str:
+        """Relative path to the qgis project if it exists and the project is set to use relative paths, else just returns the fpath."""
+        if QgsProject.instance().absolutePath() and not QgsProject.instance().readBoolEntry("Paths", "/Absolute", False)[0]:
+            p = Path(QgsProject.instance().absolutePath())
+            relpath = os.path.relpath(fpath, p)
+            logger.debug(f'Relative path: {relpath}')
+            return relpath
+        return fpath
+
+    @classmethod
+    def _abs_path(cls, fpath: Path | str) -> Path | str:
+        """Returns the absolute file path given a relative fpath based onthe qgis project if it exists"""
+        if QgsProject.instance().absolutePath():
+            return (Path(QgsProject.instance().absolutePath()) / fpath).resolve()
+        return fpath

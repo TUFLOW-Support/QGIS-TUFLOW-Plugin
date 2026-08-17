@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import sys, io
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from qgis._core import QgsMapLayer
@@ -151,6 +151,7 @@ class TuflowViewer(QObject):
         QgsProject.instance().layersAdded.connect(self._on_layers_added)
         QgsProject.instance().layersWillBeRemoved.connect(self._on_layers_will_be_removed)
         QgsProject.instance().readProject.connect(self._read_project)
+        QgsProject.instance().projectSaved.connect(self._project_saved)
         if self.iface is not None:
             self.iface.mapCanvas().mapToolSet.connect(self._map_tool_changed)
 
@@ -235,7 +236,11 @@ class TuflowViewer(QObject):
             QgsProject.instance().readProject.disconnect(self._read_project)
         except Exception:
             pass
-
+        try:
+            QgsProject.instance().projectSaved.disconnect(self._project_saved)
+        except Exception:
+            pass
+        
     def set_theme(self, theme_name: str):
         theme = load_theme(theme_name)
         if not theme.valid:
@@ -576,7 +581,7 @@ class TuflowViewer(QObject):
         if start_time is not None:
             for key, output in self._outputs.copy().items():
                 if not output.has_reference_time:
-                    output.reference_time = start_time
+                    output.reference_time = start_time - timedelta(hours=min(output.times(fmt='relative')))
                     try:
                         output.init_temporal_properties()
                     except RuntimeError:
@@ -615,7 +620,35 @@ class TuflowViewer(QObject):
             except Exception as e:
                 self._logger.error('Failed to load {0}: {1}'.format(d['name'], e))
                 continue
-            self.load_output(output)
+            if output:
+                self.load_output(output)
+
+    def _project_saved(self):
+        """Re-serialize the outputs. We want to preference relative references, so we need to re-serialize on save
+        as the project path can change which can change relative references."""
+        for output in self._outputs.values():
+            try:
+                serialized = output.to_json()
+            except Exception as e:
+                self._logger.error(f'Error serializing result {output.fpath}: {e}')
+                serialized = None
+            # set a custom property so the layer can be recognised as a TUFLOW Viewer output
+            for lyr in output.map_layers():
+                lyr.blockSignals(True)
+                if serialized:
+                    lyr.setCustomProperty('tuflow_viewer', serialized)  # serialize all info so that it can be loaded if it is dragged into another QGIS instance
+                lyr.blockSignals(False)
+
+            if serialized:
+                QgsProject.instance().writeEntry('tuflow_viewer', f'output/{output.id}', serialized)
+
+        if QgsProject.instance().isDirty():
+            QgsProject.instance().blockSignals(True)
+            try:
+                QgsProject.instance().write()
+            except Exception as e:
+                self._logger.error(f'Error writing project: {e}')
+            QgsProject.instance().blockSignals(False)
 
     def _create_plot_window(self, *args):
         """Creates a new plotting window. Triggered when the time-series icon is clicked in the plugin toolbar."""

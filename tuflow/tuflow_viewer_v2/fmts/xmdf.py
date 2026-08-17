@@ -91,15 +91,16 @@ class XMDF(XMDFBase, MeshMixin, QgisMeshAPIMixin):
             pass
         return XMDFBase._looks_like_this(p)
 
-    @staticmethod
-    def from_json(string) -> 'XMDF':
+    @classmethod
+    def from_json(cls, string) -> 'XMDF':
         d = json.loads(string)
         lyrid = d['lyrids'][0]
         lyr = QgsProject.instance().mapLayer(lyrid)
         if not lyr or not lyr.isValid():
             logger.error('Mesh layer for XMDF output not found in project: {0}'.format(d['name']))
             raise ValueError('Mesh layer not found in project')
-        xmdf = XMDF(d['fpath'], d['2dm'], layer=lyr)
+        logger.debug(f'loading XMDF from path: {d['fpath']}, {d['2dm']}')
+        xmdf = XMDF(cls._abs_path(d['fpath']), cls._abs_path(d['2dm']), layer=lyr)
         xmdf.id = d['id']
         xmdf.duplicated_outputs = [QgsProject.instance().mapLayer(x) for x in d['duplicated'] if QgsProject.instance().mapLayer(x)]
         xmdf.copied_files = d.get('copied_files', {})
@@ -109,9 +110,9 @@ class XMDF(XMDFBase, MeshMixin, QgisMeshAPIMixin):
         d = {
             'class': 'XMDF',
             'id': self.id,
-            'fpath': str(self.fpath),
+            'fpath': str(self._rel_path(self.fpath)),
             'name': self.name,
-            '2dm': str(self.twodm),
+            '2dm': str(self._rel_path(self.twodm)),
             'lyrids': [x.id() for x in self.map_layers()],
             'duplicated': [lyr.id() for x in self.duplicated_outputs for lyr in x.map_layers()],
             'copied_files': {str(k): (str(v[0]), v[1]) for k, v in self.copied_files.items()},

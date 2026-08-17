@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 
 from .stubs.qgis_stubs import QGIS
 
@@ -8,7 +9,7 @@ from tuflow.tuflow_viewer_v2.fmts import (XMDF, TPC, GPKG1D, GPKG2D, GPKGRL, NCM
                                           BCTablesCheck, HydTablesCheck, DAT, FMTS, DATCrossSections,
                                           CATCHJson, FVBCTide)
 from tuflow.pt.pytuflow import TuflowPath
-from ._utils import get_dataset_path, add_layer_to_qgis, add_layers_to_qgis, TuflowViewerTestCase
+from ._utils import get_dataset_path, add_layer_to_qgis, add_layers_to_qgis, TuflowViewerTestCase, add_result_to_viewer
 
 
 class TestFmts(TuflowViewerTestCase):
@@ -46,6 +47,14 @@ class TestFmts(TuflowViewerTestCase):
             self.assertTrue(res2.map_layers()[0].isValid())
             self.assertTrue(res.id, res2.id)
             self.assertEqual(res.map_layers(), res2.map_layers())
+
+    def test_xmdf_time_shifted(self):
+        from ..tvinstance import get_viewer_instance
+        p = get_dataset_path('xmdf_time_shifted/EG00_001.xmdf', 'result')
+        res = XMDF(p)
+        with add_result_to_viewer(res):
+            get_viewer_instance().recalculate_temporal_properties()
+            self.assertEqual(datetime(1990, 1, 1, tzinfo=timezone.utc), res.reference_time)
 
     def test_2dm(self):
         p = get_dataset_path('run.2dm', 'result')

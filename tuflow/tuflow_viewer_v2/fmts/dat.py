@@ -70,25 +70,25 @@ class DAT(DATBase, MeshMixin, QgisMeshAPIMixin):
         d = {
             'class': self.__class__.__name__,
             'id': self.id,
-            'fpath': str(self.fpath),
+            'fpath': str(self._rel_path(self.fpath)),
             'name': self.name,
-            '2dm': str(self.twodm),
-            'dats': [str(x) for x in self._dats],
+            '2dm': str(self._rel_path(self.twodm)),
+            'dats': [str(self._rel_path(x)) for x in self._dats],
             'lyrids': [x.id() for x in self.map_layers()],
             'duplicated': [lyr.id() for x in self.duplicated_outputs for lyr in x.map_layers()],
             'copied_files': {str(k): (str(v[0]), v[1]) for k, v in self.copied_files.items()},
         }
         return json.dumps(d)
 
-    @staticmethod
-    def from_json(string) -> 'DAT':
+    @classmethod
+    def from_json(cls, string) -> 'DAT':
         d = json.loads(string)
         lyrid = d['lyrids'][0]
         lyr = QgsProject.instance().mapLayer(lyrid)
         if not lyr or not lyr.isValid():
             logger.error('Mesh layer for XMDF output not found in project: {0}'.format(d['name']))
             raise ValueError('Mesh layer not found in project')
-        res = DAT(d['fpath'], d['2dm'], layer=lyr, dats=d['dats'])
+        res = DAT(cls._abs_path(d['fpath']), cls._abs_path(d['2dm']), layer=lyr, dats=[cls._abs_path(x) for x in d['dats']])
         res.id = d['id']
         res.copied_files = d.get('copied_files', {})
         return res
