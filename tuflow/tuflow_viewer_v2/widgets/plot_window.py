@@ -29,6 +29,13 @@ else:
 if typing.TYPE_CHECKING:
     from ..tuflow_viewer import TuflowViewer
 
+
+def _rgbf_to_str(rgbf: tuple[float]) -> str:
+    c = QColor()
+    c.setRgbF(*rgbf)
+    return c.name()
+
+
 class PlotWindow(QgsDockWidget, Ui_PlotWindow):
 
     markersChanged = pyqtSignal()
@@ -78,6 +85,10 @@ class PlotWindow(QgsDockWidget, Ui_PlotWindow):
         self.tabWidget_view2.plot_linking_changed.connect(self.plot_linking_changed)
 
         colours = plt.rcParams['axes.prop_cycle'].by_key()['color']
+        if colours and isinstance(colours[0], tuple) and colours[0] and isinstance(colours[0][0], float):
+            colours = [_rgbf_to_str(c) for c in colours]
+        elif colours and isinstance(colours[0], tuple) and colours[0] and isinstance(colours[0][0], int):
+            colours = [QColor(*c).name() for c in colours]
         if px is not None:
             colours += px.colors.qualitative.Plotly
         self._marker_colours = ColourAllocator(colours)

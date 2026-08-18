@@ -89,8 +89,8 @@ class TuflowViewerOutput:
             if not lyr.isValid():
                 logger.error('Vector layer for {class} output not found in project: {name}'.format(**d))
                 raise ValueError('Vector layer for {class} output not found in project: {name}'.format(**d))
-        cls = get_viewer_instance().output_handlers.get(d['class'])
-        res = cls(fpath=d['fpath'], layers=lyrs)
+        out_cls = get_viewer_instance().output_handlers.get(d['class'])
+        res = out_cls(fpath=cls._abs_path(d['fpath']), layers=lyrs)
         res.id = d['id']
         res.duplicated_outputs = [QgsProject.instance().mapLayer(x) for x in d['duplicated'] if QgsProject.instance().mapLayer(x)]
         res.copied_files = d.get('copied_files', {})

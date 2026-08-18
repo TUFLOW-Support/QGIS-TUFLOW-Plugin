@@ -826,6 +826,30 @@ class TestPlotsGeneral(TuflowViewerTestCase):
             curves = [x for x in plot.plot_graph.items() if isinstance(x, TuflowViewerCurve)]
             self.assertEqual(1, len(curves))
 
+    def test_tuflow_cross_sections_unique_csv_x_column_name_flag(self):
+        p = get_dataset_path('1d_xs_inlet_classify.shp', 'result')
+        lyr = QgsVectorLayer(str(p), p.name, 'ogr')
+        res = TuflowCrossSections(p, layers=[lyr])
+
+        with add_result_to_viewer(res):
+            plot_window = PlotWindow(get_viewer_instance())
+            plot_window.tabWidget_view1.change_tab_to_section(checked=True, tab_idx=0)
+            plot = plot_window.tabWidget_view1.widget(0)
+
+            # select a channel and plot bed level, pipes, pits
+            plot.toggle_selection_tool(True)
+            actions = [x for x in plot.toolbar.data_types_menu.actions() if x.text() in ['xz']]
+            _ = [x.setChecked(True) for x in actions]
+            lyr = res.map_layers()[0]
+            QGIS.iface.setActiveLayer(lyr)
+            ch = list(lyr.getFeatures('"Source" = \'./csv/xs_0165.csv\''))
+            temporal_controller.setCurrentTime(datetime(1990, 1, 1, 1, 0, 0))
+            lyr.selectByIds([x.id() for x in ch])
+
+            # check the curve has been added to the plot
+            curves = [x for x in plot.plot_graph.items() if isinstance(x, TuflowViewerCurve)]
+            self.assertEqual(1, len(curves))
+
     def test_tuflow_cross_sections_packed_csv(self):
         p = get_dataset_path('1d_xs_EG14_003_L.shp', 'result')
         lyr = QgsVectorLayer(str(p), p.name, 'ogr')

@@ -148,6 +148,11 @@ class TuflowCrossSections(CrossSections, TuflowViewerOutput):
         yield xdata, ydata, {}
 
     def _id_to_uid(self, id_: str) -> str:
+        self._complete_load()
         if Path(id_).suffix.lower() == '.csv':
             return Path(id_).stem
-        return str(id_).rsplit(':', 1)[-1]
+        source, col1 = id_.rsplit(':', 1)
+        if self.objs[self.objs['source'] == source].shape[0] == 1:
+            return Path(source).stem
+        else:
+            return col1

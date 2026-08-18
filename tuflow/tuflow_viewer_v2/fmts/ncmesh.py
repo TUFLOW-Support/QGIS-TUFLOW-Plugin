@@ -1,4 +1,6 @@
 from pathlib import Path
+import shutil
+import os
 
 from qgis.PyQt.QtCore import QSettings
 from qgis.core import QgsMeshLayer
@@ -59,3 +61,37 @@ class NCMesh(NCMeshBase, MeshMixin, QgisMeshAPIMixin):
 
     def reload_layer(self, layer: QgsMeshLayer, copied_files_mapping: dict):
         self._driver.reload_layer(layer, copied_files_mapping)
+
+    def set_data_source(self, new_fpath: Path):
+        from ..tvinstance import get_viewer_instance
+
+        self._layer.setDataSource(str(new_fpath), self._layer.name(), 'mdal')
+        self._layer.reload()
+
+        v1_1_driver = self._driver.DRIVER_SOURCE == 'python'
+        if v1_1_driver:
+            self._driver.set_data_source(new_fpath)
+        else:
+            self._driver.mesh = new_fpath
+
+        self._initial_load()
+
+        old_src = list(self.copied_files.keys())[0]
+        orig = self.copied_files[old_src]
+        self.copied_files.clear()
+        self.copied_files[str(new_fpath)] = (str(orig[0]), os.path.getmtime(orig[0]))
+
+        try:
+            with open(old_src, 'rb+'):
+                pass
+            Path(old_src).unlink()
+            shutil.rmtree(Path(old_src).parent, ignore_errors=True)
+            logger.info('Deleted previously copied file: {}'.format(old_src))
+        except Exception:
+            logger.info('Original copied file is locked, cannot remove: {}'.format(old_src))
+
+        self.init_temporal_properties()
+        self._init_styling(self._map_layers, self._lyr2resultstyle)
+        get_viewer_instance().configure_temporal_controller()
+
+        logger.info('Successfully sync\'d and reloaded NetCDF mesh results.', extra={'messagebar': True})

@@ -581,7 +581,11 @@ class TuflowViewer(QObject):
         if start_time is not None:
             for key, output in self._outputs.copy().items():
                 if not output.has_reference_time:
-                    output.reference_time = start_time - timedelta(hours=min(output.times(fmt='relative')))
+                    times = output.times(fmt='relative')
+                    if times:
+                        output.reference_time = start_time - timedelta(hours=min(times))
+                    else:
+                        output.reference_time = start_time
                     try:
                         output.init_temporal_properties()
                     except RuntimeError:
