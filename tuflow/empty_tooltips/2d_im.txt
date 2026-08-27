@@ -1,0 +1,7 @@
+location == TUFLOW CATCH Control File (.tcc)
+
+command == Read GIS Intervention
+
+description == This files contains lines defining intervention device(s). It has one required attribute, ID, which defines the device name.
+
+manual link == https://docs.tuflow.com/catch/manual/2025.1/SimulationConstruction-1.html#SCTCCPollExpInter-4

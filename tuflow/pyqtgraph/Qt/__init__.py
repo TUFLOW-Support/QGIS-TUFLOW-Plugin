@@ -119,7 +119,7 @@ def _loadUiType(uiFile):
     # convert ui file to python code
     if pyside2uic is None:
         uic_executable = QT_LIB.lower() + '-uic'
-        uipy = subprocess.check_output([uic_executable, uiFile])
+        uipy = subprocess.check_output([uic_executable, uiFile])  # nosec B603
     else:
         o = _StringIO()
         with open(uiFile, 'r') as f:

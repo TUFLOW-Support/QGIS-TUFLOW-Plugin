@@ -131,7 +131,7 @@ class TuflowContextMenuProvider(QMenu):
                         self.addAction(self.add_features_from_layer_action(layer))
                         return
                 except Exception as e:
-                    pass  # Nothing to do action won't get added
+                    print(f'Error: {e}')
 
                 res = ResData_GPKG()
                 err, msg = res.Load(db)

@@ -815,12 +815,12 @@ class XS():
 			if s not in selSource:
 				try:
 					self.source.pop(j)
-				except:
-					pass
+				except Exception as e:
+					print(f'Error: {e}')
 				try:
 					self.data.pop(j)
-				except:
-					pass
+				except Exception as e:
+					print(f'Error: {e}')
 				self.nXS -= 1
 				if self.nXS < 0:
 					self.nXS = 0

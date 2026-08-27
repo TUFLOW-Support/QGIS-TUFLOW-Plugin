@@ -91,7 +91,7 @@ class Container(object):
             try:
                 ch.sigStretchChanged.disconnect(self.childStretchChanged)
             except:
-                pass
+                pass  # nosec B110
             self.updateStretch()
         
     def childStretchChanged(self):

@@ -1900,12 +1900,12 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                     try:
                         lyr.selectionChanged.disconnect(self.selChangedSignal)
                     except Exception as e:
-                        pass
+                        print(f'Error: {e}')
                     self.selChangedSignal = None
                     try:
                         self.iface.currentLayerChanged.disconnect(self.endInteractiveSelection)
                     except Exception as e:
-                        pass
+                        print(f'Error: {e}')
                     if self.prevMapTool is not None:
                         self.iface.mapCanvas().setMapTool(self.prevMapTool)
                         self.prevMapTool = None
@@ -1916,12 +1916,12 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                 try:
                     lyr.selectionChanged.disconnect(self.selChangedSignal)
                 except Exception as e:
-                    pass
+                    print(f'Error: {e}')
             self.selChangedSignal = None
             try:
                 self.iface.currentLayerChanged.disconnect(self.endInteractiveSelection)
             except Exception as e:
-                pass
+                print(f'Error: {e}')
             if self.prevMapTool is not None:
                 self.iface.mapCanvas().setMapTool(self.prevMapTool)
                 self.prevMapTool = None
@@ -2073,7 +2073,7 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                         self.editedXsLayerSignal = None
                         break
                     except Exception as e:
-                        pass
+                        print(f'Error: {e}')
 
             if self.cboXsLayer.currentText() == '-None-':
                 for i in range(self.cboXsLayer.count()):
@@ -2516,10 +2516,9 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                     try:
                         lyr.editCommandEnded.disconnect(self.editedNwkLayerSignal)
                     except Exception as e:
-                        pass
+                        print(f'Error: {e}')
                     finally:
                         self.editedNwkLayerSignal = None
-                        break
 
             if self.editedXsLayerSignal is not None:
                 for i in range(self.cboXsLayer.count()):
@@ -2531,105 +2530,105 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
                         self.editedXsLayerSignal = None
                         break
                     except Exception as e:
-                        pass
+                        print(f'Error: {e}')
 
             # what happends when layers are added or removed from workspace
             try:
                 QgsProject.instance().layersAdded.disconnect(self.populateLayerComboBoxes)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             try:
                 QgsProject.instance().layersRemoved.disconnect(self.populateLayerComboBoxes)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
 
             # datasource changed
             for layerid, layer in QgsProject.instance().mapLayers().items():
                 try:
                     layer.dataSourceChanged.disconnect(self.populateLayerComboBoxes)
-                except:
-                    pass
+                except Exception as e:
+                    print(f'Error: {e}')
                 try:
                     layer.nameChanged.disconnect(self.populateLayerComboBoxes)
-                except:
-                    pass
+                except Exception as e:
+                    print(f'Error: {e}')
                 try:
                     layer.configChanged.disconnect(self.populateLayerComboBoxes)
-                except:
-                    pass
+                except Exception as e:
+                    print(f'Error: {e}')
 
             # General Data tab
             # what happens when nwk layer combobox is updated
             try:
                 self.cboNwkLayer.currentIndexChanged.disconnect(self.populateFeatureCombobox)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
 
             # what happens when feature is changed or if xs layer is changed
             if self.cboNwkFeatChangedSignal is not None:
                 try:
                     self.cboNwkFeature.currentIndexChanged.disconnect(self.cboNwkFeatChangedSignal)
-                except:
-                    pass
+                except Exception as e:
+                    print(f'Error: {e}')
                 self.cboNwkFeatChangedSignal = None
             if self.cboXsFeatChangedSignal is not None:
                 try:
                     self.cboXsLayer.currentIndexChanged.disconnect(self.cboXsFeatChangedSignal)
-                except:
-                    pass
+                except Exception as e:
+                    print(f'Error: {e}')
                 self.cboXsFeatChangedSignal = None
 
             # reload buttons
             if self.pbReloadBridgeClicked is not None:
                 try:
                     self.pbReloadBridge.clicked.disconnect(self.pbReloadBridgeClicked)
-                except:
-                    pass
+                except Exception as e:
+                    print(f'Error: {e}')
                 self.pbReloadBridgeClicked = None
             if self.pbReloadCrossSectionClicked is not None:
                 try:
                     self.pbReloadCrossSection.clicked.disconnect(self.pbReloadCrossSectionClicked)
-                except:
-                    pass
+                except Exception as e:
+                    print(f'Error: {e}')
                 self.pbReloadCrossSectionClicked = None
 
             # use selected feature as nwk bridge
             try:
                 self.bridgeBySelection.clicked.disconnect(self.selectFeatureInteractive)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
 
             # context menus
             try:
                 self.twChannel.verticalHeader().customContextMenuRequested.disconnect(self.channelTableMenu)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             try:
                 self.twBridge.verticalHeader().customContextMenuRequested.disconnect(self.bridgeTableMenu)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
 
             # channel table
             try:
                 self.btnAddChannelRow.clicked.disconnect(self.addChannelStation)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             try:
                 self.btnAddChannelRow.clicked.disconnect(self.channelTableChanged)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             try:
                 self.btnRemChannelRow.clicked.disconnect(self.removeChannelStation)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             try:
                 self.btnRemChannelRow.clicked.disconnect(self.channelTableChanged)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             try:
                 self.twChannel.cellChanged.disconnect(self.channelTableChanged)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             # try:
             #     self.twChannel.cellChanged.disconnect(self.setMinimumBridgeLevels)
             # except:
@@ -2638,24 +2637,24 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
             # bridge table
             try:
                 self.btnAddBridgeRow.clicked.disconnect(self.addBridgeStation)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             try:
                 self.btnRemBridgeRow.clicked.disconnect(self.removeBridgeStation)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             try:
                 self.btnRemBridgeRow.clicked.disconnect(self.checkBridgeStationIncreases)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             try:
                 self.twBridge.cellChanged.disconnect(self.bridgeTableChanged)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             try:
                 self.twBridge.cellChanged.disconnect(self.checkBridgeStationIncreases)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             # try:
             #     self.twBridge.cellChanged.disconnect(self.setMinimumBridgeLevels)
             # except:
@@ -2664,73 +2663,73 @@ class ArchBridgeDock(QDockWidget, Ui_archBridgeDock):
             # buttons next to tables
             try:
                 self.pbPlot.clicked.disconnect(self.plotBridge)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             try:
                 self.pbImport.clicked.disconnect(self.openImportMenu)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             try:
                 self.pbDem.clicked.disconnect(self.openDemMenu)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             try:
                 self.pbBridgeCurves.clicked.disconnect(self.openBridgeCurveMenu)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
 
             # run button
             try:
                 self.pbRun.clicked.disconnect(self.check)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
 
             # reset button
             try:
                 self.pbReset.clicked.disconnect(self.reset)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
 
             # clear graphic
             try:
                 self.pbClearGraphic.clicked.connect(self.clearGraphic)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
 
             # clear table
             try:
                 self.pbClearChannelTable.clicked.disconnect(self.clearChannelTable)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
 
             # graphic to vector
             try:
                 self.pbGraphicToVector.clicked.disconnect(self.graphicToVector)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
 
             # output type changed
             try:
                 self.cboOutputType.currentIndexChanged.disconnect(self.outputTypeChanged)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
 
             # output format changed
             try:
                 self.cboOutFormat.currentIndexChanged.disconnect(self.outFormatChanged)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
 
             # browse buttons
             if self.btnBrowseOutDbClicked is not None:
                 try:
                     self.btnBrowseOutDatabase.clicked.disconnect(self.btnBrowseOutDbClicked)
-                except:
-                    pass
+                except Exception as e:
+                    print(f'Error: {e}')
                 self.btnBrowseOutDbClicked = None
             if self.btnBrowseOutFileClicked is not None:
                 try:
                     self.btnBrowseOutFile.clicked.disconnect(self.btnBrowseOutFileClicked)
-                except:
-                    pass
+                except Exception as e:
+                    print(f'Error: {e}')
                 self.btnBrowseOutFileClicked = None

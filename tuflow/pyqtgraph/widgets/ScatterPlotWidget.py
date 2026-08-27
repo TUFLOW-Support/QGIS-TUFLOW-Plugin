@@ -252,7 +252,7 @@ class ScatterPlotWidget(QtWidgets.QSplitter):
             try:
                 self.scatterPlot.sigPointsClicked.disconnect(self.plotClicked)
             except:
-                pass
+                pass  # nosec B110
         
         self._visibleXY = xy
         self._visibleData = data

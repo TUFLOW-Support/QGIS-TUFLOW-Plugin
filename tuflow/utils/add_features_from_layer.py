@@ -81,9 +81,9 @@ class DlgAddFeaturesFromLayer(QDialog, Ui_dlg_features_from_layer):
                     try:
                         field_name = source_layer.fields().at(i_field).name()
                         new_feat[field_name] = feat[field_name]
-                    except:
+                    except Exception as e:
                         # Names didn't match up don't copy
-                        pass
+                        print(f'Error: {e}')
 
                 self.dest_layer.addFeature(new_feat)
 

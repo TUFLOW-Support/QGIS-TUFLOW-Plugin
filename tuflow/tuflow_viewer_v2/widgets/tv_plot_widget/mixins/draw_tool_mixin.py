@@ -119,24 +119,24 @@ class DrawToolMixin:
             self.draw_tool.finish()
         try:
             self.draw_tool_toggled.disconnect(self.toggle_draw_tool)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.clear_drawn_selection_requested.disconnect(self.clear_drawn_items)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.draw_item_hovered.disconnect(self.draw_item_action_hovered)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.draw_item_toggled.disconnect(self.drawn_item_action_toggled)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.draw_item_removed.disconnect(self.drawn_item_action_removed)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         plots = [x for x in self._plot_window.find_plot_widget_from_geom_type(self._geom_type) if x != self]
         if not plots:
             self.draw_tool.clear()

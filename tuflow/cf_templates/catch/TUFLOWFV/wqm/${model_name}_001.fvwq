@@ -1,0 +1,19 @@
+! WATER QUALITY CONTROL FILE (.FVWQ)
+
+! SIMULATION CONTROLS
+! Simulation Class == DO        ! Options - DO | Inorganics | Organics
+! WQ dt == 900.0                ! Interval for updating the water quality module (seconds)
+! WQ Units == mgL               ! Options - mgL | mmm
+
+! CONSTITUENT MODEL SETTINGS
+! Example Oxygen model provided below
+! Oxygen Model == O2
+	! Oxygen Min Max == <min>,<max>
+	! Oxygen Benthic == <>, <>
+! End Oxygen Model
+
+! MATERIAL SPECIFICATIONS
+! Example Material block provided below with Oxygen
+! Material == Default
+	! Oxygen Flux ==  <value>
+! End Material

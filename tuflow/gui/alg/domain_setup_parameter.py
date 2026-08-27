@@ -125,7 +125,7 @@ class DomainSetupWidget(QWidget):
             self.tooltip_widget = self.findToolTipWidget()
         if self.tooltip_widget:
             self._old_tooltip = self.tooltip_widget.toHtml()
-            p = Path(__file__).parents[2] / 'alg' / 'help' / 'html' / 'domain_setup.html'
+            p = Path(__file__).parents[2] / 'alg' / 'hpc' / 'help' / 'html' / 'domain_setup.html'
             with p.open() as f:
                 self.tooltip_widget.setHtml(f.read().replace('${plugin_folder}', pluginDirectory('tuflow')))
 

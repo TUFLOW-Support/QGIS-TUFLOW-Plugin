@@ -1,0 +1,36 @@
+<p>Convert XPSWMM Hydrology for use in TUFLOW-SWMM</p>
+
+<p>Unfortunately, XPSWMM does not write out all required hydrology information when doing a simple export to EPA SWMM 5. Some of the parameters especially infiltration parameters such as curve numbers do not get written correctly. This tool can extract information from GIS data exported from XPSWMM for nodes and subcatchments, manipulate it, and add it to the exported EPA SWMM 5 file data. </p>
+
+<h2>Usage</h2>
+
+<h3>Export EPA SWMM5 Hydrology</h3>
+
+<ol>
+<li>Make sure that, "Rnf" is the selected mode.</li>
+<li>From the file menu, select "Import/Export data" -> "Export to EPASWMM 5"</li>
+<li>This will create an "inp" file in the folder with the XPSWMM project file. Suggest copying this file to a new name to prevent it from being overwritten.</li>
+</ol>
+
+<h3>Export the GIS Subcatchment data which is required to align with the hydrology data associated with nodes</h3>
+
+<ol>
+<li>Right-click on the "Catchments" layer under the Nodes layer in the XPSWMM layer tree.</li>
+<li>Click the export button and identify a filename to write the information to.</li>
+</ol>
+
+<h3>Export the Hydrology data associated with the nodes</h3>
+
+<ol>
+<li>Right-click on the nodes layer and choose "Export to GIS."</li>
+<li>Expand the "Runoff Node" folder.</li>
+<li>The columns to include vary based on the hydrology and infiltration options being used by XPSWMM and what will be used in the TUFLOW-SWMM model. Find the appropriate data fields and double click to add them to the list.  </li>
+<li>Set the GIS filename</li>
+<li>Click Export</li>
+</ol>
+
+<p>Fill-in the inputs with the files identified above and identify an output location.</p>
+
+<h2>Outputs</h2>
+
+<p>The output of the tool will be a GIS layer with the required fields for the "Hydrology--Subcatchment" layer of a TUFLOW-SWMM GPKG layer with additional fields copied over from the exported nodal data that can be manually copied to individual fields using the field calculator.</p>

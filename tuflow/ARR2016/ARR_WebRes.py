@@ -1897,7 +1897,8 @@ class Arr:
                         if self.Temporal.add_areal_tp:
                             aep_bands.extend(['add_areal_tp_{0}'.format(i) for i in range(self.Temporal.add_areal_tp)])
                             cc_events_ = sum([[x for _ in range(self.Temporal.add_areal_tp + 1)] for x in cc_events], [])
-                            assert len(cc_events_) == tp_count * len(cc_years) * len(cc_RCP), "Should not be here - List of climate change event names is not the correct length - Actual Length: {0}, Expected Length: {1}".format(len(cc_events_), tp_count * len(cc_years) * len(cc_RCP))
+                            if len(cc_events_) != tp_count * len(cc_years) * len(cc_RCP):
+                                raise AssertionError("Should not be here - List of climate change event names is not the correct length - Actual Length: {0}, Expected Length: {1}".format(len(cc_events_), tp_count * len(cc_years) * len(cc_RCP)))
 
                     tp_count_max = max(tp_count, tp_count_max)
 

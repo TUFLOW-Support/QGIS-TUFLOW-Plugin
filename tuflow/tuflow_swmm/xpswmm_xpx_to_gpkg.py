@@ -175,6 +175,9 @@ def xpx_to_gpkg(xpx_filename,
 
     do_runoff = True
 
+    # to avoid reading duplicate transects, we will skip if we hit a duplicate
+    skip_transect = False
+
     # Gather the sections to represent
     with open(xpx_filename, encoding='utf-8', errors='replace') as xpx_file:
         reader = csv.reader(xpx_file, delimiter=' ', quotechar='"')
@@ -904,11 +907,24 @@ def xpx_to_gpkg(xpx_filename,
                 ts_data[ts_name]['values'] = ts_values
 
             # transects
+            # This helps us identify duplicates
+            if line_vals_lower[0] == 'gldbitem':
+                if len(line_vals) > 2 and line_vals_lower[1].strip('"') == 'natural section shape':
+                    item_name = sanitize_name(line_vals[2])
+                    if item_name in transect_data:
+                        skip_transect = True
+                        feedback.pushWarning(f'Duplicate item encountered: {item_name}')
+                    else:
+                        skip_transect = False
+
             transect_fields_lc = ['el', 'sta', 'nsgd_stchr', 'nsgd_stchl', 'nsgd_xnch', 'nsgd_xnr', 'nsgd_xnl']
+
             if line_vals_lower[0] == 'gldbdata':
                 if line_vals_lower[1] in transect_fields_lc and line_vals_lower[2].strip(
                         '"') == 'natural section shape':
                     transect_name = sanitize_name(line_vals[3])
+                    if skip_transect:
+                        continue
                     if line_vals_lower[1] == 'el':
                         transect_data[transect_name]['Elevations'] = [float(x) for x in line_vals[5:]]
                     elif line_vals_lower[1] == 'sta':
@@ -1734,7 +1750,7 @@ def xpx_to_gpkg(xpx_filename,
                 inflows_nodes.append(ts_name.replace('_inflow', ''))
                 inflows_curves.append(ts_name)
         except:
-            pass  # error already given
+            pass  # nosec B110
 
     if len(inflows_nodes) > 0:
         gdf_inflows_data = gpd.GeoDataFrame(

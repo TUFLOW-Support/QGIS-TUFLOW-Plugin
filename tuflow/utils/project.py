@@ -6,7 +6,7 @@ import typing
 from pathlib import Path
 
 import numpy as np
-from qgis._core import QgsCoordinateReferenceSystem, QgsProject, QgsVectorLayer, QgsVectorFileWriter, \
+from qgis.core import QgsCoordinateReferenceSystem, QgsProject, QgsVectorLayer, QgsVectorFileWriter, \
     QgsCoordinateTransformContext
 
 from tuflow.tuflowqgis_library import get_driver_by_extension
@@ -155,6 +155,7 @@ class ProjectConfig:
         if not project.fileName():
             proj_path = self.folder / f'{self.name}_workspace.qgz'
             project.write(str(proj_path))
+            project.setPresetHomePath(str(self.folder))
 
     def write_old_project_settings(self) -> None:
         """Writes project settings to the old TUFLOW settings class which is still used by some of the older tools."""
@@ -199,7 +200,6 @@ class ProjectConfig:
             self.folder.mkdir(parents=True, exist_ok=True)
         self.write_qgs_project()
         self.write_json()
-        QgsProject.instance().setPresetHomePath(str(self.folder))
 
     def _create_folders(self, parent: Path, folders: list[str]) -> None:
         """Creates folders if they don't already exist."""
@@ -238,13 +238,13 @@ class ProjectConfig:
         a = [exe] + args
         print(a)
         if feedback:  # assume the output should be piped to processing dialog
-            with (subprocess.Popen(a, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.PIPE,
+            with (subprocess.Popen(a, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.PIPE,  # nosec B603
                                   creationflags=subprocess.CREATE_NO_WINDOW, bufsize=0, universal_newlines=True)
                   as proc):
                 for line in proc.stdout:
                     feedback.pushInfo(line.strip('\n'))
         else:
-            subprocess.run(a, **kwargs)
+            subprocess.run(a, **kwargs)  # nosec B603
 
     def create_proj_gis_file(self, gis_folder: Path, fv: bool) -> None:
         """Creates the projection gis file for use in TUFLOW for creating empties."""
@@ -319,7 +319,7 @@ class ProjectConfig:
         These inputs can contain validation steps that determine whether they should be kept/removed from
         the template control files.
         """
-        f = Path(__file__).parents[1] / 'alg' / 'data' / 'create_tuflow_settings.json'
+        f = Path(__file__).parents[1] / 'alg' / 'hpc' / 'data' / 'create_tuflow_settings.json'
         with f.open() as fi:
             d = json.load(fi)
         d = d.get('command settings', {})
@@ -339,7 +339,7 @@ class ProjectConfig:
 
     def _get_command_validation(self) -> dict:
         """Returns the validation requirements for some of the commands in the TUFLOW control files."""
-        f = Path(__file__).parents[1] / 'alg' / 'data' / 'create_tuflow_settings.json'
+        f = Path(__file__).parents[1] / 'alg' / 'hpc' / 'data' / 'create_tuflow_settings.json'
         with f.open() as fi:
             d = json.load(fi)
         d = d.get('command settings', {})
@@ -348,7 +348,7 @@ class ProjectConfig:
 
     def _get_section_validation(self) -> dict:
         """Returns the validation requirements for some of the sections in the TUFLOW control files."""
-        f = Path(__file__).parents[1] / 'alg' / 'data' / 'create_tuflow_settings.json'
+        f = Path(__file__).parents[1] / 'alg' / 'hpc' / 'data' / 'create_tuflow_settings.json'
         with f.open() as fi:
             d = json.load(fi)
         d = d.get('section settings', {})

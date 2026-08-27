@@ -442,7 +442,7 @@ class ViewBox(GraphicsWidget):
         try:
             self.addedItems.remove(item)
         except:
-            pass
+            pass  # nosec B110
 
         scene = self.scene()
         if scene is not None:

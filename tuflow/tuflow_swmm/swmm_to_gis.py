@@ -251,7 +251,7 @@ def swmm_to_gpkg(input_filename, output_filename, crs, tags_to_filter=None, feed
                 if df is None:
                     continue
             except:
-                continue
+                continue  # nosec B112
             id_col = 'Name' if 'Name' in df.columns else 'Node'
             if gdf_coords is not None:
                 gdf = df.merge(gdf_coords[['Node', 'geometry']], how='left', left_on=id_col, right_on='Node')

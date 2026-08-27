@@ -402,7 +402,7 @@ class MeshData(object):
         
     def save(self):
         """Serialize this mesh to a string appropriate for disk storage"""
-        import pickle
+        import pickle  # nosec B403
         if self._faces is not None:
             names = ['_vertexes', '_faces']
         else:
@@ -423,7 +423,7 @@ class MeshData(object):
         
     def restore(self, state):
         """Restore the state of a mesh previously saved using save()"""
-        import pickle
+        import pickle  # nosec B403
         state = pickle.loads(state)  # nosec B301
         for k in state:
             if isinstance(state[k], list):

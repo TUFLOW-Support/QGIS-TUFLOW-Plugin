@@ -140,7 +140,7 @@ class SettingsTableWidget(QWidget):
             self.tooltip_widget = self.findToolTipWidget()
         if self.tooltip_widget:
             self._old_tooltip = self.tooltip_widget.toHtml()
-            p = Path(__file__).parents[2] / 'alg' / 'help' / 'html' / 'tuflow_settings_table.html'
+            p = Path(__file__).parents[2] / 'alg' / 'hpc' / 'help' / 'html' / 'tuflow_settings_table.html'
             with p.open() as f:
                 self.tooltip_widget.setHtml(f.read())
 

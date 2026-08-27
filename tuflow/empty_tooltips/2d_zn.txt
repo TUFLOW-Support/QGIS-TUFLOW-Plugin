@@ -1,0 +1,7 @@
+location == TUFLOW FV Control File (.fvc)
+
+command == Read GIS Zone 
+
+description == Layers to define 1D/2D hydraulic structure connections when using Linked Zone structure types.
+
+manual link == https://docs.tuflow.com/fv/manual/2026.0/HD2D-HS-2.html#HD2D-HS-Desc-SLD-LZ-5

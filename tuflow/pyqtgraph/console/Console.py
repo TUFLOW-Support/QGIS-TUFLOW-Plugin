@@ -1,6 +1,6 @@
 import os
 import sys
-import pickle
+import pickle  # nosec B403
 import subprocess
 
 from .. import getConfigOption
@@ -175,4 +175,4 @@ class ConsoleWidget(QtWidgets.QWidget):
         tb = self.excHandler.selectedFrame()
         lineNum = tb.f_lineno
         fileName = tb.f_code.co_filename
-        subprocess.Popen(self.editor.format(fileName=fileName, lineNum=lineNum))
+        subprocess.Popen(self.editor.format(fileName=fileName, lineNum=lineNum))  # nosec B603

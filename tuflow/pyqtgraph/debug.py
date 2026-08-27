@@ -375,7 +375,7 @@ def objectSize(obj, ignore=None, verbose=False, depth=0, recursive=False):
         try:
             size += len(obj.data)
         except:
-            pass
+            pass  # nosec B110
             
         
     if recursive:
@@ -1073,7 +1073,7 @@ def qObjectReport(verbose=False):
                     QObjCache[oid] += "  " + obj.parent().objectName()
                     QObjCache[oid] += "  " + obj.text()
                 except:
-                    pass
+                    pass  # nosec B110
             print("check obj", oid, str(QObjCache[oid]))
             if obj.parent() is None:
                 walkQObjectTree(obj, count, verbose)

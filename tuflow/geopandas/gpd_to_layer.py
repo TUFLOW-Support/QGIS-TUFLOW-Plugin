@@ -29,7 +29,7 @@ def geopandas_dtype_to_field_type(dtype):
 def extract_gdf_fields(gdf):
     fields = []
     for col, col_type in gdf.dtypes.items():
-        if col == 'geometry':
+        if col == 'geometry' or col == 'fid':
             continue
         qvar = geopandas_dtype_to_field_type(col_type)
         if qvar is not None:
@@ -49,7 +49,8 @@ def create_feature(row, new_layer, features_to_add):
 
     for q_field in new_layer.fields().toList():
         col = q_field.name()
-        new_feat.setAttribute(col, row[col])
+        if col in row and col != 'fid':
+            new_feat.setAttribute(col, row[col])
 
     features_to_add.append(new_feat)
 
@@ -61,6 +62,9 @@ def fill_layer_from_gdf(layer, gdf):
     layer.startEditing()
     dp.addAttributes(extract_gdf_fields(gdf))
     layer.updateFields()
+    layer.commitChanges()
+
+    layer.startEditing()
 
     features_to_add = []
     gdf.apply(

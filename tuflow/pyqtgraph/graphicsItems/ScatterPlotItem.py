@@ -1182,7 +1182,7 @@ class SpotItem(object):
             n = int(symbol)
             symbol = list(Symbols.keys())[n % len(Symbols)]
         except:
-            pass
+            pass  # nosec B110
         return symbol
 
     def setSymbol(self, symbol):

@@ -2,9 +2,8 @@ location == TUFLOW FV Control File (.fvc)
 
 command == Read GIS Z Line
 
-description == Used to update topography within a model. Point, line and polygon objects are permitted. Polylines are treated as breaklines in the model’s topography (with the breakline height or elevation varying along its length). 
+description == Used to update topography within a model. Point and line objects are permitted. Polylines are treated as breaklines in the model’s topography (with the breakline height or elevation varying along its length).
 
-See https://fvwiki.tuflow.com/Advanced_GIS_Updates for examples.
+wiki link == https://fvwiki.tuflow.com/Advanced_GIS_Updates
 
-
-
+manual link == https://docs.tuflow.com/fv/manual/2026.0/HD2D-Bath-2.html#HD2D-Bath-SB-BL-4

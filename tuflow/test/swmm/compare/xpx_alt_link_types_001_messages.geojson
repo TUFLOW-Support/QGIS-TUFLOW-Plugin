@@ -3,6 +3,6 @@
 "name": "xpx_alt_link_types_001_messages",
 "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::32760" } },
 "features": [
-{ "type": "Feature", "properties": { "Severity": "ERROR", "Message": "Pump attributes not converted pumpA." }, "geometry": { "type": "Point", "coordinates": [ 293132.054899999988265, 6177715.96545 ] } }
+{"type":"Feature","properties":{"Severity":"ERROR","Message":"Pump attributes not converted pumpA."},"geometry":{"type":"Point","coordinates":[293132.054899999988265,6177715.96545]}}
 ]
 }

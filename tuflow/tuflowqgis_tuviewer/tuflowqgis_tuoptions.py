@@ -111,131 +111,131 @@ class TuOptions():
 	def saveProject(self, project):
 		try:
 			project.writeEntry("TUVIEW", "livemaptracking", str(self.liveMapTracking))
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			project.writeEntry("TUVIEW", "meaneventselection", self.meanEventSelection)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			project.writeEntry("TUVIEW", "playdelay", str(self.playDelay))
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			project.writeEntry("TUVIEW", "resolution", str(self.resolution))
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			project.writeEntry("TUVIEW", "ilabelfield", str(self.iLabelField))
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			project.writeEntry("TUVIEW", "showgrid", str(self.showGrid))
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			project.writeEntry("TUVIEW", "showtriangles", str(self.showTriangles))
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			project.writeEntry("TUVIEW", "xaxisdates", str(self.xAxisDates))
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			project.writeEntry("TUVIEW", "xaxislabelrotation", str(self.xAxisLabelRotation))
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			zt = self.zeroTime if self.zeroTime else self.defaultZeroTime
 			zeroTime = '{0}~~{1}~~{2}~~{3}~~{4}~~{5}'.format(zt.year, zt.month, zt.day,
 															 zt.hour, zt.minute, zt.second)
 			project.writeEntry("TUVIEW", "zerotime", zeroTime)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			project.writeEntry("TUVIEW", "dateformat", self.dateFormat)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			project.writeEntry("TUVIEW", "_dateformat", self._dateFormat)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 	
 	def readProject(self, project):
 		try:
 			liveMapTracking = project.readEntry("TUVIEW", "livemaptracking")[0]
 			self.liveMapTracking = True if liveMapTracking == 'True' else False
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			self.meanEventSelection = project.readEntry("TUVIEW", "meaneventselection")[0]
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			self.playDelay = float(project.readEntry("TUVIEW", "playdelay")[0])
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			self.resolution = float(project.readEntry("TUVIEW", "resolution")[0])
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			self.iLabelField = int(project.readEntry("TUVIEW", "ilabelfield")[0])
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			showGrid = project.readEntry("TUVIEW", "showgrid")[0]
 			self.showGrid = True if showGrid == 'True' else False
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			showTriangles = project.readEntry("TUVIEW", "showtriangles")[0]
 			self.showTriangles = True if showTriangles == 'True' else False
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			xAxisDates = project.readEntry("TUVIEW", "xaxisdates")[0]
 			self.xAxisDates = True if xAxisDates == 'True' else False
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			self.xAxisLabelRotation = int(project.readEntry("TUVIEW", "xaxislabelrotation")[0])
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			zeroTime = project.readEntry("TUVIEW", "zerotime")[0]
 			zeroTime = zeroTime.split('~~')
 			self.zeroTime = datetime(int(zeroTime[0]), int(zeroTime[1]), int(zeroTime[2]),
 			                         int(zeroTime[3]), int(zeroTime[4]), int(zeroTime[5]))
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			self.dateFormat = project.readEntry("TUVIEW", "dateformat")[0]
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		try:
 			self._dateFormat = project.readEntry("TUVIEW", "_dateformat")[0]
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')

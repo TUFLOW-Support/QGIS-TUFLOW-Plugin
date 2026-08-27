@@ -3,14 +3,14 @@
 "name": "xpx_inactive_001_messages",
 "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::32760" } },
 "features": [
-{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive node MH-22 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293511.318000000028405, 6177805.515999999828637 ] } },
-{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive node MH-20 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293389.824000000022352, 6177728.678999999538064 ] } },
-{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive node MH-19 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293416.824000000022352, 6177828.609000000171363 ] } },
-{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive node MH-05 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293006.450000000011642, 6177921.689000000245869 ] } },
-{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive node MH-21 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293457.773999999975786, 6177846.455 ] } },
-{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive conduit MH-22-21 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293484.545999999972992, 6177825.985500000417233 ] } },
-{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive conduit MH-20-19 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293403.324000000022352, 6177778.643999999389052 ] } },
-{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive conduit MH-05-03 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293022.566500000015367, 6177997.457499999552965 ] } },
-{ "type": "Feature", "properties": { "Severity": "WARNING", "Message": "Inactive conduit MH-21-18 ignored." }, "geometry": { "type": "Point", "coordinates": [ 293442.7955, 6177856.55599999986589 ] } }
+{"type":"Feature","properties":{"Severity":"WARNING","Message":"Inactive node MH-22 ignored."},"geometry":{"type":"Point","coordinates":[293511.318000000028405,6177805.515999999828637]}},
+{"type":"Feature","properties":{"Severity":"WARNING","Message":"Inactive node MH-20 ignored."},"geometry":{"type":"Point","coordinates":[293389.824000000022352,6177728.678999999538064]}},
+{"type":"Feature","properties":{"Severity":"WARNING","Message":"Inactive node MH-19 ignored."},"geometry":{"type":"Point","coordinates":[293416.824000000022352,6177828.609000000171363]}},
+{"type":"Feature","properties":{"Severity":"WARNING","Message":"Inactive node MH-05 ignored."},"geometry":{"type":"Point","coordinates":[293006.450000000011642,6177921.689000000245869]}},
+{"type":"Feature","properties":{"Severity":"WARNING","Message":"Inactive node MH-21 ignored."},"geometry":{"type":"Point","coordinates":[293457.773999999975786,6177846.455]}},
+{"type":"Feature","properties":{"Severity":"WARNING","Message":"Inactive conduit MH-22-21 ignored."},"geometry":{"type":"Point","coordinates":[293484.545999999972992,6177825.985500000417233]}},
+{"type":"Feature","properties":{"Severity":"WARNING","Message":"Inactive conduit MH-20-19 ignored."},"geometry":{"type":"Point","coordinates":[293403.324000000022352,6177778.643999999389052]}},
+{"type":"Feature","properties":{"Severity":"WARNING","Message":"Inactive conduit MH-05-03 ignored."},"geometry":{"type":"Point","coordinates":[293022.566500000015367,6177997.457499999552965]}},
+{"type":"Feature","properties":{"Severity":"WARNING","Message":"Inactive conduit MH-21-18 ignored."},"geometry":{"type":"Point","coordinates":[293442.7955,6177856.55599999986589]}}
 ]
 }

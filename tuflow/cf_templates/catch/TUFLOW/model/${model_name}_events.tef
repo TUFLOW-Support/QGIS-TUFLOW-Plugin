@@ -1,0 +1,6 @@
+! TUFLOW EVENT FILE (.TEF) defines the parameters for the model events
+
+! Below is an example of an event definition
+! Define Event == Q100
+    ! BC Event Source == ~EVENT~ | 100yr2hr
+! End Define

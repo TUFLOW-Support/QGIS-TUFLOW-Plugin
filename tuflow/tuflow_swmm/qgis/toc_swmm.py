@@ -17,7 +17,7 @@ def find_swmm_gpkgs():
                 try:
                     if is_tuflow_swmm_file(db):
                         gpkgs.add(db)
-                except:
-                    pass
+                except Exception as e:
+                    print(f'Error: {e}')
 
     return list(gpkgs)

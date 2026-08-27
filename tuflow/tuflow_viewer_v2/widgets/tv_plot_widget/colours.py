@@ -104,11 +104,11 @@ class ColourAllocator:
         # fallback random
         if unique:
             while True:
-                c = QColor(*np.random.randint(0, 255, 3)).name()
+                c = QColor(*np.random.randint(0, 255, 3)).name()  # nosec B311
                 if c not in self._unique_colours:
                     self._unique_colours.add(c)
                     return c
-        return QColor(*np.random.randint(0, 255, 3)).name()
+        return QColor(*np.random.randint(0, 255, 3)).name()  # nosec B311
 
     def shift_colour(self, name: str, vb: 'CustomViewBox') -> str:
         if vb not in self._shifted_colours:

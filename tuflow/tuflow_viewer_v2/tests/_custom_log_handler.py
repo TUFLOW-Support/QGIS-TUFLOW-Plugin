@@ -2,8 +2,6 @@ import logging
 from logging import StreamHandler
 from contextlib import contextmanager
 
-from tuflow.pt.pytuflow import pytuflow_logging
-
 
 class CustomLoggingHandler(StreamHandler):
     """Custom log handler so that logging can be checked. Use global instance below."""
@@ -29,30 +27,22 @@ class CustomLoggingHandler(StreamHandler):
             self.msg_filters = None
         else:
             self.msg_filters = msgs.copy()
-        logger = pytuflow_logging.get_logger()
-        tmf_logger = logging.getLogger('tmf')
+        pt_logger = logging.getLogger('pytuflow')
         viewer_logger = logging.getLogger('tuflow_viewer')
-        exist_hdlrs = logger.handlers.copy()
+        exist_hdlrs = pt_logger.handlers.copy()
         for hdlr in exist_hdlrs:
-            logger.removeHandler(hdlr)
-        tmf_handlers = tmf_logger.handlers.copy()
-        for hdlr in tmf_handlers:
-            tmf_logger.removeHandler(hdlr)
+            pt_logger.removeHandler(hdlr)
         viewer_handlers = viewer_logger.handlers.copy()
         for hdlr in viewer_handlers:
             viewer_logger.removeHandler(hdlr)
-        logger.addHandler(self)
-        tmf_logger.addHandler(self)
+        pt_logger.addHandler(self)
         viewer_logger.addHandler(self)
         yield self
-        logger.removeHandler(self)
-        tmf_logger.removeHandler(self)
+        pt_logger.removeHandler(self)
         viewer_logger.removeHandler(self)
         for hdlr in exist_hdlrs:
-            logger.addHandler(hdlr)
-        for hdlr in tmf_handlers:
-            tmf_logger.addHandler(hdlr)
-        for hdlr in tmf_handlers:
+            pt_logger.addHandler(hdlr)
+        for hdlr in viewer_handlers:
             viewer_logger.addHandler(hdlr)
         if self.msg_filters is not None:
             self.msg_filters.clear()

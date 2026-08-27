@@ -31,8 +31,8 @@ class GPKG:
         try:
             cur.execute("SELECT table_name FROM gpkg_contents;")
             res = [x[0] for x in cur.fetchall()]
-        except Exception:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         finally:
             cur.close()
 

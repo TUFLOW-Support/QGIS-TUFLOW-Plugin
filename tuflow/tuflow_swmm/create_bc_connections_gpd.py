@@ -137,7 +137,7 @@ def create_bc_connections_gpd(
         set_z_flag: bool,
         gis_messages: GisMessages,
         feedback=ScreenProcessingFeedback,
-) -> gpd.GeoDataFrame or None:
+) -> gpd.GeoDataFrame | None:
     if len(gdf_all_links) == 0:
         return None
 

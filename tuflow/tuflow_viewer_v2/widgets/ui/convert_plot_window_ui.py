@@ -14,7 +14,7 @@ def main():
     inp = Path(sys.argv[1])
     out = Path(sys.argv[2])
 
-    proc = subprocess.run([OSGEO, 'pyuic5', str(inp), '-o', str(out)])
+    proc = subprocess.run([OSGEO, 'pyuic5', str(inp), '-o', str(out)])  # nosec B603
 
     with out.open() as f:
         lines = f.readlines()

@@ -1,0 +1,32 @@
+! SEDIMENT CONTROL FILE (.FVSED)
+
+! Update dt == 900.     ! Interval for updating the sediment transport module (seconds)
+
+! SETTINGS
+! Erosion Depth Limits == 0.01, 0.05    ! Depth limits within which the erosion rate is scaled down (meters)
+! Deposition Depth Limits == 0.01, 0.03 ! Depth limits within which the deposition rate is scaled down (meters)
+! Bed Roughness Model == ks             ! Options - ks | d50 | VanRijn
+! Bed Roughness Parameters ==           ! Parameter(s) for bed roughness model
+
+! FRACTIONS
+! Fraction == <fraction_name>
+	! d50 == 0.0                        ! Specify the median grain size of the sediment fraction (meters)
+	! Particle Density == 0.0           ! Specify the density of the particle group (kg/m^3)
+	! Settling Model == None            ! Options - None| Constant | Flocculation | ...
+	! Settling Parameters ==            ! Parameter(s) for settling model
+	! Critical Stress Model == None     ! Options - None | Constant | Soulsby | Soulsby_Egiazaroff
+	! Critical Stress Parameters ==     ! Parameter(s) for critical stress model
+	! Erosion Model == None             ! Options - None | Mehta | vanRijn84 | Soulsby_vanRijn | Bijker | vanRijn04
+	! Erosion Parameters ==             ! Parameter(s) for erosion model
+	! Deposition Model == None          ! Options - None | ws0 | Krone
+	! Deposition Parameters ==          ! Parameter(s) for deposition model
+! End Fraction
+
+! MATERIALS
+! Material == <material_id>
+	! Nlayer == 1                   ! Number of sediment bed layers
+	! Layer == <bed_layer_number>
+		! Dry Density == 0.0        ! Dry density of bed layer (kg/m^3)
+		! Initial Mass == 0.0       ! Initial mass of each sediment fraction (kg/m^2)
+	! End Layer
+! End Material

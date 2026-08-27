@@ -6,7 +6,7 @@ from collections import OrderedDict
 from functools import reduce
 from math import hypot
 from typing import Optional
-from xml.etree.ElementTree import Element
+from xml.etree.ElementTree import Element  # nosec B405
 
 from .. import functions as fn
 from ..GraphicsScene import GraphicsScene

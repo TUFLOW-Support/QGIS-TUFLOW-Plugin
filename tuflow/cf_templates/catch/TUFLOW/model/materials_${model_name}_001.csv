@@ -1,0 +1,4 @@
+Material ID,Manning's n,Rainfall Losses,Land Use Hazard ID,Storage Reduction Factor,Fraction Impervious,! Description
+1,0.10,0.0,,,,! Dense vegetation (trees with no undergrowth) (3c.5 (med) or 3d.4 (med) from Chow, 1959)
+2,0.04,0.0,,,,! Cropping (low lying)
+3,0.20,1.0,,,,! High density urban block

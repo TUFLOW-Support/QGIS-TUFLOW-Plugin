@@ -274,8 +274,8 @@ class BC_Tables_Parser:
                     try:
                         bndry.read(f)
                         self.boundaries[bndry.name] = bndry
-                    except:
-                        pass
+                    except Exception as e:
+                        print(f'Error: {e}')
 
     @property
     def empty(self) -> bool:

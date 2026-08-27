@@ -1,0 +1,30 @@
+! GEOMETRY CONTROL FILE (.TGC) controls the 2D grid, cell size, elevations and material categories
+
+! 2D DOMAIN
+! Read GIS Location == <path/to/2d_loc>      ! GIS layer defining the origin and location of the 2D domain
+! Origin == <X, Y>                           ! Alternative to above command
+! Orientation == <X, Y>                      ! Alternative to 'Read GIS Location' used in conjunction with 'Origin'
+! Orientation Angle == <X>                   ! Alternative to 'Orientation'
+! Cell Size == <X>                           ! 2D cell size in meters
+! Grid Size (X,Y) == <X, Y>                  ! 2D grid extent dimensions in metres (not required if using 'Read GIS Location')
+
+! MODEL GRID
+Set Code == 1                                ! Set to zero when below command is uncommented
+! Read GIS Code == <path/to/2d_code>         ! Sets cell codes according to attributes in the GIS layer
+
+! TOPOGRAPHY
+Set Zpts == 0                                ! Sets every 2D elevation zpt (meters)
+! Read GRID Zpts == <path/to/DEM.tif>        ! Assigns the elevation of zpts from the grid
+
+! MATERIALS
+Set Mat == 1                                 ! Sets all cells to a material ID of 1
+! Read GIS Mat == <path/to/2d_mat>           ! Sets material values according to attributes in the GIS layer
+! Read GRID Mat == <path/to/landuse.tif>     ! Sets material values according to attributes in the grid layer
+
+! SOILS
+! Below is a series of example commands. Not all are required to be used
+! Set Soil == 1                              ! Defines soil ID of top layer
+! Set Soil Layer 2 == <value>                ! e.g. defining layer if using multiple vertical levels
+! Read GIS Soil == <path/to/2d_soil>         ! e.g. of reading vector layer
+! Read GRID Soil == <path/to/soil.tif>       ! e.g. of reading raster layer
+! Read GIS Soil Layer 2 == <path/to/2d_soil> ! e.g. defining layer if using multiple vertical levels

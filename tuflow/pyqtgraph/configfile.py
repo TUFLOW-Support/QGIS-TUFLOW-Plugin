@@ -163,7 +163,7 @@ def parseString(lines, start=0, **scope):
                         k = k1
                 except:
                     # If tuple conversion fails, keep the string
-                    pass
+                    pass  # nosec B110
             if re.search(r'\S', v) and v[0] != '#':  ## eval the value
                 try:
                     val = eval(v, scope)  # nosec B307

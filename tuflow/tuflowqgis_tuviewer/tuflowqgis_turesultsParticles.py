@@ -296,8 +296,8 @@ class TuResultsParticles():
 
 		try:
 			self.tuView.project.layersWillBeRemoved.disconnect(self.tuView.layersRemoved)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		for res in resList:
 			if res in self.resultsParticles:
@@ -308,13 +308,13 @@ class TuResultsParticles():
 					try:
 						self.tuView.project.removeMapLayer(vlayer.id())
 						del vlayer
-					except:
-						pass
+					except Exception as e:
+						print(f'Error: {e}')
 
 				try:
 					self.resultsParticles[res][0].nc.close()
-				except:
-					pass
+				except Exception as e:
+					print(f'Error: {e}')
 				del self.resultsParticles[res]
 
 			for i in range(self.tuView.OpenResults.count()):

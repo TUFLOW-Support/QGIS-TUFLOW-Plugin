@@ -62,8 +62,8 @@ class DAT(DATBase, MeshMixin, QgisMeshAPIMixin):
                 else:
                     dats = [p.parent / dats]
                 return bool(dats) and DATBase._looks_like_this(dats[0])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         return DATBase._looks_like_this(p)
 
     def to_json(self) -> str:

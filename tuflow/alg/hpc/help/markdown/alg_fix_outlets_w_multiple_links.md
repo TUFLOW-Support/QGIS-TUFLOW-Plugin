@@ -1,0 +1,4 @@
+This tool creates a conduit extension to eliminate the SWMM error with multiple links connected to the same outfall node. This is a common issue when converting from other models. Dummy channels are used for the extensions which will route the flows without any additional losses.
+
+## Usage
+This tool starts with a GeoPackage file and create a new GeoPackage file that contains the channel extensions.

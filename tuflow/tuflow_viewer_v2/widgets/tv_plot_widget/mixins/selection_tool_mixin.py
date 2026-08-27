@@ -1,4 +1,5 @@
 import typing
+import logging
 
 from qgis.utils import iface
 
@@ -10,6 +11,9 @@ if typing.TYPE_CHECKING:
     from ..pyqtgraph_subclass.custom_plot_widget import CustomPlotWidget
     from ...plot_window import PlotWindow
     from ...tv_plot_toolbar import TVPlotToolBar
+
+
+logger = logging.getLogger('tuflow_viewer')
 
 
 class SupportsQgisHooks(typing.Protocol):
@@ -61,16 +65,16 @@ class SelectionToolMixin:
     def _teardown_selection_tool(self: SupportUI):
         try:
             self.selection_changed.disconnect(self.update_layer_selection)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.clear_feature_selection_requested.disconnect(self._clear_feature_selection)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.selection_tool_toggled.disconnect(self._selection_tool_toggled)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         if self._active:
             self.toggle_selection_tool(False)
 

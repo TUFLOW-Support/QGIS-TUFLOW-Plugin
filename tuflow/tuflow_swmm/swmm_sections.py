@@ -210,10 +210,10 @@ class SwmmSection:
                 df = df_out
             elif self.name.upper() == 'TRANSECTS_COORDS':
                 df['Datatype'] = 'GR'
-                df = df[['Datatype', 'Name', 'Elev', 'Station']]
+                df = df[['Datatype', 'Name', 'Station', 'Elev']]
                 df = df.rename(columns={
-                    'Elev': 'Param1',
-                    'Station': 'Param2',
+                    'Station': 'Param1',
+                    'Elev': 'Param2',
                 })
             elif self.name.upper() == 'INLETS':
                 # This may end up being split between two lines
@@ -438,7 +438,7 @@ class SwmmSection:
                             wfactor = row[9]
                             eoffset = row[10]
                         except:
-                            pass  # defaulted
+                            pass  # nosec B110
                         section_data['Lfactor'].append(lfactor)
                         section_data['Wfactor'].append(wfactor)
                         section_data['Eoffset'].append(eoffset)
@@ -550,7 +550,7 @@ class SwmmSection:
                                         break
                                 except:
                                     # Must not have been a date field will still be None
-                                    pass
+                                    pass  # nosec B110
                             curr_date = date
                         except BaseException:
                             # print(e)

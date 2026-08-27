@@ -122,4 +122,4 @@ class ProjectDirectoryWidget(QtWidgets.QWidget):
             tf_settings = TF_Settings()
             tf_settings.Load()
             tf_settings.global_settings.base_dir = self.line_edit.text()
-            tf_settings.Save()
+            tf_settings.Save_Global()

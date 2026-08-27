@@ -342,19 +342,19 @@ NC                  0.025               0.025               0.016
 X1                  ConcreteChannel     13                  0.0                 21.0                0                   0                   0                   0.0                 0.0                 0.0
 GR                  0.0                 0.0
 GR                  0.0                 0.0
-GR                  3.0                 0.0
-GR                  0.0                 9.0
-GR                  0.0                 12.0
-GR                  3.0                 21.0
+GR                  0.0                 3.0
+GR                  9.0                 0.0
+GR                  12.0                0.0
+GR                  21.0                3.0
 NC                  0.025               0.025               0.016
 X1                  RoadSection         13                  33.0                47.0                0                   0                   0                   0.0                 0.0                 0.0
-GR                  0.5                 33.0
-GR                  0.0                 46.5
-GR                  0.5                 47.0
-GR                  0.51                47.1
-GR                  0.768               64.0
-GR                  0.868               65.0
-GR                  0.9                 66.0
+GR                  33.0                0.5
+GR                  46.5                0.0
+GR                  47.0                0.5
+GR                  47.1                0.51
+GR                  64.0                0.768
+GR                  65.0                0.868
+GR                  66.0                0.9
 
 [STREETS]
 ;;Name              Tcrown              Hcurb               Sx                  nRoad               a                   W                   Sides               Tback               Sback               nBack

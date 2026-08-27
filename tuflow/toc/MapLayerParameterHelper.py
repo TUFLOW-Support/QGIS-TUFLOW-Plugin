@@ -60,7 +60,7 @@ class MapLayerParameterHelper:
         filtered_list = [self.mapLayerNamesIds[i] for i in indices]
         return [tuflowqgis_find_layer(x[1], search_type='layerid') for x in filtered_list]
 
-    def findLayerIdFromName(self, name: str) -> int or None:
+    def findLayerIdFromName(self, name: str) -> int | None:
         for i, (layer_name, layer_id) in enumerate(self.mapLayerNamesIds):
             if name == layer_name:
                 return layer_id

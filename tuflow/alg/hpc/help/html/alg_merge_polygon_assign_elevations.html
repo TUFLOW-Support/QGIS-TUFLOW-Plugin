@@ -1,0 +1,23 @@
+<h3>Description</h3>
+
+<p><a href="https://wiki.tuflow.com/QGIS_TIN_Polygons_Assign_Elevations">Documentation on TUFLOW Wiki</a>
+This tool acts as an alternative method to using the native "MERGE" functionality in TUFLOW for 2d_zsh polygons by explicitly assigning elevation points (in a 2d_zsh template) along the polygon perimeter.
+It is recommended to use this tool for Quadtree models, rather than the "MERGE" functionality, where the 2d_zsh input crosses Quadtree nesting levels.
+It is recommended to prefix the output layer names with '2d_zsh'.</p>
+
+<h3>Parameters</h3>
+
+<ol>
+<li><strong>Polygon Layer:</strong> The polygon layer that will have elevation points created for it.</li>
+<li><strong>Raster Layer:</strong> The raster (DEM) layer that will be used to determine the elevations of the output points.</li>
+<li><strong>Vertex Distribution Option:</strong> Determines how the vertices will be distributed along the polygon perimeter.
+<ul>
+<li><strong>Densify:</strong> Additional vertices will be inserted along the perimeter of the polygon layer at regular intervals (defined by "Vertex Interval"). This option is recommended unless the polygon layer has a negative 'Shape_Width' value, and a sufficient number of vertices.</li>
+<li><strong>Use Existing:</strong> Elevations will be assigned to the existing vertices of the polygon layer. This option should only be used if the polygon layer has a negative 'Shape_Width' value, and a sufficient number of vertices.</li>
+</ul></li>
+<li><strong>Vertex Interval (only used for Densify):</strong> The length of the interval between the vertices to be created (in map units). This value should be set to the smaller of the following:
+<ul>
+<li>Half the model cell size</li>
+<li>The finest Quadtree level</li>
+</ul></li>
+</ol>

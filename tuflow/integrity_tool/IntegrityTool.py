@@ -124,48 +124,48 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
         try:
             QgsProject.instance().readProject().disconnect(self.readProject)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             QgsProject.instance().layerTreeRoot().layerOrderChanged.disconnect(self.layerOrderChanged)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             QgsProject.instance().legendLayersAdded.disconnect(self.layersAdded)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             QgsProject.instance().layersRemoved.disconnect(self.layersRemoved)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.btnAddLines.clicked.disconnect()
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.btnAddPoints.clicked.disconnect()
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.btnAddTables.clicked.disconnect()
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.btnRemoveLines.clicked.disconnect()
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.btnRemovePoints.clicked.disconnect()
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.btnRemoveTables.clicked.disconnect()
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.pbRun.clicked.disconnect(self.check)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
 
     def check(self):
         """
@@ -517,24 +517,24 @@ class IntegrityToolDock(QDockWidget, Ui_IntegrityTool):
 
         try:
             self.plot.finished_.disconnect(self.showPlot)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.plot.updated_.disconnect(self.updateStatusBar)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.plot.updateMessage_.disconnect(self.updateMessage)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         # try:
         #     self.plot.error_.disconnect(self.catchPlotError)
         # except:
         #     pass
         try:
             self.plot.updateMaxSteps_.disconnect(self.updateMaxProgressSteps)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
 
     def catchPlotError(self, message_ = ''):
         self.setGuiActive(True)

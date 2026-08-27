@@ -50,6 +50,6 @@ class BrowserEventFilter(QtCore.QObject):
                         logger.error(f'Unexpected error: {e}')
                     return True
             except Exception:
-                pass
+                pass  # nosec B110
         return super().eventFilter(obj, event)
 

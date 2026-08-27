@@ -44,6 +44,7 @@ if not QSettings().value('TUFLOW/TestCase', False, type=bool):
     from .context_menu_event_filter import ContextMenuEventFilter
     from .tvctx_handler import TuflowViewerContextMenuProvider
     from .browser import TVBrowserProvider, BrowserEventFilter
+    from .tvdeveloper_tools import Profiler
 else:
     # when running tests, the relative imports above will fail
     from tuflow.tuflow_viewer_v2.fmts import (TuflowViewerOutput, TPC, XMDF)
@@ -60,6 +61,7 @@ else:
     from tuflow.pt.pytuflow.results import ResultTypeError
     from tuflow.compatibility_routines import is_qt6
     from tuflow.tuflow_viewer_v2.browser import TVBrowserProvider, BrowserEventFilter
+    from tuflow.tuflow_viewer_v2.tvdeveloper_tools import Profiler
 
 # noinspection PyUnresolvedReferences
 from tuflow.pyqtgraph import setConfigOptions
@@ -104,8 +106,8 @@ class TuflowViewer(QObject):
         QgsApplication.instance().dataItemProviderRegistry().addProvider(self._browser_provider)
         try:
             self.iface.mainWindow().findChildren(QWidget, 'Browser')[0].refresh()
-        except Exception:
-            pass
+        except Exception as e:
+            self._logger.debug(f'Error occurred: {e}')
 
         self._browser_filter = BrowserEventFilter()
         self._browser_tree = self._browser_filter.browser_tree()
@@ -178,68 +180,74 @@ class TuflowViewer(QObject):
             # noinspection PyUnresolvedReferences
             try:
                 self.iface.unregisterCustomDropHandler(self._drop_handler)
-            except Exception:
-                pass
+            except Exception as e:
+                self._logger.debug(f'Error occurred: {e}')
             try:
-                self.iface.mapCanvas().mapToolSet.disconnect(self._map_tool_changed)
-            except Exception:
-                pass
+                if self.iface.mapCanvas():
+                    self.iface.mapCanvas().mapToolSet.disconnect(self._map_tool_changed)
+            except Exception as e:
+                self._logger.debug(f'Error occurred: {e}')
             try:
-                self.iface.layerTreeView().viewport().removeEventFilter(self.context_menu_filter)
-            except Exception:
-                pass
+                if self.iface.layerTreeView():
+                    self.iface.layerTreeView().viewport().removeEventFilter(self.context_menu_filter)
+            except Exception as e:
+                self._logger.debug(f'Error occurred: {e}')
 
         try:
-            QgsApplication.instance().dataItemProviderRegistry().removeProvider(self._browser_provider)
-            self.iface.mainWindow().findChildren(QWidget, 'Browser')[0].refresh()
-        except Exception:
-            pass
+            if QgsApplication.instance() and QgsApplication.instance().dataItemProviderRegistry():
+                QgsApplication.instance().dataItemProviderRegistry().removeProvider(self._browser_provider)
+            if self.iface.mainWindow():
+                browser = self.iface.mainWindow().findChildren(QWidget, 'Browser')
+                if browser:
+                    browser[0].refresh()
+        except Exception as e:
+            self._logger.debug(f'Error occurred: {e}')
 
         try:
             if self._browser_tree:
                 self._browser_tree.viewport().removeEventFilter(self._browser_filter)
-        except Exception:
-            pass
+        except Exception as e:
+            self._logger.debug(f'Error occurred: {e}')
 
         # unregister context menu handler
         try:
             self._ctx_menu_handler.unregister_menu()
-        except Exception:
-            pass
+        except Exception as e:
+            self._logger.debug(f'Error occurred: {e}')
 
         # plot window
         try:
             self._action_plot_window.triggered.disconnect(self._create_plot_window)
-        except Exception:
-            pass
+        except Exception as e:
+            self._logger.debug(f'Error occurred: {e}')
         try:
             self.iface.pluginToolBar().removeAction(self._action_plot_window)
-        except Exception:
-            pass
+        except Exception as e:
+            self._logger.debug(f'Error occurred: {e}')
         for id_, w in self._plot_windows.copy().items():
             try:
                 w.close()
                 self._plot_windows.pop(id_)
-            except Exception:
-                pass
+            except Exception as e:
+                self._logger.debug(f'Error occurred: {e}')
 
         # signals
         try:
             QgsProject.instance().layersAdded.disconnect(self._on_layers_added)
-        except Exception:
-            pass
+        except Exception as e:
+            self._logger.debug(f'Error occurred: {e}')
         try:
             QgsProject.instance().layersWillBeRemoved.disconnect(self._on_layers_will_be_removed)
-        except Exception:
-            pass
+        except Exception as e:
+            self._logger.debug(f'Error occurred: {e}')
         try:
             QgsProject.instance().readProject.disconnect(self._read_project)
-        except Exception:
-            pass
+        except Exception as e:
+            self._logger.debug(f'Error occurred: {e}')
         try:
             QgsProject.instance().projectSaved.disconnect(self._project_saved)
-        except Exception:
-            pass
+        except Exception as e:
+            self._logger.debug(f'Error occurred: {e}')
         
     def set_theme(self, theme_name: str):
         theme = load_theme(theme_name)
@@ -283,6 +291,7 @@ class TuflowViewer(QObject):
         """Load results that are not handled by drag-drop handlers - e.g. TUFLOW cross-sections which
         should be loaded once the vector layer is added to the project.
         """
+        profiler = Profiler()
         if self._block_on_open_signal:
             return
         for layer in layers:
@@ -307,8 +316,8 @@ class TuflowViewer(QObject):
                         else:
                             self.load_output(output)
                         continue
-                except Exception:
-                    pass
+                except Exception as e:
+                    self._logger.debug(f'Error occurred: {e}')
 
             if not isinstance(layer, QgsVectorLayer):
                 continue
@@ -316,7 +325,10 @@ class TuflowViewer(QObject):
             driver = self.get_driver_from_file(data_source, auto_load_method='OnOpened')
             if driver:
                 try:
+                    profiler('load output')
                     output = driver(data_source, [layer])
+                    profiler('load output')
+                    profiler.report()
                     self._logger.debug('Successfully loaded output.')
                     self.load_output(output)
                 except FileNotFoundError:
@@ -531,6 +543,7 @@ class TuflowViewer(QObject):
                         self._block_layers_removed_signal = False
                     output.map_layers().remove(lyr)
                 except Exception:
+                    self._logger.debug(f'Error occurred: {e}')
                     continue
                 if not output.map_layers():
                     if output.duplicated_outputs:

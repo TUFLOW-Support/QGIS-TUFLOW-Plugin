@@ -1,0 +1,7 @@
+! ESTRY CONTROL FILE (.ECF) controls the 1D ESTRY engine
+
+! 1D TIME CONTROL
+Timestep == 0.5                         ! Specifies a 1D computational timestep of 0.5 seconds
+
+! 1D ELEMENTS
+! Read GIS Network == <path/to/1d_nwk>

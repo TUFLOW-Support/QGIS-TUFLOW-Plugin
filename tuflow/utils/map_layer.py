@@ -101,4 +101,4 @@ def set_vector_temporal_properties(lyr, enable: bool = True):
         lyr.temporalProperties().setFixedDuration(0.)
         lyr.temporalProperties().setDurationUnits(QgsUnitTypes.TemporalUnit.TemporalSeconds)
     except Exception as e:
-        pass
+        print(f'Error: {e}')

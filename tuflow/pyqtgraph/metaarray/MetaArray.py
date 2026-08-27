@@ -11,7 +11,7 @@ More info at http://www.scipy.org/Cookbook/MetaArray
 
 import copy
 import os
-import pickle
+import pickle  # nosec B403
 import warnings
 
 import numpy as np
@@ -854,8 +854,8 @@ class MetaArray(object):
         
         if not HAVE_HDF5:
             try:
-                assert writable==False
-                assert readAllData != False
+                assert writable==False  # nosec B101
+                assert readAllData != False  # nosec B101
                 self._readHDF5Remote(fileName)
                 return
             except:
@@ -876,7 +876,7 @@ class MetaArray(object):
         try:
             ver = ver.decode('utf-8')
         except:
-            pass
+            pass  # nosec B110
         if ver > MetaArray.version:
             print("Warning: This file was written with MetaArray version %s, but you are using version %s. (Will attempt to read anyway)" % (str(ver), str(MetaArray.version)))
         meta = MetaArray.readHDF5Meta(f['info'])
@@ -951,7 +951,7 @@ class MetaArray(object):
         try:
             typ = typ.decode('utf-8')
         except:
-            pass
+            pass  # nosec B110
         del data['_metaType_']
         
         if typ == 'dict':

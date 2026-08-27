@@ -45,8 +45,8 @@ class TuflowDropHandler(QgsCustomDropHandler):
         try:
             tuflow_plugin.loadTuflowLayersFromTCF(path)
             return True
-        except Exception:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         return False
 
     def customUriProviderKey(self):

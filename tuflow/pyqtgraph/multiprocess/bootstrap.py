@@ -1,7 +1,7 @@
 """For starting up remote processes"""
 import importlib
 import os
-import pickle
+import pickle  # nosec B403
 import sys
 
 if __name__ == '__main__':

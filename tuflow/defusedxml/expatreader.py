@@ -7,7 +7,7 @@
 """
 from __future__ import print_function, absolute_import
 
-from xml.sax.expatreader import ExpatParser as _ExpatParser
+from xml.sax.expatreader import ExpatParser as _ExpatParser  # nosec B406
 
 from .common import DTDForbidden, EntitiesForbidden, ExternalReferenceForbidden
 

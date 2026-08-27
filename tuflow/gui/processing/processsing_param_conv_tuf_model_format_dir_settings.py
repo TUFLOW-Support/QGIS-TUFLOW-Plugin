@@ -120,7 +120,7 @@ class ConvTufModelDirSettingsInputWidget(QWidget):
         self._old_tooltip = None
 
     def dirSettingsTooltip(self):
-        p = Path(__file__).parent.parent.parent / 'alg' / 'help' / 'html' / 'alg_convert_tuflow_model_gis_format_tuf_dir_settings.html'
+        p = Path(__file__).parent.parent.parent / 'alg' / 'hpc' / 'help' / 'html' / 'alg_convert_tuflow_model_gis_format_tuf_dir_settings.html'
         return p.open().read().replace('\n', '<p>')
 
     def showDialog(self):
@@ -260,14 +260,14 @@ class ConvTufModelDirSettingsPanel(QgsPanelWidget):
                     if self.pathTable.item(i, 0).checkState() == QT_CHECKED:
                         lst.append(self.pathTable.item(i, 1).text())
             except Exception as e:
-                pass
+                print(f'Error: {e}')
         d2 = OrderedDict({})
         for i in range(self.mappingTable.rowCount()):
             try:
                 if self.mappingTable.item(i, 0).text().strip() != '':
                     d2[self.mappingTable.item(i, 0).text()] = self.mappingTable.item(i, 1).text()
             except Exception as e:
-                pass
+                print(f'Error: {e}')
         return {'folder_structure': d1, 'mappings': d2, 'always_create': lst}
 
     @value.setter
@@ -287,7 +287,7 @@ class ConvTufModelDirSettingsPanel(QgsPanelWidget):
                     self.pathTable.setItem(i, 0, item)
                     self.pathTable.setItem(i, 1, QTableWidgetItem(v))
                 except Exception as e:
-                    pass
+                    print(f'Error: {e}')
             mappings = d.get('mappings', {})
             self.mappingTable.setRowCount(len(mappings))
             for i, (k, v) in enumerate(mappings.items()):
@@ -295,9 +295,9 @@ class ConvTufModelDirSettingsPanel(QgsPanelWidget):
                     self.mappingTable.setItem(i, 0, QTableWidgetItem(k))
                     self.mappingTable.setItem(i, 1, QTableWidgetItem(v))
                 except Exception as e:
-                    pass
+                    print(f'Error: {e}')
         except Exception as e:
-            pass
+            print(f'Error: {e}')
         finally:
             self.pathTable.blockSignals(False)
 

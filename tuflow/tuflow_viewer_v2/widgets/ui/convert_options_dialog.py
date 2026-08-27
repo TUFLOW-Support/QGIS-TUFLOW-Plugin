@@ -26,7 +26,7 @@ IMPORTS = '\n    '.join(imports)
 
 
 def main():
-    proc = subprocess.run([OSGEO, 'pyuic5', str(INPUT), '-o', str(OUT)])
+    proc = subprocess.run([OSGEO, 'pyuic5', str(INPUT), '-o', str(OUT)])  # nosec B603
 
     with OUT.open() as f:
         lines = f.readlines()

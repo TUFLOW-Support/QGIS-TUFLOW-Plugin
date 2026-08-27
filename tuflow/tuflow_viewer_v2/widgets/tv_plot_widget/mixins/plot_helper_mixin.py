@@ -35,7 +35,7 @@ class PlotHelperMixin:
     @staticmethod
     def tooltip(src_item: PlotSourceItem, location_id: str, position: tuple[float, float], *args, **kwargs) -> str:
         """Generate tooltip for section plot."""
-        string = src_item.output.name
+        string = src_item.output.name if src_item.output else ''
         if location_id:
             string = f'{string}\n{location_id}'
         elif src_item.use_label_in_tooltip:
@@ -47,14 +47,16 @@ class PlotHelperMixin:
             else:
                 pos0 = f'{position[0]:.3g}'
             pos1 = f'{position[1]:.3g}' if isinstance(position[1], float) else position[1]
-            string = f'{string}\n{src_item.data_type_pretty(src_item.xaxis_name)}: {pos0}'
+            string_ = f'{src_item.data_type_pretty(src_item.xaxis_name)}: {pos0}'
+            string = f'{string}\n{string_}' if string else string_
             if src_item.xaxis_units:
                 string = f'{string} {src_item.xaxis_units}'
             string = f'{string}\n{src_item.data_type_pretty(src_item.yaxis_name)}: {pos1}'
             if src_item.units:
                 string = f'{string} {src_item.units}'
         else:
-            string = f'{string}\n{src_item.data_type_pretty(src_item.yaxis_name)}'
+            string_ = f'{src_item.data_type_pretty(src_item.yaxis_name)}'
+            string = f'{string}\n{string_}' if string else string_
         return string
 
     def _populate_plot_data(self, src_item: PlotSourceItem, *args, **kwargs) -> typing.Generator[PlotSourceItem, None, None]:

@@ -43,16 +43,16 @@ class XMDF(XMDFBase, MeshMixin, QgisMeshAPIMixin):
         Mesh.__init__(self, self.twodm)
         self.fpath = Path(fpath)
         self._driver = PyXMDF(self.fpath, self.twodm, geom_driver='qgis', mesh=layer)
-        self._driver.extractor.open_reader()
+        self._driver._get_extractor().open_reader()
         self._soft_load_driver = self._driver
         self._initial_load()
         self._load()
 
-        if self._driver.extractor.NAME == 'PyDataExtractor' and layer is None:
+        if self._driver._get_extractor().NAME == 'PyDataExtractor' and layer is None:
             if self._driver.fpath.suffix.lower() == '.xmdf':
                 success = self._driver.lyr.dataProvider().addDataset(str(self._driver.fpath))
                 if not success:
-                    raise RuntimeError(f'Failed to load xmdf results onto 2dm: {self._driver.fpath}')
+                    raise RuntimeError(f'Failed to load xmdf results onto 2dm. Check validity of 2dm and xmdf (e.g. they are not empty): {self._driver.fpath}')
 
         self._init_viewer_output_mixin(self.name)
         self.copied_files = self._driver.copied_files
@@ -61,6 +61,7 @@ class XMDF(XMDFBase, MeshMixin, QgisMeshAPIMixin):
         self._map_layers.append(self._layer)
 
         # QGIS specific
+        self.connect_name_changed()
         self.init_crs()
         self.init_temporal_properties()
         self._init_styling(self._map_layers, self._lyr2resultstyle)
@@ -69,7 +70,7 @@ class XMDF(XMDFBase, MeshMixin, QgisMeshAPIMixin):
         self.close()
 
     def close(self):
-        self._driver.extractor.close_reader()
+        self._driver._get_extractor().close_reader()
         self._teardown_viewer_output_mixin()
 
     @staticmethod
@@ -87,8 +88,8 @@ class XMDF(XMDFBase, MeshMixin, QgisMeshAPIMixin):
                 else:
                     xmdfs = [p.parent / xmdfs]
                 return bool(xmdfs) and XMDF._looks_like_this(xmdfs[0])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         return XMDFBase._looks_like_this(p)
 
     @classmethod

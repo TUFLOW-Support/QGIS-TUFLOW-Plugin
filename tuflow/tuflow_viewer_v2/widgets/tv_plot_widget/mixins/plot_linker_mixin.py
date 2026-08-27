@@ -1,4 +1,5 @@
 import typing
+import logging
 
 from ....tvinstance import get_viewer_instance
 
@@ -7,6 +8,9 @@ if typing.TYPE_CHECKING:
     from ..pyqtgraph_subclass.custom_plot_widget import CustomPlotWidget
     from ..base_plot_widget import TVPlotWidget
     from ...clickable_icon import ClickableIcon
+
+
+logger = logging.getLogger('tuflow_viewer')
 
 
 class SupportUI(typing.Protocol):
@@ -37,8 +41,8 @@ class PlotLinkerMixin:
     def _teardown_plot_linker(self: SupportUI):
         try:
             self.plot_linker.clicked.disconnect(self.plot_linker_clicked)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
 
     def set_plot_linker_visible(self: SupportUI, visible: bool):
         self.plot_linker.setVisible(visible)

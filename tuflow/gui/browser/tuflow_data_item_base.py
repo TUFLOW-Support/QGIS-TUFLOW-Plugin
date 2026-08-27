@@ -234,8 +234,8 @@ class TuflowDataItemBaseMixin:
 
             painter.end()
             return QtGui.QIcon(result)
-        except Exception:
-            pass
+        except Exception as e:
+            Logging.warning(f'Error occurred: {e}', silent=True)
         return icon
 
     @staticmethod

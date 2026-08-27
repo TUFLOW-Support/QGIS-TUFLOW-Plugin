@@ -1,0 +1,7 @@
+This tool converts a SWMM input file (inp) to a GeoPackage file that can be visualized and edited within GIS.
+
+For most tables, the GeoPackage file is a simple conversion of the SWMM tables. For tables that have columns with multiple options, each of the options has its own columns (it is a wide-format that does not reuse columns for different purposes).
+
+Some of the tables in the inp file will be combined in the GeoPackage representation. For example, the XSection table is appeneded to the Conduits, Weirs, and Orifices tables and the Losses table is appended to the Conduits table. Combining tables prevents needing to edit multiple tables when new features are added or moved.
+
+Fields usage can be inferred from looking at the SWMM input file documentation.

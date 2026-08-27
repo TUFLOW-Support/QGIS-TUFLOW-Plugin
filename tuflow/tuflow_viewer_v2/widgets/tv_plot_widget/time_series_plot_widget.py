@@ -264,8 +264,8 @@ class TimeSeriesPlotWidget(TVPlotWidget, TimeSeriesPlotHelperMixin):
                 return
             try:
                 cur_time = output.reference_time + pd.Timedelta(hours=cur_time)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f'Error occurred: {e}')
         temporal_controller.setCurrentTime(cur_time)
 
     def _datetime_toggled(self, checked: bool):

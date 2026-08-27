@@ -293,7 +293,7 @@ class StylingCategorized(Styling):
         categories = []
         for value in unique_values:
             if self.rules.get('random_color') or 'color' not in self.rules:
-                c = QColor(randrange(0,256), randrange(0,256), randrange(0,256))
+                c = QColor(randrange(0,256), randrange(0,256), randrange(0,256))  # nosec B311
             else:
                 c = QColor(self.rules['color'])
             symbol = self.create_symbol(layer, self.rules, c, False)
@@ -364,7 +364,7 @@ class StylingGraduated(StylingCategorized):
         self.replace_variables(self.rules, {'${name}': self.name})
         self.load_imports(self.rules)
         if self.rules.get('random_color') or 'color' not in self.rules:
-            c = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
+            c = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))  # nosec B311
         else:
             c = QColor(self.rules['color'])
 
@@ -441,7 +441,7 @@ class StylingFM(Styling):
         for unique_value in unique_values:
             symbol = QgsSymbol.defaultSymbol(layer.geometryType())
             layer_style = {}
-            color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))
+            color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))  # nosec B311
             layer_style['color'] = color
             layer_style['outline'] = '#000000'
             symbol_layer = QgsSimpleMarkerSymbolLayer.create(layer_style)
@@ -456,13 +456,13 @@ class StylingFM(Styling):
                 symbol_layer.setSize(2.5)
                 symbol_layer.setStrokeWidth(0.)
                 symbol_layer.setStrokeColor(QColor(35, 35, 35))
-                symbol_layer.setFillColor(QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256)))
+                symbol_layer.setFillColor(QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256)))  # nosec B311
             else:
                 symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
                 symbol_layer.setSize(2.0)
                 symbol_layer.setStrokeWidth(0.)
                 symbol_layer.setStrokeColor(QColor(35, 35, 35))
-                symbol_layer.setFillColor(QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256)))
+                symbol_layer.setFillColor(QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256)))  # nosec B311
             symbol.changeSymbolLayer(0, symbol_layer)
             category = QgsRendererCategory(unique_value, symbol, str(unique_value))
             categories.append(category)
@@ -501,7 +501,7 @@ class StylingFM(Styling):
         for j, exp in enumerate(expressions):
             i = j - 1
             layer_style = {}
-            color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))
+            color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))  # nosec B311
             layer_style['color'] = color
             layer_style['outline'] = '#000000'
             symbol = QgsSymbol.defaultSymbol(layer.geometryType())
@@ -520,7 +520,7 @@ class StylingFM(Styling):
                 if unique_values2[i].lower() == 'lateral':
                     symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
                     symbol_layer.setWidth(0.25)
-                    color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
+                    color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))  # nosec B311
                     symbol_layer.setStrokeColor(color)
                     symbol_layer.setPenStyle(QT_STYLE_DOTTED_PEN)
                     symbol_layer2 = None
@@ -551,7 +551,7 @@ class StylingFM(Styling):
             rule.setFilterExpression(exp)
             symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
             symbol_layer.setWidth(0.25)
-            color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
+            color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))  # nosec B311
             symbol_layer.setStrokeColor(color)
             symbol_layer.setPenStyle(QT_STYLE_DOTTED_PEN)
             symbol_layer2 = None
@@ -580,7 +580,7 @@ class StylingFM(Styling):
             root_rule.appendChild(rule)
         if intp_exists:
             layer_style = {}
-            color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))
+            color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))  # nosec B311
             layer_style['color'] = color
             layer_style['outline'] = '#000000'
             symbol = QgsSymbol.defaultSymbol(layer.geometryType())

@@ -54,6 +54,7 @@ class NCGrid(NCGridBase, MapOutputMixin, CopyOnLoadMixin):
             self._lyr2output = {}
             self._lyr2resultstyle = {}
 
+        self.connect_name_changed()
         self.init_temporal_properties()
         self._init_styling(self._map_layers, self._lyr2resultstyle)
         iface.mapCanvas().temporalRangeChanged.connect(self._update_band_from_time)
@@ -63,8 +64,8 @@ class NCGrid(NCGridBase, MapOutputMixin, CopyOnLoadMixin):
         self._teardown_viewer_output_mixin()
         try:
             iface.mapCanvas().temporalRangeChanged.disconnect(self._update_band_from_time)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
 
     @staticmethod
     def format_compatible(fpath: Path | str) -> bool:
@@ -210,8 +211,8 @@ class NCGrid(NCGridBase, MapOutputMixin, CopyOnLoadMixin):
                         continue
                     if var.dimensions[i] in y_dims and var.dimensions[j] in x_dims:
                         layers.append(name)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         finally:
             pass
         return layers

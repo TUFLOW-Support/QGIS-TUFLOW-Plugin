@@ -1001,15 +1001,15 @@ class TuResults():
 		# Apply selection
 		try:
 			self.tuView.OpenResults.itemSelectionChanged.disconnect(self.tuView.resultSelectionChangeSignal)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 			try:
 				layer.repaintRequested.disconnect(self.tuResults2D.repaintRequested)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 
 		if PROFILING:
 			tt = datetime.now() - st
@@ -1605,7 +1605,8 @@ class TuResults():
 		if not times:
 			times = [y for x, y in self.results[key1][key2]['times'].items()]
 
-		assert(len(times) > 0)
+		if not len(times):
+			raise AssertionError
 		if method == 'higher':
 			for time in times:
 				if time >= rt:
@@ -2372,8 +2373,8 @@ class TuResults():
 			if qv >= 31300 and self.iface is not None:
 				try:
 					self.iface.mapCanvas().temporalRangeChanged.disconnect(self.tuView.qgsTimeChanged)
-				except:
-					pass
+				except Exception as e:
+					print(f'Error: {e}')
 			qgsObject.setTemporalRange(dtr)
 			qgsObject.refresh()
 			if qv >= 31300 and self.iface is not None:
@@ -2396,8 +2397,8 @@ class TuResults():
 				try:
 					self.iface.mapCanvas().temporalRangeChanged.disconnect(self.qgsTimeChanged)
 					wasConnected = True
-				except:
-					pass
+				except Exception as e:
+					print(f'Error: {e}')
 				begin = datetime.now()
 				end = begin + timedelta(seconds=1)
 				begin = dt2qdt(begin, QT_TIMESPEC_UTC)

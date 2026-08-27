@@ -70,8 +70,8 @@ class PointDraw(DrawTool):
             for m in self.markers:
                 try:
                     self.canvas.scene().removeItem(m)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f'Error occurred: {e}')
             self.markers.clear()
 
     def remove(self, idx: int = -1, map_item: QgsVertexMarker = None):
@@ -81,8 +81,8 @@ class PointDraw(DrawTool):
             try:
                 self.canvas.scene().removeItem(map_item)
                 logger.debug(f'Marker removed: {map_item.color().name()}')
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f'Error occurred: {e}')
             return
         self.clear(idx)
         if idx == -1 and map_item is None:

@@ -3,6 +3,6 @@
 "name": "xpx_shapes_001_messages",
 "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::32760" } },
 "features": [
-{ "type": "Feature", "properties": { "Severity": "ERROR", "Message": "The width for modified basket handle conduit MH-19-18 was not written to the file and must be filled in manually." }, "geometry": { "type": "Point", "coordinates": [ 293422.320500000030734, 6177847.632999999448657 ] } }
+{"type":"Feature","properties":{"Severity":"ERROR","Message":"The width for modified basket handle conduit MH-19-18 was not written to the file and must be filled in manually."},"geometry":{"type":"Point","coordinates":[293422.320500000030734,6177847.632999999448657]}}
 ]
 }

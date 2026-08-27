@@ -396,8 +396,12 @@ def convert_xpswmm(output_folder_1donly: str,
                         # TEMP
                         if '2d_bc_swmm_connections' in get_gis_layers(gis_layers_filename):
                             tbc_file.write('\n! Add SWMM 1D nodal HX/SX connections\n')
-                            relative_filename = gis_layers_filename.relative_to(tbc_path.parent.resolve())
-                            tbc_file.write(f'Read GIS BC == {relative_filename} >> 2d_bc_swmm_connections\n')
+                            try:
+                                relative_filename = gis_layers_filename.relative_to(tbc_path.parent.resolve())
+                                tbc_file.write(f'Read GIS BC == {relative_filename} >> 2d_bc_swmm_connections\n')
+                            except Exception as e:
+                                # Must not have been a relative path to the parent
+                                tbc_file.write(f'Read GIS BC == {gis_layers_filename} >> 2d_bc_swmm_connections\n')
                         else:
                             print(f"2d_bc_swmm_connections not found in: {get_gis_layers(gis_layers_filename)}")
             except Exception as e:

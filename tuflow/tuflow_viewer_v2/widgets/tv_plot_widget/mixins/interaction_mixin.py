@@ -171,20 +171,20 @@ class InteractionMixin:
         # view box hover
         try:
             self.plot_graph.getViewBox().hovered.disconnect(self._on_view_box_hover)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
 
         # result name changed
         try:
             self.results_changed.disconnect(self.update_plot)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
 
         # data type changed
         try:
             self.data_types_changed.disconnect(self.update_plot)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
 
     def _move_to_secondary_axis_context_handler(self, vb: CustomViewBox):
         if not self.selected_curve():

@@ -12,7 +12,7 @@ from tuflow.bridge_editor.BridgeEditorTable import HeaderChannelTable
 from tuflow.gui.widgets.custom_delegates import ComboBoxDelegate, DoubleSpinBoxDelegate, MultiComboBoxDelegate
 
 
-with (Path(__file__).parents[2] / 'alg' / 'data' / 'output_formats.json').open() as f:
+with (Path(__file__).parents[2] / 'alg' / 'hpc' / 'data' / 'output_formats.json').open() as f:
     OUT_FMT = json.load(f)
 
 

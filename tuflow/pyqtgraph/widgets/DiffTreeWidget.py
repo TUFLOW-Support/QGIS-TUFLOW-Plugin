@@ -127,35 +127,35 @@ class DiffTreeWidget(QtWidgets.QWidget):
         Compare data structure *a* to structure *b*. 
         """
         # Check test structures are the same
-        assert type(info) is type(expect)
+        assert type(info) is type(expect)   # nosec B101
         if hasattr(info, '__len__'):
-            assert len(info) == len(expect)
+            assert len(info) == len(expect)   # nosec B101
             
         if isinstance(info, dict):
             for k in info:
-                assert k in expect
+                assert k in expect   # nosec B101
             for k in expect:
-                assert k in info
+                assert k in info   # nosec B101
                 self.compare_results(info[k], expect[k])
         elif isinstance(info, list):
             for i in range(len(info)):
                 self.compare_results(info[i], expect[i])
         elif isinstance(info, np.ndarray):
-            assert info.shape == expect.shape
-            assert info.dtype == expect.dtype
+            assert info.shape == expect.shape   # nosec B101
+            assert info.dtype == expect.dtype   # nosec B101
             if info.dtype.fields is None:
                 intnan = -9223372036854775808  # happens when np.nan is cast to int
                 inans = np.isnan(info) | (info == intnan)
                 enans = np.isnan(expect) | (expect == intnan)
-                assert np.all(inans == enans)
+                assert np.all(inans == enans)   # nosec B101
                 mask = ~inans
-                assert np.allclose(info[mask], expect[mask])
+                assert np.allclose(info[mask], expect[mask])   # nosec B101
             else:
                 for k in info.dtype.fields.keys():
                     self.compare_results(info[k], expect[k])
         else:
             try:
-                assert info == expect
+                assert info == expect   # nosec B101
             except Exception:
                 raise NotImplementedError("Cannot compare objects of type %s" % type(info))
     

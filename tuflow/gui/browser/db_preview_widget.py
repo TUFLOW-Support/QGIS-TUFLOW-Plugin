@@ -1,16 +1,19 @@
 from pathlib import Path
+from copy import deepcopy
 
 import pandas as pd
 from qgis.PyQt import QtWidgets, QtCore, QtGui
 from qgis.gui import QgsMessageBar
 from qgis.core import Qgis
+import matplotlib.pyplot as plt  # use plt for colours
 
 from . import pytuflow, PandasTableModel, ToolButtonDelegate
-from ...pyqtgraph import PlotWidget, mkPen, PlotCurveItem
+from ...pyqtgraph import PlotWidget, mkPen, PlotCurveItem, DateAxisItem, AxisItem
 from ...tuflow_viewer_v2.widgets.tv_plot_widget.pyqtgraph_subclass.hoverable_curve_item import HoverableCurveItem
 from ...tuflow_viewer_v2.widgets.tv_plot_widget.pyqtgraph_subclass.custom_view_box import CustomViewBox
 from ...tuflow_viewer_v2.widgets.tv_plot_widget.plotsourceitem import PlotSourceItem
 from ...tuflow_viewer_v2.widgets.tv_plot_widget.base_plot_widget import TVPlotWidget
+from ...tuflow_viewer_v2.widgets.tv_plot_widget.mixins.plot_helper_mixin import PlotHelperMixin
 
 
 class TableView(QtWidgets.QTableView):
@@ -51,7 +54,7 @@ class TableView(QtWidgets.QTableView):
             clipboard.setText(data_str)
 
 
-class PreviewPlotWidget(TVPlotWidget):
+class PreviewPlotWidget(TVPlotWidget, PlotHelperMixin):
     PLOT_TYPE = 'PreviewPlot'
 
     def __init__(self, parent=None):
@@ -81,6 +84,14 @@ class PreviewPlotWidget(TVPlotWidget):
                     if 'Export drawn items' in action2.text():
                         action2.setVisible(False)
         return menu
+
+    def toggle_datetime(self, checked: bool):
+        if checked:
+            axis = DateAxisItem(utcOffset=0, pen=self.plot_graph.getAxis('bottom').pen())
+        else:
+            axis = AxisItem(orientation='bottom', pen=self.plot_graph.getAxis('bottom').pen())
+        self.plot_graph.setAxisItems({'bottom': axis})
+        self.plot_graph.plotItem.updateGrid()
 
 
 class DatabasePreviewWidget(QtWidgets.QDialog):
@@ -164,10 +175,10 @@ class DatabasePreviewWidget(QtWidgets.QDialog):
             # give the action column a reasonable width
             try:
                 table.setColumnWidth(0, 28)
-            except Exception:
-                pass
-        except Exception:
-            pass
+            except Exception as e:
+                print(f'Error: {e}')
+        except Exception as e:
+            print(f'Error: {e}')
 
         # ensure the table view is non-editable
         table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -218,28 +229,52 @@ class DatabasePreviewWidget(QtWidgets.QDialog):
 
         plot = PreviewPlotWidget(parent=self)
         tab_widget.addTab(plot, 'Plot')
+        is_datetime = False
+        if isinstance(data.index, pd.DatetimeIndex):
+            plot.toggle_datetime(True)
+            is_datetime = True
+
+        step_mode = None
+        try:
+            if self.db.is_piecewise_constant(name):
+                step_mode = 'right'
+        except Exception as e:
+            print(f'Error: {e}')
 
         # setup - mostly unimportant, the class is from TUFLOW Viewer
         src_item = PlotSourceItem(
             name, 'curve', self.db.fpath.name, data.columns[0].replace(':', ''), name, 'database',
             [], False, '#4181e8', 'selection', True, None
         )
-        src_item.xdata = data.index.values
-        src_item.ydata = data.iloc[:, 0].values
+        if is_datetime:
+            src_item.xdata = data.index.map(lambda x: x.timestamp()).values
+        else:
+            src_item.xdata = data.index.values
         src_item.xaxis_name = data.index.name
-        src_item.yaxis_name = data.columns[0]
-        src_item.label = name
         src_item.use_label_in_tooltip = False
-        curve = HoverableCurveItem(
-            x=src_item.xdata,
-            y=src_item.ydata,
-            name=src_item.label,
-            pen=mkPen(src_item.colour, width=2),
-            src_item=src_item,
-            connect='finite'
-        )
-        curve.sigHoverEvent.connect(plot._on_hover)
-        plot.plot_graph.addItem(curve)
+        src_item.tooltip = PlotHelperMixin.tooltip
+
+        colours = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+        for i, col in enumerate(data.columns):
+            src_item.colour = colours[i % len(colours)]
+            if i > 0:
+                src_item = deepcopy(src_item)
+            src_item.ydata = data.loc[:, col].values
+            src_item.yaxis_name = col
+            src_item.label = name
+            curve = HoverableCurveItem(
+                x=src_item.xdata,
+                y=src_item.ydata,
+                name=src_item.label,
+                pen=mkPen(src_item.colour, width=2),
+                src_item=src_item,
+                connect='finite',
+                is_datetime=is_datetime,
+                stepMode=step_mode
+            )
+            curve.sigHoverEvent.connect(plot._on_hover)
+            plot.plot_graph.addItem(curve)
 
         table = TableView()
         model = PandasTableModel(df=data, add_button_column=False, include_df_index=True)

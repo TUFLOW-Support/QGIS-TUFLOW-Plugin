@@ -95,14 +95,14 @@ class LineDraw(DrawTool):
             try:
                 self.canvas.scene().removeItem(map_item)
                 logger.debug(f'Line removed: {map_item.fillColor().name()}')
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f'Error occurred: {e}')
             for m in markers:
                 try:
                     self.canvas.scene().removeItem(m)
                     logger.debug(f'Line marker removed: {map_item.color().name()}')
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f'Error occurred: {e}')
             return
         self.clear(idx)
         if idx == -1 and map_item is None:
@@ -152,13 +152,13 @@ class LineDraw(DrawTool):
                     for m in self.active_markers:
                         try:
                             self.canvas.scene().removeItem(m)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.debug(f'Error occurred: {e}')
                     for m in self.lines.pop(self.active_line, []):
                         try:
                             self.canvas.scene().removeItem(m)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.debug(f'Error occurred: {e}')
                     self.active_points.clear()
                     self.active_markers.clear()
             if self.active_line is None:

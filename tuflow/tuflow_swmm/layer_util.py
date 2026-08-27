@@ -53,7 +53,7 @@ def read_and_concat_layers(filename, layerlist, other_gdfs):
             gdf = gpd.read_file(filename, layer=layer)
             gdfs.append(gdf)
         except:
-            pass  # Was not in the file
+            pass  # nosec B110
 
     gdf_merged = pd.concat(gdfs)
     return gdf_merged
@@ -66,7 +66,7 @@ def read_and_concat_files_layers(file_and_layer_names):
             gdf = gpd.read_file(filename, layer=layername)
             gdfs.append(gdf)
         except:
-            pass  # Was not in the file
+            pass  # nosec B110
 
     gdf_merged = pd.concat(gdfs)
     return gdf_merged

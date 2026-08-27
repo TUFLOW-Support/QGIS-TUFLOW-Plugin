@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 from qgis.core import Qgis, QgsDataItem
 from qgis.PyQt import QtGui
@@ -22,6 +23,15 @@ class ReferenceDataItem(QgsDataItem):
                                | Qgis.BrowserItemCapability.RefreshChildrenWhenItemIsRefreshed
                                )
         self.inp = inp
+
+    def sortKey(self):
+        n = re.findall(r'/d*', self.name().split(':')[0])
+        if n:
+            try:
+                return int(n)
+            except ValueError:
+                pass
+        return -99
 
     def createChildren(self) -> list[QgsDataItem]:
         children = []

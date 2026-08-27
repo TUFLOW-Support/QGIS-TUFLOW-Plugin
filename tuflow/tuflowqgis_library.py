@@ -163,8 +163,8 @@ def get_latest_dev_plugin_version():
         if not downloader.ok():
             raise Exception()
         return downloader.data.strip()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f'Error: {e}')
     return 'Unable to determine latest dev version'
 
 
@@ -267,8 +267,8 @@ def tuflowqgis_duplicate_file(qgis, layer, savename, keepform):
     new_prj = '{0}.prj'.format(os.path.splitext(savename)[0])
     try:
         copyfile(correct_prj, new_prj)
-    except:
-        pass
+    except Exception as e:
+        print(f'Error: {e}')
 
     # Iterate through each feature in the source layer
     feature_count = layer.dataProvider().featureCount()
@@ -702,7 +702,7 @@ def tuflowqgis_import_empty_tf(qgis, basepath, runID, empty_types, points, lines
                     try:
                         copyfile(correct_prj, new_prj)
                     except Exception as e:
-                        pass
+                        print(f'Error: {e}')
 
                 if isgpkg or convert:
                     uri = '{0}|layername={1}'.format(savename, layername)
@@ -770,10 +770,10 @@ class RunTuflow(QObject):
             if self.capture_output:
                 self.setup_timer()
                 self.timer.start()
-                self.proc = subprocess.Popen(self.args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                self.proc = subprocess.Popen(self.args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,  # nosec B603
                                              creationflags=subprocess.CREATE_NO_WINDOW, cwd=cwd)
             elif os.name != 'nt':
-                with subprocess.Popen(self.args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=0,
+                with subprocess.Popen(self.args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=0,  # nosec B603
                                       universal_newlines=True) as self.proc:
                     for line in self.proc.stdout:
                         print(line.strip('\n'))
@@ -783,7 +783,7 @@ class RunTuflow(QObject):
                                 self.proc.terminate()
                 self.callback(True)
             else:
-                self.proc = subprocess.Popen(self.args, cwd=cwd)
+                self.proc = subprocess.Popen(self.args, cwd=cwd)  # nosec B603
         except:
             self.error.emit("Unexpected error occurred starting TUFLOW\nargs: {0}".format(self.args))
             self.destroy()
@@ -801,9 +801,9 @@ class RunTuflow(QObject):
             if self.callback:
                 try:
                     _ = self.callback(True)
-                except:
-                    pass
-            text = b''.join(self.stdout).decode('utf-8')
+                except Exception as e:
+                    print(f'Error: {e}')
+            text = b''.join(self.stdout).decode('utf-8', errors='ignore')
             self.finished.emit(text)
             self.destroy()
         else:
@@ -845,7 +845,7 @@ def run_tuflow(qgis, tfexe, runfile):
         else:
             return "Error input file extension is not TCF or FVC"
         # tfarg = [tfexe, '-b', runfile]
-        tf_proc = Popen(tfarg)
+        tf_proc = Popen(tfarg)  # nosec B603
         # if tf_proc.poll() is not None:
         #     _, stderr = tf_proc.communicate()
         #     return str(stderr)
@@ -1149,7 +1149,7 @@ def region_renderer(layer):
         for j, exp in enumerate(expressions):
             i = j - 1
             layer_style = {}
-            color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))
+            color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))  # nosec B311
             layer_style['color'] = color
             layer_style['outline'] = '#000000'
             symbol = QgsSymbol.defaultSymbol(layer.geometryType())
@@ -1169,7 +1169,7 @@ def region_renderer(layer):
                 if unique_values2[i].lower() == 'lateral':
                     symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
                     symbol_layer.setWidth(0.25)
-                    color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
+                    color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))  # nosec B311
                     symbol_layer.setStrokeColor(color)
                     symbol_layer.setPenStyle(QT_STYLE_DOTTED_PEN)
                     symbol_layer2 = None
@@ -1205,7 +1205,7 @@ def region_renderer(layer):
             rule.setFilterExpression(exp)
             symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
             symbol_layer.setWidth(0.25)
-            color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
+            color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))  # nosec B311
             symbol_layer.setStrokeColor(color)
             symbol_layer.setPenStyle(QT_STYLE_DOTTED_PEN)
             symbol_layer2 = None
@@ -1234,7 +1234,7 @@ def region_renderer(layer):
             root_rule.appendChild(rule)
         if intpExists:
             layer_style = {}
-            color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))
+            color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))  # nosec B311
             layer_style['color'] = color
             layer_style['outline'] = '#000000'
             symbol = QgsSymbol.defaultSymbol(layer.geometryType())
@@ -1261,7 +1261,7 @@ def region_renderer(layer):
         root_rule.removeChildAt(0)
         return renderer
     elif field_name is None and '1d_nwk' in fname.lower():
-        color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))
+        color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))  # nosec B311
         layer_style = {}
         layer_style['color'] = color
         layer_style['outline'] = '#000000'
@@ -1296,7 +1296,7 @@ def region_renderer(layer):
 
             # configure a symbol layer
             layer_style = {}
-            color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))
+            color = '%d, %d, %d' % (randrange(0, 256), randrange(0, 256), randrange(0, 256))  # nosec B311
             layer_style['color'] = color
             layer_style['outline'] = '#000000'
             symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
@@ -1353,7 +1353,7 @@ def region_renderer(layer):
                 else:
                     layer_style['style'] = 'no'
                     symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
-                    color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
+                    color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))  # nosec B311
                     symbol_layer.setStrokeColor(color)
                     symbol_layer.setStrokeWidth(1)
             elif re.findall(r'((_FM_PLOT_[PLR])|_raw_(nodes|links)_)', fname, flags=re.IGNORECASE):
@@ -1362,7 +1362,7 @@ def region_renderer(layer):
                     if unique_value.lower() == 'lateral' or unique_value.lower() == 'spill':
                         symbol_layer = QgsSimpleLineSymbolLayer.create(layer_style)
                         symbol_layer.setWidth(0.25)
-                        color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))
+                        color = QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256))  # nosec B311
                         symbol_layer.setStrokeColor(color)
                         symbol_layer.setPenStyle(QT_STYLE_DOTTED_PEN)
                         symbol_layer2 = None
@@ -1396,13 +1396,13 @@ def region_renderer(layer):
                         symbol_layer.setSize(2.5)
                         symbol_layer.setStrokeWidth(0.)
                         symbol_layer.setStrokeColor(QColor(35, 35, 35))
-                        symbol_layer.setFillColor(QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256)))
+                        symbol_layer.setFillColor(QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256)))  # nosec B311
                     else:
                         symbol_layer.setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
                         symbol_layer.setSize(2.0)
                         symbol_layer.setStrokeWidth(0.)
                         symbol_layer.setStrokeColor(QColor(35, 35, 35))
-                        symbol_layer.setFillColor(QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256)))
+                        symbol_layer.setFillColor(QColor(randrange(0, 256), randrange(0, 256), randrange(0, 256)))  # nosec B311
             else:
                 symbol_layer = QgsSimpleFillSymbolLayer.create(layer_style)
 
@@ -3133,7 +3133,7 @@ def getOutputFolderFromTCF(tcf, **kwargs):
             if outputFolder1D is None:
                 outputFolder1D = outputFolder2D[:]
     except Exception as e:
-        pass
+        print(f'Error: {e}')
 
     return [outputFolder1D, outputFolder2D]
 
@@ -3285,7 +3285,7 @@ def check1DResultsForData(tpc):
             b = res.gis_point_feature_count + res.gis_line_feature_count + res.gis_region_feature_count
             b = bool(b)
         except Exception as e:
-            pass
+            print(f'Error: {e}')
         finally:
             res.close()
         return b
@@ -4309,7 +4309,7 @@ def loadGisFile(iface, path, group, processed_paths, processed_layers, error, lo
             nd = QgsProject.instance().layerTreeRoot().findLayer(lyr.id())
             nd.setItemVisibilityChecked(visible)
     except Exception as e:
-        pass
+        print(f'Error: {e}')
 
     return processed_paths, processed_layers, error, log, crs
 
@@ -4750,8 +4750,8 @@ class LoadGisFromControlFile(QObject):
                                 'INPUT_gpkg_output_filename': output_path,
                             }
                             output = processing.run("TUFLOW:TUFLOWConvertSWMMinpToGpkg", inputs)
-                        except:
-                            pass
+                        except Exception as e:
+                            print(f'Error: {e}')
                         finally:
                             if not os.path.exists(output_path):
                                 cf_lyrs.swmm_inp_name.pop()
@@ -6439,9 +6439,9 @@ def ascToAsc(exe, function, workdir, grids, **kwargs):
             args.append(kwargs['out'])
 
     if workdir:
-        proc = subprocess.Popen(args, cwd=workdir)
+        proc = subprocess.Popen(args, cwd=workdir)  # nosec B603
     else:
-        proc = subprocess.Popen(args)
+        proc = subprocess.Popen(args)  # nosec B603
     proc.wait()
 
     if 'saveFile' in kwargs:
@@ -6522,9 +6522,9 @@ def tuflowToGis(exe, function, workdir, mesh, dataType, timestep, **kwargs):
         args.extend(out)
 
     if workdir:
-        proc = subprocess.Popen(args, cwd=workdir)
+        proc = subprocess.Popen(args, cwd=workdir)  # nosec B603
     else:
-        proc = subprocess.Popen(args)
+        proc = subprocess.Popen(args)  # nosec B603
     proc.wait()
 
     if 'saveFile' in kwargs:
@@ -6601,13 +6601,13 @@ def resToRes(exe, function, workdir, meshes, dataType, **kwargs):
 
     if 'hide_window' in kwargs and kwargs['hide_window']:
         CREATE_NO_WINDOW = 0x08000000
-        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE,
+        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE,  # nosec B603
                                 creationflags=CREATE_NO_WINDOW)
     else:
         if workdir:
-            proc = subprocess.Popen(args, cwd=workdir)
+            proc = subprocess.Popen(args, cwd=workdir)  # nosec B603
         else:
-            proc = subprocess.Popen(args)
+            proc = subprocess.Popen(args)  # nosec B603
         proc.wait()
     # out = ''
     # for line in iter(proc.stdout.readline, ""):
@@ -6681,9 +6681,9 @@ def tuflowUtility(exe, workdir, flags, saveFile):
 
         if workdir:
             # proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=workdir)
-            proc = subprocess.Popen(args_, cwd=workdir)
+            proc = subprocess.Popen(args_, cwd=workdir)  # nosec B603
         else:
-            proc = subprocess.Popen(args_)
+            proc = subprocess.Popen(args_)  # nosec B603
         proc.wait()
 
         if saveFile:
@@ -6904,8 +6904,8 @@ class DownloadProgressBar(QObject):
     def finish(self, error):
         try:
             self.widget.close()
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         self.error = error
         self.is_finished = True
 
@@ -6915,8 +6915,8 @@ class DownloadProgressBar(QObject):
                 if self.progressBar.maximum() != 100:
                     self.progressBar.setRange(0, 100)
                 self.progressBar.setValue(prog)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
 
 
 class DownloadBinPackage(QObject):
@@ -7794,8 +7794,8 @@ def readInvFromCsv(source, typ):
                 try:
                     float(line[0].strip('\n').strip())
                     header = True
-                except:
-                    pass
+                except Exception as e:
+                    print(f'Error: {e}')
             if header:
                 firstCol.append(float(line[0].strip('\n').strip()))
                 secondCol.append(float(line[1].strip('\n').strip()))
@@ -8467,7 +8467,7 @@ def generateRandomMatplotColours(n):
     import random
     colours = []
     while len(colours) < n:
-        colour = [random.randint(0, 100) / 100 for x in range(3)]
+        colour = [random.randint(0, 100) / 100 for x in range(3)]  # nosec B311
         if colour != [1.0, 1.0, 1.0]:  # don't include white
             colours.append(colour)
 
@@ -10480,7 +10480,7 @@ def get_kart_version():
         return kart_version_
     else:
         try:
-            proc = subprocess.run([kart_executable(), '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            proc = subprocess.run([kart_executable(), '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE,  # nosec B603
                                   creationflags=subprocess.CREATE_NO_WINDOW)
             v = proc.stdout.decode('utf-8', errors='ignore').split(',')[0]
             v = re.findall(r'\d+', v)
@@ -10606,7 +10606,7 @@ class ImportEmpty:
             layers = [x.out_name for x in self.empty_files]
             return self.validate_layers(layers, gpkg)
         except Exception as e:
-            pass
+            print(f'Error: {e}')
 
         return 'Could not find kart GPKG'
 
@@ -10632,7 +10632,7 @@ class ImportEmpty:
             sr = None
             ds_out, lyr_out = None, None
             ds_in, lyr_in = None, None
-            proc = subprocess.run([kart_exe, 'import', '{0}'.format(tmp_out), empty_file.out_name], cwd=wkdir,
+            proc = subprocess.run([kart_exe, 'import', '{0}'.format(tmp_out), empty_file.out_name], cwd=wkdir,  # nosec B603
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             Path(tmp_out).unlink()
             shutil.rmtree(temp_dir)

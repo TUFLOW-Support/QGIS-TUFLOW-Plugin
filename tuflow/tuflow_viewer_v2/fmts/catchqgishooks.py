@@ -1,4 +1,5 @@
 from datetime import timedelta
+import logging
 from qgis.PyQt.QtCore import QObject
 from qgis.PyQt.QtWidgets import QDockWidget, QComboBox
 from qgis.PyQt.QtXml import QDomDocument
@@ -6,6 +7,9 @@ from qgis.core import QgsMapLayer, QgsProject, QgsReadWriteContext, QgsLayerTree
 
 from .catchproviders import CATCHProvider
 from ..tvinstance import get_viewer_instance
+
+
+logger = logging.getLogger('tuflow_viewer')
 
 
 def layer_styling_dock():
@@ -83,32 +87,32 @@ class CATCHQgisHooks:
     def _teardown_catch_qgis_hooks(self):
         try:
             self.index.layer.nameChanged.disconnect(self._name_changed)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             QgsProject.instance().layerTreeRoot().addedChildren.disconnect(self._node_order_changed)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.index.layer.activeScalarDatasetGroupChanged.disconnect(self._scalar_group_changed)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.index.layer.activeVectorDatasetGroupChanged.disconnect(self._vector_group_changed)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.index.layer.rendererChanged.disconnect(self._renderer_changed)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.index.layer.metadataChanged.disconnect(self._metadata_changed)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.index.layer.crsChanged.disconnect(self._crs_changed)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
 
     def zoom_to_layer(self):
         from qgis.utils import iface

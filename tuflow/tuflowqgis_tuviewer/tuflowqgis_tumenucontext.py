@@ -502,15 +502,15 @@ class TuContextMenu():
 			try:
 				signal_caller = self._resolve_signal_caller(signal_caller, self)
 			except Exception as e:
-				pass
+				print(f'Error: {e}')
 			try:
 				signal_caller.disconnect(signal)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.signals.pop(nsignals - i - 1)
 			except Exception as e:
-				pass
+				print(f'Error: {e}')
 		# # plot menu
 		# for plotNo in range(self.tuPlot.TotalPlotNo):
 		# 	toolbar, viewToolbar, mplToolbar = self.plotNoToToolbar[plotNo]

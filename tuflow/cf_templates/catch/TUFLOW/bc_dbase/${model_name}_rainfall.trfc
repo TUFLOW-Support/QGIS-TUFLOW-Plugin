@@ -1,0 +1,11 @@
+! RAINFALL CONTROL FILE (.TRFC)
+
+RF GRID Format == NC                            ! Options - NC | TIF | ASC | FLT
+RF Interpolation Method == IDW                  ! Options - IDW | POLYGON | TIN
+! Read GIS RF Point == <path/to/2d_rf>          ! GIS layer defining point rainfall locations (required for IDW Interpolation)
+! Read GIS RF Polygons == <path/to/2d_rf>       ! GIS layer defining rainfall polygons (required some Interpolation methods)
+! Read GIS RF Triangles == <path/to/2d_rf>      ! GIS layer containing the triangulation of the rainfall points (used in TIN Interpolation)
+! RF Grid Origin == <X, Y>                      ! Sets the origin for the output rainfall grid
+! RF Grid Cell Size == <value>                  ! Sets the cell size for the generated rainfall grids
+! RF Grid Size (X,Y) == <x_length, y_length>    ! Sets the size of the output grids
+! RF Grid Size (N,M) == <rows, columns>         ! Alternate to the above command

@@ -30,10 +30,10 @@ class PyNCMesh(PyNCMeshBase, CopyOnLoadMixin):
 
     def set_data_source(self, fpath: Path | str):
         """Not for setting 2dm path."""
-        self.extractor.close_reader()
-        if self.extractor.NAME == 'QgisDataExtractor':
-            self.extractor = QgisDataExtractor(fpath, extra_datasets=[], layer=self.extractor.lyr)
+        self._get_extractor().close_reader()
+        if self._get_extractor().NAME == 'QgisDataExtractor':
+            self.extractors[0] = QgisDataExtractor(fpath, extra_datasets=[], layer=self._get_extractor().lyr)
         else:
-            self.extractor = PyNCMeshDataExtractor(Path(fpath))
-        self.extractor.open_reader()
+            self.extractors[0] = PyNCMeshDataExtractor(Path(fpath))
+        self._get_extractor().open_reader()
         self.clear_cache()

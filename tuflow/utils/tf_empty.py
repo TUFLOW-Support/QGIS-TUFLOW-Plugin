@@ -87,7 +87,14 @@ class TooltipBuilder:
 
 
 def empty_tooltip(empty_type: str) -> str:
-    file = Path(os.path.realpath(__file__)).parent.parent / 'empty_tooltips' / f'{empty_type.lower()}.txt'
+    if " (HPC)" in empty_type:
+        empty_type = empty_type.replace(" (HPC)", "")
+        file = Path(os.path.realpath(__file__)).parent.parent / 'empty_tooltips' / f'{empty_type.lower()}.txt'
+    elif " (FV)" in empty_type:
+        empty_type = empty_type.replace(" (FV)", "")
+        file = Path(os.path.realpath(__file__)).parent.parent / 'empty_tooltips' / f'{empty_type.lower()}.txt'
+    else:
+        file = Path(os.path.realpath(__file__)).parent.parent / 'empty_tooltips' / f'{empty_type.lower()}.txt'
     if not file.exists():
         return ''
     tooltip = TooltipBuilder.from_file(file)
@@ -101,10 +108,23 @@ class EmptyCreator:
         self.overwrite = overwrite
         self.feedback = feedback
         self.using_empty_folder = False  # user has specified empty folder and not project folder
+        self._solver = ''
 
+        self._setup_dirs()
+
+        # gpkg settings
+        self.gpkg_export_type = gpkg_export_type
+        self.gpkg_folder = Path(gpkg_folder)
+        self.kart_repo = Path(kart_repo)
+
+    def _setup_dirs(self) -> None:
+        """Set up empty directory paths and all derived GIS-type/empty-type attributes.
+
+        Override in subclasses to support different project folder structures
+        (e.g. separate TUFLOW / TUFLOWFV subdirectories).
+        """
         self.hpc_empty_dir = self.proj_folder / 'model' / 'gis' / 'empty'
         self.fv_empty_dir = self.proj_folder / 'model' / 'gis' / 'empty'
-        self._solver = ''
 
         if not self.hpc_empty_dir.exists() and not self.fv_empty_dir.exists() and unique_empty_names(self.proj_folder):
             self.using_empty_folder = True
@@ -125,11 +145,6 @@ class EmptyCreator:
         self.fv_gis_dir = self.fv_empty_dir.parent
         self.fv_gis_type = 'shp'
         self.fv_empty_types = unique_empty_names(self.hpc_empty_dir)
-
-        # gpkg settings
-        self.gpkg_export_type = gpkg_export_type
-        self.gpkg_folder = Path(gpkg_folder)
-        self.kart_repo = Path(kart_repo)
 
     def gis_type(self, folder: Path, default: str) -> str:
         if not folder.exists():
@@ -203,17 +218,17 @@ class EmptyCreator:
 
     def in_database_name(self, solver, empty_type, suffix):
         p = self.hpc_empty_dir if solver == 'hpc' else self.fv_empty_dir
-        gis_type = self.hpc_gis_type if solver == 'hpc' else self.fv_gis_type
-        if gis_type == 'gpkg':
-            files = [x for x in p.glob(f'{empty_type}_empty{suffix}{self.gis_ext(gis_type)}')]
-            if files:
-                lyrs = [x for x in GPKG(files[0]).glob(f'{empty_type}_empty{suffix}_*')]
-                if lyrs:
-                    return f'{files[0]}|layername={lyrs[0]}'
+        files = [x for x in p.glob(f'{empty_type}_empty{suffix}*')]
+        files = [x for x in files if x.suffix.lower() in ['.shp', '.mif', '.gpkg']]
+        if not files:
+            return ''
+        file = files[0]
+        if Path(file).suffix.lower() == '.gpkg':
+            lyrs = [x for x in GPKG(file).glob(f'{empty_type}_empty{suffix}_*')]
+            if lyrs:
+                return f'{file}|layername={lyrs[0]}'
         else:
-            files = [x for x in p.glob(f'{empty_type}_empty{suffix}_*{self.gis_ext(gis_type)}')]
-            if files:
-                return str(files[0])
+            return str(file)
         return ''
 
     def actual_kart_folder(self):
@@ -272,9 +287,20 @@ class EmptyCreator:
         except Exception as e:
             return
 
+    def _strip_solver_info(self, empty_type: str) -> str:
+        """
+        Strip any solver-specific suffix from an empty type name before file I/O.
+
+        Not needed in base implementation. Only needed for catch import empty subclass
+        where ``empty_types_from_project_folder`` appends solver labels such as
+        ``' (HPC)'`` or ``' (FV)'``.
+        """
+        return empty_type
+
     CREATE_EMPTY_RETURN = typing.Union[str, None]
     def create_empty(self, empty_type: str, geom: str, run_id: str) -> tuple[CREATE_EMPTY_RETURN, CREATE_EMPTY_RETURN]:
         solver = self.solver(empty_type)
+        empty_type = self._strip_solver_info(empty_type)
         if self.feedback:
             self.feedback.pushInfo(f'Solver: {solver}')
         suffix = '_pts' if '_pts' in empty_type else ''
@@ -327,7 +353,7 @@ class EmptyCreator:
         if self.gpkg_export_type == 'Kart Repo':
             kart_exe = self.kart_executable()
             wkdir = self.actual_kart_folder()
-            proc = subprocess.run([kart_exe, 'import', '{0}'.format(out_db), out_name], cwd=wkdir,
+            proc = subprocess.run([kart_exe, 'import', '{0}'.format(out_db), out_name], cwd=wkdir,  # nosec B603
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             Path(out_db).unlink()
             shutil.rmtree(Path(out_db).parent, ignore_errors=True)

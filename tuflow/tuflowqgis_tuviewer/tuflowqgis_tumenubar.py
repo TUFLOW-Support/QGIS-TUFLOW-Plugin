@@ -538,184 +538,185 @@ class TuMenuBar():
 		# file menu
 		try:
 			self.load2dResults_action.triggered.disconnect(self.tuMenuFunctions.load2dResults)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.load1dResults_action.triggered.disconnect(self.tuMenuFunctions.load1dResults)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.loadParticlesResults_action.triggered.disconnect(self.tuMenuFunctions.loadParticlesResults)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.load1d2dResults_action.triggered.disconnect(self.tuMenuFunctions.load1d2dResults)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.loadHydraulicTable_action.triggered.disconnect(self.tuMenuFunctions.loadHydraulicTables)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.remove1d2dResults_action.triggered.disconnect(self.tuMenuFunctions.remove1d2dResults)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.remove2dResults_action.triggered.disconnect(self.tuMenuFunctions.remove2dResults)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.remove1dResults_action.triggered.disconnect(self.tuMenuFunctions.remove1dResults)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.removeParticlesResults_action.triggered.disconnect(self.tuMenuFunctions.removeParticlesResults)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.closeHydraulicTable_action.triggered.disconnect(self.tuMenuFunctions.removeHydraulicTables)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		# view menu
 		for plotNo in range(self.tuView.tuPlot.TotalPlotNo):
 			toolbar, viewToolbar, mplToolbar = self.plotNoToToolbar[plotNo]
 			try:
 				self.freezeAxisLimits_action.triggered.disconnect(viewToolbar.freezeXYAxis)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.freezeAxisXLimits_action.triggered.disconnect(viewToolbar.freezeXAxis)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.freezeAxisYLimits_action.triggered.disconnect(viewToolbar.freezeYAxis)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.refreshMapWindow_action.triggered.disconnect(self.tuView.renderMap)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.refreshCurrentPlotWindow_action.triggered.disconnect(self.tuView.refreshCurrentPlot)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.refreshAllPlotWindows_action.triggered.disconnect(self.tuView.tuPlot.updateAllPlots)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.clearPlotWindow_action.triggered.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.clearAllPlotWindows_action.triggered.disconnect(self.tuView.tuPlot.clearAllPlots)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 		# settings menu
 		try:
 			self.tuView.tuPlot.tuPlotToolbar.lstActionsTimeSeries[7].triggered.disconnect(self.tuMenuFunctions.updateLegend)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.tuView.tuPlot.tuPlotToolbar.lstActionsLongPlot[7].triggered.disconnect(self.tuMenuFunctions.updateLegend)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.tuView.tuPlot.tuPlotToolbar.lstActionsCrossSection[7].triggered.disconnect(self.tuMenuFunctions.updateLegend)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.tuView.tuPlot.tuPlotToolbar.lstActionsVerticalProfile[7].triggered.disconnect(self.tuMenuFunctions.updateLegend)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.saveColorRampForActiveResult_action.triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.saveColorMapForActiveResult_action.triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.saveStyleForVectorResult_action.triggered.disconnect(self.tuMenuFunctions.saveDefaultStyleVector)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.loadStyleForActiveResult_action.triggered.disconnect(self.tuMenuFunctions.loadDefaultStyleScalar)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.loadStyleForVectorResult_action.triggered.disconnect(self.tuMenuFunctions.loadDefaultStyleVector)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.resetDefaultStyles_action.triggered.disconnect(self.tuMenuFunctions.resetDefaultStyles)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.options_action.triggered.disconnect(self.tuMenuFunctions.options)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.addPlotColourRamp_action.triggered.disconnect(self.tuMenuFunctions.addColourRampFromXML)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.resetPlotColours_action.triggered.disconnect(self.tuMenuFunctions.resetMatplotColours)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		# export menu
 		try:
 			self.exportAsCSV_action.triggered.disconnect(self.tuMenuFunctions.exportCSV)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.autoPlotExport_action.triggered.disconnect(self.tuMenuFunctions.batchPlotExportInitialise)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.exportDataToClipboard_action.triggered.disconnect(self.tuMenuFunctions.exportDataToClipboard)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.exportImageToClipboard_action.triggered.disconnect(self.tuMenuFunctions.exportImageToClipboard)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.exportTempLine_action.triggered.disconnect(self.tuMenuFunctions.exportTempLines)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.exportTempPoint_action.triggered.disconnect(self.tuMenuFunctions.exportTempPoints)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.exportAnimation_action.triggered.disconnect(self.tuMenuFunctions.exportAnimation)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.exportMaps_action.triggered.disconnect(self.tuMenuFunctions.exportMaps)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		# result menu
 		try:
 			self.showSelectedElements_action.triggered.disconnect(self.tuMenuFunctions.showSelectedElements)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.showMedianEvent_action.triggered.disconnect(self.tuMenuFunctions.showMedianEvent)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.showMeanEvent_action.triggered.disconnect(self.tuMenuFunctions.showMeanEvent)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		# help menu
 		try:
 			self.about_action.triggered.disconnect(self.about)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.help_action.triggered.disconnect(self.help)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
+			

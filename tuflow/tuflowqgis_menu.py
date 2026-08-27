@@ -38,6 +38,8 @@ from .tuflowqgis_library import about
 from .tuflowqgis_tuviewer.tuflowqgis_tuview import TuView
 
 from .provider import TuflowAlgorithmProvider
+from .catch_provider import TuflowCatchAlgorithmProvider
+from .fv_provider import TuflowFVAlgorithmProvider
 
 import tempfile
 import shutil
@@ -73,7 +75,8 @@ for_deleting = glob.glob(os.path.join(tempfile.gettempdir(), "tuflow_refh2*"))
 for f in for_deleting:
     try:
         shutil.rmtree(f)
-    except:
+    except Exception as e:
+        print(f'Error: {e}')
         continue
 
 # copy refh2 pyd to a cache directory
@@ -166,6 +169,8 @@ from .gui.browser import TuflowBrowserProvider, init_browser_helper
 
 from .toc.toc import toc_selected_layers
 
+from .utils import pyarrow_compute_fix
+
 from .qgis_listener import QgisListener
 
 from qgis.PyQt import QtWidgets
@@ -185,6 +190,10 @@ sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\plugins\python\helpers\pydev')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\debug-eggs')
 sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2024.1.4\plugins\python-ce\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2026.2.0.1\debug-eggs')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2026.2.0.1\plugins\python-ce\helpers\pydev')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2026.1.2\debug-eggs')
+sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2026.1.2\plugins\python-ce\helpers\pydev')
 
 
 
@@ -194,6 +203,13 @@ from .compatibility_routines import (QT_MESSAGE_BOX_CANCEL, QT_DOCK_WIDGET_AREA_
                                      QT_FONT_MONOSPACE)
 
 from .tfversion_manager import TuflowVersionDialog
+
+from .gui.alg.processing_parameter_font import QgsProcessingParameterFont
+from .gui.alg.processing_parameter_linestyle import QgsProcessingParameterLineStyle
+from .gui.alg.processing_parameter_json import QgsProcessingParameterJson
+from .gui.alg.processing_parameter_enum import CustomProcessingParameterEnum
+from .gui.alg.fv_recipe_json_parameter import FVRecipeParameter
+from .gui.alg.processing_parameter_button_group import QgsProcessingParameterButtonGroup
 
 
 class tuflowqgis_menu:
@@ -217,6 +233,8 @@ class tuflowqgis_menu:
         self.dropHandler = TuflowDropHandler(iface)
         self.browserProvider = TuflowBrowserProvider()
         self.provider = TuflowAlgorithmProvider()
+        self.catch_provider = TuflowCatchAlgorithmProvider()
+        self.fv_provider = TuflowFVAlgorithmProvider()
         self.menu_provider = TuflowContextMenuProvider(self.iface)
         Logging.init_logging(iface)
 
@@ -243,9 +261,20 @@ class tuflowqgis_menu:
     def initProcessing(self):
         """Create the Processing provider"""
         QgsApplication.processingRegistry().addProvider(self.provider)
+        QgsApplication.processingRegistry().addProvider(self.fv_provider)
+        QgsApplication.processingRegistry().addProvider(self.catch_provider)
+
+    def initAlgorithmsDefinitions(self):
+        QgsProcessingParameterFont.registerWidget()
+        QgsProcessingParameterLineStyle.registerWidget()
+        QgsProcessingParameterJson.registerWidget()
+        CustomProcessingParameterEnum.registerWidget()
+        FVRecipeParameter.registerWidget()
+        QgsProcessingParameterButtonGroup.registerWidget()
 
     def initGui(self):
         self.initProcessing()
+        self.initAlgorithmsDefinitions()
         self.menu_provider.init_menu()
         self.menu_provider.register_menu()
         for layer in QgsProject.instance().mapLayers().values():
@@ -257,8 +286,8 @@ class tuflowqgis_menu:
         init_browser_helper()
         try:
             self.iface.mainWindow().findChildren(QtWidgets.QWidget, 'Browser')[0].refresh()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
 
         dir = os.path.dirname(__file__)
         icon = QIcon(os.path.join(dir, "tuflow.png"))
@@ -384,7 +413,7 @@ class tuflowqgis_menu:
         self.run_tuflow_action.triggered.connect(self.run_tuflow)
         self.run_menu.addAction(self.run_tuflow_action)
 
-        icon = QIcon(os.path.join(dir, "runner\\tuflow-runner\\icons\\runner", "icons8-exercise.ico"))
+        icon = QIcon(os.path.join(dir, "runner/tuflow-runner/icons/runner", "icons8-exercise.ico"))
         self.launch_runner_action = QAction(icon, "Launch TUFLOW Runner", self.iface.mainWindow())
         # QObject.connect(self.run_tuflow_action, SIGNAL("triggered()"), self.run_tuflow)
         self.launch_runner_action.triggered.connect(self.launch_runner)
@@ -661,12 +690,12 @@ class tuflowqgis_menu:
             pass
         try:
             QgsApplication.instance().dataItemProviderRegistry().removeProvider(self.browserProvider)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.iface.mainWindow().findChildren(QtWidgets.QWidget, 'Browser')[0].refresh()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
 
         # tuflow viewer
         if self.use_new_tuflow_viewer_action.isChecked():
@@ -677,48 +706,48 @@ class tuflowqgis_menu:
         # integrity tool
         try:
             self.integrityTool.qgisDisconnect()
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.integrityTool.close()
             self.iface.removeDockWidget(self.integrityTool)
             del self.integrityTool
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         # refh2
         try:
             self.refh2Dock.qgisDisconnect()
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.refh2Dock.close()
             self.iface.removeDockWidget(self.refh2Dock)
             del self.refh2Dock
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         # SCS
         try:
             self.scsDock.close()
             self.iface.removeDockWidget(self.scsDock)
             del self.scsDock
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         # SWAN
         try:
             self.clearBuilderUI()
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.clearProcessingUI()
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         # BRIDGE EDITOR
         try:
             self.archBridgeDock.close()
             self.iface.removeDockWidget(self.archBridgeDock)
             del self.archBridgeDock
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
 
         self.qgisDisconnect()
 
@@ -793,8 +822,8 @@ class tuflowqgis_menu:
         if self.tuflow_viewer is not None:
             try:
                 self.tuflow_viewer.unload()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
         self.tuflow_viewer = None
 
     def configure_tf(self):
@@ -993,20 +1022,29 @@ class tuflowqgis_menu:
         dialog.exec()
 
     def launch_runner(self):
-        if sys.platform != 'win32':
-            QMessageBox.warning(self.iface.mainWindow(), "Not Supported",
-                                "The TUFLOW Runner is currently only supported on Windows")
-            return
+        # if sys.platform != 'win32':
+        #     QMessageBox.warning(self.iface.mainWindow(), "Not Supported",
+        #                         "The TUFLOW Runner is currently only supported on Windows")
+        #     return
         dir = os.path.dirname(__file__)
-        script_with_path = os.path.join(dir, "runner\\tuflow-runner\\runner\\main.py")
+        script_with_path = os.path.join(dir, "runner/tuflow-runner/runner/main.py")
         if not os.path.isfile(script_with_path):
             QMessageBox.critical(self.iface.mainWindow(), "Not Found",
                                  f'The TUFLOW runner script not found at {script_with_path}')
             return
+        
         command = ['python3', script_with_path]
-        # https://stackoverflow.com/questions/70543646/module-does-not-have-the-attribute-subprocess-detached-process
-        process = Popen(command, creationflags=DETACHED_PROCESS, start_new_session=True)
+        runner_process = None
+        env = os.environ.copy()
+        tuflow_module_folder  = Path(__file__).parent.parent / "tuflow" / "pt"
 
+        env['PYTHONPATH'] = str(tuflow_module_folder) + os.pathsep + env.get('PYTHONPATH', '')
+        # https://stackoverflow.com/questions/70543646/module-does-not-have-the-attribute-subprocess-detached-process
+        if sys.platform == 'win32':
+            runner_process = Popen(command, creationflags=DETACHED_PROCESS, start_new_session=True, text=True, env=env)  # nosec B603
+        else:
+            runner_process = Popen(command, start_new_session=True, env=env)  # nosec B603
+        
     def check_dependencies(self):
         # QMessageBox.critical(self.iface.mainWindow(), "Info", "Not yet implemented!")
         from .tuflowqgis_library import check_python_lib
@@ -1091,7 +1129,7 @@ class tuflowqgis_menu:
     def openLabelSettingLoc(self):
         dir = os.path.dirname(__file__)
         p = os.path.join(dir, "layer_labelling")
-        os.startfile(p)
+        os.startfile(p)  # nosec B606
 
     def loadTuflowLayersFromTCF(self, inFileName=None):
         settings = QSettings()
@@ -1352,122 +1390,122 @@ class tuflowqgis_menu:
         for conn in self.lambdaConnections:
             try:
                 QgsProject.instance().readProject.disconnect(conn)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
         try:
             self.about_action.triggered.disconnect(self.about_tuflowqgis)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.check_dependancy_action.triggered.disconnect(self.check_dependencies)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.configure_tf_action.triggered.disconnect(self.configure_tf)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.import_empty_tf_action.triggered.disconnect(self.import_empty_tf)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.insert_TUFLOW_attributes_action.triggered.disconnect(self.insert_TUFLOW_attributes)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.increment_action.triggered.disconnect(self.increment_layer)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.run_tuflow_action.triggered.disconnect(self.run_tuflow)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.launch_runner_action.triggered.disconnect(self.launch_runner)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.clearGlobalSettingsAction.triggered.disconnect()
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.clearProjectSettingsAction.triggered.disconnect()
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.removeTuviewAction.triggered.disconnect(self.removeTuview)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.reloadTuviewAction.triggered.disconnect(self.reloadTuview)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.reload_data_action.triggered.disconnect(self.reload_data)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.view_results_action.triggered.disconnect(self.openResultsPlottingWindow)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.integrity_tool_action.triggered.disconnect(self.integrityToolWindow)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.import_empty_tf_action.triggered.disconnect(self.import_empty_tf)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.load_tuflowFiles_from_TCF_action.triggered.disconnect(self.loadTuflowLayersFromTCF)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.filterAndSortLayersAction.triggered.disconnect(self.filterAndSortLayers)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.increment_action.triggered.disconnect(self.increment_layer)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.import_chk_action.triggered.disconnect(self.import_check)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.apply_chk_action.triggered.disconnect(self.apply_check)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.apply_chk_cLayer_action.triggered.disconnect(self.apply_check_cLayer)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.autoLabelMenu.menuAction().triggered.disconnect(self.apply_label_cLayer)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.autoLabelSettingLocAction.triggered.disconnect(self.openLabelSettingLoc)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.extract_arr2016_action.triggered.disconnect(self.extract_arr2016)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.extractRefh2Action.triggered.disconnect(self.extractRefh2)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         try:
             self.tuflowUtilitiesAction.triggered.disconnect(self.tuflowUtilities)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         if spatial_database_option:
             try:
                 self.apply_gpkg_layernames_action.triggered.disconnect(self.apply_gpkg_layername)
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
         try:
             QgsProject.instance().cleared.disconnect(self.clearBuilderUI)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')

@@ -689,8 +689,8 @@ class TuPlot():
 									plotAsQuiver.append(False)
 									try:
 										chanNames[label] = artist.channel_ids[:]
-									except:
-										pass
+									except Exception as e:
+										print(f'Error: {e}')
 
 									if artist.get_linestyle() == 'None':
 										plotAsPoints.append(True)
@@ -1086,7 +1086,10 @@ class TuPlot():
 		# delete colour bar axis
 		if self.cax is not None:
 			if self.cax in figure.axes:
-				self.cax.remove()
+				try:
+					self.cax.remove()
+				except AttributeError:
+					print('could not remove colour bar axes')
 			self.cax = None
 
 		# force find and remove and axes object that isn't meant to be there (happens if cax bugs out and remains)
@@ -1664,7 +1667,7 @@ class TuPlot():
 			if not self.tuView.tuMenuBar.freezeAxisYLimits_action.isChecked():
 				ylim = subplot.get_ylim()
 				xlim = subplot.get_xlim()
-				subplot.relim()
+				subplot.relim(visible_only=True)
 				subplot.autoscale()
 				y = subplot.get_ylim()
 			else:
@@ -2735,8 +2738,8 @@ class TuPlot():
 						tick.set_horizontalalignment('left')
 					elif self.tuView.tuOptions.xAxisLabelRotation > -360 and self.tuView.tuOptions.xAxisLabelRotation < -270:
 						tick.set_horizontalalignment('right')
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 		elif self.tuView.tuOptions.xAxisDates and plotNo == TuPlot.TimeSeries:
 			formatter = subplot.xaxis.get_major_formatter()
 			if not isinstance(formatter, ScalarFormatter):
@@ -2804,8 +2807,8 @@ class TuPlot():
 					subplot2.autoscale(True)
 					subplot2.relim()
 
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		if self.tuView.tuMenuBar.freezeAxisXLimits_action.isChecked():
 			subplot.set_xbound(xLimits)
 		if self.tuView.tuMenuBar.freezeAxisYLimits_action.isChecked():
@@ -2845,10 +2848,8 @@ class TuPlot():
 			skipDraw = False
 		except ValueError:  # something has gone wrong and trying to plot time (hrs) on a date formatted x axis
 			skipDraw = True
-			pass
 		except Exception as e:
 			skipDraw = True
-			pass
 
 		if export:
 			# figure.suptitle(os.path.splitext(os.path.basename(export))[0])
@@ -3263,8 +3264,8 @@ class TuPlot():
 		# disconnect map canvas refresh if it is connected - used for rendering after loading from project
 		try:
 			self.tuView.canvas.mapCanvasRefreshed.disconnect(self.updateCurrentPlot)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		
 		return success
 	
@@ -4624,6 +4625,7 @@ class TuPlot():
 									closest_point = ax_event.transData.transform(closest_point)
 									closest_point = subplot.transData.inverted().transform(closest_point)
 								except:
+									print(f'Error: {e}')
 									continue
 							dist = 5
 					else:
@@ -4635,7 +4637,8 @@ class TuPlot():
 									try:
 										closest_point = ax_event.transData.transform(closest_point)
 										closest_point = subplot.transData.inverted().transform(closest_point)
-									except:
+									except Exception as e:
+										print(f'Error : {e}')
 										continue
 								dist = 5
 

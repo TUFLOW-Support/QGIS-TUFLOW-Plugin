@@ -38,8 +38,8 @@ class MapOutputMixin(TuflowViewerOutput):
         for lyr, sig in self._style_changed_signals.items():
             try:
                 lyr.styleChanged.disconnect(sig)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f'Error occurred: {e}')
 
     def maximum(self, data_type: str) -> float:
         return self._driver.maximum(data_type)

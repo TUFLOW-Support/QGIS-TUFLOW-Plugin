@@ -66,7 +66,7 @@ class ToolButtonDelegate(QtWidgets.QStyledItemDelegate):
                         self.triggered.emit(index)
                     # consume the event
                     return True
-        except Exception:
+        except Exception as e:
             # swallow errors to avoid breaking the view
-            pass
+            print(f'Error: {e}')
         return False

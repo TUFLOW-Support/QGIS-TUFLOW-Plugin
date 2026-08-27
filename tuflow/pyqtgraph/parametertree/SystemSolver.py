@@ -194,7 +194,7 @@ class SystemSolver(object):
         elif isinstance(constraint, tuple):
             if 'r' not in var[3]:
                 raise TypeError("Range constraints not allowed for '%s'" % name)
-            assert len(constraint) == 2
+            assert len(constraint) == 2   # nosec B101
             var[2] = constraint
         elif constraint is not True:
             raise TypeError("constraint must be None, True, 'fixed', or tuple. (got %s)" % constraint)

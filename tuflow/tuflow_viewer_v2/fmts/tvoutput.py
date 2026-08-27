@@ -47,7 +47,34 @@ class TuflowViewerOutput:
         self._lyr2resultstyle = {}
 
     def _teardown_viewer_output_mixin(self):
-        pass
+        for lyr in self.map_layers():
+            try:
+                lyr.nameChanged.disconnect(self.name_changed)
+            except Exception as e:
+                logger.debug(f'Error occurred: {e}')
+
+    def connect_name_changed(self):
+        for lyr in self.map_layers():
+            lyr.nameChanged.connect(self.name_changed)
+
+    def name_changed(self):
+        for lyr in self.map_layers():
+            self.name = lyr.name()
+        self.update_plot_windows_with_new_name()
+
+    def update_plot_windows_with_new_name(self):
+        tv = get_viewer_instance()
+        if tv is None:
+            return
+        idx = list(tv._outputs.keys()).index(self.id) if self.id in tv._outputs else -1
+        if idx == -1:
+            return
+        for plot_window in tv._plot_windows.values():
+            for tab in (plot_window.tabWidget_view1, plot_window.tabWidget_view2):
+                for i in range(tab.count()):
+                    plot = tab.widget(i)
+                    action = plot.toolbar.result_names_menu.actions()[idx]
+                    action.setText(self.name)
 
     def generate_id(self, output_name: str) -> str:
         self.id = f'{output_name}_{uuid4()}'
@@ -209,7 +236,9 @@ class TuflowViewerOutput:
         """Relative path to the qgis project if it exists and the project is set to use relative paths, else just returns the fpath."""
         if QgsProject.instance().absolutePath() and not QgsProject.instance().readBoolEntry("Paths", "/Absolute", False)[0]:
             p = Path(QgsProject.instance().absolutePath())
-            relpath = os.path.relpath(fpath, p)
+            if os.name == 'nt' and Path(fpath).resolve().anchor != p.resolve().anchor:
+                return fpath
+            relpath = os.path.relpath(Path(fpath).resolve(), p.resolve())
             logger.debug(f'Relative path: {relpath}')
             return relpath
         return fpath

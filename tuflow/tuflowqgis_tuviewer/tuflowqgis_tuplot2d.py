@@ -1632,17 +1632,20 @@ class TuPlot2D():
 		w1numer = (v2y - v3y) * (px - v3x) + (v3x - v2x) * (py - v3y)
 		w1denom = (v2y - v3y) * (v1x - v3x) + (v3x - v2x) * (v1y - v3y)
 		w1 = w1numer / w1denom
-		assert(w1 >= 0)
+		if w1 < 0:
+			raise AssertionError
 		
 		# weighting vertex 2
 		w2numer = (v3y - v1y) * (px - v3x) + (v1x - v3x) * (py - v3y)
 		w2denom = (v2y - v3y) * (v1x - v3x) + (v3x - v2x) * (v1y - v3y)
 		w2 = w2numer / w2denom
-		assert(w2 >= 0)
+		if w2 < 0:
+			raise AssertionError
 		
 		# weighting vertex 3
 		w3 = 1.0 - w1 - w2
-		assert(w3 >= 0)
+		if w3 < 0:
+			raise AssertionError
 		
 		return [w1, w2, w3]
 	

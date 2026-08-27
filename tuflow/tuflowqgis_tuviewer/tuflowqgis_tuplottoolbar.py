@@ -744,40 +744,40 @@ class TuPlotToolbar():
 		# mpl toolbar
 		try:
 			self.plotTSMenu.menuAction().triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.plotLPMenu.menuAction().triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.plotFluxButton.released.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.cursorTrackingButton.released.disconnect(self.cursorTrackingToggled)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.meshGridAction.triggered.disconnect(self.tuMenuFunctions.toggleMeshRender)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.curtainPlotMenu.menuAction().triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.averageMethodTSMenu.menuAction().triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.averageMethodCSMenu.menuAction().triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.plotVPMenu.menuAction().triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		# view toolbars
 		self.viewToolbarTimeSeries.qgisDisconnect()
 		self.viewToolbarLongPlot.qgisDisconnect()
@@ -786,44 +786,38 @@ class TuPlotToolbar():
 		# map plotting toolbar
 		try:
 			self.plotTSMenu.menuAction().triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.plotLPMenu.menuAction().triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.plotFluxButton.released.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.cursorTrackingButton.released.disconnect(self.cursorTrackingToggled)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.meshGridAction.triggered.disconnect(self.tuMenuFunctions.toggleMeshRender)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.curtainPlotMenu.menuAction().triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.averageMethodTSMenu.menuAction().triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.averageMethodCSMenu.menuAction().triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.plotVPMenu.menuAction().triggered.disconnect()
-		except:
-			pass
-
-
-
-
-
-
-
+		except Exception as e:
+			print(f'Error: {e}')
+			

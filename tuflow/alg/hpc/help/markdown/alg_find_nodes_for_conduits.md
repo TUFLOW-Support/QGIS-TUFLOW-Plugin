@@ -1,0 +1,3 @@
+This tool identifies the nodes snapped to the endpoints of conduits and assigns the "To Node" and "From Node" appropriately.
+
+This tool supports in-place editing if selected in the QGIS processing window.

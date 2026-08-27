@@ -1138,8 +1138,8 @@ def fixed_field_length(filepath: str) -> int:
         pass
     except ValueError:
         pass
-    except Exception:
-        pass
+    except Exception as e:
+        print(f'Error: {e}')
 
     return fixed_field_length
 
@@ -1227,8 +1227,8 @@ class FM_XS(XS):
                             try:
                                 n = b[2]
                                 nall.append(n)
-                            except:
-                                pass
+                            except Exception as e:
+                                print(f'Error: {e}')
                             try:
                                 xcoord, ycoord = b[5:7]
                                 xcoord = float(xcoord)

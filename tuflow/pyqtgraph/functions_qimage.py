@@ -285,7 +285,7 @@ def try_make_qimage(image, *, levels, lut, transparentLocations=None):
                     xp, image, levels, lut, forceApplyLut=True
                 )
                 levels = None
-                assert lut is None
+                assert lut is None  # nosec B101
                 image[..., 3][transparentLocations] = 0
         else:
             # RGB float images

@@ -6,7 +6,7 @@ import signal
 import subprocess
 import sys
 import time
-import pickle
+import pickle  # nosec B403
 
 from ..Qt import QT_LIB, mkQApp
 from ..util import cprint  # color printing for debugging
@@ -115,13 +115,13 @@ class Process(RemoteEventHandler):
             ## http://bugs.python.org/issue3905
             stdout = subprocess.PIPE
             stderr = subprocess.PIPE
-            self.proc = subprocess.Popen((executable, bootstrap), stdin=subprocess.PIPE, stdout=stdout, stderr=stderr)
+            self.proc = subprocess.Popen((executable, bootstrap), stdin=subprocess.PIPE, stdout=stdout, stderr=stderr)  # nosec B603
             ## to circumvent the bug and still make the output visible, we use 
             ## background threads to pass data from pipes to stdout/stderr
             self._stdoutForwarder = FileForwarder(self.proc.stdout, "stdout", procDebug)
             self._stderrForwarder = FileForwarder(self.proc.stderr, "stderr", procDebug)
         else:
-            self.proc = subprocess.Popen((executable, bootstrap), stdin=subprocess.PIPE)
+            self.proc = subprocess.Popen((executable, bootstrap), stdin=subprocess.PIPE)  # nosec B603
 
         targetStr = pickle.dumps(target)  ## double-pickle target so that child has a chance to 
                                           ## set its sys.path properly before unpickling the target

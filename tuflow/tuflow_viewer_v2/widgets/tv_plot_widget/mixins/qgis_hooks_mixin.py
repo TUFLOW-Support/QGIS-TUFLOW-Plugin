@@ -53,18 +53,18 @@ class QgisHooksMixin:
     def _teardown_qgis_hooks(self):
         try:
             iface.mapCanvas().currentLayerChanged.disconnect(self.qgis_current_layer_changed)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             iface.mapCanvas().temporalRangeChanged.disconnect(self.qgis_time_changed)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         if self._clyr is not None:
             try:
                 try:
                     self._clyr.selectionChanged.disconnect(self.selected_features_changed)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f'Error occurred: {e}')
             except RuntimeError:  # sometimes clyr is deleted before disconnecting
                 pass
             self._clyr = None
@@ -159,8 +159,8 @@ class QgisHooksMixin:
         if self._clyr is not None:
             try:
                 self._clyr.selectionChanged.disconnect(self.selected_features_changed)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f'Error occurred: {e}')
         if layer is None or layer.type() != QgsMapLayer.VectorLayer:
             self._clyr = None
             return

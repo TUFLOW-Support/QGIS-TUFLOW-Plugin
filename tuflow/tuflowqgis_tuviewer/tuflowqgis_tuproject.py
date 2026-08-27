@@ -239,8 +239,8 @@ class TuProject():
 						results.remove(result)
 				try:
 					self.tuView.tuMenuBar.tuMenuFunctions.load1dResults(result_1D=[results], ask_gis=False)
-				except:
-					pass
+				except Exception as e:
+					print(f'Error: {e}')
 	
 	def processActiveResults(self, call_type):
 		"""Saves active mesh layers to project"""
@@ -298,8 +298,8 @@ class TuProject():
 						layer = tuflowqgis_find_layer(result)
 						if layer is not None and isinstance(layer, QgsMeshLayer):
 							self.tuView.tuResults.tuResults2D.activeMeshLayers.append(layer)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			
 	def processActiveResultTypes(self, call_type):
 		"""Project settings for active result types"""
@@ -371,8 +371,8 @@ class TuProject():
 									self.tuView.tuResults.tuResults1D.regionTS.append(name)
 								name += nameAppend
 								self.tuView.tuResults.activeResults.append(name)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 							
 	def processActiveTime(self, call_type):
 		"""Project settings for current timestep"""
@@ -441,8 +441,8 @@ class TuProject():
 						item.toggleMaxActive()
 				if '2D Flow' in secondaryResultTypes:
 					self.tuView.tuPlot.tuPlotToolbar.fluxSecAxisButton.setChecked(True)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 
 	def processMeshStyles(self, call_type):
 		"""Project settings for scalar and vector mesh styles."""
@@ -511,8 +511,8 @@ class TuProject():
 										value = self.project.readEntry("TUVIEW", "vectorstyle_{0}_{1}".format(result, rtypeFormatted))[0]
 										if value and len(value) >= 27 and value[:27] == '<!DOCTYPE tuflow_meshlayer>':
 											results2D.applyVectorRenderSettings(layer, gindex, value)
-								except:
-									pass
+								except Exception as e:
+									print(f'Error: {e}')
 								break
 								
 	def processOptions(self, call_type):
@@ -524,8 +524,8 @@ class TuProject():
 			try:
 				self.tuView.tuOptions.readProject(self.project)
 				self.tuView.tuPlot.tuPlotToolbar.cursorTrackingButton.setChecked(self.tuView.tuOptions.liveMapTracking)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			
 	def processPlotTab(self, call_type):
 		"""Project settings for which plotting tab is active."""
@@ -570,22 +570,22 @@ class TuProject():
 			try:
 				selectType = self.project.readEntry("TUVIEW", "selecttype")[0]
 				cbo.setCurrentIndex(int(selectType))
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 
 			try:
 				tstypes = self.project.readEntry("TUVIEW", "tstypes")[0]
 				tstypes = tstypes.split('~~')
 				toolbar.setCheckedItemsPlotOptions(tstypes, 0)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 
 			try:
 				cstypes = self.project.readEntry("TUVIEW", "cstypes")[0]
 				cstypes = cstypes.split('~~')
 				toolbar.setCheckedItemsPlotOptions(cstypes, 1)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			
 	def processPlotToolbarOptions(self, call_type):
 		"""Project settings for general plotting options."""
@@ -614,8 +614,8 @@ class TuProject():
 				self.loadViewToolbar(viewToolbarLP, subplotLP, 1, 'lp')
 				self.loadViewToolbar(viewToolbarCS, subplotCS, 2, 'cs')
 				self.loadViewToolbar(viewToolbarVP, subplotCS, 3, 'vp')
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 
 	def saveViewToolbar(self, viewToolbar, subplot, isSecondary, plotNo, suffix):
 			freezeAxis = viewToolbar.freezeXYAxisAction.isChecked()
@@ -699,20 +699,20 @@ class TuProject():
 		else:  # load
 			try:
 				self.loadPlot(frozenTSProperties, frozenTSAxisLabels, 'ts')
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.loadPlot(frozenLPProperties, frozenLPAxisLabels, 'lp')
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.loadPlot(frozenCSProperties, frozenCSAxisLabels, 'cs')
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.loadPlot(frozenVPProperties, frozenVPAxisLabels, 'vp')
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 		
 	def savePlot(self, properties, labels, suffix):
 		autoLabels = ''
@@ -973,8 +973,8 @@ class TuProject():
 
 			for i, autoAxisLabel in enumerate(autoAxisLabels):
 				labels[autoAxisLabel] = userAxisLabels[i]
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 			
 	def processGraphics(self, call_type):
 		"""Graphic objects in the project."""
@@ -1032,8 +1032,8 @@ class TuProject():
 					marker.setIconType(QgsVertexMarker.ICON_CIRCLE)
 					marker.setCenter(QgsPointXY(point))
 					markers.append(marker)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 			
 	def saveLines(self, lines, suffix):
 		i = -1
@@ -1088,8 +1088,8 @@ class TuProject():
 						line.setColor(QColor(QT_BLUE))
 					line.setToGeometry(QgsGeometry.fromPolyline(points), None)
 					lines.append(line)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 	
 	def processUserPlotData(self, call_type):
 		"""Save user plot data to Project."""
@@ -1101,8 +1101,8 @@ class TuProject():
 		else:
 			try:
 				data.loadProject(self.project)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			
 	def processShowActiveTime(self, call_type):
 		"""Save check box for show active time to Project"""

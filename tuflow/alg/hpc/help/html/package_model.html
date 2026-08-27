@@ -1,0 +1,29 @@
+<h3>Description</h3>
+
+<p>Interface to TUFLOW's package model functionality.</p>
+
+<h3>Parameters</h3>
+
+<p>For more information please see the package model documentation in the TUFLOW Manual or the TUFLOW Wiki:</p>
+
+<p><a href="https://wiki.tuflow.com/Package_Model_in_QGIS">Package Model QGIS Tool Wiki</a>
+<a href="https://downloads.tuflow.com/_archive/TUFLOW/Releases/2018-03/TUFLOW%20Manual.2018-03.pdf#page=478">TUFLOW Manual</a>
+<a href="https://wiki.tuflow.com/Run_TUFLOW_From_a_Batch-file#Package_a_TUFLOW_model">Package Model TUFLOW Wiki</a></p>
+
+<ul>
+<li><strong>TUFLOW exe</strong>: Path to TUFLOW executable used to package model.</li>
+<li><strong>TCF</strong>: Path to the TUFLOW control file.</li>
+<li><strong>XF Files</strong>: How to treat input files that generate xf files. Options are:
+<ul>
+<li><strong>Do not copy xf files</strong>: Do not copy xf files</li>
+<li><strong>Copy all</strong>: Copy both raw inputs and xf files</li>
+<li><strong>Copy only xf files</strong>: Only copy xf files (if they exist) and do not copy raw inputs</li>
+</ul></li>
+<li><strong>Copy All File Extensions</strong>: Copies all files with the same name ignoring file extensions</li>
+<li><strong>List Files Only</strong>: If checked, will only list the files that would be copied (but does not copy them)</li>
+<li><strong>Output Directory</strong>: Output directory for the copied files</li>
+<li><strong>Zip Output</strong>: If checked, will zip the output directory</li>
+<li><strong>Base Directory</strong>: Base directory of the TUFLOW model</li>
+<li><strong>Scenarios</strong>: List of scenarios in the form of <code>s[n] == [scenario-name] | ...</code>. Required to copy input files that contain scenario wildcards in their names.</li>
+<li><strong>Events</strong>: List of events in the form of <code>e[n] == [event-name] | ...</code>. Required to copy input files that contain event wildcards in their names.</li>
+</ul>

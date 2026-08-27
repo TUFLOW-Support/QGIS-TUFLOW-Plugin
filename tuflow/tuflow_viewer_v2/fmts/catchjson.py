@@ -104,8 +104,8 @@ class CATCHJson(CATCHJsonBase, MapOutputMixin, CATCHQgisHooks):
                     lyrname = Path(lyr.dataProvider().dataSourceUri()).stem
                     if output_name.lower() == lyrname.lower():
                         return lyr
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f'Error occurred: {e}')
 
         default_ref_time = self.times(fmt='absolute')[0]
 

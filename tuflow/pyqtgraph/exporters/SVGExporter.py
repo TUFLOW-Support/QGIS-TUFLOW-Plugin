@@ -2,7 +2,7 @@ __all__ = ['SVGExporter']
 
 import contextlib
 import re
-import xml.dom.minidom as xml
+import xml.dom.minidom as xml  # nosec B408
 
 import numpy as np
 

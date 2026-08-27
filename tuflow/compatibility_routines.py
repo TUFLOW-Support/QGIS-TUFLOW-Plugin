@@ -1241,8 +1241,8 @@ class GPKG:
         try:
             cur.execute("SELECT table_name FROM gpkg_contents;")
             res = [x[0] for x in cur.fetchall()]
-        except Exception:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         finally:
             cur.close()
 
@@ -1265,8 +1265,8 @@ class GPKG:
                 ' WHERE columns.geometry_type_name != "GEOMETRY";'
             )
             res = [x[0] for x in cur.fetchall()]
-        except Exception:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         finally:
             cur.close()
 
@@ -1291,8 +1291,8 @@ class GPKG:
                 res = [x[0] for x in res]
             else:
                 res = []
-        except Exception:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         finally:
             cur.close()
 
@@ -1315,8 +1315,8 @@ class GPKG:
                 ' WHERE columns.geometry_type_name = "GEOMETRY";'
             )
             res = [x[0] for x in cur.fetchall()]
-        except Exception:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         finally:
             cur.close()
 
@@ -1331,8 +1331,8 @@ class GPKG:
                 (layer_name,)
             )
             res = [x[0] for x in cur.fetchall()][0]
-        except Exception:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         finally:
             res = ''
             cur.close()
@@ -1351,8 +1351,8 @@ class GPKG:
         try:
             cur.execute("SELECT table_name FROM gpkg_contents WHERE table_name = ?;", (item,))
             res = [x[0] for x in cur.fetchall()]
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         finally:
             cur.close()
 

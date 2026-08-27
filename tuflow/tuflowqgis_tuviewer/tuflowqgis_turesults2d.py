@@ -66,23 +66,22 @@ class TuResults2D():
 			self.tuView.project.layersAdded.disconnect(self.tuView.layersAdded)
 		except:
 			skipConnect = True
-			pass
 		skipConnect2 = False
 		try:
 			self.tuView.OpenResults.itemSelectionChanged.disconnect(self.tuView.resultSelectionChangeSignal)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 			try:
 				layer.dataProvider().datasetGroupsAdded.disconnect(self.datasetGroupsAdded)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				layer.repaintRequested.disconnect(self.repaintRequested)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 
 		copy_res = self.tuView.tuOptions.copy_mesh
 		for j, f in enumerate(inFileNames):
@@ -555,7 +554,8 @@ class TuResults2D():
 		for i in range(lyr.datasetCount(QgsMeshDatasetIndex(mdi, -1))):
 			try:
 				return lyr.dataset3dValues(QgsMeshDatasetIndex(mdi, i), 0, 1).verticalLevelsCount()[0] > 1
-			except:
+			except Exception as e:
+				print(f'Error: {e}')
 				continue
 
 		return False
@@ -917,8 +917,8 @@ class TuResults2D():
 				continue
 			try:
 				node.visibilityChanged.disconnect(self.layerVisibilityChanged)
-			except Exception:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			nodes.append(node)
 		
 		for r in range(openResults.count()):
@@ -1013,8 +1013,8 @@ class TuResults2D():
 		# disconnect map canvas refresh if it is connected - used for rendering after loading from project
 		try:
 			self.tuView.canvas.mapCanvasRefreshed.disconnect(self.renderMap)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 			
 		return True
 
@@ -1081,8 +1081,8 @@ class TuResults2D():
 
 		try:
 			self.tuView.OpenResults.itemSelectionChanged.disconnect(self.tuView.resultSelectionChangeSignal)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		for res in resList:
 			if res in results.keys():
@@ -1160,8 +1160,8 @@ class TuResults2D():
 				layer.dataProvider().datasetGroupsAdded.connect(self.datasetGroupsAdded)
 				try:
 					layer.nameChanged.disconnect()
-				except:
-					pass
+				except Exception as e:
+					print(f'Error: {e}')
 				name = layer.name()
 				layer.nameChanged.connect(lambda: self.layerNameChanged(layer, name, layer.name()))
 
@@ -1277,8 +1277,8 @@ class TuResults2D():
 			try:
 				layer.repaintRequested.disconnect(self.repaintRequested)
 				signalConnected = True
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 
 		updated = False
 		for r in results:
@@ -1570,8 +1570,8 @@ class TuResults2D():
 		else:
 			try:  # unclear what version this was introduced
 				rt = layer.timeSettings().absoluteTimeReferenceTime()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 
 		if rt is not None and rt.isValid():
 			return qdt2dt(rt)
@@ -1635,23 +1635,22 @@ class TuResults2D():
 			self.tuView.project.layersAdded.disconnect(self.tuView.layersAdded)
 		except:
 			skipConnect = True
-			pass
 		skipConnect2 = False
 		try:
 			self.tuView.OpenResults.itemSelectionChanged.disconnect(self.tuView.resultSelectionChangeSignal)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		meshLayers = findAllMeshLyrs()
 		for ml in meshLayers:
 			layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 			try:
 				layer.dataProvider().datasetGroupsAdded.disconnect(self.datasetGroupsAdded)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				layer.repaintRequested.disconnect(self.repaintRequested)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 
 		for res in self.results2d:
 			layer = tuflowqgis_find_layer(res, layer_class=QgsMeshLayer)

@@ -44,8 +44,8 @@ class PlotManagerMixin:
     def _teardown_plot_manager(self):
         try:
             QgsProject.instance().layersRemoved.disconnect(self.layers_removed)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
 
     def layers_removed(self, lyrids: list[str]):
         for lyrid in lyrids:

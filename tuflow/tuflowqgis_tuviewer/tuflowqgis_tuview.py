@@ -310,8 +310,8 @@ class 	TuView(QDockWidget, Ui_Tuplot):
 			try:
 				if self.currentLayer.geometryType() not in self.tuResults.tuResults1D.activeType:
 					self.tuResults.tuResults1D.activeType.append(self.currentLayer.geometryType())
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 		else:
 			return
 
@@ -584,8 +584,8 @@ class 	TuView(QDockWidget, Ui_Tuplot):
 		else:
 			try:
 				self.timer.stop()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 	
 	def plottingViewChanged(self):
 		"""
@@ -846,70 +846,70 @@ class 	TuView(QDockWidget, Ui_Tuplot):
 		if self.connected or completely_remove:
 			try:
 				self.pbHidePlotWindow.clicked.disconnect(self.plotWindowVisibilityToggled)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.pbShowPlotWindow.clicked.connect(self.plotWindowVisibilityToggled)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 
 			# dock widget location changed
 			try:
 				self.dockLocationChanged.disconnect(self.onDockLocationChange)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.topLevelChanged.disconnect(self.onTopLevelChange)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 
 			# time
 			try:
 				self.cboTime.currentIndexChanged.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.sliderTime.valueChanged.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.btnFirst.clicked.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.btnPrev.clicked.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.btnNext.clicked.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.btnLast.clicked.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.btnTimePlay.clicked.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.btn2dLock.clicked.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 
 			# qgis time controller
 			if qv >= 31300:
 				try:
 					if self.iface is not None:
 						self.iface.mapCanvas().temporalRangeChanged.disconnect(self.qgsTimeChanged)
-				except:
-					pass
+				except Exception as e:
+					print(f'Error: {e}')
 			
 			# results
 			try:
 				self.OpenResults.itemSelectionChanged.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			# try:
 			# 	self.OpenResults.itemClicked.disconnect()
 			# except:
@@ -918,94 +918,94 @@ class 	TuView(QDockWidget, Ui_Tuplot):
 			# result types
 			try:
 				self.OpenResultTypes.secondAxisClicked.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.OpenResultTypes.maxClicked.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.OpenResultTypes.doubleClicked.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.OpenResultTypes.leftClicked.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			
 			# Plotting buttons
 			try:
 				self.cbShowCurrentTime.clicked.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			try:
 				self.tuPlot.tuPlotToolbar.fluxSecAxisButton.released.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			
 			# switching between plots
 			try:
 				self.tabWidget.currentChanged.disconnect()
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			
 			# interface
 			try:
 				if self.iface is not None:
 					self.iface.currentLayerChanged.disconnect(self.currentLayerChanged)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			
 			# project
 			try:
 				self.project.layersAdded.disconnect(self.layersAdded)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			if completely_remove:
 				try:
 					self.project.layersWillBeRemoved.disconnect(self.layersRemoved)
-				except:
-					pass
+				except Exception as e:
+					print(f'Error: {e}')
 				try:
 					self.project.projectSaved.disconnect(self.projectSaved)
-				except:
-					pass
+				except Exception as e:
+					print(f'Error: {e}')
 			try:
 				self.project.cleared.disconnect(self.projectCleared)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			
 			# layer
 			if self.selectionChangeConnected or completely_remove:
 				try:
 					self.currentLayer.selectionChanged.disconnect(self.selectionChanged)
-				except:
-					pass
+				except Exception as e:
+					print(f'Error: {e}')
 				try:
 					self.selectionChangeConnected = False
-				except:
-					pass
+				except Exception as e:
+					print(f'Error: {e}')
 
 			for layer in findAllMeshLyrs():
 				try:
 					layer.nameChanged.disconnect()
-				except:
-					pass
+				except Exception as e:
+					print(f'Error: {e}')
 				try:
 					signal = self.tuView.tuResults.tuResults2D.layer_style_changed_signals.get(layer.id())
 					if signal is not None:
 						layer.rendererChanged.disconnect(signal)
 						del self.tuView.tuResults.tuResults2D.layer_style_changed_signals[layer.id()]
-				except:
-					pass
+				except Exception as e:
+					print(f'Error: {e}')
 				if Qgis.QGIS_VERSION_INT >= 32800:
 					try:
 						signal = self.tuView.tuResults.tuResults2D.layer_reloaded_signals.get(layer.id())
 						if signal is not None:
 							layer.reloaded.disconnect(signal)
 							del self.tuView.tuResults.tuResults2D.layer_reloaded_signals[layer.id()]
-					except:
-						pass
+					except Exception as e:
+						print(f'Error: {e}')
 			
 			if completely_remove:
 				meshLayers = findAllMeshLyrs()
@@ -1013,14 +1013,14 @@ class 	TuView(QDockWidget, Ui_Tuplot):
 					layer = tuflowqgis_find_layer(ml, layer_class=QgsMeshLayer)
 					try:
 						layer.dataProvider().datasetGroupsAdded.disconnect(self.datasetGroupsAdded)
-					except:
-						pass
+					except Exception as e:
+						print(f'Error: {e}')
 
 			# plotting
 			try:
 				self.tuPlot.verticalMesh_action.triggered.disconnect(self.tuPlot.vmeshToggled)
-			except:
-				pass
+			except Exception as e:
+				print(f'Error: {e}')
 			
 			self.connected = False
 	
@@ -1406,8 +1406,8 @@ class 	TuView(QDockWidget, Ui_Tuplot):
 		try:
 			self.OpenResults.disconnect(self.resultSelectionChangeSignal)
 			self.resultSelectionChangeSignal = None
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		item = self.OpenResults.takeItem(index.row())
 		if action == 'up':

@@ -109,49 +109,49 @@ class MenuToolbarMixin:
         # draw menu
         try:
             self.toolbar.draw_menu_cleared.disconnect(self._sig1)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.toolbar.draw_tool_toggled.disconnect(self._sig2)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.toolbar.draw_menu_action_toggled.disconnect(self._sig3)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.toolbar.draw_menu_action_removed.disconnect(self._sig4)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.toolbar.draw_menu_hover_changed.disconnect(self._sig5)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
 
         try:
             self.toolbar.draw_menu_hover_changed[QgsMapCanvasItem].disconnect(self._sig6)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
 
         # selection menu
         try:
             self.toolbar.selection_tool_toggled.disconnect(self._sig7)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.toolbar.plot_by_selection_cleared.disconnect(self._sig8)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
 
         # result types and results
         try:
             self.toolbar.result_name_selection_changed.disconnect(self._sig9)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         try:
             self.toolbar.data_type_selection_changed.disconnect(self._sig10)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
 
     def add_context_menu_group(self, group_name: str, insert_before: list[str]):
         self._ctx_menu_groups[group_name] = insert_before

@@ -240,8 +240,8 @@ class TuResultsNcGrid:
 
         try:
             self.tuView.project.layersWillBeRemoved.disconnect(self.tuView.layersRemoved)
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
 
         for res in resList:
             if res in self.results:
@@ -252,8 +252,8 @@ class TuResultsNcGrid:
                     try:
                         self.tuView.project.removeMapLayer(layer.id())
                         del layer
-                    except:
-                        pass
+                    except Exception as e:
+                        print(f'Error: {e}')
 
                 del self.results[res]
 

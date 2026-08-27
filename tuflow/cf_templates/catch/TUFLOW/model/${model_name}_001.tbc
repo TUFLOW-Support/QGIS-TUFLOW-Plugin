@@ -1,0 +1,8 @@
+! BOUNDARY CONDITION CONTROL FILE (.TBC) controls the 2D boundary conditions and any 1D/2D boundary links
+
+! RAINFALL BOUNDARIES
+! Global Rainfall BC == <boundary_name>     ! e.g. of using global rainfall
+! Read GIS RF == <path/to/2d_rf>            ! e.g. of using a vector layer to spatially distribute rainfall
+
+! 1D/2D BOUNDARIES
+! Read GIS BC == <path/to/2d_bc>            ! Links the 1D structures to the 2D domain

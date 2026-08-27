@@ -2,7 +2,7 @@ from pathlib import Path
 
 from qgis.core import QgsDataItemProvider, Qgis, QgsDataProvider
 
-from . import ControlFileItem
+from . import ControlFileItem, SUPPORTED_EXTS
 from ..logging import Logging
 
 
@@ -17,7 +17,7 @@ class TuflowBrowserProvider(QgsDataItemProvider):
         return QgsDataProvider.DataCapability.File
 
     def createDataItem(self, path, parentItem):
-        if Path(path).suffix.lower() in ['.tcf', '.tgc', '.tbc', '.ecf', '.qcf', '.tef', 'tesf', 'trfcf', '.adcf', 'tscf']:
+        if Path(path).suffix.lower() in SUPPORTED_EXTS:
             try:
                 return ControlFileItem(path, parentItem)
             except Exception as e:

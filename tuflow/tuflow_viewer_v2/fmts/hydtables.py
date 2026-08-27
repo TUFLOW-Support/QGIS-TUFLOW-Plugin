@@ -47,6 +47,7 @@ class HydTablesCheck(HydTablesCheckBase, TimeSeriesMixin):
         self._data_types = []
         self._loaded = False
         self._soft_load()
+        self.connect_name_changed()
 
     def close(self):
         self._teardown_viewer_output_mixin()

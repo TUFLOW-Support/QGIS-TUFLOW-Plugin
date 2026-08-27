@@ -30,10 +30,10 @@ class PyXMDF(PyXMDFBase, CopyOnLoadMixin):
 
     def set_data_source(self, fpath: Path | str):
         """Not for setting 2dm path."""
-        self.extractor.close_reader()
-        if self.extractor.NAME == 'QgisDataExtractor':
-            self.extractor = QgisDataExtractor(self.extractor.mesh, [Path(fpath)], layer=self.extractor.lyr)
+        self._get_extractor().close_reader()
+        if self._get_extractor().NAME == 'QgisDataExtractor':
+            self.extractors[0] = QgisDataExtractor(self._get_extractor().mesh, [Path(fpath)], layer=self._get_extractor().lyr)
         else:
-            self.extractor = PyXMDFDataExtractor(Path(fpath))
-        self.extractor.open_reader()
+            self.extractors[0] = PyXMDFDataExtractor(Path(fpath))
+        self._get_extractor().open_reader()
         self.clear_cache()

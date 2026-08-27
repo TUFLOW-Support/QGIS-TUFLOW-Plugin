@@ -906,8 +906,10 @@ def set_item_pos(item, posindex, layout, margin, buffer=0):
 		margin = (0, 0, 0, 0)
 	page_size = _page_size(layout, margin)
 	r = item.sizeWithUnits()
-	assert (r.units() == QgsUnitTypes.LayoutMillimeters)
-	assert (page_size.units() == QgsUnitTypes.LayoutMillimeters)
+	if r.units() != QgsUnitTypes.LayoutMillimeters:
+		raise AssertionError
+	if page_size.units() != QgsUnitTypes.LayoutMillimeters:
+		raise AssertionError
 
 	if posindex == CFItemPosition.TOP_CENTER: # top-center
 		item.attemptMove(QgsLayoutPoint((page_size.width() - r.width()) / 2 + margin[0], margin[2] + buffer, QgsUnitTypes.LayoutMillimeters))
@@ -1324,7 +1326,7 @@ def images_to_video(tmp_img_dir, output_file, fps=10, qual=1,
 	f.write(str.encode(" ".join(cmd) + "\n\n"))
 
 	# stdin redirection is necessary in some cases on Windows
-	res = subprocess.call(cmd, stdin=subprocess.PIPE, stdout=f, stderr=f)
+	res = subprocess.call(cmd, stdin=subprocess.PIPE, stdout=f, stderr=f)  # nosec B603
 	if res != 0:
 		f.delete = False  # keep the file on error
 
@@ -1353,7 +1355,7 @@ def images_to_video2(tmp_img_dir, output_file, fps=10, qual=1,
 		f = tempfile.NamedTemporaryFile(prefix="tuflow", suffix=".txt", delete=False)
 	f.write(str.encode(" ".join(cmd) + "\n\n"))
 
-	res = subprocess.call(cmd, stdin=subprocess.PIPE, stdout=f, stderr=f)
+	res = subprocess.call(cmd, stdin=subprocess.PIPE, stdout=f, stderr=f)  # nosec B603
 
 	return res == 0, f.name
 
@@ -1387,7 +1389,7 @@ def images_to_video_gif(tmp_img_dir, output_file, fps=10, qual=1,
 	#	f.delete = False  # keep the file on error
 
 	#return res == 0, f.name
-	res = subprocess.call(cmd, stdin=subprocess.PIPE)
+	res = subprocess.call(cmd, stdin=subprocess.PIPE)  # nosec B603
 	return res == 0, ''
 
 
@@ -3427,16 +3429,16 @@ class PlotProperties(QDialog, Ui_PlotProperties):
 
 		try:
 			self.pbAutoCalcXLim.clicked.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.pbAutoCalcYLim.clicked.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.pbAutoCalcY2Lim.clicked.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		if self.cboPlotType.text() == 'CS / LP':
 			self.pbAutoCalcXLim.setText('From TV Plot')

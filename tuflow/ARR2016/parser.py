@@ -138,8 +138,8 @@ class DataBlock:
             self.time_accessed = line_split[1].strip()
             try:
                 self.time_accessed = datetime.strptime(self.time_accessed, '%d %B %Y %I:%M%p')
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
         else:
             self.note = self._line.strip()
         self._line = self.fi.readline()
@@ -148,8 +148,8 @@ class DataBlock:
             try:
                 major, minor = self.version.split('_', 1)
                 self.version_int = int(major) * 1000 + int(minor.strip('v')) * 100
-            except:
-                pass
+            except Exception as e:
+                print(f'Error: {e}')
             self._line = self.fi.readline()
         elif 'END' not in self._line:
             if self.note:

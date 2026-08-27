@@ -358,57 +358,57 @@ class ViewToolbar():
 	def qgisDisconnect(self):
 		try:
 			self.refreshPlotButton.released.disconnect(self.tuView.refreshCurrentPlot)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.clearPlotButton.released.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.freezeXYAxisButton.released.disconnect(self.freezeXYAxis)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.freezeXAxisButton.released.disconnect(self.freezeXAxis)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.freezeYAxisButton.released.disconnect(self.freezeYAxis)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.legendMenu.menuAction().triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.legendAuto.triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.legendUL.triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.legendLL.triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.legendUR.triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.legendLR.triggered.disconnect()
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.userPlotDataManagerAction.triggered.disconnect(self.tuMenuFunctions.openUserPlotDataManager)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.hGridLines_action.triggered.disconnect(self.gridLines_toggled)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 		try:
 			self.vGridLines_action.triggered.disconnect(self.gridLines_toggled)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')

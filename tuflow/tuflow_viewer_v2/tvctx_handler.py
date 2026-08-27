@@ -243,21 +243,21 @@ class TuflowViewerContextMenuProvider(QMenu):
         from qgis.utils import iface
         try:
             QgsProject.instance().layersAdded.disconnect(self.on_layers_added)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f'Error occurred: {e}')
         if iface is not None:
             try:
                 self.load_fv_bc_nc_action.triggered.disconnect(self.load_fv_bc_nc_data)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f'Error occurred: {e}')
             try:
                 iface.removeCustomActionForLayerType(self.menuAction())
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f'Error occurred: {e}')
             try:
                 iface.currentLayerChanged.disconnect(self.create_menu)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f'Error occurred: {e}')
 
     def register_layer(self, layer: QgsMapLayer):
         from qgis.utils import iface

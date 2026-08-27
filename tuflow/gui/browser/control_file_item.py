@@ -4,16 +4,17 @@ from qgis.core import QgsDataItem, Qgis, QgsMimeDataUtils
 from qgis.PyQt import QtGui
 
 from . import (pytuflow, Logging, get_pytuflow_class, TuflowDataItemBaseMixin, RunFilters, TuflowLayerItem,
-               BROWSER_LAYER_TYPE, TuflowTableItem, get_browser_helper)
+               BROWSER_LAYER_TYPE, TuflowTableItem, get_browser_helper, FVDataItemMixin)
 
 
-class ControlFileItem(QgsDataItem, TuflowDataItemBaseMixin):
+class ControlFileItem(QgsDataItem, TuflowDataItemBaseMixin, FVDataItemMixin):
     """QgsDataItem class representing TUFLOW control files."""
 
     def __init__(self, path, parent=None, inp=None, trd_path=None):
         path = Path(path).resolve()
         super().__init__(Qgis.BrowserItemType.Custom, parent, Path(path).name, str(path), 'tuflow_plugin')
         self._init_tuflow_data_item_base_mixin(self.path(), inp)
+        self._init_fv_mixin(self.path())
         self._init_filter_state()
         self.cf = None
         self.set_tooltip()
@@ -50,6 +51,7 @@ class ControlFileItem(QgsDataItem, TuflowDataItemBaseMixin):
     def actions(self, parent):
         actions = []
         actions.extend(self.tuflow_base_actions(parent))
+        actions.extend(self.fv_actions(parent, self.cf))
         browser_helper = get_browser_helper()
         if browser_helper:
             action_populate = QtGui.QAction('Populate Children', parent)
@@ -112,14 +114,17 @@ class ControlFileItem(QgsDataItem, TuflowDataItemBaseMixin):
             pytuflow.const.INPUT.CF,
             pytuflow.const.INPUT.DB,
             pytuflow.const.INPUT.DB_MAT,
+            pytuflow.const.INPUT.BLOCK,
+            pytuflow.const.INPUT.BC_BLOCK,
+            pytuflow.const.INPUT.GRID_DEFINITION_FILE_INPUT,
         ]
 
         if self.trd_path:
-            func = lambda x: x.TUFLOW_TYPE in desired_inputs and x.trd_input == self.inp[0]
+            func = lambda x: x.TUFLOW_TYPE in desired_inputs and x.trd_input == self.inp[0] and (x.parent == self.cf or isinstance(x.parent, pytuflow.BlockControl))
         else:
-            func = lambda x: x.TUFLOW_TYPE in desired_inputs
+            func = lambda x: x.TUFLOW_TYPE in desired_inputs and (x.parent == self.cf or isinstance(x.parent, pytuflow.BlockControl))
 
-        for inp in self.cf.find_input(recursive=False, callback=func):
+        for inp in self.cf.find_input(callback=func):
             data_item = None
             if inp.trd and not self.trd_path:
                 if self.cur_trd == inp.trd:
@@ -148,8 +153,8 @@ class ControlFileItem(QgsDataItem, TuflowDataItemBaseMixin):
                         children.append(data_item)
                         self.file_refs[file] = data_item
                 except Exception as e:
-                    pass
-            elif inp.TUFLOW_TYPE in [pytuflow.const.INPUT.GIS, pytuflow.const.INPUT.GRID]:
+                    Logging.warning(f'Error occurred: {e}', silent=True)
+            elif inp.TUFLOW_TYPE in [pytuflow.const.INPUT.GIS, pytuflow.const.INPUT.GRID, pytuflow.const.INPUT.BC_BLOCK, pytuflow.const.INPUT.GRID_DEFINITION_FILE_INPUT]:
                 try:
                     for file in inp.files:
                         file = pytuflow.TuflowPath(file)
@@ -211,10 +216,12 @@ class ControlFileItem(QgsDataItem, TuflowDataItemBaseMixin):
                             data_item.setState(Qgis.BrowserItemState.NotPopulated)
                             children.append(data_item)
                             self.file_refs[file] = data_item
+                        elif file.suffix.lower() == '.csv':
+                            pass
                         else:
                             Logging.info(f'Populating Browser Panel: File is not a Vector or Raster layer... skipping: {file}', silent=True)
                 except Exception as e:
-                    pass
+                    Logging.warning(f'Error occurred: {e}', silent=True)
             elif inp.TUFLOW_TYPE in [pytuflow.const.INPUT.DB, pytuflow.const.INPUT.DB_MAT]:
                 try:
                     for file in inp.files:
@@ -241,6 +248,6 @@ class ControlFileItem(QgsDataItem, TuflowDataItemBaseMixin):
                         children.append(data_item)
                         self.file_refs[file] = data_item
                 except Exception as e:
-                    pass
+                    Logging.warning(f'Error occurred: {e}', silent=True)
 
         return children

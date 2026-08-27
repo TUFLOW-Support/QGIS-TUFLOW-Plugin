@@ -6,7 +6,7 @@ import traceback
 import warnings
 import weakref
 import builtins
-import pickle
+import pickle  # nosec B403
 
 import numpy as np
 
@@ -431,14 +431,14 @@ class RemoteEventHandler(object):
             if opts is None:
                 opts = {}
             
-            assert callSync in ['off', 'sync', 'async'], 'callSync must be one of "off", "sync", or "async" (got %r)' % callSync
+            assert callSync in ['off', 'sync', 'async'], 'callSync must be one of "off", "sync", or "async" (got %r)' % callSync   # nosec B101
             if reqId is None:
                 if callSync != 'off': ## requested return value; use the next available request ID
                     reqId = self.nextRequestId
                     self.nextRequestId += 1
             else:
                 ## If requestId is provided, this _must_ be a response to a previously received request.
-                assert request in ['result', 'error']
+                assert request in ['result', 'error']   # nosec B101
             
             if returnType is not None:
                 opts['returnType'] = returnType

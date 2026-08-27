@@ -9,18 +9,18 @@ from __future__ import print_function, absolute_import
 
 import sys
 import warnings
-from xml.etree.ElementTree import ParseError
-from xml.etree.ElementTree import TreeBuilder as _TreeBuilder
-from xml.etree.ElementTree import parse as _parse
-from xml.etree.ElementTree import tostring
+from xml.etree.ElementTree import ParseError  # nosec B405
+from xml.etree.ElementTree import TreeBuilder as _TreeBuilder  # nosec B405
+from xml.etree.ElementTree import parse as _parse  # nosec B405
+from xml.etree.ElementTree import tostring  # nosec B405
 
 from .common import PY3
 
 if PY3:
     import importlib
 else:
-    from xml.etree.ElementTree import XMLParser as _XMLParser
-    from xml.etree.ElementTree import iterparse as _iterparse
+    from xml.etree.ElementTree import XMLParser as _XMLParser  # nosec B405
+    from xml.etree.ElementTree import iterparse as _iterparse  # nosec B405
 
 
 from .common import (

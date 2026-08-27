@@ -1,0 +1,7 @@
+location == TUFLOW CATCH Control File (.tcc)
+
+command == Receiving Polygon
+
+description == This file contains a polygon that defines the downstream receiving waters. It has one dummy attribute that is not used.
+
+manual link == https://docs.tuflow.com/catch/manual/2025.1/SimulationConstruction-1.html#SCTCCHPC-3

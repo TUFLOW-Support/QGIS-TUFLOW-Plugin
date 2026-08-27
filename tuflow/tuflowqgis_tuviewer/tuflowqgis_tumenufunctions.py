@@ -626,8 +626,8 @@ class TuMenuFunctions():
 			if layer is not None:
 				try:
 					layer.nameChanged.disconnect()
-				except:
-					pass
+				except Exception as e:
+					print(f'Error: {e}')
 				try:
 					signal = self.tuView.tuResults.tuResults2D.layer_style_changed_signals.get(layer.id())
 					if signal is not None:
@@ -641,8 +641,8 @@ class TuMenuFunctions():
 						if signal is not None:
 							layer.reloaded.disconnect(signal)
 							del self.tuView.tuResults.tuResults2D.layer_reloaded_signals[layer.id()]
-					except:
-						pass
+					except Exception as e:
+						print(f'Error: {e}')
 				if Qgis.QGIS_VERSION_INT >= 33000:
 					if layer.type() != QgsMapLayer.LayerType.Vector:
 						self.tuView.project.removeMapLayer(layer.id())

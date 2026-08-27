@@ -1,0 +1,26 @@
+<h3>Description</h3>
+
+<p>This tool creates a TUFLOW CATCH project with the following features:
+* Creates the TUFLOW CATCH folder structure
+* Generates the empty input files for both the Catchment Hydraulic (HPC) and Receiving (FV) models
+* Generates template control files, including a template TUFLOW CATCH Control File (.tcc)
+* Saves the settings to the QGIS project and JSON file which can be used by the other TUFLOW CATCH tools</p>
+
+<h3>Parameters</h3>
+
+<ol>
+<li><strong>Project Name</strong>: The name of the project. This will be used to name the input files. 
+The name should avoid spaces and other characters not supported in file paths (e.g. <code>/\:*?"&lt;&gt;|</code>). This name will be automatically suffixed with "<code>_</code>001". Example, "MyCATCHProject<code>_</code>001".</li>
+<li><strong>Project Folder</strong>: The location of the project folder. </li>
+<li><strong>Project CRS</strong>: The Coordinate Reference System (CRS) used for the project.</li>
+<li><strong>TUFLOW HPC Executable</strong>: The location of the TUFLOW HPC executable.</li>
+<li><strong>TUFLOW FV Executable</strong>: The location of the TUFLOW FV executable.</li>
+<li><strong>GIS Format for Catchment Hydraulic Model</strong>: The GIS format (GPKG, SHP) to be used for the Catchment Hydraulic (HPC) model. 
+Note: The global GIS format will default to SHP, as the Receiving (FV) model does not support GPKG.</li>
+<li><strong>Create Empty Files</strong>: If checked, will (re)generate empty files for both the Catchment Hydraulic (HPC) and Receiving (FV) models.</li>
+<li><strong>Create Folder Structure</strong>: If checked, will create the TUFLOW CATCH folder structure. 
+Only creates the folder structure if it does not already exist.</li>
+<li><strong>Setup Control File Templates</strong>: If checked, the 'Control File Templates' parameter will become available. Template control files will be created for all selected files.
+Note, the templates are not complete and require further editing by the user before use. The settings and inputs used in the templates are not considered to be final and appropriate for all models, in fact most of them are simply examples and should be treated as such.</li>
+<li><strong>Control File Templates</strong>: List of control files that can be used in a TUFLOW CATCH project. The tool will generate a template for each selected control file.</li>
+</ol>

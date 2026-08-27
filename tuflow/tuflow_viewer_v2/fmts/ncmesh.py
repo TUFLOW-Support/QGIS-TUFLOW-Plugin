@@ -28,7 +28,7 @@ class NCMesh(NCMeshBase, MeshMixin, QgisMeshAPIMixin):
         super(NCMesh, self).__init__(fpath)
         layer = layers[0] if layers else None
         self._driver = PyNCMesh(self.fpath, geom_driver='qgis', engine='qgis', mesh=layer)
-        self._driver.extractor.open_reader()
+        self._driver._get_extractor().open_reader()
         self._soft_load_driver = self._driver
         self._init_viewer_output_mixin(self.name)
         self.copied_files = self._driver.copied_files
@@ -38,6 +38,7 @@ class NCMesh(NCMeshBase, MeshMixin, QgisMeshAPIMixin):
         self._map_layers.append(self._layer)
 
         # QGIS specific
+        self.connect_name_changed()
         self.init_temporal_properties()
         self._init_styling(self._map_layers, self._lyr2resultstyle)
 
@@ -45,7 +46,7 @@ class NCMesh(NCMeshBase, MeshMixin, QgisMeshAPIMixin):
         self.close()
 
     def close(self):
-        self._driver.extractor.close_reader()
+        self._driver._get_extractor().close_reader()
         self._teardown_viewer_output_mixin()
 
     @staticmethod

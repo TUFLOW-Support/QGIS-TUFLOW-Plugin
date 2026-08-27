@@ -29,7 +29,8 @@ def get_args(argv):
     loop_count = 0
     while argv:
         loop_count += 1
-        assert loop_count < loop_limit, "Get Argument Loop Limit Reached: {0}".format(loop_limit)
+        if loop_count > loop_limit:
+            raise AssertionError("Get Argument Loop Limit Reached: {0}".format(loop_limit))
         try:
             if argv[0][0] == '-':  # argument is flag
                 try:
@@ -50,8 +51,8 @@ def get_args(argv):
                         error = True
                         message = '{0}Unable to Read Arg: "{1}" Value: "{2}"\n'.format(message, argv[0], arg)
                         return error, message, arguments
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         argv = argv[1:]  # remove processed argument
     return error, message, arguments
 
@@ -963,12 +964,12 @@ class DataBlock:
         self.time_accessed = self.fi.readline().split(',')[1].strip()
         try:
             self.time_accessed = datetime.strptime(self.time_accessed, '%d %B %Y %I:%M%p')
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
         self.version = self.fi.readline().split(',')[1].strip()
         try:
             major, minor = self.version.split('_', 1)
             self.version_int = int(major) * 1000 + int(minor.strip('v')) * 100
-        except:
-            pass
+        except Exception as e:
+            print(f'Error: {e}')
 

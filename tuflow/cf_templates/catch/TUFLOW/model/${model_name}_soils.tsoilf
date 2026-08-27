@@ -1,0 +1,2 @@
+!Soil ID, Method, Suction, Hydraulic Conductivity, Porosity, Initial Moisture, Max Ponding Depth, Horizontal Hydraulic Conductivity
+1,        GA,     200.,    1.4,                    0.3,      0.1,              1.0,               10000  ! Dummy values - requires update/populate

@@ -128,8 +128,8 @@ class TuResults1D():
 
 		try:
 			self.tuView.OpenResults.itemSelectionChanged.disconnect(self.tuView.resultSelectionChangeSignal)
-		except:
-			pass
+		except Exception as e:
+			print(f'Error: {e}')
 
 		self.new_results = []
 		extensions = []

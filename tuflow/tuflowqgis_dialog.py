@@ -5395,7 +5395,7 @@ class TuflowUtilitiesDialog(QDialog, Ui_utilitiesDialog):
 			return
 
 		try:
-			self.proc = subprocess.run([path], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+			self.proc = subprocess.run([path], stdout=subprocess.PIPE, stderr=subprocess.PIPE,  # nosec B603
 			                           input='\n', encoding='utf-8', timeout=10,
 			                           creationflags=subprocess.CREATE_NO_WINDOW)
 		except Exception as e:
