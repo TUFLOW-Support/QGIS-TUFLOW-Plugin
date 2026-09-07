@@ -214,9 +214,9 @@ class IncrementFileDialog(IncrementLayerDialogBase, Ui_IncrementFileDialog):
             self.output_folder = folder
 
     def short_help_string(self) -> str:
-        folder = Path(os.path.realpath(__file__)).parent.parent / 'alg'
-        help_filename = folder / 'help' / 'html' / 'increment_file.html'
-        return help_filename.open().read()
+        folder = Path(os.path.realpath(__file__)).parents[1] / 'alg'
+        help_filename = folder / 'hpc' /  'help' / 'html' / 'increment_file.html'
+        return help_filename.read_text(errors='ignore').replace('\n', '<p>')
 
     def open_layer_data_sources(self) -> list[Path]:
         for layer in QgsProject.instance().mapLayers().values():
@@ -462,7 +462,7 @@ class IncrementDbLyrDialog(IncrementLayerDialogBase, Ui_IncrementDbLyrDialog):
         dst = self.output_layer_table.item(row, 1)
         if not src or not dst:
             return
-        if src.checkState() == Qt.Checked:
+        if src.checkState() == QT_CHECKED:
             if dst.text():
                 return f'{Path(self.output_database).as_posix()}|layername={dst.text()}'
             else:

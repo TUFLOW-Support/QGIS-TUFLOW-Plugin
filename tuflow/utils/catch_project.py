@@ -308,7 +308,7 @@ class ProjectConfig:
         """Sets up TUFLOW control file templates."""
         # Map containing parameter integer and the corresponding ext or key word
         file_map = {0: ".tcc",
-                    1: ".bat",
+                    1: ".bat.txt",
                     2: ".tgc",
                     3: ".tbc",
                     4: "bc_dbase_",
@@ -330,6 +330,8 @@ class ProjectConfig:
         for in_file in selected_files:
             rel_path = os.path.relpath(in_file, template_folder)
             out_file = self.folder / self._replace_variables(str(rel_path))
+            if Path(out_file.stem).suffix in ['.bat', '.ps1']:
+                out_file = out_file.with_suffix('')
             with in_file.open() as fi:
                 if out_file.exists():
                     continue
