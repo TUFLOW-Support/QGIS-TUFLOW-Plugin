@@ -394,7 +394,7 @@ class IncrementDbLyrDialog(IncrementLayerDialogBase, Ui_IncrementDbLyrDialog):
 
     def short_help_string(self) -> str:
         folder = Path(os.path.realpath(__file__)).parent.parent / 'alg'
-        help_filename = folder / 'help' / 'html' / 'increment_db_and_lyr.html'
+        help_filename = folder / 'hpc' / 'help' / 'html' / 'increment_db_and_lyr.html'
         return help_filename.open().read()
 
     def browse_output_database(self) -> None:
@@ -635,7 +635,7 @@ class IncrementLayerDialog(IncrementLayerDialogBase, Ui_IncrementLayerDialog):
 
     def short_help_string(self) -> str:
         folder = Path(os.path.realpath(__file__)).parent.parent / 'alg'
-        help_filename = folder / 'help' / 'html' / 'increment_layer.html'
+        help_filename = folder / 'hpc' / 'help' / 'html' / 'increment_layer.html'
         return help_filename.open().read()
 
     def browse_supersede_database(self) -> None:
