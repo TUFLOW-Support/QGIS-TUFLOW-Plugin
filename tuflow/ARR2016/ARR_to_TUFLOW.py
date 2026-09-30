@@ -687,7 +687,7 @@ def ARR_to_TUFLOW(args_list):
         #     long_changed = longitude
 
         # ARR datahub
-        url = 'https://data.arr-software.org/?lon_coord={0}5&lat_coord={1}&type=text&All=1'.format(longitude, -abs(latitude))
+        url = 'https://data-legacy.arr-software.org/?lon_coord={0}5&lat_coord={1}&type=text&All=1'.format(longitude, -abs(latitude))
         downloader = Downloader(url, headers)
         downloader.download()
         if not downloader.ok():
@@ -720,7 +720,7 @@ def ARR_to_TUFLOW(args_list):
             atpRegion = Arr()
             atpRegionCode = atpRegion.arealTemporalPatternCode(arr_raw_fname)
             if atpRegionCode:
-                url_atp = 'https://data.arr-software.org//static/temporal_patterns/Areal/Areal_{0}.zip'.format(atpRegionCode)
+                url_atp = 'https://data-legacy.arr-software.org//static/temporal_patterns/Areal/Areal_{0}.zip'.format(atpRegionCode)
                 logger.info('URL: {0}'.format(url_atp))
                 downloader = Downloader(url_atp, headers)
                 downloader.download()
@@ -864,7 +864,7 @@ def ARR_to_TUFLOW(args_list):
                 for tp in add_tp:
                     add_tpFilename = os.path.join(export_path, 'data', 'ARR_Web_data_{0}_TP_{1}.txt'.format(site_name, tp))
                     tpCoord = tpRegion_coords(tp)
-                    url2 = 'https://data.arr-software.org/?lon_coord={0}5&lat_coord={1}&type=text&All=1' \
+                    url2 = 'https://data-legacy.arr-software.org/?lon_coord={0}5&lat_coord={1}&type=text&All=1' \
                            .format(tpCoord[1], tpCoord[0])
 
                     try:
@@ -905,7 +905,7 @@ def ARR_to_TUFLOW(args_list):
                     logger.info('Downloading areal temporal pattern for: {0}'.format(tp))
                     tpRegionCheck = Arr()
                     tpCode = tpRegionCheck.arealTemporalPatternCode(add_tpFilename)
-                    url2 = 'https://data.arr-software.org//static/temporal_patterns/Areal/Areal_{0}.zip'.format(tpCode)
+                    url2 = 'https://data-legacy.arr-software.org//static/temporal_patterns/Areal/Areal_{0}.zip'.format(tpCode)
                     downloader = Downloader(url2, headers)
                     downloader.download()
                     if not downloader.ok():
@@ -922,7 +922,7 @@ def ARR_to_TUFLOW(args_list):
                         if 'INCREMENTS' in f.upper():
                             atpInc = f
                     areal_csv = os.path.join(export_path, "data", atpInc)
-                    if os.path.exists(areal_tp_download):
+                    if os.path.exists(areal_csv):
                         logger.info('Areal temporal pattern csv: {0}'.format(areal_csv))
                     else:
                         logger.info('ERROR finding areal temporal pattern csv: {0}'.format(areal_csv))
