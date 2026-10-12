@@ -316,6 +316,34 @@ class TestPlotsGeneral(TuflowViewerTestCase):
                 if curve.src_item.data_type == 'water level':
                     self.assertEqual('Pipe10', curve.channel_curves[0].channel_id)
 
+    def test_section_plot_pipes_but_no_pipes_available(self):
+        # load TPC
+        p = get_dataset_path('EG14_001.tpc', 'result')
+        res = TPC(p)
+        with add_result_to_viewer(res):  # context manager so results and layers are unloaded after test
+            plot_window = PlotWindow(get_viewer_instance())
+            plot_window.tabWidget_view1.change_tab_to_section(checked=True, tab_idx=0)  # change first tab to section plot
+            plot = plot_window.tabWidget_view1.widget(0)
+
+            # data types
+            self.assertEqual(6, len(plot.toolbar.data_types()))
+            dtypes = [x for x in res.data_types('section') if x != 'node flow regime']
+            self.assertEqual(dtypes, plot.toolbar.data_types())
+
+            # select a channel and plot bed level, pipes, pits
+            plot.toggle_selection_tool(True)
+            actions = [x for x in plot.toolbar.data_types_menu.actions() if x.text() in ['bed level', 'pipes']]
+            _ = [x.setChecked(True) for x in actions]
+            lyr = [x for x in res.map_layers() if 'PLOT_L' in x.name()][0]
+            QGIS.iface.setActiveLayer(lyr)
+            ch = list(lyr.getFeatures('"ID" = \'ds2\''))[0]
+            temporal_controller.setCurrentTime(datetime(1990, 1, 1, 1, 0, 0))
+            lyr.selectByIds([ch.id()])
+
+            # check the curve has been added to the plot
+            curves = [x for x in plot.plot_graph.items() if isinstance(x, TuflowViewerCurve)]
+            self.assertEqual(1, len(curves))
+
     def test_profile_plot_xmdf(self):
         p = get_dataset_path('run.xmdf', 'result')
         res = XMDF(p)
@@ -696,6 +724,27 @@ class TestPlotsGeneral(TuflowViewerTestCase):
             lyr = [x for x in res.map_layers() if 'TS_1D_L' in x.name()][0]
             QGIS.iface.setActiveLayer(lyr)
             ch = list(lyr.getFeatures('"ID" IN (\'Pipe10\', \'Pipe11\') AND format_date("Datetime", \'yyyy-MM-dd HH:mm:ss\') = \'2000-01-01 00:00:00\''))
+            temporal_controller.setCurrentTime(datetime(1990, 1, 1, 1, 0, 0))
+            lyr.selectByIds([x.id() for x in ch])
+
+            # check the curve has been added to the plot
+            curves = [x for x in plot.plot_graph.items() if isinstance(x, TuflowViewerCurve)]
+            self.assertEqual(1, len(curves))
+
+    def test_gpkg1d_long_name_with_special_characters(self):
+        p = get_dataset_path('TS03_HPC_5m_001_HPC_2nd_OWN_GPU_NEW_GPU_2026.4.0-Dev+2026-10-PC_w64_SP_01p+1hr_swmm_ts.gpkg', 'result')
+        res = GPKG1D(p)
+        with add_result_to_viewer(res):  # context manager so results and layers are unloaded after test
+            plot_window = PlotWindow(get_viewer_instance())  # change first tab to section plot
+            plot = plot_window.tabWidget_view1.widget(0)
+
+            # select a channel and plot bed level, pipes, pits
+            plot.toggle_selection_tool(True)
+            actions = [x for x in plot.toolbar.data_types_menu.actions() if x.text() in ['flow']]
+            _ = [x.setChecked(True) for x in actions]
+            lyr = [x for x in res.map_layers() if 'swmm_ts_L' in x.name()][0]
+            QGIS.iface.setActiveLayer(lyr)
+            ch = list(lyr.getFeatures('"ID" = \'FC01.1_R\' AND format_date("Datetime", \'yyyy-MM-dd HH:mm:ss\') = \'2020-01-01 00:00:00\''))
             temporal_controller.setCurrentTime(datetime(1990, 1, 1, 1, 0, 0))
             lyr.selectByIds([x.id() for x in ch])
 

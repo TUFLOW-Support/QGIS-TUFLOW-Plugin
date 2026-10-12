@@ -13,6 +13,7 @@ from qgis.core import QgsVectorLayer, QgsProject, QgsFeature, QgsGeometry, QgsPo
 from qgis.utils import iface
 
 from .time_series_mixin import TimeSeriesMixin
+from ..tvinstance import get_viewer_instance
 
 if not QSettings().value('TUFLOW/TestCase', False, type=bool):
     from ...pt.pytuflow import FMTS as FMTSBase, FMDAT, GXY
@@ -96,6 +97,7 @@ class FMTS(FMTSBase, TimeSeriesMixin):
     def section(self, *args, **kwargs) -> pd.DataFrame:
         if self._no_results:
             return pd.DataFrame()
+        kwargs['branch_limit'] = get_viewer_instance().settings.long_plot_branch_limit
         return super().section(*args, **kwargs)
 
     def section_plot(self,

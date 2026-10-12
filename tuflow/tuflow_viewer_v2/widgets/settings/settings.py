@@ -39,6 +39,7 @@ class TuflowViewerSettings:
         self.enabled_fmts.callback = self.save
         self.theme_name = 'Light'
         self.copy_results_on_load = False
+        self.long_plot_branch_limit = 1
 
         self._block_save = False
         self.load()

@@ -232,6 +232,9 @@ class SectionPlotWidget(TVPlotWidget, SectionPlotHelperMixin):
         node_ids = misc.flatten([x[2:] for x in polygons])
         channel_ids = [x[1] for x in polygons]
         polygons = [x[0] for x in polygons]
+        if not polygons:
+            logger.info('No valid pipes found in section... skipping')
+            return
 
         # add curve to plot
         pipes = Polygons(polygons, channel_ids, node_ids, src_item)

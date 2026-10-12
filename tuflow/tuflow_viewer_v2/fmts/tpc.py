@@ -1,10 +1,12 @@
 from pathlib import Path
+import pandas as pd
 
 from qgis.core import QgsMapLayer, QgsVectorLayer
 from qgis.PyQt.QtCore import QSettings
 
 from .time_series_mixin import TimeSeriesMixin
 from .gpkg_mixin import GPKGMixin
+from ..tvinstance import get_viewer_instance
 
 if not QSettings().value('TUFLOW/TestCase', False, type=bool):
     from ...pt.pytuflow import TPC as TPCBase
@@ -122,4 +124,6 @@ class TPC(TPCBase, TimeSeriesMixin, GPKGMixin):
 
         return map_layers
 
-
+    def section(self, *args, **kwargs) -> pd.DataFrame:
+        kwargs['branch_limit'] = get_viewer_instance().settings.long_plot_branch_limit
+        return super().section(*args, **kwargs)

@@ -1,5 +1,5 @@
 from qgis.PyQt.QtWidgets import (QWidget, QBoxLayout, QComboBox, QLabel, QVBoxLayout, QHBoxLayout, QRadioButton,
-                                 QButtonGroup)
+                                 QButtonGroup, QSpinBox)
 from qgis.gui import QgsCollapsibleGroupBox
 
 from ...tvinstance import get_viewer_instance
@@ -62,6 +62,32 @@ class General:
         self.copy_on_load_layout.addWidget(self.copy_on_load_yes)
         self.output_loading_layout.addLayout(self.copy_on_load_layout)
 
+        # Plotting
+        self.output_plotting_groupbox = QgsCollapsibleGroupBox()
+        self.output_plotting_groupbox.setTitle('Plotting')
+        self.output_plotting_groupbox.setToolTip('Settings related to plotting.')
+        self.general_layout.addWidget(self.output_plotting_groupbox)
+        self.output_plotting_layout = QVBoxLayout()
+        self.output_plotting_groupbox.setLayout(self.output_plotting_layout)
+
+        # Long plot branch limit
+        self.long_plot_branch_limit_layout = QHBoxLayout()
+        self.long_plot_branch_limit_label = QLabel('1D long plot branch limit:')
+        self.long_plot_branch_limit_label.setToolTip(
+            'This value will limit how many branches / paths are collected when extracting 1D long plots. Limiting the number of branches ' \
+            'will short-circuit the connectivity process which can speed up the plot if there are many branches along a section of 1D channels.' \
+            '\n\nA value of zero sets the branch limit to unlimited.'
+        )
+        self.long_plot_branch_limit_spinbox = QSpinBox()
+        self.long_plot_branch_limit_spinbox.setMinimum(0)
+        self.long_plot_branch_limit_spinbox.setMaximum(999)
+        self.long_plot_branch_limit_spinbox.valueChanged.connect(self.branch_limit_value_changed)
+        self.long_plot_branch_limit_spinbox.setValue(get_viewer_instance().settings.long_plot_branch_limit)
+        self.long_plot_branch_limit_layout.addWidget(self.long_plot_branch_limit_label)
+        self.long_plot_branch_limit_layout.addStretch()
+        self.long_plot_branch_limit_layout.addWidget(self.long_plot_branch_limit_spinbox)
+        self.output_plotting_layout.addLayout(self.long_plot_branch_limit_layout)
+
         self.general_layout.addStretch()
         layout.addWidget(self.general_widget)
         self.general_widget.hide()
@@ -76,3 +102,6 @@ class General:
             get_viewer_instance().settings.copy_results_on_load = True
         else:
             get_viewer_instance().settings.copy_results_on_load = False
+
+    def branch_limit_value_changed(self, value: int):
+        get_viewer_instance().settings.long_plot_branch_limit = value

@@ -1,0 +1,42 @@
+Format Version == 2
+Units == METRIC
+Simulation ID == EG14_001
+Time Series Output Format == CSV 
+
+GIS Plot Layer Points == .\gis\EG14_001_PLOT_P.shp
+GIS Plot Layer Lines == .\gis\EG14_001_PLOT_L.shp
+GIS Plot Layer Regions == .\gis\EG14_001_PLOT_R.shp
+GIS Plot Objects == .\gis\EG14_001_PLOT.csv
+
+NetCDF Time Series == NONE
+
+
+Number 1D Nodes == 53
+Number 1D Channels == 54
+
+1D Node Info == .\csv\EG14_001_1d_Node.csv
+1D Channel Info == .\csv\EG14_001_1d_Chan.csv
+
+1D Node Maximums == .\csv\EG14_001_1d_Nmx.csv
+1D Water Levels == .\csv\EG14_001_1d_H.csv
+1D Node Volumes == NONE
+1D Flow Integrals == NONE
+1D Energy Levels == NONE
+1D Mass Balance Errors == .\csv\EG14_001_1d_TSMB.csv
+1D Node Regime == .\csv\EG14_001_1d_NF.csv
+
+1D Channel Maximums == .\csv\EG14_001_1d_Cmx.csv
+1D Flows == .\csv\EG14_001_1d_Q.csv
+1D Velocities == .\csv\EG14_001_1d_V.csv
+1D Flow Areas == NONE
+1D Channel Losses == .\csv\EG14_001_1d_L.csv
+1D Channel Regime == .\csv\EG14_001_1d_CF.csv
+
+Number Reporting Location Points == 0
+
+Number Reporting Location Lines == 1
+Reporting Location Lines Flows == .\csv\EG14_001_RLL_Q.csv
+Reporting Location Lines Maximums == .\csv\EG14_001_RLL_Qmx.csv
+
+Number Reporting Location Regions == 0
+2D Line Flow [2] == .\csv\EG14_001_2d_Q.csv

@@ -1,5 +1,6 @@
 import typing
 from collections import OrderedDict
+import os
 
 try:
     import plotly.express as px
@@ -54,10 +55,11 @@ class PlotWindow(QgsDockWidget, Ui_PlotWindow):
         self.setWindowTitle(f'TUFLOW Viewer ({id_})')
         self.setObjectName('TuflowViewerPlotWindow')
         # self.setWindowIcon(get_viewer_instance().icon('tuview'))
-        self.dockable_window_flags = (Qt.WindowType.X11BypassWindowManagerHint |
-                                      Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint |
-                                      Qt.WindowType.WindowSystemMenuHint | Qt.WindowType.WindowCloseButtonHint |
-                                      Qt.WindowType.Dialog | Qt.WindowType.Popup | Qt.WindowType.Tool)
+        # self.dockable_window_flags = (Qt.WindowType.X11BypassWindowManagerHint |
+        #                               Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint |
+        #                               Qt.WindowType.WindowSystemMenuHint | Qt.WindowType.WindowCloseButtonHint |
+        #                               Qt.WindowType.Dialog | Qt.WindowType.Popup | Qt.WindowType.Tool)
+        self.dockable_window_flags = Qt.WindowType.Dialog
         self.setWindowFlags(self.dockable_window_flags)
         self.child = None
         self.setFeatures(
@@ -67,6 +69,9 @@ class PlotWindow(QgsDockWidget, Ui_PlotWindow):
         self.btn_is_dockable.setIcon(get_viewer_instance().icon('not_dockable'))
         self.btn_is_dockable.setCheckable(True)
         self.btn_is_dockable.toggled.connect(self.set_dockable)
+        if os.name != 'nt':
+            self.btn_is_dockable.setEnabled(False)
+            self.btn_is_dockable.setToolTip('Dockable toggle is disabled on Linux')
 
         # primary tab widget view
         self.tabWidget_view1.plot_window = self
@@ -185,7 +190,7 @@ class PlotWindow(QgsDockWidget, Ui_PlotWindow):
         size = self.size()
         self.setFloating(True)
         self.setGeometry(QRect(pos, size))
-        # QTimer.singleShot(100, self.set_dock_areas_none)
+        QTimer.singleShot(100, self.set_dock_areas_none)
 
     def set_dock_areas_none(self):
         self.setAllowedAreas(QT_DOCK_WIDGET_AREA_NONE)

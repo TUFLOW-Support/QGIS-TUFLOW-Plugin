@@ -1,10 +1,12 @@
 from pathlib import Path
+import pandas as pd
 
 from qgis.PyQt.QtCore import QSettings
 from qgis.core import QgsVectorLayer
 
 from .time_series_mixin import TimeSeriesMixin
 from .gpkg_mixin import GPKGMixin
+from ..tvinstance import get_viewer_instance
 
 if not QSettings().value('TUFLOW/TestCase', False, type=bool):
     from ...pt.pytuflow import GPKG1D as GPKG1DBase
@@ -55,3 +57,7 @@ class GPKG1D(GPKG1DBase, TimeSeriesMixin, GPKGMixin):
         This is used to determine if the handler is suitable for the file.
         """
         return GPKG1DBase._looks_like_this(Path(fpath))
+
+    def section(self, *args, **kwargs) -> pd.DataFrame:
+        kwargs['branch_limit'] = get_viewer_instance().settings.long_plot_branch_limit
+        return super().section(*args, **kwargs)
