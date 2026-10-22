@@ -123,6 +123,13 @@ class HydTablesCheck(HydTablesCheckBase, TimeSeriesMixin):
                 filter_by = f'channel/{filter_by}'
         return super().data_types(filter_by)
 
+    def ids(self, filter_by: str = None) -> list[str]:
+        if not self._loaded:
+            self._complete_load()
+        if filter_by is None or filter_by == 'hydraulictable':
+            return super().ids()
+        return super().ids(filter_by)
+
     def section(self, *args, **kwargs) -> pd.DataFrame:
         if not self._loaded:
             self._complete_load()

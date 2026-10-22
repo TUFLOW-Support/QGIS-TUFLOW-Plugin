@@ -364,7 +364,7 @@ class ArrTemporal:
         self.logger.info('Finished reading file.')
 
     def download_point_tp(self, code, out_path):
-        url = 'http://data.arr-software.org//static/temporal_patterns/TP/{0}.zip'.format(code)
+        url = 'http://data-legacy.arr-software.org/static/temporal_patterns/TP/{0}.zip'.format(code)
         self.logger.info('URL: {0}'.format(url))
         try:
             downloader = Downloader(url)

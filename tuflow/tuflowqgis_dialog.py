@@ -55,6 +55,13 @@ spatial_database_option = True
 if Qgis.QGIS_VERSION_INT < 31030:
 	spatial_database_option = False
 
+if Qgis.QGIS_VERSION_INT < 33000:
+	AREA_SQUARE_DEGREES = QgsUnitTypes.AreaUnit.SquareDegrees
+	AREA_SQUARE_METERS = QgsUnitTypes.AreaUnit.SquareMeters
+else:
+	AREA_SQUARE_DEGREES = Qgis.AreaUnit.SquareDegrees
+	AREA_SQUARE_METERS = Qgis.AreaUnit.SquareMeters
+
 
 # ----------------------------------------------------------
 #    tuflowqgis increment selected layer
@@ -2581,8 +2588,13 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		idField = self.comboBox_CatchID.currentText()
 		area_list = []
 		name_list = []
+		da = QgsDistanceArea()
+		da.setSourceCrs(layer.crs(), QgsCoordinateTransformContext())
+		if da.areaUnits() == AREA_SQUARE_DEGREES and layer.crs().authid() == 'EPSG:4326':
+			da.setEllipsoid('WGS84')
 		for feature in layer.getFeatures():
-			area_list.append(str(feature.geometry().area() / 1000000))
+			# area_list.append(str(feature.geometry().area() / 10_000_00))
+			area_list.append(str(da.measureArea(feature.geometry()) / 10_000_00))
 			name = str(feature[idField])
 			if not name:
 				name = 'NULL'

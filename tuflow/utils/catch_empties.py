@@ -74,7 +74,7 @@ class EmptySchemas:
     @staticmethod
     def get_schema(name):
         if hasattr(EmptySchemas, f'_{name}'):
-            return getattr(EmptySchemas, f'_{name}')
+            return getattr(EmptySchemas, f'_{name}')()
 
     @staticmethod
     def _2d_rp():
