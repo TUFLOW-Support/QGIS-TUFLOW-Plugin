@@ -2583,8 +2583,8 @@ class Ui_tuflowqgis_arr2016(object):
         _translate = QtCore.QCoreApplication.translate
         tuflowqgis_arr2016.setWindowTitle(_translate("tuflowqgis_arr2016", "Extract ARR2019 to TUFLOW"))
         self.progressLabel.setText(_translate("tuflowqgis_arr2016", "Ready"))
-        self.pbOk.setText(_translate("tuflowqgis_arr2016", "OK"))
-        self.pbCancel.setText(_translate("tuflowqgis_arr2016", "Cancel"))
+        self.pbOk.setText(_translate("tuflowqgis_arr2016", "Run"))
+        self.pbCancel.setText(_translate("tuflowqgis_arr2016", "Close"))
         self.gbOfflineMode.setTitle(_translate("tuflowqgis_arr2016", "Run in Offline Mode"))
         self.btnBrowseARRFile.setText(_translate("tuflowqgis_arr2016", "..."))
         self.label_23.setText(_translate("tuflowqgis_arr2016", "ARR Datahub File Location (.txt)"))
