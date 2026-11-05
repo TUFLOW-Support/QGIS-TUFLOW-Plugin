@@ -2450,7 +2450,6 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			self.progressCount += 1
 		progressLabel = 'Processing (Catchment {0} of {1})'.format(catchment_no, total_no) + ' .' * self.progressCount
 		self.progressLabel.setText(progressLabel)
-		QgsApplication.processEvents()
 		
 		if start_again:
 			self.timer = QTimer()
@@ -2460,12 +2459,15 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		
 	def complete(self, error, outFolder):
 		self.thread.quit()
+		# Finish cleanup before another run can replace the worker and thread.
+		self.thread.wait()
+		self.thread.deleteLater()
 		self.timer.stop()
 		self.progressBar.setMaximum(100)
 		self.progressBar.setValue(100)
 		QApplication.restoreOverrideCursor()
 		if error:
-			self.progressLabel.setText("Errors occured")
+			self.progressLabel.setText("Errors occurred")
 			if type(error) is bytes:
 				error = error.decode('utf-8')
 			QMessageBox.critical(self, "Message",
@@ -2479,6 +2481,8 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			                        .format(os.path.join(outFolder, 'log.txt')))
 			
 		self.saveDefaults()
+		self.pbOk.setEnabled(True)
+		self.pbCancel.setEnabled(True)
 	
 	def run(self):
 		import processing
@@ -2695,7 +2699,6 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 		self.thread = QThread()
 		self.arr2016 = Arr2016()  # QObject so that it can be sent to QThread
 		self.arr2016.load(os.path.join(outFolder, 'log.txt'))
-		self.arr2016.sys_args.clear()
 		script = os.path.join(currentFolder, 'ARR2016', 'ARR_to_TUFLOW.py')
 		for i in range(len(name_list)):
 			sys_args = ['python3', script, '-out', outFolder, '-name', name_list[i], 
@@ -2721,12 +2724,14 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			self.arr2016.append(sys_args, name_list[i])
 			
 		self.arr2016.moveToThread(self.thread)
+		self.thread.finished.connect(self.arr2016.deleteLater)
 		self.arr2016.updated.connect(lambda i: self.updateProgress(i + 1, len(name_list), True))
 		self.arr2016.finished.connect(lambda error: self.complete(error, outFolder))
 		self.thread.started.connect(self.arr2016.run)
 		self.progressCount = -1
+		# Initialise the timer and busy state before a worker can finish.
+		self.updateProgress(1, len(name_list))
 		self.thread.start()
-		self.updateProgress(1, len(name_list))  # update progress bar.. I hope it was worth the effort of using QThread!
 	
 	def saveDefaults(self):
 		settings = QSettings()
@@ -2748,8 +2753,6 @@ class tuflowqgis_extract_arr2016_dialog(QDialog, Ui_tuflowqgis_arr2016):
 			if self.leBOMFile.text():
 				settings.setValue("BOM_IFD_file", self.leBOMFile.text())
 		settings.setValue("ARR2016_browse_out", self.outfolder.text())
-		
-		self.accept()
 
 	def aep_all(self):
 		if self.checkBox_aepAll.isChecked():
@@ -2848,8 +2851,11 @@ class Arr2016(QObject):
 
 	finished = pyqtSignal(str)
 	updated = pyqtSignal(int)
-	sys_args = []
-	name_list = []
+
+	def __init__(self, parent=None):
+		super().__init__(parent)
+		self.sys_args = []
+		self.name_list = []
 	
 	def load(self, logfile):
 		self.logfile = logfile
