@@ -1,0 +1,3279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>arr2026</class>
+ <widget class="QDockWidget" name="arr2026">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>647</width>
+    <height>759</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>400</width>
+    <height>437</height>
+   </size>
+  </property>
+  <property name="toolTip">
+   <string/>
+  </property>
+  <property name="windowTitle">
+   <string>Extract ARR2026 for TUFLOW</string>
+  </property>
+  <widget class="QWidget" name="ARR2026">
+   <layout class="QGridLayout" name="gridLayout_7">
+    <item row="1" column="0">
+     <widget class="QLabel" name="req_set_pop_from_json_label">
+      <property name="font">
+       <font>
+        <bold>false</bold>
+       </font>
+      </property>
+      <property name="text">
+       <string>Configuration file(s) (JSON)</string>
+      </property>
+     </widget>
+    </item>
+    <item row="8" column="0">
+     <layout class="QHBoxLayout" name="bottom_status_block">
+      <item>
+       <widget class="QProgressBar" name="bottom_status_block_progress_bar">
+        <property name="value">
+         <number>0</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="bottom_status_block_ready_label">
+        <property name="text">
+         <string>Ready</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="bottom_status_block_spacer">
+        <property name="orientation">
+         <enum>Qt::Orientation::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="bottom_status_block_run_button">
+        <property name="text">
+         <string>Run</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item row="3" column="0">
+     <widget class="QTabWidget" name="tab_widget">
+      <property name="toolTip">
+       <string/>
+      </property>
+      <property name="layoutDirection">
+       <enum>Qt::LayoutDirection::LeftToRight</enum>
+      </property>
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <property name="elideMode">
+       <enum>Qt::TextElideMode::ElideNone</enum>
+      </property>
+      <property name="usesScrollButtons">
+       <bool>true</bool>
+      </property>
+      <property name="documentMode">
+       <bool>false</bool>
+      </property>
+      <property name="tabsClosable">
+       <bool>false</bool>
+      </property>
+      <property name="tabBarAutoHide">
+       <bool>false</bool>
+      </property>
+      <widget class="QWidget" name="required_settings_tab">
+       <attribute name="icon">
+        <iconset resource="../resources/tuflow.qrc">
+         <normaloff>:/icons/icons/cog-play.svg</normaloff>:/icons/icons/cog-play.svg</iconset>
+       </attribute>
+       <attribute name="title">
+        <string>Required Settings</string>
+       </attribute>
+       <layout class="QGridLayout" name="gridLayout_5">
+        <item row="0" column="0" colspan="2">
+         <widget class="QScrollArea" name="req_set_scroll_area">
+          <property name="widgetResizable">
+           <bool>true</bool>
+          </property>
+          <widget class="QWidget" name="req_set_scroll_area_widget">
+           <property name="geometry">
+            <rect>
+             <x>0</x>
+             <y>0</y>
+             <width>589</width>
+             <height>1366</height>
+            </rect>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_9">
+            <item row="19" column="0" colspan="2">
+             <widget class="QLabel" name="req_set_event_selection_label">
+              <property name="font">
+               <font>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Event Selection:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0" colspan="2">
+             <layout class="QGridLayout" name="bulk_pop_catchments_grid_layout">
+              <item row="0" column="1">
+               <spacer name="verticalSpacer">
+                <property name="orientation">
+                 <enum>Qt::Orientation::Vertical</enum>
+                </property>
+                <property name="sizeType">
+                 <enum>QSizePolicy::Policy::Fixed</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>20</width>
+                  <height>10</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+              <item row="1" column="1">
+               <widget class="QLabel" name="bulk_pop_catchments_gis_layer_label">
+                <property name="text">
+                 <string>Populate table from layer:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QToolButton" name="bulk_pop_catchments_populate_tool_button">
+                <property name="toolTip">
+                 <string>Populate table with all catchments from the selected layer</string>
+                </property>
+                <property name="text">
+                 <string>...</string>
+                </property>
+                <property name="icon">
+                 <iconset resource="../resources/tuflow.qrc">
+                  <normaloff>:/icons/icons/table-plus.svg</normaloff>:/icons/icons/table-plus.svg</iconset>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="2">
+               <widget class="QComboBox" name="bulk_pop_catchments_gis_layer_combobox">
+                <property name="sizeAdjustPolicy">
+                 <enum>QComboBox::SizeAdjustPolicy::AdjustToContents</enum>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="2">
+               <widget class="QComboBox" name="bulk_pop_catchments_site_id_combobox"/>
+              </item>
+              <item row="2" column="1">
+               <widget class="QLabel" name="bulk_pop_catchments_site_id_layer">
+                <property name="text">
+                 <string>Catchment identifier field:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="3">
+               <spacer name="bulk_pop_catchments_hori_spacer">
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+                <property name="sizeType">
+                 <enum>QSizePolicy::Policy::MinimumExpanding</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item row="3" column="0" colspan="2">
+             <widget class="QLabel" name="inputs_catchments_label">
+              <property name="text">
+               <string>Specify catchment(s) manually using the add button below (1 row = 1 catchment) and/or automatically from a GIS layer.</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0" colspan="2">
+             <widget class="QLabel" name="req_set_inputs_label">
+              <property name="font">
+               <font>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Inputs:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0" colspan="2">
+             <widget class="QToolButton" name="req_set_reload_json_tool_button">
+              <property name="text">
+               <string>Reload 'Required Settings' from JSON</string>
+              </property>
+              <property name="toolButtonStyle">
+               <enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="9" column="0" colspan="2">
+             <widget class="QWidget" name="outlet_location_widget" native="true">
+              <layout class="QVBoxLayout" name="verticalLayout">
+               <item>
+                <layout class="QHBoxLayout" name="outlet_location_hori_layout">
+                 <item>
+                  <widget class="QLabel" name="outlet_location_method_label">
+                   <property name="text">
+                    <string>Outlet location method:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QComboBox" name="outlet_location_method_combobox">
+                   <item>
+                    <property name="text">
+                     <string>GIS point layer</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>Latitude/longitude</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="outlet_location_hori_spacer">
+                   <property name="orientation">
+                    <enum>Qt::Orientation::Horizontal</enum>
+                   </property>
+                   <property name="sizeType">
+                    <enum>QSizePolicy::Policy::Expanding</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <widget class="QWidget" name="outlet_location_gis_layer_widget" native="true">
+                 <layout class="QGridLayout" name="gridLayout">
+                  <item row="0" column="0">
+                   <widget class="QLabel" name="outlet_location_gis_layer_label">
+                    <property name="text">
+                     <string>GIS point layer:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="2">
+                   <widget class="QComboBox" name="outlet_location_gis_layer_combobox">
+                    <property name="sizeAdjustPolicy">
+                     <enum>QComboBox::SizeAdjustPolicy::AdjustToContents</enum>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="outlet_location_gis_layer_feature_label">
+                    <property name="text">
+                     <string>Outlet point:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="2">
+                   <widget class="QComboBox" name="outlet_location_gis_layer_feature_combobox"/>
+                  </item>
+                  <item row="1" column="3">
+                   <widget class="QToolButton" name="outlet_location_gis_layer_feature_select_tool_button">
+                    <property name="toolTip">
+                     <string>Select point feature</string>
+                    </property>
+                    <property name="text">
+                     <string>...</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="3">
+                   <spacer name="outlet_location_gis_layer_hori_spacer">
+                    <property name="orientation">
+                     <enum>Qt::Orientation::Horizontal</enum>
+                    </property>
+                    <property name="sizeType">
+                     <enum>QSizePolicy::Policy::Expanding</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QWidget" name="outlet_location_lat_long_widget" native="true">
+                 <layout class="QGridLayout" name="gridLayout_2">
+                  <item row="0" column="1">
+                   <widget class="QDoubleSpinBox" name="outlet_location_lat_long_lat_spinbox">
+                    <property name="decimals">
+                     <number>6</number>
+                    </property>
+                    <property name="minimum">
+                     <double>-90.000000000000000</double>
+                    </property>
+                    <property name="maximum">
+                     <double>90.000000000000000</double>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="0">
+                   <widget class="QLabel" name="outlet_location_lat_long_lat_label">
+                    <property name="text">
+                     <string>Outlet latitude (decimal degrees): </string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="outlet_location_lat_long_long_label">
+                    <property name="text">
+                     <string>Outlet longitude (decimal degrees): </string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <widget class="QDoubleSpinBox" name="outlet_location_lat_long_long_spinbox">
+                    <property name="decimals">
+                     <number>6</number>
+                    </property>
+                    <property name="minimum">
+                     <double>-180.000000000000000</double>
+                    </property>
+                    <property name="maximum">
+                     <double>180.000000000000000</double>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="3">
+                   <spacer name="outlet_location_lat_long_hori_spacer">
+                    <property name="orientation">
+                     <enum>Qt::Orientation::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="7" column="0" colspan="2">
+             <widget class="QCheckBox" name="outlet_location_checkbox">
+              <property name="text">
+               <string>Specify catchment outlet location</string>
+              </property>
+             </widget>
+            </item>
+            <item row="6" column="0" colspan="2">
+             <widget class="CatchmentsTable" name="inputs_catchments_table" native="true">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="0" colspan="2">
+             <layout class="QHBoxLayout" name="inputs_catchments_add_subtract_hori_layout">
+              <item>
+               <spacer name="inputs_catchments_add_subtract_hori_spacer">
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+              <item>
+               <widget class="QToolButton" name="inputs_catchments_add_tool_button">
+                <property name="toolTip">
+                 <string>Add catchment</string>
+                </property>
+                <property name="text">
+                 <string>...</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QToolButton" name="inputs_catchments_subtract_tool_button">
+                <property name="toolTip">
+                 <string>Remove selected catchment</string>
+                </property>
+                <property name="text">
+                 <string>...</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QToolButton" name="inputs_catchments_clear_table_tool_button">
+                <property name="toolTip">
+                 <string>Clear table</string>
+                </property>
+                <property name="text">
+                 <string>...</string>
+                </property>
+                <property name="icon">
+                 <iconset resource="../resources/tuflow.qrc">
+                  <normaloff>:/icons/icons/broom.svg</normaloff>:/icons/icons/broom.svg</iconset>
+                </property>
+                <property name="toolButtonStyle">
+                 <enum>Qt::ToolButtonStyle::ToolButtonIconOnly</enum>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item row="8" column="0" colspan="2">
+             <widget class="QLabel" name="outlet_location_info_label">
+              <property name="text">
+               <string>Outlet location is only used for jurisdiction-sensitive layers (IFD, storm losses, preburst, ARF). Defaults to the catchment centroid if not specified.</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="20" column="1">
+             <widget class="QGroupBox" name="duration_selection_block">
+              <property name="title">
+               <string>Durations</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_32">
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_select_all">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>Select all</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_10min">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>10 min</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_15min">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>15 min</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_20min">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>20 min</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_25min">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>25 min</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_30min">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>30 min</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_45min">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>45 min</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_1hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>1 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_1_5hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>1.5 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_2hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>2 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_3hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>3 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_4_5hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>4.5 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_6hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>6 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_9hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>9 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_12hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>12 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_18hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>18 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_24hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>24 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_30hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>30 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_36hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>36 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_48hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>48 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_72hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>72 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_96hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>96 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_120hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>120 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_144hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>144 hr</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="dur_checkbox_168hr">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>168 hr</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="16" column="0" colspan="2">
+             <widget class="QLabel" name="req_set_ifd_label">
+              <property name="font">
+               <font>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Intensity Frequency Duration (IFD):</string>
+              </property>
+             </widget>
+            </item>
+            <item row="13" column="0" colspan="2">
+             <widget class="QLabel" name="output_location_label">
+              <property name="text">
+               <string>Output location:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0" colspan="2">
+             <widget class="Line" name="req_set_hori_line">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="10" column="0" colspan="2">
+             <widget class="Line" name="req_set_hori_line_1">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="20" column="0">
+             <widget class="QGroupBox" name="aep_selection_block">
+              <property name="title">
+               <string>AEP's</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_22">
+               <property name="spacing">
+                <number>6</number>
+               </property>
+               <item>
+                <widget class="QCheckBox" name="aep_checkbox_select_all">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>Select all</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="aep_checkbox_1_in_2000">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>1 in 2000</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="aep_checkbox_1_in_1000">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>1 in 1000</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="aep_checkbox_1_in_500">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>1 in 500</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="aep_checkbox_1_in_200">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>1 in 200</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="aep_checkbox_1">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>1%</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="aep_checkbox_2">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>2%</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="aep_checkbox_5">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>5%</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="aep_checkbox_10">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>10%</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="aep_checkbox_20">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>20%</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="aep_checkbox_50">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>50%</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="aep_checkbox_63_2">
+                 <property name="styleSheet">
+                  <string notr="true">QCheckBox {
+    padding: 1px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>63.2%</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="aep_selection_group_vert_spacer">
+                 <property name="orientation">
+                  <enum>Qt::Orientation::Vertical</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>20</width>
+                   <height>40</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="18" column="0" colspan="2">
+             <widget class="Line" name="req_set_hori_line_3">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="17" column="0" colspan="2">
+             <layout class="QHBoxLayout" name="ifd_hori_layout">
+              <item>
+               <widget class="QLabel" name="ifd_baseline_year_label">
+                <property name="toolTip">
+                 <string>Intensity frequency duration baseline year</string>
+                </property>
+                <property name="text">
+                 <string>IFD baseline year:</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="ifd_baseline_year_combobox">
+                <item>
+                 <property name="text">
+                  <string>2030 (default)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>1990 (historical)</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+              <item>
+               <spacer name="ifd_baseline_year_hori_spacer">
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item row="11" column="0" colspan="2">
+             <widget class="QLabel" name="req_set_outputs_label">
+              <property name="font">
+               <font>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Outputs:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="12" column="0" colspan="2">
+             <layout class="QGridLayout" name="output_options_grid_layout">
+              <item row="0" column="2">
+               <spacer name="output_options_format_hori_spacer">
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+              <item row="0" column="1">
+               <widget class="QComboBox" name="output_options_format_combobox">
+                <item>
+                 <property name="text">
+                  <string>CSV</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>ts1</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+              <item row="0" column="0">
+               <widget class="QLabel" name="output_options_format_label">
+                <property name="toolTip">
+                 <string>Rainfall hyetograph file format</string>
+                </property>
+                <property name="text">
+                 <string>Output format:</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item row="15" column="0" colspan="2">
+             <widget class="Line" name="req_set_hori_line_2">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="14" column="0" colspan="2">
+             <layout class="QHBoxLayout" name="output_location_hori_layout">
+              <item>
+               <widget class="QToolButton" name="output_location_file_button">
+                <property name="text">
+                 <string>...</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="output_location_outfolder_line">
+                <property name="toolTip">
+                 <string>Output folder for all TUFLOW files</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="climate_change_tab">
+       <attribute name="icon">
+        <iconset resource="../resources/tuflow.qrc">
+         <normaloff>:/icons/icons/sun-thermometer.svg</normaloff>:/icons/icons/sun-thermometer.svg</iconset>
+       </attribute>
+       <attribute name="title">
+        <string>Climate Change</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_28">
+        <item>
+         <widget class="QScrollArea" name="climate_change_scroll_area">
+          <property name="widgetResizable">
+           <bool>true</bool>
+          </property>
+          <widget class="QWidget" name="climate_change_scroll_area_widget">
+           <property name="geometry">
+            <rect>
+             <x>0</x>
+             <y>0</y>
+             <width>589</width>
+             <height>482</height>
+            </rect>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_2">
+            <item>
+             <widget class="QToolButton" name="climate_change_reload_json_tool_button">
+              <property name="text">
+               <string>Reload 'Climate Change' from JSON</string>
+              </property>
+              <property name="toolButtonStyle">
+               <enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="Line" name="climate_change_hori_line">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="climate_change_label">
+              <property name="font">
+               <font>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Climate change:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="climate_change_add_subtract_hori_layout">
+              <item>
+               <widget class="QToolButton" name="climate_change_add_tool_button">
+                <property name="toolTip">
+                 <string>Add climate change scenario</string>
+                </property>
+                <property name="text">
+                 <string>...</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QToolButton" name="climate_change_subtract_tool_button">
+                <property name="toolTip">
+                 <string>Remove climate change scenario</string>
+                </property>
+                <property name="text">
+                 <string>...</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="climate_change_add_subtract_hori_spacer">
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="ClimateChangeScenTable" name="climate_change_table">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="toolTip">
+               <string>Climate change scenario selection</string>
+              </property>
+              <property name="alternatingRowColors">
+               <bool>true</bool>
+              </property>
+              <attribute name="horizontalHeaderCascadingSectionResizes">
+               <bool>false</bool>
+              </attribute>
+              <attribute name="horizontalHeaderHighlightSections">
+               <bool>true</bool>
+              </attribute>
+              <attribute name="horizontalHeaderShowSortIndicator" stdset="0">
+               <bool>false</bool>
+              </attribute>
+              <attribute name="horizontalHeaderStretchLastSection">
+               <bool>true</bool>
+              </attribute>
+              <attribute name="verticalHeaderVisible">
+               <bool>true</bool>
+              </attribute>
+              <attribute name="verticalHeaderShowSortIndicator" stdset="0">
+               <bool>false</bool>
+              </attribute>
+              <column>
+               <property name="text">
+                <string>Year</string>
+               </property>
+               <property name="toolTip">
+                <string>Baseline year</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>SSP</string>
+               </property>
+               <property name="toolTip">
+                <string>Shared Socioeconomic Pathways</string>
+               </property>
+              </column>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="climate_change_names_output_label">
+              <property name="text">
+               <string>Climate change scenario names:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPlainTextEdit" name="climate_change_names_output">
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>70</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>Preview climate change scenario names</string>
+              </property>
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="Line" name="climate_change_hori_line_1">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="climate_change_il_options_label">
+              <property name="text">
+               <string>Initial Loss (IL) options:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="climate_change_scale_storm_radio_button">
+              <property name="toolTip">
+               <string>Storm initial loss (default)</string>
+              </property>
+              <property name="text">
+               <string>Scale storm IL (default)</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="climate_change_scale_burst_radio_button">
+              <property name="toolTip">
+               <string>Burst initial loss</string>
+              </property>
+              <property name="text">
+               <string>Scale burst IL</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="climate_change_tab_vert_spacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="arf_tab">
+       <attribute name="icon">
+        <iconset resource="../resources/tuflow.qrc">
+         <normaloff>:/icons/icons/drop_area.svg</normaloff>:/icons/icons/drop_area.svg</iconset>
+       </attribute>
+       <attribute name="title">
+        <string>ARF</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_8">
+        <item>
+         <widget class="QScrollArea" name="arf_scroll_area">
+          <property name="widgetResizable">
+           <bool>true</bool>
+          </property>
+          <widget class="QWidget" name="arf_scroll_area_widget">
+           <property name="geometry">
+            <rect>
+             <x>0</x>
+             <y>0</y>
+             <width>601</width>
+             <height>459</height>
+            </rect>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_3">
+            <item>
+             <widget class="QToolButton" name="arf_reload_json_tool_button">
+              <property name="text">
+               <string>Reload 'ARF' from JSON</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="Line" name="arf_hori_line">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="arf_heading_label">
+              <property name="font">
+               <font>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Areal Reduction Factor (ARF):</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="arf_calculate_area_radio_button">
+              <property name="toolTip">
+               <string>Calculate catchment area</string>
+              </property>
+              <property name="text">
+               <string>Calculate area</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="arf_user_area_hori_layout">
+              <item>
+               <widget class="QRadioButton" name="arf_user_area_radio_button">
+                <property name="enabled">
+                 <bool>true</bool>
+                </property>
+                <property name="toolTip">
+                 <string>Manually specify catchment area</string>
+                </property>
+                <property name="text">
+                 <string>User area</string>
+                </property>
+                <property name="checked">
+                 <bool>false</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QDoubleSpinBox" name="arf_user_area_spinbox">
+                <property name="decimals">
+                 <number>4</number>
+                </property>
+                <property name="maximum">
+                 <double>999999.000000000000000</double>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="arf_user_area_units_label">
+                <property name="text">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;km&lt;span style=&quot; vertical-align:super;&quot;&gt;2&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="arf_user_area_hori_spacer">
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="Line" name="arf_hori_line_1">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="arf_min_arf_hori_layout">
+              <item>
+               <widget class="QLabel" name="arf_min_arf_value_label">
+                <property name="toolTip">
+                 <string>Minimum ARF value (0-1)</string>
+                </property>
+                <property name="text">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Minimum ARF value&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QDoubleSpinBox" name="arf_min_arf_value_spinbox">
+                <property name="decimals">
+                 <number>4</number>
+                </property>
+                <property name="minimum">
+                 <double>0.000000000000000</double>
+                </property>
+                <property name="maximum">
+                 <double>1.000000000000000</double>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="arf_min_arf_value_hori_spacer">
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="Line" name="arf_hori_line_2">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="arf_for_events_checkbox">
+              <property name="toolTip">
+               <string>Apply ARF equations to events outside ARR's recommended range</string>
+              </property>
+              <property name="text">
+               <string>ARF for events &lt; 50% AEP</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="Line" name="arf_hori_line_3">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QgsCollapsibleGroupBox" name="arf_manual_specify_block">
+              <property name="title">
+               <string>User override - manually specify ARF</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+              <property name="collapsed">
+               <bool>true</bool>
+              </property>
+              <layout class="QGridLayout" name="gridLayout_6">
+               <item row="0" column="0">
+                <widget class="QLabel" name="arf_manual_specify_label">
+                 <property name="text">
+                  <string>Manually specified ARF:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QDoubleSpinBox" name="arf_manual_specify_spinbox">
+                 <property name="decimals">
+                  <number>4</number>
+                 </property>
+                 <property name="minimum">
+                  <double>0.000000000000000</double>
+                 </property>
+                 <property name="maximum">
+                  <double>1.000000000000000</double>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="2">
+                <spacer name="arf_manual_specify_hori_spacer">
+                 <property name="orientation">
+                  <enum>Qt::Orientation::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <spacer name="arf_tab_vert_spacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tp_tab">
+       <attribute name="icon">
+        <iconset resource="../resources/tuflow.qrc">
+         <normaloff>:/icons/icons/chart-histogram.svg</normaloff>:/icons/icons/chart-histogram.svg</iconset>
+       </attribute>
+       <attribute name="title">
+        <string>Temporal Patterns</string>
+       </attribute>
+       <layout class="QGridLayout" name="gridLayout_8">
+        <item row="0" column="0">
+         <widget class="QScrollArea" name="tp_scroll_area">
+          <property name="widgetResizable">
+           <bool>true</bool>
+          </property>
+          <widget class="QWidget" name="tp_scroll_area_widget">
+           <property name="geometry">
+            <rect>
+             <x>0</x>
+             <y>0</y>
+             <width>601</width>
+             <height>459</height>
+            </rect>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_10">
+            <item row="0" column="0">
+             <widget class="QToolButton" name="tp_reload_json_tool_button">
+              <property name="text">
+               <string>Reload 'Temporal Patterns' from JSON</string>
+              </property>
+              <property name="toolButtonStyle">
+               <enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="Line" name="tp_hori_line">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="tp_label">
+              <property name="font">
+               <font>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Temporal patterns:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="tp_optional_tps_label">
+              <property name="toolTip">
+               <string>Additional ARR temporal pattern regions</string>
+              </property>
+              <property name="text">
+               <string>Optional additional temporal patterns:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0">
+             <widget class="QListWidget" name="tp_optional_tps_list_widget">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>250</height>
+               </size>
+              </property>
+              <property name="verticalScrollBarPolicy">
+               <enum>Qt::ScrollBarPolicy::ScrollBarAsNeeded</enum>
+              </property>
+              <property name="sizeAdjustPolicy">
+               <enum>QAbstractScrollArea::SizeAdjustPolicy::AdjustToContents</enum>
+              </property>
+              <property name="autoScroll">
+               <bool>true</bool>
+              </property>
+              <property name="selectionMode">
+               <enum>QAbstractItemView::SelectionMode::MultiSelection</enum>
+              </property>
+              <property name="resizeMode">
+               <enum>QListView::ResizeMode::Fixed</enum>
+              </property>
+              <property name="spacing">
+               <number>-5</number>
+              </property>
+              <property name="viewMode">
+               <enum>QListView::ViewMode::ListMode</enum>
+              </property>
+              <item>
+               <property name="text">
+                <string>Rangelands West</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Wet Tropics</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Rangelands</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Central Slopes</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Monsoonal North</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Murray Basin</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>East Coast North</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>East Coast South</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Southern Slopes Mainland</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Southern Slopes Tasmania</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>East Flatlands</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>West Flatlands</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+            <item row="5" column="0">
+             <widget class="QCheckBox" name="tp_use_add_point_tps_checkbox">
+              <property name="text">
+               <string>Use all additional point temporal patterns available within region (e.g. frequent, intermediate, rare)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="6" column="0">
+             <widget class="QgsCollapsibleGroupBox" name="tp_use_add_areal_tps_block">
+              <property name="title">
+               <string>Use additional areal temporal patterns</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+              <property name="collapsed">
+               <bool>true</bool>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_25">
+               <item>
+                <layout class="QHBoxLayout" name="tp_use_add_areal_tps_widget_hori_layout">
+                 <item>
+                  <widget class="QSpinBox" name="tp_use_add_areal_tps_no_spinbox">
+                   <property name="toolTip">
+                    <string>No. of additional areal tp catchment area buckets</string>
+                   </property>
+                   <property name="minimum">
+                    <number>1</number>
+                   </property>
+                   <property name="maximum">
+                    <number>8</number>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="tp_use_add_areal_tps_no_label">
+                   <property name="text">
+                    <string>Number of additional areal temporal pattern sets</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="tp_use_add_areal_tps_hori_spacer">
+                   <property name="orientation">
+                    <enum>Qt::Orientation::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="7" column="0">
+             <spacer name="tp_tab_vert_spacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="preburst_tab">
+       <attribute name="icon">
+        <iconset resource="../resources/tuflow.qrc">
+         <normaloff>:/icons/icons/weather-lightning-rainy.svg</normaloff>:/icons/icons/weather-lightning-rainy.svg</iconset>
+       </attribute>
+       <attribute name="title">
+        <string>Preburst</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_29">
+        <item>
+         <widget class="QScrollArea" name="preburst_scroll_area">
+          <property name="widgetResizable">
+           <bool>true</bool>
+          </property>
+          <widget class="QWidget" name="preburst_scroll_area_widget">
+           <property name="geometry">
+            <rect>
+             <x>0</x>
+             <y>0</y>
+             <width>589</width>
+             <height>716</height>
+            </rect>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_4">
+            <item>
+             <widget class="QToolButton" name="preburst_reload_json_tool_button">
+              <property name="text">
+               <string>Reload 'Preburst' from JSON</string>
+              </property>
+              <property name="toolButtonStyle">
+               <enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="Line" name="preburst_hori_line">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="preburst_label">
+              <property name="font">
+               <font>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Preburst:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="preburst_percentile_hori_layout">
+              <item>
+               <widget class="QLabel" name="preburst_percentile_label">
+                <property name="toolTip">
+                 <string>Preburst ratio percentile used to derive preburst depth</string>
+                </property>
+                <property name="text">
+                 <string>Preburst percentile:</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="preburst_percentile_combobox">
+                <item>
+                 <property name="text">
+                  <string>Recommended</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>10%</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>25%</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>50%</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>75%</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>90%</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+              <item>
+               <spacer name="preburst_percentile_hori_spacer">
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="Line" name="preburst_hori_line_1">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="preburst_pattern_method_hori_layout">
+              <item>
+               <widget class="QLabel" name="preburst_pattern_method_label">
+                <property name="text">
+                 <string>Preburst pattern method:</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="preburst_pattern_method_combobox">
+                <item>
+                 <property name="text">
+                  <string>Recommended</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Constant</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Temporal pattern</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>None</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+              <item>
+               <spacer name="preburst_pattern_method_hori_spacer">
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="QWidget" name="preburst_rec_controls_widget" native="true">
+              <layout class="QVBoxLayout" name="verticalLayout_11">
+               <item>
+                <widget class="QCheckBox" name="preburst_rec_controls_complete_storm_checkbox">
+                 <property name="toolTip">
+                  <string>Every requested event is assembled as a complete storm</string>
+                 </property>
+                 <property name="text">
+                  <string>Complete storm (for every event)</string>
+                 </property>
+                 <property name="checked">
+                  <bool>false</bool>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QWidget" name="preburst_constant_controls_widget" native="true">
+              <layout class="QVBoxLayout" name="verticalLayout_12">
+               <item>
+                <widget class="QCheckBox" name="preburst_constant_controls_complete_storm_checkbox">
+                 <property name="toolTip">
+                  <string>Every requested event is assembled as a complete storm</string>
+                 </property>
+                 <property name="text">
+                  <string>Complete storm (for every event)</string>
+                 </property>
+                 <property name="checked">
+                  <bool>false</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="preburst_constant_controls_prop_controls_checkbox">
+                 <property name="text">
+                  <string>Proportional duration</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QWidget" name="preburst_constant_controls_preburst_dur_widget" native="true">
+                 <layout class="QVBoxLayout" name="verticalLayout_14">
+                  <item>
+                   <layout class="QHBoxLayout" name="preburst_constant_controls_preburst_dur_hori_layout">
+                    <item>
+                     <widget class="QLabel" name="preburst_constant_controls_preburst_dur_label">
+                      <property name="toolTip">
+                       <string>Prebust duration</string>
+                      </property>
+                      <property name="text">
+                       <string>Preburst duration (hrs):</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QDoubleSpinBox" name="preburst_constant_controls_preburst_dur_value_spinbox">
+                      <property name="maximum">
+                       <double>999999.000000000000000</double>
+                      </property>
+                      <property name="value">
+                       <double>2.000000000000000</double>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="preburst_constant_controls_preburst_dur_hori_spacer">
+                      <property name="orientation">
+                       <enum>Qt::Orientation::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QWidget" name="preburst_constant_controls_prop_widget" native="true">
+                 <layout class="QVBoxLayout" name="verticalLayout_15">
+                  <item>
+                   <layout class="QHBoxLayout" name="preburst_constant_controls_prop_hori_layout">
+                    <item>
+                     <widget class="QLabel" name="preburst_constant_controls_prop_label">
+                      <property name="toolTip">
+                       <string>Proportion of storm duration</string>
+                      </property>
+                      <property name="text">
+                       <string>Proportion:</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QDoubleSpinBox" name="preburst_constant_controls_prop_value_spinbox">
+                      <property name="maximum">
+                       <double>999999.000000000000000</double>
+                      </property>
+                      <property name="value">
+                       <double>2.000000000000000</double>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="preburst_constant_controls_prop_hori_spacer">
+                      <property name="orientation">
+                       <enum>Qt::Orientation::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                   </layout>
+                  </item>
+                  <item>
+                   <layout class="QHBoxLayout" name="preburst_constant_controls_prop_max_dur_hori_layout">
+                    <item>
+                     <widget class="QLabel" name="preburst_constant_controls_prop_max_dur_label">
+                      <property name="toolTip">
+                       <string>Caps computed preburst duration</string>
+                      </property>
+                      <property name="text">
+                       <string>Max preburst duration (hrs):</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QDoubleSpinBox" name="preburst_constant_controls_prop_max_dur_value_spinbox">
+                      <property name="maximum">
+                       <double>999999.000000000000000</double>
+                      </property>
+                      <property name="value">
+                       <double>6.000000000000000</double>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="preburst_constant_controls_prop_max_dur_hori_spacer">
+                      <property name="orientation">
+                       <enum>Qt::Orientation::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QWidget" name="preburst_tp_controls_widget" native="true">
+              <layout class="QVBoxLayout" name="verticalLayout_18">
+               <item>
+                <widget class="QCheckBox" name="preburst_tp_controls_complete_storm_checkbox">
+                 <property name="toolTip">
+                  <string>Every requested event is assembled as a complete storm</string>
+                 </property>
+                 <property name="text">
+                  <string>Complete storm (for every event)</string>
+                 </property>
+                 <property name="checked">
+                  <bool>false</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="preburst_tp_controls_tp_hori_layout">
+                 <item>
+                  <widget class="QLabel" name="preburst_tp_controls_tp_label">
+                   <property name="toolTip">
+                    <string>Temporal pattern to shape the preburst rainfall</string>
+                   </property>
+                   <property name="text">
+                    <string>Temporal pattern:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QComboBox" name="preburst_tp_controls_tp_combobox">
+                   <property name="currentText">
+                    <string>TP01</string>
+                   </property>
+                   <item>
+                    <property name="text">
+                     <string>TP01</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>TP02</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>TP03</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>TP04</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>TP05</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>TP06</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>TP07</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>TP08</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>TP09</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>TP10</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>Design burst</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="preburst_tp_controls_tp_hori_spacer">
+                   <property name="orientation">
+                    <enum>Qt::Orientation::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="preburst_tp_controls_prop_controls_checkbox">
+                 <property name="text">
+                  <string>Proportional duration</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QWidget" name="preburst_tp_controls_preburst_dur_widget" native="true">
+                 <layout class="QVBoxLayout" name="verticalLayout_16">
+                  <item>
+                   <layout class="QHBoxLayout" name="preburst_tp_controls_preburst_dur_hori_layout">
+                    <item>
+                     <widget class="QLabel" name="preburst_tp_controls_preburst_dur_label">
+                      <property name="toolTip">
+                       <string>Prebust duration</string>
+                      </property>
+                      <property name="text">
+                       <string>Preburst duration (hrs):</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QDoubleSpinBox" name="preburst_tp_controls_preburst_dur_value_spinbox">
+                      <property name="maximum">
+                       <double>999999.000000000000000</double>
+                      </property>
+                      <property name="value">
+                       <double>2.000000000000000</double>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="preburst_tp_controls_preburst_dur_hori_spacer">
+                      <property name="orientation">
+                       <enum>Qt::Orientation::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QWidget" name="preburst_tp_controls_prop_widget" native="true">
+                 <layout class="QVBoxLayout" name="verticalLayout_17">
+                  <item>
+                   <layout class="QHBoxLayout" name="preburst_tp_controls_prop_hori_layout">
+                    <item>
+                     <widget class="QLabel" name="preburst_tp_controls_prop_label">
+                      <property name="toolTip">
+                       <string>Proportion of storm duration</string>
+                      </property>
+                      <property name="text">
+                       <string>Proportion:</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QDoubleSpinBox" name="preburst_tp_controls_prop_value_spinbox">
+                      <property name="maximum">
+                       <double>999999.000000000000000</double>
+                      </property>
+                      <property name="value">
+                       <double>2.000000000000000</double>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="preburst_tp_controls_prop_hori_spacer">
+                      <property name="orientation">
+                       <enum>Qt::Orientation::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                   </layout>
+                  </item>
+                  <item>
+                   <layout class="QHBoxLayout" name="preburst_tp_controls_prop_max_dur_hori_layout">
+                    <item>
+                     <widget class="QLabel" name="preburst_tp_controls_prop_max_dur_label">
+                      <property name="toolTip">
+                       <string>Caps computed preburst duration</string>
+                      </property>
+                      <property name="text">
+                       <string>Max preburst duration (hrs):</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QDoubleSpinBox" name="preburst_tp_controls_prop_max_dur_value_spinbox">
+                      <property name="maximum">
+                       <double>999999.000000000000000</double>
+                      </property>
+                      <property name="value">
+                       <double>6.000000000000000</double>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="preburst_tp_controls_prop_max_dur_hori_spacer">
+                      <property name="orientation">
+                       <enum>Qt::Orientation::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QWidget" name="preburst_none_controls_widget" native="true">
+              <layout class="QVBoxLayout" name="verticalLayout_19">
+               <item>
+                <widget class="QCheckBox" name="preburst_none_controls_complete_storm_checkbox">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="toolTip">
+                  <string>Not available for 'None' preburst pattern method</string>
+                 </property>
+                 <property name="text">
+                  <string>Complete storm (for every event)</string>
+                 </property>
+                 <property name="checkable">
+                  <bool>true</bool>
+                 </property>
+                 <property name="checked">
+                  <bool>false</bool>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <spacer name="preburst_tab_vert_spacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="il_tab">
+       <attribute name="icon">
+        <iconset resource="../resources/tuflow.qrc">
+         <normaloff>:/icons/icons/bucket.svg</normaloff>:/icons/icons/bucket.svg</iconset>
+       </attribute>
+       <attribute name="title">
+        <string>Initial Loss</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_30">
+        <item>
+         <widget class="QScrollArea" name="il_scroll_area">
+          <property name="widgetResizable">
+           <bool>true</bool>
+          </property>
+          <widget class="QWidget" name="il_scroll_area_widget">
+           <property name="geometry">
+            <rect>
+             <x>0</x>
+             <y>0</y>
+             <width>589</width>
+             <height>500</height>
+            </rect>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_5">
+            <item>
+             <widget class="QToolButton" name="il_reload_json_tool_button">
+              <property name="text">
+               <string>Reload 'Initial Loss' from JSON</string>
+              </property>
+              <property name="toolButtonStyle">
+               <enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="Line" name="il_hori_line">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="il_label">
+              <property name="font">
+               <font>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Initial loss:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="il_burst_il_label">
+              <property name="text">
+               <string>Burst initial loss:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="il_burst_il_rec_radio_button">
+              <property name="toolTip">
+               <string>Use datahub 'recommended' initial loss table</string>
+              </property>
+              <property name="text">
+               <string>Recommended (default)</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="il_burst_il_prop_neutral_radio_button">
+              <property name="toolTip">
+               <string>Use datahub 'probability neutral' initial loss table</string>
+              </property>
+              <property name="text">
+               <string>Probability neutral (legacy) (if available)</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="Line" name="il_hori_line_1">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QVBoxLayout" name="il_short_dur_vert_layout">
+              <item>
+               <widget class="QLabel" name="il_short_dur_extrapolation_method_label">
+                <property name="toolTip">
+                 <string>Extrapolation method for burst initial loss</string>
+                </property>
+                <property name="text">
+                 <string>Short duration (&lt;30mins) extrapolation method:</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="il_short_dur_extrapolation_method_combobox">
+                <property name="currentText">
+                 <string>Interpolate to zero</string>
+                </property>
+                <property name="currentIndex">
+                 <number>0</number>
+                </property>
+                <item>
+                 <property name="text">
+                  <string>Interpolate to zero</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Log-interpolate to zero</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Interpolate pre-burst</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Log-interpolate pre-burst</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Constant</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Constant pre-burst ratio (default)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Rahman et al. 2002</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Hill et al. 1996/1998 (requires MAR)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Static value (requires static loss)</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="il_short_dur_mar_hori_layout">
+                <item>
+                 <widget class="QLabel" name="il_shor_dur_mar_label">
+                  <property name="toolTip">
+                   <string/>
+                  </property>
+                  <property name="text">
+                   <string>Mean Annual Rainfall (MAR) (mm):</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QDoubleSpinBox" name="il_shor_dur_mar_value_spinbox">
+                  <property name="maximum">
+                   <double>999999.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="il_shor_dur_mar_hori_spacer">
+                  <property name="orientation">
+                   <enum>Qt::Orientation::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>40</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="il_shor_dur_static_hori_layout">
+                <item>
+                 <widget class="QLabel" name="il_shor_dur_static_label">
+                  <property name="text">
+                   <string>Static loss (mm):</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QDoubleSpinBox" name="il_shor_dur_static_value_spinbox">
+                  <property name="maximum">
+                   <double>999999.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="il_shor_dur_static_hori_spacer">
+                  <property name="orientation">
+                   <enum>Qt::Orientation::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>40</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="Line" name="il_hori_line_2">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QVBoxLayout" name="il_tuflow_loss_method_vert_layout">
+              <item>
+               <layout class="QHBoxLayout" name="il_tuflow_loss_method_hori_layout">
+                <item>
+                 <widget class="QLabel" name="il_tuflow_loss_method_label">
+                  <property name="text">
+                   <string>TUFLOW loss method:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QComboBox" name="il_tuflow_loss_method_combobox">
+                  <item>
+                   <property name="text">
+                    <string>Infiltration (soil file)</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Rainfall excess (material file)</string>
+                   </property>
+                  </item>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="il_tuflow_loss_method_hori_spacer">
+                  <property name="orientation">
+                   <enum>Qt::Orientation::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>40</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <widget class="QgsCollapsibleGroupBox" name="il_tuflow_loss_method_infil_ilcl_block">
+                <property name="toolTip">
+                 <string>Fixed urban ILCL - requires rainfall excess TUFLOW loss method</string>
+                </property>
+                <property name="title">
+                 <string>Fixed impervious/urban area losses (optional)</string>
+                </property>
+                <property name="checkable">
+                 <bool>true</bool>
+                </property>
+                <property name="checked">
+                 <bool>false</bool>
+                </property>
+                <property name="collapsed">
+                 <bool>true</bool>
+                </property>
+                <layout class="QGridLayout" name="gridLayout_4">
+                 <item row="1" column="2">
+                  <spacer name="il_tuflow_loss_method_infil_cl_hori_spacer">
+                   <property name="orientation">
+                    <enum>Qt::Orientation::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                 <item row="0" column="0">
+                  <widget class="QLabel" name="il_tuflow_loss_method_infil_il_label">
+                   <property name="text">
+                    <string>Urban initial loss (mm):</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="0">
+                  <widget class="QLabel" name="il_tuflow_loss_method_infil_cl_label">
+                   <property name="text">
+                    <string>Urban continuing loss (mm/hr):</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="1">
+                  <widget class="QDoubleSpinBox" name="il_tuflow_loss_method_infil_il_spinbox">
+                   <property name="toolTip">
+                    <string>Urban initial loss</string>
+                   </property>
+                   <property name="maximum">
+                    <double>999999.000000000000000</double>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="2">
+                  <spacer name="il_tuflow_loss_method_infil_il_hori_spacer">
+                   <property name="orientation">
+                    <enum>Qt::Orientation::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                 <item row="1" column="1">
+                  <widget class="QDoubleSpinBox" name="il_tuflow_loss_method_infil_cl_spinbox">
+                   <property name="toolTip">
+                    <string>Urban continuing loss</string>
+                   </property>
+                   <property name="maximum">
+                    <double>999999.000000000000000</double>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="Line" name="il_hori_line_3">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QgsCollapsibleGroupBox" name="il_user_overrides_block">
+              <property name="title">
+               <string>User overrides</string>
+              </property>
+              <property name="collapsed">
+               <bool>false</bool>
+              </property>
+              <layout class="QGridLayout" name="gridLayout_3">
+               <item row="0" column="2">
+                <spacer name="il_user_overrides_il_hori_spacer">
+                 <property name="orientation">
+                  <enum>Qt::Orientation::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item row="2" column="2">
+                <spacer name="il_user_overrides_cl_hori_spacer">
+                 <property name="orientation">
+                  <enum>Qt::Orientation::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item row="0" column="1">
+                <widget class="QWidget" name="il_user_overrides_il_widget" native="true">
+                 <layout class="QHBoxLayout" name="horizontalLayout">
+                  <item>
+                   <widget class="QDoubleSpinBox" name="il_user_overrides_il_spinbox">
+                    <property name="toolTip">
+                     <string>User specified initial loss</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QWidget" name="il_user_overrides_cl_widget" native="true">
+                 <layout class="QHBoxLayout" name="horizontalLayout_2">
+                  <item>
+                   <widget class="QDoubleSpinBox" name="il_user_overrides_cl_spinbox">
+                    <property name="toolTip">
+                     <string>User specified continuing loss</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QCheckBox" name="il_user_overrides_cl_checkbox">
+                 <property name="text">
+                  <string>Continuing loss (mm/hr)</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="0">
+                <widget class="QCheckBox" name="il_user_overrides_il_checkbox">
+                 <property name="toolTip">
+                  <string/>
+                 </property>
+                 <property name="text">
+                  <string>Initial loss (mm)</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <spacer name="il_tab_vert_spacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="manual_data_tab">
+       <attribute name="icon">
+        <iconset resource="../resources/tuflow.qrc">
+         <normaloff>:/icons/icons/folder-play.svg</normaloff>:/icons/icons/folder-play.svg</iconset>
+       </attribute>
+       <attribute name="title">
+        <string>Use Previous ARR Data</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_31">
+        <item>
+         <widget class="QScrollArea" name="manual_data_scroll_area">
+          <property name="widgetResizable">
+           <bool>true</bool>
+          </property>
+          <widget class="QWidget" name="manual_data_scroll_area_widget">
+           <property name="geometry">
+            <rect>
+             <x>0</x>
+             <y>0</y>
+             <width>601</width>
+             <height>459</height>
+            </rect>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_6">
+            <item>
+             <widget class="QToolButton" name="manual_data_reload_json_tool_button">
+              <property name="text">
+               <string>Reload 'Previous ARR Data' from JSON</string>
+              </property>
+              <property name="toolButtonStyle">
+               <enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="manual_data_label">
+              <property name="font">
+               <font>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Use previously downloaded ARR data:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="offline_mode_json_label">
+              <property name="text">
+               <string>ARR Data Hub response JSON file:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="offline_mode_hori_layout">
+              <item>
+               <widget class="QToolButton" name="offline_mode_json_tool_button">
+                <property name="text">
+                 <string>...</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="offline_mode_json_line_edit">
+                <property name="toolTip">
+                 <string>Path to ARR datahub response .json file</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="QLabel" name="tp_manual_tp_label">
+              <property name="text">
+               <string>Manually specifiy temporal patterns (csv):</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="tp_manual_point_tp_hori_layout">
+              <property name="spacing">
+               <number>0</number>
+              </property>
+              <item>
+               <widget class="QLabel" name="tp_manual_point_tp_label_2">
+                <property name="text">
+                 <string>Point: </string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QToolButton" name="tp_manual_point_tp_file_tool_button">
+                <property name="text">
+                 <string>...</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="tp_manual_point_tp_file_path_line">
+                <property name="minimumSize">
+                 <size>
+                  <width>250</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="toolTip">
+                 <string>Point temporal pattern .csv file</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="tp_manual_areal_tp_hori_layout">
+              <property name="spacing">
+               <number>0</number>
+              </property>
+              <item>
+               <widget class="QLabel" name="tp_manual_areal_tp_label">
+                <property name="text">
+                 <string>Areal: </string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QToolButton" name="tp_manual_areal_tp_file_tool_button">
+                <property name="text">
+                 <string>...</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="tp_manual_areal_tp_file_path_line">
+                <property name="minimumSize">
+                 <size>
+                  <width>250</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="toolTip">
+                 <string>Areal temporal pattern .csv file (cannot be specified without point file)</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <spacer name="manual_data_tab_vert_spacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+    <item row="0" column="0">
+     <layout class="QHBoxLayout" name="top_doco_block">
+      <item>
+       <widget class="QLabel" name="top_doco_block_logo">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="pixmap">
+         <pixmap resource="../resources/tuflow.qrc">:/icons/icons/arr2026_tuflow.svg</pixmap>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="top_doco_block_spacer">
+        <property name="orientation">
+         <enum>Qt::Orientation::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="top_doco_block_doco_link">
+        <property name="text">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://wiki.tuflow.com/index.php?title=1D_Integrity_Tool&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;Documentation&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="openExternalLinks">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item row="10" column="0">
+     <widget class="QgsCollapsibleGroupBox" name="log_block">
+      <property name="title">
+       <string>Log</string>
+      </property>
+      <property name="collapsed">
+       <bool>true</bool>
+      </property>
+      <layout class="QVBoxLayout" name="verticalLayout_21">
+       <item>
+        <widget class="QScrollArea" name="log_scroll_area">
+         <property name="widgetResizable">
+          <bool>true</bool>
+         </property>
+         <widget class="QWidget" name="log_scroll_area_widget">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>607</width>
+            <height>150</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_26">
+           <item>
+            <widget class="QTextEdit" name="log_text_edit"/>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item row="2" column="0">
+     <layout class="QVBoxLayout" name="global_json_vert_layout">
+      <property name="spacing">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>12</number>
+      </property>
+      <item>
+       <layout class="QHBoxLayout" name="global_set_pop_from_json_hori_layout">
+        <item>
+         <widget class="QToolButton" name="req_set_pop_from_json_file_tool_button">
+          <property name="toolTip">
+           <string>Browse for one or more configuration .json files. </string>
+          </property>
+          <property name="text">
+           <string>...</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="req_set_pop_from_json_line_edit">
+          <property name="toolTip">
+           <string>The 'main' configuration .json file path.</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="req_set_pop_from_json_refresh_tool_button">
+          <property name="toolTip">
+           <string>(Re)Load tool window to match configuration file(s).</string>
+          </property>
+          <property name="text">
+           <string>Reload dock from JSON</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="global_json_buttons_hor_layout">
+        <item>
+         <spacer name="horizontalSpacer">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>5</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="save_config_json_buttons_hor_layout">
+        <item>
+         <widget class="QPushButton" name="save_config_json_save_tool_button">
+          <property name="toolTip">
+           <string>Save tool window to .json configuration file(s)</string>
+          </property>
+          <property name="text">
+           <string>Save to disk...</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QgsCollapsibleGroupBox</class>
+   <extends>QGroupBox</extends>
+   <header>qgscollapsiblegroupbox.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ClimateChangeScenTable</class>
+   <extends>QTableWidget</extends>
+   <header>tuflow.ARR2026.climate_change_scenarios</header>
+  </customwidget>
+  <customwidget>
+   <class>CatchmentsTable</class>
+   <extends>QWidget</extends>
+   <header>catchmentstable.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources>
+  <include location="../resources/tuflow.qrc"/>
+ </resources>
+ <connections/>
+</ui>

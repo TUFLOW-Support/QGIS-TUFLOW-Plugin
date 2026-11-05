@@ -156,6 +156,9 @@ from .SCS.scs import SCSDock
 # import for integrity tool
 from .integrity_tool.IntegrityTool import IntegrityToolDock
 
+# import for ARR2026 tool
+from .ARR2026.arr2026_dock import Arr2026Dock
+
 # par
 from .tuflowqgis_library import tuflowqgis_apply_check_tf, resetQgisSettings
 
@@ -200,7 +203,7 @@ sys.path.append(r'C:\Program Files\JetBrains\PyCharm 2026.1.2\plugins\python-ce\
 from .compatibility_routines import (QT_MESSAGE_BOX_CANCEL, QT_DOCK_WIDGET_AREA_RIGHT, QT_MESSAGE_BOX_YES,
                                      QT_MESSAGE_BOX_NO, QT_DIALOG_TYPE,
                                      QT_DOCK_WIDGET_AREA_BOTTOM, QT_MESSAGE_BOX_INFORMATION, QT_MESSAGE_BOX_OK,
-                                     QT_FONT_MONOSPACE)
+                                     QT_FONT_MONOSPACE, is_qt6)
 
 from .tfversion_manager import TuflowVersionDialog
 
@@ -227,6 +230,7 @@ class tuflowqgis_menu:
         self.scsDockOpen = False
         self.defaultPath = 'C:\\'
         self.integrityToolOpened = False
+        self.arr2026DockOpen = False
         self.lambdaConnections = []
         self.icons = {}
 
@@ -617,11 +621,37 @@ class tuflowqgis_menu:
 
         # ES 2018/01 ARR2016 Beta
         icon = QIcon(os.path.join(dir, "icons", "arr2016.PNG"))
-        self.extract_arr2016_action = QAction(icon, "Extract ARR2019 for TUFLOW", self.iface.mainWindow())
+        self.extract_arr2016_action = QAction(icon, "Extract ARR2019 for TUFLOW (legacy)", self.iface.mainWindow())
         # QObject.connect(self.extract_arr2016_action, SIGNAL("triggered()"), self.extract_arr2016)
         self.extract_arr2016_action.triggered.connect(self.extract_arr2016)
         self.tuflowMenu.addAction(self.extract_arr2016_action)
-        self.iface.addToolBarIcon(self.extract_arr2016_action)
+
+        # ARR2026
+        if is_qt6:
+            self.arr2026_icon = QIcon(os.path.join(dir, "icons", "arr2026.svg"))
+        else:
+            basename = os.path.join(dir, "icons", "arr2026")
+            self.arr2026_icon = QIcon()
+            self.arr2026_icon.addFile(f'{basename}_16.png', QSize(16, 16))
+            self.arr2026_icon.addFile(f'{basename}_24.png', QSize(24, 24))
+            self.arr2026_icon.addFile(f'{basename}_36.png', QSize(36, 36))
+            self.arr2026_icon.addFile(f'{basename}_48.png', QSize(48, 48))
+            self.arr2026_icon.addFile(f'{basename}_64.png', QSize(64, 64))
+        self.extract_arr2026_action = QAction(self.arr2026_icon, "Extract ARR for TUFLOW", self.iface.mainWindow())
+        # QObject.connect(self.extract_arr2016_action, SIGNAL("triggered()"), self.extract_arr2016)
+        self.extract_arr2026_action.triggered.connect(self.extract_arr2026)
+        self.tuflowMenu.addAction(self.extract_arr2026_action)
+
+        # Stack ARR2026 (default) on top of ARR2016 toolbar icon
+        self.extract_arr_menu = QMenu()
+        self.extract_arr_menu.addAction(self.extract_arr2026_action)
+        self.extract_arr_menu.addAction(self.extract_arr2016_action)
+        self.extract_arr_menu.setIcon(self.arr2026_icon)
+        self.extract_arr_menu.menuAction().setToolTip("Extract ARR for TUFLOW")
+        self.extract_arr_menu.setDefaultAction(self.extract_arr2026_action)
+        self.arr_menu_connection = self.extract_arr_menu.menuAction().triggered.connect(
+            self.extract_arr2026)
+        self.iface.addToolBarIcon(self.extract_arr_menu.menuAction())
 
         # ReFH2
         icon = QIcon(os.path.join(dir, "icons", "ReFH2icon.png"))
@@ -765,7 +795,7 @@ class tuflowqgis_menu:
         self.iface.removeToolBarIcon(self.apply_chk_action)
         self.iface.removeToolBarIcon(self.apply_style_clayer_menu.menuAction())
         self.iface.removeToolBarIcon(self.autoLabelMenu.menuAction())
-        self.iface.removeToolBarIcon(self.extract_arr2016_action)
+        self.iface.removeToolBarIcon(self.extract_arr_menu.menuAction())
         self.iface.removeToolBarIcon(self.extractRefh2Action)
         self.iface.removeToolBarIcon(self.extractSCSAction)
         self.iface.removeToolBarIcon(self.tuflowUtilitiesAction)
@@ -1107,6 +1137,13 @@ class tuflowqgis_menu:
         tuflowqgis_apply_gpkg_layername(self.iface)
 
     def extract_arr2016(self):
+        icon = QIcon(os.path.join(os.path.dirname(__file__), "icons", "arr2016.PNG"))
+        self.extract_arr_menu.setIcon(icon)
+        self.extract_arr_menu.menuAction().setToolTip("Extract ARR2019 for TUFLOW")
+        self.extract_arr_menu.setDefaultAction(self.extract_arr2016_action)
+        self.extract_arr_menu.menuAction().triggered.disconnect(self.arr_menu_connection)
+        self.arr_menu_connection = self.extract_arr_menu.menuAction().triggered.connect(
+            self.extract_arr2016)
         try:
             import pandas as pd
         except ImportError:
@@ -1115,6 +1152,21 @@ class tuflowqgis_menu:
             return
         dialog = tuflowqgis_extract_arr2016_dialog(self.iface)
         dialog.exec()
+
+    def extract_arr2026(self):
+        self.extract_arr_menu.setIcon(self.arr2026_icon)
+        self.extract_arr_menu.menuAction().setToolTip("Extract ARR for TUFLOW")
+        self.extract_arr_menu.setDefaultAction(self.extract_arr2026_action)
+        self.extract_arr_menu.menuAction().triggered.disconnect(self.arr_menu_connection)
+        self.arr_menu_connection = self.extract_arr_menu.menuAction().triggered.connect(
+            self.extract_arr2026)
+        if self.arr2026DockOpen:
+            self.arr2026Dock.show()
+        else:
+            self.arr2026Dock = Arr2026Dock(self.iface)
+            self.iface.addDockWidget(QT_DOCK_WIDGET_AREA_RIGHT, self.arr2026Dock)
+            self.arr2026DockOpen = True
+
 
     def insert_TUFLOW_attributes(self):
         project = QgsProject.instance()
@@ -1490,6 +1542,14 @@ class tuflowqgis_menu:
             print(f'Error: {e}')
         try:
             self.extract_arr2016_action.triggered.disconnect(self.extract_arr2016)
+        except Exception as e:
+            print(f'Error: {e}')
+        try:
+            self.extract_arr2026_action.triggered.disconnect(self.extract_arr2026)
+        except Exception as e:
+            print(f'Error: {e}')
+        try:
+            self.extract_arr_menu.menuAction().triggered.disconnect(self.arr_menu_connection)
         except Exception as e:
             print(f'Error: {e}')
         try:

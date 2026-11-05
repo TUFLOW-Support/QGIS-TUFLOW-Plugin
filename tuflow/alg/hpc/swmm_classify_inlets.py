@@ -195,6 +195,16 @@ class ClassifySWMMInlets(QgsProcessingAlgorithm):
             )
         )
 
+        self.addParameter(
+            QgsProcessingParameterDistance(
+                'Input_local_min_tolerance',
+                self.tr('Local minimum tolerance (keep searching past small bumps):'),
+                parentParameterName='INPUT_inlets',
+                defaultValue=0.05,
+                minValue=0.0,
+                maxValue=10000.0,
+            )
+        )
 
         self.addParameter(
             QgsProcessingParameterDistance(
@@ -288,6 +298,11 @@ class ClassifySWMMInlets(QgsProcessingAlgorithm):
                                                 'INPUT_sag_tolerance',
                                                 context)
             self.feedback.pushInfo(f'Minimum Sag Elevation Rise: {sag_tolerance}')
+
+            local_min_tolerance = self.parameterAsDouble(parameters,
+                                                   'INPUT_local_min_tolerance',
+                                                   context)
+            self.feedback.pushInfo(f'Local minimum tolerance: {local_min_tolerance}')
             
             num_to_extract = self.parameterAsInt(parameters,
                                                     'Input_number_of_values_to_extract',
@@ -352,6 +367,7 @@ class ClassifySWMMInlets(QgsProcessingAlgorithm):
                 sample_distance,
                 max_road_distance,
                 sag_tolerance,
+                local_min_tolerance,
                 num_to_extract,
                 sx_reverse_distance,
                 sx_offset,

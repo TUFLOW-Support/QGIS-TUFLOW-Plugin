@@ -9,6 +9,17 @@
     <file>../icons/question.svg</file>
     <file>../icons/console.svg</file>
     <file>../icons/folder.svg</file>
+    <file>../icons/cog-play.svg</file>
+    <file>../icons/chart-histogram.svg</file>
+    <file>../icons/weather-lightning-rainy.svg</file>
+    <file>../icons/bucket.svg</file>
+    <file>../icons/sun-thermometer.svg</file>
+    <file>../icons/drop_area.svg</file>
+    <file>../icons/code-json.svg</file>
+    <file>../icons/folder-play.svg</file>
+    <file>../icons/table-plus.svg</file>
+    <file>../icons/broom.svg</file>
+    <file>../icons/arr2026_tuflow.svg</file>
   </qresource>
   <qresource prefix="tuflow-plugin">
     <file>../icons/mouse-left-button.svg</file>

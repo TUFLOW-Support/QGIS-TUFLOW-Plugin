@@ -354,6 +354,9 @@ if is_qt6:
     QT_TOOLBUTTON_MENU_BUTTON_POPUP = QToolButton.ToolButtonPopupMode.MenuButtonPopup
     QT_TOOLBUTTIN_INSTANT_POPUP = QToolButton.ToolButtonPopupMode.InstantPopup
 
+    # qstyleoptiontoolbutton
+    QT_TOOL_BUTTON_STYLE_TOOL_BUTTON_TEXT_ONLY = Qt.ToolButtonStyle.ToolButtonTextOnly
+
     # timespec
     QT_TIMESPEC_LOCAL_TIME = Qt.TimeSpec.LocalTime
     QT_TIMESPEC_UTC = Qt.TimeSpec.UTC
@@ -614,7 +617,7 @@ if is_qt6:
     # qpainter
     QT_PAINTER_ANTIALIASING = QPainter.RenderHint.Antialiasing
 
-    QT_KEEP_ASPECT_RATIO = Qt.AspectRatioMode.KeepAspectRatio
+    QT_KEEP_ASPECT_RATIO = Qt.AspectRatioMode.KeepAspectRatio    
 else:
     # data types
     if Qgis.QGIS_VERSION_INT < 33800:
@@ -947,6 +950,9 @@ else:
     QT_TOOLBUTTON_DELAYED_POPUP = QToolButton.DelayedPopup
     QT_TOOLBUTTON_MENU_BUTTON_POPUP = QToolButton.MenuButtonPopup
     QT_TOOLBUTTIN_INSTANT_POPUP = QToolButton.InstantPopup
+
+    # qstyleoptiontoolbutton
+    QT_TOOL_BUTTON_STYLE_TOOL_BUTTON_TEXT_ONLY = Qt.ToolButtonTextOnly
 
     # timespec
     QT_TIMESPEC_LOCAL_TIME = Qt.LocalTime

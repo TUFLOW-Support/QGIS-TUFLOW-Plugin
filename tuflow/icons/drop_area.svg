@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+
+<svg
+   viewBox="0 0 24 24"
+   fill="none"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="drop-area.svg"
+   inkscape:version="1.4.4 (dcaf3e7, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="currentColor"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="31.456454"
+     inkscape:cx="13.653796"
+     inkscape:cy="10.570168"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="1912"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1" />
+  <path
+     d="M 5,3 H 3 V 5 H 5 Z M 7,3 H 9 V 5 H 7 Z m 6,0 h -2 v 2 h 2 z m 2,0 h 2 v 2 h -2 z m 4,0 h 2 V 5 H 19 Z M 3,7 H 5 V 9 H 3 Z m 2,4 H 3 v 2 h 2 z m -2,4 h 2 v 2 H 3 Z m 2,4 H 3 v 2 h 2 z m 2,0 h 2 v 2 H 7 Z m 6,0 h -2 v 2 h 2 z m 6,-8 h 2 v 2 h -2 z m 2,-4 h -2 v 2 h 2 z m -6,10 v -2 h 6 v 2 h -2 v 2 h -2 v 2 h -2 z m 4,2 v 2 h 2 v -2 z"
+     fill="currentColor"
+     id="path1" />
+</svg>

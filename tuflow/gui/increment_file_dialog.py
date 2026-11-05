@@ -460,10 +460,10 @@ class IncrementDbLyrDialog(IncrementLayerDialogBase, Ui_IncrementDbLyrDialog):
     def _output_data_source(self, row: int) -> str:
         src = self.output_layer_table.item(row, 0)
         dst = self.output_layer_table.item(row, 1)
-        if not src or not dst:
+        if not src and not dst:
             return
         if src.checkState() == QT_CHECKED:
-            if dst.text():
+            if dst and dst.text():
                 return f'{Path(self.output_database).as_posix()}|layername={dst.text()}'
             else:
                 return f'{Path(self.output_database).as_posix()}|layername={src.text()}'

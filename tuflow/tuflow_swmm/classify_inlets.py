@@ -53,6 +53,7 @@ from tuflow.tuflow_swmm.swmm_processing_feedback import ScreenProcessingFeedback
 # ── data class ────────────────────────────────────────────────────────────────
 @dataclass
 class InletClassifyResult:
+    out_points: np.ndarray = field(default_factory=lambda: np.zeros((0,), dtype=float))
     us_max_elev: float = np.nan
     ds_max_elev: float = np.nan
     min_elev:    float = np.nan
@@ -237,7 +238,7 @@ def _slope_from_points(distances: np.ndarray, elevs: np.ndarray) -> float:
     return float((n * sxy - sx * sy) / denom) if denom != 0.0 else 0.0
 
 
-def classify(pt_array: np.ndarray, elev_array: np.ndarray, inlet_pos: int, sag_tolerance: float) -> InletClassifyResult:
+def classify(pt_array: np.ndarray, elev_array: np.ndarray, inlet_pos: int, sag_tolerance: float, local_min_tolerance: float) -> InletClassifyResult:
     result = InletClassifyResult()
 
     if inlet_pos <= 0 or inlet_pos >= len(elev_array) - 1:
@@ -250,15 +251,22 @@ def classify(pt_array: np.ndarray, elev_array: np.ndarray, inlet_pos: int, sag_t
     local_min_l_pos = inlet_pos
     local_min_l = result.elev_inlet
 
-    while local_min_l_pos > 0 and elev_array[local_min_l_pos - 1] < local_min_l:
-        local_min_l_pos -= 1
-        local_min_l = elev_array[local_min_l_pos]
+    local_min_candidate = inlet_pos
+    while local_min_candidate > 0 and elev_array[local_min_candidate - 1] < local_min_l + local_min_tolerance:
+        local_min_candidate -= 1
+        if elev_array[local_min_candidate] < local_min_l:
+            local_min_l_pos = local_min_candidate
+            local_min_l = elev_array[local_min_l_pos]
 
     local_min_r_pos = inlet_pos
     local_min_r = result.elev_inlet
-    while local_min_r_pos < len(elev_array) - 1 and elev_array[local_min_r_pos + 1] < local_min_r:
-        local_min_r_pos += 1
-        local_min_r = elev_array[local_min_r_pos]
+
+    local_min_candidate = inlet_pos
+    while local_min_candidate < len(elev_array) - 1 and elev_array[local_min_candidate + 1] < local_min_r + local_min_tolerance:
+        local_min_candidate += 1
+        if elev_array[local_min_candidate] < local_min_r:
+            local_min_r_pos = local_min_candidate
+            local_min_r = elev_array[local_min_r_pos]
     
     local_min_pos = local_min_r_pos
     local_min = local_min_r
@@ -296,6 +304,12 @@ def classify(pt_array: np.ndarray, elev_array: np.ndarray, inlet_pos: int, sag_t
         result.curve_data = np.flip(result.curve_data, axis=1)
         new_distances = np.hstack([[0.0], np.cumsum(np.linalg.norm(np.diff(np.flip(pt_array, axis=0), axis=0), axis=1))])
         result.curve_data[0,:] = new_distances[:]
+        # reverse the point array so we reverse what goes to QGIS/viewer
+        result.out_points = pt_array[::-1]
+        # shift the inlet position to the other side
+        inlet_pos = len(elev_array) - inlet_pos
+    else:
+        result.out_points = pt_array
 
     # offset to put the inlet at x=0 for the cross-section data
     result.curve_data[0,:] -= distances[inlet_pos]
@@ -304,8 +318,11 @@ def classify(pt_array: np.ndarray, elev_array: np.ndarray, inlet_pos: int, sag_t
     return result
 
 def write_gpkg_layer(gdf, layer, out_path, feedback):
-    gdf.to_file(out_path, layer=layer, driver="GPKG")
-    feedback.pushInfo(f"  Saved → {out_path}  (layer: '{layer}')")
+    if gdf is not None:
+        gdf.to_file(out_path, layer=layer, driver="GPKG")
+        feedback.pushInfo(f"  Saved → {out_path}  (layer: '{layer}')")
+    else:
+        feedback.pushInfo(f"  No boundary information required. BC layer not written.")
 
 
 def create_xs_gdf(gdf_lines, curve_data, csv_folder, feedback):
@@ -390,6 +407,7 @@ def process_gdb(
         sample_dist: float,
         max_road: float,
         sag_tolerance: float,
+        local_min_tolerance: float,
         n_points_extract_each_dir: int,
         sx_line_reverse_distance: float,
         sx_offset: float,
@@ -524,7 +542,7 @@ def process_gdb(
             band, dem, pt, gutter_segment, sample_dist, n_points_extract_each_dir
         )
 
-        cr = classify(pt_array, elev_array, inlet_pos, sag_tolerance)
+        cr = classify(pt_array, elev_array, inlet_pos, sag_tolerance, local_min_tolerance)
         row_results.update({
             "inlet_id":      idx,
             "grade_sag":     cr.label,
@@ -535,7 +553,7 @@ def process_gdb(
             "avg_slope":     cr.avg_slope,
         })
         results.append(row_results)
-        lines.append(LineString(pt_array) if len(pt_array) > 1 else None)
+        lines.append(LineString(cr.out_points) if len(pt_array) > 1 else None)
 
         xs_curves.append(cr.curve_data)
 
@@ -614,6 +632,7 @@ def process(
     sample_dist: float,
     max_road: float,
     sag_tolerance: float,
+    local_min_tolerance: float,
     n_points_extract_each_dir: int,
     sx_line_reverse_distance: float,
     sx_offset: float,
@@ -635,6 +654,7 @@ def process(
         sample_dist,
         max_road,
         sag_tolerance,
+        local_min_tolerance,
         n_points_extract_each_dir,
         sx_line_reverse_distance,
         sx_offset,
@@ -668,19 +688,20 @@ def process(
 
 # ── entry point ───────────────────────────────────────────────────────────────
 def main():
-    inlet_gpkg  = "D:/models/TUFLOW/ForPresentations/MountVernon/Rev_Tide_20260304_ExAlts_NoResults/model/gis/swmm_iu_MV02_003_P.gpkg"
-    inlet_layer = "swmm_iu_mv02_p"
-    dem         = "D:/models/TUFLOW/ForPresentations/MountVernon/Rev_Tide_20260304_ExAlts_NoResults_orig/model/gis/grid/MV_DEM.tif"
-    out_gpkg    = "D:/models/TUFLOW/ForPresentations/MountVernon/Rev_Tide_20260304_ExAlts_NoResults/model/gis/inlets_classified.gpkg"
-    road_gpkg   = "D:/models/TUFLOW/ForPresentations/MountVernon/nys_streets.gpkg"
+    inlet_gpkg  = "D:/models/MountVernon/TUFLOW/model/gis/inlet_test_297.gpkg"
+    inlet_layer = "inlet_usage"
+    dem         = "D:/models/MountVernon/TUFLOW/model/gis/grid/MV_DEM.tif"
+    out_gpkg    = "D:/models/MountVernon/test_output/out_297.gpkg"
+    road_gpkg   = "D:/models/MountVernon/nys_streets.gpkg"
     road_layer  = "nys_streets"
 
-    sample_dist = 25.0
+    sample_dist = 60.0
     max_road_dist = 100.0
-    sag_tolerance = 0.1
-    n_points_each_dir = 5
-    sx_line_reverse_distance = 10.0
+    sag_tolerance = 0.2
+    n_points_each_dir = 20
+    sx_line_reverse_distance = 5.0
     sx_offset = 2.0
+    local_min_tolerance = 0.05
 
     process(inlet_gpkg, 
             inlet_layer, 
@@ -690,6 +711,7 @@ def main():
             sample_dist,
             max_road_dist,
             sag_tolerance,
+            local_min_tolerance,
             n_points_each_dir,
             sx_line_reverse_distance,
             sx_offset)
